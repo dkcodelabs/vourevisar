@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
@@ -96,6 +95,7 @@ const StudyPlan = () => {
     return markedTopics[subjectId] && markedTopics[subjectId].length > 0;
   };
 
+  // This is the function we need to modify
   const getTopicStatus = (topic: any) => {
     if (topic.completed) return { label: "Concluído", variant: "outline" as const };
     
@@ -104,7 +104,7 @@ const StudyPlan = () => {
     const randomIndex = Math.floor(Math.random() * statuses.length);
     const status = statuses[randomIndex];
     
-    if (status === "Revisão Pendente") return { label: status, variant: "warning" as const };
+    if (status === "Revisão Pendente") return { label: status, variant: "secondary" as const };
     if (status === "Revisão para Hoje") return { label: status, variant: "destructive" as const };
     return { label: status, variant: "secondary" as const };
   };

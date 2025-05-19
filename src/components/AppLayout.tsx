@@ -11,7 +11,8 @@ export function AppLayout() {
         <AppSidebar />
         <main className="flex-1 overflow-auto">
           <div className="p-6">
-            <style jsx global>{`
+            <style>
+              {`
               .progress-bar {
                 width: 100%;
                 height: 8px;
@@ -69,7 +70,8 @@ export function AppLayout() {
                 background-color: #dcfce7;
                 color: #166534;
               }
-            `}</style>
+              `}
+            </style>
             <Outlet />
           </div>
         </main>
