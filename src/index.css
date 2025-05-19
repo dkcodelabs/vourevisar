@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,7 +14,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 195 89% 49%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -30,25 +31,18 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 195 89% 49%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
+    --sidebar-primary: 195 89% 49%;
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 195 89% 49%;
   }
 
   .dark {
@@ -61,8 +55,8 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 195 89% 49%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -79,9 +73,10 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+    
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary: 195 89% 49%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
@@ -94,8 +89,63 @@
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom styles for the application */
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: theme('colors.app.blue');
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progress-bar {
+  @apply bg-gray-200 rounded-full h-2;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  @apply bg-app-progress h-full rounded-full;
+  transition: width 0.5s ease-in-out;
+}
+
+.status-badge {
+  @apply text-xs font-medium py-1 px-2 rounded-full;
+}
+
+.status-nova {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.status-em-estudo {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.status-concluida {
+  @apply bg-green-100 text-green-800;
+}
+
+.calendar-day {
+  @apply w-8 h-8 rounded-full flex items-center justify-center text-sm;
+}
+
+.calendar-day-with-revision {
+  @apply bg-app-blue text-white;
+}
+
+.sidebar-item {
+  @apply flex items-center gap-2 py-2 px-3 rounded-md transition-colors;
+}
+
+.sidebar-item.active {
+  @apply bg-app-blue text-white;
+}
+
+.sidebar-item:not(.active) {
+  @apply hover:bg-gray-100;
 }
