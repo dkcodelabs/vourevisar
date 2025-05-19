@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef, KeyboardEvent } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,6 +7,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Subjects = () => {
   const { subjects, addSubject, deleteSubject, addTopicToSubject, removeTopicFromSubject } = useApp();
@@ -18,6 +27,10 @@ const Subjects = () => {
   const [newTopic, setNewTopic] = useState('');
   const [currentSubjectId, setCurrentSubjectId] = useState<string>('');
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [topicToDelete, setTopicToDelete] = useState<{subjectId: string, topicId: string} | null>(null);
+  
+  const topicInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddSubject = () => {
     if (!newSubject.name) {
@@ -64,7 +77,11 @@ const Subjects = () => {
 
     addTopicToSubject(currentSubjectId, newTopic);
     setNewTopic('');
-    setTopicDialogOpen(false);
+    
+    // Keep focus on the input field for quick addition of multiple topics
+    if (topicInputRef.current) {
+      topicInputRef.current.focus();
+    }
 
     toast({
       title: "Sucesso",
@@ -72,9 +89,39 @@ const Subjects = () => {
     });
   };
 
+  const handleTopicKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newTopic) {
+      handleTopicAdd();
+    }
+  };
+
+  const confirmDeleteTopic = (subjectId: string, topicId: string) => {
+    setTopicToDelete({subjectId, topicId});
+    setDeleteConfirmOpen(true);
+  };
+
+  const executeDeleteTopic = () => {
+    if (topicToDelete) {
+      removeTopicFromSubject(topicToDelete.subjectId, topicToDelete.topicId);
+      toast({
+        title: "Sucesso",
+        description: "Tópico removido com sucesso",
+      });
+      setDeleteConfirmOpen(false);
+      setTopicToDelete(null);
+    }
+  };
+
   const openTopicDialog = (subjectId: string) => {
     setCurrentSubjectId(subjectId);
     setTopicDialogOpen(true);
+    
+    // Focus on input after dialog opens
+    setTimeout(() => {
+      if (topicInputRef.current) {
+        topicInputRef.current.focus();
+      }
+    }, 100);
   };
 
   const toggleExpand = (subjectId: string) => {
@@ -175,7 +222,7 @@ const Subjects = () => {
                               variant="ghost" 
                               size="icon" 
                               className="h-7 w-7 text-red-500 hover:text-red-700"
-                              onClick={() => removeTopicFromSubject(subject.id, topic.id)}
+                              onClick={() => confirmDeleteTopic(subject.id, topic.id)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -239,8 +286,10 @@ const Subjects = () => {
               <div className="flex items-center gap-2">
                 <Input
                   id="topic"
+                  ref={topicInputRef}
                   value={newTopic}
                   onChange={(e) => setNewTopic(e.target.value)}
+                  onKeyPress={handleTopicKeyPress}
                   placeholder="Ex: Concordância Verbal"
                 />
                 <Button
@@ -261,7 +310,7 @@ const Subjects = () => {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-red-500 hover:text-red-700"
-                      onClick={() => removeTopicFromSubject(currentSubjectId, topic.id)}
+                      onClick={() => confirmDeleteTopic(currentSubjectId, topic.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -279,6 +328,24 @@ const Subjects = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog for Topic Deletion */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este tópico? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDeleteTopic} className="bg-red-600 text-white hover:bg-red-700">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

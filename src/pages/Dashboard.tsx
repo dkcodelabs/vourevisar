@@ -1,23 +1,36 @@
-
 import React from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { upcomingReviews, revisionsCalendar } from '@/data/mockData';
+import { useNavigate } from 'react-router-dom';
 import { LayoutList, CalendarDays, Calendar, Plus, Book, Settings } from 'lucide-react';
 
 export const Dashboard = () => {
   const { studyProgress } = useApp();
+  const navigate = useNavigate();
   
   // Format progress as percentage
   const progressPercentage = Math.round((studyProgress.completedSubjects / studyProgress.totalSubjects) * 100);
   const topicsPercentage = Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100);
 
+  // For the purpose of this demo, we're keeping only today's reviews
+  // In a real app, this would be filtered by the current day
+  const todaysReviews = [{
+    id: '1',
+    subject: 'Direito Constitucional',
+    topic: 'Artigos 1-5',
+    date: 'Hoje',
+    type: 'Estudo novo'
+  }];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Button className="bg-app-blue">
+        <Button 
+          className="bg-app-blue hover:bg-app-light-blue"
+          onClick={() => navigate('/plano-estudos')}
+        >
           <LayoutList className="mr-2 h-4 w-4" />
           Iniciar Estudos do Dia
         </Button>
@@ -92,15 +105,15 @@ export const Dashboard = () => {
             <CardHeader>
               <CardTitle className="text-xl font-bold flex items-center">
                 <CalendarDays className="mr-2 h-5 w-5 text-app-blue" />
-                Próximas Matérias e Revisões
+                Matérias e Revisões de Hoje
               </CardTitle>
               <p className="text-sm text-gray-500">
-                Matérias e tópicos agendados para os próximos dias.
+                Matérias e tópicos agendados para hoje.
               </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {upcomingReviews.map(review => (
+                {todaysReviews.map(review => (
                   <div key={review.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
                       <h3 className="font-medium">{review.subject} - {review.topic}</h3>
@@ -111,6 +124,10 @@ export const Dashboard = () => {
                     </div>
                   </div>
                 ))}
+                
+                {todaysReviews.length === 0 && (
+                  <p className="text-gray-500">Não há revisões agendadas para hoje.</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -137,13 +154,16 @@ export const Dashboard = () => {
                 <div className="calendar-day">S</div>
                 <div className="calendar-day">S</div>
                 
+                {/* We're keeping the calendar display with the current day highlighted */}
                 {Array.from({ length: 31 }, (_, i) => {
                   const day = i + 1;
-                  const hasRevision = revisionsCalendar.some(r => r.day === day);
+                  const isToday = day === new Date().getDate();
+                  const hasRevision = [5, 12, 19, 28].includes(day);
+                  
                   return (
                     <div 
                       key={day} 
-                      className={`calendar-day ${hasRevision ? 'calendar-day-with-revision' : ''}`}
+                      className={`calendar-day ${hasRevision ? 'calendar-day-with-revision' : ''} ${isToday ? 'calendar-day-today' : ''}`}
                     >
                       {day}
                     </div>
@@ -156,7 +176,10 @@ export const Dashboard = () => {
           <div className="grid grid-cols-1 gap-4 mt-6">
             <h3 className="text-xl font-bold">Acesso Rápido</h3>
             <div className="grid grid-cols-1 gap-3">
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <Card 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => navigate('/materias')}
+              >
                 <CardContent className="p-4 flex items-center gap-3">
                   <Plus className="h-5 w-5 p-1 rounded-full bg-app-blue text-white" />
                   <div>
@@ -166,7 +189,10 @@ export const Dashboard = () => {
                 </CardContent>
               </Card>
               
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <Card 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => navigate('/configuracoes')}
+              >
                 <CardContent className="p-4 flex items-center gap-3">
                   <Settings className="h-5 w-5 p-1 rounded-full bg-app-blue text-white" />
                   <div>
@@ -176,7 +202,10 @@ export const Dashboard = () => {
                 </CardContent>
               </Card>
               
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <Card 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => navigate('/plano-estudos')}
+              >
                 <CardContent className="p-4 flex items-center gap-3">
                   <Calendar className="h-5 w-5 p-1 rounded-full bg-app-blue text-white" />
                   <div>
