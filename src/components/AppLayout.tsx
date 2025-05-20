@@ -47,6 +47,8 @@ export function AppLayout() {
               .calendar-day-today {
                 border: 2px solid #0FA0CE;
                 font-weight: bold;
+                background-color: #e6f7ff;
+                color: #0FA0CE;
               }
               
               .status-badge {

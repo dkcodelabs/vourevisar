@@ -29,35 +29,79 @@ export const Dashboard = () => {
     subject: 'Direito Constitucional',
     topic: 'Artigos 1-5',
     date: 'Hoje',
-    type: 'Estudo novo'
+    type: 'Revisão para Hoje'
   }];
 
   // Mock data for revisions on selected date
   const getRevisionsForDate = (day: number) => {
     // This would come from a real data source in a production app
-    if ([5, 12, 19, 28].includes(day)) {
+    if (day === 5) {
       return [
         {
           id: `rev-${day}-1`,
           subject: 'Direito Constitucional',
           topic: 'Artigos 1-5',
-          status: day === 5 ? 'Pendente' : day === 12 ? 'Hoje' : 'Futura'
+          status: 'Pendente'
+        }
+      ];
+    }
+    if (day === 12) {
+      return [
+        {
+          id: `rev-${day}-1`,
+          subject: 'Direito Constitucional',
+          topic: 'Artigos 1-5',
+          status: 'Hoje'
+        }
+      ];
+    }
+    if (day === 19) {
+      return [
+        {
+          id: `rev-${day}-1`,
+          subject: 'Português',
+          topic: 'Concordância Verbal',
+          status: 'Hoje'
+        },
+        {
+          id: `rev-${day}-2`,
+          subject: 'Direito Constitucional',
+          topic: 'Artigos 1-5',
+          status: 'Futura'
+        }
+      ];
+    }
+    if (day === 28) {
+      return [
+        {
+          id: `rev-${day}-1`,
+          subject: 'Direito Constitucional',
+          topic: 'Artigos 1-5',
+          status: 'Futura'
         },
         {
           id: `rev-${day}-2`,
           subject: 'Português',
           topic: 'Concordância Verbal',
-          status: day === 19 ? 'Hoje' : 'Futura'
+          status: 'Futura'
         }
       ];
     }
     return [];
   };
 
+  // Get only today's revisions (status === 'Hoje')
+  const getTodaysRevisionsForDate = (day: number) => {
+    const allRevisions = getRevisionsForDate(day);
+    return allRevisions.filter(rev => rev.status === 'Hoje');
+  };
+
   const handleDateClick = (day: number) => {
     setSelectedDate(day);
     setShowRevisionsDialog(true);
   };
+
+  const currentDay = new Date().getDate();
 
   return (
     <div className="space-y-6">
@@ -128,7 +172,7 @@ export const Dashboard = () => {
               </div>
               <p className="text-sm text-gray-500">Continue assim para alcançar seus objetivos!</p>
               <div className="progress-bar">
-                <div className="progress-bar-fill" style={{ width: `${topicsPercentage}%` }}></div>
+                <div className="progress-bar-fill bg-gradient-to-r from-green-400 to-green-600" style={{ width: `${topicsPercentage}%` }}></div>
               </div>
             </div>
           </CardContent>
@@ -136,6 +180,50 @@ export const Dashboard = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl font-bold flex items-center">
+                <Calendar className="mr-2 h-5 w-5 text-app-blue" />
+                Calendário de Revisões
+              </CardTitle>
+              <p className="text-sm text-gray-500">
+                Dias com revisões agendadas este mês.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-7 gap-1 text-center">
+                <div className="calendar-day">D</div>
+                <div className="calendar-day">S</div>
+                <div className="calendar-day">T</div>
+                <div className="calendar-day">Q</div>
+                <div className="calendar-day">Q</div>
+                <div className="calendar-day">S</div>
+                <div className="calendar-day">S</div>
+                
+                {/* We're keeping the calendar display with the current day highlighted */}
+                {Array.from({ length: 31 }, (_, i) => {
+                  const day = i + 1;
+                  const isToday = day === currentDay;
+                  const hasRevision = [5, 12, 19, 28].includes(day);
+                  
+                  return (
+                    <div 
+                      key={day} 
+                      className={`calendar-day ${hasRevision ? 'calendar-day-with-revision' : ''} 
+                                ${isToday ? 'calendar-day-today !border-2 !border-app-blue' : ''} 
+                                ${hasRevision ? 'cursor-pointer' : ''}`}
+                      onClick={() => hasRevision && handleDateClick(day)}
+                    >
+                      {day}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
@@ -164,48 +252,6 @@ export const Dashboard = () => {
                 {todaysReviews.length === 0 && (
                   <p className="text-gray-500">Não há revisões agendadas para hoje.</p>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl font-bold flex items-center">
-                <Calendar className="mr-2 h-5 w-5 text-app-blue" />
-                Calendário de Revisões
-              </CardTitle>
-              <p className="text-sm text-gray-500">
-                Dias com revisões agendadas este mês.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-7 gap-1 text-center">
-                <div className="calendar-day">D</div>
-                <div className="calendar-day">S</div>
-                <div className="calendar-day">T</div>
-                <div className="calendar-day">Q</div>
-                <div className="calendar-day">Q</div>
-                <div className="calendar-day">S</div>
-                <div className="calendar-day">S</div>
-                
-                {/* We're keeping the calendar display with the current day highlighted */}
-                {Array.from({ length: 31 }, (_, i) => {
-                  const day = i + 1;
-                  const isToday = day === new Date().getDate();
-                  const hasRevision = [5, 12, 19, 28].includes(day);
-                  
-                  return (
-                    <div 
-                      key={day} 
-                      className={`calendar-day ${hasRevision ? 'calendar-day-with-revision' : ''} ${isToday ? 'calendar-day-today' : ''} ${hasRevision ? 'cursor-pointer' : ''}`}
-                      onClick={() => hasRevision && handleDateClick(day)}
-                    >
-                      {day}
-                    </div>
-                  );
-                })}
               </div>
             </CardContent>
           </Card>

@@ -1,32 +1,38 @@
-
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, X, ArrowRight } from 'lucide-react';
+import { Check, X, ArrowRight, ChevronDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import confetti from 'canvas-confetti';
 
 const StudyPlan = () => {
-  const { subjects } = useApp();
+  const { subjects, userProfile } = useApp();
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [markedTopics, setMarkedTopics] = useState<Record<string, string[]>>({});
   const [completedSessions, setCompletedSessions] = useState<string[]>([]);
   const [currentSubjectIndex, setCurrentSubjectIndex] = useState(0);
+  
+  // Get the subjectsPerDay from user settings
+  const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
   
   // Filter subjects that are in progress
   const currentSubjects = subjects.filter(subject => 
     subject.status === 'Em Estudo' || subject.status === 'Nova'
   );
   
+  // Current subject to display (respect settings)
+  const dailySubjects = currentSubjects.slice(0, subjectsPerDay);
+  
   // Current subject to display
-  const currentSubject = currentSubjects[currentSubjectIndex];
+  const currentSubject = dailySubjects[currentSubjectIndex];
   
   // Next subjects to display (excluding the current one)
-  const nextSubjects = currentSubjects.filter(subject => 
+  const nextSubjects = dailySubjects.filter(subject => 
     subject.id !== (currentSubject?.id || '')
-  ).slice(0, 2);
+  );
 
   const handleToggleTopic = (subjectId: string, topicId: string, completed: boolean) => {
     // In a real app, this would update the topic's completion status
@@ -72,10 +78,18 @@ const StudyPlan = () => {
 
   const handleSkipSubject = () => {
     // Move to the next subject in the sequence
-    const nextIndex = (currentSubjectIndex + 1) % currentSubjects.length;
+    const nextIndex = (currentSubjectIndex + 1) % dailySubjects.length;
     setCurrentSubjectIndex(nextIndex);
     setExpandedSubject(null);
     toast.info("Matéria pulada");
+  };
+
+  const launchConfetti = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
   };
 
   const handleCompleteSession = (subjectId: string) => {
@@ -88,11 +102,20 @@ const StudyPlan = () => {
       delete updated[subjectId];
       return updated;
     });
+    
+    // Check if all sessions are completed
+    const updatedCompletedSessions = [...completedSessions, subjectId];
+    if (updatedCompletedSessions.length === dailySubjects.length) {
+      setTimeout(() => {
+        launchConfetti();
+        toast.success("Parabéns! Você concluiu todas as matérias do dia!");
+      }, 500);
+    }
   };
 
   const handleNextDay = () => {
     // Check if all sessions for today are completed
-    const allCompleted = currentSubjects.every(subject => 
+    const allCompleted = dailySubjects.every(subject => 
       completedSessions.includes(subject.id)
     );
     
@@ -100,6 +123,8 @@ const StudyPlan = () => {
       toast.success("Avançando para o próximo dia");
       // Reset completed sessions for the new day
       setCompletedSessions([]);
+      setCurrentSubjectIndex(0);
+      launchConfetti();
     } else {
       toast.error("Complete todas as matérias do dia antes de avançar");
     }
@@ -115,21 +140,25 @@ const StudyPlan = () => {
   };
 
   const hasMarkedTopics = (subjectId: string) => {
-    return markedTopics[subjectId] && markedTopics[subjectId].length >
-    0;
+    return markedTopics[subjectId] && markedTopics[subjectId].length > 0;
   };
 
   const getTopicStatus = (topic: any) => {
     if (topic.completed) return { label: "Concluído", variant: "outline" as const };
     
     // This would be determined by the review schedule in a real app
-    const statuses = ["Revisão Pendente", "Revisão para Hoje", "Próxima Revisão: 25/05"];
-    const randomIndex = Math.floor(Math.random() * statuses.length);
-    const status = statuses[randomIndex];
+    // Now we'll keep them consistent based on the topic ID to avoid changing
+    const topicId = parseInt(topic.id.split('-')[1], 10) || 0;
+    const statuses = [
+      { label: "Revisão Pendente", variant: "secondary" as const },
+      { label: "Revisão para Hoje", variant: "destructive" as const },
+      { label: "Próxima Revisão: 25/05", variant: "secondary" as const },
+      { label: "Revisado", variant: "outline" as const }
+    ];
     
-    if (status === "Revisão Pendente") return { label: status, variant: "secondary" as const };
-    if (status === "Revisão para Hoje") return { label: status, variant: "destructive" as const };
-    return { label: status, variant: "secondary" as const };
+    // Determine status based on the topic ID to keep it consistent
+    const index = topicId % statuses.length;
+    return statuses[index];
   };
 
   return (
@@ -140,10 +169,11 @@ const StudyPlan = () => {
           <Button 
             variant="outline" 
             onClick={handleNextDay}
-            disabled={!currentSubjects.every(subject => completedSessions.includes(subject.id))}
+            disabled={!dailySubjects.every(subject => completedSessions.includes(subject.id))}
+            className="flex items-center gap-2"
           >
             Próximo Dia
-            <ArrowRight className="ml-2 h-4 w-4" />
+            <ArrowRight className="h-4 w-4" />
           </Button>
           <Button 
             variant="outline"
@@ -159,8 +189,9 @@ const StudyPlan = () => {
         <Card key={currentSubject.id} className={expandedSubject === currentSubject.id ? 'border-app-blue' : ''}>
           <CardHeader className="pb-3">
             <div className="flex justify-between items-center">
-              <CardTitle className="text-xl font-bold text-app-blue cursor-pointer">
+              <CardTitle className="text-xl font-bold text-app-blue cursor-pointer flex items-center">
                 {currentSubject.name} {expandedSubject === currentSubject.id ? '(Hoje)' : ''}
+                {expandedSubject === currentSubject.id && <ChevronDown className="ml-2 h-5 w-5" />}
               </CardTitle>
               <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
                 Status: {currentSubject.status}
@@ -200,7 +231,7 @@ const StudyPlan = () => {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="text-green-600 hover:text-green-800"
+                            className="text-green-600 hover:text-green-800 border border-green-200"
                             onClick={() => handleMarkTopicForReview(currentSubject.id, topic.id)}
                           >
                             <Check className="h-4 w-4 mr-1" />
@@ -210,7 +241,7 @@ const StudyPlan = () => {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="text-red-600 hover:text-red-800"
+                            className="text-red-600 hover:text-red-800 border border-red-200"
                             onClick={() => handleCancelTopicReview(currentSubject.id, topic.id)}
                           >
                             <X className="h-4 w-4 mr-1" />
@@ -222,21 +253,20 @@ const StudyPlan = () => {
                   );
                 })}
                 
-                <div className="flex justify-end gap-2 mt-4">
+                <div className="flex justify-between gap-2 mt-4">
                   <Button 
                     variant="outline"
                     onClick={handleSkipSubject}
                   >
-                    Pular Disciplina
+                    Pular Matéria
                   </Button>
-                  {hasMarkedTopics(currentSubject.id) && (
-                    <Button 
-                      className="bg-app-blue hover:bg-app-light-blue"
-                      onClick={() => handleCompleteSession(currentSubject.id)}
-                    >
-                      Concluir Sessão
-                    </Button>
-                  )}
+                  <Button 
+                    className="bg-app-blue hover:bg-app-light-blue"
+                    onClick={() => handleCompleteSession(currentSubject.id)}
+                    disabled={!hasMarkedTopics(currentSubject.id)}
+                  >
+                    Concluir Sessão
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -261,16 +291,48 @@ const StudyPlan = () => {
             Próximas Disciplinas
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
             {nextSubjects.map(subject => (
-              <Card key={subject.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <h3 className="font-medium">{subject.name}</h3>
-                  <p className="text-sm text-gray-500">{subject.topics.length} tópicos</p>
+              <Card key={subject.id} className={completedSessions.includes(subject.id) ? 'border-green-300 bg-green-50' : 'hover:shadow-md'}>
+                <CardContent className="p-4 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium">{subject.name}</h3>
+                    <p className="text-sm text-gray-500">{subject.topics.length} tópicos</p>
+                  </div>
+                  
+                  {completedSessions.includes(subject.id) && (
+                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                      Concluída
+                    </Badge>
+                  )}
                 </CardContent>
               </Card>
             ))}
           </div>
+        </div>
+      )}
+      
+      {dailySubjects.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-xl text-gray-600">Não há matérias para estudar hoje.</p>
+          <Button className="mt-4 bg-app-blue hover:bg-app-light-blue" onClick={() => navigate('/materias')}>
+            Adicionar Matérias
+          </Button>
+        </div>
+      )}
+      
+      {/* Show confetti and message when all sessions are completed */}
+      {dailySubjects.length > 0 && 
+       dailySubjects.every(subject => completedSessions.includes(subject.id)) && (
+        <div className="mt-8 text-center p-8 border-2 border-green-300 rounded-lg bg-green-50">
+          <h3 className="text-xl font-bold text-green-800">Parabéns! 🎉</h3>
+          <p className="mt-2 text-gray-700">Você concluiu todas as matérias do dia!</p>
+          <Button 
+            className="mt-4 bg-app-blue hover:bg-app-light-blue" 
+            onClick={handleNextDay}
+          >
+            Avançar para o próximo dia
+          </Button>
         </div>
       )}
     </div>
