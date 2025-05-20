@@ -16,6 +16,7 @@ export type Database = {
           email: string | null
           id: string
           name: string | null
+          phone: string | null
           updated_at: string
         }
         Insert: {
@@ -24,6 +25,7 @@ export type Database = {
           email?: string | null
           id: string
           name?: string | null
+          phone?: string | null
           updated_at?: string
         }
         Update: {
@@ -32,7 +34,103 @@ export type Database = {
           email?: string | null
           id?: string
           name?: string | null
+          phone?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      subjects: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          priority: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          priority?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          priority?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      topics: {
+        Row: {
+          completed: boolean
+          created_at: string
+          id: string
+          name: string
+          review_count: number
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          review_count?: number
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          review_count?: number
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          notification_time: string
+          notifications_enabled: boolean
+          subjects_per_day: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          notification_time?: string
+          notifications_enabled?: boolean
+          subjects_per_day?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          notification_time?: string
+          notifications_enabled?: boolean
+          subjects_per_day?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

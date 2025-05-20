@@ -14,9 +14,11 @@ interface AuthContextProps {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string, phone?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  updateProfile: (profile: Partial<Profile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -87,6 +89,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -97,17 +100,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         variant: 'destructive'
       });
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, phone?: string) => {
+    setLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            name
+            name,
+            phone
           }
         }
       });
@@ -125,6 +132,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         variant: 'destructive'
       });
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -160,6 +169,59 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const updatePassword = async (password: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Senha atualizada',
+        description: 'Sua senha foi atualizada com sucesso.'
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao atualizar senha',
+        description: error.message,
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
+
+  const updateProfile = async (profileData: Partial<Profile>) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          ...profileData,
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', user.id);
+        
+      if (error) throw error;
+      
+      // Atualizar o perfil local
+      setProfile(prev => prev ? { ...prev, ...profileData } : null);
+      
+      toast({
+        title: 'Perfil atualizado',
+        description: 'Suas informações foram atualizadas com sucesso.'
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao atualizar perfil',
+        description: error.message,
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
+
   const value = {
     session,
     user,
@@ -168,7 +230,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signIn,
     signUp,
     signInWithGoogle,
-    signOut
+    signOut,
+    updatePassword,
+    updateProfile
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,6 +1,7 @@
 
-import React, { useState, useRef, KeyboardEvent } from 'react';
-import { useApp } from '@/contexts/AppContext';
+// Observe que este arquivo é muito extenso (412 linhas)
+// Será necessário refatorar este componente para melhorar a manutenibilidade
+import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Plus, ChevronUp, ChevronDown, Edit, Trash2, LayoutList } from 'lucide-react';
@@ -19,10 +20,31 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
+
+// Definindo tipos para o componente
+interface Topic {
+  id: string;
+  name: string;
+  completed: boolean;
+  review_count: number;
+}
+
+interface Subject {
+  id: string;
+  name: string;
+  topics: Topic[];
+  status: 'Nova' | 'Em Estudo' | 'Concluída';
+}
 
 const Subjects = () => {
-  const { subjects, addSubject, deleteSubject, addTopicToSubject, removeTopicFromSubject } = useApp();
+  const { user } = useAuth();
   const { toast: useToastHook } = useToast();
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const [openDialog, setOpenDialog] = useState(false);
   const [newSubject, setNewSubject] = useState({ name: '', status: 'Nova' as const });
   const [topicDialogOpen, setTopicDialogOpen] = useState(false);
@@ -41,7 +63,62 @@ const Subjects = () => {
   
   const topicInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddSubject = () => {
+  // Carregar matérias do usuário
+  useEffect(() => {
+    if (user) {
+      fetchSubjects();
+    }
+  }, [user]);
+
+  const fetchSubjects = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      // Buscar as disciplinas do usuário
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('priority', { ascending: true });
+      
+      if (subjectsError) throw subjectsError;
+      
+      // Para cada disciplina, buscar seus tópicos
+      const subjectsWithTopics = await Promise.all(
+        (subjectsData || []).map(async (subject) => {
+          const { data: topicsData, error: topicsError } = await supabase
+            .from('topics')
+            .select('*')
+            .eq('subject_id', subject.id);
+          
+          if (topicsError) throw topicsError;
+          
+          return {
+            id: subject.id,
+            name: subject.name,
+            status: 'Nova' as const, // Por padrão define como Nova
+            topics: topicsData || []
+          };
+        })
+      );
+      
+      setSubjects(subjectsWithTopics);
+    } catch (error) {
+      console.error('Erro ao buscar matérias:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível carregar suas matérias",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddSubject = async () => {
+    if (!user) return;
+    
     if (!newSubject.name) {
       useToastHook({
         title: "Erro",
@@ -51,16 +128,41 @@ const Subjects = () => {
       return;
     }
 
-    addSubject({
-      name: newSubject.name,
-      status: newSubject.status,
-      topics: []
-    });
-
-    setNewSubject({ name: '', status: 'Nova' });
-    setOpenDialog(false);
-
-    toast.success("Matéria adicionada com sucesso");
+    try {
+      const { data, error } = await supabase
+        .from('subjects')
+        .insert({
+          name: newSubject.name,
+          user_id: user.id,
+          priority: subjects.length + 1 // Define a prioridade com base no número de matérias existentes
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        // Adiciona a nova matéria à lista
+        setSubjects(prev => [...prev, {
+          id: data.id,
+          name: data.name,
+          status: 'Nova',
+          topics: []
+        }]);
+        
+        setNewSubject({ name: '', status: 'Nova' });
+        setOpenDialog(false);
+        
+        toast.success("Matéria adicionada com sucesso");
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar matéria:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível adicionar a matéria",
+        variant: "destructive"
+      });
+    }
   };
 
   const confirmDeleteSubject = (id: string) => {
@@ -68,10 +170,28 @@ const Subjects = () => {
     setDeleteConfirmOpen(true);
   };
 
-  const executeDeleteSubject = () => {
-    if (subjectToDelete) {
-      deleteSubject(subjectToDelete);
+  const executeDeleteSubject = async () => {
+    if (!subjectToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from('subjects')
+        .delete()
+        .eq('id', subjectToDelete);
+        
+      if (error) throw error;
+      
+      // Atualiza a lista de matérias
+      setSubjects(prev => prev.filter(subject => subject.id !== subjectToDelete));
       toast.success("Matéria removida com sucesso");
+    } catch (error) {
+      console.error('Erro ao remover matéria:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível remover a matéria",
+        variant: "destructive"
+      });
+    } finally {
       setDeleteConfirmOpen(false);
       setSubjectToDelete(null);
     }
@@ -82,14 +202,34 @@ const Subjects = () => {
     setEditSubjectDialog(true);
   };
 
-  const saveSubjectEdit = () => {
-    // In a real app, this would call updateSubject from the context
-    // For now, we'll just show a toast message
-    toast.success("Nome da matéria atualizado");
-    setEditSubjectDialog(false);
+  const saveSubjectEdit = async () => {
+    try {
+      const { error } = await supabase
+        .from('subjects')
+        .update({ name: editSubject.name, updated_at: new Date().toISOString() })
+        .eq('id', editSubject.id);
+        
+      if (error) throw error;
+      
+      // Atualiza a matéria na lista
+      setSubjects(prev => prev.map(subject => 
+        subject.id === editSubject.id ? { ...subject, name: editSubject.name } : subject
+      ));
+      
+      toast.success("Nome da matéria atualizado");
+    } catch (error) {
+      console.error('Erro ao atualizar matéria:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível atualizar o nome da matéria",
+        variant: "destructive"
+      });
+    } finally {
+      setEditSubjectDialog(false);
+    }
   };
 
-  const handleTopicAdd = () => {
+  const handleTopicAdd = async () => {
     if (!newTopic) {
       useToastHook({
         title: "Erro",
@@ -99,15 +239,49 @@ const Subjects = () => {
       return;
     }
 
-    addTopicToSubject(currentSubjectId, newTopic);
-    setNewTopic('');
-    
-    // Keep focus on the input field for quick addition of multiple topics
-    if (topicInputRef.current) {
-      topicInputRef.current.focus();
+    try {
+      const { data, error } = await supabase
+        .from('topics')
+        .insert({
+          name: newTopic,
+          subject_id: currentSubjectId,
+          completed: false,
+          review_count: 0
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        // Adiciona o novo tópico à matéria correspondente
+        setSubjects(prev => prev.map(subject => {
+          if (subject.id === currentSubjectId) {
+            return {
+              ...subject,
+              topics: [...subject.topics, data]
+            };
+          }
+          return subject;
+        }));
+        
+        setNewTopic('');
+        
+        // Mantém o foco no campo de entrada para adicionar mais tópicos
+        if (topicInputRef.current) {
+          topicInputRef.current.focus();
+        }
+        
+        toast.success("Tópico adicionado com sucesso");
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar tópico:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível adicionar o tópico",
+        variant: "destructive"
+      });
     }
-
-    toast.success("Tópico adicionado com sucesso");
   };
 
   const handleTopicKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -121,10 +295,37 @@ const Subjects = () => {
     setDeleteConfirmOpen(true);
   };
 
-  const executeDeleteTopic = () => {
-    if (topicToDelete) {
-      removeTopicFromSubject(topicToDelete.subjectId, topicToDelete.topicId);
+  const executeDeleteTopic = async () => {
+    if (!topicToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .delete()
+        .eq('id', topicToDelete.topicId);
+        
+      if (error) throw error;
+      
+      // Atualiza a lista de tópicos da matéria
+      setSubjects(prev => prev.map(subject => {
+        if (subject.id === topicToDelete.subjectId) {
+          return {
+            ...subject,
+            topics: subject.topics.filter(topic => topic.id !== topicToDelete.topicId)
+          };
+        }
+        return subject;
+      }));
+      
       toast.success("Tópico removido com sucesso");
+    } catch (error) {
+      console.error('Erro ao remover tópico:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível remover o tópico",
+        variant: "destructive"
+      });
+    } finally {
       setDeleteConfirmOpen(false);
       setTopicToDelete(null);
     }
@@ -163,6 +364,14 @@ const Subjects = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -177,86 +386,99 @@ const Subjects = () => {
       </div>
 
       <div className="space-y-4 mt-6">
-        {subjects.map((subject) => (
-          <Card key={subject.id} className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="flex items-center justify-between p-4 bg-white">
-                <div className="flex items-center gap-3">
-                  <span className={`status-badge ${getStatusClass(subject.status)}`}>
-                    {subject.status}
-                  </span>
-                  <h2 className="text-lg font-medium">{subject.name}</h2>
-                  <span className="text-sm text-gray-500">
-                    {subject.topics.length} tópicos
-                  </span>
+        {subjects.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-gray-500">Você ainda não tem matérias cadastradas.</p>
+            <Button 
+              className="mt-4 bg-app-blue hover:bg-app-light-blue"
+              onClick={() => setOpenDialog(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar Matéria
+            </Button>
+          </div>
+        ) : (
+          subjects.map((subject) => (
+            <Card key={subject.id} className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between p-4 bg-white">
+                  <div className="flex items-center gap-3">
+                    <span className={`status-badge ${getStatusClass(subject.status)}`}>
+                      {subject.status}
+                    </span>
+                    <h2 className="text-lg font-medium">{subject.name}</h2>
+                    <span className="text-sm text-gray-500">
+                      {subject.topics.length} tópicos
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => openTopicDialog(subject.id)}
+                    >
+                      <LayoutList className="h-4 w-4 mr-2" />
+                      Gerenciar Tópicos
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => toggleExpand(subject.id)}
+                    >
+                      {expandedSubject === subject.id ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => handleEditSubject({ id: subject.id, name: subject.name })}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => confirmDeleteSubject(subject.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => openTopicDialog(subject.id)}
-                  >
-                    <LayoutList className="h-4 w-4 mr-2" />
-                    Gerenciar Tópicos
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => toggleExpand(subject.id)}
-                  >
-                    {expandedSubject === subject.id ? (
-                      <ChevronUp className="h-4 w-4" />
+                
+                {expandedSubject === subject.id && (
+                  <div className="border-t p-4 bg-gray-50">
+                    <h3 className="font-medium mb-2">Tópicos</h3>
+                    {subject.topics.length > 0 ? (
+                      <ul className="space-y-2">
+                        {subject.topics.map((topic) => (
+                          <li key={topic.id} className="flex items-center justify-between border p-2 rounded bg-white">
+                            <span>{topic.name}</span>
+                            <div className="flex items-center gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 text-red-500 hover:text-red-700"
+                                onClick={() => confirmDeleteTopic(subject.id, topic.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     ) : (
-                      <ChevronDown className="h-4 w-4" />
+                      <p className="text-gray-500 text-sm">Nenhum tópico cadastrado</p>
                     )}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => handleEditSubject({ id: subject.id, name: subject.name })}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => confirmDeleteSubject(subject.id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              
-              {expandedSubject === subject.id && (
-                <div className="border-t p-4 bg-gray-50">
-                  <h3 className="font-medium mb-2">Tópicos</h3>
-                  {subject.topics.length > 0 ? (
-                    <ul className="space-y-2">
-                      {subject.topics.map((topic) => (
-                        <li key={topic.id} className="flex items-center justify-between border p-2 rounded bg-white">
-                          <span>{topic.name}</span>
-                          <div className="flex items-center gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7 text-red-500 hover:text-red-700"
-                              onClick={() => confirmDeleteTopic(subject.id, topic.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-500 text-sm">Nenhum tópico cadastrado</p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Add Subject Dialog */}

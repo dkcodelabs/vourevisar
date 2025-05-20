@@ -5,45 +5,76 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Mail, Calendar } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { User, Mail, Calendar, Phone, Lock } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { z } from 'zod';
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
+const passwordSchema = z.object({
+  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
+const profileSchema = z.object({
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  phone: z.string().optional(),
+});
 
 const Profile = () => {
-  const { profile, user } = useAuth();
-  const [name, setName] = useState(profile?.name || '');
+  const { profile, user, updateProfile, updatePassword } = useAuth();
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setName(e.target.value);
-  };
+  const profileForm = useForm({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      name: profile?.name || '',
+      phone: profile?.phone || '',
+    },
+    values: {
+      name: profile?.name || '',
+      phone: profile?.phone || '',
+    },
+  });
+
+  const passwordForm = useForm({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      password: '',
+      confirmPassword: '',
+    },
+  });
   
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = async (values) => {
     if (!user) return;
     
     setIsSaving(true);
     
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ name, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
-        
-      if (error) throw error;
-      
-      toast({
-        title: 'Perfil atualizado',
-        description: 'Suas informações foram atualizadas com sucesso.'
+      await updateProfile({
+        name: values.name,
+        phone: values.phone,
       });
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao atualizar perfil',
-        description: error.message,
-        variant: 'destructive'
-      });
+    } catch (error) {
       console.error('Erro:', error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (values) => {
+    try {
+      await updatePassword(values.password);
+      setIsPasswordDialogOpen(false);
+      passwordForm.reset();
+    } catch (error) {
+      console.error('Erro ao alterar senha:', error);
     }
   };
   
@@ -68,52 +99,145 @@ const Profile = () => {
         <CardHeader>
           <CardTitle className="text-xl">Informações Pessoais</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name" className="flex items-center">
-              <User className="h-4 w-4 mr-2" />
-              Nome
-            </Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={handleNameChange}
-              placeholder="Seu nome"
-            />
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="email" className="flex items-center">
-              <Mail className="h-4 w-4 mr-2" />
-              Email
-            </Label>
-            <Input
-              id="email"
-              value={user?.email || ''}
-              readOnly
-              type="email"
-            />
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="joined" className="flex items-center">
-              <Calendar className="h-4 w-4 mr-2" />
-              Data de Cadastro
-            </Label>
-            <Input
-              id="joined"
-              value={createdAt}
-              readOnly
-            />
-          </div>
-          
-          <Button 
-            className="mt-4 bg-app-blue hover:bg-app-light-blue"
-            onClick={handleSaveProfile}
-            disabled={isSaving}
-          >
-            {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-          </Button>
+        <CardContent>
+          <Form {...profileForm}>
+            <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-4">
+              <FormField
+                control={profileForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center">
+                      <User className="h-4 w-4 mr-2" />
+                      Nome
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Seu nome" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="grid gap-2">
+                <Label htmlFor="email" className="flex items-center">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  value={user?.email || ''}
+                  readOnly
+                  type="email"
+                />
+              </div>
+              
+              <FormField
+                control={profileForm.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center">
+                      <Phone className="h-4 w-4 mr-2" />
+                      Telefone
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Seu telefone" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="grid gap-2">
+                <Label htmlFor="joined" className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Data de Cadastro
+                </Label>
+                <Input
+                  id="joined"
+                  value={createdAt}
+                  readOnly
+                />
+              </div>
+              
+              <div className="flex gap-4 pt-2">
+                <Button 
+                  className="bg-app-blue hover:bg-app-light-blue"
+                  type="submit"
+                  disabled={isSaving}
+                >
+                  {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                </Button>
+                
+                <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      type="button"
+                      className="flex items-center gap-2"
+                    >
+                      <Lock className="h-4 w-4" />
+                      Alterar Senha
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Alterar Senha</DialogTitle>
+                    </DialogHeader>
+                    <Form {...passwordForm}>
+                      <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4 pt-2">
+                        <FormField
+                          control={passwordForm.control}
+                          name="password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nova Senha</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="password"
+                                  {...field} 
+                                  placeholder="Digite sua nova senha" 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={passwordForm.control}
+                          name="confirmPassword"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Confirme a Senha</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="password"
+                                  {...field} 
+                                  placeholder="Confirme sua nova senha" 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <DialogFooter>
+                          <Button variant="outline" type="button" onClick={() => setIsPasswordDialogOpen(false)}>
+                            Cancelar
+                          </Button>
+                          <Button type="submit" className="bg-app-blue hover:bg-app-light-blue">
+                            Salvar Nova Senha
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </form>
+          </Form>
         </CardContent>
       </Card>
       

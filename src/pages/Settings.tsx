@@ -1,6 +1,5 @@
 
-import React from 'react';
-import { useApp } from '@/contexts/AppContext';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,47 +7,113 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+
+// Definindo o tipo para as configurações do usuário
+interface UserSettings {
+  subjects_per_day: number;
+  notifications_enabled: boolean;
+  notification_time: string;
+}
 
 const Settings = () => {
-  const { userProfile, setUserProfile } = useApp();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+  const [settings, setSettings] = useState<UserSettings>({
+    subjects_per_day: 3,
+    notifications_enabled: true,
+    notification_time: "08:00"
+  });
+  
+  // Buscar configurações do usuário ao carregar a página
+  useEffect(() => {
+    if (user) {
+      fetchUserSettings();
+    }
+  }, [user]);
+  
+  const fetchUserSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setSettings({
+          subjects_per_day: data.subjects_per_day,
+          notifications_enabled: data.notifications_enabled,
+          notification_time: data.notification_time
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar configurações:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar suas configurações",
+        variant: "destructive"
+      });
+    }
+  };
   
   const handleNotificationsToggle = (checked: boolean) => {
-    setUserProfile({
-      ...userProfile,
-      settings: {
-        ...userProfile.settings,
-        notificationsEnabled: checked
-      }
-    });
+    setSettings(prev => ({
+      ...prev,
+      notifications_enabled: checked
+    }));
   };
   
   const handleSubjectsPerDayChange = (value: number[]) => {
-    setUserProfile({
-      ...userProfile,
-      settings: {
-        ...userProfile.settings,
-        subjectsPerDay: value[0]
-      }
-    });
+    setSettings(prev => ({
+      ...prev,
+      subjects_per_day: value[0]
+    }));
   };
   
   const handleNotificationTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUserProfile({
-      ...userProfile,
-      settings: {
-        ...userProfile.settings,
-        notificationTime: e.target.value
-      }
-    });
+    setSettings(prev => ({
+      ...prev,
+      notification_time: e.target.value
+    }));
   };
   
-  const handleSaveSettings = () => {
-    // In a real app, this would save to a database
-    toast({
-      title: "Sucesso",
-      description: "Configurações salvas com sucesso",
-    });
+  const handleSaveSettings = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: user.id,
+          subjects_per_day: settings.subjects_per_day,
+          notifications_enabled: settings.notifications_enabled,
+          notification_time: settings.notification_time,
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Sucesso",
+        description: "Configurações salvas com sucesso",
+      });
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar suas configurações",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   return (
@@ -65,9 +130,9 @@ const Settings = () => {
         <CardContent className="space-y-6">
           <div className="space-y-4">
             <div>
-              <h3 className="font-medium mb-2">Quantidade de Matérias por Dia: {userProfile.settings.subjectsPerDay}</h3>
+              <h3 className="font-medium mb-2">Quantidade de Matérias por Dia: {settings.subjects_per_day}</h3>
               <Slider 
-                defaultValue={[userProfile.settings.subjectsPerDay]}
+                value={[settings.subjects_per_day]}
                 max={10}
                 min={1}
                 step={1}
@@ -105,7 +170,7 @@ const Settings = () => {
               </p>
             </div>
             <Switch 
-              checked={userProfile.settings.notificationsEnabled}
+              checked={settings.notifications_enabled}
               onCheckedChange={handleNotificationsToggle}
             />
           </div>
@@ -115,7 +180,7 @@ const Settings = () => {
             <Input 
               id="notification-time"
               type="time"
-              value={userProfile.settings.notificationTime}
+              value={settings.notification_time}
               onChange={handleNotificationTimeChange}
               className="max-w-[200px]"
             />
@@ -124,8 +189,9 @@ const Settings = () => {
           <Button 
             className="mt-4 bg-app-blue hover:bg-app-light-blue"
             onClick={handleSaveSettings}
+            disabled={isSaving}
           >
-            Salvar Configurações
+            {isSaving ? 'Salvando...' : 'Salvar Configurações'}
           </Button>
         </CardContent>
       </Card>
