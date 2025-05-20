@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { useNavigate } from 'react-router-dom';  // Add this import
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, X, ArrowRight, ChevronDown } from 'lucide-react';
+import { Check, X, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -12,7 +12,7 @@ import confetti from 'canvas-confetti';
 
 const StudyPlan = () => {
   const { subjects, userProfile } = useApp();
-  const navigate = useNavigate(); // Add this hook
+  const navigate = useNavigate();
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [markedTopics, setMarkedTopics] = useState<Record<string, string[]>>({});
   const [completedSessions, setCompletedSessions] = useState<string[]>([]);
@@ -26,15 +26,15 @@ const StudyPlan = () => {
     subject.status === 'Em Estudo' || subject.status === 'Nova'
   );
   
-  // Current subject to display (respect settings)
+  // Current subjects to display (respect settings)
   const dailySubjects = currentSubjects.slice(0, subjectsPerDay);
   
   // Current subject to display
   const currentSubject = dailySubjects[currentSubjectIndex];
   
   // Next subjects to display (excluding the current one)
-  const nextSubjects = dailySubjects.filter(subject => 
-    subject.id !== (currentSubject?.id || '')
+  const nextSubjects = dailySubjects.filter((_, index) => 
+    index !== currentSubjectIndex && index < subjectsPerDay
   );
 
   const handleToggleTopic = (subjectId: string, topicId: string, completed: boolean) => {
@@ -74,9 +74,15 @@ const StudyPlan = () => {
     toast.info("Revisão cancelada");
   };
 
-  const handleStartStudy = (subjectId: string) => {
-    setExpandedSubject(subjectId);
-    toast.info("Estudo iniciado");
+  const handleToggleExpand = (subjectId: string) => {
+    if (expandedSubject === subjectId) {
+      setExpandedSubject(null); // Collapse if already expanded
+    } else {
+      setExpandedSubject(subjectId); // Expand if not already expanded
+    }
+    if (expandedSubject !== subjectId) {
+      toast.info("Estudo iniciado");
+    }
   };
 
   const handleSkipSubject = () => {
@@ -152,6 +158,8 @@ const StudyPlan = () => {
     // This would be determined by the review schedule in a real app
     // Now we'll keep them consistent based on the topic ID to avoid changing
     const topicId = parseInt(topic.id.split('-')[1], 10) || 0;
+    
+    // Fix the status issue by using a stable fixed array
     const statuses = [
       { label: "Revisão Pendente", variant: "secondary" as const },
       { label: "Revisão para Hoje", variant: "destructive" as const },
@@ -187,104 +195,126 @@ const StudyPlan = () => {
         </div>
       </div>
 
-      {/* Current Subject */}
-      {currentSubject && (
-        <Card key={currentSubject.id} className={expandedSubject === currentSubject.id ? 'border-app-blue' : ''}>
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-xl font-bold text-app-blue cursor-pointer flex items-center">
-                {currentSubject.name} {expandedSubject === currentSubject.id ? '(Hoje)' : ''}
-                {expandedSubject === currentSubject.id && <ChevronDown className="ml-2 h-5 w-5" />}
-              </CardTitle>
-              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                Status: {currentSubject.status}
-              </Badge>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            {expandedSubject === currentSubject.id ? (
-              <div className="space-y-4">
-                {currentSubject.topics.map(topic => {
-                  const topicStatus = getTopicStatus(topic);
-                  const isMarkedForReview = markedTopics[currentSubject.id]?.includes(topic.id);
-                  
-                  return (
-                    <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
-                      <Checkbox 
-                        id={topic.id} 
-                        checked={topic.completed}
-                        onCheckedChange={(checked) => 
-                          handleToggleTopic(currentSubject.id, topic.id, checked === true)
-                        }
-                      />
-                      <label 
-                        htmlFor={topic.id}
-                        className="flex-1 font-medium"
-                      >
-                        {topic.name}
-                      </label>
-                      
-                      <Badge variant={topicStatus.variant} className="mr-2">
-                        {topicStatus.label}
-                      </Badge>
-                      
-                      <div className="flex gap-2">
-                        {!isMarkedForReview ? (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-green-600 hover:text-green-800 border border-green-200"
-                            onClick={() => handleMarkTopicForReview(currentSubject.id, topic.id)}
-                          >
-                            <Check className="h-4 w-4 mr-1" />
-                            Marcar Revisão
-                          </Button>
-                        ) : (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-red-600 hover:text-red-800 border border-red-200"
-                            onClick={() => handleCancelTopicReview(currentSubject.id, topic.id)}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Cancelar
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                
-                <div className="flex justify-between gap-2 mt-4">
-                  <Button 
-                    variant="outline"
-                    onClick={handleSkipSubject}
-                  >
-                    Pular Matéria
-                  </Button>
-                  <Button 
-                    className="bg-app-blue hover:bg-app-light-blue"
-                    onClick={() => handleCompleteSession(currentSubject.id)}
-                    disabled={!hasMarkedTopics(currentSubject.id)}
-                  >
-                    Concluir Sessão
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex justify-center">
-                <Button 
-                  className="bg-app-blue hover:bg-app-light-blue"
-                  onClick={() => handleStartStudy(currentSubject.id)}
+      {/* Current Subjects */}
+      <div className="space-y-4">
+        {dailySubjects.map((subject, index) => (
+          <Card 
+            key={subject.id} 
+            className={completedSessions.includes(subject.id) 
+              ? 'border-green-300 bg-green-50' 
+              : expandedSubject === subject.id 
+                ? 'border-app-blue' 
+                : ''
+            }
+          >
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-center">
+                <CardTitle 
+                  className="text-xl font-bold text-app-blue cursor-pointer flex items-center"
+                  onClick={() => handleToggleExpand(subject.id)}
                 >
-                  Iniciar Estudo
-                </Button>
+                  {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
+                  {expandedSubject === subject.id ? (
+                    <ChevronUp className="ml-2 h-5 w-5" />
+                  ) : (
+                    <ChevronDown className="ml-2 h-5 w-5" />
+                  )}
+                </CardTitle>
+                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                  Status: {subject.status}
+                </Badge>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </CardHeader>
+
+            <CardContent>
+              {expandedSubject === subject.id ? (
+                <div className="space-y-4">
+                  {subject.topics.map(topic => {
+                    const topicStatus = getTopicStatus(topic);
+                    const isMarkedForReview = markedTopics[subject.id]?.includes(topic.id);
+                    
+                    return (
+                      <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
+                        <Checkbox 
+                          id={topic.id} 
+                          checked={topic.completed}
+                          onCheckedChange={(checked) => 
+                            handleToggleTopic(subject.id, topic.id, checked === true)
+                          }
+                        />
+                        <label 
+                          htmlFor={topic.id}
+                          className="flex-1 font-medium"
+                        >
+                          {topic.name}
+                        </label>
+                        
+                        <Badge variant={topicStatus.variant} className="mr-2">
+                          {topicStatus.label}
+                        </Badge>
+                        
+                        <div className="flex gap-2">
+                          {!isMarkedForReview ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-green-600 hover:text-green-800 border border-green-200"
+                              onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Marcar Revisão
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-red-600 hover:text-red-800 border border-red-200"
+                              onClick={() => handleCancelTopicReview(subject.id, topic.id)}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Cancelar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  <div className="flex justify-between gap-2 mt-4">
+                    <Button 
+                      className="bg-app-blue hover:bg-app-light-blue"
+                      onClick={() => handleCompleteSession(subject.id)}
+                      disabled={!hasMarkedTopics(subject.id)}
+                    >
+                      Concluir Sessão
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">
+                    {subject.topics.length} tópicos disponíveis
+                  </span>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline"
+                      onClick={handleSkipSubject}
+                    >
+                      Pular Matéria
+                    </Button>
+                    <Button 
+                      className="bg-app-blue hover:bg-app-light-blue"
+                      onClick={() => handleToggleExpand(subject.id)}
+                    >
+                      Iniciar Estudo
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
       
       {/* Next Subjects */}
       {nextSubjects.length > 0 && (
@@ -303,10 +333,21 @@ const StudyPlan = () => {
                     <p className="text-sm text-gray-500">{subject.topics.length} tópicos</p>
                   </div>
                   
-                  {completedSessions.includes(subject.id) && (
+                  {completedSessions.includes(subject.id) ? (
                     <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
                       Concluída
                     </Badge>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => {
+                        setCurrentSubjectIndex(dailySubjects.findIndex(s => s.id === subject.id));
+                        handleToggleExpand(subject.id);
+                      }}
+                    >
+                      Estudar Agora
+                    </Button>
                   )}
                 </CardContent>
               </Card>

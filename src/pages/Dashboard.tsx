@@ -26,8 +26,8 @@ export const Dashboard = () => {
   // In a real app, this would be filtered by the current day
   const todaysReviews = [{
     id: '1',
-    subject: 'Direito Constitucional',
-    topic: 'Artigos 1-5',
+    subject: 'Português',
+    topic: 'Concordância Verbal',
     date: 'Hoje',
     type: 'Revisão para Hoje'
   }];
