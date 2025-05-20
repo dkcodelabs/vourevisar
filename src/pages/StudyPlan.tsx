@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { useNavigate } from 'react-router-dom';  // Add this import
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, X, ArrowRight, ChevronDown } from 'lucide-react';
@@ -10,6 +12,7 @@ import confetti from 'canvas-confetti';
 
 const StudyPlan = () => {
   const { subjects, userProfile } = useApp();
+  const navigate = useNavigate(); // Add this hook
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [markedTopics, setMarkedTopics] = useState<Record<string, string[]>>({});
   const [completedSessions, setCompletedSessions] = useState<string[]>([]);
