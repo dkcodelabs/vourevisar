@@ -3,8 +3,12 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup } from "@/components/ui/sidebar";
 import { LayoutDashboard, BookOpen, Calendar, User, Settings } from "lucide-react";
+import { UserProfileNav } from './UserProfileNav';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function AppSidebar() {
+  const { user } = useAuth();
+
   return (
     <Sidebar className="border-r min-h-screen">
       <div className="p-4">
@@ -64,6 +68,16 @@ export function AppSidebar() {
             </NavLink>
           </SidebarGroup>
         </SidebarContent>
+        
+        {user && (
+          <div className="mt-auto border-t pt-4 pb-2">
+            <div className="flex items-center px-2">
+              <div className="flex-1 overflow-hidden text-sm">
+                <UserProfileNav />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Sidebar>
   );

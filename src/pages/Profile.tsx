@@ -1,28 +1,64 @@
 
-import React from 'react';
-import { useApp } from '@/contexts/AppContext';
+import React, { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Mail, Calendar } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
 
 const Profile = () => {
-  const { userProfile, setUserProfile } = useApp();
+  const { profile, user } = useAuth();
+  const [name, setName] = useState(profile?.name || '');
+  const [isSaving, setIsSaving] = useState(false);
   
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUserProfile({
-      ...userProfile,
-      name: e.target.value
-    });
+    setName(e.target.value);
   };
   
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUserProfile({
-      ...userProfile,
-      email: e.target.value
-    });
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ name, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+        
+      if (error) throw error;
+      
+      toast({
+        title: 'Perfil atualizado',
+        description: 'Suas informações foram atualizadas com sucesso.'
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao atualizar perfil',
+        description: error.message,
+        variant: 'destructive'
+      });
+      console.error('Erro:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
+  
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(date);
+  };
+  
+  const createdAt = user?.created_at ? formatDate(user.created_at) : '';
   
   return (
     <div className="space-y-6">
@@ -40,8 +76,9 @@ const Profile = () => {
             </Label>
             <Input
               id="name"
-              value={userProfile.name}
+              value={name}
               onChange={handleNameChange}
+              placeholder="Seu nome"
             />
           </div>
           
@@ -52,8 +89,8 @@ const Profile = () => {
             </Label>
             <Input
               id="email"
-              value={userProfile.email}
-              onChange={handleEmailChange}
+              value={user?.email || ''}
+              readOnly
               type="email"
             />
           </div>
@@ -65,13 +102,17 @@ const Profile = () => {
             </Label>
             <Input
               id="joined"
-              value="01/01/2023"
+              value={createdAt}
               readOnly
             />
           </div>
           
-          <Button className="mt-4 bg-app-blue hover:bg-app-light-blue">
-            Salvar Alterações
+          <Button 
+            className="mt-4 bg-app-blue hover:bg-app-light-blue"
+            onClick={handleSaveProfile}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Salvando...' : 'Salvar Alterações'}
           </Button>
         </CardContent>
       </Card>
