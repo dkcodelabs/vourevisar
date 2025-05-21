@@ -1,327 +1,628 @@
-
-import React, { useState, useEffect } from 'react';
-import { useApp } from '@/contexts/AppContext';
+import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle,
-  DialogFooter
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Plus, Trash2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Plus, ChevronUp, ChevronDown, Edit, Trash2, LayoutList } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from '@/hooks/use-toast';
 import { toast } from 'sonner';
-import { Subject } from '@/types';
-import DraggableSubjectList from '@/components/DraggableSubjectList';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
+
+// Definindo tipos para o componente
+interface Topic {
+  id: string;
+  name: string;
+  completed: boolean;
+  review_count: number;
+}
+
+interface Subject {
+  id: string;
+  name: string;
+  topics: Topic[];
+  status: 'Nova' | 'Em Estudo' | 'Concluída';
+}
 
 const Subjects = () => {
-  const { subjects, addSubject, updateSubject, deleteSubject, addTopicToSubject, removeTopicFromSubject } = useApp();
-  const [showAddSubjectDialog, setShowAddSubjectDialog] = useState(false);
-  const [showAddTopicDialog, setShowAddTopicDialog] = useState(false);
-  const [showDeleteSubjectDialog, setShowDeleteSubjectDialog] = useState(false);
-  const [newSubjectName, setNewSubjectName] = useState('');
-  const [newTopicName, setNewTopicName] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
+  const { toast: useToastHook } = useToast();
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const [openDialog, setOpenDialog] = useState(false);
+  const [newSubject, setNewSubject] = useState({ name: '', status: 'Nova' as const });
+  const [topicDialogOpen, setTopicDialogOpen] = useState(false);
+  const [newTopic, setNewTopic] = useState('');
+  const [currentSubjectId, setCurrentSubjectId] = useState<string>('');
+  const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
+  
+  // Delete confirmation states
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [subjectToDelete, setSubjectToDelete] = useState<string | null>(null);
+  const [topicToDelete, setTopicToDelete] = useState<{subjectId: string, topicId: string} | null>(null);
+  
+  // Edit subject states
+  const [editSubjectDialog, setEditSubjectDialog] = useState(false);
+  const [editSubject, setEditSubject] = useState({ id: '', name: '' });
+  
+  const topicInputRef = useRef<HTMLInputElement>(null);
 
-  // Função para lidar com o reordenamento de matérias
-  const handleReorderSubjects = async (reorderedSubjects: Subject[]) => {
+  // Carregar matérias do usuário
+  useEffect(() => {
+    if (user) {
+      fetchSubjects();
+    }
+  }, [user]);
+
+  const fetchSubjects = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
     try {
-      // Para cada matéria reordenada, atualizar sua prioridade no banco de dados
-      for (const subject of reorderedSubjects) {
-        await updateSubject(subject.id, { priority: subject.priority });
-      }
+      // Buscar as disciplinas do usuário
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('priority', { ascending: true });
       
-      toast.success("Ordem das matérias atualizada com sucesso");
+      if (subjectsError) throw subjectsError;
+      
+      // Para cada disciplina, buscar seus tópicos
+      const subjectsWithTopics = await Promise.all(
+        (subjectsData || []).map(async (subject) => {
+          const { data: topicsData, error: topicsError } = await supabase
+            .from('topics')
+            .select('*')
+            .eq('subject_id', subject.id);
+          
+          if (topicsError) throw topicsError;
+          
+          return {
+            id: subject.id,
+            name: subject.name,
+            status: 'Nova' as const, // Por padrão define como Nova
+            topics: topicsData || []
+          };
+        })
+      );
+      
+      setSubjects(subjectsWithTopics);
     } catch (error) {
-      console.error('Erro ao reordenar matérias:', error);
-      toast.error("Erro ao atualizar ordem das matérias");
+      console.error('Erro ao buscar matérias:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível carregar suas matérias",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleAddSubject = async () => {
-    if (!newSubjectName.trim()) {
-      toast.error("O nome da matéria não pode estar vazio");
-      return;
-    }
+    if (!user) return;
     
-    setIsSubmitting(true);
-    
-    try {
-      await addSubject({
-        name: newSubjectName,
-        topics: [],
-        status: 'Nova'
+    if (!newSubject.name) {
+      useToastHook({
+        title: "Erro",
+        description: "O nome da matéria é obrigatório",
+        variant: "destructive"
       });
-      
-      setNewSubjectName('');
-      setShowAddSubjectDialog(false);
-    } catch (error) {
-      console.error('Erro:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleAddTopic = async () => {
-    if (!selectedSubject) return;
-    if (!newTopicName.trim()) {
-      toast.error("O nome do tópico não pode estar vazio");
       return;
     }
-    
-    setIsSubmitting(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('subjects')
+        .insert({
+          name: newSubject.name,
+          user_id: user.id,
+          priority: subjects.length + 1 // Define a prioridade com base no número de matérias existentes
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        // Adiciona a nova matéria à lista
+        setSubjects(prev => [...prev, {
+          id: data.id,
+          name: data.name,
+          status: 'Nova',
+          topics: []
+        }]);
+        
+        setNewSubject({ name: '', status: 'Nova' });
+        setOpenDialog(false);
+        
+        toast.success("Matéria adicionada com sucesso");
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar matéria:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível adicionar a matéria",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const confirmDeleteSubject = (id: string) => {
+    setSubjectToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const executeDeleteSubject = async () => {
+    if (!subjectToDelete) return;
     
     try {
-      await addTopicToSubject(selectedSubject.id, newTopicName);
-      setNewTopicName('');
-      setShowAddTopicDialog(false);
+      const { error } = await supabase
+        .from('subjects')
+        .delete()
+        .eq('id', subjectToDelete);
+        
+      if (error) throw error;
+      
+      // Atualiza a lista de matérias
+      setSubjects(prev => prev.filter(subject => subject.id !== subjectToDelete));
+      toast.success("Matéria removida com sucesso");
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro ao remover matéria:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível remover a matéria",
+        variant: "destructive"
+      });
     } finally {
-      setIsSubmitting(false);
+      setDeleteConfirmOpen(false);
+      setSubjectToDelete(null);
     }
   };
 
-  const handleDeleteSubject = async () => {
-    if (!selectedSubject) return;
-    
-    setIsSubmitting(true);
-    
+  const handleEditSubject = (subject: { id: string, name: string }) => {
+    setEditSubject(subject);
+    setEditSubjectDialog(true);
+  };
+
+  const saveSubjectEdit = async () => {
     try {
-      await deleteSubject(selectedSubject.id);
-      setSelectedSubject(null);
-      setShowDeleteSubjectDialog(false);
+      const { error } = await supabase
+        .from('subjects')
+        .update({ name: editSubject.name, updated_at: new Date().toISOString() })
+        .eq('id', editSubject.id);
+        
+      if (error) throw error;
+      
+      // Atualiza a matéria na lista
+      setSubjects(prev => prev.map(subject => 
+        subject.id === editSubject.id ? { ...subject, name: editSubject.name } : subject
+      ));
+      
+      toast.success("Nome da matéria atualizado");
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro ao atualizar matéria:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível atualizar o nome da matéria",
+        variant: "destructive"
+      });
     } finally {
-      setIsSubmitting(false);
+      setEditSubjectDialog(false);
     }
   };
 
-  const handleDeleteTopic = async (topicId: string) => {
-    if (!selectedSubject) return;
+  const handleTopicAdd = async () => {
+    if (!newTopic) {
+      useToastHook({
+        title: "Erro",
+        description: "O nome do tópico é obrigatório",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('topics')
+        .insert({
+          name: newTopic,
+          subject_id: currentSubjectId,
+          completed: false,
+          review_count: 0
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        // Adiciona o novo tópico à matéria correspondente
+        setSubjects(prev => prev.map(subject => {
+          if (subject.id === currentSubjectId) {
+            return {
+              ...subject,
+              topics: [...subject.topics, data]
+            };
+          }
+          return subject;
+        }));
+        
+        setNewTopic('');
+        
+        // Mantém o foco no campo de entrada para adicionar mais tópicos
+        if (topicInputRef.current) {
+          topicInputRef.current.focus();
+        }
+        
+        toast.success("Tópico adicionado com sucesso");
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar tópico:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível adicionar o tópico",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleTopicKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newTopic) {
+      handleTopicAdd();
+    }
+  };
+
+  const confirmDeleteTopic = (subjectId: string, topicId: string) => {
+    setTopicToDelete({subjectId, topicId});
+    setDeleteConfirmOpen(true);
+  };
+
+  const executeDeleteTopic = async () => {
+    if (!topicToDelete) return;
     
     try {
-      await removeTopicFromSubject(selectedSubject.id, topicId);
+      const { error } = await supabase
+        .from('topics')
+        .delete()
+        .eq('id', topicToDelete.topicId);
+        
+      if (error) throw error;
+      
+      // Atualiza a lista de tópicos da matéria
+      setSubjects(prev => prev.map(subject => {
+        if (subject.id === topicToDelete.subjectId) {
+          return {
+            ...subject,
+            topics: subject.topics.filter(topic => topic.id !== topicToDelete.topicId)
+          };
+        }
+        return subject;
+      }));
+      
+      toast.success("Tópico removido com sucesso");
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro ao remover tópico:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível remover o tópico",
+        variant: "destructive"
+      });
+    } finally {
+      setDeleteConfirmOpen(false);
+      setTopicToDelete(null);
     }
   };
 
-  const handleSubjectClick = (subject: Subject) => {
-    setSelectedSubject(subject);
+  const openTopicDialog = (subjectId: string) => {
+    setCurrentSubjectId(subjectId);
+    setTopicDialogOpen(true);
+    
+    // Focus on input after dialog opens
+    setTimeout(() => {
+      if (topicInputRef.current) {
+        topicInputRef.current.focus();
+      }
+    }, 100);
   };
+
+  const toggleExpand = (subjectId: string) => {
+    if (expandedSubject === subjectId) {
+      setExpandedSubject(null);
+    } else {
+      setExpandedSubject(subjectId);
+    }
+  };
+
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case 'Nova':
+        return 'status-nova';
+      case 'Em Estudo':
+        return 'status-em-estudo';
+      case 'Concluída':
+        return 'status-concluida';
+      default:
+        return '';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Matérias</h1>
+        <h1 className="text-3xl font-bold">Gerenciamento de Matérias</h1>
         <Button 
           className="bg-app-blue hover:bg-app-light-blue"
-          onClick={() => setShowAddSubjectDialog(true)}
+          onClick={() => setOpenDialog(true)}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Nova Matéria
+          Adicionar Matéria
         </Button>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        <div className="md:col-span-5 space-y-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-medium">Suas matérias</h2>
-            <div className="text-sm text-gray-500">
-              {subjects.length} matérias
-            </div>
+
+      <div className="space-y-4 mt-6">
+        {subjects.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-gray-500">Você ainda não tem matérias cadastradas.</p>
+            <Button 
+              className="mt-4 bg-app-blue hover:bg-app-light-blue"
+              onClick={() => setOpenDialog(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar Matéria
+            </Button>
           </div>
-          
-          <DraggableSubjectList 
-            subjects={subjects} 
-            onReorder={handleReorderSubjects} 
-            onSubjectClick={handleSubjectClick} 
-          />
-        </div>
-        
-        <div className="md:col-span-7">
-          {selectedSubject ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-medium">{selectedSubject.name} - Tópicos</h2>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedSubject(null);
-                    }}
-                  >
-                    Voltar
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setShowDeleteSubjectDialog(true)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Excluir Matéria
-                  </Button>
-                  <Button
-                    className="bg-app-blue hover:bg-app-light-blue"
-                    onClick={() => setShowAddTopicDialog(true)}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo Tópico
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="border rounded-lg">
-                {selectedSubject.topics.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <p className="text-gray-500">Esta matéria não possui tópicos.</p>
-                    <Button
-                      className="mt-4 bg-app-blue hover:bg-app-light-blue"
-                      onClick={() => setShowAddTopicDialog(true)}
+        ) : (
+          subjects.map((subject) => (
+            <Card key={subject.id} className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between p-4 bg-white">
+                  <div className="flex items-center gap-3">
+                    <span className={`status-badge ${getStatusClass(subject.status)}`}>
+                      {subject.status}
+                    </span>
+                    <h2 className="text-lg font-medium">{subject.name}</h2>
+                    <span className="text-sm text-gray-500">
+                      {subject.topics.length} tópicos
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => openTopicDialog(subject.id)}
                     >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Adicionar Tópico
+                      <LayoutList className="h-4 w-4 mr-2" />
+                      Gerenciar Tópicos
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => toggleExpand(subject.id)}
+                    >
+                      {expandedSubject === subject.id ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => handleEditSubject({ id: subject.id, name: subject.name })}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => confirmDeleteSubject(subject.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                ) : (
-                  <div className="divide-y">
-                    {selectedSubject.topics.map((topic) => (
-                      <div key={topic.id} className="p-4 flex items-center justify-between">
-                        <div>
-                          <h3 className="font-medium">{topic.name}</h3>
-                          <div className="text-sm text-gray-500">
-                            {topic.completed ? 'Concluído' : 'Não concluído'} • 
-                            Revisões: {topic.reviewCount}
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDeleteTopic(topic.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                </div>
+                
+                {expandedSubject === subject.id && (
+                  <div className="border-t p-4 bg-gray-50">
+                    <h3 className="font-medium mb-2">Tópicos</h3>
+                    {subject.topics.length > 0 ? (
+                      <ul className="space-y-2">
+                        {subject.topics.map((topic) => (
+                          <li key={topic.id} className="flex items-center justify-between border p-2 rounded bg-white">
+                            <span>{topic.name}</span>
+                            <div className="flex items-center gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 text-red-500 hover:text-red-700"
+                                onClick={() => confirmDeleteTopic(subject.id, topic.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-500 text-sm">Nenhum tópico cadastrado</p>
+                    )}
                   </div>
                 )}
-              </div>
-            </div>
-          ) : (
-            <div className="border border-dashed rounded-lg p-8 text-center">
-              <h2 className="text-xl font-medium mb-2">Selecione uma matéria</h2>
-              <p className="text-gray-500">
-                Selecione uma matéria à esquerda para visualizar ou adicionar tópicos.
-              </p>
-            </div>
-          )}
-        </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
-      
-      {/* Dialog para adicionar uma nova matéria */}
-      <Dialog open={showAddSubjectDialog} onOpenChange={setShowAddSubjectDialog}>
-        <DialogContent>
+
+      {/* Add Subject Dialog */}
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Nova Matéria</DialogTitle>
+            <DialogTitle>Adicionar Nova Matéria</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="subject-name">Nome da Matéria</Label>
+              <Label htmlFor="name">Nome da Matéria</Label>
               <Input
-                id="subject-name"
-                value={newSubjectName}
-                onChange={(e) => setNewSubjectName(e.target.value)}
-                placeholder="Ex: Português, Matemática, etc."
+                id="name"
+                value={newSubject.name}
+                onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })}
+                placeholder="Ex: Matemática, Português, etc."
               />
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowAddSubjectDialog(false)}
+            <Button
+              variant="outline"
+              onClick={() => setOpenDialog(false)}
             >
               Cancelar
             </Button>
             <Button 
               className="bg-app-blue hover:bg-app-light-blue"
               onClick={handleAddSubject}
-              disabled={isSubmitting}
             >
-              {isSubmitting ? 'Adicionando...' : 'Adicionar'}
+              Adicionar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Dialog para adicionar um novo tópico */}
-      <Dialog open={showAddTopicDialog} onOpenChange={setShowAddTopicDialog}>
-        <DialogContent>
+
+      {/* Edit Subject Dialog */}
+      <Dialog open={editSubjectDialog} onOpenChange={setEditSubjectDialog}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Novo Tópico para {selectedSubject?.name}</DialogTitle>
+            <DialogTitle>Editar Matéria</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="topic-name">Nome do Tópico</Label>
+              <Label htmlFor="edit-name">Nome da Matéria</Label>
               <Input
-                id="topic-name"
-                value={newTopicName}
-                onChange={(e) => setNewTopicName(e.target.value)}
-                placeholder="Ex: Concordância Verbal, Funções, etc."
+                id="edit-name"
+                value={editSubject.name}
+                onChange={(e) => setEditSubject({ ...editSubject, name: e.target.value })}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowAddTopicDialog(false)}
+            <Button
+              variant="outline"
+              onClick={() => setEditSubjectDialog(false)}
             >
               Cancelar
             </Button>
             <Button 
               className="bg-app-blue hover:bg-app-light-blue"
-              onClick={handleAddTopic}
-              disabled={isSubmitting}
+              onClick={saveSubjectEdit}
             >
-              {isSubmitting ? 'Adicionando...' : 'Adicionar'}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Dialog para excluir uma matéria */}
-      <Dialog open={showDeleteSubjectDialog} onOpenChange={setShowDeleteSubjectDialog}>
-        <DialogContent>
+
+      {/* Add Topic Dialog */}
+      <Dialog open={topicDialogOpen} onOpenChange={setTopicDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Excluir Matéria?</DialogTitle>
+            <DialogTitle>Gerenciar Tópicos</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p>
-              Tem certeza de que deseja excluir a matéria <strong>{selectedSubject?.name}</strong>? 
-              Esta ação também excluirá todos os tópicos associados e não poderá ser desfeita.
-            </p>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="topic">Nome do Tópico</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="topic"
+                  ref={topicInputRef}
+                  value={newTopic}
+                  onChange={(e) => setNewTopic(e.target.value)}
+                  onKeyPress={handleTopicKeyPress}
+                  placeholder="Ex: Concordância Verbal"
+                />
+                <Button
+                  className="bg-app-blue hover:bg-app-light-blue"
+                  onClick={handleTopicAdd}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {currentSubjectId && (
+              <div className="max-h-60 overflow-y-auto">
+                <h3 className="font-medium mb-2">Tópicos Atuais</h3>
+                {subjects.find(s => s.id === currentSubjectId)?.topics.map(topic => (
+                  <div key={topic.id} className="flex items-center justify-between border p-2 rounded my-1">
+                    <span>{topic.name}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-red-500 hover:text-red-700"
+                      onClick={() => confirmDeleteTopic(currentSubjectId, topic.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowDeleteSubjectDialog(false)}
+            <Button
+              onClick={() => setTopicDialogOpen(false)}
             >
-              Cancelar
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleDeleteSubject}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Excluindo...' : 'Sim, Excluir'}
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog for Subject or Topic Deletion */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              {subjectToDelete ? 
+                "Tem certeza que deseja excluir esta matéria? Esta ação não pode ser desfeita." :
+                "Tem certeza que deseja excluir este tópico? Esta ação não pode ser desfeita."
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => subjectToDelete ? executeDeleteSubject() : executeDeleteTopic()} 
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
