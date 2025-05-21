@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Subject, UserProfile, StudyProgress } from '../types';
+import { Subject, UserProfile, StudyProgress, Status, RevisionStage } from '../types';
 import { mockSubjects, mockUserProfile, mockStudyProgress } from '../data/mockData';
 import { supabase } from '../integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -69,7 +69,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             completed: topic.completed,
             reviewCount: topic.review_count,
             nextReview: topic.next_review ? new Date(topic.next_review) : undefined,
-            reviewStage: topic.review_stage,
+            reviewStage: topic.review_stage as RevisionStage,
             lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined
           }));
           
@@ -77,7 +77,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             id: subject.id,
             name: subject.name,
             priority: subject.priority,
-            status: subject.status || 'Nova',
+            status: subject.status as Status || 'Nova',
             color: subject.color,
             topics: processedTopics
           };
@@ -218,7 +218,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const newSubject: Subject = {
           id: data.id,
           name: data.name,
-          status: data.status || 'Nova',
+          status: data.status as Status || 'Nova',
           topics: [],
           priority: data.priority
         };
