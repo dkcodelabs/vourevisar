@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { Subject } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -15,7 +15,7 @@ const DraggableSubjectList: React.FC<DraggableSubjectListProps> = ({
   onReorder,
   onSubjectClick
 }) => {
-  const handleDragEnd = (result) => {
+  const handleDragEnd = (result: DropResult) => {
     // Verificar se o item foi solto fora da área de drop
     if (!result.destination) return;
     
