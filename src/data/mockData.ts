@@ -1,4 +1,3 @@
-
 import { Subject, UserProfile, StudyProgress } from '../types';
 
 export const mockSubjects: Subject[] = [
@@ -61,10 +60,13 @@ export const mockUserProfile: UserProfile = {
 };
 
 export const mockStudyProgress: StudyProgress = {
-  totalSubjects: 10,
-  completedSubjects: 5,
-  totalTopics: 200,
-  completedTopics: 75
+  totalSubjects: 5,
+  completedSubjects: 2,
+  totalTopics: 25,
+  completedTopics: 10,
+  delayedTopics: 3,
+  todayTopics: 5,
+  futureTopics: 7
 };
 
 export const upcomingReviews = [

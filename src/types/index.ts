@@ -20,6 +20,7 @@ export interface Subject {
   topics: Topic[];
   status: Status;
   priority?: number;
+  color?: string;
 }
 
 export interface DailyStudyPlan {
@@ -38,6 +39,7 @@ export interface UserProfile {
   email: string;
   phone?: string;
   settings: UserSettings;
+  avatar_url?: string;
 }
 
 export interface StudyProgress {

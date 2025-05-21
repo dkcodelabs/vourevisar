@@ -46,6 +46,7 @@ export type Database = {
           id: string
           name: string
           priority: number | null
+          status: string
           updated_at: string
           user_id: string
         }
@@ -55,6 +56,7 @@ export type Database = {
           id?: string
           name: string
           priority?: number | null
+          status?: string
           updated_at?: string
           user_id: string
         }
@@ -64,6 +66,7 @@ export type Database = {
           id?: string
           name?: string
           priority?: number | null
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -74,8 +77,11 @@ export type Database = {
           completed: boolean
           created_at: string
           id: string
+          last_reviewed_at: string | null
           name: string
+          next_review: string | null
           review_count: number
+          review_stage: string | null
           subject_id: string
           updated_at: string
         }
@@ -83,8 +89,11 @@ export type Database = {
           completed?: boolean
           created_at?: string
           id?: string
+          last_reviewed_at?: string | null
           name: string
+          next_review?: string | null
           review_count?: number
+          review_stage?: string | null
           subject_id: string
           updated_at?: string
         }
@@ -92,8 +101,11 @@ export type Database = {
           completed?: boolean
           created_at?: string
           id?: string
+          last_reviewed_at?: string | null
           name?: string
+          next_review?: string | null
           review_count?: number
+          review_stage?: string | null
           subject_id?: string
           updated_at?: string
         }

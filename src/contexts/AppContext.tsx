@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Subject, UserProfile, StudyProgress } from '../types';
 import { mockSubjects, mockUserProfile, mockStudyProgress } from '../data/mockData';
@@ -79,6 +78,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: subject.name,
             priority: subject.priority,
             status: subject.status || 'Nova',
+            color: subject.color,
             topics: processedTopics
           };
         })
