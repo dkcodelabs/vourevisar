@@ -13,6 +13,7 @@ import Subjects from "@/pages/Subjects";
 import StudyPlan from "@/pages/StudyPlan";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
+import Statistics from "@/pages/Statistics";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 
@@ -36,6 +37,7 @@ const App = () => (
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/materias" element={<Subjects />} />
                   <Route path="/plano-estudos" element={<StudyPlan />} />
+                  <Route path="/estatisticas" element={<Statistics />} />
                   <Route path="/perfil" element={<Profile />} />
                   <Route path="/configuracoes" element={<Settings />} />
                 </Route>

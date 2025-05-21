@@ -1,5 +1,7 @@
 
 export type Status = 'Nova' | 'Em Estudo' | 'Concluída';
+export type RevisionStatus = 'Atrasado' | 'Hoje' | 'Futura';
+export type RevisionStage = '24h' | '7dias' | '30dias' | 'Concluído';
 
 export interface Topic {
   id: string;
@@ -7,6 +9,9 @@ export interface Topic {
   completed: boolean;
   nextReview?: Date;
   reviewCount: number;
+  reviewStage?: RevisionStage;
+  reviewStatus?: RevisionStatus;
+  lastReviewedAt?: Date;
 }
 
 export interface Subject {
@@ -14,6 +19,7 @@ export interface Subject {
   name: string;
   topics: Topic[];
   status: Status;
+  priority?: number;
 }
 
 export interface DailyStudyPlan {
@@ -30,6 +36,7 @@ export interface UserSettings {
 export interface UserProfile {
   name: string;
   email: string;
+  phone?: string;
   settings: UserSettings;
 }
 
@@ -38,4 +45,7 @@ export interface StudyProgress {
   completedSubjects: number;
   totalTopics: number;
   completedTopics: number;
+  delayedTopics: number;
+  todayTopics: number;
+  futureTopics: number;
 }

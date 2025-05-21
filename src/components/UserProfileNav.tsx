@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   DropdownMenu,
@@ -12,9 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut, Settings, User } from "lucide-react";
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 export function UserProfileNav() {
   const { user, profile, signOut } = useAuth();
+  const [firstName, setFirstName] = useState<string>('');
+
+  useEffect(() => {
+    if (profile?.name) {
+      // Extrair o primeiro nome
+      const firstNameOnly = profile.name.split(' ')[0];
+      setFirstName(firstNameOnly);
+    }
+  }, [profile]);
 
   if (!user) {
     return null;
@@ -25,41 +35,48 @@ export function UserProfileNav() {
     : user.email?.charAt(0).toUpperCase() || 'U';
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.name || 'Avatar do usuário'} />
-            <AvatarFallback>{userInitials}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <div className="flex flex-col space-y-1 p-2">
-          <p className="text-sm font-medium leading-none">{profile?.name || 'Usuário'}</p>
-          <p className="text-xs leading-none text-muted-foreground">
-            {user.email}
-          </p>
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/perfil" className="flex cursor-pointer items-center">
-            <User className="mr-2 h-4 w-4" />
-            <span>Perfil</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/configuracoes" className="flex cursor-pointer items-center">
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Configurações</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer">
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Sair</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center gap-3">
+      <div className="hidden sm:flex flex-col items-end">
+        <span className="text-sm font-medium">{firstName || 'Usuário'}</span>
+        <span className="text-xs text-muted-foreground">vouRevisar</span>
+      </div>
+      
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.name || 'Avatar do usuário'} />
+              <AvatarFallback>{userInitials}</AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <div className="flex flex-col space-y-1 p-2">
+            <p className="text-sm font-medium leading-none">{profile?.name || 'Usuário'}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {user.email}
+            </p>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link to="/perfil" className="flex cursor-pointer items-center">
+              <User className="mr-2 h-4 w-4" />
+              <span>Perfil</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/configuracoes" className="flex cursor-pointer items-center">
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Configurações</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer">
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Sair</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

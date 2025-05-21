@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,14 +10,33 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
+import { supabase } from '@/integrations/supabase/client';
+import { Topic, RevisionStage } from '@/types';
+import { addDays, format, isAfter, isBefore, isToday } from 'date-fns';
 
 const StudyPlan = () => {
-  const { subjects, userProfile } = useApp();
+  const { subjects, userProfile, fetchSubjects, fetchUserSettings } = useApp();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [markedTopics, setMarkedTopics] = useState<Record<string, string[]>>({});
   const [completedSessions, setCompletedSessions] = useState<string[]>([]);
   const [currentSubjectIndex, setCurrentSubjectIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Buscar dados do usuário ao carregar a página
+  useEffect(() => {
+    if (user) {
+      const loadData = async () => {
+        setIsLoading(true);
+        await fetchSubjects();
+        await fetchUserSettings();
+        setIsLoading(false);
+      };
+      
+      loadData();
+    }
+  }, [user]);
   
   // Get the subjectsPerDay from user settings
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
@@ -24,7 +44,7 @@ const StudyPlan = () => {
   // Filter subjects that are in progress
   const currentSubjects = subjects.filter(subject => 
     subject.status === 'Em Estudo' || subject.status === 'Nova'
-  );
+  ).sort((a, b) => (a.priority || 0) - (b.priority || 0));
   
   // Current subjects to display (respect settings)
   const dailySubjects = currentSubjects.slice(0, subjectsPerDay);
@@ -37,41 +57,135 @@ const StudyPlan = () => {
     index !== currentSubjectIndex && index < subjectsPerDay
   );
 
-  const handleToggleTopic = (subjectId: string, topicId: string, completed: boolean) => {
-    // In a real app, this would update the topic's completion status
-    console.log(`Toggle topic ${topicId} in subject ${subjectId} to ${completed}`);
+  const handleToggleTopic = async (subjectId: string, topicId: string, completed: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .update({ completed })
+        .eq('id', topicId);
+
+      if (error) throw error;
+      
+      // Atualizar localmente
+      await fetchSubjects();
+    } catch (error) {
+      console.error('Erro ao atualizar tópico:', error);
+      toast.error("Erro ao atualizar tópico");
+    }
   };
 
-  const handleMarkTopicForReview = (subjectId: string, topicId: string) => {
-    setMarkedTopics(prev => {
-      const updatedTopics = { ...prev };
-      
-      if (!updatedTopics[subjectId]) {
-        updatedTopics[subjectId] = [];
-      }
-      
-      if (!updatedTopics[subjectId].includes(topicId)) {
-        updatedTopics[subjectId] = [...updatedTopics[subjectId], topicId];
-      }
-      
-      return updatedTopics;
-    });
+  // Função para calcular a próxima data de revisão com base no estágio atual
+  const calculateNextReview = (stage: RevisionStage | undefined): Date => {
+    const now = new Date();
     
-    toast.success("Tópico marcado para revisão");
+    switch(stage) {
+      case '24h':
+        return addDays(now, 1);
+      case '7dias':
+        return addDays(now, 7);
+      case '30dias':
+        return addDays(now, 30);
+      default:
+        return addDays(now, 1); // Primeira revisão (24h)
+    }
   };
 
-  const handleCancelTopicReview = (subjectId: string, topicId: string) => {
-    setMarkedTopics(prev => {
-      const updatedTopics = { ...prev };
+  // Função para avançar para o próximo estágio de revisão
+  const getNextReviewStage = (currentStage: RevisionStage | undefined): RevisionStage => {
+    switch(currentStage) {
+      case '24h':
+        return '7dias';
+      case '7dias':
+        return '30dias';
+      case '30dias':
+        return 'Concluído';
+      default:
+        return '24h'; // Primeira revisão
+    }
+  };
+
+  const handleMarkTopicForReview = async (subjectId: string, topicId: string) => {
+    try {
+      // Encontrar o tópico
+      const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
       
-      if (updatedTopics[subjectId]) {
-        updatedTopics[subjectId] = updatedTopics[subjectId].filter(id => id !== topicId);
+      if (!topic) {
+        toast.error("Tópico não encontrado");
+        return;
       }
       
-      return updatedTopics;
-    });
-    
-    toast.info("Revisão cancelada");
+      // Calcular o próximo estágio de revisão
+      const nextStage = getNextReviewStage(topic.reviewStage);
+      
+      // Calcular a próxima data de revisão
+      const nextReview = calculateNextReview(nextStage !== 'Concluído' ? nextStage : undefined);
+      
+      // Atualizar no banco de dados
+      const { error } = await supabase
+        .from('topics')
+        .update({ 
+          review_count: topic.reviewCount + 1,
+          next_review: nextStage !== 'Concluído' ? nextReview.toISOString() : null,
+          review_stage: nextStage,
+          last_reviewed_at: new Date().toISOString()
+        })
+        .eq('id', topicId);
+
+      if (error) throw error;
+      
+      // Atualizar localmente
+      setMarkedTopics(prev => {
+        const updatedTopics = { ...prev };
+        
+        if (!updatedTopics[subjectId]) {
+          updatedTopics[subjectId] = [];
+        }
+        
+        if (!updatedTopics[subjectId].includes(topicId)) {
+          updatedTopics[subjectId] = [...updatedTopics[subjectId], topicId];
+        }
+        
+        return updatedTopics;
+      });
+      
+      await fetchSubjects();
+      toast.success(`Tópico marcado para revisão em ${nextStage !== 'Concluído' ? nextStage : 'Concluído'}`);
+    } catch (error) {
+      console.error('Erro ao marcar tópico para revisão:', error);
+      toast.error("Erro ao marcar tópico para revisão");
+    }
+  };
+
+  const handleCancelTopicReview = async (subjectId: string, topicId: string) => {
+    try {
+      // Remover a próxima revisão
+      const { error } = await supabase
+        .from('topics')
+        .update({ 
+          next_review: null,
+          review_stage: null
+        })
+        .eq('id', topicId);
+
+      if (error) throw error;
+      
+      // Atualizar localmente
+      setMarkedTopics(prev => {
+        const updatedTopics = { ...prev };
+        
+        if (updatedTopics[subjectId]) {
+          updatedTopics[subjectId] = updatedTopics[subjectId].filter(id => id !== topicId);
+        }
+        
+        return updatedTopics;
+      });
+      
+      await fetchSubjects();
+      toast.info("Revisão cancelada");
+    } catch (error) {
+      console.error('Erro ao cancelar revisão:', error);
+      toast.error("Erro ao cancelar revisão");
+    }
   };
 
   const handleToggleExpand = (subjectId: string) => {
@@ -101,7 +215,7 @@ const StudyPlan = () => {
     });
   };
 
-  const handleCompleteSession = (subjectId: string) => {
+  const handleCompleteSession = async (subjectId: string) => {
     // Mark the session as completed
     setCompletedSessions(prev => [...prev, subjectId]);
     toast.success("Sessão de estudo concluída");
@@ -152,25 +266,41 @@ const StudyPlan = () => {
     return markedTopics[subjectId] && markedTopics[subjectId].length > 0;
   };
 
-  const getTopicStatus = (topic: any) => {
-    if (topic.completed) return { label: "Concluído", variant: "outline" as const };
+  const getTopicStatus = (topic: Topic) => {
+    if (topic.completed && (!topic.nextReview || topic.reviewStage === 'Concluído')) {
+      return { label: "Concluído", variant: "outline" as const };
+    }
     
-    // This would be determined by the review schedule in a real app
-    // Now we'll keep them consistent based on the topic ID to avoid changing
-    const topicId = parseInt(topic.id.split('-')[1], 10) || 0;
+    if (!topic.nextReview) {
+      return { label: "Primeira Revisão", variant: "outline" as const };
+    }
     
-    // Fix the status issue by using a stable fixed array
-    const statuses = [
-      { label: "Revisão Pendente", variant: "secondary" as const },
-      { label: "Revisão para Hoje", variant: "destructive" as const },
-      { label: "Próxima Revisão: 25/05", variant: "secondary" as const },
-      { label: "Revisado", variant: "outline" as const }
-    ];
+    const reviewDate = new Date(topic.nextReview);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    // Determine status based on the topic ID to keep it consistent
-    const index = topicId % statuses.length;
-    return statuses[index];
+    if (isBefore(reviewDate, today)) {
+      return { label: "Atrasado", variant: "destructive" as const };
+    } else if (isToday(reviewDate)) {
+      return { label: "Hoje", variant: "secondary" as const };
+    } else {
+      const formattedDate = format(reviewDate, 'dd/MM');
+      return { label: `Próxima: ${formattedDate}`, variant: "secondary" as const };
+    }
   };
+
+  const getTopicReviewStage = (topic: Topic) => {
+    if (!topic.reviewStage) return "";
+    return topic.reviewStage;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -231,6 +361,7 @@ const StudyPlan = () => {
                 <div className="space-y-4">
                   {subject.topics.map(topic => {
                     const topicStatus = getTopicStatus(topic);
+                    const reviewStage = getTopicReviewStage(topic);
                     const isMarkedForReview = markedTopics[subject.id]?.includes(topic.id);
                     
                     return (
@@ -249,9 +380,17 @@ const StudyPlan = () => {
                           {topic.name}
                         </label>
                         
-                        <Badge variant={topicStatus.variant} className="mr-2">
-                          {topicStatus.label}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={topicStatus.variant} className="mr-2">
+                            {topicStatus.label}
+                          </Badge>
+                          
+                          {reviewStage && (
+                            <Badge variant="outline" className="mr-2 bg-purple-50 text-purple-700 border-purple-300">
+                              {reviewStage}
+                            </Badge>
+                          )}
+                        </div>
                         
                         <div className="flex gap-2">
                           {!isMarkedForReview ? (
@@ -260,6 +399,7 @@ const StudyPlan = () => {
                               size="sm" 
                               className="text-green-600 hover:text-green-800 border border-green-200"
                               onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
+                              disabled={topic.reviewStage === 'Concluído' || (topic.nextReview && !isToday(new Date(topic.nextReview)))}
                             >
                               <Check className="h-4 w-4 mr-1" />
                               Marcar Revisão
