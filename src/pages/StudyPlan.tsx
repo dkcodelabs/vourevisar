@@ -10,8 +10,46 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { supabase } from '@/integrations/supabase/client';
-import { Subject } from '@/types';
+import { Subject, RevisionStage } from '@/types';
 import { Progress } from '@/components/ui/progress';
+import { format, isBefore, isToday, addDays, addWeeks, addMonths } from 'date-fns';
+
+// Utility functions for review stages
+const getNextReviewStage = (currentStage?: RevisionStage): RevisionStage => {
+  switch (currentStage) {
+    case undefined:
+    case null:
+      return '1 dia';
+    case '1 dia':
+      return '7 dias';
+    case '7 dias':
+      return '14 dias';
+    case '14 dias':
+      return '30 dias';
+    case '30 dias':
+      return 'Concluído';
+    default:
+      return 'Concluído';
+  }
+};
+
+// Calculate next review date based on review stage
+const calculateNextReview = (stage?: RevisionStage): Date => {
+  const today = new Date();
+  
+  switch (stage) {
+    case '1 dia':
+      return addDays(today, 1);
+    case '7 dias':
+      return addDays(today, 7);
+    case '14 dias':
+      return addDays(today, 14);
+    case '30 dias':
+      return addDays(today, 30);
+    default:
+      return addDays(today, 1); // Default to 1 day if stage is unknown
+  }
+};
 
 const StudyPlan = () => {
   const { subjects, userProfile, fetchSubjects, fetchUserSettings } = useApp();
@@ -348,6 +386,144 @@ const StudyPlan = () => {
     return topic.reviewStage;
   };
 
+  const renderStudyCards = () => {
+    return currentSubjects.map((subject) => (
+      <Card 
+        key={subject.id} 
+        className={completedSubjects.includes(subject.id) 
+          ? 'border-green-300 bg-green-50' 
+          : expandedSubject === subject.id 
+            ? 'border-app-blue' 
+            : ''
+        }
+      >
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-center">
+            <CardTitle 
+              className="text-xl font-bold text-app-blue cursor-pointer flex items-center"
+              onClick={() => handleToggleExpand(subject.id)}
+            >
+              {subject.name}
+              {expandedSubject === subject.id ? (
+                <ChevronUp className="ml-2 h-5 w-5" />
+              ) : (
+                <ChevronDown className="ml-2 h-5 w-5" />
+              )}
+            </CardTitle>
+            <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+              {subject.status}
+            </Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {expandedSubject === subject.id ? (
+            <div className="space-y-4">
+              {/* Topics for expanded subject */}
+              {subject.topics.length > 0 ? (
+                subject.topics.map(topic => {
+                  const topicStatus = getTopicStatus(topic);
+                  const reviewStage = getTopicReviewStage(topic);
+                  const isMarkedForReview = markedTopics[subject.id]?.includes(topic.id);
+                  
+                  return (
+                    <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
+                      <Checkbox 
+                        id={topic.id} 
+                        checked={topic.completed}
+                        onCheckedChange={(checked) => 
+                          handleToggleTopic(subject.id, topic.id, checked === true)
+                        }
+                      />
+                      <label 
+                        htmlFor={topic.id}
+                        className="flex-1 font-medium"
+                      >
+                        {topic.name}
+                      </label>
+                      
+                      <div className="flex items-center gap-2">
+                        <Badge variant={topicStatus.variant} className="mr-2">
+                          {topicStatus.label}
+                        </Badge>
+                        
+                        {reviewStage && (
+                          <Badge variant="outline" className="mr-2 bg-purple-50 text-purple-700 border-purple-300">
+                            {reviewStage}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {!isMarkedForReview ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-green-600 hover:text-green-800 border border-green-200"
+                            onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
+                            disabled={topic.reviewStage === 'Concluído' || (topic.nextReview && !isToday(new Date(topic.nextReview)))}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Marcar Revisão
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-red-600 hover:text-red-800 border border-red-200"
+                            onClick={() => handleCancelTopicReview(subject.id, topic.id)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Cancelar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-gray-500">Esta matéria não possui tópicos cadastrados.</p>
+                </div>
+              )}
+              
+              <div className="flex justify-between gap-2 mt-4">
+                <Button 
+                  className="bg-app-blue hover:bg-app-light-blue"
+                  onClick={() => handleCompleteSubject(subject.id)}
+                >
+                  Concluir Sessão
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">
+                {subject.topics.length} tópicos disponíveis
+              </span>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => handleSkipSubject(subject.id)}
+                  className="flex items-center"
+                >
+                  <SkipForward className="h-4 w-4 mr-1" />
+                  Pular Matéria
+                </Button>
+                <Button 
+                  className="bg-app-blue hover:bg-app-light-blue"
+                  onClick={() => handleToggleExpand(subject.id)}
+                >
+                  Iniciar Estudo
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    ));
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -404,141 +580,7 @@ const StudyPlan = () => {
         </h2>
         
         {currentSubjects.length > 0 ? (
-          currentSubjects.map((subject) => (
-            <Card 
-              key={subject.id} 
-              className={completedSubjects.includes(subject.id) 
-                ? 'border-green-300 bg-green-50' 
-                : expandedSubject === subject.id 
-                  ? 'border-app-blue' 
-                  : ''
-              }
-            >
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-center">
-                  <CardTitle 
-                    className="text-xl font-bold text-app-blue cursor-pointer flex items-center"
-                    onClick={() => handleToggleExpand(subject.id)}
-                  >
-                    {subject.name}
-                    {expandedSubject === subject.id ? (
-                      <ChevronUp className="ml-2 h-5 w-5" />
-                    ) : (
-                      <ChevronDown className="ml-2 h-5 w-5" />
-                    )}
-                  </CardTitle>
-                  <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                    {subject.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                {expandedSubject === subject.id ? (
-                  <div className="space-y-4">
-                    {/* Topics for expanded subject */}
-                    {subject.topics.length > 0 ? (
-                      subject.topics.map(topic => {
-                        const topicStatus = getTopicStatus(topic);
-                        const reviewStage = getTopicReviewStage(topic);
-                        const isMarkedForReview = markedTopics[subject.id]?.includes(topic.id);
-                        
-                        return (
-                          <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
-                            <Checkbox 
-                              id={topic.id} 
-                              checked={topic.completed}
-                              onCheckedChange={(checked) => 
-                                handleToggleTopic(subject.id, topic.id, checked === true)
-                              }
-                            />
-                            <label 
-                              htmlFor={topic.id}
-                              className="flex-1 font-medium"
-                            >
-                              {topic.name}
-                            </label>
-                            
-                            <div className="flex items-center gap-2">
-                              <Badge variant={topicStatus.variant} className="mr-2">
-                                {topicStatus.label}
-                              </Badge>
-                              
-                              {reviewStage && (
-                                <Badge variant="outline" className="mr-2 bg-purple-50 text-purple-700 border-purple-300">
-                                  {reviewStage}
-                                </Badge>
-                              )}
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              {!isMarkedForReview ? (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="text-green-600 hover:text-green-800 border border-green-200"
-                                  onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
-                                  disabled={topic.reviewStage === 'Concluído' || (topic.nextReview && !isToday(new Date(topic.nextReview)))}
-                                >
-                                  <Check className="h-4 w-4 mr-1" />
-                                  Marcar Revisão
-                                </Button>
-                              ) : (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="text-red-600 hover:text-red-800 border border-red-200"
-                                  onClick={() => handleCancelTopicReview(subject.id, topic.id)}
-                                >
-                                  <X className="h-4 w-4 mr-1" />
-                                  Cancelar
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="text-center py-4">
-                        <p className="text-gray-500">Esta matéria não possui tópicos cadastrados.</p>
-                      </div>
-                    )}
-                    
-                    <div className="flex justify-between gap-2 mt-4">
-                      <Button 
-                        className="bg-app-blue hover:bg-app-light-blue"
-                        onClick={() => handleCompleteSubject(subject.id)}
-                      >
-                        Concluir Sessão
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">
-                      {subject.topics.length} tópicos disponíveis
-                    </span>
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline"
-                        onClick={() => handleSkipSubject(subject.id)}
-                        className="flex items-center"
-                      >
-                        <SkipForward className="h-4 w-4 mr-1" />
-                        Pular Matéria
-                      </Button>
-                      <Button 
-                        className="bg-app-blue hover:bg-app-light-blue"
-                        onClick={() => handleToggleExpand(subject.id)}
-                      >
-                        Iniciar Estudo
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
+          renderStudyCards()
         ) : (
           <Card className="border-dashed">
             <CardContent className="p-8 text-center">
