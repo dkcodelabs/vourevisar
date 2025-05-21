@@ -1,6 +1,3 @@
-
-// Observe que este arquivo é muito extenso (412 linhas)
-// Será necessário refatorar este componente para melhorar a manutenibilidade
 import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
