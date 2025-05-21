@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Subject, UserProfile, StudyProgress, Status, RevisionStage } from '../types';
 import { mockSubjects, mockUserProfile, mockStudyProgress } from '../data/mockData';
 import { supabase } from '../integrations/supabase/client';
@@ -39,7 +40,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const { user } = useAuth();
 
   // Função para buscar as matérias do usuário
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -84,13 +85,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
       );
       
-      setSubjects(subjectsWithTopics);
+      setSubjects(subjectsWithTopics as Subject[]);
       recalculateProgress();
     } catch (error) {
       console.error('Erro ao buscar matérias:', error);
       toast.error("Erro ao carregar matérias");
     }
-  };
+  }, [user]);
 
   // Função para buscar configurações do usuário
   const fetchUserSettings = async () => {
@@ -140,23 +141,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fetchSubjects();
       fetchUserSettings();
     }
-  }, [user]);
+  }, [user, fetchSubjects]);
 
   // Função para recalcular o progresso
   const recalculateProgress = () => {
+    // Contar matérias e atualizar progresso
+    const totalSubjectsCount = subjects.length;
+    
     // Contar tópicos por status
-    let totalTopics = 0;
-    let completedTopics = 0;
-    let delayedTopics = 0;
-    let todayTopics = 0;
-    let futureTopics = 0;
+    let totalTopicsCount = 0;
+    let completedTopicsCount = 0;
+    let delayedTopicsCount = 0;
+    let todayTopicsCount = 0;
+    let futureTopicsCount = 0;
     
     subjects.forEach(subject => {
-      totalTopics += subject.topics.length;
+      totalTopicsCount += subject.topics.length;
       
       subject.topics.forEach(topic => {
         if (topic.completed && (!topic.nextReview || topic.reviewStage === 'Concluído')) {
-          completedTopics++;
+          completedTopicsCount++;
         }
         
         if (topic.nextReview) {
@@ -165,18 +169,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           today.setHours(0, 0, 0, 0);
           
           if (new Date(reviewDate).toDateString() === today.toDateString()) {
-            todayTopics++;
+            todayTopicsCount++;
           } else if (reviewDate < today) {
-            delayedTopics++;
+            delayedTopicsCount++;
           } else if (reviewDate > today) {
-            futureTopics++;
+            futureTopicsCount++;
           }
         }
       });
     });
     
     // Contar matérias concluídas (todas matérias cujos tópicos estão todos concluídos)
-    const completedSubjects = subjects.filter(subject => 
+    const completedSubjectsCount = subjects.filter(subject => 
       subject.topics.length > 0 && 
       subject.topics.every(topic => 
         topic.completed && (!topic.nextReview || topic.reviewStage === 'Concluído')
@@ -184,13 +188,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ).length;
     
     setStudyProgress({
-      totalSubjects: subjects.length,
-      completedSubjects,
-      totalTopics,
-      completedTopics,
-      delayedTopics,
-      todayTopics,
-      futureTopics
+      totalSubjects: totalSubjectsCount,
+      completedSubjects: completedSubjectsCount,
+      totalTopics: totalTopicsCount,
+      completedTopics: completedTopicsCount,
+      delayedTopics: delayedTopicsCount,
+      todayTopics: todayTopicsCount,
+      futureTopics: futureTopicsCount
     });
   };
 

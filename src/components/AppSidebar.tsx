@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, BarChart } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -45,6 +45,16 @@ export function AppSidebar() {
             >
               <Calendar size={20} />
               <span>Plano de Estudos</span>
+            </NavLink>
+            
+            <NavLink 
+              to="/estatisticas" 
+              className={({ isActive }) => 
+                `sidebar-item ${isActive ? 'active' : ''}`
+              }
+            >
+              <BarChart size={20} />
+              <span>Estatísticas</span>
             </NavLink>
             
             <NavLink 

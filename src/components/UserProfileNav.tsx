@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut, Settings, User } from "lucide-react";
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 
 export function UserProfileNav() {
   const { user, profile, signOut } = useAuth();
@@ -38,7 +37,6 @@ export function UserProfileNav() {
     <div className="flex items-center gap-3">
       <div className="hidden sm:flex flex-col items-end">
         <span className="text-sm font-medium">{firstName || 'Usuário'}</span>
-        <span className="text-xs text-muted-foreground">vouRevisar</span>
       </div>
       
       <DropdownMenu>
@@ -68,6 +66,12 @@ export function UserProfileNav() {
             <Link to="/configuracoes" className="flex cursor-pointer items-center">
               <Settings className="mr-2 h-4 w-4" />
               <span>Configurações</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/estatisticas" className="flex cursor-pointer items-center">
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Estatísticas</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />

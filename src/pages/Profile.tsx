@@ -240,32 +240,6 @@ const Profile = () => {
           </Form>
         </CardContent>
       </Card>
-      
-      <Card className="max-w-xl">
-        <CardHeader>
-          <CardTitle className="text-xl">Estatísticas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="border rounded-lg p-4">
-              <h3 className="text-sm text-gray-500">Total de Matérias</h3>
-              <p className="text-2xl font-bold mt-1">5</p>
-            </div>
-            <div className="border rounded-lg p-4">
-              <h3 className="text-sm text-gray-500">Total de Tópicos</h3>
-              <p className="text-2xl font-bold mt-1">15</p>
-            </div>
-            <div className="border rounded-lg p-4">
-              <h3 className="text-sm text-gray-500">Revisões Realizadas</h3>
-              <p className="text-2xl font-bold mt-1">35</p>
-            </div>
-            <div className="border rounded-lg p-4">
-              <h3 className="text-sm text-gray-500">Dias Consecutivos</h3>
-              <p className="text-2xl font-bold mt-1">12</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
