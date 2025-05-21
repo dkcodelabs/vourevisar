@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
@@ -18,9 +17,14 @@ export const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const [showRevisionsDialog, setShowRevisionsDialog] = useState(false);
   
-  // Format progress as percentage
-  const progressPercentage = Math.round((studyProgress.completedSubjects / studyProgress.totalSubjects) * 100);
-  const topicsPercentage = Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100);
+  // Format progress as percentage with safety checks to prevent NaN
+  const progressPercentage = studyProgress.totalSubjects > 0 
+    ? Math.round((studyProgress.completedSubjects / studyProgress.totalSubjects) * 100) 
+    : 0;
+    
+  const topicsPercentage = studyProgress.totalTopics > 0 
+    ? Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100) 
+    : 0;
 
   // For the purpose of this demo, we're keeping only today's reviews
   // In a real app, this would be filtered by the current day
@@ -132,7 +136,7 @@ export const Dashboard = () => {
                 {studyProgress.completedSubjects}/{studyProgress.totalSubjects}
               </div>
               <div className="text-sm text-gray-500 mt-1">
-                Você já cadastrou {studyProgress.completedSubjects} de {studyProgress.totalSubjects} matérias planejadas.
+                Você já concluiu {studyProgress.completedSubjects} de {studyProgress.totalSubjects} matérias cadastradas.
               </div>
             </div>
           </CardContent>
@@ -151,7 +155,7 @@ export const Dashboard = () => {
                 {studyProgress.completedTopics}/{studyProgress.totalTopics}
               </div>
               <div className="text-sm text-gray-500 mt-1">
-                {studyProgress.completedTopics} de {studyProgress.totalTopics} tópicos totais.
+                Você já concluiu {studyProgress.completedTopics} de {studyProgress.totalTopics} tópicos cadastrados.
               </div>
             </div>
           </CardContent>

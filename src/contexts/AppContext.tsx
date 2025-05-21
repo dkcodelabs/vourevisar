@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Subject, UserProfile, StudyProgress, Status, RevisionStage } from '../types';
 import { mockSubjects, mockUserProfile, mockStudyProgress } from '../data/mockData';
@@ -279,6 +280,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .eq('id', id);
         
       if (error) throw error;
+      
+      // Excluir também todos os tópicos relacionados à matéria
+      await supabase
+        .from('topics')
+        .delete()
+        .eq('subject_id', id);
       
       // Remover a matéria da lista
       setSubjects((prev) => prev.filter((subject) => subject.id !== id));
