@@ -73,6 +73,7 @@ export function useAuthOperations() {
           .update({
             name: name,
             phone: phone || null,
+            provider_type: 'Cadastro' // Explicitly set provider_type
           })
           .eq('id', data.user.id);
           
@@ -102,17 +103,29 @@ export function useAuthOperations() {
   const signInWithGoogle = async () => {
     try {
       // Get the current URL to use as redirectTo
-      const currentUrl = window.location.origin;
+      const redirectUrl = window.location.origin;
+      console.log("Google login redirect URL:", redirectUrl);
       
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: currentUrl
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Google login error:", error);
+        throw error;
+      }
+      
+      console.log("Google sign-in initiated successfully", data);
+      return data;
     } catch (error: any) {
+      console.error("Google sign-in error:", error);
       toast({
         title: 'Erro ao fazer login com Google',
         description: error.message,
@@ -124,13 +137,15 @@ export function useAuthOperations() {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
     } catch (error: any) {
       toast({
         title: 'Erro ao sair',
         description: error.message,
         variant: 'destructive'
       });
+      throw error;
     }
   };
 
@@ -180,6 +195,10 @@ export function useAuthOperations() {
 
   const updateProfile = async (user: User, profile: Partial<Profile>, currentProfile: Profile | null) => {
     try {
+      if (!profile) {
+        throw new Error("No profile data provided");
+      }
+      
       const { error } = await supabase
         .from('profiles')
         .update({ 
@@ -190,7 +209,7 @@ export function useAuthOperations() {
         
       if (error) throw error;
       
-      // Retorna o perfil atualizado para ser usado no componente pai
+      // Return the updated profile to be used in the parent component
       const updatedProfile = currentProfile ? { ...currentProfile, ...profile } : null;
       
       toast({
@@ -200,6 +219,7 @@ export function useAuthOperations() {
       
       return updatedProfile;
     } catch (error: any) {
+      console.error('Error updating profile:', error);
       toast({
         title: 'Erro ao atualizar perfil',
         description: error.message,

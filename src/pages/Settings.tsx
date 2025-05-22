@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 // Definindo o tipo para as configurações do usuário
 interface UserSettings {
@@ -21,6 +23,8 @@ const Settings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<UserSettings>({
     subjects_per_day: 3,
     notifications_enabled: true,
@@ -31,16 +35,23 @@ const Settings = () => {
   useEffect(() => {
     if (user) {
       fetchUserSettings();
+    } else {
+      setIsLoading(false);
     }
   }, [user]);
   
   const fetchUserSettings = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
     try {
       const { data, error } = await supabase
         .from('user_settings')
         .select('*')
-        .eq('user_id', user?.id)
-        .single();
+        .eq('user_id', user.id)
+        .maybeSingle();
       
       if (error) throw error;
       
@@ -50,14 +61,29 @@ const Settings = () => {
           notifications_enabled: data.notifications_enabled,
           notification_time: data.notification_time
         });
+      } else {
+        // Create default settings if none exist
+        const { error: insertError } = await supabase
+          .from('user_settings')
+          .insert({
+            user_id: user.id,
+            subjects_per_day: settings.subjects_per_day,
+            notifications_enabled: settings.notifications_enabled,
+            notification_time: settings.notification_time
+          });
+          
+        if (insertError) throw insertError;
       }
-    } catch (error) {
-      console.error('Erro ao buscar configurações:', error);
+    } catch (err: any) {
+      console.error('Erro ao buscar configurações:', err);
+      setError('Não foi possível carregar suas configurações. Por favor, tente novamente mais tarde.');
       toast({
         title: "Erro",
         description: "Não foi possível carregar suas configurações",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -86,6 +112,7 @@ const Settings = () => {
     if (!user) return;
     
     setIsSaving(true);
+    setError(null);
     
     try {
       const { error } = await supabase
@@ -104,8 +131,9 @@ const Settings = () => {
         title: "Sucesso",
         description: "Configurações salvas com sucesso",
       });
-    } catch (error) {
-      console.error('Erro ao salvar configurações:', error);
+    } catch (err: any) {
+      console.error('Erro ao salvar configurações:', err);
+      setError('Não foi possível salvar suas configurações. Por favor, tente novamente mais tarde.');
       toast({
         title: "Erro",
         description: "Não foi possível salvar suas configurações",
@@ -116,9 +144,25 @@ const Settings = () => {
     }
   };
   
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-app-blue" />
+        <span className="ml-2">Carregando configurações...</span>
+      </div>
+    );
+  }
+  
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Configurações</h1>
+      
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>Erro</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       
       <Card className="max-w-2xl">
         <CardHeader>
@@ -143,7 +187,11 @@ const Settings = () => {
             
             <div>
               <h3 className="font-medium mb-3">Organização da Sequência de Matérias</h3>
-              <Button variant="outline" className="mr-2">
+              <Button 
+                variant="outline" 
+                className="mr-2"
+                onClick={() => window.location.href = '/materias'}
+              >
                 Ir para Gerenciar Matérias
               </Button>
               <p className="text-sm text-gray-500 mt-2">

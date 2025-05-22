@@ -9,18 +9,22 @@ type Profile = Database['public']['Tables']['profiles']['Row'];
 export function useProfileData() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchProfile = async (userId: string) => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      setError(null);
+      
+      const { data, error: supabaseError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
+      if (supabaseError) {
+        console.error('Error fetching profile:', supabaseError);
+        setError(new Error(supabaseError.message));
         return null;
       }
 
@@ -32,8 +36,9 @@ export function useProfileData() {
         console.log('No profile found for user:', userId);
         return null;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in fetchProfile:', error);
+      setError(error);
       return null;
     } finally {
       setIsLoading(false);
@@ -47,6 +52,7 @@ export function useProfileData() {
   return {
     profile,
     isLoading,
+    error,
     fetchProfile,
     updateLocalProfile
   };

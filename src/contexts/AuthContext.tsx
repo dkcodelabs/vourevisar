@@ -16,7 +16,7 @@ interface AuthContextProps {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string, phone?: string) => Promise<any>; // Updated return type
+  signUp: (email: string, password: string, name: string, phone?: string) => Promise<any>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -29,23 +29,41 @@ const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   
   const auth = useAuthOperations();
   const { profile, fetchProfile, updateLocalProfile } = useProfileData();
 
+  // Function to handle user data after authentication
+  const handleUserData = async (currentUser: User | null) => {
+    if (currentUser) {
+      try {
+        const profileData = await fetchProfile(currentUser.id);
+        if (!profileData) {
+          console.log('No profile found, user may need to complete registration');
+        }
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+      }
+    } else {
+      updateLocalProfile(null);
+    }
+  };
+
   useEffect(() => {
-    // Configure auth state change listener
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
+      async (event, newSession) => {
+        console.log('Auth state changed:', event);
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
         if (newSession?.user) {
           // Use setTimeout to avoid potential recursive loop in auth state change
           setTimeout(() => {
-            fetchProfile(newSession.user.id);
+            handleUserData(newSession.user);
           }, 0);
         } else {
           updateLocalProfile(null);
@@ -63,14 +81,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const initializeAuth = async () => {
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('Initial session:', currentSession ? 'exists' : 'none');
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
-          const profileData = await fetchProfile(currentSession.user.id);
-          if (!profileData) {
-            console.log('No profile found, user may need to complete registration');
-          }
+          await handleUserData(currentSession.user);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -81,6 +97,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
       } finally {
         setLoading(false);
+        setAuthInitialized(true);
       }
     };
 
@@ -89,38 +106,73 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, fetchProfile, updateLocalProfile]);
+  }, [navigate]);
 
   // Wrapper functions to maintain the same API interface
-  const signIn = (email: string, password: string) => {
-    return auth.signIn(email, password);
+  const signIn = async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      await auth.signIn(email, password);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signUp = (email: string, password: string, name: string, phone?: string) => {
-    return auth.signUp(email, password, name, phone);
+    setLoading(true);
+    try {
+      return auth.signUp(email, password, name, phone);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const signInWithGoogle = () => {
-    return auth.signInWithGoogle();
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    try {
+      await auth.signInWithGoogle();
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const signOut = () => {
-    return auth.signOut();
+  const signOut = async () => {
+    setLoading(true);
+    try {
+      await auth.signOut();
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updatePassword = (password: string) => {
-    return auth.updatePassword(password);
+  const updatePassword = async (password: string) => {
+    setLoading(true);
+    try {
+      await auth.updatePassword(password);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const resetPassword = (email: string) => {
-    return auth.resetPassword(email);
+  const resetPassword = async (email: string) => {
+    setLoading(true);
+    try {
+      return await auth.resetPassword(email);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateProfile = async (profileData: Partial<Profile>) => {
-    if (!user) return;
-    
-    const updatedProfile = await auth.updateProfile(user, profileData, profile);
-    updateLocalProfile(updatedProfile);
+    setLoading(true);
+    try {
+      if (!user) return;
+      
+      const updatedProfile = await auth.updateProfile(user, profileData, profile);
+      updateLocalProfile(updatedProfile);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const value = {
