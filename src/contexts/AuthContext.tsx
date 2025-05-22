@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -139,10 +138,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
+      // Get the current URL to use as redirectTo
+      const currentUrl = window.location.origin;
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`
+          redirectTo: currentUrl
         }
       });
       
@@ -191,14 +193,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const updateProfile = async (profileData: Partial<Profile>) => {
+  const updateProfile = async (profile: Partial<Profile>) => {
     if (!user) return;
     
     try {
       const { error } = await supabase
         .from('profiles')
         .update({ 
-          ...profileData,
+          ...profile,
           updated_at: new Date().toISOString() 
         })
         .eq('id', user.id);
@@ -206,7 +208,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) throw error;
       
       // Atualizar o perfil local
-      setProfile(prev => prev ? { ...prev, ...profileData } : null);
+      setProfile(prev => prev ? { ...prev, ...profile } : null);
       
       toast({
         title: 'Perfil atualizado',

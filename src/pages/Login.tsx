@@ -1,9 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Navigate } from 'react-router-dom';
@@ -75,6 +74,15 @@ const Login = () => {
     } catch (error) {
       console.error('Erro no cadastro:', error);
       toast.error('Erro ao criar conta. Tente novamente mais tarde.');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error('Erro ao fazer login com Google:', error);
+      // Toast já é mostrado dentro da função signInWithGoogle
     }
   };
 
@@ -268,7 +276,7 @@ const Login = () => {
           <Button 
             variant="outline" 
             className="w-full flex items-center gap-2"
-            onClick={signInWithGoogle}
+            onClick={handleGoogleSignIn}
             disabled={loading}
           >
             <FcGoogle size={20} />
