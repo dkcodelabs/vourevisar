@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Database } from '@/integrations/supabase/types';
 import { useAuthOperations } from '@/hooks/useAuthOperations';
 import { useProfileData } from '@/hooks/useProfileData';
+import { toast } from '@/components/ui/use-toast';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -35,13 +36,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { profile, fetchProfile, updateLocalProfile } = useProfileData();
 
   useEffect(() => {
-    // Configurar o listener de mudança de estado de autenticação
+    // Configure auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
         if (newSession?.user) {
+          // Use setTimeout to avoid potential recursive loop in auth state change
           setTimeout(() => {
             fetchProfile(newSession.user.id);
           }, 0);
@@ -57,17 +59,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Verificar se já existe uma sessão
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      
-      if (currentSession?.user) {
-        fetchProfile(currentSession.user.id);
+    // Check for existing session on load
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        
+        if (currentSession?.user) {
+          const profileData = await fetchProfile(currentSession.user.id);
+          if (!profileData) {
+            console.log('No profile found, user may need to complete registration');
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        toast({
+          title: 'Erro de autenticação',
+          description: 'Não foi possível carregar os dados do usuário.',
+          variant: 'destructive'
+        });
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
-    });
+    };
+
+    initializeAuth();
 
     return () => {
       subscription.unsubscribe();

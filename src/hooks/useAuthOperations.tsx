@@ -31,7 +31,6 @@ export function useAuthOperations() {
     setLoading(true);
     try {
       // Check if email already exists by attempting to get a user with that email
-      // Note: removed the invalid filters property
       const { data: existingUserData, error: emailCheckError } = await supabase
         .from('profiles')
         .select('email')
@@ -67,13 +66,27 @@ export function useAuthOperations() {
         throw error;
       }
       
+      // If signup was successful, update the profile with the additional data
+      if (data?.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            name: name,
+            phone: phone || null,
+          })
+          .eq('id', data.user.id);
+          
+        if (profileError) {
+          console.error('Error updating profile:', profileError);
+        }
+      }
+      
       toast({
         title: 'Cadastro realizado!',
         description: 'Verifique seu e-mail para confirmar o cadastro.',
       });
 
       return data;
-        
     } catch (error: any) {
       toast({
         title: 'Erro ao criar conta',

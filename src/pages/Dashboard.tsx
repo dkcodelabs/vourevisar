@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,12 +11,127 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { format, isToday } from 'date-fns';
 
 export const Dashboard = () => {
-  const { studyProgress } = useApp();
+  const { studyProgress, fetchSubjects } = useApp();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const [showRevisionsDialog, setShowRevisionsDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [todaysReviews, setTodaysReviews] = useState<any[]>([]);
+  const [revisionsByDate, setRevisionsByDate] = useState<Record<number, any[]>>({});
+
+  // Fetch data when component mounts
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch subjects and their topics
+      await fetchSubjects();
+
+      // Fetch today's reviews
+      await fetchTodaysReviews();
+
+      // Fetch revisions for the calendar
+      await fetchRevisionsForCalendar();
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchTodaysReviews = async () => {
+    try {
+      // Get today's date at midnight
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Query for topics with next_review today
+      const { data, error } = await supabase
+        .from('topics')
+        .select(`
+          id,
+          name,
+          next_review,
+          subject_id,
+          subjects(name)
+        `)
+        .gte('next_review', today.toISOString())
+        .lt('next_review', new Date(today.getTime() + 86400000).toISOString());
+
+      if (error) throw error;
+
+      // Transform data for display
+      const reviews = data.map(topic => ({
+        id: topic.id,
+        subject: topic.subjects?.name || 'Desconhecido',
+        topic: topic.name,
+        date: 'Hoje',
+        type: 'Revisão para Hoje'
+      }));
+
+      setTodaysReviews(reviews);
+    } catch (error) {
+      console.error('Error fetching today\'s reviews:', error);
+      setTodaysReviews([]);
+    }
+  };
+
+  const fetchRevisionsForCalendar = async () => {
+    try {
+      // Get all topics with scheduled reviews
+      const { data, error } = await supabase
+        .from('topics')
+        .select(`
+          id,
+          name,
+          next_review,
+          subject_id,
+          subjects(name)
+        `)
+        .not('next_review', 'is', null);
+
+      if (error) throw error;
+
+      // Organize reviews by day of month
+      const reviewsByDay: Record<number, any[]> = {};
+      
+      data.forEach(topic => {
+        if (topic.next_review) {
+          const reviewDate = new Date(topic.next_review);
+          const day = reviewDate.getDate();
+          
+          if (!reviewsByDay[day]) {
+            reviewsByDay[day] = [];
+          }
+          
+          const status = isToday(reviewDate) ? 'Hoje' : 
+                         reviewDate < new Date() ? 'Atrasado' : 'Futura';
+          
+          reviewsByDay[day].push({
+            id: topic.id,
+            subject: topic.subjects?.name || 'Desconhecido',
+            topic: topic.name,
+            status
+          });
+        }
+      });
+      
+      setRevisionsByDate(reviewsByDay);
+    } catch (error) {
+      console.error('Error fetching calendar revisions:', error);
+    }
+  };
   
   // Format progress as percentage with safety checks to prevent NaN
   const progressPercentage = studyProgress.totalSubjects > 0 
@@ -26,86 +142,23 @@ export const Dashboard = () => {
     ? Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100) 
     : 0;
 
-  // For the purpose of this demo, we're keeping only today's reviews
-  // In a real app, this would be filtered by the current day
-  const todaysReviews = [{
-    id: '1',
-    subject: 'Português',
-    topic: 'Concordância Verbal',
-    date: 'Hoje',
-    type: 'Revisão para Hoje'
-  }];
-
-  // Mock data for revisions on selected date
-  const getRevisionsForDate = (day: number) => {
-    // This would come from a real data source in a production app
-    if (day === 5) {
-      return [
-        {
-          id: `rev-${day}-1`,
-          subject: 'Direito Constitucional',
-          topic: 'Artigos 1-5',
-          status: 'Pendente'
-        }
-      ];
-    }
-    if (day === 12) {
-      return [
-        {
-          id: `rev-${day}-1`,
-          subject: 'Direito Constitucional',
-          topic: 'Artigos 1-5',
-          status: 'Hoje'
-        }
-      ];
-    }
-    if (day === 19) {
-      return [
-        {
-          id: `rev-${day}-1`,
-          subject: 'Português',
-          topic: 'Concordância Verbal',
-          status: 'Hoje'
-        },
-        {
-          id: `rev-${day}-2`,
-          subject: 'Direito Constitucional',
-          topic: 'Artigos 1-5',
-          status: 'Futura'
-        }
-      ];
-    }
-    if (day === 28) {
-      return [
-        {
-          id: `rev-${day}-1`,
-          subject: 'Direito Constitucional',
-          topic: 'Artigos 1-5',
-          status: 'Futura'
-        },
-        {
-          id: `rev-${day}-2`,
-          subject: 'Português',
-          topic: 'Concordância Verbal',
-          status: 'Futura'
-        }
-      ];
-    }
-    return [];
-  };
-
-  // Get only today's revisions (status === 'Hoje')
-  const getTodaysRevisionsForDate = (day: number) => {
-    const allRevisions = getRevisionsForDate(day);
-    return allRevisions.filter(rev => rev.status === 'Hoje');
-  };
-
   const handleDateClick = (day: number) => {
-    setSelectedDate(day);
-    setShowRevisionsDialog(true);
+    // Only allow clicking days that have revisions
+    if (revisionsByDate[day] && revisionsByDate[day].length > 0) {
+      setSelectedDate(day);
+      setShowRevisionsDialog(true);
+    }
   };
 
   const currentDay = new Date().getDate();
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -120,7 +173,7 @@ export const Dashboard = () => {
         </Button>
       </div>
       
-      <p className="text-gray-600">Bem-vindo(a) de volta, Darcilio! Aqui está seu progresso.</p>
+      <p className="text-gray-600">Bem-vindo(a) de volta! Aqui está seu progresso.</p>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
@@ -205,11 +258,11 @@ export const Dashboard = () => {
                 <div className="calendar-day">S</div>
                 <div className="calendar-day">S</div>
                 
-                {/* We're keeping the calendar display with the current day highlighted */}
+                {/* Display calendar days with revisions highlighted */}
                 {Array.from({ length: 31 }, (_, i) => {
                   const day = i + 1;
                   const isToday = day === currentDay;
-                  const hasRevision = [5, 12, 19, 28].includes(day);
+                  const hasRevision = revisionsByDate[day] && revisionsByDate[day].length > 0;
                   
                   return (
                     <div 
@@ -313,13 +366,13 @@ export const Dashboard = () => {
             <DialogTitle>Revisões para o dia {selectedDate}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            {selectedDate && getRevisionsForDate(selectedDate).map(revision => (
+            {selectedDate && revisionsByDate[selectedDate]?.map(revision => (
               <div key={revision.id} className="border rounded-md p-3">
                 <div className="flex justify-between items-center">
                   <h4 className="font-medium">{revision.subject} - {revision.topic}</h4>
                   <span 
                     className={`text-xs px-2 py-1 rounded-full ${
-                      revision.status === 'Pendente' ? 'bg-yellow-100 text-yellow-800' : 
+                      revision.status === 'Atrasado' ? 'bg-yellow-100 text-yellow-800' : 
                       revision.status === 'Hoje' ? 'bg-red-100 text-red-800' : 
                       'bg-blue-100 text-blue-800'
                     }`}
@@ -329,7 +382,7 @@ export const Dashboard = () => {
                 </div>
               </div>
             ))}
-            {selectedDate && getRevisionsForDate(selectedDate).length === 0 && (
+            {selectedDate && (!revisionsByDate[selectedDate] || revisionsByDate[selectedDate].length === 0) && (
               <p className="text-center text-gray-500">Não há revisões agendadas para este dia.</p>
             )}
           </div>

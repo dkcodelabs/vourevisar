@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useNavigate } from 'react-router-dom';
 
 const passwordSchema = z.object({
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
@@ -30,17 +31,24 @@ const Profile = () => {
   const { profile, user, updateProfile, updatePassword } = useAuth();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
   
   // Check if user is from Google provider
   const isGoogleUser = user?.app_metadata?.provider === 'google';
   
+  // Populate form with profile data when it becomes available
+  useEffect(() => {
+    if (profile) {
+      profileForm.reset({
+        name: profile.name || '',
+        phone: profile.phone || '',
+      });
+    }
+  }, [profile]);
+  
   const profileForm = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      name: profile?.name || '',
-      phone: profile?.phone || '',
-    },
-    values: {
       name: profile?.name || '',
       phone: profile?.phone || '',
     },
@@ -255,21 +263,27 @@ const Profile = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="border rounded-lg p-4">
               <h3 className="text-sm text-gray-500">Total de Matérias</h3>
-              <p className="text-2xl font-bold mt-1">5</p>
+              <p className="text-2xl font-bold mt-1">0</p>
             </div>
             <div className="border rounded-lg p-4">
               <h3 className="text-sm text-gray-500">Total de Tópicos</h3>
-              <p className="text-2xl font-bold mt-1">15</p>
+              <p className="text-2xl font-bold mt-1">0</p>
             </div>
             <div className="border rounded-lg p-4">
               <h3 className="text-sm text-gray-500">Revisões Realizadas</h3>
-              <p className="text-2xl font-bold mt-1">35</p>
+              <p className="text-2xl font-bold mt-1">0</p>
             </div>
             <div className="border rounded-lg p-4">
               <h3 className="text-sm text-gray-500">Dias Consecutivos</h3>
-              <p className="text-2xl font-bold mt-1">12</p>
+              <p className="text-2xl font-bold mt-1">0</p>
             </div>
           </div>
+          <Button 
+            className="mt-4 w-full bg-app-blue hover:bg-app-light-blue" 
+            onClick={() => navigate('/materias')}
+          >
+            Ir para Gerenciar Matérias
+          </Button>
         </CardContent>
       </Card>
     </div>
