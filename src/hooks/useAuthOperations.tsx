@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,7 +102,7 @@ export function useAuthOperations() {
   const signInWithGoogle = async () => {
     try {
       // Get the current URL to use as redirectTo
-      const redirectUrl = window.location.origin;
+      const redirectUrl = `${window.location.origin}/auth/callback`;
       console.log("Google login redirect URL:", redirectUrl);
       
       const { error, data } = await supabase.auth.signInWithOAuth({

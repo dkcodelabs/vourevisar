@@ -25,17 +25,36 @@ const StudyPlan = () => {
   
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
-    if (user) {
-      const loadData = async () => {
-        setIsLoading(true);
-        await fetchSubjects();
-        await fetchUserSettings();
-        setIsLoading(false);
-      };
-      
-      loadData();
-    }
-  }, [user]);
+    let isMounted = true;
+
+    const loadData = async () => {
+      if (!user) return;
+
+      setIsLoading(true);
+      try {
+        // Carrega os dados apenas se não estiverem já carregados
+        if (subjects.length === 0) {
+          await fetchSubjects();
+        }
+        if (!userProfile?.settings) {
+          await fetchUserSettings();
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        toast.error("Erro ao carregar dados. Por favor, tente novamente.");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, subjects.length, userProfile?.settings]);
   
   // Get the subjectsPerDay from user settings
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;

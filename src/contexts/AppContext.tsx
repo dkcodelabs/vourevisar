@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Subject, UserProfile, StudyProgress, Status, RevisionStage } from '../types';
 import { mockSubjects, mockUserProfile, mockStudyProgress } from '../data/mockData';
@@ -38,6 +37,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     futureTopics: 0
   });
   const { user } = useAuth();
+
+  // Buscar dados quando o usuário estiver autenticado
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      if (!user) return;
+
+      try {
+        // Primeiro busca as configurações do usuário
+        await fetchUserSettings();
+        
+        // Depois busca as matérias
+        if (isMounted) {
+          await fetchSubjects();
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados iniciais:', error);
+        if (isMounted) {
+          toast.error("Erro ao carregar dados. Por favor, tente novamente.");
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]); // Apenas depende do user
 
   // Função para buscar as matérias do usuário
   const fetchSubjects = async () => {
@@ -89,7 +118,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       recalculateProgress();
     } catch (error) {
       console.error('Erro ao buscar matérias:', error);
-      toast.error("Erro ao carregar matérias");
+      throw error; // Propaga o erro para ser tratado no nível superior
     }
   };
 
@@ -131,17 +160,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (error) {
       console.error('Erro ao buscar configurações:', error);
-      toast.error("Erro ao carregar configurações");
+      throw error; // Propaga o erro para ser tratado no nível superior
     }
   };
-
-  // Buscar dados quando o usuário estiver autenticado
-  useEffect(() => {
-    if (user) {
-      fetchSubjects();
-      fetchUserSettings();
-    }
-  }, [user]);
 
   // Função para recalcular o progresso
   const recalculateProgress = () => {

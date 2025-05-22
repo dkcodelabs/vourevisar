@@ -62,56 +62,66 @@ const Subjects = () => {
 
   // Carregar matérias do usuário
   useEffect(() => {
-    if (user) {
-      fetchSubjects();
-    }
-  }, [user]);
+    let isMounted = true;
 
-  const fetchSubjects = async () => {
-    if (!user) return;
-    
-    setIsLoading(true);
-    try {
-      // Buscar as disciplinas do usuário
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('priority', { ascending: true });
-      
-      if (subjectsError) throw subjectsError;
-      
-      // Para cada disciplina, buscar seus tópicos
-      const subjectsWithTopics = await Promise.all(
-        (subjectsData || []).map(async (subject) => {
-          const { data: topicsData, error: topicsError } = await supabase
-            .from('topics')
-            .select('*')
-            .eq('subject_id', subject.id);
-          
-          if (topicsError) throw topicsError;
-          
-          return {
-            id: subject.id,
-            name: subject.name,
-            status: 'Nova' as const, // Por padrão define como Nova
-            topics: topicsData || []
-          };
-        })
-      );
-      
-      setSubjects(subjectsWithTopics);
-    } catch (error) {
-      console.error('Erro ao buscar matérias:', error);
-      useToastHook({
-        title: "Erro",
-        description: "Não foi possível carregar suas matérias",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const loadData = async () => {
+      if (!user) return;
+
+      setIsLoading(true);
+      try {
+        // Buscar as disciplinas do usuário
+        const { data: subjectsData, error: subjectsError } = await supabase
+          .from('subjects')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('priority', { ascending: true });
+        
+        if (subjectsError) throw subjectsError;
+        
+        // Para cada disciplina, buscar seus tópicos
+        const subjectsWithTopics = await Promise.all(
+          (subjectsData || []).map(async (subject) => {
+            const { data: topicsData, error: topicsError } = await supabase
+              .from('topics')
+              .select('*')
+              .eq('subject_id', subject.id);
+            
+            if (topicsError) throw topicsError;
+            
+            return {
+              id: subject.id,
+              name: subject.name,
+              status: subject.status || 'Nova',
+              topics: topicsData || []
+            };
+          })
+        );
+        
+        if (isMounted) {
+          setSubjects(subjectsWithTopics);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar matérias:', error);
+        if (isMounted) {
+          useToastHook({
+            title: "Erro",
+            description: "Não foi possível carregar suas matérias. Por favor, tente novamente.",
+            variant: "destructive"
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   const handleAddSubject = async () => {
     if (!user) return;
