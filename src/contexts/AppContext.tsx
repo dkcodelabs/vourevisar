@@ -46,12 +46,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!user) return;
 
       try {
-        // Primeiro busca as configurações do usuário
-        await fetchUserSettings();
-        
-        // Depois busca as matérias
-        if (isMounted) {
-          await fetchSubjects();
+        // Buscar configurações e matérias em paralelo
+        const [settingsResult, subjectsResult] = await Promise.allSettled([
+          fetchUserSettings(),
+          fetchSubjects()
+        ]);
+
+        if (settingsResult.status === 'rejected') {
+          console.error('Erro ao carregar configurações:', settingsResult.reason);
+          if (isMounted) {
+            toast.error("Erro ao carregar configurações. Por favor, tente novamente.");
+          }
+        }
+
+        if (subjectsResult.status === 'rejected') {
+          console.error('Erro ao carregar matérias:', subjectsResult.reason);
+          if (isMounted) {
+            toast.error("Erro ao carregar matérias. Por favor, tente novamente.");
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar dados iniciais:', error);
@@ -66,7 +78,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       isMounted = false;
     };
-  }, [user]); // Apenas depende do user
+  }, [user]);
 
   // Função para buscar as matérias do usuário
   const fetchSubjects = async () => {

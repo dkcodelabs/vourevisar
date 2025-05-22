@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -65,11 +64,26 @@ const Profile = () => {
   
   // Fetch statistics data
   useEffect(() => {
-    if (user) {
-      fetchStatsData();
-    } else {
-      setIsLoadingStats(false);
-    }
+    let isMounted = true;
+
+    const loadData = async () => {
+      if (!user) return;
+
+      try {
+        await fetchStatsData();
+      } catch (error) {
+        console.error('Erro ao carregar dados estatísticos:', error);
+        if (isMounted) {
+          setError('Não foi possível carregar os dados estatísticos');
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
   
   const fetchStatsData = async () => {
@@ -87,7 +101,7 @@ const Profile = () => {
       
       if (subjectsError) throw subjectsError;
       
-      const subjectIds = subjectsData.map(subject => subject.id);
+      const subjectIds = subjectsData?.map(subject => subject.id) || [];
       
       // Fetch total topics
       const { data: topicsData, error: topicsError } = await supabase
@@ -112,7 +126,7 @@ const Profile = () => {
       
     } catch (err: any) {
       console.error('Error fetching stats:', err);
-      setError('Não foi possível carregar os dados estatísticos');
+      throw new Error('Não foi possível carregar os dados estatísticos');
     } finally {
       setIsLoadingStats(false);
     }
