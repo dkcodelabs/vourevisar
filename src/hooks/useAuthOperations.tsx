@@ -30,45 +30,50 @@ export function useAuthOperations() {
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
     setLoading(true);
     try {
-      // Check if email already exists
-      const { data: existingUsers } = await supabase.auth.admin.listUsers({
-        filters: {
-          email: email
-        }
-      }).catch(() => ({ data: null }));
+      // Check if email already exists by attempting to get a user with that email
+      // Note: removed the invalid filters property
+      const { data: existingUserData, error: emailCheckError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (emailCheckError) {
+        console.error("Error checking existing email:", emailCheckError);
+      }
 
-      // If we can't check for existing users, proceed with signup
-      // The server will still catch duplicate emails
-      if (!existingUsers) {
-        const { error, data } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              name,
-              phone,
-              provider: 'Cadastro' // Store provider type as 'Cadastro' for manual signups
-            }
-          }
-        });
-        
-        if (error) {
-          if (error.message.includes('already registered')) {
-            throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
-          }
-          throw error;
-        }
-        
-        toast({
-          title: 'Cadastro realizado!',
-          description: 'Verifique seu e-mail para confirmar o cadastro.',
-        });
-
-        return data;
-      } else if (existingUsers.users && existingUsers.users.length > 0) {
+      // If email already exists
+      if (existingUserData) {
         throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
       }
       
+      // Proceed with signup
+      const { error, data } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            phone,
+            provider: 'Cadastro' // Store provider type as 'Cadastro' for manual signups
+          }
+        }
+      });
+      
+      if (error) {
+        if (error.message.includes('already registered')) {
+          throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
+        }
+        throw error;
+      }
+      
+      toast({
+        title: 'Cadastro realizado!',
+        description: 'Verifique seu e-mail para confirmar o cadastro.',
+      });
+
+      return data;
+        
     } catch (error: any) {
       toast({
         title: 'Erro ao criar conta',

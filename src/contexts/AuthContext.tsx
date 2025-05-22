@@ -15,7 +15,7 @@ interface AuthContextProps {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string, phone?: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string, phone?: string) => Promise<any>; // Updated return type
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
