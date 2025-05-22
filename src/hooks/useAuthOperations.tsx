@@ -30,23 +30,45 @@ export function useAuthOperations() {
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            phone
-          }
+      // Check if email already exists
+      const { data: existingUsers } = await supabase.auth.admin.listUsers({
+        filters: {
+          email: email
         }
-      });
+      }).catch(() => ({ data: null }));
+
+      // If we can't check for existing users, proceed with signup
+      // The server will still catch duplicate emails
+      if (!existingUsers) {
+        const { error, data } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name,
+              phone,
+              provider: 'Cadastro' // Store provider type as 'Cadastro' for manual signups
+            }
+          }
+        });
+        
+        if (error) {
+          if (error.message.includes('already registered')) {
+            throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
+          }
+          throw error;
+        }
+        
+        toast({
+          title: 'Cadastro realizado!',
+          description: 'Verifique seu e-mail para confirmar o cadastro.',
+        });
+
+        return data;
+      } else if (existingUsers.users && existingUsers.users.length > 0) {
+        throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
+      }
       
-      if (error) throw error;
-      
-      toast({
-        title: 'Cadastro realizado!',
-        description: 'Verifique seu e-mail para confirmar o cadastro.',
-      });
     } catch (error: any) {
       toast({
         title: 'Erro ao criar conta',
@@ -91,6 +113,28 @@ export function useAuthOperations() {
         description: error.message,
         variant: 'destructive'
       });
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/perfil`
+      });
+      
+      if (error) throw error;
+      
+      return true;
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar email de recuperação',
+        description: error.message,
+        variant: 'destructive'
+      });
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -153,6 +197,7 @@ export function useAuthOperations() {
     signUp,
     signInWithGoogle,
     signOut,
+    resetPassword,
     updatePassword,
     updateProfile
   };

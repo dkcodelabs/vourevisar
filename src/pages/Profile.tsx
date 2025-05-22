@@ -31,6 +31,9 @@ const Profile = () => {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // Check if user is from Google provider
+  const isGoogleUser = user?.app_metadata?.provider === 'google';
+  
   const profileForm = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -170,71 +173,74 @@ const Profile = () => {
                   {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                 </Button>
                 
-                <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      type="button"
-                      className="flex items-center gap-2"
-                    >
-                      <Lock className="h-4 w-4" />
-                      Alterar Senha
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Alterar Senha</DialogTitle>
-                    </DialogHeader>
-                    <Form {...passwordForm}>
-                      <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4 pt-2">
-                        <FormField
-                          control={passwordForm.control}
-                          name="password"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Nova Senha</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="password"
-                                  {...field} 
-                                  placeholder="Digite sua nova senha" 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={passwordForm.control}
-                          name="confirmPassword"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Confirme a Senha</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="password"
-                                  {...field} 
-                                  placeholder="Confirme sua nova senha" 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <DialogFooter>
-                          <Button variant="outline" type="button" onClick={() => setIsPasswordDialogOpen(false)}>
-                            Cancelar
-                          </Button>
-                          <Button type="submit" className="bg-app-blue hover:bg-app-light-blue">
-                            Salvar Nova Senha
-                          </Button>
-                        </DialogFooter>
-                      </form>
-                    </Form>
-                  </DialogContent>
-                </Dialog>
+                {/* Show password change button only for non-Google users */}
+                {!isGoogleUser && (
+                  <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        type="button"
+                        className="flex items-center gap-2"
+                      >
+                        <Lock className="h-4 w-4" />
+                        Alterar Senha
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Alterar Senha</DialogTitle>
+                      </DialogHeader>
+                      <Form {...passwordForm}>
+                        <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4 pt-2">
+                          <FormField
+                            control={passwordForm.control}
+                            name="password"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Nova Senha</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="password"
+                                    {...field} 
+                                    placeholder="Digite sua nova senha" 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={passwordForm.control}
+                            name="confirmPassword"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Confirme a Senha</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="password"
+                                    {...field} 
+                                    placeholder="Confirme sua nova senha" 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <DialogFooter>
+                            <Button variant="outline" type="button" onClick={() => setIsPasswordDialogOpen(false)}>
+                              Cancelar
+                            </Button>
+                            <Button type="submit" className="bg-app-blue hover:bg-app-light-blue">
+                              Salvar Nova Senha
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </form>
           </Form>

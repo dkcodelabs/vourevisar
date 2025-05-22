@@ -20,6 +20,7 @@ interface AuthContextProps {
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   updateProfile: (profile: Partial<Profile>) => Promise<void>;
+  resetPassword: (email: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -94,6 +95,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return auth.updatePassword(password);
   };
 
+  const resetPassword = (email: string) => {
+    return auth.resetPassword(email);
+  };
+
   const updateProfile = async (profileData: Partial<Profile>) => {
     if (!user) return;
     
@@ -111,6 +116,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signInWithGoogle,
     signOut,
     updatePassword,
+    resetPassword,
     updateProfile
   };
 
