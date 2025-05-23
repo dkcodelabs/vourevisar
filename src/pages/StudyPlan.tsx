@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,16 +71,34 @@ const StudyPlan = () => {
   // Current subject to display
   const currentSubject = dailySubjects[currentSubjectIndex];
   
-  // Next subjects to display (excluding the current one)
-  const nextSubjects = dailySubjects.filter((_, index) => 
-    index !== currentSubjectIndex && index < subjectsPerDay
+  // Next subjects to display - show the next subject in priority order that isn't already shown in dailySubjects
+  // Find the next subject that is not already in dailySubjects
+  const nextSubject = currentSubjects.find(subject => 
+    !dailySubjects.some(dailySubject => dailySubject.id === subject.id)
   );
+  
+  // Next subjects array with either the next subject or empty array
+  const nextSubjects = nextSubject ? [nextSubject] : [];
 
   const handleToggleTopic = async (subjectId: string, topicId: string, completed: boolean) => {
     try {
+      // Find the topic to check if it has any review stage
+      const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
+      
+      let updateData: any = { completed };
+      
+      // If unchecking and topic had review stage, reset to "Primeira Revisão"
+      if (!completed && topic?.reviewStage) {
+        updateData = {
+          ...updateData,
+          review_stage: null,
+          next_review: null
+        };
+      }
+      
       const { error } = await supabase
         .from('topics')
-        .update({ completed })
+        .update(updateData)
         .eq('id', topicId);
 
       if (error) throw error;
@@ -135,18 +154,26 @@ const StudyPlan = () => {
       // Calcular o próximo estágio de revisão
       const nextStage = getNextReviewStage(topic.reviewStage);
       
-      // Calcular a próxima data de revisão
-      const nextReview = calculateNextReview(nextStage !== 'Concluído' ? nextStage : undefined);
+      let updateData: any = {
+        review_count: topic.reviewCount + 1,
+        last_reviewed_at: new Date().toISOString()
+      };
+      
+      // Se chegou ao estágio "Concluído", marcar o tópico como completo
+      if (nextStage === 'Concluído') {
+        updateData.completed = true;
+        updateData.next_review = null;
+        updateData.review_stage = 'Concluído';
+      } else {
+        // Caso contrário, atualizar para o próximo estágio
+        updateData.next_review = calculateNextReview(nextStage).toISOString();
+        updateData.review_stage = nextStage;
+      }
       
       // Atualizar no banco de dados
       const { error } = await supabase
         .from('topics')
-        .update({ 
-          review_count: topic.reviewCount + 1,
-          next_review: nextStage !== 'Concluído' ? nextReview.toISOString() : null,
-          review_stage: nextStage,
-          last_reviewed_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', topicId);
 
       if (error) throw error;
@@ -217,22 +244,6 @@ const StudyPlan = () => {
     }
   };
 
-  const handleSkipSubject = () => {
-    // Move to the next subject in the sequence
-    const nextIndex = (currentSubjectIndex + 1) % dailySubjects.length;
-    setCurrentSubjectIndex(nextIndex);
-    setExpandedSubject(null);
-    toast.info("Matéria pulada");
-  };
-
-  const launchConfetti = () => {
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-  };
-
   const handleCompleteSession = async (subjectId: string) => {
     // Mark the session as completed
     setCompletedSessions(prev => [...prev, subjectId]);
@@ -278,6 +289,14 @@ const StudyPlan = () => {
     setExpandedSubject(null);
     setMarkedTopics({});
     toast.info("Ciclo reiniciado");
+  };
+
+  const launchConfetti = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
   };
 
   const hasMarkedTopics = (subjectId: string) => {
@@ -417,7 +436,6 @@ const StudyPlan = () => {
                               size="sm" 
                               className="text-green-600 hover:text-green-800 border border-green-200"
                               onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
-                              disabled={topic.reviewStage === 'Concluído' || (topic.nextReview && !isToday(new Date(topic.nextReview)))}
                             >
                               <Check className="h-4 w-4 mr-1" />
                               Marcar Revisão
@@ -442,7 +460,6 @@ const StudyPlan = () => {
                     <Button 
                       className="bg-app-blue hover:bg-app-light-blue"
                       onClick={() => handleCompleteSession(subject.id)}
-                      disabled={!hasMarkedTopics(subject.id)}
                     >
                       Concluir Sessão
                     </Button>
@@ -454,12 +471,6 @@ const StudyPlan = () => {
                     {subject.topics.length} tópicos disponíveis
                   </span>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline"
-                      onClick={handleSkipSubject}
-                    >
-                      Pular Matéria
-                    </Button>
                     <Button 
                       className="bg-app-blue hover:bg-app-light-blue"
                       onClick={() => handleToggleExpand(subject.id)}
@@ -474,7 +485,7 @@ const StudyPlan = () => {
         ))}
       </div>
       
-      {/* Next Subjects */}
+      {/* Next Subjects (only showing the next one in sequence that isn't already in daily subjects) */}
       {nextSubjects.length > 0 && (
         <div className="mt-8">
           <h2 className="text-xl font-bold mb-4 flex items-center">
