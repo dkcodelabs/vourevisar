@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,7 +54,7 @@ export function useAuthOperations() {
           data: {
             name,
             phone,
-            provider: 'Cadastro' // Store provider type as 'Cadastro' for manual signups
+            provider_type: 'Cadastro' // Store provider type as 'Cadastro' for manual signups
           }
         }
       });
@@ -101,8 +102,9 @@ export function useAuthOperations() {
 
   const signInWithGoogle = async () => {
     try {
-      // Get the current URL to use as redirectTo
-      const redirectUrl = `${window.location.origin}/auth/callback`;
+      // Get the current URL with the correct format
+      const baseUrl = window.location.origin;
+      const redirectUrl = `${baseUrl}/auth/callback`;
       console.log("Google login redirect URL:", redirectUrl);
       
       const { error, data } = await supabase.auth.signInWithOAuth({
