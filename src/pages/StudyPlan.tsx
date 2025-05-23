@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, X, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import confetti from 'canvas-confetti';
+import * as confetti from 'canvas-confetti';
 import { supabase } from '@/integrations/supabase/client';
 import { Topic, RevisionStage } from '@/types';
 import { addDays, format, isAfter, isBefore, isToday } from 'date-fns';
@@ -23,6 +23,7 @@ const StudyPlan = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const isFirstRender = useRef(true);
+  const [cycleCompletedSubjects, setCycleCompletedSubjects] = useState<string[]>([]);
   
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
@@ -193,6 +194,17 @@ const StudyPlan = () => {
           toast.success("Parabéns! Você concluiu todas as matérias do dia!");
         }, 500);
       }
+      setCycleCompletedSubjects(prev => [...prev, subjectId]);
+      if (cycleCompletedSubjects.length + 1 === currentSubjects.length) {
+        setTimeout(() => {
+          launchConfetti();
+          toast.success('Parabéns! Você concluiu todas as matérias do ciclo!');
+          setCycleCompletedSubjects([]);
+          setCompletedSessions([]);
+          setCurrentSubjectIndex(0);
+          setExpandedSubject(null);
+        }, 500);
+      }
     } catch (error) {
       toast.error("Erro ao salvar revisões. Tente novamente.");
     }
@@ -210,19 +222,25 @@ const StudyPlan = () => {
   };
 
   const handleNextDay = () => {
-    // Check if all sessions for today are completed
-    const allCompleted = dailySubjects.every(subject => 
-      completedSessions.includes(subject.id)
-    );
-    
-    if (allCompleted) {
-      toast.success("Avançando para o próximo dia");
-      // Reset completed sessions for the new day
+    // Se todas as disciplinas do ciclo foram estudadas, reinicia ciclo
+    if (cycleCompletedSubjects.length === currentSubjects.length) {
+      setCycleCompletedSubjects([]);
       setCompletedSessions([]);
       setCurrentSubjectIndex(0);
+      setExpandedSubject(null);
+      toast.info('Novo ciclo iniciado!');
       launchConfetti();
+      return;
+    }
+    // Avança para a próxima matéria da sequência
+    const nextIndex = currentSubjectIndex + 1;
+    if (nextIndex < dailySubjects.length) {
+      setCurrentSubjectIndex(nextIndex);
+      setExpandedSubject(dailySubjects[nextIndex].id);
     } else {
-      toast.error("Complete todas as matérias do dia antes de avançar");
+      // Se chegou ao fim do dia, mostra próximas disciplinas
+      setCurrentSubjectIndex(0);
+      setExpandedSubject(null);
     }
   };
 
