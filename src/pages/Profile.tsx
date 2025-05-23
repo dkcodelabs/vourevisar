@@ -93,7 +93,7 @@ const Profile = () => {
     setError(null);
     
     try {
-      // Fetch total subjects
+      // Buscar total de matérias
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
         .select('id')
@@ -103,25 +103,33 @@ const Profile = () => {
       
       const subjectIds = subjectsData?.map(subject => subject.id) || [];
       
-      // Fetch total topics
+      // Se não houver matérias, retorna estatísticas zeradas
+      if (subjectIds.length === 0) {
+        setStatsData({
+          totalSubjects: 0,
+          totalTopics: 0,
+          totalReviews: 0,
+          consecutiveDays: 0
+        });
+        return;
+      }
+      
+      // Buscar total de tópicos
       const { data: topicsData, error: topicsError } = await supabase
         .from('topics')
         .select('id, review_count')
-        .in('subject_id', subjectIds.length > 0 ? subjectIds : ['none']);
+        .in('subject_id', subjectIds);
       
       if (topicsError) throw topicsError;
       
-      // Calculate total reviews
+      // Calcular total de revisões
       const totalReviews = topicsData?.reduce((sum, topic) => sum + (topic.review_count || 0), 0) || 0;
-      
-      // In a real app, you would calculate consecutive days from real data
-      // For now, we're just using a placeholder value of 0
       
       setStatsData({
         totalSubjects: subjectsData?.length || 0,
         totalTopics: topicsData?.length || 0,
         totalReviews: totalReviews,
-        consecutiveDays: 0 // This would be calculated from actual study history
+        consecutiveDays: 0 // Placeholder
       });
       
     } catch (err: any) {

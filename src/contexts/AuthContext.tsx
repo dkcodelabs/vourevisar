@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -69,9 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           updateLocalProfile(null);
         }
 
-        if (event === 'SIGNED_IN') {
-          navigate('/');
-        } else if (event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_OUT') {
           navigate('/login');
         }
       }
