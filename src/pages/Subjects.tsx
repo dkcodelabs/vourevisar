@@ -1,7 +1,7 @@
 import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, ChevronUp, ChevronDown, Edit, Trash2, LayoutList } from 'lucide-react';
+import { Plus, ChevronUp, ChevronDown, Edit, Trash2, LayoutList, GripVertical } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,23 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Definindo tipos para o componente
 interface Topic {
@@ -35,6 +52,112 @@ interface Subject {
   topics: Topic[];
   status: 'Nova' | 'Em Estudo' | 'Concluída';
 }
+
+const SortableSubject = ({ subject, ...props }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: subject.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <Card className="overflow-hidden mb-4">
+        <CardContent className="p-0">
+          <div className="flex items-center justify-between p-4 bg-white">
+            <div className="flex items-center gap-3">
+              <button
+                className="cursor-grab active:cursor-grabbing p-2 hover:bg-gray-100 rounded"
+                {...listeners}
+              >
+                <GripVertical className="h-5 w-5 text-gray-400" />
+              </button>
+              <span className={`status-badge ${getStatusClass(subject.status)}`}>
+                {subject.status}
+              </span>
+              <h2 className="text-lg font-medium">{subject.name}</h2>
+              <span className="text-sm text-gray-500">
+                {subject.topics.length} tópicos
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => openTopicDialog(subject.id)}
+              >
+                <LayoutList className="h-4 w-4 mr-2" />
+                Gerenciar Tópicos
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => toggleExpand(subject.id)}
+              >
+                {expandedSubject === subject.id ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => handleEditSubject({ id: subject.id, name: subject.name })}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => confirmDeleteSubject(subject.id)}
+                className="text-red-500 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          
+          {expandedSubject === subject.id && (
+            <div className="border-t p-4 bg-gray-50">
+              <h3 className="font-medium mb-2">Tópicos</h3>
+              {subject.topics.length > 0 ? (
+                <ul className="space-y-2">
+                  {subject.topics.map((topic) => (
+                    <li key={topic.id} className="flex items-center justify-between border p-2 rounded bg-white">
+                      <span>{topic.name}</span>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-red-500 hover:text-red-700"
+                          onClick={() => confirmDeleteTopic(subject.id, topic.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500 text-sm">Nenhum tópico cadastrado</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 const Subjects = () => {
   const { user } = useAuth();
@@ -59,6 +182,13 @@ const Subjects = () => {
   const [editSubject, setEditSubject] = useState({ id: '', name: '' });
   
   const topicInputRef = useRef<HTMLInputElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Carregar matérias do usuário
   useEffect(() => {
@@ -371,6 +501,48 @@ const Subjects = () => {
     }
   };
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      setSubjects((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        
+        const newSubjects = arrayMove(items, oldIndex, newIndex);
+        
+        // Atualizar a ordem no banco de dados
+        updateSubjectsOrder(newSubjects);
+        
+        return newSubjects;
+      });
+    }
+  };
+
+  const updateSubjectsOrder = async (newSubjects: Subject[]) => {
+    if (!user) return;
+
+    try {
+      // Atualizar a ordem de todas as matérias
+      const updates = newSubjects.map((subject, index) => ({
+        id: subject.id,
+        priority: index + 1,
+        updated_at: new Date().toISOString()
+      }));
+
+      const { error } = await supabase
+        .from('subjects')
+        .upsert(updates);
+
+      if (error) throw error;
+
+      toast.success("Ordem das matérias atualizada com sucesso");
+    } catch (error) {
+      console.error('Erro ao atualizar ordem das matérias:', error);
+      toast.error("Erro ao atualizar ordem das matérias");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -405,86 +577,20 @@ const Subjects = () => {
             </Button>
           </div>
         ) : (
-          subjects.map((subject) => (
-            <Card key={subject.id} className="overflow-hidden">
-              <CardContent className="p-0">
-                <div className="flex items-center justify-between p-4 bg-white">
-                  <div className="flex items-center gap-3">
-                    <span className={`status-badge ${getStatusClass(subject.status)}`}>
-                      {subject.status}
-                    </span>
-                    <h2 className="text-lg font-medium">{subject.name}</h2>
-                    <span className="text-sm text-gray-500">
-                      {subject.topics.length} tópicos
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => openTopicDialog(subject.id)}
-                    >
-                      <LayoutList className="h-4 w-4 mr-2" />
-                      Gerenciar Tópicos
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={() => toggleExpand(subject.id)}
-                    >
-                      {expandedSubject === subject.id ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => handleEditSubject({ id: subject.id, name: subject.name })}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => confirmDeleteSubject(subject.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {expandedSubject === subject.id && (
-                  <div className="border-t p-4 bg-gray-50">
-                    <h3 className="font-medium mb-2">Tópicos</h3>
-                    {subject.topics.length > 0 ? (
-                      <ul className="space-y-2">
-                        {subject.topics.map((topic) => (
-                          <li key={topic.id} className="flex items-center justify-between border p-2 rounded bg-white">
-                            <span>{topic.name}</span>
-                            <div className="flex items-center gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7 text-red-500 hover:text-red-700"
-                                onClick={() => confirmDeleteTopic(subject.id, topic.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-gray-500 text-sm">Nenhum tópico cadastrado</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={subjects.map(s => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {subjects.map((subject) => (
+                <SortableSubject key={subject.id} subject={subject} />
+              ))}
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
