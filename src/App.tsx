@@ -18,6 +18,7 @@ import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import { AuthCallback } from "@/components/AuthCallback";
 import { useEffect } from "react";
+import Topics from "@/pages/Topics";
 
 // Create the query client instance
 const queryClient = new QueryClient({
@@ -63,6 +64,7 @@ const App = () => {
                     <Route path="/materias" element={<Subjects />} />
                     <Route path="/plano-estudos" element={<StudyPlan />} />
                     <Route path="/estatisticas" element={<Statistics />} />
+                    <Route path="/topicos" element={<Topics />} />
                     <Route path="/perfil" element={<Profile />} />
                     <Route path="/configuracoes" element={<Settings />} />
                   </Route>

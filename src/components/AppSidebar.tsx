@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, Menu } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, Menu, List } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from "@/components/ui/button";
@@ -71,6 +70,16 @@ export function AppSidebar() {
             >
               <Settings size={20} />
               <span>Configurações</span>
+            </NavLink>
+            
+            <NavLink 
+              to="/topicos" 
+              className={({ isActive }) => 
+                `sidebar-item ${isActive ? 'active' : ''}`
+              }
+            >
+              <List size={20} />
+              <span>Tópicos</span>
             </NavLink>
           </SidebarGroup>
         </SidebarContent>
