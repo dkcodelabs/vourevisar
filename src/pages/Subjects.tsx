@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,112 +54,6 @@ interface Subject {
   status: 'Nova' | 'Em Estudo' | 'Concluída';
 }
 
-const SortableSubject = ({ subject, ...props }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: subject.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      <Card className="overflow-hidden mb-4">
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between p-4 bg-white">
-            <div className="flex items-center gap-3">
-              <button
-                className="cursor-grab active:cursor-grabbing p-2 hover:bg-gray-100 rounded"
-                {...listeners}
-              >
-                <GripVertical className="h-5 w-5 text-gray-400" />
-              </button>
-              <span className={`status-badge ${getStatusClass(subject.status)}`}>
-                {subject.status}
-              </span>
-              <h2 className="text-lg font-medium">{subject.name}</h2>
-              <span className="text-sm text-gray-500">
-                {subject.topics.length} tópicos
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => openTopicDialog(subject.id)}
-              >
-                <LayoutList className="h-4 w-4 mr-2" />
-                Gerenciar Tópicos
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={() => toggleExpand(subject.id)}
-              >
-                {expandedSubject === subject.id ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={() => handleEditSubject({ id: subject.id, name: subject.name })}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={() => confirmDeleteSubject(subject.id)}
-                className="text-red-500 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          
-          {expandedSubject === subject.id && (
-            <div className="border-t p-4 bg-gray-50">
-              <h3 className="font-medium mb-2">Tópicos</h3>
-              {subject.topics.length > 0 ? (
-                <ul className="space-y-2">
-                  {subject.topics.map((topic) => (
-                    <li key={topic.id} className="flex items-center justify-between border p-2 rounded bg-white">
-                      <span>{topic.name}</span>
-                      <div className="flex items-center gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 text-red-500 hover:text-red-700"
-                          onClick={() => confirmDeleteTopic(subject.id, topic.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500 text-sm">Nenhum tópico cadastrado</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
 const Subjects = () => {
   const { user } = useAuth();
   const { toast: useToastHook } = useToast();
@@ -190,6 +85,168 @@ const Subjects = () => {
     })
   );
 
+  // Helper function to get CSS class based on status
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case 'Nova':
+        return 'status-nova';
+      case 'Em Estudo':
+        return 'status-em-estudo';
+      case 'Concluída':
+        return 'status-concluida';
+      default:
+        return '';
+    }
+  };
+
+  // Open topic dialog function
+  const openTopicDialog = (subjectId: string) => {
+    setCurrentSubjectId(subjectId);
+    setTopicDialogOpen(true);
+    
+    // Focus on input after dialog opens
+    setTimeout(() => {
+      if (topicInputRef.current) {
+        topicInputRef.current.focus();
+      }
+    }, 100);
+  };
+
+  // Toggle expand function
+  const toggleExpand = (subjectId: string) => {
+    if (expandedSubject === subjectId) {
+      setExpandedSubject(null);
+    } else {
+      setExpandedSubject(subjectId);
+    }
+  };
+
+  // Edit subject function
+  const handleEditSubject = (subject: { id: string, name: string }) => {
+    setEditSubject(subject);
+    setEditSubjectDialog(true);
+  };
+
+  // Confirm delete subject function
+  const confirmDeleteSubject = (id: string) => {
+    setSubjectToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  // Confirm delete topic function
+  const confirmDeleteTopic = (subjectId: string, topicId: string) => {
+    setTopicToDelete({subjectId, topicId});
+    setDeleteConfirmOpen(false);
+    setTimeout(() => setDeleteConfirmOpen(true), 100);
+  };
+
+  // Sortable subject component
+  const SortableSubject = ({ subject }: { subject: Subject }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: subject.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+      <div ref={setNodeRef} style={style} {...attributes}>
+        <Card className="overflow-hidden mb-4">
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between p-4 bg-white">
+              <div className="flex items-center gap-3">
+                <button
+                  className="cursor-grab active:cursor-grabbing p-2 hover:bg-gray-100 rounded"
+                  {...listeners}
+                >
+                  <GripVertical className="h-5 w-5 text-gray-400" />
+                </button>
+                <span className={`status-badge ${getStatusClass(subject.status)}`}>
+                  {subject.status}
+                </span>
+                <h2 className="text-lg font-medium">{subject.name}</h2>
+                <span className="text-sm text-gray-500">
+                  {subject.topics.length} tópicos
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => openTopicDialog(subject.id)}
+                >
+                  <LayoutList className="h-4 w-4 mr-2" />
+                  Gerenciar Tópicos
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => toggleExpand(subject.id)}
+                >
+                  {expandedSubject === subject.id ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => handleEditSubject({ id: subject.id, name: subject.name })}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => confirmDeleteSubject(subject.id)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            {expandedSubject === subject.id && (
+              <div className="border-t p-4 bg-gray-50">
+                <h3 className="font-medium mb-2">Tópicos</h3>
+                {subject.topics.length > 0 ? (
+                  <ul className="space-y-2">
+                    {subject.topics.map((topic) => (
+                      <li key={topic.id} className="flex items-center justify-between border p-2 rounded bg-white">
+                        <span>{topic.name}</span>
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-red-500 hover:text-red-700"
+                            onClick={() => confirmDeleteTopic(subject.id, topic.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 text-sm">Nenhum tópico cadastrado</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   // Carregar matérias do usuário
   useEffect(() => {
     let isMounted = true;
@@ -218,17 +275,25 @@ const Subjects = () => {
             
             if (topicsError) throw topicsError;
             
+            // Ensure status is a valid value for our Subject type
+            let validStatus: 'Nova' | 'Em Estudo' | 'Concluída';
+            if (subject.status === 'Nova' || subject.status === 'Em Estudo' || subject.status === 'Concluída') {
+              validStatus = subject.status as 'Nova' | 'Em Estudo' | 'Concluída';
+            } else {
+              validStatus = 'Nova'; // Default to 'Nova' if status is not valid
+            }
+            
             return {
               id: subject.id,
               name: subject.name,
-              status: subject.status || 'Nova',
+              status: validStatus,
               topics: topicsData || []
             };
           })
         );
         
         if (isMounted) {
-          setSubjects(subjectsWithTopics);
+          setSubjects(subjectsWithTopics as Subject[]);
         }
       } catch (error) {
         console.error('Erro ao buscar matérias:', error);
@@ -302,11 +367,6 @@ const Subjects = () => {
     }
   };
 
-  const confirmDeleteSubject = (id: string) => {
-    setSubjectToDelete(id);
-    setDeleteConfirmOpen(true);
-  };
-
   const executeDeleteSubject = async () => {
     if (!subjectToDelete) return;
     
@@ -332,11 +392,6 @@ const Subjects = () => {
       setDeleteConfirmOpen(false);
       setSubjectToDelete(null);
     }
-  };
-
-  const handleEditSubject = (subject: { id: string, name: string }) => {
-    setEditSubject(subject);
-    setEditSubjectDialog(true);
   };
 
   const saveSubjectEdit = async () => {
@@ -427,11 +482,6 @@ const Subjects = () => {
     }
   };
 
-  const confirmDeleteTopic = (subjectId: string, topicId: string) => {
-    setTopicToDelete({subjectId, topicId});
-    setDeleteConfirmOpen(true);
-  };
-
   const executeDeleteTopic = async () => {
     if (!topicToDelete) return;
     
@@ -468,39 +518,6 @@ const Subjects = () => {
     }
   };
 
-  const openTopicDialog = (subjectId: string) => {
-    setCurrentSubjectId(subjectId);
-    setTopicDialogOpen(true);
-    
-    // Focus on input after dialog opens
-    setTimeout(() => {
-      if (topicInputRef.current) {
-        topicInputRef.current.focus();
-      }
-    }, 100);
-  };
-
-  const toggleExpand = (subjectId: string) => {
-    if (expandedSubject === subjectId) {
-      setExpandedSubject(null);
-    } else {
-      setExpandedSubject(subjectId);
-    }
-  };
-
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'Nova':
-        return 'status-nova';
-      case 'Em Estudo':
-        return 'status-em-estudo';
-      case 'Concluída':
-        return 'status-concluida';
-      default:
-        return '';
-    }
-  };
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     
@@ -523,16 +540,20 @@ const Subjects = () => {
     if (!user) return;
 
     try {
-      // Atualizar a ordem de todas as matérias
+      // Atualizar a ordem de todas as matérias com todas as propriedades necessárias
       const updates = newSubjects.map((subject, index) => ({
         id: subject.id,
+        name: subject.name,
         priority: index + 1,
+        status: subject.status,
+        user_id: user.id,
         updated_at: new Date().toISOString()
       }));
 
+      // Use upsert with onConflict parameter to update only the priority field
       const { error } = await supabase
         .from('subjects')
-        .upsert(updates);
+        .upsert(updates, { onConflict: 'id', ignoreDuplicates: false });
 
       if (error) throw error;
 
