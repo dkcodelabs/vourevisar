@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [manualLogin, setManualLogin] = useState(false);
   const navigate = useNavigate();
   
   const auth = useAuthOperations();
@@ -60,7 +61,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(newSession?.user ?? null);
         
         if (newSession?.user) {
-          // Use setTimeout to avoid potential recursive loop in auth state change
           setTimeout(() => {
             handleUserData(newSession.user);
           }, 0);
@@ -70,6 +70,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (event === 'SIGNED_OUT') {
           navigate('/login');
+        }
+        // Só redireciona para / se for login manual
+        if (event === 'SIGNED_IN' && manualLogin) {
+          navigate('/');
+          setManualLogin(false);
         }
       }
     );
@@ -105,9 +110,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [navigate]);
 
-  // Wrapper functions to maintain the same API interface
+  // Wrapper functions to manter o controle do login manual
   const signIn = async (email: string, password: string) => {
     setLoading(true);
+    setManualLogin(true);
     try {
       await auth.signIn(email, password);
     } finally {
@@ -126,6 +132,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     setLoading(true);
+    setManualLogin(true);
     try {
       await auth.signInWithGoogle();
     } finally {

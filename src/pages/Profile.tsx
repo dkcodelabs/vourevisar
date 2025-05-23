@@ -133,8 +133,14 @@ const Profile = () => {
       });
       
     } catch (err: any) {
-      console.error('Error fetching stats:', err);
-      throw new Error('Não foi possível carregar os dados estatísticos');
+      console.error('Erro ao buscar estatísticas do perfil:', err);
+      setStatsData({
+        totalSubjects: 0,
+        totalTopics: 0,
+        totalReviews: 0,
+        consecutiveDays: 0
+      });
+      setError(null); // Não exibe erro para o usuário
     } finally {
       setIsLoadingStats(false);
     }
