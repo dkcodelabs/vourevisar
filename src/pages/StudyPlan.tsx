@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +21,8 @@ const StudyPlan = () => {
   const [completedSessions, setCompletedSessions] = useState<string[]>([]);
   const [currentSubjectIndex, setCurrentSubjectIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
+  const isFirstRender = useRef(true);
   
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
@@ -109,95 +110,91 @@ const StudyPlan = () => {
     }
   };
 
-  const handleMarkTopicForReview = async (subjectId: string, topicId: string) => {
-    try {
-      // Encontrar o tópico
-      const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
-      
-      if (!topic) {
-        toast.error("Tópico não encontrado");
-        return;
-      }
-      
-      // Calcular o próximo estágio de revisão
-      const nextStage = getNextReviewStage(topic.reviewStage);
-      
-      let updateData: any = {
-        review_count: topic.reviewCount + 1,
-        last_reviewed_at: new Date().toISOString()
-      };
-      
-      // Se chegou ao estágio "Concluído", marcar o tópico como completo
-      if (nextStage === 'Concluído') {
-        updateData.completed = true;
-        updateData.next_review = null;
-        updateData.review_stage = 'Concluído';
-      } else {
-        // Caso contrário, atualizar para o próximo estágio
-        updateData.next_review = calculateNextReview(nextStage).toISOString();
-        updateData.review_stage = nextStage;
-      }
-      
-      // Atualizar no banco de dados
-      const { error } = await supabase
-        .from('topics')
-        .update(updateData)
-        .eq('id', topicId);
+  // Limpar marcações temporárias ao sair da página
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      setTempMarkedTopics({});
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      setTempMarkedTopics({});
+    };
+  }, []);
 
-      if (error) throw error;
-      
-      // Atualizar localmente
-      setMarkedTopics(prev => {
-        const updatedTopics = { ...prev };
-        
-        if (!updatedTopics[subjectId]) {
-          updatedTopics[subjectId] = [];
-        }
-        
-        if (!updatedTopics[subjectId].includes(topicId)) {
-          updatedTopics[subjectId] = [...updatedTopics[subjectId], topicId];
-        }
-        
-        return updatedTopics;
-      });
-      
-      await fetchSubjects();
-      toast.success(`Tópico marcado para revisão em ${nextStage !== 'Concluído' ? nextStage : 'Concluído'}`);
-    } catch (error) {
-      console.error('Erro ao marcar tópico para revisão:', error);
-      toast.error("Erro ao marcar tópico para revisão");
+  // Ao expandir uma matéria, inicializa marcações temporárias se necessário
+  useEffect(() => {
+    if (expandedSubject && !tempMarkedTopics[expandedSubject]) {
+      setTempMarkedTopics(prev => ({ ...prev, [expandedSubject]: [] }));
     }
+  }, [expandedSubject]);
+
+  // Marcar revisão (apenas local)
+  const handleMarkTopicForReview = (subjectId: string, topicId: string) => {
+    setTempMarkedTopics(prev => {
+      const updated = { ...prev };
+      if (!updated[subjectId]) updated[subjectId] = [];
+      if (!updated[subjectId].includes(topicId)) {
+        updated[subjectId] = [...updated[subjectId], topicId];
+      }
+      return updated;
+    });
   };
 
-  const handleCancelTopicReview = async (subjectId: string, topicId: string) => {
-    try {
-      // Remover a próxima revisão
-      const { error } = await supabase
-        .from('topics')
-        .update({ 
-          next_review: null,
-          review_stage: null
-        })
-        .eq('id', topicId);
+  // Cancelar marcação (apenas local)
+  const handleCancelTopicReview = (subjectId: string, topicId: string) => {
+    setTempMarkedTopics(prev => {
+      const updated = { ...prev };
+      if (updated[subjectId]) {
+        updated[subjectId] = updated[subjectId].filter(id => id !== topicId);
+      }
+      return updated;
+    });
+  };
 
-      if (error) throw error;
-      
-      // Atualizar localmente
-      setMarkedTopics(prev => {
-        const updatedTopics = { ...prev };
-        
-        if (updatedTopics[subjectId]) {
-          updatedTopics[subjectId] = updatedTopics[subjectId].filter(id => id !== topicId);
+  // Persistir marcações ao concluir sessão
+  const handleCompleteSession = async (subjectId: string) => {
+    const topicsToUpdate = tempMarkedTopics[subjectId] || [];
+    try {
+      for (const topicId of topicsToUpdate) {
+        // Encontrar o tópico
+        const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
+        if (!topic) continue;
+        // Calcular o próximo estágio de revisão
+        const nextStage = getNextReviewStage(topic.reviewStage);
+        let updateData: any = {
+          review_count: topic.reviewCount + 1,
+          last_reviewed_at: new Date().toISOString()
+        };
+        if (nextStage === 'Concluído') {
+          updateData.completed = true;
+          updateData.next_review = null;
+          updateData.review_stage = 'Concluído';
+        } else {
+          updateData.next_review = calculateNextReview(nextStage).toISOString();
+          updateData.review_stage = nextStage;
         }
-        
-        return updatedTopics;
-      });
-      
+        await supabase.from('topics').update(updateData).eq('id', topicId);
+      }
       await fetchSubjects();
-      toast.info("Revisão cancelada");
+      setCompletedSessions(prev => [...prev, subjectId]);
+      setExpandedSubject(null);
+      setTempMarkedTopics(prev => {
+        const updated = { ...prev };
+        delete updated[subjectId];
+        return updated;
+      });
+      toast.success("Sessão de estudo concluída");
+      // Confete e mensagem se todas concluídas
+      const updatedCompletedSessions = [...completedSessions, subjectId];
+      if (updatedCompletedSessions.length === dailySubjects.length) {
+        setTimeout(() => {
+          launchConfetti();
+          toast.success("Parabéns! Você concluiu todas as matérias do dia!");
+        }, 500);
+      }
     } catch (error) {
-      console.error('Erro ao cancelar revisão:', error);
-      toast.error("Erro ao cancelar revisão");
+      toast.error("Erro ao salvar revisões. Tente novamente.");
     }
   };
 
@@ -209,27 +206,6 @@ const StudyPlan = () => {
     }
     if (expandedSubject !== subjectId) {
       toast.info("Estudo iniciado");
-    }
-  };
-
-  const handleCompleteSession = async (subjectId: string) => {
-    // Mark the session as completed
-    setCompletedSessions(prev => [...prev, subjectId]);
-    toast.success("Sessão de estudo concluída");
-    setExpandedSubject(null);
-    setMarkedTopics(prev => {
-      const updated = { ...prev };
-      delete updated[subjectId];
-      return updated;
-    });
-    
-    // Check if all sessions are completed
-    const updatedCompletedSessions = [...completedSessions, subjectId];
-    if (updatedCompletedSessions.length === dailySubjects.length) {
-      setTimeout(() => {
-        launchConfetti();
-        toast.success("Parabéns! Você concluiu todas as matérias do dia!");
-      }, 500);
     }
   };
 
@@ -367,7 +343,7 @@ const StudyPlan = () => {
                   {subject.topics.map(topic => {
                     const topicStatus = getTopicStatus(topic);
                     const reviewStage = getTopicReviewStage(topic);
-                    const isMarkedForReview = markedTopics[subject.id]?.includes(topic.id);
+                    const isMarkedForReview = tempMarkedTopics[subject.id]?.includes(topic.id);
                     const isTopicCompleted = topic.reviewStage === 'Concluído';
                     
                     return (
