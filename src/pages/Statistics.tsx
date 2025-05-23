@@ -8,18 +8,29 @@ import {
   LineChart, Line
 } from 'recharts';
 import { isAfter, isBefore, isToday, startOfWeek, endOfWeek, eachDayOfInterval, format } from 'date-fns';
+import { toast } from 'sonner';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const Statistics = () => {
   const { subjects, studyProgress, fetchSubjects } = useApp();
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      await fetchSubjects();
-      setIsLoading(false);
+      setHasError(false);
+      
+      try {
+        await fetchSubjects();
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+        setHasError(true);
+        setIsLoading(false);
+        toast.error("Erro ao carregar dados estatísticos");
+      }
     };
     
     loadData();
@@ -27,10 +38,10 @@ const Statistics = () => {
 
   // Dados para o gráfico de status dos tópicos
   const topicStatusData = [
-    { name: 'Concluídos', value: studyProgress.completedTopics },
-    { name: 'Atrasados', value: studyProgress.delayedTopics },
-    { name: 'Para Hoje', value: studyProgress.todayTopics },
-    { name: 'Futuros', value: studyProgress.futureTopics }
+    { name: 'Concluídos', value: studyProgress?.completedTopics || 0 },
+    { name: 'Atrasados', value: studyProgress?.delayedTopics || 0 },
+    { name: 'Para Hoje', value: studyProgress?.todayTopics || 0 },
+    { name: 'Futuros', value: studyProgress?.futureTopics || 0 }
   ];
 
   // Preparar dados para o gráfico de barras por matéria
@@ -94,6 +105,34 @@ const Statistics = () => {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <h1 className="text-2xl font-bold text-red-600">Erro</h1>
+        <p>Não foi possível carregar os dados estatísticos</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-4 py-2 bg-app-blue text-white rounded hover:bg-app-light-blue"
+        >
+          Tentar Novamente
+        </button>
+      </div>
+    );
+  }
+
+  // Check if the data is available before rendering charts
+  const hasData = subjects.length > 0;
+
+  if (!hasData) {
+    return (
+      <div className="text-center py-10">
+        <h1 className="text-3xl font-bold">Estatísticas de Estudo</h1>
+        <p className="mt-4 text-gray-600">Nenhum dado disponível para exibir estatísticas.</p>
+        <p className="text-gray-600">Adicione matérias e tópicos para começar a ver suas estatísticas.</p>
       </div>
     );
   }
@@ -194,7 +233,7 @@ const Statistics = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <h3 className="text-2xl font-bold">{studyProgress.completedTopics}</h3>
+              <h3 className="text-2xl font-bold">{studyProgress?.completedTopics || 0}</h3>
               <p className="text-sm text-gray-500">Tópicos Concluídos</p>
             </div>
           </CardContent>
@@ -203,7 +242,7 @@ const Statistics = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <h3 className="text-2xl font-bold">{studyProgress.todayTopics}</h3>
+              <h3 className="text-2xl font-bold">{studyProgress?.todayTopics || 0}</h3>
               <p className="text-sm text-gray-500">Revisões para Hoje</p>
             </div>
           </CardContent>
@@ -213,8 +252,8 @@ const Statistics = () => {
           <CardContent className="pt-6">
             <div className="text-center">
               <h3 className="text-2xl font-bold">
-                {studyProgress.totalTopics > 0 
-                  ? Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100) 
+                {studyProgress?.totalTopics > 0 
+                  ? Math.round((studyProgress?.completedTopics / studyProgress?.totalTopics) * 100) 
                   : 0}%
               </h3>
               <p className="text-sm text-gray-500">Progresso Total</p>

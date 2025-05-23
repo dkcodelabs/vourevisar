@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, X, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
@@ -79,37 +78,6 @@ const StudyPlan = () => {
   
   // Next subjects array with either the next subject or empty array
   const nextSubjects = nextSubject ? [nextSubject] : [];
-
-  const handleToggleTopic = async (subjectId: string, topicId: string, completed: boolean) => {
-    try {
-      // Find the topic to check if it has any review stage
-      const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
-      
-      let updateData: any = { completed };
-      
-      // If unchecking and topic had review stage, reset to "Primeira Revisão"
-      if (!completed && topic?.reviewStage) {
-        updateData = {
-          ...updateData,
-          review_stage: null,
-          next_review: null
-        };
-      }
-      
-      const { error } = await supabase
-        .from('topics')
-        .update(updateData)
-        .eq('id', topicId);
-
-      if (error) throw error;
-      
-      // Atualizar localmente
-      await fetchSubjects();
-    } catch (error) {
-      console.error('Erro ao atualizar tópico:', error);
-      toast.error("Erro ao atualizar tópico");
-    }
-  };
 
   // Função para calcular a próxima data de revisão com base no estágio atual
   const calculateNextReview = (stage: RevisionStage | undefined): Date => {
@@ -400,20 +368,11 @@ const StudyPlan = () => {
                     const topicStatus = getTopicStatus(topic);
                     const reviewStage = getTopicReviewStage(topic);
                     const isMarkedForReview = markedTopics[subject.id]?.includes(topic.id);
+                    const isTopicCompleted = topic.reviewStage === 'Concluído';
                     
                     return (
                       <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
-                        <Checkbox 
-                          id={topic.id} 
-                          checked={topic.completed}
-                          onCheckedChange={(checked) => 
-                            handleToggleTopic(subject.id, topic.id, checked === true)
-                          }
-                        />
-                        <label 
-                          htmlFor={topic.id}
-                          className="flex-1 font-medium"
-                        >
+                        <label className="flex-1 font-medium">
                           {topic.name}
                         </label>
                         
@@ -436,6 +395,7 @@ const StudyPlan = () => {
                               size="sm" 
                               className="text-green-600 hover:text-green-800 border border-green-200"
                               onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
+                              disabled={isTopicCompleted}
                             >
                               <Check className="h-4 w-4 mr-1" />
                               Marcar Revisão
