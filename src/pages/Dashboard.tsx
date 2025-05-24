@@ -4,7 +4,17 @@ import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
-import { LayoutList, CalendarDays, Calendar, Plus, Book, Settings } from 'lucide-react';
+import { 
+  LayoutList, 
+  CalendarDays, 
+  Calendar, 
+  Plus, 
+  Book, 
+  Settings, 
+  TrendingUp, 
+  ClipboardCheck, 
+  ListChecks 
+} from 'lucide-react';
 import { 
   Dialog, 
   DialogContent,
@@ -214,11 +224,6 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
         
-import { LayoutList, CalendarDays, Calendar, Plus, Book, Settings, TrendingUp, ClipboardCheck, ListChecks } from 'lucide-react';
-// ... (other imports)
-
-// ... (component code)
-
         <Card>
           <CardHeader>
             <CardTitle className="text-xl font-semibold flex items-center">
