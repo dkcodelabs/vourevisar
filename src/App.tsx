@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +18,7 @@ import Login from "@/pages/Login";
 import { AuthCallback } from "@/components/AuthCallback";
 import { useEffect } from "react";
 import Topics from "@/pages/Topics";
+import Revisoes from "@/pages/Revisoes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +61,7 @@ const App = () => {
                     <Route path="plano-estudos" element={<StudyPlan />} />
                     <Route path="estatisticas" element={<Statistics />} />
                     <Route path="topicos" element={<Topics />} />
+                    <Route path="revisoes" element={<Revisoes />} />
                     <Route path="perfil" element={<Profile />} />
                     <Route path="configuracoes" element={<Settings />} />
                   </Route>
