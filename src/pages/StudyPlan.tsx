@@ -178,7 +178,8 @@ const StudyPlan = () => {
         await supabase.from('topics').update(updateData).eq('id', topicId);
       }
       await fetchSubjects();
-      setCompletedSessions(prev => [...prev, subjectId]);
+      setCompletedSessions(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
+      setCycleCompletedSubjects(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
@@ -194,7 +195,6 @@ const StudyPlan = () => {
           toast.success("Parabéns! Você concluiu todas as matérias do dia!");
         }, 500);
       }
-      setCycleCompletedSubjects(prev => [...prev, subjectId]);
       if (cycleCompletedSubjects.length + 1 === currentSubjects.length) {
         setTimeout(() => {
           launchConfetti();
@@ -332,7 +332,7 @@ const StudyPlan = () => {
 
       {/* Current Subjects */}
       <div className="space-y-4">
-        {dailySubjects.filter(subject => !completedSessions.includes(subject.id)).length > 0 && (
+        {dailySubjects.filter(subject => !completedSessions.includes(subject.id)).length > 0 ? (
           dailySubjects.filter(subject => !completedSessions.includes(subject.id)).map((subject, index) => (
             <Card 
               key={subject.id} 
@@ -444,6 +444,10 @@ const StudyPlan = () => {
               </CardContent>
             </Card>
           ))
+        ) : (
+          <div className="text-center text-gray-500 py-8">
+            Nenhuma matéria para estudar agora. Clique em "Próximo Dia" para avançar ou aguarde o próximo ciclo.
+          </div>
         )}
       </div>
       
