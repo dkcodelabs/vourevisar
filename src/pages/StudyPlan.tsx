@@ -24,6 +24,7 @@ const StudyPlan = () => {
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const isFirstRender = useRef(true);
   const [cicloAtual, setCicloAtual] = useState<string[]>([]);
+  const [diaCiclo, setDiaCiclo] = useState(0);
   
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
@@ -138,7 +139,39 @@ const StudyPlan = () => {
     });
   };
 
-  // Persistir marcações ao concluir sessão
+  // Atualiza as matérias do dia e próximas, considerando o ciclo e o dia atual
+  const materiasPendentes = subjects
+    .filter(subject => (subject.status === 'Em Estudo' || subject.status === 'Nova') && !cicloAtual.includes(subject.id))
+    .sort((a, b) => (a.priority || 0) - (b.priority || 0));
+  const totalDiasCiclo = Math.ceil(materiasPendentes.length / subjectsPerDay) || 1;
+  const inicio = diaCiclo * subjectsPerDay;
+  const fim = inicio + subjectsPerDay;
+  const dailySubjects = materiasPendentes.slice(inicio, fim);
+  const nextSubjects = materiasPendentes.slice(fim, fim + subjectsPerDay);
+
+  // Função para avançar para o próximo dia
+  const handleNextDay = () => {
+    // Se não há mais matérias pendentes, não avança
+    if (materiasPendentes.length === 0) return;
+    // Se já está no último dia possível, não avança mais
+    if (fim >= materiasPendentes.length) return;
+    setDiaCiclo(prev => prev + 1);
+    setCompletedSessions([]);
+    setExpandedSubject(null);
+  };
+
+  // Função para resetar o ciclo manualmente
+  const handleResetCycle = () => {
+    setCicloAtual([]);
+    setCompletedSessions([]);
+    setCurrentSubjectIndex(0);
+    setExpandedSubject(null);
+    setDiaCiclo(0);
+    setMarkedTopics({});
+    toast.info("Ciclo reiniciado");
+  };
+
+  // Atualiza cicloAtual ao concluir uma sessão
   const handleCompleteSession = async (subjectId: string) => {
     const topicsToUpdate = tempMarkedTopics[subjectId] || [];
     try {
@@ -184,6 +217,7 @@ const StudyPlan = () => {
           setCompletedSessions([]); // Reinicia sessões do dia
           setCurrentSubjectIndex(0);
           setExpandedSubject(null);
+          setDiaCiclo(0);
         }, 500);
       }
     } catch (error) {
@@ -200,32 +234,6 @@ const StudyPlan = () => {
     if (expandedSubject !== subjectId) {
       toast.info("Estudo iniciado");
     }
-  };
-
-  const handleNextDay = () => {
-    // Check if all sessions for today are completed
-    const allCompleted = currentSubjects.every(subject => 
-      completedSessions.includes(subject.id)
-    );
-    
-    if (allCompleted) {
-      toast.success("Avançando para o próximo dia");
-      // Reset completed sessions for the new day
-      setCompletedSessions([]);
-      setCurrentSubjectIndex(0);
-      launchConfetti();
-    } else {
-      toast.error("Complete todas as matérias do dia antes de avançar");
-    }
-  };
-
-  const handleResetCycle = () => {
-    // Reset the study cycle
-    setCompletedSessions([]);
-    setCurrentSubjectIndex(0);
-    setExpandedSubject(null);
-    setMarkedTopics({});
-    toast.info("Ciclo reiniciado");
   };
 
   const launchConfetti = () => {
@@ -267,14 +275,6 @@ const StudyPlan = () => {
     if (!topic.reviewStage) return "";
     return topic.reviewStage;
   };
-
-  // Atualiza as matérias do dia e próximas, considerando o ciclo
-  const materiasPendentes = subjects
-    .filter(subject => (subject.status === 'Em Estudo' || subject.status === 'Nova') && !cicloAtual.includes(subject.id))
-    .sort((a, b) => (a.priority || 0) - (b.priority || 0));
-  const dailySubjects = materiasPendentes.slice(0, subjectsPerDay);
-  const nextSubject = materiasPendentes.length > subjectsPerDay ? materiasPendentes[subjectsPerDay] : null;
-  const nextSubjects = nextSubject ? [nextSubject] : [];
 
   if (isLoading) {
     return (
@@ -392,6 +392,7 @@ const StudyPlan = () => {
                       <Button 
                         className="bg-app-blue hover:bg-app-light-blue"
                         onClick={() => handleCompleteSession(subject.id)}
+                        disabled={completedSessions.includes(subject.id)}
                       >
                         Concluir Sessão
                       </Button>
