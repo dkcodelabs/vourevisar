@@ -1,4 +1,5 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,7 +15,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 195 89% 49%;
+    --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -31,121 +32,293 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 195 89% 49%;
+    --ring: 221.2 83.2% 53.3%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 195 89% 49%;
+    --sidebar-primary: 221.2 83.2% 53.3%;
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 195 89% 49%;
+    --sidebar-ring: 221.2 83.2% 53.3%;
+
+    /* Surface tokens - Material Design 3 inspired */
+    --surface-50: 240 20% 99%;
+    --surface-100: 240 20% 97%;
+    --surface-200: 240 19% 91%;
+    --surface-300: 240 14% 83%;
+    --surface-400: 240 9% 68%;
+    --surface-500: 240 6% 52%;
+    --surface-600: 240 7% 44%;
+    --surface-700: 240 11% 37%;
+    --surface-800: 240 19% 16%;
+    --surface-900: 240 39% 7.5%;
+    --surface-950: 240 40% 4%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 195 89% 49%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 221.2 83.2% 53.3%;
     
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 195 89% 49%;
+    --sidebar-primary: 221.2 83.2% 53.3%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-}
 
-@layer base {
+    /* Dark mode surface tokens */
+    --surface-50: 240 20% 6%;
+    --surface-100: 240 20% 8%;
+    --surface-200: 240 19% 12%;
+    --surface-300: 240 14% 18%;
+    --surface-400: 240 9% 25%;
+    --surface-500: 240 6% 35%;
+    --surface-600: 240 7% 45%;
+    --surface-700: 240 11% 55%;
+    --surface-800: 240 19% 70%;
+    --surface-900: 240 39% 85%;
+    --surface-950: 240 40% 95%;
+  }
+
   * {
     @apply border-border;
   }
+  
+  html {
+    scroll-behavior: smooth;
+    font-feature-settings: 'cv11', 'ss01';
+    font-variation-settings: 'opsz' 32;
+  }
+  
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Remove focus outline for mouse users */
+  .js-focus-visible :focus:not(.focus-visible) {
+    outline: none;
   }
 }
 
-/* Custom styles for the application */
-.logo {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: theme('colors.app.blue');
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+@layer components {
+  /* Glass card component */
+  .glass-card {
+    @apply backdrop-blur-xl border border-white/20 shadow-glass;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .dark .glass-card {
+    @apply border-white/10 shadow-glass-dark;
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  /* Neumorphic card component */
+  .neuro-card {
+    @apply bg-surface-50 shadow-neuro-light border-0;
+  }
+  
+  .dark .neuro-card {
+    @apply bg-surface-900 shadow-neuro-dark;
+  }
+
+  /* Material Design 3 cards */
+  .material-card {
+    @apply bg-surface-100 border border-surface-200 shadow-elevation-1 rounded-2xl;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .material-card:hover {
+    @apply shadow-elevation-2;
+    transform: translateY(-1px);
+  }
+  
+  .dark .material-card {
+    @apply bg-surface-800 border-surface-700;
+  }
+
+  /* Interactive button component */
+  .interactive-button {
+    @apply transition-all duration-200 ease-out;
+    @apply hover:scale-105 active:scale-95;
+    @apply focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+
+  /* Floating label input */
+  .floating-label-group {
+    @apply relative;
+  }
+  
+  .floating-label-input {
+    @apply w-full px-3 pt-6 pb-2 text-base border-2 rounded-lg;
+    @apply bg-transparent border-surface-300 focus:border-primary;
+    @apply placeholder-transparent peer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .floating-label {
+    @apply absolute left-3 text-surface-500 transition-all duration-200;
+    @apply peer-placeholder-shown:text-base peer-placeholder-shown:top-4;
+    @apply peer-focus:text-xs peer-focus:top-2 peer-focus:text-primary;
+    @apply text-xs top-2;
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    @apply animate-pulse bg-surface-200;
+    background: linear-gradient(90deg, 
+      hsl(var(--surface-200)) 25%, 
+      hsl(var(--surface-300)) 50%, 
+      hsl(var(--surface-200)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+  
+  .dark .skeleton {
+    @apply bg-surface-700;
+    background: linear-gradient(90deg, 
+      hsl(var(--surface-700)) 25%, 
+      hsl(var(--surface-600)) 50%, 
+      hsl(var(--surface-700)) 75%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* Safe area for mobile devices */
+  .safe-area-inset {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  /* Toast animations */
+  .toast-enter {
+    @apply animate-slide-in-right;
+  }
+  
+  .toast-exit {
+    @apply animate-slide-in-left;
+  }
+
+  /* Micro-interactions */
+  .micro-bounce {
+    @apply transition-transform duration-150 ease-out;
+  }
+  
+  .micro-bounce:active {
+    @apply scale-95;
+  }
+
+  /* Accessible focus states */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+  
+  /* Mobile-first touch targets */
+  .touch-target {
+    @apply min-h-[48px] min-w-[48px] flex items-center justify-center;
+  }
 }
 
-.progress-bar {
-  @apply bg-gray-200 rounded-full h-2;
-  overflow: hidden;
+@layer utilities {
+  /* Motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* High contrast mode */
+  @media (prefers-contrast: high) {
+    .glass-card {
+      @apply border-2 border-surface-900;
+    }
+    
+    .dark .glass-card {
+      @apply border-2 border-surface-100;
+    }
+  }
+
+  /* Dark mode utilities */
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand-500 to-brand-700 bg-clip-text text-transparent;
+  }
+  
+  .bg-gradient-brand {
+    @apply bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700;
+  }
+  
+  /* Container queries for responsive design */
+  .container-sm {
+    container-type: inline-size;
+  }
+  
+  @container (min-width: 768px) {
+    .cq-md\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
 }
 
-.progress-bar-fill {
-  @apply bg-app-progress h-full rounded-full;
-  transition: width 0.5s ease-in-out;
+/* CSS View Transitions API */
+@view-transition {
+  navigation: auto;
 }
 
-.status-badge {
-  @apply text-xs font-medium py-1 px-2 rounded-full;
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.3s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.status-nova {
-  @apply bg-blue-100 text-blue-800;
+/* Progressive enhancement for modern browsers */
+@supports (backdrop-filter: blur(10px)) {
+  .glass-enhanced {
+    backdrop-filter: blur(16px) saturate(1.5);
+  }
 }
 
-.status-em-estudo {
-  @apply bg-yellow-100 text-yellow-800;
-}
-
-.status-concluida {
-  @apply bg-green-100 text-green-800;
-}
-
-.calendar-day {
-  @apply w-8 h-8 rounded-full flex items-center justify-center text-sm;
-}
-
-.calendar-day-with-revision {
-  @apply bg-app-blue text-white;
-}
-
-.sidebar-item {
-  @apply flex items-center gap-2 py-2 px-3 rounded-md transition-colors;
-}
-
-.sidebar-item.active {
-  @apply bg-app-blue text-white;
-}
-
-.sidebar-item:not(.active) {
-  @apply hover:bg-gray-100;
+@supports (container-type: inline-size) {
+  .responsive-grid {
+    container-type: inline-size;
+  }
 }
