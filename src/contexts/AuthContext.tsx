@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -5,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Database } from '@/integrations/supabase/types';
 import { useAuthOperations } from '@/hooks/useAuthOperations';
 import { useProfileData } from '@/hooks/useProfileData';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -30,7 +31,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [manualLogin, setManualLogin] = useState(false);
   const navigate = useNavigate();
   
   const auth = useAuthOperations();
@@ -40,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const handleUserData = async (currentUser: User | null) => {
     if (currentUser) {
       try {
+        console.log('Fetching profile for user:', currentUser.id);
         const profileData = await fetchProfile(currentUser.id);
         if (!profileData) {
           console.log('No profile found, user may need to complete registration');
@@ -48,18 +49,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('Error fetching profile data:', error);
       }
     } else {
+      console.log('No user, clearing profile data');
       updateLocalProfile(null);
     }
   };
 
   useEffect(() => {
+    console.log('Setting up auth state listener...');
+    
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('Auth state changed:', event);
+        console.log('Auth state changed:', event, newSession ? 'has session' : 'no session');
+        
+        // Update state synchronously first
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
+        // Handle profile data asynchronously
         if (newSession?.user) {
           setTimeout(() => {
             handleUserData(newSession.user);
@@ -68,13 +75,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           updateLocalProfile(null);
         }
 
+        // Handle navigation based on auth events
         if (event === 'SIGNED_OUT') {
+          console.log('User signed out, redirecting to login');
           navigate('/login');
-        }
-        // Só redireciona para / se for login manual
-        if (event === 'SIGNED_IN' && manualLogin) {
+        } else if (event === 'SIGNED_IN') {
+          console.log('User signed in, redirecting to dashboard');
           navigate('/');
-          setManualLogin(false);
+        }
+        
+        // Mark auth as initialized after first event
+        if (!authInitialized) {
+          setAuthInitialized(true);
+          setLoading(false);
         }
       }
     );
@@ -82,8 +95,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Check for existing session on load
     const initializeAuth = async () => {
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('Checking for existing session...');
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          throw error;
+        }
+        
         console.log('Initial session:', currentSession ? 'exists' : 'none');
+        
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
@@ -92,90 +113,94 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        toast({
-          title: 'Erro de autenticação',
-          description: 'Não foi possível carregar os dados do usuário.',
-          variant: 'destructive'
-        });
+        toast.error('Erro de autenticação. Faça login novamente.');
       } finally {
-        setLoading(false);
-        setAuthInitialized(true);
+        if (!authInitialized) {
+          setLoading(false);
+          setAuthInitialized(true);
+        }
       }
     };
 
     initializeAuth();
 
     return () => {
+      console.log('Cleaning up auth subscription');
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, authInitialized]);
 
-  // Wrapper functions to manter o controle do login manual
+  // Wrapper functions with proper error handling
   const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    setManualLogin(true);
     try {
       await auth.signIn(email, password);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Sign in wrapper error:', error);
+      throw error;
     }
   };
 
-  const signUp = (email: string, password: string, name: string, phone?: string) => {
-    setLoading(true);
+  const signUp = async (email: string, password: string, name: string, phone?: string) => {
     try {
-      return auth.signUp(email, password, name, phone);
-    } finally {
-      setLoading(false);
+      return await auth.signUp(email, password, name, phone);
+    } catch (error) {
+      console.error('Sign up wrapper error:', error);
+      throw error;
     }
   };
 
   const signInWithGoogle = async () => {
-    setLoading(true);
-    setManualLogin(true);
     try {
       await auth.signInWithGoogle();
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Google sign in wrapper error:', error);
+      throw error;
     }
   };
 
   const signOut = async () => {
-    setLoading(true);
     try {
+      console.log('Starting logout process...');
       await auth.signOut();
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Sign out wrapper error:', error);
+      // Even if logout fails, clear local state
+      setSession(null);
+      setUser(null);
+      updateLocalProfile(null);
+      navigate('/login');
     }
   };
 
   const updatePassword = async (password: string) => {
-    setLoading(true);
     try {
       await auth.updatePassword(password);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Update password wrapper error:', error);
+      throw error;
     }
   };
 
   const resetPassword = async (email: string) => {
-    setLoading(true);
     try {
       return await auth.resetPassword(email);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Reset password wrapper error:', error);
+      throw error;
     }
   };
 
   const updateProfile = async (profileData: Partial<Profile>) => {
-    setLoading(true);
     try {
-      if (!user) return;
+      if (!user) {
+        throw new Error('Usuário não encontrado');
+      }
       
       const updatedProfile = await auth.updateProfile(user, profileData, profile);
       updateLocalProfile(updatedProfile);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Update profile wrapper error:', error);
+      throw error;
     }
   };
 

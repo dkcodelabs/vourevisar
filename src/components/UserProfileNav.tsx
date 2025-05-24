@@ -12,15 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut, Settings, User } from "lucide-react";
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 
 export function UserProfileNav() {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, loading } = useAuth();
   const [firstName, setFirstName] = useState<string>('');
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     if (profile?.name) {
-      // Extrair o primeiro nome
       const firstNameOnly = profile.name.split(' ')[0];
       setFirstName(firstNameOnly);
     }
@@ -34,6 +33,18 @@ export function UserProfileNav() {
     ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase()
     : user.email?.charAt(0).toUpperCase() || 'U';
 
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      console.log('UserProfileNav: Starting logout...');
+      await signOut();
+    } catch (error) {
+      console.error('UserProfileNav: Logout error:', error);
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-3">
       <div className="hidden sm:flex flex-col items-end">
@@ -43,7 +54,7 @@ export function UserProfileNav() {
       
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+          <Button variant="ghost" className="relative h-8 w-8 rounded-full" disabled={loading || isSigningOut}>
             <Avatar className="h-8 w-8">
               <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.name || 'Avatar do usuário'} />
               <AvatarFallback>{userInitials}</AvatarFallback>
@@ -71,9 +82,13 @@ export function UserProfileNav() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer">
+          <DropdownMenuItem 
+            onClick={handleSignOut} 
+            className="cursor-pointer"
+            disabled={isSigningOut}
+          >
             <LogOut className="mr-2 h-4 w-4" />
-            <span>Sair</span>
+            <span>{isSigningOut ? 'Saindo...' : 'Sair'}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

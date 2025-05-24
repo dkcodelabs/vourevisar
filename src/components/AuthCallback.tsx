@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 export function AuthCallback() {
   const [loading, setLoading] = useState(true);
@@ -35,18 +35,11 @@ export function AuthCallback() {
           
           if (error) {
             console.error('Error setting session:', error);
-            toast({
-              title: 'Erro na autenticação',
-              description: 'Não foi possível completar o login. Tente novamente.',
-              variant: 'destructive'
-            });
+            toast.error('Erro na autenticação. Tente novamente.');
             setRedirectPath('/login');
           } else if (data.session) {
             console.log('Session established successfully');
-            toast({
-              title: 'Login realizado com sucesso!',
-              description: 'Bem-vindo ao vouRevisar!',
-            });
+            toast.success('Login realizado com sucesso!');
             setRedirectPath('/');
           }
         } else {
@@ -58,6 +51,7 @@ export function AuthCallback() {
             setRedirectPath('/login');
           } else if (session) {
             console.log('Existing session found');
+            toast.success('Login realizado com sucesso!');
             setRedirectPath('/');
           } else {
             console.log('No session found, redirecting to login');
@@ -72,11 +66,7 @@ export function AuthCallback() {
         
       } catch (err) {
         console.error('Error in auth callback:', err);
-        toast({
-          title: 'Erro na autenticação',
-          description: 'Ocorreu um erro durante o processo de login.',
-          variant: 'destructive'
-        });
+        toast.error('Erro na autenticação');
         setRedirectPath('/login');
       } finally {
         setLoading(false);
@@ -88,10 +78,10 @@ export function AuthCallback() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue mx-auto"></div>
-          <p className="mt-4 text-gray-600">Processando autenticação...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">Processando autenticação...</p>
         </div>
       </div>
     );

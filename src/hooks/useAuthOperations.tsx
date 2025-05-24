@@ -1,7 +1,8 @@
+
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { Database } from '@/integrations/supabase/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -14,12 +15,11 @@ export function useAuthOperations() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      
+      toast.success('Login realizado com sucesso!');
     } catch (error: any) {
-      toast({
-        title: 'Erro ao fazer login',
-        description: error.message,
-        variant: 'destructive'
-      });
+      console.error('Sign in error:', error);
+      toast.error(error.message || 'Erro ao fazer login');
       throw error;
     } finally {
       setLoading(false);
@@ -53,7 +53,7 @@ export function useAuthOperations() {
           data: {
             name,
             phone,
-            provider_type: 'Cadastro' // Store provider type as 'Cadastro' for manual signups
+            provider_type: 'Cadastro'
           }
         }
       });
@@ -72,7 +72,7 @@ export function useAuthOperations() {
           .update({
             name: name,
             phone: phone || null,
-            provider_type: 'Cadastro' // Explicitly set provider_type
+            provider_type: 'Cadastro'
           })
           .eq('id', data.user.id);
           
@@ -81,18 +81,11 @@ export function useAuthOperations() {
         }
       }
       
-      toast({
-        title: 'Cadastro realizado!',
-        description: 'Verifique seu e-mail para confirmar o cadastro.',
-      });
-
+      toast.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
       return data;
     } catch (error: any) {
-      toast({
-        title: 'Erro ao criar conta',
-        description: error.message,
-        variant: 'destructive'
-      });
+      console.error('Sign up error:', error);
+      toast.error(error.message || 'Erro ao criar conta');
       throw error;
     } finally {
       setLoading(false);
@@ -100,8 +93,8 @@ export function useAuthOperations() {
   };
 
   const signInWithGoogle = async () => {
+    setLoading(true);
     try {
-      // Use the current domain for the redirect URL
       const currentOrigin = window.location.origin;
       const redirectUrl = `${currentOrigin}/auth/callback`;
       
@@ -127,26 +120,42 @@ export function useAuthOperations() {
       return data;
     } catch (error: any) {
       console.error("Google sign-in error:", error);
-      toast({
-        title: 'Erro ao fazer login com Google',
-        description: error.message,
-        variant: 'destructive'
-      });
+      toast.error('Erro ao fazer login com Google');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const signOut = async () => {
+    setLoading(true);
     try {
+      // Get current session first
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log('No active session found');
+        toast.success('Logout realizado com sucesso!');
+        return;
+      }
+
+      console.log('Signing out user:', session.user?.email);
+      
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      
+      if (error) {
+        console.error('Logout error:', error);
+        throw error;
+      }
+      
+      console.log('Logout successful');
+      toast.success('Logout realizado com sucesso!');
     } catch (error: any) {
-      toast({
-        title: 'Erro ao sair',
-        description: error.message,
-        variant: 'destructive'
-      });
-      throw error;
+      console.error('Error during logout:', error);
+      // Even if there's an error, we should clear local state
+      toast.error('Erro ao sair, mas você foi desconectado localmente');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -159,13 +168,11 @@ export function useAuthOperations() {
       
       if (error) throw error;
       
+      toast.success('Email de recuperação enviado!');
       return true;
     } catch (error: any) {
-      toast({
-        title: 'Erro ao enviar email de recuperação',
-        description: error.message,
-        variant: 'destructive'
-      });
+      console.error('Reset password error:', error);
+      toast.error('Erro ao enviar email de recuperação');
       throw error;
     } finally {
       setLoading(false);
@@ -173,6 +180,7 @@ export function useAuthOperations() {
   };
 
   const updatePassword = async (password: string) => {
+    setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({
         password
@@ -180,21 +188,18 @@ export function useAuthOperations() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Senha atualizada',
-        description: 'Sua senha foi atualizada com sucesso.'
-      });
+      toast.success('Senha atualizada com sucesso!');
     } catch (error: any) {
-      toast({
-        title: 'Erro ao atualizar senha',
-        description: error.message,
-        variant: 'destructive'
-      });
+      console.error('Update password error:', error);
+      toast.error('Erro ao atualizar senha');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const updateProfile = async (user: User, profile: Partial<Profile>, currentProfile: Profile | null) => {
+    setLoading(true);
     try {
       if (!profile) {
         throw new Error("No profile data provided");
@@ -210,23 +215,16 @@ export function useAuthOperations() {
         
       if (error) throw error;
       
-      // Return the updated profile to be used in the parent component
       const updatedProfile = currentProfile ? { ...currentProfile, ...profile } : null;
       
-      toast({
-        title: 'Perfil atualizado',
-        description: 'Suas informações foram atualizadas com sucesso.'
-      });
-      
+      toast.success('Perfil atualizado com sucesso!');
       return updatedProfile;
     } catch (error: any) {
       console.error('Error updating profile:', error);
-      toast({
-        title: 'Erro ao atualizar perfil',
-        description: error.message,
-        variant: 'destructive'
-      });
+      toast.error('Erro ao atualizar perfil');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
