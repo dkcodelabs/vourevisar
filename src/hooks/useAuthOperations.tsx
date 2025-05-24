@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -102,18 +101,19 @@ export function useAuthOperations() {
 
   const signInWithGoogle = async () => {
     try {
-      // Get the current URL with the correct format
-      const baseUrl = window.location.origin;
-      const redirectUrl = `${baseUrl}/auth/callback`;
-      console.log("Google login redirect URL:", redirectUrl);
+      // Use the current domain for the redirect URL
+      const currentOrigin = window.location.origin;
+      const redirectUrl = `${currentOrigin}/auth/callback`;
       
-      const { error, data } = await supabase.auth.signInWithOAuth({
+      console.log("Initiating Google sign-in with redirect URL:", redirectUrl);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent'
+            prompt: 'select_account'
           }
         }
       });
@@ -123,7 +123,7 @@ export function useAuthOperations() {
         throw error;
       }
       
-      console.log("Google sign-in initiated successfully", data);
+      console.log("Google sign-in initiated successfully");
       return data;
     } catch (error: any) {
       console.error("Google sign-in error:", error);

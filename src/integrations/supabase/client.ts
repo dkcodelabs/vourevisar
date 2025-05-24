@@ -14,7 +14,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true, // Enable detection of OAuth access tokens in the URL
-    flowType: 'implicit' // Use implicit flow for OAuth
+    detectSessionInUrl: true,
+    flowType: 'pkce' // Use PKCE flow for better security
   }
 });
