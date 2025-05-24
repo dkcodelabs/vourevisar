@@ -177,15 +177,15 @@ export const Dashboard = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium flex items-center">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold flex items-center">
               <Book className="mr-2 h-5 w-5 text-app-blue" />
               Matérias Cadastradas
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col">
-              <div className="text-3xl font-bold">
+              <div className="text-2xl sm:text-3xl font-bold">
                 {studyProgress.completedSubjects}/{studyProgress.totalSubjects}
               </div>
               <div className="text-sm text-gray-500 mt-1">
@@ -196,15 +196,15 @@ export const Dashboard = () => {
         </Card>
         
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium flex items-center">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold flex items-center">
               <LayoutList className="mr-2 h-5 w-5 text-app-blue" />
               Tópicos Cadastrados
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col">
-              <div className="text-3xl font-bold">
+              <div className="text-2xl sm:text-3xl font-bold">
                 {studyProgress.completedTopics}/{studyProgress.totalTopics}
               </div>
               <div className="text-sm text-gray-500 mt-1">
@@ -214,17 +214,22 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
         
+import { LayoutList, CalendarDays, Calendar, Plus, Book, Settings, TrendingUp, ClipboardCheck, ListChecks } from 'lucide-react';
+// ... (other imports)
+
+// ... (component code)
+
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium flex items-center">
-              <Calendar className="mr-2 h-5 w-5 text-app-blue" />
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold flex items-center">
+              <TrendingUp className="mr-2 h-5 w-5 text-app-blue" />
               Progresso Geral
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold">{topicsPercentage}% Concluído</span>
+                <span className="text-2xl sm:text-3xl font-bold">{topicsPercentage}% Concluído</span>
                 <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">{topicsPercentage}%</span>
               </div>
               <p className="text-sm text-gray-500">Continue assim para alcançar seus objetivos!</p>
@@ -240,7 +245,7 @@ export const Dashboard = () => {
         <div className="lg:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl font-bold flex items-center">
+              <CardTitle className="text-xl font-semibold flex items-center">
                 <Calendar className="mr-2 h-5 w-5 text-app-blue" />
                 Calendário de Revisões
               </CardTitle>
@@ -284,7 +289,7 @@ export const Dashboard = () => {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl font-bold flex items-center">
+              <CardTitle className="text-xl font-semibold flex items-center">
                 <CalendarDays className="mr-2 h-5 w-5 text-app-blue" />
                 Matérias e Revisões de Hoje
               </CardTitle>
@@ -296,9 +301,12 @@ export const Dashboard = () => {
               <div className="space-y-4">
                 {todaysReviews.map(review => (
                   <div key={review.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <h3 className="font-medium">{review.subject} - {review.topic}</h3>
-                      <p className="text-sm text-gray-500">{review.type}</p>
+                    <div className="flex items-center">
+                      <ClipboardCheck className="mr-3 h-5 w-5 text-app-blue flex-shrink-0" />
+                      <div>
+                        <h3 className="font-medium">{review.subject} - {review.topic}</h3>
+                        <p className="text-sm text-gray-500">{review.type}</p>
+                      </div>
                     </div>
                     <div className="text-right">
                       <span className="text-sm font-medium text-app-blue">{review.date}</span>
@@ -317,7 +325,7 @@ export const Dashboard = () => {
       
       <div className="mt-6">
         <h3 className="text-xl font-bold mb-4">Acesso Rápido</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card 
             className="hover:shadow-md transition-shadow cursor-pointer"
             onClick={() => navigate('/materias')}
@@ -369,11 +377,14 @@ export const Dashboard = () => {
             {selectedDate && revisionsByDate[selectedDate]?.map(revision => (
               <div key={revision.id} className="border rounded-md p-3">
                 <div className="flex justify-between items-center">
-                  <h4 className="font-medium">{revision.subject} - {revision.topic}</h4>
+                  <div className="flex items-center">
+                    <ListChecks className="mr-3 h-5 w-5 text-gray-600 flex-shrink-0" />
+                    <h4 className="font-medium">{revision.subject} - {revision.topic}</h4>
+                  </div>
                   <span 
                     className={`text-xs px-2 py-1 rounded-full ${
-                      revision.status === 'Atrasado' ? 'bg-yellow-100 text-yellow-800' : 
-                      revision.status === 'Hoje' ? 'bg-red-100 text-red-800' : 
+                      revision.status === 'Atrasado' ? 'bg-red-100 text-red-800' : 
+                      revision.status === 'Hoje' ? 'bg-yellow-100 text-yellow-800' : 
                       'bg-blue-100 text-blue-800'
                     }`}
                   >

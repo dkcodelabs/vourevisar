@@ -1,18 +1,30 @@
 
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from './AppSidebar';
+// Removed Button, MenuIcon, Sheet components, useIsMobile as they are handled by ui/sidebar or not needed here directly
 
 export function AppLayout() {
+  // defaultOpen={true} for SidebarProvider means sidebar is expanded on desktop by default.
+  // The ui/Sidebar component within AppSidebar will handle its own mobile sheet display.
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full">
-        <AppSidebar />
-        <main className="flex-1 overflow-auto">
-          <div className="p-6">
-            <style>
-              {`
+    <SidebarProvider defaultOpen={true}>
+      <AppSidebar /> {/* This component now uses <Sidebar> from ui/sidebar internally */}
+      
+      <SidebarInset> {/* Manages the main content area layout correctly with the ui/Sidebar */}
+        {/* Header for mobile trigger. md:hidden ensures it's only on small screens. */}
+        <header className="sticky top-0 z-40 flex items-center justify-between p-4 border-b bg-background md:hidden">
+          <span className="text-app-blue font-bold text-2xl">vouRevisar</span>
+          <SidebarTrigger /> {/* This trigger is from ui/sidebar and controls the Sheet on mobile */}
+        </header>
+        
+        {/* Main page content */}
+        <div className="p-6">
+          <Outlet />
+          {/* Global styles can remain if they are truly global and not component-specific */}
+          <style>
+            {`
               .progress-bar {
                 width: 100%;
                 height: 8px;
