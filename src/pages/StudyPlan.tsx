@@ -246,7 +246,9 @@ const StudyPlan = () => {
   };
 
   // Matérias do dia baseadas no banco de dados
-  const dailySubjects = subjects.filter(s => userCycle?.disciplinas_do_dia.includes(s.id) || false);
+  const dailySubjects = subjects.filter(
+    s => disciplinasDoDia.includes(s.id) && !cicloAtual.includes(s.id)
+  );
 
   // Próximas matérias (pendentes que não estão no dia)
   const materiasPendentes = subjects
@@ -297,20 +299,15 @@ const StudyPlan = () => {
   // Função para completar sessão
   const handleCompleteSession = async (subjectId: string) => {
     const topicsToUpdate = tempMarkedTopics[subjectId] || [];
-    
     try {
       for (const topicId of topicsToUpdate) {
-        // Encontrar o tópico
         const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
         if (!topic) continue;
-        
-        // Calcular o próximo estágio de revisão
         const nextStage = getNextReviewStage(topic.reviewStage);
         let updateData: any = {
           review_count: topic.reviewCount + 1,
           last_reviewed_at: new Date().toISOString()
         };
-        
         if (nextStage === 'Concluído') {
           updateData.completed = true;
           updateData.next_review = null;
@@ -319,54 +316,55 @@ const StudyPlan = () => {
           updateData.next_review = calculateNextReview(nextStage).toISOString();
           updateData.review_stage = nextStage;
         }
-        
         await supabase.from('topics').update(updateData).eq('id', topicId);
       }
-      
       await fetchSubjects();
       setCompletedSessions(prev => [...prev, subjectId]);
-      
-      if (!userCycle) return;
-      
-      // Atualizar ciclo_atual no banco
-      const novoCicloAtual = [...userCycle.ciclo_atual, subjectId];
-      
-      // Verificar se todas as matérias do ciclo foram concluídas
-      const todasMatConcluidas = currentSubjects.every(subject => 
-        novoCicloAtual.includes(subject.id)
-      );
-      
-      if (todasMatConcluidas) {
-        // Completou o ciclo
-        await updateUserCycle({
-          ciclo_atual: [],
-          ciclos_realizados: userCycle.ciclos_realizados + 1,
-          data_fim_ciclo: new Date().toISOString(),
-          data_inicio_ciclo: new Date().toISOString(),
-          disciplinas_do_dia: currentSubjects.slice(0, subjectsPerDay).map(s => s.id)
-        });
-        
-        setTimeout(() => {
-          launchConfetti();
-          setNovoCicloBanner(true);
-          setCompletedSessions([]);
-          setCurrentSubjectIndex(0);
-          setExpandedSubject(null);
-        }, 500);
-      } else {
-        // Apenas atualizar ciclo_atual
-        await updateUserCycle({
-          ciclo_atual: novoCicloAtual
-        });
-      }
-      
+      setCicloAtual(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
+      setDisciplinasDoDia(prev => prev.filter(id => id !== subjectId));
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
         delete updated[subjectId];
         return updated;
       });
-      
+      // Atualizar ciclo no banco
+      await supabase.from('user_cycles').upsert([
+        {
+          user_id: user.id,
+          ciclo_atual: Array.isArray(cicloAtual) ? [...cicloAtual, subjectId] : [subjectId],
+          disciplinas_do_dia: disciplinasDoDia.filter(id => id !== subjectId),
+          atualizado_em: new Date().toISOString()
+        }
+      ], { onConflict: 'user_id' });
+      // Se todas as matérias do ciclo foram concluídas, reinicia ciclo e mostra banner
+      const todasMatConcluidas = subjects
+        .filter(subject => subject.status === 'Em Estudo' || subject.status === 'Nova')
+        .every(subject => cicloAtual.includes(subject.id) || subject.id === subjectId);
+      if (todasMatConcluidas) {
+        setTimeout(() => {
+          launchConfetti();
+          setNovoCicloBanner(true);
+          setCicloAtual([]);
+          setDisciplinasDoDia([]);
+          setCompletedSessions([]);
+          setCurrentSubjectIndex(0);
+          setExpandedSubject(null);
+          // Atualizar ciclo no banco: novo ciclo
+          supabase.from('user_cycles').upsert([
+            {
+              user_id: user.id,
+              ciclo_atual: [],
+              disciplinas_do_dia: [],
+              ciclos_realizados: (userCycle?.ciclos_realizados || 0) + 1,
+              data_inicio_ciclo: new Date().toISOString(),
+              data_fim_ciclo: new Date().toISOString(),
+              atualizado_em: new Date().toISOString()
+            }
+          ], { onConflict: 'user_id' });
+        }, 500);
+        return;
+      }
     } catch (error) {
       toast.error("Erro ao salvar revisões. Tente novamente.");
     }
