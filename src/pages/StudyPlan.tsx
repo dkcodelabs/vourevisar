@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +36,8 @@ const StudyPlan = () => {
   const isFirstRender = useRef(true);
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
   const [novoCicloBanner, setNovoCicloBanner] = useState(false);
+  const [cicloAtual, setCicloAtual] = useState<string[]>([]);
+  const [disciplinasDoDia, setDisciplinasDoDia] = useState<string[]>([]);
   
   // Get the subjectsPerDay from user settings
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
@@ -64,6 +65,8 @@ const StudyPlan = () => {
 
       if (data) {
         setUserCycle(data);
+        if (Array.isArray(data.ciclo_atual)) setCicloAtual(data.ciclo_atual);
+        if (Array.isArray(data.disciplinas_do_dia)) setDisciplinasDoDia(data.disciplinas_do_dia);
       } else {
         // Se não existe ciclo, cria um novo
         await createInitialUserCycle();
@@ -100,6 +103,8 @@ const StudyPlan = () => {
       }
 
       setUserCycle(data);
+      if (Array.isArray(data.ciclo_atual)) setCicloAtual(data.ciclo_atual);
+      if (Array.isArray(data.disciplinas_do_dia)) setDisciplinasDoDia(data.disciplinas_do_dia);
     } catch (error) {
       console.error('Erro ao criar ciclo inicial:', error);
     }
@@ -126,6 +131,8 @@ const StudyPlan = () => {
       }
 
       setUserCycle(data);
+      if (Array.isArray(data.ciclo_atual)) setCicloAtual(data.ciclo_atual);
+      if (Array.isArray(data.disciplinas_do_dia)) setDisciplinasDoDia(data.disciplinas_do_dia);
     } catch (error) {
       console.error('Erro ao atualizar ciclo:', error);
     }
@@ -438,6 +445,19 @@ const StudyPlan = () => {
       } catch {}
     }
   }, []);
+
+  // Atualizar ciclo no banco sempre que mudar
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('user_cycles').upsert([
+      {
+        user_id: user.id,
+        ciclo_atual: Array.isArray(cicloAtual) ? cicloAtual : [],
+        disciplinas_do_dia: Array.isArray(disciplinasDoDia) ? disciplinasDoDia : [],
+        atualizado_em: new Date().toISOString()
+      }
+    ], { onConflict: 'user_id' });
+  }, [user, cicloAtual, disciplinasDoDia]);
 
   if (isLoading) {
     return (
