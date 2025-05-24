@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -75,13 +74,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           updateLocalProfile(null);
         }
 
-        // Handle navigation based on auth events
+        // Handle navigation based on auth events - avoid duplicate toasts
         if (event === 'SIGNED_OUT') {
           console.log('User signed out, redirecting to login');
           navigate('/login');
         } else if (event === 'SIGNED_IN') {
           console.log('User signed in, redirecting to dashboard');
-          navigate('/');
+          // Force navigation to ensure page loads correctly
+          setTimeout(() => {
+            navigate('/', { replace: true });
+            // Force a page refresh to ensure proper loading
+            window.location.reload();
+          }, 100);
         }
         
         // Mark auth as initialized after first event
@@ -130,10 +134,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [navigate, authInitialized]);
 
-  // Wrapper functions with proper error handling
+  // Wrapper functions with proper error handling - avoid duplicate toasts
   const signIn = async (email: string, password: string) => {
     try {
       await auth.signIn(email, password);
+      // Don't show toast here, auth operations already handles it
     } catch (error) {
       console.error('Sign in wrapper error:', error);
       throw error;
@@ -143,6 +148,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
     try {
       return await auth.signUp(email, password, name, phone);
+      // Don't show toast here, auth operations already handles it
     } catch (error) {
       console.error('Sign up wrapper error:', error);
       throw error;
@@ -152,6 +158,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInWithGoogle = async () => {
     try {
       await auth.signInWithGoogle();
+      // Don't show toast here, auth operations already handles it
     } catch (error) {
       console.error('Google sign in wrapper error:', error);
       throw error;
@@ -162,6 +169,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Starting logout process...');
       await auth.signOut();
+      // Don't show toast here, auth operations already handles it
     } catch (error) {
       console.error('Sign out wrapper error:', error);
       // Even if logout fails, clear local state

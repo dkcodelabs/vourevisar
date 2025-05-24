@@ -23,9 +23,11 @@ const Login = () => {
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -40,20 +42,30 @@ const Login = () => {
           return;
         }
 
+        if (password !== confirmPassword) {
+          toast.error('As senhas não coincidem');
+          return;
+        }
+
+        if (password.length < 6) {
+          toast.error('A senha deve ter pelo menos 6 caracteres');
+          return;
+        }
+
         await signUp(email, password, name, phone);
-        toast.success('Conta criada com sucesso! Verifique seu email.');
+        // Reset form after successful signup
         setIsRegistering(false);
-        // Reset form
         setName('');
         setPhone('');
         setEmail('');
         setPassword('');
+        setConfirmPassword('');
       } else {
         await signIn(email, password);
-        navigate('/dashboard');
       }
     } catch (error: any) {
-      toast.error(error.message);
+      // Error handling is done in auth operations, no need to show toast here
+      console.error('Login/Signup error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +76,7 @@ const Login = () => {
       setIsLoading(true);
       await signInWithGoogle();
     } catch (error: any) {
-      toast.error('Erro ao fazer login com Google');
+      console.error('Google login error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -152,6 +164,30 @@ const Login = () => {
               </div>
             </div>
 
+            {isRegistering && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirmar Senha</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <GradientButton
               type="submit"
               className="w-full py-3"
@@ -206,6 +242,7 @@ const Login = () => {
                   setPhone('');
                   setEmail('');
                   setPassword('');
+                  setConfirmPassword('');
                 }}
                 className="text-sm text-app-blue hover:text-blue-700 transition-colors"
               >
