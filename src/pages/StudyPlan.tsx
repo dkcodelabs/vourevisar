@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,21 +13,123 @@ import { supabase } from '@/integrations/supabase/client';
 import { Topic, RevisionStage } from '@/types';
 import { addDays, format, isAfter, isBefore, isToday } from 'date-fns';
 
+interface UserCycle {
+  id: string;
+  user_id: string;
+  ciclo_atual: string[];
+  disciplinas_do_dia: string[];
+  ciclos_realizados: number;
+  data_inicio_ciclo: string;
+  data_fim_ciclo: string | null;
+  atualizado_em: string;
+  created_at: string;
+}
+
 const StudyPlan = () => {
   const { subjects, userProfile, fetchSubjects, fetchUserSettings } = useApp();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
-  const [markedTopics, setMarkedTopics] = useState<Record<string, string[]>>({});
   const [completedSessions, setCompletedSessions] = useState<string[]>([]);
   const [currentSubjectIndex, setCurrentSubjectIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const isFirstRender = useRef(true);
-  const [cicloAtual, setCicloAtual] = useState<string[]>([]);
-  const [diaCiclo, setDiaCiclo] = useState(0);
+  const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
   const [novoCicloBanner, setNovoCicloBanner] = useState(false);
-  const [disciplinasDoDia, setDisciplinasDoDia] = useState<string[]>([]);
+  
+  // Get the subjectsPerDay from user settings
+  const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
+  
+  // Filter subjects that are in progress
+  const currentSubjects = subjects.filter(subject => 
+    subject.status === 'Em Estudo' || subject.status === 'Nova'
+  ).sort((a, b) => (a.priority || 0) - (b.priority || 0));
+
+  // Função para buscar o ciclo do usuário
+  const fetchUserCycle = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_cycles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao buscar ciclo do usuário:', error);
+        return;
+      }
+
+      if (data) {
+        setUserCycle(data);
+      } else {
+        // Se não existe ciclo, cria um novo
+        await createInitialUserCycle();
+      }
+    } catch (error) {
+      console.error('Erro ao buscar ciclo:', error);
+    }
+  };
+
+  // Função para criar ciclo inicial
+  const createInitialUserCycle = async () => {
+    if (!user) return;
+
+    try {
+      const initialDisciplinas = currentSubjects.slice(0, subjectsPerDay).map(s => s.id);
+      
+      const { data, error } = await supabase
+        .from('user_cycles')
+        .insert([{
+          user_id: user.id,
+          ciclo_atual: [],
+          disciplinas_do_dia: initialDisciplinas,
+          ciclos_realizados: 0,
+          data_inicio_ciclo: new Date().toISOString(),
+          data_fim_ciclo: null,
+          atualizado_em: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao criar ciclo inicial:', error);
+        return;
+      }
+
+      setUserCycle(data);
+    } catch (error) {
+      console.error('Erro ao criar ciclo inicial:', error);
+    }
+  };
+
+  // Função para atualizar ciclo no banco
+  const updateUserCycle = async (updates: Partial<UserCycle>) => {
+    if (!user || !userCycle) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_cycles')
+        .update({
+          ...updates,
+          atualizado_em: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao atualizar ciclo:', error);
+        return;
+      }
+
+      setUserCycle(data);
+    } catch (error) {
+      console.error('Erro ao atualizar ciclo:', error);
+    }
+  };
   
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
@@ -44,6 +147,8 @@ const StudyPlan = () => {
         if (!userProfile?.settings) {
           await fetchUserSettings();
         }
+        
+        await fetchUserCycle();
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         toast.error("Erro ao carregar dados. Por favor, tente novamente.");
@@ -60,14 +165,6 @@ const StudyPlan = () => {
       isMounted = false;
     };
   }, [user, subjects.length, userProfile?.settings]);
-  
-  // Get the subjectsPerDay from user settings
-  const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
-  
-  // Filter subjects that are in progress
-  const currentSubjects = subjects.filter(subject => 
-    subject.status === 'Em Estudo' || subject.status === 'Nova'
-  ).sort((a, b) => (a.priority || 0) - (b.priority || 0));
   
   // Função para calcular a próxima data de revisão com base no estágio atual
   const calculateNextReview = (stage: RevisionStage | undefined): Date => {
@@ -141,62 +238,72 @@ const StudyPlan = () => {
     });
   };
 
-  // Atualiza as matérias do dia e próximas, considerando o ciclo e o dia atual
+  // Matérias do dia baseadas no banco de dados
+  const dailySubjects = subjects.filter(s => userCycle?.disciplinas_do_dia.includes(s.id) || false);
+
+  // Próximas matérias (pendentes que não estão no dia)
   const materiasPendentes = subjects
-    .filter(subject => (subject.status === 'Em Estudo' || subject.status === 'Nova') && !cicloAtual.includes(subject.id))
+    .filter(subject => 
+      (subject.status === 'Em Estudo' || subject.status === 'Nova') && 
+      !userCycle?.ciclo_atual.includes(subject.id) &&
+      !userCycle?.disciplinas_do_dia.includes(subject.id)
+    )
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
-  // Sempre mostra até subjectsPerDay matérias pendentes no dia
-  const dailySubjects = subjects.filter(s => disciplinasDoDia.includes(s.id));
-  const nextSubjects = materiasPendentes.filter(s => !disciplinasDoDia.includes(s.id)).slice(0, subjectsPerDay);
-
-  // Atualiza as disciplinas do dia ao iniciar ciclo ou ao clicar em Próximo Dia
-  useEffect(() => {
-    // Se disciplinasDoDia está vazio, inicializa com as próximas pendentes
-    if (disciplinasDoDia.length === 0 && materiasPendentes.length > 0) {
-      setDisciplinasDoDia(materiasPendentes.slice(0, subjectsPerDay).map(s => s.id));
-    }
-    // Se todas as disciplinas do ciclo foram concluídas, limpa disciplinasDoDia
-    if (materiasPendentes.length === 0 && disciplinasDoDia.length > 0) {
-      setDisciplinasDoDia([]);
-    }
-  }, [materiasPendentes, subjectsPerDay]);
+  const nextSubjects = materiasPendentes.slice(0, subjectsPerDay);
 
   // Função para avançar para o próximo dia
-  const handleNextDay = () => {
-    if (materiasPendentes.length === 0) return;
+  const handleNextDay = async () => {
+    if (!userCycle || materiasPendentes.length === 0) return;
+
+    const novasDisciplinas = materiasPendentes.slice(0, subjectsPerDay).map(s => s.id);
+    
+    await updateUserCycle({
+      disciplinas_do_dia: novasDisciplinas
+    });
+    
     setCompletedSessions([]);
     setExpandedSubject(null);
-    // Pega as próximas pendentes para o novo dia
-    setDisciplinasDoDia(materiasPendentes.slice(0, subjectsPerDay).map(s => s.id));
+    toast.info("Novo dia iniciado!");
   };
 
   // Função para resetar o ciclo manualmente
-  const handleResetCycle = () => {
-    setCicloAtual([]);
+  const handleResetCycle = async () => {
+    if (!userCycle) return;
+
+    const novasDisciplinas = currentSubjects.slice(0, subjectsPerDay).map(s => s.id);
+    
+    await updateUserCycle({
+      ciclo_atual: [],
+      disciplinas_do_dia: novasDisciplinas,
+      data_inicio_ciclo: new Date().toISOString(),
+      data_fim_ciclo: null
+    });
+    
     setCompletedSessions([]);
     setCurrentSubjectIndex(0);
     setExpandedSubject(null);
-    setDiaCiclo(0);
-    setMarkedTopics({});
     setNovoCicloBanner(false);
     toast.info("Ciclo reiniciado");
   };
 
-  // Atualiza cicloAtual ao concluir uma sessão
+  // Função para completar sessão
   const handleCompleteSession = async (subjectId: string) => {
     const topicsToUpdate = tempMarkedTopics[subjectId] || [];
+    
     try {
       for (const topicId of topicsToUpdate) {
         // Encontrar o tópico
         const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
         if (!topic) continue;
+        
         // Calcular o próximo estágio de revisão
         const nextStage = getNextReviewStage(topic.reviewStage);
         let updateData: any = {
           review_count: topic.reviewCount + 1,
           last_reviewed_at: new Date().toISOString()
         };
+        
         if (nextStage === 'Concluído') {
           updateData.completed = true;
           updateData.next_review = null;
@@ -205,35 +312,54 @@ const StudyPlan = () => {
           updateData.next_review = calculateNextReview(nextStage).toISOString();
           updateData.review_stage = nextStage;
         }
+        
         await supabase.from('topics').update(updateData).eq('id', topicId);
       }
+      
       await fetchSubjects();
       setCompletedSessions(prev => [...prev, subjectId]);
-      setCicloAtual(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
+      
+      if (!userCycle) return;
+      
+      // Atualizar ciclo_atual no banco
+      const novoCicloAtual = [...userCycle.ciclo_atual, subjectId];
+      
+      // Verificar se todas as matérias do ciclo foram concluídas
+      const todasMatConcluidas = currentSubjects.every(subject => 
+        novoCicloAtual.includes(subject.id)
+      );
+      
+      if (todasMatConcluidas) {
+        // Completou o ciclo
+        await updateUserCycle({
+          ciclo_atual: [],
+          ciclos_realizados: userCycle.ciclos_realizados + 1,
+          data_fim_ciclo: new Date().toISOString(),
+          data_inicio_ciclo: new Date().toISOString(),
+          disciplinas_do_dia: currentSubjects.slice(0, subjectsPerDay).map(s => s.id)
+        });
+        
+        setTimeout(() => {
+          launchConfetti();
+          setNovoCicloBanner(true);
+          setCompletedSessions([]);
+          setCurrentSubjectIndex(0);
+          setExpandedSubject(null);
+        }, 500);
+      } else {
+        // Apenas atualizar ciclo_atual
+        await updateUserCycle({
+          ciclo_atual: novoCicloAtual
+        });
+      }
+      
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
         delete updated[subjectId];
         return updated;
       });
-      // Se todas as matérias do ciclo foram concluídas, reinicia ciclo e mostra banner
-      const todasMatConcluidas = subjects
-        .filter(subject => subject.status === 'Em Estudo' || subject.status === 'Nova')
-        .every(subject => cicloAtual.includes(subject.id) || subject.id === subjectId);
-      if (todasMatConcluidas) {
-        setTimeout(() => {
-          launchConfetti();
-          setNovoCicloBanner(true);
-          setCicloAtual([]); // Reinicia ciclo
-          setCompletedSessions([]); // Reinicia sessões do dia
-          setCurrentSubjectIndex(0);
-          setExpandedSubject(null);
-          setDiaCiclo(0);
-          const ciclos = parseInt(localStorage.getItem('ciclosRealizados') || '0', 10);
-          localStorage.setItem('ciclosRealizados', String(ciclos + 1));
-        }, 500);
-        return;
-      }
+      
     } catch (error) {
       toast.error("Erro ao salvar revisões. Tente novamente.");
     }
@@ -241,9 +367,9 @@ const StudyPlan = () => {
 
   const handleToggleExpand = (subjectId: string) => {
     if (expandedSubject === subjectId) {
-      setExpandedSubject(null); // Collapse if already expanded
+      setExpandedSubject(null);
     } else {
-      setExpandedSubject(subjectId); // Expand if not already expanded
+      setExpandedSubject(subjectId);
     }
     if (expandedSubject !== subjectId) {
       toast.info("Estudo iniciado");
@@ -256,10 +382,6 @@ const StudyPlan = () => {
       spread: 70,
       origin: { y: 0.6 }
     });
-  };
-
-  const hasMarkedTopics = (subjectId: string) => {
-    return markedTopics[subjectId] && markedTopics[subjectId].length > 0;
   };
 
   const getTopicStatus = (topic: Topic) => {
@@ -334,6 +456,7 @@ const StudyPlan = () => {
             variant="outline" 
             onClick={handleNextDay}
             className="flex items-center gap-2"
+            disabled={materiasPendentes.length === 0}
           >
             Próximo Dia
             <ArrowRight className="h-4 w-4" />
@@ -346,6 +469,27 @@ const StudyPlan = () => {
           </Button>
         </div>
       </div>
+
+      {/* Informações do ciclo */}
+      {userCycle && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-600">
+                  Ciclos realizados: <span className="font-semibold">{userCycle.ciclos_realizados}</span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Disciplinas concluídas no ciclo atual: <span className="font-semibold">{userCycle.ciclo_atual.length}</span>
+                </p>
+              </div>
+              <div className="text-sm text-gray-600">
+                Início do ciclo: {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Current Subjects */}
       {dailySubjects.length > 0 && !dailySubjects.every(subject => completedSessions.includes(subject.id)) && (
@@ -460,7 +604,7 @@ const StudyPlan = () => {
         </div>
       )}
       
-      {/* Next Subjects (only showing the next one in sequence that isn't already in daily subjects) */}
+      {/* Next Subjects */}
       {nextSubjects.length > 0 && (
         <div className="mt-8">
           <h2 className="text-xl font-bold mb-4 flex items-center">
@@ -470,7 +614,7 @@ const StudyPlan = () => {
           
           <div className="space-y-2">
             {nextSubjects.map(subject => (
-              <Card key={subject.id} className={completedSessions.includes(subject.id) ? 'border-green-300 bg-green-50' : 'hover:shadow-md'}>
+              <Card key={subject.id} className="hover:shadow-md">
                 <CardContent className="p-4 flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <h3 className="font-medium">{subject.name}</h3>
@@ -512,6 +656,12 @@ const StudyPlan = () => {
         <div className="mt-8 text-center p-8 border-2 border-blue-300 rounded-lg bg-blue-50">
           <h3 className="text-xl font-bold text-blue-800">Novo ciclo iniciado! 🔄</h3>
           <p className="mt-2 text-gray-700">Você concluiu todas as matérias do ciclo. As disciplinas foram reiniciadas na ordem definida.</p>
+          <Button 
+            className="mt-4 bg-app-blue hover:bg-app-light-blue"
+            onClick={() => setNovoCicloBanner(false)}
+          >
+            Continuar
+          </Button>
         </div>
       )}
     </div>
