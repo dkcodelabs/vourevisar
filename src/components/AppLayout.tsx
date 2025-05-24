@@ -3,26 +3,20 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from './AppSidebar';
-// Removed Button, MenuIcon, Sheet components, useIsMobile as they are handled by ui/sidebar or not needed here directly
 
 export function AppLayout() {
-  // defaultOpen={true} for SidebarProvider means sidebar is expanded on desktop by default.
-  // The ui/Sidebar component within AppSidebar will handle its own mobile sheet display.
   return (
     <SidebarProvider defaultOpen={true}>
-      <AppSidebar /> {/* This component now uses <Sidebar> from ui/sidebar internally */}
+      <AppSidebar />
       
-      <SidebarInset> {/* Manages the main content area layout correctly with the ui/Sidebar */}
-        {/* Header for mobile trigger. md:hidden ensures it's only on small screens. */}
+      <SidebarInset>
         <header className="sticky top-0 z-40 flex items-center justify-between p-4 border-b bg-background md:hidden">
           <span className="text-app-blue font-bold text-2xl">vouRevisar</span>
-          <SidebarTrigger /> {/* This trigger is from ui/sidebar and controls the Sheet on mobile */}
+          <SidebarTrigger />
         </header>
         
-        {/* Main page content */}
         <div className="p-6">
           <Outlet />
-          {/* Global styles can remain if they are truly global and not component-specific */}
           <style>
             {`
               .progress-bar {
@@ -84,12 +78,10 @@ export function AppLayout() {
                 background-color: #dcfce7;
                 color: #166534;
               }
-              `}
-            </style>
-            <Outlet />
-          </div>
-        </main>
-      </div>
+            `}
+          </style>
+        </div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }

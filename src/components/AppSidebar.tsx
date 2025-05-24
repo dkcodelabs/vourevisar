@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
@@ -28,15 +29,15 @@ export function AppSidebar() {
   const { user } = useAuth();
 
   return (
-    <Sidebar className="border-r"> {/* min-h-screen is handled by SidebarProvider context styles */}
-      <SidebarHeader className="p-4 mb-4"> {/* Default p-2, mb-6 from old design, adjusted to mb-4 */}
-        <div className="flex items-center"> {/* Removed justify-between as there's no other element */}
+    <Sidebar className="border-r">
+      <SidebarHeader className="p-4 mb-4">
+        <div className="flex items-center">
           <span className="text-app-blue font-bold text-2xl">vouRevisar</span>
         </div>
       </SidebarHeader>
       
-      <SidebarContent> {/* Takes remaining space, p-0 by default, SidebarGroup adds padding */}
-        <SidebarGroup> {/* Default p-2 */}
+      <SidebarContent>
+        <SidebarGroup>
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.to}>
@@ -57,8 +58,7 @@ export function AppSidebar() {
       </SidebarContent>
       
       {user && (
-        <SidebarFooter className="p-4 mt-auto border-t"> {/* Default p-2, mt-auto for stick to bottom */}
-          {/* The UserProfileNav might have its own padding, ensure it fits well */}
+        <SidebarFooter className="p-4 mt-auto border-t">
           <div className="flex items-center">
             <div className="flex-1 overflow-hidden text-sm">
               <UserProfileNav />
@@ -66,13 +66,6 @@ export function AppSidebar() {
           </div>
         </SidebarFooter>
       )}
-    </Sidebar>
-  );
-}
-            </div>
-          </div>
-        )}
-      </div>
     </Sidebar>
   );
 }
