@@ -172,7 +172,8 @@ const StudyPlan = () => {
           updateData.next_review = calculateNextReview(nextStage).toISOString();
           updateData.review_stage = nextStage;
         }
-        await supabase.from('topics').update(updateData).eq('id', topicId);
+        const { error } = await supabase.from('topics').update(updateData).eq('id', topicId);
+        if (error) throw error;
       }
       await fetchSubjects();
       setCompletedSessions(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
@@ -193,8 +194,9 @@ const StudyPlan = () => {
           setExpandedSubject(null);
         }, 500);
       }
-    } catch (error) {
-      toast.error("Erro ao salvar revisões. Tente novamente.");
+    } catch (error: any) {
+      console.error('Erro ao concluir sessão:', error);
+      toast.error(error?.message || "Erro ao salvar revisões. Tente novamente.");
     }
   };
 

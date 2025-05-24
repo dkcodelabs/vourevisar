@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -138,6 +137,16 @@ export function useAuthOperations() {
 
   const signOut = async () => {
     try {
+      // Verifica se existe sessão antes de tentar deslogar
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Se não há sessão, apenas retorna (ou pode exibir um toast informativo)
+        toast({
+          title: 'Sessão já encerrada',
+          description: 'Você já está deslogado.',
+        });
+        return;
+      }
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error: any) {
