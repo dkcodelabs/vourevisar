@@ -23,6 +23,7 @@ const StudyPlan = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const isFirstRender = useRef(true);
+  const [cicloAtual, setCicloAtual] = useState<string[]>([]);
   
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
@@ -65,21 +66,6 @@ const StudyPlan = () => {
     subject.status === 'Em Estudo' || subject.status === 'Nova'
   ).sort((a, b) => (a.priority || 0) - (b.priority || 0));
   
-  // Current subjects to display (respect settings)
-  const dailySubjects = currentSubjects.slice(0, subjectsPerDay);
-  
-  // Current subject to display
-  const currentSubject = dailySubjects[currentSubjectIndex];
-  
-  // Next subjects to display - show the next subject in priority order that isn't already shown in dailySubjects
-  // Find the next subject that is not already in dailySubjects
-  const nextSubject = currentSubjects.find(subject => 
-    !dailySubjects.some(dailySubject => dailySubject.id === subject.id)
-  );
-  
-  // Next subjects array with either the next subject or empty array
-  const nextSubjects = nextSubject ? [nextSubject] : [];
-
   // Função para calcular a próxima data de revisão com base no estágio atual
   const calculateNextReview = (stage: RevisionStage | undefined): Date => {
     const now = new Date();
@@ -178,6 +164,7 @@ const StudyPlan = () => {
       }
       await fetchSubjects();
       setCompletedSessions(prev => [...prev, subjectId]);
+      setCicloAtual(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
@@ -185,12 +172,18 @@ const StudyPlan = () => {
         return updated;
       });
       toast.success("Sessão de estudo concluída");
-      // Confete e mensagem se todas concluídas
-      const updatedCompletedSessions = [...completedSessions, subjectId];
-      if (updatedCompletedSessions.length === dailySubjects.length) {
+      // Se todas as matérias do ciclo foram concluídas, reinicia ciclo
+      const todasMatConcluidas = subjects
+        .filter(subject => subject.status === 'Em Estudo' || subject.status === 'Nova')
+        .every(subject => cicloAtual.includes(subject.id) || subject.id === subjectId);
+      if (todasMatConcluidas) {
         setTimeout(() => {
           launchConfetti();
-          toast.success("Parabéns! Você concluiu todas as matérias do dia!");
+          toast.success("Parabéns! Você concluiu todas as matérias do ciclo! Um novo ciclo foi iniciado.");
+          setCicloAtual([]); // Reinicia ciclo
+          setCompletedSessions([]); // Reinicia sessões do dia
+          setCurrentSubjectIndex(0);
+          setExpandedSubject(null);
         }, 500);
       }
     } catch (error) {
@@ -211,7 +204,7 @@ const StudyPlan = () => {
 
   const handleNextDay = () => {
     // Check if all sessions for today are completed
-    const allCompleted = dailySubjects.every(subject => 
+    const allCompleted = currentSubjects.every(subject => 
       completedSessions.includes(subject.id)
     );
     
@@ -274,6 +267,14 @@ const StudyPlan = () => {
     if (!topic.reviewStage) return "";
     return topic.reviewStage;
   };
+
+  // Atualiza as matérias do dia e próximas, considerando o ciclo
+  const materiasPendentes = subjects
+    .filter(subject => (subject.status === 'Em Estudo' || subject.status === 'Nova') && !cicloAtual.includes(subject.id))
+    .sort((a, b) => (a.priority || 0) - (b.priority || 0));
+  const dailySubjects = materiasPendentes.slice(0, subjectsPerDay);
+  const nextSubject = materiasPendentes.length > subjectsPerDay ? materiasPendentes[subjectsPerDay] : null;
+  const nextSubjects = nextSubject ? [nextSubject] : [];
 
   if (isLoading) {
     return (
