@@ -1,95 +1,74 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Sidebar, SidebarContent, SidebarGroup } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, Menu, List } from "lucide-react";
+import { 
+  Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
+  SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton 
+} from "@/components/ui/sidebar";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, LucideIcon } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from "@/components/ui/button";
+
+interface NavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+}
+
+const navItems: NavItem[] = [
+  { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
+  { to: "/materias", label: "Matérias", icon: BookOpen },
+  { to: "/plano-estudos", label: "Plano de Estudos", icon: Calendar },
+  { to: "/topicos", label: "Tópicos", icon: List },
+  { to: "/perfil", label: "Perfil", icon: User },
+  { to: "/configuracoes", label: "Configurações", icon: Settings },
+];
 
 export function AppSidebar() {
   const { user } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <Sidebar className="border-r min-h-screen">
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-6">
+    <Sidebar className="border-r"> {/* min-h-screen is handled by SidebarProvider context styles */}
+      <SidebarHeader className="p-4 mb-4"> {/* Default p-2, mb-6 from old design, adjusted to mb-4 */}
+        <div className="flex items-center"> {/* Removed justify-between as there's no other element */}
           <span className="text-app-blue font-bold text-2xl">vouRevisar</span>
-          <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="md:hidden">
-            <Menu size={24} />
-          </Button>
         </div>
-        
-        <SidebarContent className={`${collapsed ? 'hidden' : 'block'} md:block`}>
-          <SidebarGroup>
-            <NavLink 
-              to="/" 
-              className={({ isActive }) => 
-                `sidebar-item ${isActive ? 'active' : ''}`
-              }
-            >
-              <LayoutDashboard size={20} />
-              <span>Painel</span>
-            </NavLink>
-            
-            <NavLink 
-              to="/materias" 
-              className={({ isActive }) => 
-                `sidebar-item ${isActive ? 'active' : ''}`
-              }
-            >
-              <BookOpen size={20} />
-              <span>Matérias</span>
-            </NavLink>
-            
-            <NavLink 
-              to="/plano-estudos" 
-              className={({ isActive }) => 
-                `sidebar-item ${isActive ? 'active' : ''}`
-              }
-            >
-              <Calendar size={20} />
-              <span>Plano de Estudos</span>
-            </NavLink>
-            
-            <NavLink 
-              to="/perfil" 
-              className={({ isActive }) => 
-                `sidebar-item ${isActive ? 'active' : ''}`
-              }
-            >
-              <User size={20} />
-              <span>Perfil</span>
-            </NavLink>
-            
-            <NavLink 
-              to="/configuracoes" 
-              className={({ isActive }) => 
-                `sidebar-item ${isActive ? 'active' : ''}`
-              }
-            >
-              <Settings size={20} />
-              <span>Configurações</span>
-            </NavLink>
-            
-            <NavLink 
-              to="/topicos" 
-              className={({ isActive }) => 
-                `sidebar-item ${isActive ? 'active' : ''}`
-              }
-            >
-              <List size={20} />
-              <span>Tópicos</span>
-            </NavLink>
-          </SidebarGroup>
-        </SidebarContent>
-        
-        {user && (
-          <div className={`${collapsed ? 'hidden' : 'block'} md:block mt-auto border-t pt-4 pb-2`}>
-            <div className="flex items-center px-2">
-              <div className="flex-1 overflow-hidden text-sm">
-                <UserProfileNav />
-              </div>
+      </SidebarHeader>
+      
+      <SidebarContent> {/* Takes remaining space, p-0 by default, SidebarGroup adds padding */}
+        <SidebarGroup> {/* Default p-2 */}
+          <SidebarMenu>
+            {navItems.map((item) => (
+              <SidebarMenuItem key={item.to}>
+                <NavLink to={item.to} end={item.end ?? false}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} asChild className="w-full justify-start">
+                      <>
+                        <item.icon size={20} className="mr-2" />
+                        <span>{item.label}</span>
+                      </>
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+      </SidebarContent>
+      
+      {user && (
+        <SidebarFooter className="p-4 mt-auto border-t"> {/* Default p-2, mt-auto for stick to bottom */}
+          {/* The UserProfileNav might have its own padding, ensure it fits well */}
+          <div className="flex items-center">
+            <div className="flex-1 overflow-hidden text-sm">
+              <UserProfileNav />
+            </div>
+          </div>
+        </SidebarFooter>
+      )}
+    </Sidebar>
+  );
+}
             </div>
           </div>
         )}
