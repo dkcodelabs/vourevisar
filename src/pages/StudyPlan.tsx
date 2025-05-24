@@ -23,7 +23,6 @@ const StudyPlan = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const isFirstRender = useRef(true);
-  const [cycleCompletedSubjects, setCycleCompletedSubjects] = useState<string[]>([]);
   
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
@@ -158,10 +157,8 @@ const StudyPlan = () => {
     const topicsToUpdate = tempMarkedTopics[subjectId] || [];
     try {
       for (const topicId of topicsToUpdate) {
-        // Encontrar o tópico
         const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
         if (!topic) continue;
-        // Calcular o próximo estágio de revisão
         const nextStage = getNextReviewStage(topic.reviewStage);
         let updateData: any = {
           review_count: topic.reviewCount + 1,
@@ -179,7 +176,6 @@ const StudyPlan = () => {
       }
       await fetchSubjects();
       setCompletedSessions(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
-      setCycleCompletedSubjects(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
@@ -187,19 +183,11 @@ const StudyPlan = () => {
         return updated;
       });
       toast.success("Sessão de estudo concluída");
-      // Confete e mensagem se todas concluídas
-      const updatedCompletedSessions = [...completedSessions, subjectId];
-      if (updatedCompletedSessions.length === dailySubjects.length) {
-        setTimeout(() => {
-          launchConfetti();
-          toast.success("Parabéns! Você concluiu todas as matérias do dia!");
-        }, 500);
-      }
-      if (cycleCompletedSubjects.length + 1 === currentSubjects.length) {
+      // Se todas as matérias do ciclo foram concluídas, reinicia ciclo
+      if (completedSessions.length + 1 === currentSubjects.length) {
         setTimeout(() => {
           launchConfetti();
           toast.success('Parabéns! Você concluiu todas as matérias do ciclo!');
-          setCycleCompletedSubjects([]);
           setCompletedSessions([]);
           setCurrentSubjectIndex(0);
           setExpandedSubject(null);
@@ -222,9 +210,8 @@ const StudyPlan = () => {
   };
 
   const handleNextDay = () => {
-    // Se todas as disciplinas do ciclo foram estudadas, reinicia ciclo
-    if (cycleCompletedSubjects.length === currentSubjects.length) {
-      setCycleCompletedSubjects([]);
+    // Se todas as matérias do ciclo foram estudadas, reinicia ciclo
+    if (completedSessions.length === currentSubjects.length) {
       setCompletedSessions([]);
       setCurrentSubjectIndex(0);
       setExpandedSubject(null);
@@ -238,7 +225,6 @@ const StudyPlan = () => {
       setCurrentSubjectIndex(nextIndex);
       setExpandedSubject(dailySubjects[nextIndex].id);
     } else {
-      // Se chegou ao fim do dia, mostra próximas disciplinas
       setCurrentSubjectIndex(0);
       setExpandedSubject(null);
     }
@@ -315,7 +301,6 @@ const StudyPlan = () => {
           <Button 
             variant="outline" 
             onClick={handleNextDay}
-            disabled={!dailySubjects.every(subject => completedSessions.includes(subject.id))}
             className="flex items-center gap-2"
           >
             Próximo Dia
