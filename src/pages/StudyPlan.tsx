@@ -291,7 +291,6 @@ const StudyPlan = () => {
           <Button 
             variant="outline" 
             onClick={handleNextDay}
-            disabled={!dailySubjects.every(subject => completedSessions.includes(subject.id))}
             className="flex items-center gap-2"
           >
             Próximo Dia
@@ -307,119 +306,116 @@ const StudyPlan = () => {
       </div>
 
       {/* Current Subjects */}
-      <div className="space-y-4">
-        {dailySubjects.map((subject, index) => (
-          <Card 
-            key={subject.id} 
-            className={completedSessions.includes(subject.id) 
-              ? 'border-green-300 bg-green-50' 
-              : expandedSubject === subject.id 
-                ? 'border-app-blue' 
-                : ''
-            }
-          >
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-center">
-                <CardTitle 
-                  className="text-xl font-bold text-app-blue cursor-pointer flex items-center"
-                  onClick={() => handleToggleExpand(subject.id)}
-                >
-                  {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
-                  {expandedSubject === subject.id ? (
-                    <ChevronUp className="ml-2 h-5 w-5" />
-                  ) : (
-                    <ChevronDown className="ml-2 h-5 w-5" />
-                  )}
-                </CardTitle>
-                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                  Status: {subject.status}
-                </Badge>
-              </div>
-            </CardHeader>
+      {dailySubjects.length > 0 && !dailySubjects.every(subject => completedSessions.includes(subject.id)) && (
+        <div className="space-y-4">
+          {dailySubjects.map((subject, index) => (
+            <Card 
+              key={subject.id} 
+              className={completedSessions.includes(subject.id) 
+                ? 'border-green-300 bg-green-50' 
+                : expandedSubject === subject.id 
+                  ? 'border-app-blue' 
+                  : ''
+              }
+            >
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                  <CardTitle 
+                    className="text-xl font-bold text-app-blue cursor-pointer flex items-center"
+                    onClick={() => handleToggleExpand(subject.id)}
+                  >
+                    {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
+                    {expandedSubject === subject.id ? (
+                      <ChevronUp className="ml-2 h-5 w-5" />
+                    ) : (
+                      <ChevronDown className="ml-2 h-5 w-5" />
+                    )}
+                  </CardTitle>
+                  <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                    Status: {subject.status}
+                  </Badge>
+                </div>
+              </CardHeader>
 
-            <CardContent>
-              {expandedSubject === subject.id ? (
-                <div className="space-y-4">
-                  {subject.topics.map(topic => {
-                    const topicStatus = getTopicStatus(topic);
-                    const reviewStage = getTopicReviewStage(topic);
-                    const isMarkedForReview = tempMarkedTopics[subject.id]?.includes(topic.id);
-                    const isTopicCompleted = topic.reviewStage === 'Concluído';
-                    
-                    return (
-                      <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
-                        <label className="flex-1 font-medium">
-                          {topic.name}
-                        </label>
-                        
-                        <div className="flex items-center gap-2">
-                          <Badge variant={topicStatus.variant} className="mr-2">
-                            {topicStatus.label}
-                          </Badge>
-                          
-                          {reviewStage && (
-                            <Badge variant="outline" className="mr-2 bg-purple-50 text-purple-700 border-purple-300">
-                              {reviewStage}
+              <CardContent>
+                {expandedSubject === subject.id ? (
+                  <div className="space-y-4">
+                    {subject.topics.map(topic => {
+                      const topicStatus = getTopicStatus(topic);
+                      const reviewStage = getTopicReviewStage(topic);
+                      const isMarkedForReview = tempMarkedTopics[subject.id]?.includes(topic.id);
+                      const isTopicCompleted = topic.reviewStage === 'Concluído';
+                      return (
+                        <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
+                          <label className="flex-1 font-medium">
+                            {topic.name}
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={topicStatus.variant} className="mr-2">
+                              {topicStatus.label}
                             </Badge>
-                          )}
+                            {reviewStage && (
+                              <Badge variant="outline" className="mr-2 bg-purple-50 text-purple-700 border-purple-300">
+                                {reviewStage}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {!isMarkedForReview ? (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-green-600 hover:text-green-800 border border-green-200"
+                                onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
+                                disabled={isTopicCompleted}
+                              >
+                                <Check className="h-4 w-4 mr-1" />
+                                Marcar Revisão
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-red-600 hover:text-red-800 border border-red-200"
+                                onClick={() => handleCancelTopicReview(subject.id, topic.id)}
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Cancelar
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        
-                        <div className="flex gap-2">
-                          {!isMarkedForReview ? (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="text-green-600 hover:text-green-800 border border-green-200"
-                              onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
-                              disabled={isTopicCompleted}
-                            >
-                              <Check className="h-4 w-4 mr-1" />
-                              Marcar Revisão
-                            </Button>
-                          ) : (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="text-red-600 hover:text-red-800 border border-red-200"
-                              onClick={() => handleCancelTopicReview(subject.id, topic.id)}
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              Cancelar
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  
-                  <div className="flex justify-between gap-2 mt-4">
-                    <Button 
-                      className="bg-app-blue hover:bg-app-light-blue"
-                      onClick={() => handleCompleteSession(subject.id)}
-                    >
-                      Concluir Sessão
-                    </Button>
+                      );
+                    })}
+                    <div className="flex justify-between gap-2 mt-4">
+                      <Button 
+                        className="bg-app-blue hover:bg-app-light-blue"
+                        onClick={() => handleCompleteSession(subject.id)}
+                      >
+                        Concluir Sessão
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">
-                    {subject.topics.length} tópicos disponíveis
-                  </span>
-                  <div className="flex gap-2">
-                    <Button 
-                      className="bg-app-blue hover:bg-app-light-blue"
-                      onClick={() => handleToggleExpand(subject.id)}
-                    >
-                      Iniciar Estudo
-                    </Button>
+                ) : (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">
+                      {subject.topics.length} tópicos disponíveis
+                    </span>
+                    <div className="flex gap-2">
+                      <Button 
+                        className="bg-app-blue hover:bg-app-light-blue"
+                        onClick={() => handleToggleExpand(subject.id)}
+                      >
+                        Iniciar Estudo
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
       
       {/* Next Subjects (only showing the next one in sequence that isn't already in daily subjects) */}
       {nextSubjects.length > 0 && (
@@ -437,23 +433,6 @@ const StudyPlan = () => {
                     <h3 className="font-medium">{subject.name}</h3>
                     <p className="text-sm text-gray-500">{subject.topics.length} tópicos</p>
                   </div>
-                  
-                  {completedSessions.includes(subject.id) ? (
-                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                      Concluída
-                    </Badge>
-                  ) : (
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => {
-                        setCurrentSubjectIndex(dailySubjects.findIndex(s => s.id === subject.id));
-                        handleToggleExpand(subject.id);
-                      }}
-                    >
-                      Estudar Agora
-                    </Button>
-                  )}
                 </CardContent>
               </Card>
             ))}
