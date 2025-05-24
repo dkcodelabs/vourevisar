@@ -290,6 +290,33 @@ const StudyPlan = () => {
     return topic.reviewStage;
   };
 
+  // Salvar disciplinasDoDia e cicloAtual no localStorage sempre que mudarem
+  useEffect(() => {
+    localStorage.setItem('disciplinasDoDia', JSON.stringify(disciplinasDoDia));
+  }, [disciplinasDoDia]);
+
+  useEffect(() => {
+    localStorage.setItem('cicloAtual', JSON.stringify(cicloAtual));
+  }, [cicloAtual]);
+
+  // Restaurar disciplinasDoDia e cicloAtual do localStorage ao carregar a página
+  useEffect(() => {
+    const savedDisciplinas = localStorage.getItem('disciplinasDoDia');
+    if (savedDisciplinas) {
+      try {
+        const parsed = JSON.parse(savedDisciplinas);
+        if (Array.isArray(parsed)) setDisciplinasDoDia(parsed);
+      } catch {}
+    }
+    const savedCiclo = localStorage.getItem('cicloAtual');
+    if (savedCiclo) {
+      try {
+        const parsed = JSON.parse(savedCiclo);
+        if (Array.isArray(parsed)) setCicloAtual(parsed);
+      } catch {}
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
