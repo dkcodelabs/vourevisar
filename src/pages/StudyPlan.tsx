@@ -25,6 +25,7 @@ const StudyPlan = () => {
   const isFirstRender = useRef(true);
   const [cicloAtual, setCicloAtual] = useState<string[]>([]);
   const [diaCiclo, setDiaCiclo] = useState(0);
+  const [novoCicloBanner, setNovoCicloBanner] = useState(false);
   
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
@@ -143,21 +144,18 @@ const StudyPlan = () => {
   const materiasPendentes = subjects
     .filter(subject => (subject.status === 'Em Estudo' || subject.status === 'Nova') && !cicloAtual.includes(subject.id))
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
-  const totalDiasCiclo = Math.ceil(materiasPendentes.length / subjectsPerDay) || 1;
-  const inicio = diaCiclo * subjectsPerDay;
-  const fim = inicio + subjectsPerDay;
-  const dailySubjects = materiasPendentes.slice(inicio, fim);
-  const nextSubjects = materiasPendentes.slice(fim, fim + subjectsPerDay);
+
+  // Sempre mostra até subjectsPerDay matérias pendentes no dia
+  const dailySubjects = materiasPendentes.slice(0, subjectsPerDay);
+  const nextSubjects = materiasPendentes.slice(subjectsPerDay, subjectsPerDay * 2);
 
   // Função para avançar para o próximo dia
   const handleNextDay = () => {
-    // Se não há mais matérias pendentes, não avança
     if (materiasPendentes.length === 0) return;
-    // Se já está no último dia possível, não avança mais
-    if (fim >= materiasPendentes.length) return;
-    setDiaCiclo(prev => prev + 1);
+    // Remove as matérias do dia atual do ciclo (se já concluídas)
     setCompletedSessions([]);
     setExpandedSubject(null);
+    setDiaCiclo(prev => prev + 1);
   };
 
   // Função para resetar o ciclo manualmente
@@ -168,6 +166,7 @@ const StudyPlan = () => {
     setExpandedSubject(null);
     setDiaCiclo(0);
     setMarkedTopics({});
+    setNovoCicloBanner(false);
     toast.info("Ciclo reiniciado");
   };
 
@@ -204,21 +203,23 @@ const StudyPlan = () => {
         delete updated[subjectId];
         return updated;
       });
-      toast.success("Sessão de estudo concluída");
-      // Se todas as matérias do ciclo foram concluídas, reinicia ciclo
+      // Se todas as matérias do ciclo foram concluídas, reinicia ciclo e mostra banner
       const todasMatConcluidas = subjects
         .filter(subject => subject.status === 'Em Estudo' || subject.status === 'Nova')
         .every(subject => cicloAtual.includes(subject.id) || subject.id === subjectId);
       if (todasMatConcluidas) {
         setTimeout(() => {
           launchConfetti();
-          toast.success("Parabéns! Você concluiu todas as matérias do ciclo! Um novo ciclo foi iniciado.");
+          setNovoCicloBanner(true);
           setCicloAtual([]); // Reinicia ciclo
           setCompletedSessions([]); // Reinicia sessões do dia
           setCurrentSubjectIndex(0);
           setExpandedSubject(null);
           setDiaCiclo(0);
+          const ciclos = parseInt(localStorage.getItem('ciclosRealizados') || '0', 10);
+          localStorage.setItem('ciclosRealizados', String(ciclos + 1));
         }, 500);
+        return;
       }
     } catch (error) {
       toast.error("Erro ao salvar revisões. Tente novamente.");
@@ -453,7 +454,7 @@ const StudyPlan = () => {
       
       {/* Show confetti and message when all sessions are completed */}
       {dailySubjects.length > 0 && 
-       dailySubjects.every(subject => completedSessions.includes(subject.id)) && (
+       dailySubjects.every(subject => completedSessions.includes(subject.id)) && !novoCicloBanner && (
         <div className="mt-8 text-center p-8 border-2 border-green-300 rounded-lg bg-green-50">
           <h3 className="text-xl font-bold text-green-800">Parabéns! 🎉</h3>
           <p className="mt-2 text-gray-700">Você concluiu todas as matérias do dia!</p>
@@ -463,6 +464,14 @@ const StudyPlan = () => {
           >
             Avançar para o próximo dia
           </Button>
+        </div>
+      )}
+      
+      {/* Banner de novo ciclo */}
+      {novoCicloBanner && (
+        <div className="mt-8 text-center p-8 border-2 border-blue-300 rounded-lg bg-blue-50">
+          <h3 className="text-xl font-bold text-blue-800">Novo ciclo iniciado! 🔄</h3>
+          <p className="mt-2 text-gray-700">Você concluiu todas as matérias do ciclo. As disciplinas foram reiniciadas na ordem definida.</p>
         </div>
       )}
     </div>

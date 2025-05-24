@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
@@ -34,6 +33,8 @@ export const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [todaysReviews, setTodaysReviews] = useState<any[]>([]);
   const [revisionsByDate, setRevisionsByDate] = useState<Record<number, any[]>>({});
+  const [ciclosRealizados, setCiclosRealizados] = useState(0);
+  const [progressoCiclo, setProgressoCiclo] = useState(0);
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -41,6 +42,16 @@ export const Dashboard = () => {
       loadData();
     }
   }, [user]);
+
+  useEffect(() => {
+    // Recupera do localStorage
+    const ciclos = parseInt(localStorage.getItem('ciclosRealizados') || '0', 10);
+    setCiclosRealizados(ciclos);
+    // Progresso do ciclo atual: matérias concluídas / total de matérias
+    const total = studyProgress.totalSubjects;
+    const concluidas = studyProgress.completedSubjects;
+    setProgressoCiclo(total > 0 ? Math.round((concluidas / total) * 100) : 0);
+  }, [studyProgress.totalSubjects, studyProgress.completedSubjects]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -240,6 +251,29 @@ export const Dashboard = () => {
               <p className="text-sm text-gray-500">Continue assim para alcançar seus objetivos!</p>
               <div className="progress-bar">
                 <div className="progress-bar-fill bg-gradient-to-r from-green-400 to-green-600" style={{ width: `${topicsPercentage}%` }}></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="p-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold flex items-center">
+              <TrendingUp className="mr-2 h-4 w-4 text-app-blue" />
+              Ciclos Realizados & Progresso do Ciclo
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-col items-center gap-1">
+              <div className="text-lg font-bold">{ciclosRealizados} ciclos</div>
+              <div className="w-full mt-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-500">Progresso do ciclo atual</span>
+                  <span className="text-xs font-bold text-blue-700">{progressoCiclo}%</span>
+                </div>
+                <div className="progress-bar" style={{ height: 6 }}>
+                  <div className="progress-bar-fill bg-gradient-to-r from-blue-400 to-blue-600" style={{ width: `${progressoCiclo}%`, height: 6 }}></div>
+                </div>
               </div>
             </div>
           </CardContent>
