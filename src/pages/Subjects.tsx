@@ -1,7 +1,4 @@
-
 import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Plus, ChevronUp, ChevronDown, Edit, Trash2, LayoutList, GripVertical } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -38,6 +35,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 
 // Definindo tipos para o componente
 interface Topic {
@@ -159,9 +157,9 @@ const Subjects = () => {
 
     return (
       <div ref={setNodeRef} style={style} {...attributes}>
-        <Card className="overflow-hidden mb-4">
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between p-4 bg-white">
+        <GlassCard className="overflow-hidden mb-4">
+          <div className="p-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
                   className="cursor-grab active:cursor-grabbing p-2 hover:bg-gray-100 rounded"
@@ -177,72 +175,75 @@ const Subjects = () => {
                   {subject.topics.length} tópicos
                 </span>
               </div>
+              
               <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
+                <GradientButton 
+                  variant="outline"
                   size="sm"
                   onClick={() => openTopicDialog(subject.id)}
                 >
                   <LayoutList className="h-4 w-4 mr-2" />
                   Gerenciar Tópicos
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
+                </GradientButton>
+                <GradientButton 
+                  variant="outline"
+                  size="sm" 
                   onClick={() => toggleExpand(subject.id)}
+                  className="p-2"
                 >
                   {expandedSubject === subject.id ? (
                     <ChevronUp className="h-4 w-4" />
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="icon"
+                </GradientButton>
+                <GradientButton 
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleEditSubject({ id: subject.id, name: subject.name })}
+                  className="p-2"
                 >
                   <Edit className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="icon"
+                </GradientButton>
+                <GradientButton 
+                  variant="outline"
+                  size="sm"
                   onClick={() => confirmDeleteSubject(subject.id)}
-                  className="text-red-500 hover:text-red-700"
+                  className="p-2 text-red-500 hover:text-red-700"
                 >
                   <Trash2 className="h-4 w-4" />
-                </Button>
+                </GradientButton>
               </div>
             </div>
             
             {expandedSubject === subject.id && (
-              <div className="border-t p-4 bg-gray-50">
-                <h3 className="font-medium mb-2">Tópicos</h3>
+              <div className="mt-4 border-t pt-4">
+                <h3 className="text-sm font-medium mb-2">Tópicos</h3>
                 {subject.topics.length > 0 ? (
                   <ul className="space-y-2">
                     {subject.topics.map((topic) => (
-                      <li key={topic.id} className="flex items-center justify-between border p-2 rounded bg-white">
-                        <span>{topic.name}</span>
+                      <GlassCard key={topic.id} className="flex items-center justify-between p-2">
+                        <span className="text-sm">{topic.name}</span>
                         <div className="flex items-center gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7 text-red-500 hover:text-red-700"
+                          <GradientButton 
+                            variant="outline"
+                            size="sm" 
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
                             onClick={() => confirmDeleteTopic(subject.id, topic.id)}
                           >
                             <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </GradientButton>
                         </div>
-                      </li>
+                      </GlassCard>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-gray-500 text-sm">Nenhum tópico cadastrado</p>
+                  <p className="text-sm text-gray-500">Nenhum tópico cadastrado</p>
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </GlassCard>
       </div>
     );
   };
@@ -575,28 +576,27 @@ const Subjects = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Gerenciamento de Matérias</h1>
-        <Button 
-          className="bg-app-blue hover:bg-app-light-blue"
+        <AnimatedTitle>Gerenciamento de Matérias</AnimatedTitle>
+        <GradientButton 
           onClick={() => setOpenDialog(true)}
         >
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Matéria
-        </Button>
+        </GradientButton>
       </div>
 
       <div className="space-y-4 mt-6">
         {subjects.length === 0 ? (
-          <div className="text-center py-10">
+          <GlassCard className="text-center py-10">
             <p className="text-gray-500">Você ainda não tem matérias cadastradas.</p>
-            <Button 
-              className="mt-4 bg-app-blue hover:bg-app-light-blue"
+            <GradientButton 
+              className="mt-4"
               onClick={() => setOpenDialog(true)}
             >
               <Plus className="mr-2 h-4 w-4" />
               Adicionar Matéria
-            </Button>
-          </div>
+            </GradientButton>
+          </GlassCard>
         ) : (
           <DndContext
             sensors={sensors}
@@ -623,7 +623,7 @@ const Subjects = () => {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Nome da Matéria</Label>
+              <Label htmlFor="name" className="text-sm">Nome da Matéria</Label>
               <Input
                 id="name"
                 value={newSubject.name}
@@ -633,18 +633,17 @@ const Subjects = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button
+            <GradientButton
               variant="outline"
               onClick={() => setOpenDialog(false)}
             >
               Cancelar
-            </Button>
-            <Button 
-              className="bg-app-blue hover:bg-app-light-blue"
+            </GradientButton>
+            <GradientButton 
               onClick={handleAddSubject}
             >
               Adicionar
-            </Button>
+            </GradientButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -657,7 +656,7 @@ const Subjects = () => {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">Nome da Matéria</Label>
+              <Label htmlFor="edit-name" className="text-sm">Nome da Matéria</Label>
               <Input
                 id="edit-name"
                 value={editSubject.name}
@@ -666,18 +665,17 @@ const Subjects = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button
+            <GradientButton
               variant="outline"
               onClick={() => setEditSubjectDialog(false)}
             >
               Cancelar
-            </Button>
-            <Button 
-              className="bg-app-blue hover:bg-app-light-blue"
+            </GradientButton>
+            <GradientButton 
               onClick={saveSubjectEdit}
             >
               Salvar
-            </Button>
+            </GradientButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -690,7 +688,7 @@ const Subjects = () => {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="topic">Nome do Tópico</Label>
+              <Label htmlFor="topic" className="text-sm">Nome do Tópico</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="topic"
@@ -700,39 +698,38 @@ const Subjects = () => {
                   onKeyPress={handleTopicKeyPress}
                   placeholder="Ex: Concordância Verbal"
                 />
-                <Button
-                  className="bg-app-blue hover:bg-app-light-blue"
+                <GradientButton
                   onClick={handleTopicAdd}
                 >
                   <Plus className="h-4 w-4" />
-                </Button>
+                </GradientButton>
               </div>
             </div>
             {currentSubjectId && (
               <div className="max-h-60 overflow-y-auto">
-                <h3 className="font-medium mb-2">Tópicos Atuais</h3>
+                <h3 className="text-sm font-medium mb-2">Tópicos Atuais</h3>
                 {subjects.find(s => s.id === currentSubjectId)?.topics.map(topic => (
-                  <div key={topic.id} className="flex items-center justify-between border p-2 rounded my-1">
-                    <span>{topic.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-red-500 hover:text-red-700"
+                  <GlassCard key={topic.id} className="flex items-center justify-between p-2 my-1">
+                    <span className="text-sm">{topic.name}</span>
+                    <GradientButton
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
                       onClick={() => confirmDeleteTopic(currentSubjectId, topic.id)}
                     >
                       <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                    </GradientButton>
+                  </GlassCard>
                 ))}
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button
+            <GradientButton
               onClick={() => setTopicDialogOpen(false)}
             >
               Fechar
-            </Button>
+            </GradientButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

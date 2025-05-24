@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
 import { Search } from 'lucide-react';
+import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 
 interface TopicItem {
   id: string;
@@ -118,69 +119,69 @@ const Topics = () => {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Tópicos</h1>
-      
-      <div className="relative mb-6">
-        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+    <div className="container mx-auto p-2">
+      <AnimatedTitle className="mb-4">Tópicos</AnimatedTitle>
+      <GlassCard className="p-4 mb-4">
+        <div className="relative mb-2">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <Search className="h-4 w-4 text-gray-400" />
+          </div>
+          <Input
+            type="text"
+            placeholder="Pesquisar tópicos..."
+            className="pl-9 text-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-        <Input
-          type="text"
-          placeholder="Pesquisar tópicos..."
-          className="pl-10"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center p-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      ) : (
-        <div className="border rounded-md overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">Status</TableHead>
-                <TableHead>Tópico</TableHead>
-                <TableHead>Disciplina</TableHead>
-                <TableHead>Estágio de Revisão</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTopics.length > 0 ? (
-                filteredTopics.map((topic) => (
-                  <TableRow key={topic.id}>
-                    <TableCell>
-                      <Checkbox 
-                        checked={topic.completed}
-                        onCheckedChange={(checked) => {
-                          handleTopicStatusChange(topic.id, checked === true);
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{topic.name}</TableCell>
-                    <TableCell>{topic.subject_name}</TableCell>
-                    <TableCell>
-                      {topic.completed 
-                        ? "Concluído" 
-                        : (topic.review_stage || "Não iniciado")}
+        {isLoading ? (
+          <div className="flex justify-center p-6">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <div className="rounded-lg overflow-hidden border border-white/20 bg-white/60 backdrop-blur-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs w-12">Status</TableHead>
+                  <TableHead className="text-xs">Tópico</TableHead>
+                  <TableHead className="text-xs">Disciplina</TableHead>
+                  <TableHead className="text-xs">Estágio de Revisão</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTopics.length > 0 ? (
+                  filteredTopics.map((topic) => (
+                    <TableRow key={topic.id} className="text-xs">
+                      <TableCell>
+                        <Checkbox 
+                          checked={topic.completed}
+                          onCheckedChange={(checked) => {
+                            handleTopicStatusChange(topic.id, checked === true);
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{topic.name}</TableCell>
+                      <TableCell>{topic.subject_name}</TableCell>
+                      <TableCell>
+                        {topic.completed 
+                          ? "Concluído" 
+                          : (topic.review_stage || "Não iniciado")}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-4 text-gray-500 text-xs">
+                      {searchTerm ? "Nenhum tópico encontrado para esta pesquisa." : "Nenhum tópico disponível."}
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-6 text-gray-500">
-                    {searchTerm ? "Nenhum tópico encontrado para esta pesquisa." : "Nenhum tópico disponível."}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </GlassCard>
     </div>
   );
 };

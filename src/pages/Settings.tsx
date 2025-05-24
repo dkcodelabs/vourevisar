@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -10,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 
 // Definindo o tipo para as configurações do usuário
 interface UserSettings {
@@ -154,7 +154,7 @@ const Settings = () => {
   
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Configurações</h1>
+      <AnimatedTitle>Configurações</AnimatedTitle>
       
       {error && (
         <Alert variant="destructive">
@@ -163,85 +163,87 @@ const Settings = () => {
         </Alert>
       )}
       
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle className="text-xl">Planejamento de Estudos</CardTitle>
-          <p className="text-sm text-gray-600">
-            Personalize como você organiza seus estudos diários.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <GlassCard className="p-6">
           <div className="space-y-4">
-            <div>
-              <h3 className="font-medium mb-2">Quantidade de Matérias por Dia: {settings.subjects_per_day}</h3>
-              <Slider 
-                value={[settings.subjects_per_day]}
-                max={10}
-                min={1}
-                step={1}
-                onValueChange={handleSubjectsPerDayChange}
-                className="w-full"
-              />
-            </div>
+            <h2 className="text-xl font-semibold">Planejamento de Estudos</h2>
+            <p className="text-sm text-gray-600">
+              Personalize como você organiza seus estudos diários.
+            </p>
             
-            <div>
-              <h3 className="font-medium mb-3">Organização da Sequência de Matérias</h3>
-              <Button 
-                variant="outline" 
-                className="mr-2"
-                onClick={() => window.location.href = '/materias'}
-              >
-                Ir para Gerenciar Matérias
-              </Button>
-              <p className="text-sm text-gray-500 mt-2">
-                A ordem das matérias é definida na seção "Gerenciamento de Matérias".
-              </p>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium mb-2">Quantidade de Matérias por Dia: {settings.subjects_per_day}</h3>
+                <Slider 
+                  value={[settings.subjects_per_day]}
+                  max={10}
+                  min={1}
+                  step={1}
+                  onValueChange={handleSubjectsPerDayChange}
+                  className="w-full"
+                />
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-medium mb-3">Organização da Sequência de Matérias</h3>
+                <GradientButton 
+                  className="w-full"
+                  onClick={() => window.location.href = '/materias'}
+                >
+                  Ir para Gerenciar Matérias
+                </GradientButton>
+                <p className="text-xs text-gray-500 mt-2">
+                  A ordem das matérias é definida na seção "Gerenciamento de Matérias".
+                </p>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-      
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle className="text-xl">Notificações</CardTitle>
-          <p className="text-sm text-gray-600">
-            Configure os lembretes de estudo e revisão.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium">Ativar notificações de estudo</h3>
-              <p className="text-sm text-gray-500">
-                Receba lembretes para suas sessões de estudo
-              </p>
+        </GlassCard>
+        
+        <GlassCard className="p-6">
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Notificações</h2>
+            <p className="text-sm text-gray-600">
+              Configure os lembretes de estudo e revisão.
+            </p>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium">Ativar notificações de estudo</h3>
+                  <p className="text-xs text-gray-500">
+                    Receba lembretes para suas sessões de estudo
+                  </p>
+                </div>
+                <Switch 
+                  checked={settings.notifications_enabled}
+                  onCheckedChange={handleNotificationsToggle}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="notification-time" className="text-sm">Horário da Notificação Principal</Label>
+                <Input 
+                  id="notification-time"
+                  type="time"
+                  value={settings.notification_time}
+                  onChange={handleNotificationTimeChange}
+                  className="max-w-[200px]"
+                />
+              </div>
             </div>
-            <Switch 
-              checked={settings.notifications_enabled}
-              onCheckedChange={handleNotificationsToggle}
-            />
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="notification-time">Horário da Notificação Principal</Label>
-            <Input 
-              id="notification-time"
-              type="time"
-              value={settings.notification_time}
-              onChange={handleNotificationTimeChange}
-              className="max-w-[200px]"
-            />
-          </div>
-          
-          <Button 
-            className="mt-4 bg-app-blue hover:bg-app-light-blue"
-            onClick={handleSaveSettings}
-            disabled={isSaving}
-          >
-            {isSaving ? 'Salvando...' : 'Salvar Configurações'}
-          </Button>
-        </CardContent>
-      </Card>
+        </GlassCard>
+      </div>
+      <div className="flex w-full mt-4">
+        <GradientButton 
+          className="w-full mx-auto max-w-2xl"
+          onClick={handleSaveSettings}
+          disabled={isSaving}
+        >
+          {isSaving ? 'Salvando...' : 'Salvar Configurações'}
+        </GradientButton>
+      </div>
     </div>
   );
 };

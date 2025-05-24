@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,7 +13,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 195 89% 49%;
+    --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -31,9 +30,9 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 195 89% 49%;
+    --ring: 221.2 83.2% 53.3%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -91,6 +90,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
@@ -148,4 +148,123 @@
 
 .sidebar-item:not(.active) {
   @apply hover:bg-gray-100;
+}
+
+/* Glassmorphism */
+.glass {
+  @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-lg;
+}
+
+.glass-hover {
+  @apply hover:bg-white/80 hover:shadow-xl transition-all duration-300;
+}
+
+/* Animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Safe Areas */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Mobile Optimizations */
+@media (max-width: 640px) {
+  .container {
+    @apply px-4;
+  }
+  
+  .glass {
+    @apply bg-white/90;
+  }
+}
+
+/* Touch Feedback */
+@media (hover: none) {
+  .touch-feedback {
+    @apply active:scale-95 transition-transform;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors;
+}
+
+/* Selection */
+::selection {
+  @apply bg-app-blue/20 text-app-blue;
+}
+
+/* Focus */
+*:focus-visible {
+  @apply outline-none ring-2 ring-app-blue ring-offset-2;
+}
+
+/* Loading States */
+.loading-skeleton {
+  @apply animate-pulse bg-gray-200;
+}
+
+/* Transitions */
+.fade-enter {
+  opacity: 0;
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 200ms ease-in;
+}
+
+.fade-exit {
+  opacity: 1;
+}
+
+.fade-exit-active {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+/* Gradients */
+.gradient-primary {
+  @apply bg-gradient-to-r from-app-blue to-blue-600;
+}
+
+.gradient-hover {
+  @apply hover:from-blue-600 hover:to-app-blue transition-all duration-300;
+}
+
+/* Shadows */
+.shadow-soft {
+  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-soft-hover {
+  box-shadow: 0 4px 20px -3px rgba(0, 0, 0, 0.1), 0 12px 25px -2px rgba(0, 0, 0, 0.06);
 }

@@ -1,381 +1,138 @@
-
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Navigate } from 'react-router-dom';
-import { FcGoogle } from 'react-icons/fc';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { z } from 'zod';
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { X } from 'lucide-react';
-
-const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
-});
-
-const signupSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  email: z.string().email('Email inválido'),
-  phone: z.string().min(10, 'Telefone inválido').optional(),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
-
-const forgotPasswordSchema = z.object({
-  email: z.string().email('Email inválido'),
-});
+import { motion } from 'framer-motion';
+import { 
+  User, 
+  Lock, 
+  Envelope, 
+  Eye, 
+  EyeSlash,
+  SignIn,
+  UserPlus
+} from '@phosphor-icons/react';
+import PageContainer from '@/components/layout/PageContainer';
+import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
 
 const Login = () => {
-  const { user, signIn, signUp, signInWithGoogle, resetPassword, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState('login');
-  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
-  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const navigate = useNavigate();
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  const loginForm = useForm({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
 
-  const signupForm = useForm({
-    resolver: zodResolver(signupSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      phone: '',
-      password: '',
-      confirmPassword: '',
-    },
-  });
-
-  const forgotPasswordForm = useForm({
-    resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: {
-      email: '',
-    },
-  });
-
-  // Se já estiver logado, redireciona para a página inicial
-  if (user) {
-    return <Navigate to="/" replace />;
-  }
-
-  const handleLogin = async (values) => {
     try {
-      await signIn(values.email, values.password);
-    } catch (error) {
-      console.error('Erro no login:', error);
-    }
-  };
+      if (isRegistering) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
 
-  const handleSignUp = async (values) => {
-    try {
-      await signUp(values.email, values.password, values.name, values.phone);
-      setActiveTab('login');
-    } catch (error) {
-      console.error('Erro no cadastro:', error);
-    }
-  };
+        if (error) throw error;
 
-  const handleGoogleSignIn = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      console.error('Erro ao fazer login com Google:', error);
-    }
-  };
-
-  const handleForgotPassword = async (values) => {
-    setResetPasswordLoading(true);
-    try {
-      await resetPassword(values.email);
-      setIsForgotPasswordOpen(false);
-      forgotPasswordForm.reset();
-      toast.success('Email de redefinição de senha enviado!');
-    } catch (error) {
-      console.error('Erro ao enviar email de recuperação:', error);
-      toast.error('Erro ao enviar email. Verifique se o email está correto.');
+        toast.success('Conta criada com sucesso! Verifique seu email.');
+        setIsRegistering(false);
+      } else {
+        try {
+          await signIn(email, password);
+          navigate('/dashboard');
+        } catch (error: any) {
+          toast.error(error.message);
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message);
     } finally {
-      setResetPasswordLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4 py-6">
-      <div className="mb-8">
-        <span className="text-app-blue font-bold text-4xl">vouRevisar</span>
-      </div>
-      
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Bem-vindo(a) ao vouRevisar</CardTitle>
-          <CardDescription>
-            Gerencie seus estudos e revisões de forma eficiente
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent>
-          <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="login">
-              <Form {...loginForm}>
-                <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
-                  <FormField
-                    control={loginForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="seu@email.com" 
-                            type="email"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={loginForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel>Senha</FormLabel>
-                          <button 
-                            type="button" 
-                            className="text-sm text-app-blue hover:underline"
-                            onClick={() => setIsForgotPasswordOpen(true)}
-                          >
-                            Esqueceu sua senha?
-                          </button>
-                        </div>
-                        <FormControl>
-                          <Input 
-                            type="password"
-                            placeholder="Sua senha" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-app-blue hover:bg-app-light-blue"
-                    disabled={loading}
-                  >
-                    {loading ? 'Entrando...' : 'Entrar'}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-            
-            <TabsContent value="cadastro">
-              <Form {...signupForm}>
-                <form onSubmit={signupForm.handleSubmit(handleSignUp)} className="space-y-4">
-                  <FormField
-                    control={signupForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Seu nome completo"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={signupForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="email"
-                            placeholder="seu@email.com" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={signupForm.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telefone</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="(99) 99999-9999"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={signupForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Senha</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="password"
-                            placeholder="Crie uma senha" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={signupForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Confirme a senha</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="password"
-                            placeholder="Confirme sua senha" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-app-blue hover:bg-app-light-blue"
-                    disabled={loading}
-                  >
-                    {loading ? 'Criando conta...' : 'Criar conta'}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-        
-        <div className="relative px-6 py-2">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Ou continue com
-            </span>
-          </div>
-        </div>
-        
-        <CardFooter className="px-6 pt-0 pb-6">
-          <Button 
-            variant="outline" 
-            className="w-full flex items-center gap-2"
-            onClick={handleGoogleSignIn}
-            disabled={loading}
+    <PageContainer>
+      <div className="min-h-screen flex items-center justify-center">
+        <GlassCard className="w-full max-w-md p-8">
+          <AnimatedTitle 
+            icon={isRegistering ? <UserPlus size={32} weight="duotone" /> : <SignIn size={32} weight="duotone" />}
+            className="mb-8 text-center"
           >
-            <FcGoogle size={20} />
-            Google
-          </Button>
-        </CardFooter>
-      </Card>
-      
-      {/* Modal de Esqueceu Senha */}
-      <Dialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Esqueceu sua senha?</DialogTitle>
-            <button
-              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
-              onClick={() => setIsForgotPasswordOpen(false)}
+            {isRegistering ? 'Criar Conta' : 'Entrar'}
+          </AnimatedTitle>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Email</label>
+              <div className="relative">
+                <Envelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
+                  placeholder="seu@email.com"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-2 rounded-lg border border-gray-200 focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            <GradientButton
+              type="submit"
+              className="w-full"
+              disabled={isLoading}
             >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Fechar</span>
-            </button>
-          </DialogHeader>
-          <div className="text-sm text-muted-foreground pb-4">
-            Digite seu email abaixo e enviaremos um link para redefinir sua senha.
-          </div>
-          <Form {...forgotPasswordForm}>
-            <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4">
-              <FormField
-                control={forgotPasswordForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="seu@email.com" 
-                        type="email" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter className="sm:justify-between mt-4 gap-2">
-                <Button 
-                  variant="outline" 
-                  type="button" 
-                  onClick={() => setIsForgotPasswordOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="bg-app-blue hover:bg-app-light-blue"
-                  disabled={resetPasswordLoading}
-                >
-                  Enviar link de recuperação
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </div>
+              {isLoading ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                />
+              ) : (
+                isRegistering ? 'Criar Conta' : 'Entrar'
+              )}
+            </GradientButton>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setIsRegistering(!isRegistering)}
+                className="text-sm text-app-blue hover:text-blue-700 transition-colors"
+              >
+                {isRegistering ? 'Já tem uma conta? Entre aqui' : 'Não tem uma conta? Registre-se'}
+              </button>
+            </div>
+          </form>
+        </GlassCard>
+      </div>
+    </PageContainer>
   );
 };
 

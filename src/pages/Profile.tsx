@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Mail, Calendar, Phone, Lock, Loader2 } from 'lucide-react';
@@ -14,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogT
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
+import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 
 const passwordSchema = z.object({
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
@@ -217,7 +216,7 @@ const Profile = () => {
   
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Perfil</h1>
+      <AnimatedTitle>Perfil</AnimatedTitle>
       
       {error && (
         <Alert variant="destructive">
@@ -226,11 +225,10 @@ const Profile = () => {
         </Alert>
       )}
       
-      <Card className="max-w-xl">
-        <CardHeader>
-          <CardTitle className="text-xl">Informações Pessoais</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <GlassCard className="max-w-xl p-6">
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Informações Pessoais</h2>
+          
           <Form {...profileForm}>
             <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-4">
               <FormField
@@ -238,7 +236,7 @@ const Profile = () => {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center">
+                    <FormLabel className="flex items-center text-sm">
                       <User className="h-4 w-4 mr-2" />
                       Nome
                     </FormLabel>
@@ -251,7 +249,7 @@ const Profile = () => {
               />
               
               <div className="grid gap-2">
-                <Label htmlFor="email" className="flex items-center">
+                <Label htmlFor="email" className="flex items-center text-sm">
                   <Mail className="h-4 w-4 mr-2" />
                   Email
                 </Label>
@@ -268,7 +266,7 @@ const Profile = () => {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center">
+                    <FormLabel className="flex items-center text-sm">
                       <Phone className="h-4 w-4 mr-2" />
                       Telefone
                     </FormLabel>
@@ -281,7 +279,7 @@ const Profile = () => {
               />
               
               <div className="grid gap-2">
-                <Label htmlFor="joined" className="flex items-center">
+                <Label htmlFor="joined" className="flex items-center text-sm">
                   <Calendar className="h-4 w-4 mr-2" />
                   Data de Cadastro
                 </Label>
@@ -292,27 +290,26 @@ const Profile = () => {
                 />
               </div>
               
-              <div className="flex gap-4 pt-2">
-                <Button 
-                  className="bg-app-blue hover:bg-app-light-blue"
+              <div className="flex gap-4 pt-4">
+                <GradientButton 
                   type="submit"
+                  className="flex-1"
                   disabled={isSaving}
                 >
                   {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                </Button>
+                </GradientButton>
                 
-                {/* Show password change button only for non-Google users */}
                 {!isGoogleUser && (
                   <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
+                      <GradientButton 
                         type="button"
-                        className="flex items-center gap-2"
+                        variant="outline"
+                        className="flex-1"
                       >
-                        <Lock className="h-4 w-4" />
+                        <Lock className="h-4 w-4 mr-2" />
                         Alterar Senha
-                      </Button>
+                      </GradientButton>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
@@ -325,7 +322,7 @@ const Profile = () => {
                             name="password"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Nova Senha</FormLabel>
+                                <FormLabel className="text-sm">Nova Senha</FormLabel>
                                 <FormControl>
                                   <Input 
                                     type="password"
@@ -343,7 +340,7 @@ const Profile = () => {
                             name="confirmPassword"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Confirme a Senha</FormLabel>
+                                <FormLabel className="text-sm">Confirme a Senha</FormLabel>
                                 <FormControl>
                                   <Input 
                                     type="password"
@@ -357,12 +354,9 @@ const Profile = () => {
                           />
                           
                           <DialogFooter>
-                            <Button variant="outline" type="button" onClick={() => setIsPasswordDialogOpen(false)}>
-                              Cancelar
-                            </Button>
-                            <Button type="submit" className="bg-app-blue hover:bg-app-light-blue">
-                              Salvar Nova Senha
-                            </Button>
+                            <GradientButton type="submit">
+                              Alterar Senha
+                            </GradientButton>
                           </DialogFooter>
                         </form>
                       </Form>
@@ -372,49 +366,8 @@ const Profile = () => {
               </div>
             </form>
           </Form>
-        </CardContent>
-      </Card>
-      
-      <Card className="max-w-xl">
-        <CardHeader>
-          <CardTitle className="text-xl">Estatísticas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingStats ? (
-            <div className="flex justify-center items-center py-6">
-              <Loader2 className="h-6 w-6 animate-spin text-app-blue" />
-              <span className="ml-2">Carregando estatísticas...</span>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="border rounded-lg p-4">
-                  <h3 className="text-sm text-gray-500">Total de Matérias</h3>
-                  <p className="text-2xl font-bold mt-1">{statsData.totalSubjects}</p>
-                </div>
-                <div className="border rounded-lg p-4">
-                  <h3 className="text-sm text-gray-500">Total de Tópicos</h3>
-                  <p className="text-2xl font-bold mt-1">{statsData.totalTopics}</p>
-                </div>
-                <div className="border rounded-lg p-4">
-                  <h3 className="text-sm text-gray-500">Revisões Realizadas</h3>
-                  <p className="text-2xl font-bold mt-1">{statsData.totalReviews}</p>
-                </div>
-                <div className="border rounded-lg p-4">
-                  <h3 className="text-sm text-gray-500">Dias Consecutivos</h3>
-                  <p className="text-2xl font-bold mt-1">{statsData.consecutiveDays}</p>
-                </div>
-              </div>
-              <Button 
-                className="mt-4 w-full bg-app-blue hover:bg-app-light-blue" 
-                onClick={() => navigate('/materias')}
-              >
-                Ir para Gerenciar Matérias
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      </GlassCard>
     </div>
   );
 };

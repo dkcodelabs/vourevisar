@@ -11,6 +11,16 @@ import confetti from 'canvas-confetti';
 import { supabase } from '@/integrations/supabase/client';
 import { Topic, RevisionStage } from '@/types';
 import { addDays, format, isAfter, isBefore, isToday } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  BookOpen, 
+  CheckCircle, 
+  Clock, 
+  GraduationCap, 
+  Sparkle,
+  ArrowClockwise,
+  Calendar
+} from '@phosphor-icons/react';
 
 interface UserCycle {
   id: string;
@@ -457,232 +467,338 @@ const StudyPlan = () => {
     ], { onConflict: 'user_id' });
   }, [user, cicloAtual, disciplinasDoDia]);
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
-      </div>
-    );
-  }
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 100
+      }
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Plano de Estudo Diário</h1>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={handleNextDay}
-            className="flex items-center gap-2"
-            disabled={materiasPendentes.length === 0}
+    <motion.div 
+      className="container mx-auto p-2 min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      {isLoading ? (
+        <motion.div 
+          className="flex justify-center items-center h-64"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <motion.div 
+            className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
+        </motion.div>
+      ) : (
+        <motion.div className="space-y-4" variants={containerVariants}>
+          <motion.div 
+            className="flex items-center justify-between bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-lg border border-white/20"
+            variants={itemVariants}
           >
-            Próximo Dia
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={handleResetCycle}
-          >
-            Reiniciar Ciclo
-          </Button>
-        </div>
-      </div>
-
-      {/* Informações do ciclo */}
-      {userCycle && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm text-gray-600">
-                  Ciclos realizados: <span className="font-semibold">{userCycle.ciclos_realizados}</span>
-                </p>
-                <p className="text-sm text-gray-600">
-                  Disciplinas concluídas no ciclo atual: <span className="font-semibold">{userCycle.ciclo_atual.length}</span>
-                </p>
-              </div>
-              <div className="text-sm text-gray-600">
-                Início do ciclo: {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
-              </div>
+            <div className="flex items-center gap-2">
+              <GraduationCap size={24} className="text-app-blue" weight="duotone" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-app-blue to-purple-600 bg-clip-text text-transparent">
+                Plano de Estudo Diário
+              </h1>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleNextDay}
+                className="flex items-center gap-2 hover:bg-blue-50 transition-colors text-sm px-2 py-1"
+                disabled={materiasPendentes.length === 0}
+              >
+                Próximo Dia
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={handleResetCycle}
+                className="hover:bg-red-50 transition-colors text-sm px-2 py-1"
+              >
+                <ArrowClockwise className="h-4 w-4 mr-2" />
+                Reiniciar Ciclo
+              </Button>
+            </div>
+          </motion.div>
 
-      {/* Current Subjects */}
-      {dailySubjects.length > 0 && !dailySubjects.every(subject => completedSessions.includes(subject.id)) && (
-        <div className="space-y-4">
-          {dailySubjects.map((subject, index) => (
-            <Card 
-              key={subject.id} 
-              className={completedSessions.includes(subject.id) 
-                ? 'border-green-300 bg-green-50' 
-                : expandedSubject === subject.id 
-                  ? 'border-app-blue' 
-                  : ''
-              }
-            >
-              <CardHeader className="pb-3">
+          {/* Informações do ciclo */}
+          <motion.div variants={itemVariants}>
+            <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
+              <CardContent className="p-4">
                 <div className="flex justify-between items-center">
-                  <CardTitle 
-                    className="text-xl font-bold text-app-blue cursor-pointer flex items-center"
-                    onClick={() => handleToggleExpand(subject.id)}
-                  >
-                    {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
-                    {expandedSubject === subject.id ? (
-                      <ChevronUp className="ml-2 h-5 w-5" />
-                    ) : (
-                      <ChevronDown className="ml-2 h-5 w-5" />
-                    )}
-                  </CardTitle>
-                  <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                    Status: {subject.status}
-                  </Badge>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Sparkle size={16} className="text-yellow-500" weight="fill" />
+                      <p className="text-xs text-gray-600">
+                        Ciclos realizados: <span className="font-semibold text-app-blue">{userCycle.ciclos_realizados}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={16} className="text-green-500" weight="fill" />
+                      <p className="text-xs text-gray-600">
+                        Disciplinas concluídas: <span className="font-semibold text-app-blue">{userCycle.ciclo_atual.length}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <Calendar size={16} className="text-purple-500" weight="fill" />
+                    Início: {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
+                  </div>
                 </div>
-              </CardHeader>
-
-              <CardContent>
-                {expandedSubject === subject.id ? (
-                  <div className="space-y-4">
-                    {subject.topics.map(topic => {
-                      const topicStatus = getTopicStatus(topic);
-                      const reviewStage = getTopicReviewStage(topic);
-                      const isMarkedForReview = tempMarkedTopics[subject.id]?.includes(topic.id);
-                      const isTopicCompleted = topic.reviewStage === 'Concluído';
-                      return (
-                        <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
-                          <label className="flex-1 font-medium">
-                            {topic.name}
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={topicStatus.variant} className="mr-2">
-                              {topicStatus.label}
-                            </Badge>
-                            {reviewStage && (
-                              <Badge variant="outline" className="mr-2 bg-purple-50 text-purple-700 border-purple-300">
-                                {reviewStage}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            {!isMarkedForReview ? (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="text-green-600 hover:text-green-800 border border-green-200"
-                                onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
-                                disabled={isTopicCompleted}
-                              >
-                                <Check className="h-4 w-4 mr-1" />
-                                Marcar Revisão
-                              </Button>
-                            ) : (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="text-red-600 hover:text-red-800 border border-red-200"
-                                onClick={() => handleCancelTopicReview(subject.id, topic.id)}
-                              >
-                                <X className="h-4 w-4 mr-1" />
-                                Cancelar
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div className="flex justify-between gap-2 mt-4">
-                      <Button 
-                        className="bg-app-blue hover:bg-app-light-blue"
-                        onClick={() => handleCompleteSession(subject.id)}
-                        disabled={completedSessions.includes(subject.id)}
-                      >
-                        Concluir Sessão
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">
-                      {subject.topics.length} tópicos disponíveis
-                    </span>
-                    <div className="flex gap-2">
-                      <Button 
-                        className="bg-app-blue hover:bg-app-light-blue"
-                        onClick={() => handleToggleExpand(subject.id)}
-                      >
-                        Iniciar Estudo
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
-      
-      {/* Next Subjects */}
-      {nextSubjects.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-xl font-bold mb-4 flex items-center">
-            <ArrowRight className="mr-2 h-5 w-5" />
-            Próximas Disciplinas
-          </h2>
-          
-          <div className="space-y-2">
-            {nextSubjects.map(subject => (
-              <Card key={subject.id} className="hover:shadow-md">
-                <CardContent className="p-4 flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium">{subject.name}</h3>
-                    <p className="text-sm text-gray-500">{subject.topics.length} tópicos</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {dailySubjects.length === 0 && (
-        <div className="text-center py-8">
-          <p className="text-xl text-gray-600">Não há matérias para estudar hoje.</p>
-          <Button className="mt-4 bg-app-blue hover:bg-app-light-blue" onClick={() => navigate('/materias')}>
-            Adicionar Matérias
-          </Button>
-        </div>
-      )}
-      
-      {/* Show confetti and message when all sessions are completed */}
-      {dailySubjects.length > 0 && 
-       dailySubjects.every(subject => completedSessions.includes(subject.id)) && !novoCicloBanner && (
-        <div className="mt-8 text-center p-8 border-2 border-green-300 rounded-lg bg-green-50">
-          <h3 className="text-xl font-bold text-green-800">Parabéns! 🎉</h3>
-          <p className="mt-2 text-gray-700">Você concluiu todas as matérias do dia!</p>
-          <Button 
-            className="mt-4 bg-app-blue hover:bg-app-light-blue" 
-            onClick={handleNextDay}
+          </motion.div>
+
+          {/* Current Subjects */}
+          <AnimatePresence>
+            {dailySubjects.length > 0 && !dailySubjects.every(subject => completedSessions.includes(subject.id)) && (
+              <motion.div className="space-y-2" variants={containerVariants}>
+                {dailySubjects.map((subject, index) => (
+                  <motion.div
+                    key={subject.id}
+                    variants={itemVariants}
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ type: "spring", stiffness: 100 }}
+                  >
+                    <Card 
+                      className={`bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 ${
+                        completedSessions.includes(subject.id) 
+                          ? 'border-green-300 bg-green-50/50' 
+                          : expandedSubject === subject.id 
+                            ? 'border-app-blue' 
+                            : ''
+                      }`}
+                    >
+                      <CardHeader className="p-3 pb-2">
+                        <div className="flex justify-between items-center">
+                          <CardTitle 
+                            className="text-base font-bold text-app-blue cursor-pointer flex items-center group"
+                            onClick={() => handleToggleExpand(subject.id)}
+                          >
+                            <BookOpen size={18} className="mr-2 text-app-blue group-hover:rotate-12 transition-transform" weight="duotone" />
+                            {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
+                            <motion.div
+                              animate={{ rotate: expandedSubject === subject.id ? 180 : 0 }}
+                              transition={{ type: "spring", stiffness: 200 }}
+                            >
+                              {expandedSubject === subject.id ? (
+                                <ChevronUp className="ml-2 h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                              )}
+                            </motion.div>
+                          </CardTitle>
+                          <Badge className="bg-blue-100/80 backdrop-blur-sm text-blue-800 hover:bg-blue-100 transition-colors text-xs">
+                            Status: {subject.status}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-3 pt-0">
+                        <AnimatePresence>
+                          {expandedSubject === subject.id ? (
+                            <motion.div 
+                              className="space-y-2"
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              {subject.topics.map(topic => {
+                                const topicStatus = getTopicStatus(topic);
+                                const reviewStage = getTopicReviewStage(topic);
+                                const isMarkedForReview = tempMarkedTopics[subject.id]?.includes(topic.id);
+                                const isTopicCompleted = topic.reviewStage === 'Concluído';
+                                return (
+                                  <motion.div 
+                                    key={topic.id} 
+                                    className="flex items-center space-x-2 bg-white/50 backdrop-blur-sm p-2 rounded-lg border border-white/20 hover:shadow-md transition-all"
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.99 }}
+                                  >
+                                    <label className="flex-1 font-medium text-sm">
+                                      {topic.name}
+                                    </label>
+                                    <div className="flex items-center gap-1">
+                                      <Badge variant={topicStatus.variant} className="mr-1 backdrop-blur-sm text-xs">
+                                        {topicStatus.label}
+                                      </Badge>
+                                      {reviewStage && (
+                                        <Badge variant="outline" className="mr-1 bg-purple-50/80 text-purple-700 border-purple-300 backdrop-blur-sm text-xs">
+                                          {reviewStage}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    {!isMarkedForReview ? (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="text-green-600 hover:text-green-800 border border-green-200 hover:bg-green-50 transition-colors text-xs px-2 py-1"
+                                        onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
+                                        disabled={isTopicCompleted}
+                                      >
+                                        <Check className="h-3 w-3 mr-1" />
+                                        Marcar Revisão
+                                      </Button>
+                                    ) : (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 transition-colors text-xs px-2 py-1"
+                                        onClick={() => handleCancelTopicReview(subject.id, topic.id)}
+                                      >
+                                        <X className="h-3 w-3 mr-1" />
+                                        Cancelar
+                                      </Button>
+                                    )}
+                                  </motion.div>
+                                );
+                              })}
+                              <Button 
+                                className="bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1 mt-2"
+                                onClick={() => handleCompleteSession(subject.id)}
+                                disabled={completedSessions.includes(subject.id)}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-2" />
+                                Concluir Sessão
+                              </Button>
+                            </motion.div>
+                          ) : (
+                            <div className="flex justify-between">
+                              <span className="text-xs text-gray-500">
+                                {subject.topics.length} tópicos disponíveis
+                              </span>
+                              <div className="flex gap-2">
+                                <Button 
+                                  className="bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
+                                  onClick={() => handleToggleExpand(subject.id)}
+                                >
+                                  <BookOpen className="h-3 w-3 mr-2" />
+                                  Iniciar Estudo
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </AnimatePresence>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Next Subjects */}
+          <motion.div className="mt-6" variants={itemVariants}>
+            <h2 className="text-lg font-bold mb-2 flex items-center">
+              <ArrowRight className="mr-2 h-4 w-4" />
+              Próximas Disciplinas
+            </h2>
+            <div className="space-y-1">
+              {nextSubjects.map(subject => (
+                <motion.div
+                  key={subject.id}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                >
+                  <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-all">
+                    <CardContent className="p-2 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <BookOpen size={16} className="text-app-blue" weight="duotone" />
+                        <h3 className="font-medium text-sm">{subject.name}</h3>
+                        <p className="text-xs text-gray-500">{subject.topics.length} tópicos</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Empty State */}
+          <motion.div 
+            className="text-center py-6 bg-white/70 backdrop-blur-lg rounded-xl shadow-lg border border-white/20"
+            variants={itemVariants}
           >
-            Avançar para o próximo dia
-          </Button>
-        </div>
+            <BookOpen size={32} className="mx-auto text-app-blue mb-2" weight="duotone" />
+            <p className="text-base text-gray-600">Não há matérias para estudar hoje.</p>
+            <Button 
+              className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
+              onClick={() => navigate('/materias')}
+            >
+              Adicionar Matérias
+            </Button>
+          </motion.div>
+
+          {/* Completion State */}
+          <AnimatePresence>
+            {dailySubjects.length > 0 && 
+             dailySubjects.every(subject => completedSessions.includes(subject.id)) && !novoCicloBanner && (
+              <motion.div 
+                className="mt-6 text-center p-4 bg-green-50/70 backdrop-blur-lg rounded-xl shadow-lg border-2 border-green-300"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+              >
+                <Sparkle size={32} className="mx-auto text-yellow-500 mb-2" weight="fill" />
+                <h3 className="text-lg font-bold text-green-800">Parabéns! 🎉</h3>
+                <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do dia!</p>
+                <Button 
+                  className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
+                  onClick={handleNextDay}
+                >
+                  Avançar para o próximo dia
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* New Cycle Banner */}
+          <AnimatePresence>
+            {novoCicloBanner && (
+              <motion.div 
+                className="mt-6 text-center p-4 bg-blue-50/70 backdrop-blur-lg rounded-xl shadow-lg border-2 border-blue-300"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+              >
+                <ArrowClockwise size={32} className="mx-auto text-blue-500 mb-2" weight="fill" />
+                <h3 className="text-lg font-bold text-blue-800">Novo ciclo iniciado! 🔄</h3>
+                <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do ciclo. As disciplinas foram reiniciadas na ordem definida.</p>
+                <Button 
+                  className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
+                  onClick={() => setNovoCicloBanner(false)}
+                >
+                  Continuar
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       )}
-      
-      {/* Banner de novo ciclo */}
-      {novoCicloBanner && (
-        <div className="mt-8 text-center p-8 border-2 border-blue-300 rounded-lg bg-blue-50">
-          <h3 className="text-xl font-bold text-blue-800">Novo ciclo iniciado! 🔄</h3>
-          <p className="mt-2 text-gray-700">Você concluiu todas as matérias do ciclo. As disciplinas foram reiniciadas na ordem definida.</p>
-          <Button 
-            className="mt-4 bg-app-blue hover:bg-app-light-blue"
-            onClick={() => setNovoCicloBanner(false)}
-          >
-            Continuar
-          </Button>
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 };
 
