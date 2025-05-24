@@ -80,11 +80,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           navigate('/login');
         } else if (event === 'SIGNED_IN') {
           console.log('User signed in, redirecting to dashboard');
-          // Force navigation to ensure page loads correctly
+          // Redireciona para a home sem recarregar a página
           setTimeout(() => {
             navigate('/', { replace: true });
-            // Force a page refresh to ensure proper loading
-            window.location.reload();
           }, 100);
         }
         
