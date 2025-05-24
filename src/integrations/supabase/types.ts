@@ -119,6 +119,50 @@ export type Database = {
           },
         ]
       }
+      user_cycles: {
+        Row: {
+          atualizado_em: string | null
+          ciclo_atual: string[] | null
+          ciclos_realizados: number | null
+          created_at: string | null
+          data_fim_ciclo: string | null
+          data_inicio_ciclo: string | null
+          disciplinas_do_dia: string[] | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string | null
+          ciclo_atual?: string[] | null
+          ciclos_realizados?: number | null
+          created_at?: string | null
+          data_fim_ciclo?: string | null
+          data_inicio_ciclo?: string | null
+          disciplinas_do_dia?: string[] | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          atualizado_em?: string | null
+          ciclo_atual?: string[] | null
+          ciclos_realizados?: number | null
+          created_at?: string | null
+          data_fim_ciclo?: string | null
+          data_inicio_ciclo?: string | null
+          disciplinas_do_dia?: string[] | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_cycles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_settings: {
         Row: {
           created_at: string
