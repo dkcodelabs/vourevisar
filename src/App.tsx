@@ -44,34 +44,34 @@ const App = () => {
   
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <AppProvider>
-            <TooltipProvider>
+      <TooltipProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <AppProvider>
               <Toaster />
               <Sonner />
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 
-                <Route element={<ProtectedRoute />}>
-                  <Route element={<AppLayout />}>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/materias" element={<Subjects />} />
-                    <Route path="/plano-estudos" element={<StudyPlan />} />
-                    <Route path="/estatisticas" element={<Statistics />} />
-                    <Route path="/topicos" element={<Topics />} />
-                    <Route path="/perfil" element={<Profile />} />
-                    <Route path="/configuracoes" element={<Settings />} />
+                <Route path="/*" element={<ProtectedRoute />}>
+                  <Route path="" element={<AppLayout />}>
+                    <Route index element={<Dashboard />} />
+                    <Route path="materias" element={<Subjects />} />
+                    <Route path="plano-estudos" element={<StudyPlan />} />
+                    <Route path="estatisticas" element={<Statistics />} />
+                    <Route path="topicos" element={<Topics />} />
+                    <Route path="perfil" element={<Profile />} />
+                    <Route path="configuracoes" element={<Settings />} />
                   </Route>
                 </Route>
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </TooltipProvider>
-          </AppProvider>
-        </AuthProvider>
-      </BrowserRouter>
+            </AppProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 };

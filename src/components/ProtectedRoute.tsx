@@ -1,10 +1,15 @@
 
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const ProtectedRoute = () => {
   const { user, loading } = useAuth();
+  const location = useLocation();
+  
+  console.log('ProtectedRoute - User:', user ? 'authenticated' : 'not authenticated');
+  console.log('ProtectedRoute - Loading:', loading);
+  console.log('ProtectedRoute - Current path:', location.pathname);
   
   // Se estiver carregando, exibe um indicador de carregamento
   if (loading) {
@@ -17,9 +22,11 @@ export const ProtectedRoute = () => {
   
   // Se não houver usuário autenticado, redireciona para login
   if (!user) {
+    console.log('No user found, redirecting to login');
     return <Navigate to="/login" replace />;
   }
   
   // Se houver usuário autenticado, renderiza o conteúdo protegido
+  console.log('User authenticated, rendering protected content');
   return <Outlet />;
 };
