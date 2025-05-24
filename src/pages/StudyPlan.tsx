@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, X, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import * as confetti from 'canvas-confetti';
+import confetti from 'canvas-confetti';
 import { supabase } from '@/integrations/supabase/client';
 import { Topic, RevisionStage } from '@/types';
 import { addDays, format, isAfter, isBefore, isToday } from 'date-fns';
@@ -157,8 +157,10 @@ const StudyPlan = () => {
     const topicsToUpdate = tempMarkedTopics[subjectId] || [];
     try {
       for (const topicId of topicsToUpdate) {
+        // Encontrar o tópico
         const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
         if (!topic) continue;
+        // Calcular o próximo estágio de revisão
         const nextStage = getNextReviewStage(topic.reviewStage);
         let updateData: any = {
           review_count: topic.reviewCount + 1,
@@ -172,11 +174,10 @@ const StudyPlan = () => {
           updateData.next_review = calculateNextReview(nextStage).toISOString();
           updateData.review_stage = nextStage;
         }
-        const { error } = await supabase.from('topics').update(updateData).eq('id', topicId);
-        if (error) throw error;
+        await supabase.from('topics').update(updateData).eq('id', topicId);
       }
       await fetchSubjects();
-      setCompletedSessions(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
+      setCompletedSessions(prev => [...prev, subjectId]);
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
@@ -184,19 +185,16 @@ const StudyPlan = () => {
         return updated;
       });
       toast.success("Sessão de estudo concluída");
-      // Se todas as matérias do ciclo foram concluídas, reinicia ciclo
-      if (completedSessions.length + 1 === currentSubjects.length) {
+      // Confete e mensagem se todas concluídas
+      const updatedCompletedSessions = [...completedSessions, subjectId];
+      if (updatedCompletedSessions.length === dailySubjects.length) {
         setTimeout(() => {
           launchConfetti();
-          toast.success('Parabéns! Você concluiu todas as matérias do ciclo!');
-          setCompletedSessions([]);
-          setCurrentSubjectIndex(0);
-          setExpandedSubject(null);
+          toast.success("Parabéns! Você concluiu todas as matérias do dia!");
         }, 500);
       }
-    } catch (error: any) {
-      console.error('Erro ao concluir sessão:', error);
-      toast.error(error?.message || "Erro ao salvar revisões. Tente novamente.");
+    } catch (error) {
+      toast.error("Erro ao salvar revisões. Tente novamente.");
     }
   };
 
@@ -212,23 +210,19 @@ const StudyPlan = () => {
   };
 
   const handleNextDay = () => {
-    // Se todas as matérias do ciclo foram estudadas, reinicia ciclo
-    if (completedSessions.length === currentSubjects.length) {
+    // Check if all sessions for today are completed
+    const allCompleted = dailySubjects.every(subject => 
+      completedSessions.includes(subject.id)
+    );
+    
+    if (allCompleted) {
+      toast.success("Avançando para o próximo dia");
+      // Reset completed sessions for the new day
       setCompletedSessions([]);
       setCurrentSubjectIndex(0);
-      setExpandedSubject(null);
-      toast.info('Novo ciclo iniciado!');
       launchConfetti();
-      return;
-    }
-    // Avança para a próxima matéria da sequência
-    const nextIndex = currentSubjectIndex + 1;
-    if (nextIndex < dailySubjects.length) {
-      setCurrentSubjectIndex(nextIndex);
-      setExpandedSubject(dailySubjects[nextIndex].id);
     } else {
-      setCurrentSubjectIndex(0);
-      setExpandedSubject(null);
+      toast.error("Complete todas as matérias do dia antes de avançar");
     }
   };
 
@@ -281,12 +275,6 @@ const StudyPlan = () => {
     return topic.reviewStage;
   };
 
-  useEffect(() => {
-    if (dailySubjects.length > 0 && dailySubjects.every(subject => completedSessions.includes(subject.id))) {
-      launchConfetti();
-    }
-  }, [completedSessions, dailySubjects]);
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -303,6 +291,7 @@ const StudyPlan = () => {
           <Button 
             variant="outline" 
             onClick={handleNextDay}
+            disabled={!dailySubjects.every(subject => completedSessions.includes(subject.id))}
             className="flex items-center gap-2"
           >
             Próximo Dia
@@ -319,123 +308,117 @@ const StudyPlan = () => {
 
       {/* Current Subjects */}
       <div className="space-y-4">
-        {dailySubjects.filter(subject => !completedSessions.includes(subject.id)).length > 0 ? (
-          dailySubjects.filter(subject => !completedSessions.includes(subject.id)).map((subject, index) => (
-            <Card 
-              key={subject.id} 
-              className={completedSessions.includes(subject.id) 
-                ? 'border-green-300 bg-green-50' 
-                : expandedSubject === subject.id 
-                  ? 'border-app-blue' 
-                  : ''
-              }
-            >
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-center">
-                  <CardTitle 
-                    className="text-xl font-bold text-app-blue cursor-pointer flex items-center"
-                    onClick={() => handleToggleExpand(subject.id)}
-                  >
-                    {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
-                    {expandedSubject === subject.id ? (
-                      <ChevronUp className="ml-2 h-5 w-5" />
-                    ) : (
-                      <ChevronDown className="ml-2 h-5 w-5" />
-                    )}
-                  </CardTitle>
-                  <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                    Status: {subject.status}
-                  </Badge>
-                </div>
-              </CardHeader>
+        {dailySubjects.map((subject, index) => (
+          <Card 
+            key={subject.id} 
+            className={completedSessions.includes(subject.id) 
+              ? 'border-green-300 bg-green-50' 
+              : expandedSubject === subject.id 
+                ? 'border-app-blue' 
+                : ''
+            }
+          >
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-center">
+                <CardTitle 
+                  className="text-xl font-bold text-app-blue cursor-pointer flex items-center"
+                  onClick={() => handleToggleExpand(subject.id)}
+                >
+                  {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
+                  {expandedSubject === subject.id ? (
+                    <ChevronUp className="ml-2 h-5 w-5" />
+                  ) : (
+                    <ChevronDown className="ml-2 h-5 w-5" />
+                  )}
+                </CardTitle>
+                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                  Status: {subject.status}
+                </Badge>
+              </div>
+            </CardHeader>
 
-              <CardContent>
-                {expandedSubject === subject.id ? (
-                  <div className="space-y-4">
-                    {subject.topics.map(topic => {
-                      const topicStatus = getTopicStatus(topic);
-                      const reviewStage = getTopicReviewStage(topic);
-                      const isMarkedForReview = tempMarkedTopics[subject.id]?.includes(topic.id);
-                      const isTopicCompleted = topic.reviewStage === 'Concluído';
-                      
-                      return (
-                        <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
-                          <label className="flex-1 font-medium">
-                            {topic.name}
-                          </label>
-                          
-                          <div className="flex items-center gap-2">
-                            <Badge variant={topicStatus.variant} className="mr-2">
-                              {topicStatus.label}
-                            </Badge>
-                            
-                            {reviewStage && (
-                              <Badge variant="outline" className="mr-2 bg-purple-50 text-purple-700 border-purple-300">
-                                {reviewStage}
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            {!isMarkedForReview ? (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="text-green-600 hover:text-green-800 border border-green-200"
-                                onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
-                                disabled={isTopicCompleted}
-                              >
-                                <Check className="h-4 w-4 mr-1" />
-                                Marcar Revisão
-                              </Button>
-                            ) : (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="text-red-600 hover:text-red-800 border border-red-200"
-                                onClick={() => handleCancelTopicReview(subject.id, topic.id)}
-                              >
-                                <X className="h-4 w-4 mr-1" />
-                                Cancelar
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+            <CardContent>
+              {expandedSubject === subject.id ? (
+                <div className="space-y-4">
+                  {subject.topics.map(topic => {
+                    const topicStatus = getTopicStatus(topic);
+                    const reviewStage = getTopicReviewStage(topic);
+                    const isMarkedForReview = tempMarkedTopics[subject.id]?.includes(topic.id);
+                    const isTopicCompleted = topic.reviewStage === 'Concluído';
                     
-                    <div className="flex justify-between gap-2 mt-4">
-                      <Button 
-                        className="bg-app-blue hover:bg-app-light-blue"
-                        onClick={() => handleCompleteSession(subject.id)}
-                      >
-                        Concluir Sessão
-                      </Button>
-                    </div>
+                    return (
+                      <div key={topic.id} className="flex items-center space-x-3 border p-3 rounded-lg">
+                        <label className="flex-1 font-medium">
+                          {topic.name}
+                        </label>
+                        
+                        <div className="flex items-center gap-2">
+                          <Badge variant={topicStatus.variant} className="mr-2">
+                            {topicStatus.label}
+                          </Badge>
+                          
+                          {reviewStage && (
+                            <Badge variant="outline" className="mr-2 bg-purple-50 text-purple-700 border-purple-300">
+                              {reviewStage}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          {!isMarkedForReview ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-green-600 hover:text-green-800 border border-green-200"
+                              onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
+                              disabled={isTopicCompleted}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Marcar Revisão
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-red-600 hover:text-red-800 border border-red-200"
+                              onClick={() => handleCancelTopicReview(subject.id, topic.id)}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Cancelar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  <div className="flex justify-between gap-2 mt-4">
+                    <Button 
+                      className="bg-app-blue hover:bg-app-light-blue"
+                      onClick={() => handleCompleteSession(subject.id)}
+                    >
+                      Concluir Sessão
+                    </Button>
                   </div>
-                ) : (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">
-                      {subject.topics.length} tópicos disponíveis
-                    </span>
-                    <div className="flex gap-2">
-                      <Button 
-                        className="bg-app-blue hover:bg-app-light-blue"
-                        onClick={() => handleToggleExpand(subject.id)}
-                      >
-                        Iniciar Estudo
-                      </Button>
-                    </div>
+                </div>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">
+                    {subject.topics.length} tópicos disponíveis
+                  </span>
+                  <div className="flex gap-2">
+                    <Button 
+                      className="bg-app-blue hover:bg-app-light-blue"
+                      onClick={() => handleToggleExpand(subject.id)}
+                    >
+                      Iniciar Estudo
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <div className="text-center text-gray-500 py-8">
-            Nenhuma matéria para estudar agora. Clique em "Próximo Dia" para avançar ou aguarde o próximo ciclo.
-          </div>
-        )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
       
       {/* Next Subjects (only showing the next one in sequence that isn't already in daily subjects) */}
@@ -454,6 +437,23 @@ const StudyPlan = () => {
                     <h3 className="font-medium">{subject.name}</h3>
                     <p className="text-sm text-gray-500">{subject.topics.length} tópicos</p>
                   </div>
+                  
+                  {completedSessions.includes(subject.id) ? (
+                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                      Concluída
+                    </Badge>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => {
+                        setCurrentSubjectIndex(dailySubjects.findIndex(s => s.id === subject.id));
+                        handleToggleExpand(subject.id);
+                      }}
+                    >
+                      Estudar Agora
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}
