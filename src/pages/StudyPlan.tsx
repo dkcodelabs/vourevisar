@@ -26,6 +26,7 @@ const StudyPlan = () => {
   const [cicloAtual, setCicloAtual] = useState<string[]>([]);
   const [diaCiclo, setDiaCiclo] = useState(0);
   const [novoCicloBanner, setNovoCicloBanner] = useState(false);
+  const [disciplinasDoDia, setDisciplinasDoDia] = useState<string[]>([]);
   
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
@@ -146,16 +147,28 @@ const StudyPlan = () => {
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
   // Sempre mostra até subjectsPerDay matérias pendentes no dia
-  const dailySubjects = materiasPendentes.slice(0, subjectsPerDay);
-  const nextSubjects = materiasPendentes.slice(subjectsPerDay, subjectsPerDay * 2);
+  const dailySubjects = subjects.filter(s => disciplinasDoDia.includes(s.id));
+  const nextSubjects = materiasPendentes.filter(s => !disciplinasDoDia.includes(s.id)).slice(0, subjectsPerDay);
+
+  // Atualiza as disciplinas do dia ao iniciar ciclo ou ao clicar em Próximo Dia
+  useEffect(() => {
+    // Se disciplinasDoDia está vazio, inicializa com as próximas pendentes
+    if (disciplinasDoDia.length === 0 && materiasPendentes.length > 0) {
+      setDisciplinasDoDia(materiasPendentes.slice(0, subjectsPerDay).map(s => s.id));
+    }
+    // Se todas as disciplinas do ciclo foram concluídas, limpa disciplinasDoDia
+    if (materiasPendentes.length === 0 && disciplinasDoDia.length > 0) {
+      setDisciplinasDoDia([]);
+    }
+  }, [materiasPendentes, subjectsPerDay]);
 
   // Função para avançar para o próximo dia
   const handleNextDay = () => {
     if (materiasPendentes.length === 0) return;
-    // Remove as matérias do dia atual do ciclo (se já concluídas)
     setCompletedSessions([]);
     setExpandedSubject(null);
-    setDiaCiclo(prev => prev + 1);
+    // Pega as próximas pendentes para o novo dia
+    setDisciplinasDoDia(materiasPendentes.slice(0, subjectsPerDay).map(s => s.id));
   };
 
   // Função para resetar o ciclo manualmente
