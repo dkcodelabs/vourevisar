@@ -20,20 +20,21 @@ const Topics = () => {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   
-  // Load subjects on mount
+  // Load subjects on mount if not already loaded
   useEffect(() => {
     const loadSubjects = async () => {
       setIsLoading(true);
-      await fetchSubjects();
-      setIsLoading(false);
+      try {
+        await fetchSubjects();
+      } catch (error) {
+        console.error('Error loading subjects:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     
-    if (subjects.length === 0) {
-      loadSubjects();
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
+    loadSubjects();
+  }, [fetchSubjects]);
   
   const subject = subjects.find(s => s.id === subjectId);
   
