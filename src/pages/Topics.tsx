@@ -4,7 +4,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, isToday, isBefore } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-interface Topic {
+interface TopicData {
   id: string;
   name: string;
   completed: boolean;
@@ -20,54 +19,70 @@ interface Topic {
   next_review?: string;
   last_reviewed_at?: string;
   review_stage?: string;
+  subject_id: string;
 }
 
-interface Subject {
+interface SubjectData {
   id: string;
   name: string;
-  topics: Topic[];
+  topics: TopicData[];
 }
 
 const Topics = () => {
   const { subjectId } = useParams<{ subjectId?: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  
+  const [subjects, setSubjects] = useState<SubjectData[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<SubjectData | null>(null);
   const [newTopicName, setNewTopicName] = useState('');
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  
-  // Função para carregar matérias
+  const [error, setError] = useState<string | null>(null);
+
+  console.log('Topics component rendered - subjectId:', subjectId, 'user:', user?.id);
+
+  // Carregar matérias
   const loadSubjects = async () => {
-    if (!user) return;
-    
+    if (!user) {
+      console.log('No user found');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       console.log('Loading subjects for user:', user.id);
-      
-      // Buscar matérias do usuário
+      setError(null);
+
+      // Buscar matérias
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
-        .select('*')
+        .select('id, name')
         .eq('user_id', user.id)
         .order('name');
-      
+
       if (subjectsError) {
         console.error('Error loading subjects:', subjectsError);
         throw subjectsError;
       }
-      
+
       console.log('Subjects loaded:', subjectsData?.length || 0);
-      
-      // Para cada matéria, buscar seus tópicos
+
+      if (!subjectsData || subjectsData.length === 0) {
+        setSubjects([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Buscar tópicos para cada matéria
       const subjectsWithTopics = await Promise.all(
-        (subjectsData || []).map(async (subject) => {
+        subjectsData.map(async (subject) => {
           const { data: topicsData, error: topicsError } = await supabase
             .from('topics')
             .select('*')
             .eq('subject_id', subject.id)
             .order('name');
-          
+
           if (topicsError) {
             console.error('Error loading topics for subject:', subject.id, topicsError);
             return {
@@ -76,7 +91,7 @@ const Topics = () => {
               topics: []
             };
           }
-          
+
           return {
             id: subject.id,
             name: subject.name,
@@ -84,77 +99,83 @@ const Topics = () => {
           };
         })
       );
-      
+
       console.log('Subjects with topics loaded:', subjectsWithTopics);
       setSubjects(subjectsWithTopics);
-      
+
+      // Definir matéria selecionada
+      if (subjectId) {
+        const found = subjectsWithTopics.find(s => s.id === subjectId);
+        setSelectedSubject(found || null);
+      } else if (subjectsWithTopics.length > 0) {
+        setSelectedSubject(subjectsWithTopics[0]);
+      }
+
     } catch (error) {
       console.error('Error in loadSubjects:', error);
+      setError('Erro ao carregar matérias');
       toast.error('Erro ao carregar matérias');
+    } finally {
+      setIsLoading(false);
     }
   };
-  
+
   // Carregar dados iniciais
   useEffect(() => {
-    const initializeData = async () => {
-      if (!user) {
-        console.log('No user found, skipping data load');
-        setIsLoading(false);
-        return;
-      }
-      
-      setIsLoading(true);
-      await loadSubjects();
-      setIsLoading(false);
-    };
-    
-    initializeData();
+    console.log('useEffect triggered - user:', user?.id);
+    loadSubjects();
   }, [user]);
-  
-  // Definir matéria selecionada
-  useEffect(() => {
-    if (subjectId && subjects.length > 0) {
-      setSelectedSubjectId(subjectId);
-    } else if (!subjectId && subjects.length > 0 && !selectedSubjectId) {
-      setSelectedSubjectId(subjects[0].id);
-    }
-  }, [subjectId, subjects, selectedSubjectId]);
-  
-  const currentSubject = selectedSubjectId ? subjects.find(s => s.id === selectedSubjectId) : null;
-  
+
   // Adicionar tópico
   const handleAddTopic = async () => {
-    if (!newTopicName.trim() || !selectedSubjectId || !user) return;
-    
+    if (!newTopicName.trim() || !selectedSubject || !user) {
+      console.log('Cannot add topic - missing data');
+      return;
+    }
+
     try {
+      console.log('Adding topic:', newTopicName, 'to subject:', selectedSubject.id);
+
       const { data, error } = await supabase
         .from('topics')
         .insert({
           name: newTopicName.trim(),
-          subject_id: selectedSubjectId,
+          subject_id: selectedSubject.id,
           completed: false,
           review_count: 0
         })
         .select()
         .single();
-      
-      if (error) throw error;
-      
-      if (data) {
-        // Atualizar estado local
-        setSubjects(prev => prev.map(subject => {
-          if (subject.id === selectedSubjectId) {
-            return {
-              ...subject,
-              topics: [...subject.topics, data]
-            };
-          }
-          return subject;
-        }));
-        
-        setNewTopicName('');
-        toast.success('Tópico adicionado com sucesso');
+
+      if (error) {
+        console.error('Error adding topic:', error);
+        throw error;
       }
+
+      console.log('Topic added successfully:', data);
+
+      // Atualizar estado local
+      setSelectedSubject(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          topics: [...prev.topics, data]
+        };
+      });
+
+      setSubjects(prev => prev.map(subject => {
+        if (subject.id === selectedSubject.id) {
+          return {
+            ...subject,
+            topics: [...subject.topics, data]
+          };
+        }
+        return subject;
+      }));
+
+      setNewTopicName('');
+      toast.success('Tópico adicionado com sucesso');
+
     } catch (error) {
       console.error('Error adding topic:', error);
       toast.error('Erro ao adicionar tópico');
@@ -163,19 +184,34 @@ const Topics = () => {
 
   // Remover tópico
   const handleRemoveTopic = async (topicId: string) => {
-    if (!selectedSubjectId) return;
-    
+    if (!selectedSubject) return;
+
     try {
+      console.log('Removing topic:', topicId);
+
       const { error } = await supabase
         .from('topics')
         .delete()
         .eq('id', topicId);
-      
-      if (error) throw error;
-      
+
+      if (error) {
+        console.error('Error removing topic:', error);
+        throw error;
+      }
+
+      console.log('Topic removed successfully');
+
       // Atualizar estado local
+      setSelectedSubject(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          topics: prev.topics.filter(topic => topic.id !== topicId)
+        };
+      });
+
       setSubjects(prev => prev.map(subject => {
-        if (subject.id === selectedSubjectId) {
+        if (subject.id === selectedSubject.id) {
           return {
             ...subject,
             topics: subject.topics.filter(topic => topic.id !== topicId)
@@ -183,21 +219,16 @@ const Topics = () => {
         }
         return subject;
       }));
-      
+
       toast.success('Tópico removido com sucesso');
+
     } catch (error) {
       console.error('Error removing topic:', error);
       toast.error('Erro ao remover tópico');
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleAddTopic();
-    }
-  };
-
-  const getTopicStatus = (topic: Topic) => {
+  const getTopicStatus = (topic: TopicData) => {
     if (topic.completed && (!topic.next_review || topic.review_stage === 'Concluído')) {
       return { label: "Concluído", color: "bg-green-100 text-green-800" };
     }
@@ -232,6 +263,7 @@ const Topics = () => {
 
   // Estados de loading e erro
   if (isLoading) {
+    console.log('Rendering loading state');
     return (
       <div className="container mx-auto p-6">
         <div className="flex justify-center items-center h-64">
@@ -242,6 +274,7 @@ const Topics = () => {
   }
 
   if (!user) {
+    console.log('Rendering no user state');
     return (
       <div className="container mx-auto p-6">
         <div className="text-center">
@@ -252,7 +285,23 @@ const Topics = () => {
     );
   }
 
+  if (error) {
+    console.log('Rendering error state:', error);
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800">Erro</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={loadSubjects}>
+            Tentar Novamente
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (subjects.length === 0) {
+    console.log('Rendering no subjects state');
     return (
       <div className="container mx-auto p-6">
         <div className="text-center">
@@ -266,6 +315,8 @@ const Topics = () => {
       </div>
     );
   }
+
+  console.log('Rendering main content - selectedSubject:', selectedSubject?.name);
 
   return (
     <motion.div 
@@ -286,7 +337,7 @@ const Topics = () => {
       <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-gray-800">
-            {subjectId ? `Tópicos de ${currentSubject?.name || 'Matéria'}` : 'Tópicos'}
+            Tópicos{selectedSubject ? ` de ${selectedSubject.name}` : ''}
           </CardTitle>
           {!subjectId && (
             <div className="mt-4">
@@ -294,8 +345,11 @@ const Topics = () => {
                 Selecionar Matéria:
               </label>
               <select
-                value={selectedSubjectId || ''}
-                onChange={(e) => setSelectedSubjectId(e.target.value)}
+                value={selectedSubject?.id || ''}
+                onChange={(e) => {
+                  const subject = subjects.find(s => s.id === e.target.value);
+                  setSelectedSubject(subject || null);
+                }}
                 className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Selecione uma matéria</option>
@@ -308,7 +362,7 @@ const Topics = () => {
             </div>
           )}
         </CardHeader>
-        {currentSubject && (
+        {selectedSubject && (
           <CardContent>
             <div className="flex gap-2 mb-6">
               <Input
@@ -316,7 +370,7 @@ const Topics = () => {
                 placeholder="Nome do novo tópico"
                 value={newTopicName}
                 onChange={(e) => setNewTopicName(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddTopic()}
                 className="flex-1"
               />
               <Button onClick={handleAddTopic} disabled={!newTopicName.trim()}>
@@ -328,16 +382,16 @@ const Topics = () => {
         )}
       </Card>
 
-      {currentSubject && (
+      {selectedSubject && (
         <div className="space-y-3">
-          {currentSubject.topics.length === 0 ? (
+          {selectedSubject.topics.length === 0 ? (
             <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
               <CardContent className="p-6 text-center">
                 <p className="text-gray-500">Nenhum tópico adicionado ainda.</p>
               </CardContent>
             </Card>
           ) : (
-            currentSubject.topics.map((topic) => {
+            selectedSubject.topics.map((topic) => {
               const status = getTopicStatus(topic);
               const isExpanded = expandedTopics.has(topic.id);
               
