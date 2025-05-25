@@ -255,10 +255,10 @@ const StudyPlan = () => {
     });
   };
 
-  // Matérias do dia baseadas no banco de dados
+  // Mostrar até subjectsPerDay disciplinas do dia, considerando as que ainda não foram concluídas
   const dailySubjects = subjects.filter(
     s => disciplinasDoDia.includes(s.id) && !cicloAtual.includes(s.id)
-  );
+  ).slice(0, subjectsPerDay);
 
   // Próximas matérias (pendentes que não estão no dia)
   const materiasPendentes = subjects
@@ -555,7 +555,7 @@ const StudyPlan = () => {
                   <div className="flex items-center gap-2">
                     <CheckCircle size={16} className="text-green-500" weight="fill" />
                     <p className="text-xs text-gray-600">
-                      Disciplinas concluídas: <span className="font-semibold text-app-blue">{userCycle.ciclo_atual.length}/{userCycle.disciplinas_do_dia.length + userCycle.ciclo_atual.length}</span>
+                      Disciplinas concluídas: <span className="font-semibold text-app-blue">{userCycle.ciclo_atual.length}/{userCycle.ciclo_atual.length + userCycle.disciplinas_do_dia.length}</span>
                     </p>
                   </div>
                 </div>
