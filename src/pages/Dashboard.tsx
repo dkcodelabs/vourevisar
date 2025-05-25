@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -158,6 +159,43 @@ export const Dashboard = () => {
       console.error('Error fetching calendar revisions:', error);
     }
   };
+
+  // Função para remover tópico das listas de revisão local
+  const removeTopicFromReviewLists = (topicId: string) => {
+    // Remove from today's reviews
+    setTodaysReviews(prev => prev.filter(review => review.id !== topicId));
+    
+    // Remove from calendar revisions
+    setRevisionsByDate(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(day => {
+        updated[day] = updated[day].filter(revision => revision.id !== topicId);
+        // Remove empty days
+        if (updated[day].length === 0) {
+          delete updated[day];
+        }
+      });
+      return updated;
+    });
+  };
+
+  // Função para lidar com revisão concluída (chamada do StudyPlan)
+  const handleTopicReviewed = (topicId: string) => {
+    removeTopicFromReviewLists(topicId);
+  };
+
+  // Adicionar listener para eventos de revisão concluída
+  useEffect(() => {
+    const handleTopicReviewedEvent = (event: CustomEvent) => {
+      handleTopicReviewed(event.detail.topicId);
+    };
+
+    window.addEventListener('topicReviewed', handleTopicReviewedEvent as EventListener);
+    
+    return () => {
+      window.removeEventListener('topicReviewed', handleTopicReviewedEvent as EventListener);
+    };
+  }, []);
   
   // Format progress as percentage with safety checks to prevent NaN
   const progressPercentage = studyProgress.totalSubjects > 0 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -241,6 +240,11 @@ const StudyPlan = () => {
           updateData.review_stage = nextStage;
         }
         await supabase.from('topics').update(updateData).eq('id', topicId);
+        
+        // Disparar evento para notificar o Dashboard
+        window.dispatchEvent(new CustomEvent('topicReviewed', { 
+          detail: { topicId } 
+        }));
       }
       
       await fetchSubjects();
