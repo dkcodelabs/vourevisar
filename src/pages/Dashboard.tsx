@@ -1,412 +1,297 @@
-
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
+import { useCycleState } from '@/hooks/useCycleState';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { 
-  LayoutList, 
-  CalendarDays, 
-  Calendar, 
-  Plus, 
-  Book, 
-  Settings, 
-  TrendingUp, 
-  ClipboardCheck, 
-  ListChecks,
+  BookOpen, 
+  Clock, 
+  CheckCircle, 
+  Calendar,
   Sparkle,
-  GraduationCap,
-  Clock
-} from 'lucide-react';
-import { 
-  Dialog, 
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { format, isToday } from 'date-fns';
+  GraduationCap
+} from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
-import PageContainer from '@/components/layout/PageContainer';
-import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
-import { Progress } from '@/components/ui/progress';
-import { useCycleState } from '@/hooks/useCycleState';
+import { isToday, isBefore, format } from 'date-fns';
 
-export const Dashboard = () => {
-  const { studyProgress, fetchSubjects } = useApp();
+const Dashboard = () => {
   const { user } = useAuth();
+  const { subjects, studyProgress, fetchSubjects } = useApp();
+  const { userCycle, isLoading: isCycleLoading } = useCycleState();
   const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-  const [showRevisionsDialog, setShowRevisionsDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [todaysReviews, setTodaysReviews] = useState<any[]>([]);
-  const [revisionsByDate, setRevisionsByDate] = useState<Record<number, any[]>>({});
-  
-  // Use the cycle state hook for consistent cycle counting
-  const { userCycle } = useCycleState();
 
-  // Fetch data when component mounts
+  // Carregar dados ao montar o componente
   useEffect(() => {
-    if (user) {
-      loadData();
-    }
-  }, [user]);
+    const loadData = async () => {
+      if (!user) return;
+      
+      setIsLoading(true);
+      try {
+        if (subjects.length === 0) {
+          await fetchSubjects();
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados do dashboard:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch subjects and their topics
-      await fetchSubjects();
+    loadData();
+  }, [user, fetchSubjects, subjects.length]);
 
-      // Fetch today's reviews
-      await fetchTodaysReviews();
-
-      // Fetch revisions for the calendar
-      await fetchRevisionsForCalendar();
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    } finally {
-      setIsLoading(false);
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
     }
   };
 
-  const fetchTodaysReviews = async () => {
-    try {
-      // Get today's date at midnight
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      // Query for topics with next_review today
-      const { data, error } = await supabase
-        .from('topics')
-        .select(`
-          id,
-          name,
-          next_review,
-          subject_id,
-          subjects(name)
-        `)
-        .gte('next_review', today.toISOString())
-        .lt('next_review', new Date(today.getTime() + 86400000).toISOString());
-
-      if (error) throw error;
-
-      // Transform data for display
-      const reviews = data.map(topic => ({
-        id: topic.id,
-        subject: topic.subjects?.name || 'Desconhecido',
-        topic: topic.name,
-        date: 'Hoje',
-        type: 'Revisão para Hoje'
-      }));
-
-      setTodaysReviews(reviews);
-    } catch (error) {
-      console.error('Error fetching today\'s reviews:', error);
-      setTodaysReviews([]);
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 100
+      }
     }
   };
 
-  const fetchRevisionsForCalendar = async () => {
-    try {
-      // Get all topics with scheduled reviews
-      const { data, error } = await supabase
-        .from('topics')
-        .select(`
-          id,
-          name,
-          next_review,
-          subject_id,
-          subjects(name)
-        `)
-        .not('next_review', 'is', null);
+  const getSubjectProgress = () => {
+    const totalSubjects = subjects.length;
+    const completedSubjects = subjects.filter(subject => 
+      subject.topics.length > 0 && 
+      subject.topics.every(topic => 
+        topic.completed && (!topic.nextReview || topic.reviewStage === 'Concluído')
+      )
+    ).length;
+    
+    return { completed: completedSubjects, total: totalSubjects };
+  };
 
-      if (error) throw error;
-
-      // Organize reviews by day of month
-      const reviewsByDay: Record<number, any[]> = {};
-      
-      data.forEach(topic => {
-        if (topic.next_review) {
-          const reviewDate = new Date(topic.next_review);
-          const day = reviewDate.getDate();
+  const getTodayTopics = () => {
+    let todayCount = 0;
+    let delayedCount = 0;
+    
+    subjects.forEach(subject => {
+      subject.topics.forEach(topic => {
+        if (topic.nextReview) {
+          const reviewDate = new Date(topic.nextReview);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
           
-          if (!reviewsByDay[day]) {
-            reviewsByDay[day] = [];
+          if (isToday(reviewDate)) {
+            todayCount++;
+          } else if (isBefore(reviewDate, today)) {
+            delayedCount++;
           }
-          
-          const status = isToday(reviewDate) ? 'Hoje' : 
-                         reviewDate < new Date() ? 'Atrasado' : 'Futura';
-          
-          reviewsByDay[day].push({
-            id: topic.id,
-            subject: topic.subjects?.name || 'Desconhecido',
-            topic: topic.name,
-            status
-          });
         }
       });
-      
-      setRevisionsByDate(reviewsByDay);
-    } catch (error) {
-      console.error('Error fetching calendar revisions:', error);
-    }
-  };
-  
-  // Format progress as percentage with safety checks to prevent NaN
-  const progressPercentage = studyProgress.totalSubjects > 0 
-    ? Math.round((studyProgress.completedSubjects / studyProgress.totalSubjects) * 100) 
-    : 0;
+    });
     
-  const topicsPercentage = studyProgress.totalTopics > 0 
-    ? Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100) 
-    : 0;
-
-  const handleDateClick = (day: number) => {
-    // Only allow clicking days that have revisions
-    if (revisionsByDate[day] && revisionsByDate[day].length > 0) {
-      setSelectedDate(day);
-      setShowRevisionsDialog(true);
-    }
+    return { today: todayCount, delayed: delayedCount };
   };
 
-  const currentDay = new Date().getDate();
+  const subjectProgress = getSubjectProgress();
+  const todayTopics = getTodayTopics();
+  const cycleCount = userCycle?.ciclos_realizados || 0;
 
-  // Get cycle information from useCycleState hook
-  const ciclosRealizados = userCycle?.ciclos_realizados || 0;
-  const progressoCiclo = studyProgress.totalSubjects > 0 
-    ? Math.round((studyProgress.completedSubjects / studyProgress.totalSubjects) * 100) 
-    : 0;
-
-  if (isLoading) {
+  if (isLoading || isCycleLoading) {
     return (
-      <PageContainer>
-        <div className="flex justify-center items-center h-64">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-12 h-12 border-4 border-app-blue border-t-transparent rounded-full"
-          />
-        </div>
-      </PageContainer>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+      </div>
     );
   }
 
   return (
-    <PageContainer>
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <AnimatedTitle icon={<Sparkle size={32} />}>
-            Dashboard
-          </AnimatedTitle>
-          <GradientButton
-            onClick={() => navigate('/plano-estudos')}
-            icon={<LayoutList size={20} />}
+    <motion.div 
+      className="space-y-6"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      <motion.div variants={itemVariants}>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Olá, {user?.user_metadata?.name || 'Estudante'}! 👋
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Aqui está um resumo do seu progresso de estudos.
+            </p>
+          </div>
+          <Button 
+            onClick={() => navigate('/plano-estudos')} 
+            className="bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 mt-4 md:mt-0"
           >
-            Iniciar Estudos do Dia
-          </GradientButton>
+            <BookOpen className="mr-2 h-4 w-4" />
+            Ir para Plano de Estudos
+          </Button>
         </div>
-        
-        <p className="text-gray-600 text-lg">Bem-vindo(a) de volta! Aqui está seu progresso.</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <GlassCard className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Book className="h-5 w-5 text-app-blue" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-700 leading-tight break-words whitespace-normal">Matérias Cadastradas</h3>
-                <p className="text-xs text-gray-500">Progresso geral</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold bg-gradient-to-r from-app-blue to-blue-600 bg-clip-text text-transparent">
-                  {studyProgress.completedSubjects}/{studyProgress.totalSubjects}
-                </span>
-                <span className="text-xs text-gray-500">matérias</span>
-              </div>
-              <Progress value={progressPercentage} className="h-1.5" />
-              <p className="text-xs text-gray-600">
-                Você já concluiu {studyProgress.completedSubjects} de {studyProgress.totalSubjects} matérias cadastradas.
-              </p>
-            </div>
-          </GlassCard>
-          
-          <GlassCard className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <LayoutList className="h-5 w-5 text-purple-600" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-700 leading-tight break-words whitespace-normal">Tópicos Cadastrados</h3>
-                <p className="text-xs text-gray-500">Progresso geral</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  {studyProgress.completedTopics}/{studyProgress.totalTopics}
-                </span>
-                <span className="text-xs text-gray-500">tópicos</span>
-              </div>
-              <Progress value={topicsPercentage} className="h-1.5" />
-              <p className="text-xs text-gray-600">
-                Você já concluiu {studyProgress.completedTopics} de {studyProgress.totalTopics} tópicos cadastrados.
-              </p>
-            </div>
-          </GlassCard>
-          
-          <GlassCard className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-700 leading-tight break-words whitespace-normal">Progresso Geral</h3>
-                <p className="text-xs text-gray-500">Ciclo atual</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                  {topicsPercentage}%
-                </span>
-                <span className="text-xs text-gray-500">concluído</span>
-              </div>
-              <Progress value={topicsPercentage} className="h-1.5" />
-              <p className="text-xs text-gray-600">
-                Você completou {ciclosRealizados} ciclos de estudo até agora.
-              </p>
-            </div>
-          </GlassCard>
+      </motion.div>
 
-          <GlassCard className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-emerald-100 rounded-lg">
-                <ListChecks className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-700 leading-tight break-words whitespace-normal">Ciclos Realizados</h3>
-                <p className="text-xs text-gray-500">Progresso do ciclo atual</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-                  {ciclosRealizados}
-                </span>
-                <span className="text-xs text-gray-500">ciclos</span>
-              </div>
-              <Progress value={progressoCiclo} className="h-1.5" />
-              <p className="text-xs text-gray-600">
-                Progresso do ciclo atual: <span className="font-semibold text-emerald-700">{progressoCiclo}%</span>
-              </p>
-            </div>
-          </GlassCard>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <GlassCard className="p-4 min-h-[180px]">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Clock className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-gray-700">Revisões para Hoje</h3>
-                <p className="text-xs text-gray-500">Tópicos agendados</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {todaysReviews.length > 0 ? (
-                <div className="space-y-2">
-                  {todaysReviews.map((review, index) => (
-                    <motion.div
-                      key={review.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="flex items-center justify-between p-2 bg-white/50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-700 text-sm">{review.topic}</p>
-                        <p className="text-xs text-gray-500">{review.subject}</p>
-                      </div>
-                      <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
-                        {review.type}
-                      </span>
-                    </motion.div>
-                  ))}
+      {/* Cards de estatísticas principais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Matérias</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {subjectProgress.completed}/{subjectProgress.total}
+                  </p>
                 </div>
-              ) : (
-                <p className="text-gray-500 text-center py-4 text-sm">
-                  Nenhuma revisão agendada para hoje.
-                </p>
-              )}
-            </div>
-          </GlassCard>
+                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <BookOpen size={24} className="text-app-blue" weight="duotone" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <Progress 
+                  value={subjectProgress.total > 0 ? (subjectProgress.completed / subjectProgress.total) * 100 : 0} 
+                  className="h-2"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-          <GlassCard className="p-4 min-h-[180px]">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <Calendar className="h-5 w-5 text-indigo-600" />
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Ciclos Completos</p>
+                  <p className="text-2xl font-bold text-gray-900">{cycleCount}</p>
+                </div>
+                <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <Sparkle size={24} className="text-yellow-600" weight="fill" />
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-semibold text-gray-700">Calendário de Revisões</h3>
-                <p className="text-xs text-gray-500">Próximas revisões</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Revisões Hoje</p>
+                  <p className="text-2xl font-bold text-gray-900">{todayTopics.today}</p>
+                </div>
+                <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Calendar size={24} className="text-green-600" weight="duotone" />
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-7 gap-1 mt-2">
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
-                const hasRevisions = revisionsByDate[day]?.length > 0;
-                const isCurrentDay = day === currentDay;
-                return (
-                  <motion.button
-                    key={day}
-                    whileHover={{ scale: hasRevisions ? 1.07 : 1 }}
-                    whileTap={{ scale: hasRevisions ? 0.97 : 1 }}
-                    onClick={() => handleDateClick(day)}
-                    className={`
-                      aspect-square w-7 h-7 rounded-md text-xs font-medium
-                      ${hasRevisions ? 'bg-indigo-100 text-indigo-700 cursor-pointer' : 'bg-gray-50 text-gray-400'}
-                      ${isCurrentDay ? 'ring-2 ring-indigo-500' : ''}
-                      transition-all duration-200
-                    `}
-                  >
-                    {day}
-                  </motion.button>
-                );
-              })}
-            </div>
-          </GlassCard>
-        </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Atrasadas</p>
+                  <p className="text-2xl font-bold text-red-600">{todayTopics.delayed}</p>
+                </div>
+                <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                  <Clock size={24} className="text-red-600" weight="duotone" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
-      <Dialog open={showRevisionsDialog} onOpenChange={setShowRevisionsDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Revisões para {selectedDate}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedDate && revisionsByDate[selectedDate]?.map((revision) => (
-              <div key={revision.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-700">{revision.topic}</p>
-                  <p className="text-sm text-gray-500">{revision.subject}</p>
+      {/* Cards informativos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GraduationCap size={20} className="text-app-blue" weight="duotone" />
+                Resumo Geral
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total de Tópicos</span>
+                  <span className="font-semibold">{studyProgress.totalTopics}</span>
                 </div>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  revision.status === 'Hoje' ? 'bg-orange-100 text-orange-800' :
-                  revision.status === 'Atrasado' ? 'bg-red-100 text-red-800' :
-                  'bg-green-100 text-green-800'
-                }`}>
-                  {revision.status}
-                </span>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Tópicos Concluídos</span>
+                  <span className="font-semibold text-green-600">{studyProgress.completedTopics}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Para o Futuro</span>
+                  <span className="font-semibold text-blue-600">{studyProgress.futureTopics}</span>
+                </div>
+                <Progress 
+                  value={studyProgress.totalTopics > 0 ? (studyProgress.completedTopics / studyProgress.totalTopics) * 100 : 0} 
+                  className="h-2"
+                />
               </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </PageContainer>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle size={20} className="text-green-600" weight="duotone" />
+                Matérias Ativas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {subjects.filter(s => s.status === 'Em Estudo' || s.status === 'Nova').length === 0 ? (
+                  <p className="text-gray-500 text-sm">Nenhuma matéria ativa encontrada.</p>
+                ) : (
+                  subjects
+                    .filter(s => s.status === 'Em Estudo' || s.status === 'Nova')
+                    .sort((a, b) => (a.priority || 0) - (b.priority || 0))
+                    .slice(0, 5)
+                    .map((subject) => (
+                      <div key={subject.id} className="flex items-center justify-between p-2 bg-white/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <BookOpen size={16} className="text-app-blue" weight="duotone" />
+                          <span className="text-sm font-medium">{subject.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {subject.topics.length} tópicos
+                          </Badge>
+                          <Badge 
+                            variant={subject.status === 'Em Estudo' ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {subject.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </motion.div>
   );
 };
 

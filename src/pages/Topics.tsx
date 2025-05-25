@@ -1,114 +1,42 @@
+
 import React, { useState, useEffect } from 'react';
+import { useApp } from '@/contexts/AppContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { EditableTopicName } from '@/components/EditableTopicName';
 import { format, isToday, isBefore } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-
-interface Topic {
-  id: string;
-  name: string;
-  completed: boolean;
-  reviewCount: number;
-  nextReview?: Date;
-  reviewStage?: string;
-  lastReviewedAt?: Date;
-}
-
-interface Subject {
-  id: string;
-  name: string;
-  topics: Topic[];
-}
+import { Topic } from '@/types';
 
 const Topics = () => {
   const { subjectId } = useParams<{ subjectId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [subject, setSubject] = useState<Subject | null>(null);
+  const { subjects, addTopicToSubject, removeTopicFromSubject, fetchSubjects } = useApp();
   const [newTopicName, setNewTopicName] = useState('');
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   
-  // Load subject data on mount
+  // Load subjects on mount if not already loaded
   useEffect(() => {
-    if (user && subjectId) {
-      fetchSubjectData();
-    }
-  }, [user, subjectId]);
-
-  const fetchSubjectData = async () => {
-    if (!user || !subjectId) return;
-    
-    setIsLoading(true);
-    try {
-      console.log('Buscando matéria com ID:', subjectId, 'para usuário:', user.id);
-      
-      // Fetch subject
-      const { data: subjectData, error: subjectError } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('id', subjectId)
-        .eq('user_id', user.id)
-        .single();
-      
-      if (subjectError) {
-        console.error('Erro ao buscar matéria:', subjectError);
-        throw subjectError;
-      }
-      
-      if (!subjectData) {
-        console.log('Nenhuma matéria encontrada');
-        setSubject(null);
+    const loadSubjects = async () => {
+      setIsLoading(true);
+      try {
+        await fetchSubjects();
+      } catch (error) {
+        console.error('Error loading subjects:', error);
+      } finally {
         setIsLoading(false);
-        return;
       }
-      
-      console.log('Matéria encontrada:', subjectData);
-      
-      // Fetch topics for this subject
-      const { data: topicsData, error: topicsError } = await supabase
-        .from('topics')
-        .select('*')
-        .eq('subject_id', subjectId);
-      
-      if (topicsError) {
-        console.error('Erro ao buscar tópicos:', topicsError);
-        throw topicsError;
-      }
-      
-      console.log('Tópicos encontrados:', topicsData);
-      
-      // Convert topics data
-      const processedTopics = (topicsData || []).map(topic => ({
-        id: topic.id,
-        name: topic.name,
-        completed: topic.completed,
-        reviewCount: topic.review_count,
-        nextReview: topic.next_review ? new Date(topic.next_review) : undefined,
-        reviewStage: topic.review_stage,
-        lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined
-      }));
-      
-      setSubject({
-        id: subjectData.id,
-        name: subjectData.name,
-        topics: processedTopics
-      });
-    } catch (error) {
-      console.error('Erro ao buscar dados da matéria:', error);
-      toast.error("Erro ao carregar matéria");
-      setSubject(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+    
+    loadSubjects();
+  }, [fetchSubjects]);
+  
+  const subject = subjects.find(s => s.id === subjectId);
   
   if (isLoading) {
     return (
@@ -136,61 +64,14 @@ const Topics = () => {
 
   const handleAddTopic = async () => {
     if (newTopicName.trim() && subjectId) {
-      try {
-        const { data, error } = await supabase
-          .from('topics')
-          .insert({
-            name: newTopicName.trim(),
-            subject_id: subjectId,
-            completed: false,
-            review_count: 0
-          })
-          .select()
-          .single();
-          
-        if (error) throw error;
-        
-        if (data) {
-          const newTopic = {
-            id: data.id,
-            name: data.name,
-            completed: false,
-            reviewCount: 0
-          };
-          
-          setSubject(prev => prev ? {
-            ...prev,
-            topics: [...prev.topics, newTopic]
-          } : null);
-          
-          setNewTopicName('');
-          toast.success("Tópico adicionado com sucesso");
-        }
-      } catch (error) {
-        console.error('Erro ao adicionar tópico:', error);
-        toast.error("Erro ao adicionar tópico");
-      }
+      await addTopicToSubject(subjectId, newTopicName.trim());
+      setNewTopicName('');
     }
   };
 
   const handleRemoveTopic = async (topicId: string) => {
-    try {
-      const { error } = await supabase
-        .from('topics')
-        .delete()
-        .eq('id', topicId);
-        
-      if (error) throw error;
-      
-      setSubject(prev => prev ? {
-        ...prev,
-        topics: prev.topics.filter(topic => topic.id !== topicId)
-      } : null);
-      
-      toast.success("Tópico removido com sucesso");
-    } catch (error) {
-      console.error('Erro ao remover tópico:', error);
-      toast.error("Erro ao remover tópico");
+    if (subjectId) {
+      await removeTopicFromSubject(subjectId, topicId);
     }
   };
 
@@ -320,7 +201,7 @@ const Topics = () => {
                         <EditableTopicName
                           topicId={topic.id}
                           initialName={topic.name}
-                          onUpdate={fetchSubjectData}
+                          onUpdate={fetchSubjects}
                         />
                         <div className="flex items-center gap-2">
                           <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.color}`}>
