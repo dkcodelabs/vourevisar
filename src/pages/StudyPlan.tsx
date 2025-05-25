@@ -49,8 +49,11 @@ const StudyPlan = () => {
   const [cicloAtual, setCicloAtual] = useState<string[]>([]);
   const [disciplinasDoDia, setDisciplinasDoDia] = useState<string[]>([]);
   
-  // Get the subjectsPerDay from user settings
+  // Get the subjectsPerDay from user settings, with proper fallback
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
+  
+  console.log('subjectsPerDay from settings:', subjectsPerDay);
+  console.log('userProfile:', userProfile);
   
   // Filter subjects that are in progress
   const currentSubjects = subjects.filter(subject => 
@@ -91,7 +94,9 @@ const StudyPlan = () => {
     if (!user) return;
 
     try {
+      console.log('Creating initial cycle with subjectsPerDay:', subjectsPerDay);
       const initialDisciplinas = currentSubjects.slice(0, subjectsPerDay).map(s => s.id);
+      console.log('Initial disciplinas:', initialDisciplinas);
       
       const { data, error } = await supabase
         .from('user_cycles')
@@ -181,7 +186,27 @@ const StudyPlan = () => {
     return () => {
       isMounted = false;
     };
-  }, [user, subjects.length, userProfile?.settings]);
+  }, [user]);
+
+  // Atualizar disciplinas do dia quando as configurações mudarem
+  useEffect(() => {
+    if (userProfile?.settings?.subjectsPerDay && userCycle && currentSubjects.length > 0) {
+      const newSubjectsPerDay = userProfile.settings.subjectsPerDay;
+      console.log('Settings changed, updating disciplinas do dia to:', newSubjectsPerDay);
+      
+      // Se o número de matérias por dia mudou, atualiza as disciplinas do dia
+      if (disciplinasDoDia.length !== newSubjectsPerDay) {
+        const availableSubjects = currentSubjects.filter(s => !cicloAtual.includes(s.id));
+        const newDisciplinasDoDia = availableSubjects.slice(0, newSubjectsPerDay).map(s => s.id);
+        
+        console.log('Updating disciplinas do dia from', disciplinasDoDia, 'to', newDisciplinasDoDia);
+        
+        updateUserCycle({
+          disciplinas_do_dia: newDisciplinasDoDia
+        });
+      }
+    }
+  }, [userProfile?.settings?.subjectsPerDay, currentSubjects.length, cicloAtual]);
   
   // Função para calcular a próxima data de revisão com base no estágio atual
   const calculateNextReview = (stage: RevisionStage | undefined): Date => {
@@ -255,17 +280,21 @@ const StudyPlan = () => {
     });
   };
 
-  // Mostrar até subjectsPerDay disciplinas do dia, considerando as que ainda não foram concluídas
+  // Calcular as disciplinas do dia baseado na configuração atual
   const dailySubjects = subjects.filter(
     s => disciplinasDoDia.includes(s.id) && !cicloAtual.includes(s.id)
-  ).slice(0, subjectsPerDay);
+  );
 
-  // Próximas matérias (pendentes que não estão no dia)
+  console.log('Daily subjects:', dailySubjects.length, 'Expected:', subjectsPerDay);
+  console.log('disciplinasDoDia:', disciplinasDoDia);
+  console.log('cicloAtual:', cicloAtual);
+
+  // Próximas matérias (pendentes que não estão no dia atual nem no ciclo)
   const materiasPendentes = subjects
     .filter(subject => 
       (subject.status === 'Em Estudo' || subject.status === 'Nova') && 
-      !userCycle?.ciclo_atual.includes(subject.id) &&
-      !userCycle?.disciplinas_do_dia.includes(subject.id)
+      !cicloAtual.includes(subject.id) &&
+      !disciplinasDoDia.includes(subject.id)
     )
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
@@ -328,29 +357,32 @@ const StudyPlan = () => {
         }
         await supabase.from('topics').update(updateData).eq('id', topicId);
       }
+      
       await fetchSubjects();
       setCompletedSessions(prev => [...prev, subjectId]);
-      setCicloAtual(prev => prev.includes(subjectId) ? prev : [...prev, subjectId]);
-      setDisciplinasDoDia(prev => prev.filter(id => id !== subjectId));
+      
+      // Atualizar arrays locais
+      const newCicloAtual = [...cicloAtual, subjectId];
+      const newDisciplinasDoDia = disciplinasDoDia.filter(id => id !== subjectId);
+      
+      setCicloAtual(newCicloAtual);
+      setDisciplinasDoDia(newDisciplinasDoDia);
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
         delete updated[subjectId];
         return updated;
       });
+      
       // Atualizar ciclo no banco
-      await supabase.from('user_cycles').upsert([
-        {
-          user_id: user.id,
-          ciclo_atual: Array.isArray(cicloAtual) ? [...cicloAtual, subjectId] : [subjectId],
-          disciplinas_do_dia: disciplinasDoDia.filter(id => id !== subjectId),
-          atualizado_em: new Date().toISOString()
-        }
-      ], { onConflict: 'user_id' });
+      await updateUserCycle({
+        ciclo_atual: newCicloAtual,
+        disciplinas_do_dia: newDisciplinasDoDia
+      });
+      
       // Se todas as matérias do ciclo foram concluídas, reinicia ciclo e mostra banner
-      const todasMatConcluidas = subjects
-        .filter(subject => subject.status === 'Em Estudo' || subject.status === 'Nova')
-        .every(subject => cicloAtual.includes(subject.id) || subject.id === subjectId);
+      const todasMatConcluidas = currentSubjects.every(subject => newCicloAtual.includes(subject.id));
+      
       if (todasMatConcluidas) {
         setTimeout(() => {
           launchConfetti();
@@ -360,18 +392,15 @@ const StudyPlan = () => {
           setCompletedSessions([]);
           setCurrentSubjectIndex(0);
           setExpandedSubject(null);
+          
           // Atualizar ciclo no banco: novo ciclo
-          supabase.from('user_cycles').upsert([
-            {
-              user_id: user.id,
-              ciclo_atual: [],
-              disciplinas_do_dia: [],
-              ciclos_realizados: (userCycle?.ciclos_realizados || 0) + 1,
-              data_inicio_ciclo: new Date().toISOString(),
-              data_fim_ciclo: new Date().toISOString(),
-              atualizado_em: new Date().toISOString()
-            }
-          ], { onConflict: 'user_id' });
+          updateUserCycle({
+            ciclo_atual: [],
+            disciplinas_do_dia: [],
+            ciclos_realizados: (userCycle?.ciclos_realizados || 0) + 1,
+            data_inicio_ciclo: new Date().toISOString(),
+            data_fim_ciclo: new Date().toISOString()
+          });
         }, 500);
         return;
       }
@@ -489,6 +518,10 @@ const StudyPlan = () => {
     }
   };
 
+  // Calcular total de disciplinas no ciclo atual (não estudadas)
+  const totalDisciplinasCiclo = currentSubjects.length;
+  const disciplinasConcluidas = cicloAtual.length;
+
   return (
     <motion.div 
       className="container mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-2 sm:px-4 md:px-8"
@@ -542,30 +575,32 @@ const StudyPlan = () => {
           </motion.div>
 
           {/* Informações do ciclo */}
-          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Sparkle size={16} className="text-yellow-500" weight="fill" />
-                    <p className="text-xs text-gray-600">
-                      Ciclos realizados: <span className="font-semibold text-app-blue">{userCycle.ciclos_realizados}</span>
-                    </p>
+          {userCycle && (
+            <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Sparkle size={16} className="text-yellow-500" weight="fill" />
+                      <p className="text-xs text-gray-600">
+                        Ciclos realizados: <span className="font-semibold text-app-blue">{userCycle.ciclos_realizados}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={16} className="text-green-500" weight="fill" />
+                      <p className="text-xs text-gray-600">
+                        Disciplinas concluídas: <span className="font-semibold text-app-blue">{disciplinasConcluidas}/{totalDisciplinasCiclo}</span>
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-green-500" weight="fill" />
-                    <p className="text-xs text-gray-600">
-                      Disciplinas concluídas: <span className="font-semibold text-app-blue">{userCycle.ciclo_atual.length}/{userCycle.ciclo_atual.length + userCycle.disciplinas_do_dia.length}</span>
-                    </p>
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <Calendar size={16} className="text-purple-500" weight="fill" />
+                    Início: {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600">
-                  <Calendar size={16} className="text-purple-500" weight="fill" />
-                  Início: {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Current Subjects */}
           <div className="space-y-4">
