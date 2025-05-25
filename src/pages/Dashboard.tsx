@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +29,7 @@ import { motion } from 'framer-motion';
 import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
 import { Progress } from '@/components/ui/progress';
+import { useCycleState } from '@/hooks/useCycleState';
 
 export const Dashboard = () => {
   const { studyProgress, fetchSubjects } = useApp();
@@ -38,8 +40,9 @@ export const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [todaysReviews, setTodaysReviews] = useState<any[]>([]);
   const [revisionsByDate, setRevisionsByDate] = useState<Record<number, any[]>>({});
-  const [ciclosRealizados, setCiclosRealizados] = useState(0);
-  const [progressoCiclo, setProgressoCiclo] = useState(0);
+  
+  // Use the cycle state hook for consistent cycle counting
+  const { userCycle } = useCycleState();
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -47,16 +50,6 @@ export const Dashboard = () => {
       loadData();
     }
   }, [user]);
-
-  useEffect(() => {
-    // Recupera do localStorage
-    const ciclos = parseInt(localStorage.getItem('ciclosRealizados') || '0', 10);
-    setCiclosRealizados(ciclos);
-    // Progresso do ciclo atual: matérias concluídas / total de matérias
-    const total = studyProgress.totalSubjects;
-    const concluidas = studyProgress.completedSubjects;
-    setProgressoCiclo(total > 0 ? Math.round((concluidas / total) * 100) : 0);
-  }, [studyProgress.totalSubjects, studyProgress.completedSubjects]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -177,6 +170,12 @@ export const Dashboard = () => {
   };
 
   const currentDay = new Date().getDate();
+
+  // Get cycle information from useCycleState hook
+  const ciclosRealizados = userCycle?.ciclos_realizados || 0;
+  const progressoCiclo = studyProgress.totalSubjects > 0 
+    ? Math.round((studyProgress.completedSubjects / studyProgress.totalSubjects) * 100) 
+    : 0;
 
   if (isLoading) {
     return (
