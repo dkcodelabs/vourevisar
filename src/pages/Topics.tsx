@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, isToday, isBefore } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,8 +38,10 @@ const Topics = () => {
   const [selectedSubject, setSelectedSubject] = useState<SubjectData | null>(null);
   const [newTopicName, setNewTopicName] = useState('');
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [checkedTopics, setCheckedTopics] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAllSubjects, setShowAllSubjects] = useState(true);
 
   console.log('Topics component rendered - subjectId:', subjectId, 'user:', user?.id);
 
@@ -103,12 +106,14 @@ const Topics = () => {
       console.log('Subjects with topics loaded:', subjectsWithTopics);
       setSubjects(subjectsWithTopics);
 
-      // Definir matéria selecionada
+      // Definir matéria selecionada ou mostrar todas por padrão
       if (subjectId) {
         const found = subjectsWithTopics.find(s => s.id === subjectId);
         setSelectedSubject(found || null);
-      } else if (subjectsWithTopics.length > 0) {
-        setSelectedSubject(subjectsWithTopics[0]);
+        setShowAllSubjects(false);
+      } else {
+        setShowAllSubjects(true);
+        setSelectedSubject(null);
       }
 
     } catch (error) {
@@ -184,7 +189,7 @@ const Topics = () => {
 
   // Remover tópico
   const handleRemoveTopic = async (topicId: string) => {
-    if (!selectedSubject) return;
+    if (!selectedSubject && !showAllSubjects) return;
 
     try {
       console.log('Removing topic:', topicId);
@@ -202,23 +207,26 @@ const Topics = () => {
       console.log('Topic removed successfully');
 
       // Atualizar estado local
-      setSelectedSubject(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          topics: prev.topics.filter(topic => topic.id !== topicId)
-        };
-      });
-
-      setSubjects(prev => prev.map(subject => {
-        if (subject.id === selectedSubject.id) {
+      if (selectedSubject) {
+        setSelectedSubject(prev => {
+          if (!prev) return null;
           return {
-            ...subject,
-            topics: subject.topics.filter(topic => topic.id !== topicId)
+            ...prev,
+            topics: prev.topics.filter(topic => topic.id !== topicId)
           };
-        }
-        return subject;
-      }));
+        });
+      }
+
+      setSubjects(prev => prev.map(subject => ({
+        ...subject,
+        topics: subject.topics.filter(topic => topic.id !== topicId)
+      })));
+
+      setCheckedTopics(prev => {
+        const updated = new Set(prev);
+        updated.delete(topicId);
+        return updated;
+      });
 
       toast.success('Tópico removido com sucesso');
 
@@ -251,6 +259,13 @@ const Topics = () => {
     }
   };
 
+  const getRevisionStage = (topic: TopicData) => {
+    if (!topic.review_stage) {
+      return "Não Iniciado";
+    }
+    return topic.review_stage;
+  };
+
   const toggleTopicExpansion = (topicId: string) => {
     const newExpanded = new Set(expandedTopics);
     if (newExpanded.has(topicId)) {
@@ -259,6 +274,133 @@ const Topics = () => {
       newExpanded.add(topicId);
     }
     setExpandedTopics(newExpanded);
+  };
+
+  const handleTopicCheck = (topicId: string, checked: boolean) => {
+    const newChecked = new Set(checkedTopics);
+    if (checked) {
+      newChecked.add(topicId);
+    } else {
+      newChecked.delete(topicId);
+    }
+    setCheckedTopics(newChecked);
+  };
+
+  const getAllTopics = () => {
+    return subjects.flatMap(subject => 
+      subject.topics.map(topic => ({
+        ...topic,
+        subjectName: subject.name
+      }))
+    );
+  };
+
+  const renderTopicCard = (topic: TopicData & { subjectName?: string }) => {
+    const status = getTopicStatus(topic);
+    const revisionStage = getRevisionStage(topic);
+    const isExpanded = expandedTopics.has(topic.id);
+    const isChecked = checkedTopics.has(topic.id);
+    
+    return (
+      <motion.div 
+        key={topic.id}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <Checkbox
+                  checked={isChecked}
+                  onCheckedChange={(checked) => handleTopicCheck(topic.id, checked as boolean)}
+                  className="h-4 w-4"
+                />
+                <div className="flex flex-col gap-1 flex-1 min-w-0">
+                  <span className="font-medium text-gray-800 truncate">{topic.name}</span>
+                  {showAllSubjects && topic.subjectName && (
+                    <span className="text-xs text-gray-500">{topic.subjectName}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.color}`}>
+                    {status.label}
+                  </span>
+                  <span className="text-xs px-2 py-1 rounded-lg bg-purple-100 text-purple-800 font-medium">
+                    {revisionStage}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleTopicExpansion(topic.id)}
+                  className="h-8 w-8 p-0"
+                >
+                  {isExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemoveTopic(topic.id)}
+                  className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.div 
+                  className="mt-4 pt-4 border-t border-gray-200"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-600">Revisões:</span>
+                      <span className="ml-2 text-gray-800">{topic.review_count || 0}</span>
+                    </div>
+                    {topic.last_reviewed_at && (
+                      <div>
+                        <span className="font-medium text-gray-600">Última revisão:</span>
+                        <span className="ml-2 text-gray-800">
+                          {format(new Date(topic.last_reviewed_at), 'dd/MM/yyyy')}
+                        </span>
+                      </div>
+                    )}
+                    {topic.next_review && (
+                      <div>
+                        <span className="font-medium text-gray-600">Próxima revisão:</span>
+                        <span className="ml-2 text-gray-800">
+                          {format(new Date(topic.next_review), 'dd/MM/yyyy')}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="font-medium text-gray-600">Status:</span>
+                      <span className="ml-2 text-gray-800">
+                        {topic.completed ? 'Concluído' : 'Em andamento'}
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
   };
 
   // Estados de loading e erro
@@ -316,7 +458,7 @@ const Topics = () => {
     );
   }
 
-  console.log('Rendering main content - selectedSubject:', selectedSubject?.name);
+  console.log('Rendering main content - selectedSubject:', selectedSubject?.name, 'showAllSubjects:', showAllSubjects);
 
   return (
     <motion.div 
@@ -339,30 +481,34 @@ const Topics = () => {
           <CardTitle className="text-2xl font-bold text-gray-800">
             Tópicos{selectedSubject ? ` de ${selectedSubject.name}` : ''}
           </CardTitle>
-          {!subjectId && (
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Selecionar Matéria:
-              </label>
-              <select
-                value={selectedSubject?.id || ''}
-                onChange={(e) => {
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Selecionar Visualização:
+            </label>
+            <select
+              value={showAllSubjects ? 'all' : selectedSubject?.id || ''}
+              onChange={(e) => {
+                if (e.target.value === 'all') {
+                  setShowAllSubjects(true);
+                  setSelectedSubject(null);
+                } else {
                   const subject = subjects.find(s => s.id === e.target.value);
                   setSelectedSubject(subject || null);
-                }}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Selecione uma matéria</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+                  setShowAllSubjects(false);
+                }
+              }}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Todas as Matérias</option>
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </CardHeader>
-        {selectedSubject && (
+        {selectedSubject && !showAllSubjects && (
           <CardContent>
             <div className="flex gap-2 mb-6">
               <Input
@@ -382,115 +528,29 @@ const Topics = () => {
         )}
       </Card>
 
-      {selectedSubject && (
-        <div className="space-y-3">
-          {selectedSubject.topics.length === 0 ? (
+      <div className="space-y-3">
+        {showAllSubjects ? (
+          getAllTopics().length === 0 ? (
             <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
               <CardContent className="p-6 text-center">
                 <p className="text-gray-500">Nenhum tópico adicionado ainda.</p>
               </CardContent>
             </Card>
           ) : (
-            selectedSubject.topics.map((topic) => {
-              const status = getTopicStatus(topic);
-              const isExpanded = expandedTopics.has(topic.id);
-              
-              return (
-                <motion.div 
-                  key={topic.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <span className="font-medium text-gray-800 truncate">{topic.name}</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.color}`}>
-                              {status.label}
-                            </span>
-                            {topic.review_stage && (
-                              <span className="text-xs px-2 py-1 rounded-lg bg-purple-100 text-purple-800 font-medium">
-                                {topic.review_stage}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleTopicExpansion(topic.id)}
-                            className="h-8 w-8 p-0"
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveTopic(topic.id)}
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <AnimatePresence>
-                        {isExpanded && (
-                          <motion.div 
-                            className="mt-4 pt-4 border-t border-gray-200"
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <span className="font-medium text-gray-600">Revisões:</span>
-                                <span className="ml-2 text-gray-800">{topic.review_count || 0}</span>
-                              </div>
-                              {topic.last_reviewed_at && (
-                                <div>
-                                  <span className="font-medium text-gray-600">Última revisão:</span>
-                                  <span className="ml-2 text-gray-800">
-                                    {format(new Date(topic.last_reviewed_at), 'dd/MM/yyyy')}
-                                  </span>
-                                </div>
-                              )}
-                              {topic.next_review && (
-                                <div>
-                                  <span className="font-medium text-gray-600">Próxima revisão:</span>
-                                  <span className="ml-2 text-gray-800">
-                                    {format(new Date(topic.next_review), 'dd/MM/yyyy')}
-                                  </span>
-                                </div>
-                              )}
-                              <div>
-                                <span className="font-medium text-gray-600">Status:</span>
-                                <span className="ml-2 text-gray-800">
-                                  {topic.completed ? 'Concluído' : 'Em andamento'}
-                                </span>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })
-          )}
-        </div>
-      )}
+            getAllTopics().map((topic) => renderTopicCard(topic))
+          )
+        ) : selectedSubject ? (
+          selectedSubject.topics.length === 0 ? (
+            <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
+              <CardContent className="p-6 text-center">
+                <p className="text-gray-500">Nenhum tópico adicionado ainda.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            selectedSubject.topics.map((topic) => renderTopicCard(topic))
+          )
+        ) : null}
+      </div>
     </motion.div>
   );
 };
