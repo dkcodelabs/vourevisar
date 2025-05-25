@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -57,7 +56,7 @@ const Topics = () => {
       console.log('Loading subjects for user:', user.id);
       setError(null);
 
-      // Buscar matérias
+      // Buscar matérias do usuário
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
         .select('id, name')

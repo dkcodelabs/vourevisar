@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,26 +32,61 @@ const Revisoes = () => {
     queryKey: ['revisoes', user?.id],
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
-      const { data, error } = await supabase
+      
+      // Buscar tópicos com informações do subject
+      const { data: topicsData, error: topicsError } = await supabase
         .from('topics')
         .select(`
           id,
           name,
           review_stage,
           next_review,
-          subject:subjects(name)
+          subject_id
         `)
-        .filter('subjects.user_id', 'eq', user.id);
-      if (error) throw error;
-      // Só tópicos com revisão iniciada (review_stage 24h, 7 dias, 30 dias)
-      return (data || []).filter(t => t.review_stage && t.review_stage !== 'Nova' && t.review_stage !== 'Concluído')
-        .map(t => ({
-          id: t.id,
-          name: t.name,
-          subject_name: t.subject?.name || 'Sem disciplina',
-          review_stage: t.review_stage ?? null,
-          next_review: t.next_review ?? null,
-        }));
+        .not('review_stage', 'is', null)
+        .neq('review_stage', 'Nova')
+        .neq('review_stage', 'Concluído');
+
+      if (topicsError) {
+        console.error('Error fetching topics:', topicsError);
+        throw topicsError;
+      }
+
+      if (!topicsData || topicsData.length === 0) {
+        return [];
+      }
+
+      // Buscar subjects do usuário
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('id, name')
+        .eq('user_id', user.id);
+
+      if (subjectsError) {
+        console.error('Error fetching subjects:', subjectsError);
+        throw subjectsError;
+      }
+
+      // Filtrar apenas tópicos que pertencem aos subjects do usuário
+      const userSubjectIds = (subjectsData || []).map(s => s.id);
+      const filteredTopics = topicsData.filter(topic => 
+        userSubjectIds.includes(topic.subject_id)
+      );
+
+      // Mapear com nomes dos subjects
+      const topicsWithSubjects = filteredTopics.map(topic => {
+        const subject = subjectsData?.find(s => s.id === topic.subject_id);
+        return {
+          id: topic.id,
+          name: topic.name,
+          subject_name: subject?.name || 'Sem disciplina',
+          review_stage: topic.review_stage,
+          next_review: topic.next_review,
+        };
+      });
+
+      console.log('Topics with subjects loaded:', topicsWithSubjects);
+      return topicsWithSubjects;
     },
     enabled: !!user
   });
@@ -139,4 +175,4 @@ const Revisoes = () => {
   );
 };
 
-export default Revisoes; 
+export default Revisoes;
