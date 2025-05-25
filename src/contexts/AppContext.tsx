@@ -306,6 +306,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return;
 
     try {
+      // Primeiro, buscar todos os tópicos da disciplina
+      const { data: topics, error: topicsError } = await supabase
+        .from('topics')
+        .select('id')
+        .eq('subject_id', id);
+
+      if (topicsError) throw topicsError;
+
+      // Excluir todos os tópicos relacionados à matéria
+      const { error: deleteTopicsError } = await supabase
+        .from('topics')
+        .delete()
+        .eq('subject_id', id);
+        
+      if (deleteTopicsError) throw deleteTopicsError;
+
+      // Remover a disciplina de todos os ciclos de usuários
+      const { data: userCycles, error: cyclesError } = await supabase
+        .from('user_cycles')
+        .select('*')
+        .contains('ciclo_atual', [id])
+        .or(`disciplinas_do_dia.cs.{${id}}`);
+
+      if (cyclesError) throw cyclesError;
+
+      // Atualizar ciclos removendo referências à disciplina excluída
+      for (const cycle of userCycles || []) {
+        const updatedCicloAtual = cycle.ciclo_atual.filter((subjectId: string) => subjectId !== id);
+        const updatedDisciplinasDoDia = cycle.disciplinas_do_dia.filter((subjectId: string) => subjectId !== id);
+
+        await supabase
+          .from('user_cycles')
+          .update({
+            ciclo_atual: updatedCicloAtual,
+            disciplinas_do_dia: updatedDisciplinasDoDia,
+            atualizado_em: new Date().toISOString()
+          })
+          .eq('id', cycle.id);
+      }
+
       // Excluir a matéria no banco
       const { error } = await supabase
         .from('subjects')
@@ -314,17 +354,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
       if (error) throw error;
       
-      // Excluir também todos os tópicos relacionados à matéria
-      await supabase
-        .from('topics')
-        .delete()
-        .eq('subject_id', id);
-      
       // Remover a matéria da lista
       setSubjects((prev) => prev.filter((subject) => subject.id !== id));
       recalculateProgress();
       
-      toast.success("Matéria removida com sucesso");
+      toast.success("Matéria e todos os tópicos relacionados foram removidos com sucesso");
     } catch (error) {
       console.error('Erro ao remover matéria:', error);
       toast.error("Erro ao remover matéria");

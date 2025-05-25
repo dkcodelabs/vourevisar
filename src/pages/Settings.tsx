@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +11,7 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 import { format } from 'date-fns';
+import { useCycleState } from '@/hooks/useCycleState';
 
 // Definindo o tipo para as configurações do usuário
 interface UserSettings {
@@ -38,47 +38,25 @@ const Settings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
-  const [isResettingCycle, setIsResettingCycle] = useState(false);
   const [settings, setSettings] = useState<UserSettings>({
     subjects_per_day: 3,
     notifications_enabled: true,
     notification_time: "08:00"
   });
+
+  // Use the custom hook for cycle management
+  const { userCycle, isLoading: isCycleLoading, fetchUserCycle, resetCycle } = useCycleState();
+  const [isResettingCycle, setIsResettingCycle] = useState(false);
   
   // Buscar configurações do usuário ao carregar a página
   useEffect(() => {
     if (user) {
       fetchUserSettings();
-      fetchUserCycle();
     } else {
       setIsLoading(false);
     }
   }, [user]);
 
-  const fetchUserCycle = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('user_cycles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Erro ao buscar ciclo do usuário:', error);
-        return;
-      }
-
-      if (data) {
-        setUserCycle(data);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar ciclo:', error);
-    }
-  };
-  
   const fetchUserSettings = async () => {
     if (!user) return;
     
@@ -131,21 +109,7 @@ const Settings = () => {
 
     setIsResettingCycle(true);
     try {
-      const { error } = await supabase
-        .from('user_cycles')
-        .update({
-          ciclo_atual: [],
-          disciplinas_do_dia: [],
-          ciclos_realizados: 0,
-          data_inicio_ciclo: new Date().toISOString(),
-          data_fim_ciclo: null,
-          atualizado_em: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      await fetchUserCycle();
+      await resetCycle();
       toast({
         title: "Sucesso",
         description: "Ciclo resetado com sucesso",
@@ -222,7 +186,7 @@ const Settings = () => {
   // Calcular disciplinas concluídas do ciclo atual
   const disciplinasConcluidas = userCycle?.ciclo_atual?.length || 0;
   
-  if (isLoading) {
+  if (isLoading || isCycleLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-app-blue" />

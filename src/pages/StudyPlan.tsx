@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,18 +21,7 @@ import {
   Sparkle,
   Calendar
 } from '@phosphor-icons/react';
-
-interface UserCycle {
-  id: string;
-  user_id: string;
-  ciclo_atual: string[];
-  disciplinas_do_dia: string[];
-  ciclos_realizados: number;
-  data_inicio_ciclo: string;
-  data_fim_ciclo: string | null;
-  atualizado_em: string;
-  created_at: string;
-}
+import { useCycleState } from '@/hooks/useCycleState';
 
 const StudyPlan = () => {
   const { subjects, userProfile, fetchSubjects, fetchUserSettings } = useApp();
@@ -43,11 +33,12 @@ const StudyPlan = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const isFirstRender = useRef(true);
-  const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
   const [showDayCompletedMessage, setShowDayCompletedMessage] = useState(false);
   const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
-  const [cicloAtual, setCicloAtual] = useState<string[]>([]);
-  const [disciplinasDoDia, setDisciplinasDoDia] = useState<string[]>([]);
+  const [isPersistentCongratsMessage, setIsPersistentCongratsMessage] = useState(false);
+  
+  // Use the custom hook for cycle management
+  const { userCycle, isLoading: isCycleLoading, fetchUserCycle, updateUserCycle, createInitialUserCycle } = useCycleState();
   
   // Get the subjectsPerDay from user settings, with proper fallback
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
@@ -60,99 +51,6 @@ const StudyPlan = () => {
     subject.status === 'Em Estudo' || subject.status === 'Nova'
   ).sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
-  // Função para buscar o ciclo do usuário
-  const fetchUserCycle = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('user_cycles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Erro ao buscar ciclo do usuário:', error);
-        return;
-      }
-
-      if (data) {
-        setUserCycle(data);
-        if (Array.isArray(data.ciclo_atual)) setCicloAtual(data.ciclo_atual);
-        if (Array.isArray(data.disciplinas_do_dia)) setDisciplinasDoDia(data.disciplinas_do_dia);
-      } else {
-        // Se não existe ciclo, cria um novo
-        await createInitialUserCycle();
-      }
-    } catch (error) {
-      console.error('Erro ao buscar ciclo:', error);
-    }
-  };
-
-  // Função para criar ciclo inicial
-  const createInitialUserCycle = async () => {
-    if (!user) return;
-
-    try {
-      console.log('Creating initial cycle with subjectsPerDay:', subjectsPerDay);
-      const initialDisciplinas = currentSubjects.slice(0, subjectsPerDay).map(s => s.id);
-      console.log('Initial disciplinas:', initialDisciplinas);
-      
-      const { data, error } = await supabase
-        .from('user_cycles')
-        .insert([{
-          user_id: user.id,
-          ciclo_atual: [],
-          disciplinas_do_dia: initialDisciplinas,
-          ciclos_realizados: 0,
-          data_inicio_ciclo: new Date().toISOString(),
-          data_fim_ciclo: null,
-          atualizado_em: new Date().toISOString()
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Erro ao criar ciclo inicial:', error);
-        return;
-      }
-
-      setUserCycle(data);
-      if (Array.isArray(data.ciclo_atual)) setCicloAtual(data.ciclo_atual);
-      if (Array.isArray(data.disciplinas_do_dia)) setDisciplinasDoDia(data.disciplinas_do_dia);
-    } catch (error) {
-      console.error('Erro ao criar ciclo inicial:', error);
-    }
-  };
-
-  // Função para atualizar ciclo no banco
-  const updateUserCycle = async (updates: Partial<UserCycle>) => {
-    if (!user || !userCycle) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('user_cycles')
-        .update({
-          ...updates,
-          atualizado_em: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Erro ao atualizar ciclo:', error);
-        return;
-      }
-
-      setUserCycle(data);
-      if (Array.isArray(data.ciclo_atual)) setCicloAtual(data.ciclo_atual);
-      if (Array.isArray(data.disciplinas_do_dia)) setDisciplinasDoDia(data.disciplinas_do_dia);
-    } catch (error) {
-      console.error('Erro ao atualizar ciclo:', error);
-    }
-  };
-  
   // Buscar dados do usuário ao carregar a página
   useEffect(() => {
     let isMounted = true;
@@ -169,8 +67,6 @@ const StudyPlan = () => {
         if (!userProfile?.settings) {
           await fetchUserSettings();
         }
-        
-        await fetchUserCycle();
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         toast.error("Erro ao carregar dados. Por favor, tente novamente.");
@@ -188,6 +84,13 @@ const StudyPlan = () => {
     };
   }, [user]);
 
+  // Create initial cycle if needed
+  useEffect(() => {
+    if (!isCycleLoading && !userCycle && currentSubjects.length > 0 && subjectsPerDay) {
+      createInitialUserCycle(subjectsPerDay, currentSubjects);
+    }
+  }, [isCycleLoading, userCycle, currentSubjects.length, subjectsPerDay]);
+
   // Atualizar disciplinas do dia quando as configurações mudarem
   useEffect(() => {
     if (userProfile?.settings?.subjectsPerDay && userCycle && currentSubjects.length > 0) {
@@ -195,11 +98,11 @@ const StudyPlan = () => {
       console.log('Settings changed, updating disciplinas do dia to:', newSubjectsPerDay);
       
       // Se o número de matérias por dia mudou, atualiza as disciplinas do dia
-      if (disciplinasDoDia.length !== newSubjectsPerDay && disciplinasDoDia.length > 0) {
-        const availableSubjects = currentSubjects.filter(s => !cicloAtual.includes(s.id));
+      if (userCycle.disciplinas_do_dia.length !== newSubjectsPerDay && userCycle.disciplinas_do_dia.length > 0) {
+        const availableSubjects = currentSubjects.filter(s => !userCycle.ciclo_atual.includes(s.id));
         const newDisciplinasDoDia = availableSubjects.slice(0, newSubjectsPerDay).map(s => s.id);
         
-        console.log('Updating disciplinas do dia from', disciplinasDoDia, 'to', newDisciplinasDoDia);
+        console.log('Updating disciplinas do dia from', userCycle.disciplinas_do_dia, 'to', newDisciplinasDoDia);
         
         updateUserCycle({
           disciplinas_do_dia: newDisciplinasDoDia
@@ -282,20 +185,20 @@ const StudyPlan = () => {
 
   // Calcular as disciplinas do dia baseado na configuração atual
   const dailySubjects = subjects.filter(
-    s => disciplinasDoDia.includes(s.id) && !completedSessions.includes(s.id)
+    s => userCycle?.disciplinas_do_dia.includes(s.id) && !completedSessions.includes(s.id)
   );
 
   console.log('Daily subjects:', dailySubjects.length, 'Expected:', subjectsPerDay);
-  console.log('disciplinasDoDia:', disciplinasDoDia);
-  console.log('cicloAtual:', cicloAtual);
+  console.log('disciplinasDoDia:', userCycle?.disciplinas_do_dia);
+  console.log('cicloAtual:', userCycle?.ciclo_atual);
   console.log('completedSessions:', completedSessions);
 
   // Próximas matérias (pendentes que não estão no dia atual nem no ciclo)
   const materiasPendentes = subjects
     .filter(subject => 
       (subject.status === 'Em Estudo' || subject.status === 'Nova') && 
-      !cicloAtual.includes(subject.id) &&
-      !disciplinasDoDia.includes(subject.id)
+      !userCycle?.ciclo_atual.includes(subject.id) &&
+      !userCycle?.disciplinas_do_dia.includes(subject.id)
     )
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
@@ -318,6 +221,7 @@ const StudyPlan = () => {
     setExpandedSubject(null);
     setShowDayCompletedMessage(false);
     setShowNewCycleMessage(false);
+    setIsPersistentCongratsMessage(false);
     toast.info("Novas matérias carregadas para estudo!");
   };
 
@@ -348,8 +252,7 @@ const StudyPlan = () => {
       setCompletedSessions(prev => [...prev, subjectId]);
       
       // Atualizar arrays locais
-      const newCicloAtual = [...cicloAtual, subjectId];
-      setCicloAtual(newCicloAtual);
+      const newCicloAtual = [...(userCycle?.ciclo_atual || []), subjectId];
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
@@ -363,12 +266,13 @@ const StudyPlan = () => {
       });
       
       // Verificar se todas as matérias do dia foram concluídas
-      const todasMateriasDoDiaConcluidas = disciplinasDoDia.every(id => 
+      const todasMateriasDoDiaConcluidas = userCycle?.disciplinas_do_dia.every(id => 
         [...completedSessions, subjectId].includes(id)
       );
       
       if (todasMateriasDoDiaConcluidas) {
         setShowDayCompletedMessage(true);
+        setIsPersistentCongratsMessage(true);
         launchConfetti();
         
         // Verificar se todas as matérias do ciclo foram concluídas
@@ -379,8 +283,6 @@ const StudyPlan = () => {
           setTimeout(async () => {
             setShowDayCompletedMessage(false);
             setShowNewCycleMessage(true);
-            setCicloAtual([]);
-            setDisciplinasDoDia([]);
             setCompletedSessions([]);
             setCurrentSubjectIndex(0);
             setExpandedSubject(null);
@@ -394,9 +296,10 @@ const StudyPlan = () => {
               data_fim_ciclo: new Date().toISOString()
             });
             
-            // Aguardar mais um pouco e então mostrar mensagem de novo ciclo
+            // Aguardar mais um pouco e então esconder mensagem de novo ciclo
             setTimeout(() => {
               setShowNewCycleMessage(false);
+              setIsPersistentCongratsMessage(false);
             }, 5000);
           }, 3000);
           return;
@@ -481,10 +384,14 @@ const StudyPlan = () => {
 
   // Calcular total de disciplinas no ciclo atual (não estudadas)
   const totalDisciplinasCiclo = currentSubjects.length;
-  const disciplinasConcluidas = cicloAtual.length;
+  const disciplinasConcluidas = userCycle?.ciclo_atual.length || 0;
 
-  // Verificar se deve mostrar mensagem de parabéns ou novo ciclo
-  const shouldShowCongrats = showDayCompletedMessage || showNewCycleMessage || dailySubjects.length === 0;
+  // Verificar se deve mostrar mensagem de parabéns
+  const shouldShowCongrats = (isPersistentCongratsMessage && (showDayCompletedMessage || showNewCycleMessage)) || 
+                            (dailySubjects.length === 0 && userCycle?.disciplinas_do_dia.length > 0);
+
+  // Verificar se é realmente um novo ciclo (primeira matéria)
+  const isReallyNewCycle = disciplinasConcluidas === 0 && totalDisciplinasCiclo > 0;
 
   return (
     <motion.div 
@@ -493,7 +400,7 @@ const StudyPlan = () => {
       animate="visible"
       variants={containerVariants}
     >
-      {isLoading ? (
+      {isLoading || isCycleLoading ? (
         <motion.div 
           className="flex justify-center items-center h-64"
           initial={{ opacity: 0 }}
@@ -547,6 +454,14 @@ const StudyPlan = () => {
                         Disciplinas concluídas: <span className="font-semibold text-app-blue">{disciplinasConcluidas}/{totalDisciplinasCiclo}</span>
                       </p>
                     </div>
+                    {isReallyNewCycle && (
+                      <div className="flex items-center gap-2">
+                        <Calendar size={16} className="text-purple-500" weight="fill" />
+                        <p className="text-xs text-purple-600 font-medium">
+                          🔄 Novo ciclo iniciado!
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-600">
                     <Calendar size={16} className="text-purple-500" weight="fill" />
@@ -559,7 +474,7 @@ const StudyPlan = () => {
 
           {/* Current Subjects */}
           <div className="space-y-4">
-            {/* Mensagem de parabéns ou novo ciclo */}
+            {/* Mensagem de parabéns persistente */}
             <AnimatePresence>
               {shouldShowCongrats && (
                 <motion.div 
@@ -582,9 +497,9 @@ const StudyPlan = () => {
                   )}
                   <Button 
                     className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
-                    onClick={showNewCycleMessage ? () => setShowNewCycleMessage(false) : handleNextDay}
+                    onClick={handleNextDay}
                   >
-                    {showNewCycleMessage ? "Continuar" : "Carregar próximas matérias"}
+                    Carregar próximas matérias
                   </Button>
                 </motion.div>
               )}
@@ -696,8 +611,8 @@ const StudyPlan = () => {
             ))}
           </div>
 
-          {/* Next Subjects */}
-          {!shouldShowCongrats && (
+          {/* Next Subjects - sempre visíveis */}
+          {nextSubjects.length > 0 && (
             <>
               <h2 className="text-lg font-bold mb-2 flex items-center">
                 <ArrowRight className="mr-2 h-4 w-4" />

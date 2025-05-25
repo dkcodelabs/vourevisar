@@ -1,188 +1,265 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from '@/components/ui/use-toast';
-import { Search } from 'lucide-react';
-import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 
-interface TopicItem {
-  id: string;
-  name: string;
-  subject_name: string;
-  review_stage: string | null;
-  completed: boolean;
-}
+import React, { useState } from 'react';
+import { useApp } from '@/contexts/AppContext';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { EditableTopicName } from '@/components/EditableTopicName';
+import { format, isToday, isBefore } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Topic } from '@/types';
 
 const Topics = () => {
-  const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredTopics, setFilteredTopics] = useState<TopicItem[]>([]);
-
-  const { data: topics, isLoading, error, refetch } = useQuery({
-    queryKey: ['allTopics'],
-    queryFn: async () => {
-      if (!user) throw new Error('User not authenticated');
-
-      // Join topics with subjects to get subject names
-      const { data, error } = await supabase
-        .from('topics')
-        .select(`
-          id,
-          name,
-          completed,
-          review_stage,
-          subject:subjects(name)
-        `)
-        .filter('subjects.user_id', 'eq', user.id);
-
-      if (error) throw error;
-
-      return data?.map(item => ({
-        id: item.id,
-        name: item.name,
-        subject_name: item.subject?.name || 'Sem disciplina',
-        review_stage: item.review_stage,
-        completed: item.completed
-      })) || [];
-    },
-    enabled: !!user
-  });
-
-  useEffect(() => {
-    if (topics) {
-      if (searchTerm.trim() === '') {
-        setFilteredTopics(topics);
-      } else {
-        setFilteredTopics(
-          topics.filter(topic => 
-            topic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            topic.subject_name.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-        );
-      }
-    }
-  }, [topics, searchTerm]);
-
-  const handleTopicStatusChange = async (id: string, completed: boolean) => {
-    try {
-      // Update the topic status
-      let updates = {
-        completed,
-        review_stage: completed ? 'Concluído' : null,
-        next_review: null
-      };
-      
-      const { error } = await supabase
-        .from('topics')
-        .update(updates)
-        .eq('id', id);
-
-      if (error) throw error;
-
-      // Show success message
-      toast({
-        title: completed ? "Tópico concluído!" : "Tópico marcado como não iniciado",
-        description: "O status do tópico foi atualizado com sucesso.",
-      });
-
-      // Refresh the data
-      refetch();
-    } catch (error) {
-      console.error('Erro ao atualizar tópico:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o status do tópico.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  if (error) {
+  const { subjectId } = useParams<{ subjectId: string }>();
+  const navigate = useNavigate();
+  const { subjects, addTopicToSubject, removeTopicFromSubject, fetchSubjects } = useApp();
+  const [newTopicName, setNewTopicName] = useState('');
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  
+  const subject = subjects.find(s => s.id === subjectId);
+  
+  if (!subject) {
     return (
       <div className="container mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-6">Tópicos</h1>
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-4">
-          <p>Erro ao carregar tópicos. Por favor, tente novamente.</p>
-          <button 
-            onClick={() => refetch()} 
-            className="mt-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 rounded-md"
-          >
-            Tentar novamente
-          </button>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800">Matéria não encontrada</h1>
+          <Button onClick={() => navigate('/materias')} className="mt-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar para Matérias
+          </Button>
         </div>
       </div>
     );
   }
 
+  const handleAddTopic = async () => {
+    if (newTopicName.trim() && subjectId) {
+      await addTopicToSubject(subjectId, newTopicName.trim());
+      setNewTopicName('');
+    }
+  };
+
+  const handleRemoveTopic = async (topicId: string) => {
+    if (subjectId) {
+      await removeTopicFromSubject(subjectId, topicId);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAddTopic();
+    }
+  };
+
+  const getTopicStatus = (topic: Topic) => {
+    if (topic.completed && (!topic.nextReview || topic.reviewStage === 'Concluído')) {
+      return { label: "Concluído", variant: "default" as const, color: "bg-green-100 text-green-800" };
+    }
+    
+    if (!topic.nextReview) {
+      return { label: "Não Iniciado", variant: "secondary" as const, color: "bg-gray-100 text-gray-800" };
+    }
+    
+    const reviewDate = new Date(topic.nextReview);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (isBefore(reviewDate, today)) {
+      return { label: "Atrasado", variant: "destructive" as const, color: "bg-red-100 text-red-800" };
+    } else if (isToday(reviewDate)) {
+      return { label: "Hoje", variant: "default" as const, color: "bg-yellow-100 text-yellow-800" };
+    } else {
+      const formattedDate = format(reviewDate, 'dd/MM');
+      return { label: `Próxima: ${formattedDate}`, variant: "secondary" as const, color: "bg-blue-100 text-blue-800" };
+    }
+  };
+
+  const toggleTopicExpansion = (topicId: string) => {
+    const newExpanded = new Set(expandedTopics);
+    if (newExpanded.has(topicId)) {
+      newExpanded.delete(topicId);
+    } else {
+      newExpanded.add(topicId);
+    }
+    setExpandedTopics(newExpanded);
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 100
+      }
+    }
+  };
+
   return (
-    <div className="container mx-auto p-2">
-      <AnimatedTitle className="mb-4">Tópicos</AnimatedTitle>
-      <GlassCard className="p-4 mb-4">
-        <div className="relative mb-2">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Search className="h-4 w-4 text-gray-400" />
-          </div>
-          <Input
-            type="text"
-            placeholder="Pesquisar tópicos..."
-            className="pl-9 text-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        {isLoading ? (
-          <div className="flex justify-center p-6">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-          </div>
+    <motion.div 
+      className="container mx-auto p-6 space-y-6"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      <motion.div variants={itemVariants}>
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/materias')}
+          className="mb-4"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar para Matérias
+        </Button>
+        
+        <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-gray-800">
+              Tópicos de {subject.name}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 mb-6">
+              <Input
+                type="text"
+                placeholder="Nome do novo tópico"
+                value={newTopicName}
+                onChange={(e) => setNewTopicName(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="flex-1"
+              />
+              <Button onClick={handleAddTopic} disabled={!newTopicName.trim()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div className="space-y-3" variants={containerVariants}>
+        {subject.topics.length === 0 ? (
+          <motion.div variants={itemVariants}>
+            <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
+              <CardContent className="p-6 text-center">
+                <p className="text-gray-500">Nenhum tópico adicionado ainda.</p>
+              </CardContent>
+            </Card>
+          </motion.div>
         ) : (
-          <div className="rounded-lg overflow-hidden border border-white/20 bg-white/60 backdrop-blur-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs w-12">Status</TableHead>
-                  <TableHead className="text-xs">Tópico</TableHead>
-                  <TableHead className="text-xs">Disciplina</TableHead>
-                  <TableHead className="text-xs">Estágio de Revisão</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTopics.length > 0 ? (
-                  filteredTopics.map((topic) => (
-                    <TableRow key={topic.id} className="text-xs">
-                      <TableCell>
-                        <Checkbox 
-                          checked={topic.completed}
-                          onCheckedChange={(checked) => {
-                            handleTopicStatusChange(topic.id, checked === true);
-                          }}
+          subject.topics.map((topic) => {
+            const status = getTopicStatus(topic);
+            const isExpanded = expandedTopics.has(topic.id);
+            
+            return (
+              <motion.div key={topic.id} variants={itemVariants}>
+                <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <EditableTopicName
+                          topicId={topic.id}
+                          initialName={topic.name}
+                          onUpdate={fetchSubjects}
                         />
-                      </TableCell>
-                      <TableCell className="font-medium">{topic.name}</TableCell>
-                      <TableCell>{topic.subject_name}</TableCell>
-                      <TableCell>
-                        {topic.completed 
-                          ? "Concluído" 
-                          : (topic.review_stage || "Não iniciado")}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-4 text-gray-500 text-xs">
-                      {searchTerm ? "Nenhum tópico encontrado para esta pesquisa." : "Nenhum tópico disponível."}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.color}`}>
+                            {status.label}
+                          </span>
+                          {topic.reviewStage && (
+                            <span className="text-xs px-2 py-1 rounded-lg bg-purple-100 text-purple-800 font-medium">
+                              {topic.reviewStage}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleTopicExpansion(topic.id)}
+                          className="h-8 w-8 p-0"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveTopic(topic.id)}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div 
+                          className="mt-4 pt-4 border-t border-gray-200"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="font-medium text-gray-600">Revisões:</span>
+                              <span className="ml-2 text-gray-800">{topic.reviewCount || 0}</span>
+                            </div>
+                            {topic.lastReviewedAt && (
+                              <div>
+                                <span className="font-medium text-gray-600">Última revisão:</span>
+                                <span className="ml-2 text-gray-800">
+                                  {format(new Date(topic.lastReviewedAt), 'dd/MM/yyyy')}
+                                </span>
+                              </div>
+                            )}
+                            {topic.nextReview && (
+                              <div>
+                                <span className="font-medium text-gray-600">Próxima revisão:</span>
+                                <span className="ml-2 text-gray-800">
+                                  {format(new Date(topic.nextReview), 'dd/MM/yyyy')}
+                                </span>
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-medium text-gray-600">Status:</span>
+                              <span className="ml-2 text-gray-800">
+                                {topic.completed ? 'Concluído' : 'Em andamento'}
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })
         )}
-      </GlassCard>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
