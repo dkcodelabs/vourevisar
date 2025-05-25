@@ -23,19 +23,26 @@ const Topics = () => {
   // Load subjects on mount
   useEffect(() => {
     const loadSubjects = async () => {
-      setIsLoading(true);
-      await fetchSubjects();
-      setIsLoading(false);
+      try {
+        setIsLoading(true);
+        console.log('Loading subjects...');
+        await fetchSubjects();
+        console.log('Subjects loaded:', subjects);
+      } catch (error) {
+        console.error('Error loading subjects:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     
-    if (subjects.length === 0) {
-      loadSubjects();
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
+    loadSubjects();
+  }, [fetchSubjects]);
   
   const subject = subjects.find(s => s.id === subjectId);
+  
+  console.log('Current subjectId:', subjectId);
+  console.log('Available subjects:', subjects);
+  console.log('Found subject:', subject);
   
   if (isLoading) {
     return (
@@ -52,6 +59,7 @@ const Topics = () => {
       <div className="container mx-auto p-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-800">Matéria não encontrada</h1>
+          <p className="text-gray-600 mb-4">ID da matéria: {subjectId}</p>
           <Button onClick={() => navigate('/materias')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar para Matérias
