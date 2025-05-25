@@ -1,389 +1,371 @@
-
 import React, { useState, useEffect } from 'react';
+import { User, Bell, Palette, Database, RotateCcw, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, RefreshCw } from 'lucide-react';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
-import { format } from 'date-fns';
+import { useCycleState } from '@/hooks/useCycleState';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-// Definindo o tipo para as configurações do usuário
 interface UserSettings {
-  subjects_per_day: number;
-  notifications_enabled: boolean;
-  notification_time: string;
+  subjectsPerDay: number;
+  notificationsEnabled: boolean;
+  notificationTime: string;
 }
 
-interface UserCycle {
-  id: string;
-  user_id: string;
-  ciclo_atual: string[];
-  disciplinas_do_dia: string[];
-  ciclos_realizados: number;
-  data_inicio_ciclo: string;
-  data_fim_ciclo: string | null;
-  atualizado_em: string;
-  created_at: string;
+interface UserProfile {
+  name: string;
+  email: string;
+  phone: string;
 }
 
 const Settings = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
-  const [isResettingCycle, setIsResettingCycle] = useState(false);
-  const [settings, setSettings] = useState<UserSettings>({
-    subjects_per_day: 3,
-    notifications_enabled: true,
-    notification_time: "08:00"
+  const { cycleState, resetCycles, loadCycleData } = useCycleState();
+  const [profile, setProfile] = useState<UserProfile>({
+    name: '',
+    email: '',
+    phone: ''
   });
-  
-  // Buscar configurações do usuário ao carregar a página
-  useEffect(() => {
-    if (user) {
-      fetchUserSettings();
-      fetchUserCycle();
-    } else {
-      setIsLoading(false);
-    }
-  }, [user]);
+  const [settings, setSettings] = useState<UserSettings>({
+    subjectsPerDay: 3,
+    notificationsEnabled: true,
+    notificationTime: '08:00'
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const fetchUserCycle = async () => {
+  const loadUserData = async () => {
     if (!user) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('user_cycles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Erro ao buscar ciclo do usuário:', error);
-        return;
-      }
-
-      if (data) {
-        setUserCycle(data);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar ciclo:', error);
-    }
-  };
-  
-  const fetchUserSettings = async () => {
-    if (!user) return;
-    
     setIsLoading(true);
-    setError(null);
-    
     try {
-      const { data, error } = await supabase
+      // Buscar perfil do usuário
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Buscar configurações do usuário
+      const { data: settingsData, error: settingsError } = await supabase
         .from('user_settings')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (error) throw error;
-      
-      if (data) {
-        setSettings({
-          subjects_per_day: data.subjects_per_day,
-          notifications_enabled: data.notifications_enabled,
-          notification_time: data.notification_time
+        .single();
+
+      if (settingsError) throw settingsError;
+
+      // Atualizar estados
+      if (profileData) {
+        setProfile({
+          name: profileData.name || '',
+          email: profileData.email || '',
+          phone: profileData.phone || ''
         });
-      } else {
-        // Create default settings if none exist
-        const { error: insertError } = await supabase
-          .from('user_settings')
-          .insert({
-            user_id: user.id,
-            subjects_per_day: settings.subjects_per_day,
-            notifications_enabled: settings.notifications_enabled,
-            notification_time: settings.notification_time
-          });
-          
-        if (insertError) throw insertError;
       }
-    } catch (err: any) {
-      console.error('Erro ao buscar configurações:', err);
-      setError('Não foi possível carregar suas configurações. Por favor, tente novamente mais tarde.');
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar suas configurações",
-        variant: "destructive"
-      });
+
+      if (settingsData) {
+        setSettings({
+          subjectsPerDay: settingsData.subjects_per_day,
+          notificationsEnabled: settingsData.notifications_enabled,
+          notificationTime: settingsData.notification_time
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      toast.error('Erro ao carregar dados do usuário');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleResetCycle = async () => {
-    if (!user || !userCycle) return;
-
-    setIsResettingCycle(true);
-    try {
-      const { error } = await supabase
-        .from('user_cycles')
-        .update({
-          ciclo_atual: [],
-          disciplinas_do_dia: [],
-          ciclos_realizados: 0,
-          data_inicio_ciclo: new Date().toISOString(),
-          data_fim_ciclo: null,
-          atualizado_em: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      await fetchUserCycle();
-      toast({
-        title: "Sucesso",
-        description: "Ciclo resetado com sucesso",
-      });
-    } catch (err: any) {
-      console.error('Erro ao resetar ciclo:', err);
-      toast({
-        title: "Erro",
-        description: "Não foi possível resetar o ciclo",
-        variant: "destructive"
-      });
-    } finally {
-      setIsResettingCycle(false);
-    }
-  };
-  
-  const handleNotificationsToggle = (checked: boolean) => {
-    setSettings(prev => ({
-      ...prev,
-      notifications_enabled: checked
-    }));
-  };
-  
-  const handleSubjectsPerDayChange = (value: number[]) => {
-    setSettings(prev => ({
-      ...prev,
-      subjects_per_day: value[0]
-    }));
-  };
-  
-  const handleNotificationTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSettings(prev => ({
-      ...prev,
-      notification_time: e.target.value
-    }));
-  };
-  
-  const handleSaveSettings = async () => {
+  const saveProfile = async () => {
     if (!user) return;
     
     setIsSaving(true);
-    setError(null);
-    
     try {
       const { error } = await supabase
-        .from('user_settings')
-        .upsert({
-          user_id: user.id,
-          subjects_per_day: settings.subjects_per_day,
-          notifications_enabled: settings.notifications_enabled,
-          notification_time: settings.notification_time,
+        .from('profiles')
+        .update({
+          name: profile.name,
+          phone: profile.phone,
           updated_at: new Date().toISOString()
-        });
-      
+        })
+        .eq('id', user.id);
+
       if (error) throw error;
-      
-      toast({
-        title: "Sucesso",
-        description: "Configurações salvas com sucesso",
-      });
-    } catch (err: any) {
-      console.error('Erro ao salvar configurações:', err);
-      setError('Não foi possível salvar suas configurações. Por favor, tente novamente mais tarde.');
-      toast({
-        title: "Erro",
-        description: "Não foi possível salvar suas configurações",
-        variant: "destructive"
-      });
+      toast.success('Perfil atualizado com sucesso');
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error);
+      toast.error('Erro ao salvar perfil');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Calcular disciplinas concluídas do ciclo atual
-  const disciplinasConcluidas = userCycle?.ciclo_atual?.length || 0;
-  
+  const saveSettings = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({
+          subjects_per_day: settings.subjectsPerDay,
+          notifications_enabled: settings.notificationsEnabled,
+          notification_time: settings.notificationTime,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      toast.success('Configurações salvas com sucesso');
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error);
+      toast.error('Erro ao salvar configurações');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleResetCycles = async () => {
+    try {
+      await resetCycles();
+      toast.success('Ciclos resetados com sucesso');
+    } catch (error) {
+      console.error('Erro ao resetar ciclos:', error);
+      toast.error('Erro ao resetar ciclos');
+    }
+  };
+
+  useEffect(() => {
+    loadUserData();
+  }, [user]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-app-blue" />
-        <span className="ml-2">Carregando configurações...</span>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-6">
       <AnimatedTitle>Configurações</AnimatedTitle>
-      
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Erro</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <GlassCard className="p-6">
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Planejamento de Estudos</h2>
-            <p className="text-sm text-gray-600">
-              Personalize como você organiza seus estudos diários.
-            </p>
-            
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium mb-2">Quantidade de Matérias por Dia: {settings.subjects_per_day}</h3>
-                <Slider 
-                  value={[settings.subjects_per_day]}
-                  max={10}
-                  min={1}
-                  step={1}
-                  onValueChange={handleSubjectsPerDayChange}
-                  className="w-full"
-                />
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium mb-3">Organização da Sequência de Matérias</h3>
-                <GradientButton 
-                  className="w-full"
-                  onClick={() => window.location.href = '/materias'}
-                >
-                  Ir para Gerenciar Matérias
-                </GradientButton>
-                <p className="text-xs text-gray-500 mt-2">
-                  A ordem das matérias é definida na seção "Gerenciamento de Matérias".
-                </p>
-              </div>
-            </div>
-          </div>
-        </GlassCard>
 
-        <GlassCard className="p-6">
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Informações do Ciclo</h2>
-            <p className="text-sm text-gray-600">
-              Acompanhe seu progresso e gerencie seus ciclos de estudo.
-            </p>
-            
-            {userCycle ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-3 bg-blue-50/70 rounded-lg">
-                    <div className="text-2xl font-bold text-app-blue">{userCycle.ciclos_realizados}</div>
-                    <div className="text-xs text-gray-600">Ciclos Realizados</div>
-                  </div>
-                  <div className="text-center p-3 bg-green-50/70 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{disciplinasConcluidas}</div>
-                    <div className="text-xs text-gray-600">Disciplinas Concluídas</div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="text-sm">
-                    <span className="font-medium">Início do Ciclo Atual: </span>
-                    <span className="text-gray-600">
-                      {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <Button
-                    variant="destructive"
-                    onClick={handleResetCycle}
-                    disabled={isResettingCycle}
-                    className="w-full"
-                  >
-                    {isResettingCycle ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Resetando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Resetar Ciclo Completo
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Isso irá zerar todos os ciclos realizados e reiniciar o contador.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-gray-500">Nenhum ciclo encontrado</p>
-              </div>
-            )}
-          </div>
-        </GlassCard>
+      {/* Perfil do Usuário */}
+      <GlassCard className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <User className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">Perfil do Usuário</h3>
+        </div>
         
-        <GlassCard className="p-6">
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Notificações</h2>
-            <p className="text-sm text-gray-600">
-              Configure os lembretes de estudo e revisão.
-            </p>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="name">Nome</Label>
+            <Input
+              id="name"
+              value={profile.name}
+              onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+              placeholder="Seu nome"
+            />
+          </div>
+          
+          <div className="grid gap-2">
+            <Label htmlFor="email">E-mail</Label>
+            <Input
+              id="email"
+              type="email"
+              value={profile.email}
+              disabled
+              className="bg-gray-50"
+            />
+            <p className="text-xs text-gray-500">O e-mail não pode ser alterado</p>
+          </div>
+          
+          <div className="grid gap-2">
+            <Label htmlFor="phone">Telefone</Label>
+            <Input
+              id="phone"
+              value={profile.phone}
+              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+              placeholder="(00) 00000-0000"
+            />
+          </div>
+          
+          <GradientButton 
+            onClick={saveProfile}
+            disabled={isSaving}
+            className="mt-4"
+          >
+            {isSaving ? 'Salvando...' : 'Salvar Perfil'}
+          </GradientButton>
+        </div>
+      </GlassCard>
+
+      {/* Configurações de Estudo */}
+      <GlassCard className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Database className="h-5 w-5 text-green-600" />
+          <h3 className="text-lg font-semibold">Configurações de Estudo</h3>
+        </div>
+        
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="subjectsPerDay">Matérias por dia</Label>
+            <Input
+              id="subjectsPerDay"
+              type="number"
+              min="1"
+              max="10"
+              value={settings.subjectsPerDay}
+              onChange={(e) => setSettings({ ...settings, subjectsPerDay: parseInt(e.target.value) || 1 })}
+            />
+            <p className="text-xs text-gray-500">Número de matérias a estudar por dia</p>
+          </div>
+          
+          <GradientButton 
+            onClick={saveSettings}
+            disabled={isSaving}
+            className="mt-4"
+          >
+            {isSaving ? 'Salvando...' : 'Salvar Configurações'}
+          </GradientButton>
+        </div>
+      </GlassCard>
+
+      {/* Configurações de Notificação */}
+      <GlassCard className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Bell className="h-5 w-5 text-yellow-600" />
+          <h3 className="text-lg font-semibold">Notificações</h3>
+        </div>
+        
+        <div className="grid gap-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Ativar notificações</Label>
+              <p className="text-xs text-gray-500">Receber lembretes de estudo</p>
+            </div>
+            <Switch
+              checked={settings.notificationsEnabled}
+              onCheckedChange={(checked) => setSettings({ ...settings, notificationsEnabled: checked })}
+            />
+          </div>
+          
+          {settings.notificationsEnabled && (
+            <div className="grid gap-2">
+              <Label htmlFor="notificationTime">Horário das notificações</Label>
+              <Input
+                id="notificationTime"
+                type="time"
+                value={settings.notificationTime}
+                onChange={(e) => setSettings({ ...settings, notificationTime: e.target.value })}
+              />
+            </div>
+          )}
+          
+          <GradientButton 
+            onClick={saveSettings}
+            disabled={isSaving}
+            className="mt-4"
+          >
+            {isSaving ? 'Salvando...' : 'Salvar Notificações'}
+          </GradientButton>
+        </div>
+      </GlassCard>
+
+      {/* Informações dos Ciclos */}
+      <GlassCard className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Trophy className="h-5 w-5 text-purple-600" />
+          <h3 className="text-lg font-semibold">Gerenciamento de Ciclos</h3>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <p className="text-2xl font-bold text-blue-600">{cycleState.completedCycles}</p>
+              <p className="text-sm text-blue-700">Ciclos Totais</p>
+            </div>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium">Ativar notificações de estudo</h3>
-                  <p className="text-xs text-gray-500">
-                    Receba lembretes para suas sessões de estudo
-                  </p>
-                </div>
-                <Switch 
-                  checked={settings.notifications_enabled}
-                  onCheckedChange={handleNotificationsToggle}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="notification-time" className="text-sm">Horário da Notificação Principal</Label>
-                <Input 
-                  id="notification-time"
-                  type="time"
-                  value={settings.notification_time}
-                  onChange={handleNotificationTimeChange}
-                  className="max-w-[200px]"
-                />
-              </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <p className="text-2xl font-bold text-green-600">{cycleState.completedSubjects}</p>
+              <p className="text-sm text-green-700">Disciplinas do Ciclo Atual</p>
+            </div>
+            
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <p className="text-2xl font-bold text-purple-600">{cycleState.totalSubjects}</p>
+              <p className="text-sm text-purple-700">Total de Disciplinas</p>
             </div>
           </div>
-        </GlassCard>
-      </div>
-      <div className="flex w-full mt-4">
-        <GradientButton 
-          className="w-full mx-auto max-w-2xl"
-          onClick={handleSaveSettings}
-          disabled={isSaving}
-        >
-          {isSaving ? 'Salvando...' : 'Salvar Configurações'}
-        </GradientButton>
-      </div>
+          
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">Progresso do Ciclo Atual:</span>
+              <span className="text-sm font-medium">
+                {cycleState.completedSubjects}/{cycleState.totalSubjects}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
+                style={{ 
+                  width: `${cycleState.totalSubjects > 0 ? (cycleState.completedSubjects / cycleState.totalSubjects) * 100 : 0}%` 
+                }}
+              ></div>
+            </div>
+          </div>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <GradientButton 
+                variant="outline"
+                className="w-full mt-4 text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Resetar Ciclos
+              </GradientButton>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Resetar Ciclos</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta ação irá resetar todos os ciclos concluídos e o progresso atual do ciclo. 
+                  Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleResetCycles}
+                  className="bg-red-600 text-white hover:bg-red-700"
+                >
+                  Resetar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </GlassCard>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { Plus, ChevronUp, ChevronDown, Edit, Trash2, LayoutList, GripVertical } from 'lucide-react';
+import { Plus, ChevronUp, ChevronDown, Edit, Trash2, LayoutList, GripVertical, Check, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,6 +74,10 @@ const Subjects = () => {
   const [editSubjectDialog, setEditSubjectDialog] = useState(false);
   const [editSubject, setEditSubject] = useState({ id: '', name: '' });
   
+  // Edit topic states
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
+  const [editingTopicName, setEditingTopicName] = useState('');
+  
   const topicInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
@@ -123,6 +127,56 @@ const Subjects = () => {
   const handleEditSubject = (subject: { id: string, name: string }) => {
     setEditSubject(subject);
     setEditSubjectDialog(true);
+  };
+
+  // Edit topic functions
+  const startEditingTopic = (topicId: string, currentName: string) => {
+    setEditingTopicId(topicId);
+    setEditingTopicName(currentName);
+  };
+
+  const cancelEditingTopic = () => {
+    setEditingTopicId(null);
+    setEditingTopicName('');
+  };
+
+  const saveTopicEdit = async (topicId: string) => {
+    if (!editingTopicName.trim()) {
+      useToastHook({
+        title: "Erro",
+        description: "O nome do tópico não pode estar vazio",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .update({ name: editingTopicName.trim(), updated_at: new Date().toISOString() })
+        .eq('id', topicId);
+        
+      if (error) throw error;
+      
+      // Atualiza o tópico na lista
+      setSubjects(prev => prev.map(subject => ({
+        ...subject,
+        topics: subject.topics.map(topic => 
+          topic.id === topicId ? { ...topic, name: editingTopicName.trim() } : topic
+        )
+      })));
+      
+      setEditingTopicId(null);
+      setEditingTopicName('');
+      toast.success("Nome do tópico atualizado com sucesso");
+    } catch (error) {
+      console.error('Erro ao atualizar tópico:', error);
+      useToastHook({
+        title: "Erro",
+        description: "Não foi possível atualizar o nome do tópico",
+        variant: "destructive"
+      });
+    }
   };
 
   // Confirm delete subject function
@@ -223,17 +277,61 @@ const Subjects = () => {
                   <ul className="space-y-2">
                     {subject.topics.map((topic) => (
                       <GlassCard key={topic.id} className="flex items-center justify-between p-2">
-                        <span className="text-sm">{topic.name}</span>
-                        <div className="flex items-center gap-1">
-                          <GradientButton 
-                            variant="outline"
-                            size="sm" 
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                            onClick={() => confirmDeleteTopic(subject.id, topic.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </GradientButton>
-                        </div>
+                        {editingTopicId === topic.id ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <Input
+                              value={editingTopicName}
+                              onChange={(e) => setEditingTopicName(e.target.value)}
+                              className="text-sm flex-1"
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  saveTopicEdit(topic.id);
+                                } else if (e.key === 'Escape') {
+                                  cancelEditingTopic();
+                                }
+                              }}
+                              autoFocus
+                            />
+                            <GradientButton 
+                              variant="outline"
+                              size="sm" 
+                              className="h-7 w-7 p-0 text-green-600"
+                              onClick={() => saveTopicEdit(topic.id)}
+                            >
+                              <Check className="h-4 w-4" />
+                            </GradientButton>
+                            <GradientButton 
+                              variant="outline"
+                              size="sm" 
+                              className="h-7 w-7 p-0 text-gray-500"
+                              onClick={cancelEditingTopic}
+                            >
+                              <X className="h-4 w-4" />
+                            </GradientButton>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-sm">{topic.name}</span>
+                            <div className="flex items-center gap-1">
+                              <GradientButton 
+                                variant="outline"
+                                size="sm" 
+                                className="h-7 w-7 p-0"
+                                onClick={() => startEditingTopic(topic.id, topic.name)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </GradientButton>
+                              <GradientButton 
+                                variant="outline"
+                                size="sm" 
+                                className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                                onClick={() => confirmDeleteTopic(subject.id, topic.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </GradientButton>
+                            </div>
+                          </>
+                        )}
                       </GlassCard>
                     ))}
                   </ul>
@@ -372,16 +470,37 @@ const Subjects = () => {
     if (!subjectToDelete) return;
     
     try {
-      const { error } = await supabase
+      // Primeiro, excluir todos os tópicos da matéria
+      const { error: topicsError } = await supabase
+        .from('topics')
+        .delete()
+        .eq('subject_id', subjectToDelete);
+      
+      if (topicsError) throw topicsError;
+      
+      // Depois, excluir a matéria
+      const { error: subjectError } = await supabase
         .from('subjects')
         .delete()
         .eq('id', subjectToDelete);
         
-      if (error) throw error;
+      if (subjectError) throw subjectError;
+      
+      // Remover das referências de ciclos se existir
+      const { error: cycleError } = await supabase
+        .from('user_cycles')
+        .update({
+          ciclo_atual: [],
+          disciplinas_do_dia: [],
+          atualizado_em: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+      
+      if (cycleError) console.error('Erro ao limpar ciclos:', cycleError);
       
       // Atualiza a lista de matérias
       setSubjects(prev => prev.filter(subject => subject.id !== subjectToDelete));
-      toast.success("Matéria removida com sucesso");
+      toast.success("Matéria e todos os seus tópicos removidos com sucesso");
     } catch (error) {
       console.error('Erro ao remover matéria:', error);
       useToastHook({
@@ -487,6 +606,7 @@ const Subjects = () => {
     if (!topicToDelete) return;
     
     try {
+      // Excluir o tópico e todas as suas referências
       const { error } = await supabase
         .from('topics')
         .delete()
