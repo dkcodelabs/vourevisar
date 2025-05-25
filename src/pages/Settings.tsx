@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,9 +8,10 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
+import { format } from 'date-fns';
 
 // Definindo o tipo para as configurações do usuário
 interface UserSettings {
@@ -18,12 +20,26 @@ interface UserSettings {
   notification_time: string;
 }
 
+interface UserCycle {
+  id: string;
+  user_id: string;
+  ciclo_atual: string[];
+  disciplinas_do_dia: string[];
+  ciclos_realizados: number;
+  data_inicio_ciclo: string;
+  data_fim_ciclo: string | null;
+  atualizado_em: string;
+  created_at: string;
+}
+
 const Settings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
+  const [isResettingCycle, setIsResettingCycle] = useState(false);
   const [settings, setSettings] = useState<UserSettings>({
     subjects_per_day: 3,
     notifications_enabled: true,
@@ -34,10 +50,34 @@ const Settings = () => {
   useEffect(() => {
     if (user) {
       fetchUserSettings();
+      fetchUserCycle();
     } else {
       setIsLoading(false);
     }
   }, [user]);
+
+  const fetchUserCycle = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_cycles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao buscar ciclo do usuário:', error);
+        return;
+      }
+
+      if (data) {
+        setUserCycle(data);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar ciclo:', error);
+    }
+  };
   
   const fetchUserSettings = async () => {
     if (!user) return;
@@ -83,6 +123,42 @@ const Settings = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResetCycle = async () => {
+    if (!user || !userCycle) return;
+
+    setIsResettingCycle(true);
+    try {
+      const { error } = await supabase
+        .from('user_cycles')
+        .update({
+          ciclo_atual: [],
+          disciplinas_do_dia: [],
+          ciclos_realizados: 0,
+          data_inicio_ciclo: new Date().toISOString(),
+          data_fim_ciclo: null,
+          atualizado_em: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      await fetchUserCycle();
+      toast({
+        title: "Sucesso",
+        description: "Ciclo resetado com sucesso",
+      });
+    } catch (err: any) {
+      console.error('Erro ao resetar ciclo:', err);
+      toast({
+        title: "Erro",
+        description: "Não foi possível resetar o ciclo",
+        variant: "destructive"
+      });
+    } finally {
+      setIsResettingCycle(false);
     }
   };
   
@@ -142,6 +218,9 @@ const Settings = () => {
       setIsSaving(false);
     }
   };
+
+  // Calcular disciplinas concluídas do ciclo atual
+  const disciplinasConcluidas = userCycle?.ciclo_atual?.length || 0;
   
   if (isLoading) {
     return (
@@ -197,6 +276,67 @@ const Settings = () => {
                 </p>
               </div>
             </div>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Informações do Ciclo</h2>
+            <p className="text-sm text-gray-600">
+              Acompanhe seu progresso e gerencie seus ciclos de estudo.
+            </p>
+            
+            {userCycle ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-blue-50/70 rounded-lg">
+                    <div className="text-2xl font-bold text-app-blue">{userCycle.ciclos_realizados}</div>
+                    <div className="text-xs text-gray-600">Ciclos Realizados</div>
+                  </div>
+                  <div className="text-center p-3 bg-green-50/70 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{disciplinasConcluidas}</div>
+                    <div className="text-xs text-gray-600">Disciplinas Concluídas</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="text-sm">
+                    <span className="font-medium">Início do Ciclo Atual: </span>
+                    <span className="text-gray-600">
+                      {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    variant="destructive"
+                    onClick={handleResetCycle}
+                    disabled={isResettingCycle}
+                    className="w-full"
+                  >
+                    {isResettingCycle ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Resetando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Resetar Ciclo Completo
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Isso irá zerar todos os ciclos realizados e reiniciar o contador.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-gray-500">Nenhum ciclo encontrado</p>
+              </div>
+            )}
           </div>
         </GlassCard>
         

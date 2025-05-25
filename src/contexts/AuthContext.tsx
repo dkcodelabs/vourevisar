@@ -66,15 +66,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           setUser(session.user);
           await fetchProfile(session.user.id);
-          // Só navega para dashboard se estiver na página de login
-          if (location.pathname === '/login') {
+          // Só navega para dashboard se estiver na página de login ou não autenticado
+          if (location.pathname === '/login' && !user) {
             navigate('/');
           }
         } else {
           setUser(null);
           setProfile(null);
-          // Só navega para login se não estiver já lá
-          if (location.pathname !== '/login') {
+          // Só navega para login se não estiver já lá e se for um logout explícito
+          if (location.pathname !== '/login' && event === 'SIGNED_OUT') {
             navigate('/login');
           }
         }
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('Cleaning up auth subscription');
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]);
+  }, [navigate]);
 
   const fetchProfile = async (userId: string) => {
     try {

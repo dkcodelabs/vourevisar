@@ -19,7 +19,6 @@ import {
   Clock, 
   GraduationCap, 
   Sparkle,
-  ArrowClockwise,
   Calendar
 } from '@phosphor-icons/react';
 
@@ -304,7 +303,10 @@ const StudyPlan = () => {
 
   // Função para avançar para o próximo dia
   const handleNextDay = async () => {
-    if (!userCycle || materiasPendentes.length === 0) return;
+    if (materiasPendentes.length === 0) {
+      toast.info("Não há mais matérias disponíveis para estudar.");
+      return;
+    }
 
     const novasDisciplinas = materiasPendentes.slice(0, subjectsPerDay).map(s => s.id);
     
@@ -315,27 +317,7 @@ const StudyPlan = () => {
     setCompletedSessions([]);
     setExpandedSubject(null);
     setShowDayCompletedMessage(false);
-    toast.info("Novo dia iniciado!");
-  };
-
-  // Função para resetar o ciclo manualmente
-  const handleResetCycle = async () => {
-    if (!userCycle) return;
-
-    const novasDisciplinas = currentSubjects.slice(0, subjectsPerDay).map(s => s.id);
-    
-    await updateUserCycle({
-      ciclo_atual: [],
-      disciplinas_do_dia: novasDisciplinas,
-      data_inicio_ciclo: new Date().toISOString(),
-      data_fim_ciclo: null
-    });
-    
-    setCompletedSessions([]);
-    setCurrentSubjectIndex(0);
-    setExpandedSubject(null);
-    setShowDayCompletedMessage(false);
-    toast.info("Ciclo reiniciado");
+    toast.info("Novas matérias carregadas para estudo!");
   };
 
   // Função para completar sessão
@@ -412,6 +394,9 @@ const StudyPlan = () => {
           return;
         }
       }
+
+      // Recarregar o ciclo atualizado do banco para garantir sincronização
+      await fetchUserCycle();
     } catch (error) {
       toast.error("Erro ao salvar revisões. Tente novamente.");
     }
@@ -530,14 +515,6 @@ const StudyPlan = () => {
                 Próximo Dia
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="outline"
-                onClick={handleResetCycle}
-                className="hover:bg-red-50 transition-colors text-sm px-2 py-1 w-full sm:w-auto"
-              >
-                <ArrowClockwise className="h-4 w-4 mr-2" />
-                Reiniciar Ciclo
-              </Button>
             </div>
           </motion.div>
 
@@ -587,7 +564,7 @@ const StudyPlan = () => {
                     className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
                     onClick={handleNextDay}
                   >
-                    Avançar para o próximo dia
+                    Carregar próximas matérias
                   </Button>
                 </motion.div>
               )}
@@ -746,7 +723,7 @@ const StudyPlan = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
               >
-                <ArrowClockwise size={32} className="mx-auto text-blue-500 mb-2" weight="fill" />
+                <Sparkle size={32} className="mx-auto text-blue-500 mb-2" weight="fill" />
                 <h3 className="text-lg font-bold text-blue-800">Novo ciclo iniciado! 🔄</h3>
                 <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do ciclo. As disciplinas foram reiniciadas na ordem definida.</p>
                 <Button 
