@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -49,6 +48,8 @@ const Topics = () => {
     
     setIsLoading(true);
     try {
+      console.log('Buscando matéria com ID:', subjectId, 'para usuário:', user.id);
+      
       // Fetch subject
       const { data: subjectData, error: subjectError } = await supabase
         .from('subjects')
@@ -57,13 +58,19 @@ const Topics = () => {
         .eq('user_id', user.id)
         .single();
       
-      if (subjectError) throw subjectError;
+      if (subjectError) {
+        console.error('Erro ao buscar matéria:', subjectError);
+        throw subjectError;
+      }
       
       if (!subjectData) {
+        console.log('Nenhuma matéria encontrada');
         setSubject(null);
         setIsLoading(false);
         return;
       }
+      
+      console.log('Matéria encontrada:', subjectData);
       
       // Fetch topics for this subject
       const { data: topicsData, error: topicsError } = await supabase
@@ -71,7 +78,12 @@ const Topics = () => {
         .select('*')
         .eq('subject_id', subjectId);
       
-      if (topicsError) throw topicsError;
+      if (topicsError) {
+        console.error('Erro ao buscar tópicos:', topicsError);
+        throw topicsError;
+      }
+      
+      console.log('Tópicos encontrados:', topicsData);
       
       // Convert topics data
       const processedTopics = (topicsData || []).map(topic => ({

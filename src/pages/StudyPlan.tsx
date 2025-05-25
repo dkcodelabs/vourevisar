@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,7 +43,8 @@ const StudyPlan = () => {
     userCycle, 
     updateUserCycle, 
     createInitialUserCycle, 
-    isAllDaySubjectsCompleted 
+    isAllDaySubjectsCompleted,
+    fetchUserCycle 
   } = useCycleState();
 
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
@@ -226,6 +226,11 @@ const StudyPlan = () => {
 
         if (isNewCycle && newCyclesCount > 0) {
           toast.success(`Novo ciclo iniciado! Ciclo ${newCyclesCount}`);
+          
+          // Keep congratulations message if no subjects for today
+          const today = format(new Date(), 'yyyy-MM-dd');
+          localStorage.setItem('lastCongratulationsDay', today);
+          setLastCongratulationsDay(today);
         }
       } else {
         // Continue with next subjects in current cycle
@@ -235,11 +240,11 @@ const StudyPlan = () => {
           ciclo_atual: allCompletedSubjects,
           disciplinas_do_dia: nextDailySubjects.map(s => s.id)
         });
-      }
 
-      // Clear congratulations day
-      localStorage.removeItem('lastCongratulationsDay');
-      setLastCongratulationsDay(null);
+        // Clear congratulations day
+        localStorage.removeItem('lastCongratulationsDay');
+        setLastCongratulationsDay(null);
+      }
       
       // Refresh data
       await loadSubjectsData();
@@ -270,28 +275,6 @@ const StudyPlan = () => {
 
   const showCongratulations = shouldShowCongratulations();
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 100
-      }
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -303,189 +286,91 @@ const StudyPlan = () => {
   }
 
   return (
-    <motion.div 
-      className="container mx-auto p-6 space-y-6"
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-    >
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <AnimatedTitle icon={<Play size={32} />}>
-          Plano de Estudo Diário
-        </AnimatedTitle>
-        <Button 
-          variant="outline" 
-          onClick={() => navigate('/')}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar ao Dashboard
+    <div className="container mx-auto p-2">
+      <div className="mb-4 flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-blue-900 flex items-center gap-2">
+          📚 Plano de Estudo Diário
+        </h1>
+        <Button onClick={handleNextDay} className="bg-blue-600 hover:bg-blue-700">
+          Próximo Dia →
         </Button>
-      </motion.div>
+      </div>
 
-      <AnimatePresence>
-        {showCongratulations && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: -20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: -20 }}
-            className="mb-6"
-            variants={itemVariants}
-          >
-            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-green-100 rounded-full">
-                    <Award className="h-8 w-8 text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-green-800 mb-2">
-                      🎉 Parabéns! Você completou todas as matérias do dia!
-                    </h3>
-                    <p className="text-green-700">
-                      Excelente trabalho! Continue assim para manter seu progresso.
-                    </p>
-                  </div>
-                  <Button 
-                    onClick={handleNextDay}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    <SkipForward className="mr-2 h-4 w-4" />
-                    Próximo Dia
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+          <div className="flex items-center gap-2 mb-1">
+            <span>⭐</span>
+            <span className="font-medium text-sm">Ciclos realizados:</span>
+            <span className="font-bold text-blue-600">{userCycle?.ciclos_realizados || 0}</span>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <span>📖</span>
+            <span className="font-medium text-sm">Disciplinas concluídas:</span>
+            <span className="font-bold text-blue-600">0/4</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span>🆕</span>
+            <span className="text-sm text-purple-600 font-medium">Novo ciclo iniciado!</span>
+            <span className="text-xs text-gray-500 ml-auto">Início: 25/05/2025 14:24</span>
+          </div>
+        </div>
+      </div>
 
-      {/* Daily Subjects */}
-      <motion.div variants={itemVariants}>
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              Matérias do Dia ({dailySubjects.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dailySubjects.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">
-                Nenhuma matéria programada para hoje.
-              </p>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {dailySubjects.map((subject) => {
-                  const completed = isSubjectCompleted(subject.id);
-                  const completedTopics = subject.topics.filter(t => t.completed).length;
-                  const totalTopics = subject.topics.length;
-                  
-                  return (
-                    <motion.div
-                      key={subject.id}
-                      layout
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                        completed 
-                          ? 'bg-green-50 border-green-200' 
-                          : 'bg-white border-gray-200 hover:border-blue-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold text-gray-800">{subject.name}</h3>
-                        <Badge variant={completed ? "default" : "secondary"}>
-                          {completed ? "Concluída" : "Pendente"}
-                        </Badge>
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                        <span>Tópicos: {completedTopics}/{totalTopics}</span>
-                        <span>Prioridade: {subject.priority}</span>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => navigate(`/topicos/${subject.id}`)}
-                          variant="outline"
-                          className="flex-1"
-                        >
-                          Ver Tópicos
-                        </Button>
-                        
-                        {!completed && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleCompleteSubject(subject.id)}
-                            className="flex-1"
-                          >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Concluir
-                          </Button>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Next Subjects - Always show */}
-      <motion.div variants={itemVariants}>
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <SkipForward className="h-5 w-5 text-blue-600" />
-              Próximas Matérias ({nextSubjects.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {nextSubjects.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">
-                  Todas as matérias foram programadas! Complete as matérias do dia para continuar.
+      {showCongratulations && (
+        <div className="mb-4">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">🎉</div>
+              <div>
+                <h3 className="text-lg font-bold text-green-800">
+                  Parabéns! Você completou todas as matérias do dia!
+                </h3>
+                <p className="text-green-700 text-sm">
+                  Excelente trabalho! Continue assim para manter seu progresso.
                 </p>
               </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {nextSubjects.map((subject) => {
-                  const completedTopics = subject.topics.filter(t => t.completed).length;
-                  const totalTopics = subject.topics.length;
-                  
-                  return (
-                    <motion.div
-                      key={subject.id}
-                      className="p-4 rounded-lg border-2 border-gray-100 bg-gray-50"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold text-gray-700">{subject.name}</h3>
-                        <Badge variant="outline">Em Espera</Badge>
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                        <span>Tópicos: {completedTopics}/{totalTopics}</span>
-                        <span>Prioridade: {subject.priority}</span>
-                      </div>
-                      
-                      <Button
-                        size="sm"
-                        onClick={() => navigate(`/topicos/${subject.id}`)}
-                        variant="outline"
-                        className="w-full"
-                      >
-                        Ver Tópicos
-                      </Button>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-    </motion.div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+          → Próximas Disciplinas
+        </h2>
+        <div className="grid gap-3">
+          {nextSubjects.length === 0 ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-gray-500">
+                Todas as matérias foram programadas! Complete as matérias do dia para continuar.
+              </p>
+            </div>
+          ) : (
+            nextSubjects.map((subject) => {
+              const completedTopics = subject.topics.filter(t => t.completed).length;
+              const totalTopics = subject.topics.length;
+              
+              return (
+                <div key={subject.id} className="bg-white border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-600">📘</span>
+                      <span className="font-medium">{subject.name}</span>
+                      <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                        {completedTopics} tópicos
+                      </span>
+                    </div>
+                    <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
+                      Em Espera
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
