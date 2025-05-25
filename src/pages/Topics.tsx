@@ -10,15 +10,16 @@ import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { EditableTopicName } from '@/components/EditableTopicName';
 import { format, isToday, isBefore } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Topic } from '@/types';
+import { Topic, Subject } from '@/types';
 
 const Topics = () => {
-  const { subjectId } = useParams<{ subjectId: string }>();
+  const { subjectId } = useParams<{ subjectId?: string }>();
   const navigate = useNavigate();
   const { subjects, addTopicToSubject, removeTopicFromSubject, fetchSubjects } = useApp();
   const [newTopicName, setNewTopicName] = useState('');
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   
   // Load subjects on mount
   useEffect(() => {
@@ -27,7 +28,7 @@ const Topics = () => {
         setIsLoading(true);
         console.log('Loading subjects...');
         await fetchSubjects();
-        console.log('Subjects loaded:', subjects);
+        console.log('Subjects loaded successfully');
       } catch (error) {
         console.error('Error loading subjects:', error);
       } finally {
@@ -38,11 +39,21 @@ const Topics = () => {
     loadSubjects();
   }, [fetchSubjects]);
   
-  const subject = subjects.find(s => s.id === subjectId);
+  // Set initial selected subject
+  useEffect(() => {
+    if (subjectId) {
+      setSelectedSubjectId(subjectId);
+    } else if (subjects.length > 0 && !selectedSubjectId) {
+      setSelectedSubjectId(subjects[0].id);
+    }
+  }, [subjectId, subjects, selectedSubjectId]);
   
-  console.log('Current subjectId:', subjectId);
-  console.log('Available subjects:', subjects);
-  console.log('Found subject:', subject);
+  const currentSubject = selectedSubjectId ? subjects.find(s => s.id === selectedSubjectId) : null;
+  
+  console.log('Current subjectId from params:', subjectId);
+  console.log('Selected subject ID:', selectedSubjectId);
+  console.log('Available subjects:', subjects.length);
+  console.log('Current subject:', currentSubject?.name);
   
   if (isLoading) {
     return (
@@ -54,15 +65,15 @@ const Topics = () => {
     );
   }
   
-  if (!subject) {
+  if (subjects.length === 0) {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800">Matéria não encontrada</h1>
-          <p className="text-gray-600 mb-4">ID da matéria: {subjectId}</p>
+          <h1 className="text-2xl font-bold text-gray-800">Nenhuma matéria encontrada</h1>
+          <p className="text-gray-600 mb-4">Você precisa adicionar matérias primeiro.</p>
           <Button onClick={() => navigate('/materias')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar para Matérias
+            Ir para Matérias
           </Button>
         </div>
       </div>
@@ -70,15 +81,15 @@ const Topics = () => {
   }
 
   const handleAddTopic = async () => {
-    if (newTopicName.trim() && subjectId) {
-      await addTopicToSubject(subjectId, newTopicName.trim());
+    if (newTopicName.trim() && selectedSubjectId) {
+      await addTopicToSubject(selectedSubjectId, newTopicName.trim());
       setNewTopicName('');
     }
   };
 
   const handleRemoveTopic = async (topicId: string) => {
-    if (subjectId) {
-      await removeTopicFromSubject(subjectId, topicId);
+    if (selectedSubjectId) {
+      await removeTopicFromSubject(selectedSubjectId, topicId);
     }
   };
 
@@ -163,138 +174,162 @@ const Topics = () => {
         <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-gray-800">
-              Tópicos de {subject.name}
+              {subjectId ? `Tópicos de ${currentSubject?.name || 'Matéria'}` : 'Tópicos'}
             </CardTitle>
+            {!subjectId && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Selecionar Matéria:
+                </label>
+                <select
+                  value={selectedSubjectId || ''}
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Selecione uma matéria</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 mb-6">
-              <Input
-                type="text"
-                placeholder="Nome do novo tópico"
-                value={newTopicName}
-                onChange={(e) => setNewTopicName(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="flex-1"
-              />
-              <Button onClick={handleAddTopic} disabled={!newTopicName.trim()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Adicionar
-              </Button>
-            </div>
-          </CardContent>
+          {currentSubject && (
+            <CardContent>
+              <div className="flex gap-2 mb-6">
+                <Input
+                  type="text"
+                  placeholder="Nome do novo tópico"
+                  value={newTopicName}
+                  onChange={(e) => setNewTopicName(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="flex-1"
+                />
+                <Button onClick={handleAddTopic} disabled={!newTopicName.trim()}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar
+                </Button>
+              </div>
+            </CardContent>
+          )}
         </Card>
       </motion.div>
 
-      <motion.div className="space-y-3" variants={containerVariants}>
-        {subject.topics.length === 0 ? (
-          <motion.div variants={itemVariants}>
-            <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
-              <CardContent className="p-6 text-center">
-                <p className="text-gray-500">Nenhum tópico adicionado ainda.</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ) : (
-          subject.topics.map((topic) => {
-            const status = getTopicStatus(topic);
-            const isExpanded = expandedTopics.has(topic.id);
-            
-            return (
-              <motion.div key={topic.id} variants={itemVariants}>
-                <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <EditableTopicName
-                          topicId={topic.id}
-                          initialName={topic.name}
-                          onUpdate={fetchSubjects}
-                        />
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.color}`}>
-                            {status.label}
-                          </span>
-                          {topic.reviewStage && (
-                            <span className="text-xs px-2 py-1 rounded-lg bg-purple-100 text-purple-800 font-medium">
-                              {topic.reviewStage}
+      {currentSubject && (
+        <motion.div className="space-y-3" variants={containerVariants}>
+          {currentSubject.topics.length === 0 ? (
+            <motion.div variants={itemVariants}>
+              <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
+                <CardContent className="p-6 text-center">
+                  <p className="text-gray-500">Nenhum tópico adicionado ainda.</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : (
+            currentSubject.topics.map((topic) => {
+              const status = getTopicStatus(topic);
+              const isExpanded = expandedTopics.has(topic.id);
+              
+              return (
+                <motion.div key={topic.id} variants={itemVariants}>
+                  <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <EditableTopicName
+                            topicId={topic.id}
+                            initialName={topic.name}
+                            onUpdate={fetchSubjects}
+                          />
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.color}`}>
+                              {status.label}
                             </span>
-                          )}
+                            {topic.reviewStage && (
+                              <span className="text-xs px-2 py-1 rounded-lg bg-purple-100 text-purple-800 font-medium">
+                                {topic.reviewStage}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleTopicExpansion(topic.id)}
+                            className="h-8 w-8 p-0"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveTopic(topic.id)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleTopicExpansion(topic.id)}
-                          className="h-8 w-8 p-0"
-                        >
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveTopic(topic.id)}
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div 
-                          className="mt-4 pt-4 border-t border-gray-200"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="font-medium text-gray-600">Revisões:</span>
-                              <span className="ml-2 text-gray-800">{topic.reviewCount || 0}</span>
-                            </div>
-                            {topic.lastReviewedAt && (
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div 
+                            className="mt-4 pt-4 border-t border-gray-200"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
-                                <span className="font-medium text-gray-600">Última revisão:</span>
+                                <span className="font-medium text-gray-600">Revisões:</span>
+                                <span className="ml-2 text-gray-800">{topic.reviewCount || 0}</span>
+                              </div>
+                              {topic.lastReviewedAt && (
+                                <div>
+                                  <span className="font-medium text-gray-600">Última revisão:</span>
+                                  <span className="ml-2 text-gray-800">
+                                    {format(new Date(topic.lastReviewedAt), 'dd/MM/yyyy')}
+                                  </span>
+                                </div>
+                              )}
+                              {topic.nextReview && (
+                                <div>
+                                  <span className="font-medium text-gray-600">Próxima revisão:</span>
+                                  <span className="ml-2 text-gray-800">
+                                    {format(new Date(topic.nextReview), 'dd/MM/yyyy')}
+                                  </span>
+                                </div>
+                              )}
+                              <div>
+                                <span className="font-medium text-gray-600">Status:</span>
                                 <span className="ml-2 text-gray-800">
-                                  {format(new Date(topic.lastReviewedAt), 'dd/MM/yyyy')}
+                                  {topic.completed ? 'Concluído' : 'Em andamento'}
                                 </span>
                               </div>
-                            )}
-                            {topic.nextReview && (
-                              <div>
-                                <span className="font-medium text-gray-600">Próxima revisão:</span>
-                                <span className="ml-2 text-gray-800">
-                                  {format(new Date(topic.nextReview), 'dd/MM/yyyy')}
-                                </span>
-                              </div>
-                            )}
-                            <div>
-                              <span className="font-medium text-gray-600">Status:</span>
-                              <span className="ml-2 text-gray-800">
-                                {topic.completed ? 'Concluído' : 'Em andamento'}
-                              </span>
                             </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })
-        )}
-      </motion.div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })
+          )}
+        </motion.div>
+      )}
     </motion.div>
   );
 };
 
 export default Topics;
+
