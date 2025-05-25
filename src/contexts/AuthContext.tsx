@@ -1,25 +1,35 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+import { useAuthOperations } from '@/hooks/useAuthOperations';
+import { Database } from '@/integrations/supabase/types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 interface AuthContextType {
   user: User | null;
+  profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, userData?: { name?: string }) => Promise<{ success: boolean; user?: User; error?: string }>;
+  signUp: (email: string, password: string, name: string, phone?: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   signIn: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (profileData: Partial<Profile>) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const authOps = useAuthOperations();
 
   useEffect(() => {
     console.log('Setting up auth state listener...');
@@ -35,6 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else if (session?.user) {
           console.log('Found existing session for user:', session.user.email);
           setUser(session.user);
+          await fetchProfile(session.user.id);
         } else {
           console.log('No existing session found');
         }
@@ -54,12 +65,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (session?.user) {
           setUser(session.user);
+          await fetchProfile(session.user.id);
           // Só navega para dashboard se estiver na página de login
           if (location.pathname === '/login') {
             navigate('/');
           }
         } else {
           setUser(null);
+          setProfile(null);
           // Só navega para login se não estiver já lá
           if (location.pathname !== '/login') {
             navigate('/login');
@@ -76,35 +89,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [navigate, location.pathname]);
 
-  const signUp = async (email: string, password: string, userData?: { name?: string }) => {
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      setProfile(data);
+    } catch (error) {
+      console.error('Exception fetching profile:', error);
+    }
+  };
+
+  const signUp = async (email: string, password: string, name: string, phone?: string) => {
     try {
       setLoading(true);
       console.log('Attempting to sign up user:', email);
       
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: userData
-        }
-      });
-
-      if (error) {
-        console.error('Sign up error:', error);
-        toast.error(error.message || 'Erro ao criar conta');
-        return { success: false, error: error.message };
-      }
-
-      if (data.user) {
-        console.log('User signed up successfully:', data.user.email);
-        toast.success('Conta criada com sucesso! Verifique seu email para confirmar.');
-        return { success: true, user: data.user };
-      }
-
-      return { success: false, error: 'Erro desconhecido' };
+      const result = await authOps.signUp(email, password, name, phone);
+      return { success: true, user: result?.user };
     } catch (error: any) {
-      console.error('Sign up exception:', error);
-      toast.error('Erro ao criar conta');
+      console.error('Sign up error:', error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -116,27 +128,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       console.log('Attempting to sign in user:', email);
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error('Sign in error:', error);
-        toast.error(error.message || 'Erro ao fazer login');
-        return { success: false, error: error.message };
-      }
-
-      if (data.user) {
-        console.log('User signed in successfully:', data.user.email);
-        toast.success('Login realizado com sucesso!');
-        return { success: true, user: data.user };
-      }
-
-      return { success: false, error: 'Erro desconhecido' };
+      await authOps.signIn(email, password);
+      return { success: true };
     } catch (error: any) {
-      console.error('Sign in exception:', error);
-      toast.error('Erro ao fazer login');
+      console.error('Sign in error:', error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -148,24 +143,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       console.log('Attempting to sign in with Google');
       
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-
-      if (error) {
-        console.error('Google sign in error:', error);
-        toast.error(error.message || 'Erro ao fazer login com Google');
-        return { success: false, error: error.message };
-      }
-
-      console.log('Google sign in initiated successfully');
+      await authOps.signInWithGoogle();
       return { success: true };
     } catch (error: any) {
-      console.error('Google sign in exception:', error);
-      toast.error('Erro ao fazer login com Google');
+      console.error('Google sign in error:', error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -177,35 +158,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       console.log('Attempting to sign out user');
       
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Sign out error:', error);
-        toast.error('Erro ao fazer logout');
-        return { success: false, error: error.message };
-      }
-
-      console.log('User signed out successfully');
+      await authOps.signOut();
       setUser(null);
-      toast.success('Logout realizado com sucesso!');
+      setProfile(null);
       navigate('/login');
       return { success: true };
     } catch (error: any) {
-      console.error('Sign out exception:', error);
-      toast.error('Erro ao fazer logout');
+      console.error('Sign out error:', error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
     }
   };
 
+  const updateProfile = async (profileData: Partial<Profile>) => {
+    if (!user) throw new Error('No user found');
+    
+    try {
+      const updatedProfile = await authOps.updateProfile(user, profileData, profile);
+      setProfile(updatedProfile);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    try {
+      await authOps.updatePassword(password);
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const value = {
     user,
+    profile,
     loading,
     signUp,
     signIn,
     signInWithGoogle,
     signOut,
+    updateProfile,
+    updatePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -214,7 +208,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
   return context;
 };
