@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,7 +46,7 @@ const StudyPlan = () => {
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const isFirstRender = useRef(true);
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
-  const [novoCicloBanner, setNovoCicloBanner] = useState(false);
+  const [showDayCompletedMessage, setShowDayCompletedMessage] = useState(false);
   const [cicloAtual, setCicloAtual] = useState<string[]>([]);
   const [disciplinasDoDia, setDisciplinasDoDia] = useState<string[]>([]);
   
@@ -195,7 +196,7 @@ const StudyPlan = () => {
       console.log('Settings changed, updating disciplinas do dia to:', newSubjectsPerDay);
       
       // Se o número de matérias por dia mudou, atualiza as disciplinas do dia
-      if (disciplinasDoDia.length !== newSubjectsPerDay) {
+      if (disciplinasDoDia.length !== newSubjectsPerDay && disciplinasDoDia.length > 0) {
         const availableSubjects = currentSubjects.filter(s => !cicloAtual.includes(s.id));
         const newDisciplinasDoDia = availableSubjects.slice(0, newSubjectsPerDay).map(s => s.id);
         
@@ -206,7 +207,7 @@ const StudyPlan = () => {
         });
       }
     }
-  }, [userProfile?.settings?.subjectsPerDay, currentSubjects.length, cicloAtual]);
+  }, [userProfile?.settings?.subjectsPerDay, currentSubjects.length]);
   
   // Função para calcular a próxima data de revisão com base no estágio atual
   const calculateNextReview = (stage: RevisionStage | undefined): Date => {
@@ -282,12 +283,13 @@ const StudyPlan = () => {
 
   // Calcular as disciplinas do dia baseado na configuração atual
   const dailySubjects = subjects.filter(
-    s => disciplinasDoDia.includes(s.id) && !cicloAtual.includes(s.id)
+    s => disciplinasDoDia.includes(s.id) && !completedSessions.includes(s.id)
   );
 
   console.log('Daily subjects:', dailySubjects.length, 'Expected:', subjectsPerDay);
   console.log('disciplinasDoDia:', disciplinasDoDia);
   console.log('cicloAtual:', cicloAtual);
+  console.log('completedSessions:', completedSessions);
 
   // Próximas matérias (pendentes que não estão no dia atual nem no ciclo)
   const materiasPendentes = subjects
@@ -312,6 +314,7 @@ const StudyPlan = () => {
     
     setCompletedSessions([]);
     setExpandedSubject(null);
+    setShowDayCompletedMessage(false);
     toast.info("Novo dia iniciado!");
   };
 
@@ -331,7 +334,7 @@ const StudyPlan = () => {
     setCompletedSessions([]);
     setCurrentSubjectIndex(0);
     setExpandedSubject(null);
-    setNovoCicloBanner(false);
+    setShowDayCompletedMessage(false);
     toast.info("Ciclo reiniciado");
   };
 
@@ -363,10 +366,7 @@ const StudyPlan = () => {
       
       // Atualizar arrays locais
       const newCicloAtual = [...cicloAtual, subjectId];
-      const newDisciplinasDoDia = disciplinasDoDia.filter(id => id !== subjectId);
-      
       setCicloAtual(newCicloAtual);
-      setDisciplinasDoDia(newDisciplinasDoDia);
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
@@ -376,33 +376,41 @@ const StudyPlan = () => {
       
       // Atualizar ciclo no banco
       await updateUserCycle({
-        ciclo_atual: newCicloAtual,
-        disciplinas_do_dia: newDisciplinasDoDia
+        ciclo_atual: newCicloAtual
       });
       
-      // Se todas as matérias do ciclo foram concluídas, reinicia ciclo e mostra banner
-      const todasMatConcluidas = currentSubjects.every(subject => newCicloAtual.includes(subject.id));
+      // Verificar se todas as matérias do dia foram concluídas
+      const todasMateriasDoDiaConcluidas = disciplinasDoDia.every(id => 
+        [...completedSessions, subjectId].includes(id)
+      );
       
-      if (todasMatConcluidas) {
-        setTimeout(() => {
-          launchConfetti();
-          setNovoCicloBanner(true);
-          setCicloAtual([]);
-          setDisciplinasDoDia([]);
-          setCompletedSessions([]);
-          setCurrentSubjectIndex(0);
-          setExpandedSubject(null);
-          
-          // Atualizar ciclo no banco: novo ciclo
-          updateUserCycle({
-            ciclo_atual: [],
-            disciplinas_do_dia: [],
-            ciclos_realizados: (userCycle?.ciclos_realizados || 0) + 1,
-            data_inicio_ciclo: new Date().toISOString(),
-            data_fim_ciclo: new Date().toISOString()
-          });
-        }, 500);
-        return;
+      if (todasMateriasDoDiaConcluidas) {
+        setShowDayCompletedMessage(true);
+        launchConfetti();
+        
+        // Verificar se todas as matérias do ciclo foram concluídas
+        const todasMatConcluidas = currentSubjects.every(subject => newCicloAtual.includes(subject.id));
+        
+        if (todasMatConcluidas) {
+          setTimeout(() => {
+            setShowDayCompletedMessage(false);
+            setCicloAtual([]);
+            setDisciplinasDoDia([]);
+            setCompletedSessions([]);
+            setCurrentSubjectIndex(0);
+            setExpandedSubject(null);
+            
+            // Atualizar ciclo no banco: novo ciclo
+            updateUserCycle({
+              ciclo_atual: [],
+              disciplinas_do_dia: [],
+              ciclos_realizados: (userCycle?.ciclos_realizados || 0) + 1,
+              data_inicio_ciclo: new Date().toISOString(),
+              data_fim_ciclo: new Date().toISOString()
+            });
+          }, 3000);
+          return;
+        }
       }
     } catch (error) {
       toast.error("Erro ao salvar revisões. Tente novamente.");
@@ -455,46 +463,6 @@ const StudyPlan = () => {
     if (!topic.reviewStage) return "";
     return topic.reviewStage;
   };
-
-  // Salvar disciplinasDoDia e cicloAtual no localStorage sempre que mudarem
-  useEffect(() => {
-    localStorage.setItem('disciplinasDoDia', JSON.stringify(disciplinasDoDia));
-  }, [disciplinasDoDia]);
-
-  useEffect(() => {
-    localStorage.setItem('cicloAtual', JSON.stringify(cicloAtual));
-  }, [cicloAtual]);
-
-  // Restaurar disciplinasDoDia e cicloAtual do localStorage ao carregar a página
-  useEffect(() => {
-    const savedDisciplinas = localStorage.getItem('disciplinasDoDia');
-    if (savedDisciplinas) {
-      try {
-        const parsed = JSON.parse(savedDisciplinas);
-        if (Array.isArray(parsed)) setDisciplinasDoDia(parsed);
-      } catch {}
-    }
-    const savedCiclo = localStorage.getItem('cicloAtual');
-    if (savedCiclo) {
-      try {
-        const parsed = JSON.parse(savedCiclo);
-        if (Array.isArray(parsed)) setCicloAtual(parsed);
-      } catch {}
-    }
-  }, []);
-
-  // Atualizar ciclo no banco sempre que mudar
-  useEffect(() => {
-    if (!user) return;
-    supabase.from('user_cycles').upsert([
-      {
-        user_id: user.id,
-        ciclo_atual: Array.isArray(cicloAtual) ? cicloAtual : [],
-        disciplinas_do_dia: Array.isArray(disciplinasDoDia) ? disciplinasDoDia : [],
-        atualizado_em: new Date().toISOString()
-      }
-    ], { onConflict: 'user_id' });
-  }, [user, cicloAtual, disciplinasDoDia]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -558,7 +526,6 @@ const StudyPlan = () => {
                 variant="outline" 
                 onClick={handleNextDay}
                 className="flex items-center gap-2 hover:bg-blue-50 transition-colors text-sm px-2 py-1 w-full sm:w-auto"
-                disabled={materiasPendentes.length === 0}
               >
                 Próximo Dia
                 <ArrowRight className="h-4 w-4" />
@@ -604,7 +571,30 @@ const StudyPlan = () => {
 
           {/* Current Subjects */}
           <div className="space-y-4">
-            {dailySubjects.length === 0 ? (
+            {/* Mensagem de dia concluído */}
+            <AnimatePresence>
+              {showDayCompletedMessage && dailySubjects.length === 0 && (
+                <motion.div 
+                  className="mt-6 text-center p-4 bg-green-50/70 backdrop-blur-lg rounded-xl shadow-lg border-2 border-green-300"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                >
+                  <Sparkle size={32} className="mx-auto text-yellow-500 mb-2" weight="fill" />
+                  <h3 className="text-lg font-bold text-green-800">Parabéns! 🎉</h3>
+                  <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do dia!</p>
+                  <Button 
+                    className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
+                    onClick={handleNextDay}
+                  >
+                    Avançar para o próximo dia
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Matérias do dia */}
+            {dailySubjects.length === 0 && !showDayCompletedMessage ? (
               <motion.div 
                 className="flex flex-col items-center justify-center py-6 bg-white/70 backdrop-blur-lg rounded-xl shadow-lg border border-white/20 w-full"
                 variants={itemVariants}
@@ -625,7 +615,7 @@ const StudyPlan = () => {
                           onClick={() => handleToggleExpand(subject.id)}
                         >
                           <BookOpen size={18} className="mr-2 text-app-blue group-hover:rotate-12 transition-transform" weight="duotone" />
-                          {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
+                          {subject.name} (Hoje)
                           <motion.div
                             animate={{ rotate: expandedSubject === subject.id ? 180 : 0 }}
                             transition={{ type: "spring", stiffness: 200 }}
@@ -747,32 +737,9 @@ const StudyPlan = () => {
             ))}
           </div>
 
-          {/* Completion State */}
-          <AnimatePresence>
-            {dailySubjects.length > 0 && 
-             dailySubjects.every(subject => completedSessions.includes(subject.id)) && !novoCicloBanner && (
-              <motion.div 
-                className="mt-6 text-center p-4 bg-green-50/70 backdrop-blur-lg rounded-xl shadow-lg border-2 border-green-300"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-              >
-                <Sparkle size={32} className="mx-auto text-yellow-500 mb-2" weight="fill" />
-                <h3 className="text-lg font-bold text-green-800">Parabéns! 🎉</h3>
-                <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do dia!</p>
-                <Button 
-                  className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
-                  onClick={handleNextDay}
-                >
-                  Avançar para o próximo dia
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* New Cycle Banner */}
           <AnimatePresence>
-            {novoCicloBanner && (
+            {showDayCompletedMessage && cicloAtual.length === currentSubjects.length && (
               <motion.div 
                 className="mt-6 text-center p-4 bg-blue-50/70 backdrop-blur-lg rounded-xl shadow-lg border-2 border-blue-300 w-full"
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -784,7 +751,7 @@ const StudyPlan = () => {
                 <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do ciclo. As disciplinas foram reiniciadas na ordem definida.</p>
                 <Button 
                   className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1 w-full sm:w-auto"
-                  onClick={() => setNovoCicloBanner(false)}
+                  onClick={() => setShowDayCompletedMessage(false)}
                 >
                   Continuar
                 </Button>
