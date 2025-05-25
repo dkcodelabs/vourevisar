@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,14 +86,14 @@ const StudyPlan = () => {
     }
   }, [isCycleLoading, userCycle, currentSubjects.length, subjectsPerDay]);
 
-  // Atualizar disciplinas do dia quando as configurações mudarem
+  // Atualizar disciplinas do dia quando as configurações mudarem OU quando um novo ciclo for iniciado
   useEffect(() => {
     if (userProfile?.settings?.subjectsPerDay && userCycle && currentSubjects.length > 0) {
       const newSubjectsPerDay = userProfile.settings.subjectsPerDay;
       console.log('Settings changed, updating disciplinas do dia to:', newSubjectsPerDay);
       
-      // Se o número de matérias por dia mudou, atualiza as disciplinas do dia
-      if (userCycle.disciplinas_do_dia.length !== newSubjectsPerDay && userCycle.disciplinas_do_dia.length > 0) {
+      // Se não há disciplinas do dia OU o número de matérias por dia mudou, atualiza as disciplinas do dia
+      if (userCycle.disciplinas_do_dia.length === 0 || userCycle.disciplinas_do_dia.length !== newSubjectsPerDay) {
         const availableSubjects = currentSubjects.filter(s => !userCycle.ciclo_atual.includes(s.id));
         const newDisciplinasDoDia = availableSubjects.slice(0, newSubjectsPerDay).map(s => s.id);
         
@@ -105,7 +104,7 @@ const StudyPlan = () => {
         });
       }
     }
-  }, [userProfile?.settings?.subjectsPerDay, currentSubjects.length]);
+  }, [userProfile?.settings?.subjectsPerDay, currentSubjects.length, userCycle?.disciplinas_do_dia?.length, userCycle?.ciclo_atual?.length]);
   
   // Função para calcular a próxima data de revisão com base no estágio atual
   const calculateNextReview = (stage: RevisionStage | undefined): Date => {
@@ -253,6 +252,10 @@ const StudyPlan = () => {
       
       // Atualizar arrays locais
       const newCicloAtual = [...(userCycle?.ciclo_atual || []), subjectId];
+      
+      // Remover matéria das disciplinas do dia e adicionar ao ciclo atual
+      const newDisciplinasDoDia = userCycle?.disciplinas_do_dia.filter(id => id !== subjectId) || [];
+      
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
@@ -262,13 +265,12 @@ const StudyPlan = () => {
       
       // Atualizar ciclo no banco
       await updateUserCycle({
-        ciclo_atual: newCicloAtual
+        ciclo_atual: newCicloAtual,
+        disciplinas_do_dia: newDisciplinasDoDia
       });
       
       // Verificar se todas as matérias do dia foram concluídas
-      const todasMateriasDoDiaConcluidas = userCycle?.disciplinas_do_dia.every(id => 
-        newCicloAtual.includes(id)
-      );
+      const todasMateriasDoDiaConcluidas = newDisciplinasDoDia.length === 0;
       
       if (todasMateriasDoDiaConcluidas) {
         launchConfetti();
@@ -292,6 +294,12 @@ const StudyPlan = () => {
             });
           }, 3000);
           return;
+        } else {
+          // Se ainda há matérias disponíveis, carregar as próximas
+          if (materiasPendentes.length > 0) {
+            toast.info("Carregando próximas matérias para estudo...");
+            handleNextDay();
+          }
         }
       }
 
@@ -482,7 +490,7 @@ const StudyPlan = () => {
             </AnimatePresence>
 
             {/* Matérias do dia */}
-            {!allDaySubjectsCompleted && dailySubjects.map((subject, index) => (
+            {dailySubjects.length > 0 && dailySubjects.map((subject, index) => (
               <motion.div key={subject.id} variants={itemVariants} className="w-full">
                 <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
                   <CardHeader className="p-3 pb-2">
