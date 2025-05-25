@@ -160,40 +160,18 @@ export const Dashboard = () => {
     }
   };
 
-  // Função para remover tópico das listas de revisão local
-  const removeTopicFromReviewLists = (topicId: string) => {
-    // Remove from today's reviews
-    setTodaysReviews(prev => prev.filter(review => review.id !== topicId));
-    
-    // Remove from calendar revisions
-    setRevisionsByDate(prev => {
-      const updated = { ...prev };
-      Object.keys(updated).forEach(day => {
-        updated[day] = updated[day].filter(revision => revision.id !== topicId);
-        // Remove empty days
-        if (updated[day].length === 0) {
-          delete updated[day];
-        }
-      });
-      return updated;
-    });
-  };
-
-  // Função para lidar com revisão concluída (chamada do StudyPlan)
-  const handleTopicReviewed = (topicId: string) => {
-    removeTopicFromReviewLists(topicId);
-  };
-
-  // Adicionar listener para eventos de revisão concluída
+  // Listener para eventos de revisão concluída - recarrega os dados
   useEffect(() => {
-    const handleTopicReviewedEvent = (event: CustomEvent) => {
-      handleTopicReviewed(event.detail.topicId);
+    const handleTopicReviewed = () => {
+      console.log('Topic reviewed event received, reloading data...');
+      fetchTodaysReviews();
+      fetchRevisionsForCalendar();
     };
 
-    window.addEventListener('topicReviewed', handleTopicReviewedEvent as EventListener);
+    window.addEventListener('topicReviewed', handleTopicReviewed);
     
     return () => {
-      window.removeEventListener('topicReviewed', handleTopicReviewedEvent as EventListener);
+      window.removeEventListener('topicReviewed', handleTopicReviewed);
     };
   }, []);
   

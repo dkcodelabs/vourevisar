@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -242,6 +243,7 @@ const StudyPlan = () => {
         await supabase.from('topics').update(updateData).eq('id', topicId);
         
         // Disparar evento para notificar o Dashboard
+        console.log('Dispatching topicReviewed event for topic:', topicId);
         window.dispatchEvent(new CustomEvent('topicReviewed', { 
           detail: { topicId } 
         }));
