@@ -28,17 +28,13 @@ const StudyPlan = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
-  const [completedSessions, setCompletedSessions] = useState<string[]>([]);
   const [currentSubjectIndex, setCurrentSubjectIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const isFirstRender = useRef(true);
-  const [showDayCompletedMessage, setShowDayCompletedMessage] = useState(false);
-  const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
-  const [isPersistentCongratsMessage, setIsPersistentCongratsMessage] = useState(false);
   
   // Use the custom hook for cycle management
-  const { userCycle, isLoading: isCycleLoading, fetchUserCycle, updateUserCycle, createInitialUserCycle } = useCycleState();
+  const { userCycle, isLoading: isCycleLoading, fetchUserCycle, updateUserCycle, createInitialUserCycle, isAllDaySubjectsCompleted } = useCycleState();
   
   // Get the subjectsPerDay from user settings, with proper fallback
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
@@ -185,13 +181,16 @@ const StudyPlan = () => {
 
   // Calcular as disciplinas do dia baseado na configuração atual
   const dailySubjects = subjects.filter(
-    s => userCycle?.disciplinas_do_dia.includes(s.id) && !completedSessions.includes(s.id)
+    s => userCycle?.disciplinas_do_dia.includes(s.id)
   );
+
+  // Check if all day subjects are completed
+  const allDaySubjectsCompleted = isAllDaySubjectsCompleted();
 
   console.log('Daily subjects:', dailySubjects.length, 'Expected:', subjectsPerDay);
   console.log('disciplinasDoDia:', userCycle?.disciplinas_do_dia);
   console.log('cicloAtual:', userCycle?.ciclo_atual);
-  console.log('completedSessions:', completedSessions);
+  console.log('allDaySubjectsCompleted:', allDaySubjectsCompleted);
 
   // Próximas matérias (pendentes que não estão no dia atual nem no ciclo)
   const materiasPendentes = subjects
@@ -217,11 +216,7 @@ const StudyPlan = () => {
       disciplinas_do_dia: novasDisciplinas
     });
     
-    setCompletedSessions([]);
     setExpandedSubject(null);
-    setShowDayCompletedMessage(false);
-    setShowNewCycleMessage(false);
-    setIsPersistentCongratsMessage(false);
     toast.info("Novas matérias carregadas para estudo!");
   };
 
@@ -249,7 +244,6 @@ const StudyPlan = () => {
       }
       
       await fetchSubjects();
-      setCompletedSessions(prev => [...prev, subjectId]);
       
       // Atualizar arrays locais
       const newCicloAtual = [...(userCycle?.ciclo_atual || []), subjectId];
@@ -267,12 +261,10 @@ const StudyPlan = () => {
       
       // Verificar se todas as matérias do dia foram concluídas
       const todasMateriasDoDiaConcluidas = userCycle?.disciplinas_do_dia.every(id => 
-        [...completedSessions, subjectId].includes(id)
+        newCicloAtual.includes(id)
       );
       
       if (todasMateriasDoDiaConcluidas) {
-        setShowDayCompletedMessage(true);
-        setIsPersistentCongratsMessage(true);
         launchConfetti();
         
         // Verificar se todas as matérias do ciclo foram concluídas
@@ -281,9 +273,6 @@ const StudyPlan = () => {
         if (todasMatConcluidas) {
           // Aguardar um pouco e então resetar o ciclo
           setTimeout(async () => {
-            setShowDayCompletedMessage(false);
-            setShowNewCycleMessage(true);
-            setCompletedSessions([]);
             setCurrentSubjectIndex(0);
             setExpandedSubject(null);
             
@@ -295,12 +284,6 @@ const StudyPlan = () => {
               data_inicio_ciclo: new Date().toISOString(),
               data_fim_ciclo: new Date().toISOString()
             });
-            
-            // Aguardar mais um pouco e então esconder mensagem de novo ciclo
-            setTimeout(() => {
-              setShowNewCycleMessage(false);
-              setIsPersistentCongratsMessage(false);
-            }, 5000);
           }, 3000);
           return;
         }
@@ -385,10 +368,6 @@ const StudyPlan = () => {
   // Calcular total de disciplinas no ciclo atual (não estudadas)
   const totalDisciplinasCiclo = currentSubjects.length;
   const disciplinasConcluidas = userCycle?.ciclo_atual.length || 0;
-
-  // Verificar se deve mostrar mensagem de parabéns
-  const shouldShowCongrats = (isPersistentCongratsMessage && (showDayCompletedMessage || showNewCycleMessage)) || 
-                            (dailySubjects.length === 0 && userCycle?.disciplinas_do_dia.length > 0);
 
   // Verificar se é realmente um novo ciclo (primeira matéria)
   const isReallyNewCycle = disciplinasConcluidas === 0 && totalDisciplinasCiclo > 0;
@@ -476,7 +455,7 @@ const StudyPlan = () => {
           <div className="space-y-4">
             {/* Mensagem de parabéns persistente */}
             <AnimatePresence>
-              {shouldShowCongrats && (
+              {allDaySubjectsCompleted && (
                 <motion.div 
                   className="mt-6 text-center p-4 bg-green-50/70 backdrop-blur-lg rounded-xl shadow-lg border-2 border-green-300"
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -484,17 +463,8 @@ const StudyPlan = () => {
                   exit={{ opacity: 0, scale: 0.9 }}
                 >
                   <Sparkle size={32} className="mx-auto text-yellow-500 mb-2" weight="fill" />
-                  {showNewCycleMessage ? (
-                    <>
-                      <h3 className="text-lg font-bold text-blue-800">Novo ciclo iniciado! 🔄</h3>
-                      <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do ciclo. As disciplinas foram reiniciadas na ordem definida.</p>
-                    </>
-                  ) : (
-                    <>
-                      <h3 className="text-lg font-bold text-green-800">Parabéns! 🎉</h3>
-                      <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do dia!</p>
-                    </>
-                  )}
+                  <h3 className="text-lg font-bold text-green-800">Parabéns! 🎉</h3>
+                  <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do dia!</p>
                   <Button 
                     className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
                     onClick={handleNextDay}
@@ -506,7 +476,7 @@ const StudyPlan = () => {
             </AnimatePresence>
 
             {/* Matérias do dia */}
-            {!shouldShowCongrats && dailySubjects.map((subject, index) => (
+            {!allDaySubjectsCompleted && dailySubjects.map((subject, index) => (
               <motion.div key={subject.id} variants={itemVariants} className="w-full">
                 <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
                   <CardHeader className="p-3 pb-2">
@@ -582,7 +552,6 @@ const StudyPlan = () => {
                           <Button 
                             className="bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1 mt-2 w-full sm:w-auto h-7"
                             onClick={() => handleCompleteSession(subject.id)}
-                            disabled={completedSessions.includes(subject.id)}
                           >
                             <CheckCircle className="h-3 w-3 mr-2" />
                             Concluir Sessão

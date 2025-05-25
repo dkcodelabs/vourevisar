@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -18,8 +18,34 @@ const Topics = () => {
   const { subjects, addTopicToSubject, removeTopicFromSubject, fetchSubjects } = useApp();
   const [newTopicName, setNewTopicName] = useState('');
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Load subjects on mount
+  useEffect(() => {
+    const loadSubjects = async () => {
+      setIsLoading(true);
+      await fetchSubjects();
+      setIsLoading(false);
+    };
+    
+    if (subjects.length === 0) {
+      loadSubjects();
+    } else {
+      setIsLoading(false);
+    }
+  }, []);
   
   const subject = subjects.find(s => s.id === subjectId);
+  
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+        </div>
+      </div>
+    );
+  }
   
   if (!subject) {
     return (

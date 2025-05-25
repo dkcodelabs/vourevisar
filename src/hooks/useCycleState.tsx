@@ -124,6 +124,14 @@ export const useCycleState = () => {
     }
   };
 
+  // Check if all subjects for the day are completed
+  const isAllDaySubjectsCompleted = () => {
+    if (!userCycle?.disciplinas_do_dia || userCycle.disciplinas_do_dia.length === 0) return false;
+    return userCycle.disciplinas_do_dia.every(subjectId => 
+      userCycle.ciclo_atual.includes(subjectId)
+    );
+  };
+
   useEffect(() => {
     if (user) {
       fetchUserCycle();
@@ -138,6 +146,7 @@ export const useCycleState = () => {
     fetchUserCycle,
     updateUserCycle,
     createInitialUserCycle,
-    resetCycle
+    resetCycle,
+    isAllDaySubjectsCompleted
   };
 };
