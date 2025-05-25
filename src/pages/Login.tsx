@@ -1,8 +1,7 @@
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { 
@@ -20,7 +19,8 @@ import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const location = useLocation();
+  const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,6 +30,14 @@ const Login = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) {
+      const from = location.state?.from?.pathname || '/';
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,19 +60,24 @@ const Login = () => {
           return;
         }
 
-        await signUp(email, password, name, phone);
-        // Reset form after successful signup
-        setIsRegistering(false);
-        setName('');
-        setPhone('');
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
+        const result = await signUp(email, password, name, phone);
+        if (result.success) {
+          // Reset form after successful signup
+          setIsRegistering(false);
+          setName('');
+          setPhone('');
+          setEmail('');
+          setPassword('');
+          setConfirmPassword('');
+        }
       } else {
-        await signIn(email, password);
+        const result = await signIn(email, password);
+        if (result.success) {
+          const from = location.state?.from?.pathname || '/';
+          navigate(from, { replace: true });
+        }
       }
     } catch (error: any) {
-      // Error handling is done in auth operations, no need to show toast here
       console.error('Login/Signup error:', error);
     } finally {
       setIsLoading(false);
@@ -74,7 +87,11 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true);
-      await signInWithGoogle();
+      const result = await signInWithGoogle();
+      if (result.success) {
+        const from = location.state?.from?.pathname || '/';
+        navigate(from, { replace: true });
+      }
     } catch (error: any) {
       console.error('Google login error:', error);
     } finally {

@@ -13,10 +13,12 @@ export function useAuthOperations() {
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       
+      console.log('Sign in successful:', data.user?.email);
       toast.success('Login realizado com sucesso!');
+      return data;
     } catch (error: any) {
       console.error('Sign in error:', error);
       toast.error(error.message || 'Erro ao fazer login');
@@ -36,7 +38,7 @@ export function useAuthOperations() {
         .eq('email', email)
         .maybeSingle();
       
-      if (emailCheckError) {
+      if (emailCheckError && emailCheckError.code !== 'PGRST116') {
         console.error("Error checking existing email:", emailCheckError);
       }
 
@@ -65,22 +67,7 @@ export function useAuthOperations() {
         throw error;
       }
       
-      // If signup was successful, update the profile with the additional data
-      if (data?.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            name: name,
-            phone: phone || null,
-            provider_type: 'Cadastro'
-          })
-          .eq('id', data.user.id);
-          
-        if (profileError) {
-          console.error('Error updating profile:', profileError);
-        }
-      }
-      
+      console.log('Sign up successful:', data.user?.email);
       toast.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
       return data;
     } catch (error: any) {
@@ -198,24 +185,24 @@ export function useAuthOperations() {
     }
   };
 
-  const updateProfile = async (user: User, profile: Partial<Profile>, currentProfile: Profile | null) => {
+  const updateProfile = async (user: User, profileData: Partial<Profile>, currentProfile: Profile | null) => {
     setLoading(true);
     try {
-      if (!profile) {
+      if (!profileData) {
         throw new Error("No profile data provided");
       }
       
       const { error } = await supabase
         .from('profiles')
-        .update({ 
-          ...profile,
+        .upsert({ 
+          id: user.id,
+          ...profileData,
           updated_at: new Date().toISOString() 
-        })
-        .eq('id', user.id);
+        });
         
       if (error) throw error;
       
-      const updatedProfile = currentProfile ? { ...currentProfile, ...profile } : null;
+      const updatedProfile = currentProfile ? { ...currentProfile, ...profileData } : null;
       
       toast.success('Perfil atualizado com sucesso!');
       return updatedProfile;

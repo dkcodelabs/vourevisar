@@ -34,6 +34,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     console.log('Setting up auth state listener...');
     
+    let isMounted = true;
+
+    // Configurar listener para mudanças de estado primeiro
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session ? 'with session' : 'no session');
+        
+        if (!isMounted) return;
+
+        if (session?.user) {
+          setUser(session.user);
+          // Buscar perfil sem await para evitar deadlock
+          setTimeout(() => {
+            if (isMounted) {
+              fetchProfile(session.user.id);
+            }
+          }, 0);
+        } else {
+          setUser(null);
+          setProfile(null);
+        }
+        
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    );
+
     // Verificar se há sessão existente
     const checkSession = async () => {
       console.log('Checking for existing session...');
@@ -44,53 +72,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           console.error('Error getting session:', error);
         } else if (session?.user) {
           console.log('Found existing session for user:', session.user.email);
-          setUser(session.user);
-          await fetchProfile(session.user.id);
+          if (isMounted) {
+            setUser(session.user);
+            setTimeout(() => {
+              if (isMounted) {
+                fetchProfile(session.user.id);
+              }
+            }, 0);
+          }
         } else {
           console.log('No existing session found');
         }
       } catch (error) {
         console.error('Error checking session:', error);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     checkSession();
 
-    // Configurar listener para mudanças de estado
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session ? 'with session' : 'no session');
-        
-        if (session?.user) {
-          setUser(session.user);
-          await fetchProfile(session.user.id);
-          // Só navega para dashboard se estiver na página de login ou não autenticado
-          if (location.pathname === '/login' && !user) {
-            navigate('/');
-          }
-        } else {
-          setUser(null);
-          setProfile(null);
-          // Só navega para login se não estiver já lá e se for um logout explícito
-          if (location.pathname !== '/login' && event === 'SIGNED_OUT') {
-            navigate('/login');
-          }
-        }
-        
-        setLoading(false);
-      }
-    );
-
     return () => {
       console.log('Cleaning up auth subscription');
+      isMounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -99,9 +112,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Error fetching profile:', error);
+        // Se não encontrar perfil, criar um
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found, creating one...');
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData.user) {
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: userData.user.id,
+                email: userData.user.email,
+                name: userData.user.user_metadata?.name || userData.user.user_metadata?.full_name || 'Usuário',
+                phone: userData.user.user_metadata?.phone || null,
+                avatar_url: userData.user.user_metadata?.avatar_url || null
+              });
+            
+            if (!insertError) {
+              // Buscar o perfil criado
+              const { data: newProfile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userData.user.id)
+                .single();
+              
+              if (newProfile) {
+                setProfile(newProfile);
+              }
+            }
+          }
+        }
         return;
       }
 
+      console.log('Profile fetched successfully:', data);
       setProfile(data);
     } catch (error) {
       console.error('Exception fetching profile:', error);

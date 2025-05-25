@@ -23,10 +23,10 @@ export const ProtectedRoute = () => {
     );
   }
   
-  // If no user authenticated, redirect to login
+  // If no user authenticated, redirect to login preserving the intended path
   if (!user) {
     console.log('No user found, redirecting to login');
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
   // If user is authenticated, render protected content
