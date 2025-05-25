@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,12 +42,12 @@ const StudyPlan = () => {
   console.log('subjectsPerDay from settings:', subjectsPerDay);
   console.log('userProfile:', userProfile);
   
-  // Filter subjects that are in progress - RESPECTING PRIORITY ORDER
+  // Filter subjects that are in progress
   const currentSubjects = subjects.filter(subject => 
     subject.status === 'Em Estudo' || subject.status === 'Nova'
   ).sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
-  // Load user data when component mounts
+  // Buscar dados do usuário ao carregar a página
   useEffect(() => {
     let isMounted = true;
 
@@ -55,8 +56,10 @@ const StudyPlan = () => {
 
       setIsLoading(true);
       try {
-        // Always fetch fresh data to ensure order changes are reflected
-        await fetchSubjects();
+        // Carrega os dados apenas se não estiverem já carregados
+        if (subjects.length === 0) {
+          await fetchSubjects();
+        }
         if (!userProfile?.settings) {
           await fetchUserSettings();
         }
@@ -84,23 +87,17 @@ const StudyPlan = () => {
     }
   }, [isCycleLoading, userCycle, currentSubjects.length, subjectsPerDay]);
 
-  // Update day subjects when settings change OR when subject order changes
+  // Atualizar disciplinas do dia quando as configurações mudarem
   useEffect(() => {
     if (userProfile?.settings?.subjectsPerDay && userCycle && currentSubjects.length > 0) {
       const newSubjectsPerDay = userProfile.settings.subjectsPerDay;
-      console.log('Settings or subject order changed, updating disciplinas do dia to:', newSubjectsPerDay);
+      console.log('Settings changed, updating disciplinas do dia to:', newSubjectsPerDay);
       
-      // Get subjects that are not yet completed in the current cycle
-      const availableSubjects = currentSubjects.filter(s => !userCycle.ciclo_atual.includes(s.id));
-      const newDisciplinasDoDia = availableSubjects.slice(0, newSubjectsPerDay).map(s => s.id);
-      
-      // Only update if there's a change in the subjects for the day
-      const currentDisciplinasSet = new Set(userCycle.disciplinas_do_dia);
-      const newDisciplinasSet = new Set(newDisciplinasDoDia);
-      const isDifferent = currentDisciplinasSet.size !== newDisciplinasSet.size || 
-                         [...currentDisciplinasSet].some(id => !newDisciplinasSet.has(id));
-      
-      if (isDifferent) {
+      // Se o número de matérias por dia mudou, atualiza as disciplinas do dia
+      if (userCycle.disciplinas_do_dia.length !== newSubjectsPerDay && userCycle.disciplinas_do_dia.length > 0) {
+        const availableSubjects = currentSubjects.filter(s => !userCycle.ciclo_atual.includes(s.id));
+        const newDisciplinasDoDia = availableSubjects.slice(0, newSubjectsPerDay).map(s => s.id);
+        
         console.log('Updating disciplinas do dia from', userCycle.disciplinas_do_dia, 'to', newDisciplinasDoDia);
         
         updateUserCycle({
@@ -108,7 +105,7 @@ const StudyPlan = () => {
         });
       }
     }
-  }, [userProfile?.settings?.subjectsPerDay, currentSubjects, userCycle?.ciclo_atual]);
+  }, [userProfile?.settings?.subjectsPerDay, currentSubjects.length]);
   
   // Função para calcular a próxima data de revisão com base no estágio atual
   const calculateNextReview = (stage: RevisionStage | undefined): Date => {
@@ -248,6 +245,7 @@ const StudyPlan = () => {
       
       await fetchSubjects();
       
+      // Atualizar arrays locais
       const newCicloAtual = [...(userCycle?.ciclo_atual || []), subjectId];
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
@@ -256,10 +254,12 @@ const StudyPlan = () => {
         return updated;
       });
       
+      // Atualizar ciclo no banco
       await updateUserCycle({
         ciclo_atual: newCicloAtual
       });
       
+      // Verificar se todas as matérias do dia foram concluídas
       const todasMateriasDoDiaConcluidas = userCycle?.disciplinas_do_dia.every(id => 
         newCicloAtual.includes(id)
       );
@@ -267,13 +267,16 @@ const StudyPlan = () => {
       if (todasMateriasDoDiaConcluidas) {
         launchConfetti();
         
+        // Verificar se todas as matérias do ciclo foram concluídas
         const todasMatConcluidas = currentSubjects.every(subject => newCicloAtual.includes(subject.id));
         
         if (todasMatConcluidas) {
+          // Aguardar um pouco e então resetar o ciclo
           setTimeout(async () => {
             setCurrentSubjectIndex(0);
             setExpandedSubject(null);
             
+            // Atualizar ciclo no banco: novo ciclo
             await updateUserCycle({
               ciclo_atual: [],
               disciplinas_do_dia: [],
@@ -286,6 +289,7 @@ const StudyPlan = () => {
         }
       }
 
+      // Recarregar o ciclo atualizado do banco para garantir sincronização
       await fetchUserCycle();
     } catch (error) {
       toast.error("Erro ao salvar revisões. Tente novamente.");
@@ -449,7 +453,7 @@ const StudyPlan = () => {
 
           {/* Current Subjects */}
           <div className="space-y-4">
-            {/* ALWAYS show congratulations if all day subjects are completed */}
+            {/* Mensagem de parabéns persistente */}
             <AnimatePresence>
               {allDaySubjectsCompleted && (
                 <motion.div 
@@ -471,7 +475,7 @@ const StudyPlan = () => {
               )}
             </AnimatePresence>
 
-            {/* Show today's subjects if any are not completed */}
+            {/* Matérias do dia */}
             {!allDaySubjectsCompleted && dailySubjects.map((subject, index) => (
               <motion.div key={subject.id} variants={itemVariants} className="w-full">
                 <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
@@ -576,7 +580,7 @@ const StudyPlan = () => {
             ))}
           </div>
 
-          {/* Next Subjects - always visible, respecting the quantity setting */}
+          {/* Next Subjects - sempre visíveis */}
           {nextSubjects.length > 0 && (
             <>
               <h2 className="text-lg font-bold mb-2 flex items-center">
