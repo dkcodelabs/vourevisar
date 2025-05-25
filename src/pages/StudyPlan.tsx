@@ -42,6 +42,20 @@ const StudyPlan = () => {
   const [dailySubjectsCompleted, setDailySubjectsCompleted] = useState(false);
   const [congratulationsShown, setCongratulationsShown] = useState(false);
 
+  const mapSubjectData = (subjects: any[]): SubjectInfo[] => {
+    return subjects.map(subject => ({
+      id: subject.id,
+      name: subject.name,
+      topics: subject.topics.map((topic: any) => ({
+        id: topic.id,
+        name: topic.name,
+        completed: topic.completed,
+        reviewStage: topic.review_stage,
+        nextReview: topic.next_review ? new Date(topic.next_review) : null
+      }))
+    }));
+  };
+
   const loadStudyPlan = async (loadNext = false) => {
     if (!user) return;
     
@@ -140,7 +154,9 @@ const StudyPlan = () => {
           subject.topics.every(topic => topic.completed)
         );
 
-      setDailySubjects(existingDailySubjects);
+      // Mapear dados corretamente
+      const mappedDailySubjects = mapSubjectData(existingDailySubjects);
+      setDailySubjects(mappedDailySubjects);
       setDailySubjectsCompleted(allCompleted);
       
       // Se todas foram completadas e ainda não mostrou parabéns
@@ -153,21 +169,16 @@ const StudyPlan = () => {
         !dailySubjectsFromDb.includes(subject.id)
       ).slice(0, 3);
       
-      setNextSubjects(remainingSubjects);
+      const mappedNextSubjects = mapSubjectData(remainingSubjects);
+      setNextSubjects(mappedNextSubjects);
 
       // Criar sessões de estudo
       const sessions: StudySession[] = [];
-      existingDailySubjects.forEach(subject => {
+      mappedDailySubjects.forEach(subject => {
         subject.topics.forEach(topic => {
           sessions.push({
             subject,
-            topic: {
-              id: topic.id,
-              name: topic.name,
-              completed: topic.completed,
-              reviewStage: topic.review_stage,
-              nextReview: topic.next_review ? new Date(topic.next_review) : null
-            },
+            topic,
             completed: topic.completed
           });
         });
@@ -291,7 +302,7 @@ const StudyPlan = () => {
           className="mt-2"
         />
 
-        {cycleState.isNewCycle && cycleState.completedSubjects === 1 && (
+        {cycleState.isNewCycle && cycleState.completedSubjects === 0 && (
           <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-800 font-medium">🎉 Novo ciclo iniciado!</p>
           </div>
@@ -299,7 +310,7 @@ const StudyPlan = () => {
       </GlassCard>
 
       {/* Progresso do Dia */}
-      {dailySubjects.length > 0 && (
+      {dailySubjects.length > 0 ? (
         <GlassCard className="p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -351,6 +362,19 @@ const StudyPlan = () => {
             </div>
           )}
         </GlassCard>
+      ) : (
+        congratulationsShown && (
+          <GlassCard className="p-4">
+            <div className="text-center py-8 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+              <div className="text-4xl mb-4">✨</div>
+              <h3 className="text-xl font-semibold text-green-800 mb-2">Parabéns! 🎉</h3>
+              <p className="text-green-700 mb-4">Você concluiu todas as matérias do dia!</p>
+              <GradientButton onClick={loadNextDay}>
+                Carregar próximas matérias
+              </GradientButton>
+            </div>
+          </GlassCard>
+        )
       )}
 
       {/* Próximas Matérias */}
@@ -374,7 +398,7 @@ const StudyPlan = () => {
         </GlassCard>
       )}
 
-      {dailySubjects.length === 0 && nextSubjects.length === 0 && (
+      {dailySubjects.length === 0 && nextSubjects.length === 0 && !congratulationsShown && (
         <GlassCard className="text-center py-10">
           <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500 mb-4">Você ainda não tem matérias cadastradas com tópicos.</p>
