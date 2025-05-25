@@ -555,7 +555,7 @@ const StudyPlan = () => {
                   <div className="flex items-center gap-2">
                     <CheckCircle size={16} className="text-green-500" weight="fill" />
                     <p className="text-xs text-gray-600">
-                      Disciplinas concluídas: <span className="font-semibold text-app-blue">{userCycle.ciclo_atual.length}</span>
+                      Disciplinas concluídas: <span className="font-semibold text-app-blue">{userCycle.ciclo_atual.length}/{userCycle.disciplinas_do_dia.length + userCycle.ciclo_atual.length}</span>
                     </p>
                   </div>
                 </div>
@@ -569,111 +569,121 @@ const StudyPlan = () => {
 
           {/* Current Subjects */}
           <div className="space-y-4">
-            {dailySubjects.map((subject, index) => (
-              <motion.div key={subject.id} variants={itemVariants} className="w-full">
-                <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
-                  <CardHeader className="p-3 pb-2">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                      <CardTitle 
-                        className="text-base font-bold text-app-blue cursor-pointer flex items-center group"
-                        onClick={() => handleToggleExpand(subject.id)}
-                      >
-                        <BookOpen size={18} className="mr-2 text-app-blue group-hover:rotate-12 transition-transform" weight="duotone" />
-                        {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
-                        <motion.div
-                          animate={{ rotate: expandedSubject === subject.id ? 180 : 0 }}
-                          transition={{ type: "spring", stiffness: 200 }}
-                        >
-                          {expandedSubject === subject.id ? (
-                            <ChevronUp className="ml-2 h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="ml-2 h-4 w-4" />
-                          )}
-                        </motion.div>
-                      </CardTitle>
-                      <Badge className="bg-blue-100/80 backdrop-blur-sm text-blue-800 hover:bg-blue-100 transition-colors text-xs">
-                        Status: {subject.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <AnimatePresence>
-                      {expandedSubject === subject.id ? (
-                        <motion.div 
-                          className="space-y-2"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          {subject.topics.map(topic => {
-                            const topicStatus = getTopicStatus(topic);
-                            const reviewStage = getTopicReviewStage(topic);
-                            const isMarkedForReview = tempMarkedTopics[subject.id]?.includes(topic.id);
-                            const isTopicCompleted = topic.reviewStage === 'Concluído';
-                            return (
-                              <motion.div key={topic.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 rounded bg-white/60">
-                                <div className="flex flex-col gap-1 w-full">
-                                  <span className="text-xs font-medium text-gray-700">{topic.name}</span>
-                                  <span className="text-xs text-gray-500">{reviewStage}</span>
-                                </div>
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                  {!isMarkedForReview ? (
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="text-green-600 hover:text-green-800 border border-green-200 hover:bg-green-50 transition-colors text-xs px-2 py-1 w-full sm:w-auto"
-                                      onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
-                                      disabled={isTopicCompleted}
-                                    >
-                                      <Check className="h-3 w-3 mr-1" />
-                                      Marcar Revisão
-                                    </Button>
-                                  ) : (
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 transition-colors text-xs px-2 py-1 w-full sm:w-auto"
-                                      onClick={() => handleCancelTopicReview(subject.id, topic.id)}
-                                    >
-                                      <X className="h-3 w-3 mr-1" />
-                                      Cancelar
-                                    </Button>
-                                  )}
-                                </div>
-                              </motion.div>
-                            );
-                          })}
-                          <Button 
-                            className="bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1 mt-2 w-full sm:w-auto"
-                            onClick={() => handleCompleteSession(subject.id)}
-                            disabled={completedSessions.includes(subject.id)}
-                          >
-                            <CheckCircle className="h-3 w-3 mr-2" />
-                            Concluir Sessão
-                          </Button>
-                        </motion.div>
-                      ) : (
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                          <span className="text-xs text-gray-500">
-                            {subject.topics.length} tópicos disponíveis
-                          </span>
-                          <div className="flex gap-2 w-full sm:w-auto">
-                            <Button 
-                              className="bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1 w-full sm:w-auto"
-                              onClick={() => handleToggleExpand(subject.id)}
-                            >
-                              <BookOpen className="h-3 w-3 mr-2" />
-                              Iniciar Estudo
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </AnimatePresence>
-                  </CardContent>
-                </Card>
+            {dailySubjects.length === 0 ? (
+              <motion.div 
+                className="flex flex-col items-center justify-center py-6 bg-white/70 backdrop-blur-lg rounded-xl shadow-lg border border-white/20 w-full"
+                variants={itemVariants}
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen size={32} className="text-app-blue" weight="duotone" />
+                  <span className="text-base text-gray-600">Não há matérias para estudar hoje.</span>
+                </div>
               </motion.div>
-            ))}
+            ) : (
+              dailySubjects.map((subject, index) => (
+                <motion.div key={subject.id} variants={itemVariants} className="w-full">
+                  <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
+                    <CardHeader className="p-3 pb-2">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <CardTitle 
+                          className="text-base font-bold text-app-blue cursor-pointer flex items-center group"
+                          onClick={() => handleToggleExpand(subject.id)}
+                        >
+                          <BookOpen size={18} className="mr-2 text-app-blue group-hover:rotate-12 transition-transform" weight="duotone" />
+                          {subject.name} {expandedSubject === subject.id ? '(Hoje)' : ''}
+                          <motion.div
+                            animate={{ rotate: expandedSubject === subject.id ? 180 : 0 }}
+                            transition={{ type: "spring", stiffness: 200 }}
+                          >
+                            {expandedSubject === subject.id ? (
+                              <ChevronUp className="ml-2 h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="ml-2 h-4 w-4" />
+                            )}
+                          </motion.div>
+                        </CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <AnimatePresence>
+                        {expandedSubject === subject.id ? (
+                          <motion.div 
+                            className="space-y-2"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
+                          >
+                            {subject.topics.map(topic => {
+                              const topicStatus = getTopicStatus(topic);
+                              let reviewStage = getTopicReviewStage(topic);
+                              if (!reviewStage) reviewStage = 'Não Iniciado';
+                              const isMarkedForReview = tempMarkedTopics[subject.id]?.includes(topic.id);
+                              const isTopicCompleted = topic.reviewStage === 'Concluído';
+                              return (
+                                <motion.div key={topic.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 rounded bg-white/60">
+                                  <div className="flex flex-col gap-1 w-full">
+                                    <span className="text-sm font-medium text-gray-800">{topic.name}</span>
+                                  </div>
+                                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
+                                    <span className="text-xs px-2 py-1 rounded-lg bg-blue-100/80 text-blue-800 font-medium whitespace-nowrap">{reviewStage}</span>
+                                    {!isMarkedForReview ? (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="text-green-600 hover:text-green-800 border border-green-200 hover:bg-green-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
+                                        onClick={() => handleMarkTopicForReview(subject.id, topic.id)}
+                                        disabled={isTopicCompleted}
+                                      >
+                                        <Check className="h-3 w-3 mr-1" />
+                                        Marcar Revisão
+                                      </Button>
+                                    ) : (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
+                                        onClick={() => handleCancelTopicReview(subject.id, topic.id)}
+                                      >
+                                        <X className="h-3 w-3 mr-1" />
+                                        Cancelar
+                                      </Button>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                            <Button 
+                              className="bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1 mt-2 w-full sm:w-auto h-7"
+                              onClick={() => handleCompleteSession(subject.id)}
+                              disabled={completedSessions.includes(subject.id)}
+                            >
+                              <CheckCircle className="h-3 w-3 mr-2" />
+                              Concluir Sessão
+                            </Button>
+                          </motion.div>
+                        ) : (
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                            <span className="text-xs text-gray-500">
+                              {subject.topics.length} tópicos disponíveis
+                            </span>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                              <Button 
+                                className="bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1 w-full sm:w-auto h-7"
+                                onClick={() => handleToggleExpand(subject.id)}
+                              >
+                                <BookOpen className="h-3 w-3 mr-2" />
+                                Iniciar Estudo
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </AnimatePresence>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))
+            )}
           </div>
 
           {/* Next Subjects */}
@@ -701,21 +711,6 @@ const StudyPlan = () => {
               </motion.div>
             ))}
           </div>
-
-          {/* Empty State */}
-          <motion.div 
-            className="text-center py-6 bg-white/70 backdrop-blur-lg rounded-xl shadow-lg border border-white/20 w-full"
-            variants={itemVariants}
-          >
-            <BookOpen size={32} className="mx-auto text-app-blue mb-2" weight="duotone" />
-            <p className="text-base text-gray-600">Não há matérias para estudar hoje.</p>
-            <Button 
-              className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1 w-full sm:w-auto"
-              onClick={() => navigate('/materias')}
-            >
-              Adicionar Matérias
-            </Button>
-          </motion.div>
 
           {/* Completion State */}
           <AnimatePresence>
