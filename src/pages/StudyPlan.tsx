@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,14 +22,6 @@ import {
   Calendar
 } from '@phosphor-icons/react';
 import { useCycleState } from '@/hooks/useCycleState';
-
-interface Topic {
-  id: string;
-  name: string;
-  subject_name: string;
-  review_stage?: string | null;
-  next_review?: string | null;
-}
 
 const stageOrder = {
   '24h': 1,

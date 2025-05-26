@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -69,6 +70,126 @@ export const Dashboard = () => {
       console.log('Ciclos realizados from DB:', ciclos);
     } catch (error) {
       console.error('Error fetching cycles:', error);
+    }
+  };
+
+  // Função para buscar revisões de hoje
+  const fetchTodaysReviews = async () => {
+    if (!user) return;
+
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const { data: subjects } = await supabase
+        .from('subjects')
+        .select('id, name')
+        .eq('user_id', user.id);
+
+      if (!subjects) return;
+
+      const subjectIds = subjects.map(s => s.id);
+
+      const { data: topics, error } = await supabase
+        .from('topics')
+        .select('id, name, next_review, review_stage, subject_id')
+        .in('subject_id', subjectIds)
+        .gte('next_review', today.toISOString())
+        .lt('next_review', tomorrow.toISOString());
+
+      if (error) {
+        console.error('Error fetching today\'s reviews:', error);
+        return;
+      }
+
+      const reviewsWithSubjects = topics?.map(topic => {
+        const subject = subjects.find(s => s.id === topic.subject_id);
+        return {
+          id: topic.id,
+          topic: topic.name,
+          subject: subject?.name || 'Unknown',
+          type: topic.review_stage || 'Primeira Revisão'
+        };
+      }) || [];
+
+      setTodaysReviews(reviewsWithSubjects);
+    } catch (error) {
+      console.error('Error fetching today\'s reviews:', error);
+    }
+  };
+
+  // Função para buscar revisões para o calendário
+  const fetchRevisionsForCalendar = async () => {
+    if (!user) return;
+
+    try {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
+      const endOfMonth = new Date();
+      endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+      endOfMonth.setDate(0);
+      endOfMonth.setHours(23, 59, 59, 999);
+
+      const { data: subjects } = await supabase
+        .from('subjects')
+        .select('id, name')
+        .eq('user_id', user.id);
+
+      if (!subjects) return;
+
+      const subjectIds = subjects.map(s => s.id);
+
+      const { data: topics, error } = await supabase
+        .from('topics')
+        .select('id, name, next_review, review_stage, subject_id')
+        .in('subject_id', subjectIds)
+        .gte('next_review', startOfMonth.toISOString())
+        .lte('next_review', endOfMonth.toISOString());
+
+      if (error) {
+        console.error('Error fetching calendar revisions:', error);
+        return;
+      }
+
+      const revisionsByDateMap: Record<number, any[]> = {};
+      
+      topics?.forEach(topic => {
+        if (topic.next_review) {
+          const reviewDate = new Date(topic.next_review);
+          const day = reviewDate.getDate();
+          const subject = subjects.find(s => s.id === topic.subject_id);
+          
+          if (!revisionsByDateMap[day]) {
+            revisionsByDateMap[day] = [];
+          }
+          
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          reviewDate.setHours(0, 0, 0, 0);
+          
+          let status = 'Futura';
+          if (reviewDate < today) {
+            status = 'Atrasado';
+          } else if (reviewDate.getTime() === today.getTime()) {
+            status = 'Hoje';
+          }
+          
+          revisionsByDateMap[day].push({
+            id: topic.id,
+            topic: topic.name,
+            subject: subject?.name || 'Unknown',
+            status
+          });
+        }
+      });
+
+      setRevisionsByDate(revisionsByDateMap);
+    } catch (error) {
+      console.error('Error fetching calendar revisions:', error);
     }
   };
 
