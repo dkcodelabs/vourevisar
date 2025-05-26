@@ -22,6 +22,20 @@ import {
 } from '@phosphor-icons/react';
 import { useCycleState } from '@/hooks/useCycleState';
 
+interface Topic {
+  id: string;
+  name: string;
+  subject_name: string;
+  review_stage?: string | null;
+  next_review?: string | null;
+}
+
+const stageOrder = {
+  '24h': 1,
+  '7 dias': 2,
+  '30 dias': 3,
+};
+
 const StudyPlan = () => {
   const { subjects, userProfile, fetchSubjects, fetchUserSettings } = useApp();
   const { user } = useAuth();
@@ -219,7 +233,7 @@ const StudyPlan = () => {
     toast.info("Novas matérias carregadas para estudo!");
   };
 
-  // Função para completar sessão
+  // Função para completar sessão - MODIFICADA para não puxar automaticamente próximas matérias
   const handleCompleteSession = async (subjectId: string) => {
     const topicsToUpdate = tempMarkedTopics[subjectId] || [];
     try {
@@ -294,13 +308,11 @@ const StudyPlan = () => {
             });
           }, 3000);
           return;
-        } else {
-          // Se ainda há matérias disponíveis, carregar as próximas
-          if (materiasPendentes.length > 0) {
-            toast.info("Carregando próximas matérias para estudo...");
-            handleNextDay();
-          }
         }
+        
+        // REMOVIDO: Não puxar automaticamente próximas matérias
+        // Apenas mostrar mensagem de parabéns
+        toast.success("Parabéns! Você concluiu todas as matérias do dia!");
       }
 
       // Recarregar o ciclo atualizado do banco para garantir sincronização

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -49,15 +48,40 @@ export const Dashboard = () => {
     }
   }, [user]);
 
+  // Buscar ciclos realizados do banco de dados
+  const fetchCiclosRealizados = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_cycles')
+        .select('ciclos_realizados')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching user cycles:', error);
+        return;
+      }
+
+      const ciclos = data?.ciclos_realizados || 0;
+      setCiclosRealizados(ciclos);
+      console.log('Ciclos realizados from DB:', ciclos);
+    } catch (error) {
+      console.error('Error fetching cycles:', error);
+    }
+  };
+
   useEffect(() => {
-    // Recupera do localStorage
-    const ciclos = parseInt(localStorage.getItem('ciclosRealizados') || '0', 10);
-    setCiclosRealizados(ciclos);
+    if (user) {
+      fetchCiclosRealizados();
+    }
+    
     // Progresso do ciclo atual: matérias concluídas / total de matérias
     const total = studyProgress.totalSubjects;
     const concluidas = studyProgress.completedSubjects;
     setProgressoCiclo(total > 0 ? Math.round((concluidas / total) * 100) : 0);
-  }, [studyProgress.totalSubjects, studyProgress.completedSubjects]);
+  }, [user, studyProgress.totalSubjects, studyProgress.completedSubjects]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -70,93 +94,13 @@ export const Dashboard = () => {
 
       // Fetch revisions for the calendar
       await fetchRevisionsForCalendar();
+
+      // Fetch ciclos realizados
+      await fetchCiclosRealizados();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchTodaysReviews = async () => {
-    try {
-      // Get today's date at midnight
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      // Query for topics with next_review today
-      const { data, error } = await supabase
-        .from('topics')
-        .select(`
-          id,
-          name,
-          next_review,
-          subject_id,
-          subjects(name)
-        `)
-        .gte('next_review', today.toISOString())
-        .lt('next_review', new Date(today.getTime() + 86400000).toISOString());
-
-      if (error) throw error;
-
-      // Transform data for display
-      const reviews = data.map(topic => ({
-        id: topic.id,
-        subject: topic.subjects?.name || 'Desconhecido',
-        topic: topic.name,
-        date: 'Hoje',
-        type: 'Revisão para Hoje'
-      }));
-
-      setTodaysReviews(reviews);
-    } catch (error) {
-      console.error('Error fetching today\'s reviews:', error);
-      setTodaysReviews([]);
-    }
-  };
-
-  const fetchRevisionsForCalendar = async () => {
-    try {
-      // Get all topics with scheduled reviews
-      const { data, error } = await supabase
-        .from('topics')
-        .select(`
-          id,
-          name,
-          next_review,
-          subject_id,
-          subjects(name)
-        `)
-        .not('next_review', 'is', null);
-
-      if (error) throw error;
-
-      // Organize reviews by day of month
-      const reviewsByDay: Record<number, any[]> = {};
-      
-      data.forEach(topic => {
-        if (topic.next_review) {
-          const reviewDate = new Date(topic.next_review);
-          const day = reviewDate.getDate();
-          
-          if (!reviewsByDay[day]) {
-            reviewsByDay[day] = [];
-          }
-          
-          const status = isToday(reviewDate) ? 'Hoje' : 
-                         reviewDate < new Date() ? 'Atrasado' : 'Futura';
-          
-          reviewsByDay[day].push({
-            id: topic.id,
-            subject: topic.subjects?.name || 'Desconhecido',
-            topic: topic.name,
-            status
-          });
-        }
-      });
-      
-      setRevisionsByDate(reviewsByDay);
-    } catch (error) {
-      console.error('Error fetching calendar revisions:', error);
     }
   };
 
@@ -166,6 +110,7 @@ export const Dashboard = () => {
       console.log('Topic reviewed event received, reloading data...');
       fetchTodaysReviews();
       fetchRevisionsForCalendar();
+      fetchCiclosRealizados(); // Recarregar ciclos também
     };
 
     window.addEventListener('topicReviewed', handleTopicReviewed);
