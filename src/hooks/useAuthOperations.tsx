@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,10 +81,12 @@ export function useAuthOperations() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
+      // Get the current origin from window.location
       const currentOrigin = window.location.origin;
       const redirectUrl = `${currentOrigin}/auth/callback`;
       
       console.log("Initiating Google sign-in with redirect URL:", redirectUrl);
+      console.log("Current origin:", currentOrigin);
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -107,7 +108,7 @@ export function useAuthOperations() {
       return data;
     } catch (error: any) {
       console.error("Google sign-in error:", error);
-      toast.error('Erro ao fazer login com Google');
+      toast.error('Erro ao fazer login com Google. Verifique se o domínio está configurado corretamente no Supabase.');
       throw error;
     } finally {
       setLoading(false);
