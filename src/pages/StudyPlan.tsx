@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -226,7 +225,7 @@ const StudyPlan = () => {
     toast.info("Novas matérias carregadas para estudo!");
   };
 
-  // Função para completar sessão - ATUALIZADA conforme requisitos
+  // Função para completar sessão - CORRIGIDA para não disparar confetes e não puxar próximas matérias automaticamente
   const handleCompleteSession = async (subjectId: string) => {
     const topicsToUpdate = tempMarkedTopics[subjectId] || [];
     try {
@@ -280,6 +279,7 @@ const StudyPlan = () => {
       const todasMateriasDoDiaConcluidas = newDisciplinasDoDia.length === 0;
       
       if (todasMateriasDoDiaConcluidas) {
+        // CONFETES APENAS QUANDO CONCLUI O DIA INTEIRO
         launchConfetti();
         
         // Verificar se todas as matérias do ciclo foram concluídas (novo ciclo)
@@ -308,6 +308,9 @@ const StudyPlan = () => {
         
         // Apenas mostrar mensagem de parabéns - NÃO puxar automaticamente próximas matérias
         toast.success("Parabéns! Você concluiu todas as matérias do dia!");
+      } else {
+        // Quando concluir apenas uma matéria individual, mostrar toast simples SEM confetes
+        toast.success("Matéria concluída!");
       }
 
       // Recarregar o ciclo atualizado do banco para garantir sincronização
@@ -492,6 +495,9 @@ const StudyPlan = () => {
                       🔄 Um novo ciclo foi iniciado!
                     </p>
                   )}
+                  <p className="mt-2 text-gray-600 text-xs">
+                    Quer estudar mais matérias hoje? Clique no botão abaixo para avançar.
+                  </p>
                   <Button 
                     className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
                     onClick={handleNextDay}
