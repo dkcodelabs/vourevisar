@@ -226,7 +226,7 @@ const StudyPlan = () => {
     toast.info("Novas matérias carregadas para estudo!");
   };
 
-  // Função para completar sessão - MODIFICADA para não puxar automaticamente próximas matérias
+  // Função para completar sessão - ATUALIZADA conforme requisitos
   const handleCompleteSession = async (subjectId: string) => {
     const topicsToUpdate = tempMarkedTopics[subjectId] || [];
     try {
@@ -282,7 +282,7 @@ const StudyPlan = () => {
       if (todasMateriasDoDiaConcluidas) {
         launchConfetti();
         
-        // Verificar se todas as matérias do ciclo foram concluídas
+        // Verificar se todas as matérias do ciclo foram concluídas (novo ciclo)
         const todasMatConcluidas = currentSubjects.every(subject => newCicloAtual.includes(subject.id));
         
         if (todasMatConcluidas) {
@@ -299,12 +299,14 @@ const StudyPlan = () => {
               data_inicio_ciclo: new Date().toISOString(),
               data_fim_ciclo: new Date().toISOString()
             });
+            
+            // Recarregar o ciclo para garantir que está atualizado
+            await fetchUserCycle();
           }, 3000);
           return;
         }
         
-        // REMOVIDO: Não puxar automaticamente próximas matérias
-        // Apenas mostrar mensagem de parabéns
+        // Apenas mostrar mensagem de parabéns - NÃO puxar automaticamente próximas matérias
         toast.success("Parabéns! Você concluiu todas as matérias do dia!");
       }
 
@@ -388,8 +390,8 @@ const StudyPlan = () => {
   const totalDisciplinasCiclo = currentSubjects.length;
   const disciplinasConcluidas = userCycle?.ciclo_atual.length || 0;
 
-  // Verificar se é realmente um novo ciclo (primeira matéria)
-  const isReallyNewCycle = disciplinasConcluidas === 0 && totalDisciplinasCiclo > 0;
+  // Verificar se é realmente um novo ciclo (disciplinas concluídas = 0 e há disciplinas para estudar)
+  const isNewCycleStarted = disciplinasConcluidas === 0 && totalDisciplinasCiclo > 0 && userCycle?.ciclos_realizados > 0;
 
   return (
     <motion.div 
@@ -452,7 +454,7 @@ const StudyPlan = () => {
                         Disciplinas concluídas: <span className="font-semibold text-app-blue">{disciplinasConcluidas}/{totalDisciplinasCiclo}</span>
                       </p>
                     </div>
-                    {isReallyNewCycle && (
+                    {isNewCycleStarted && (
                       <div className="flex items-center gap-2">
                         <Calendar size={16} className="text-purple-500" weight="fill" />
                         <p className="text-xs text-purple-600 font-medium">
@@ -472,7 +474,7 @@ const StudyPlan = () => {
 
           {/* Current Subjects */}
           <div className="space-y-4">
-            {/* Mensagem de parabéns persistente */}
+            {/* Mensagem de parabéns persistente quando todas as matérias do dia foram concluídas */}
             <AnimatePresence>
               {allDaySubjectsCompleted && (
                 <motion.div 
@@ -484,6 +486,12 @@ const StudyPlan = () => {
                   <Sparkle size={32} className="mx-auto text-yellow-500 mb-2" weight="fill" />
                   <h3 className="text-lg font-bold text-green-800">Parabéns! 🎉</h3>
                   <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do dia!</p>
+                  {/* Mostrar mensagem adicional se um novo ciclo foi iniciado */}
+                  {isNewCycleStarted && (
+                    <p className="mt-1 text-purple-700 text-sm font-medium">
+                      🔄 Um novo ciclo foi iniciado!
+                    </p>
+                  )}
                   <Button 
                     className="mt-2 bg-gradient-to-r from-app-blue to-blue-600 hover:from-blue-600 hover:to-app-blue text-white transition-all duration-300 text-xs px-3 py-1"
                     onClick={handleNextDay}
