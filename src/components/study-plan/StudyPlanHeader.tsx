@@ -17,7 +17,7 @@ const StudyPlanHeader: React.FC<StudyPlanHeaderProps> = ({ onNextDay }) => {
       transition={{ type: "spring", stiffness: 100 }}
     >
       <div className="flex items-center gap-2">
-        <GraduationCap size={24} className="text-app-blue" weight="duotone" />
+        <GraduationCap size={24} className="text-app-blue" />
         <h1 className="text-2xl font-bold bg-gradient-to-r from-app-blue to-purple-600 bg-clip-text text-transparent">
           Plano de Estudo Diário
         </h1>
