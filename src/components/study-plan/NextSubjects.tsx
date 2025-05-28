@@ -29,7 +29,7 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
             <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-all w-full">
               <CardContent className="p-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <div className="flex items-center gap-2">
-                  <BookOpen size={16} className="text-app-blue" weight="duotone" />
+                  <BookOpen size={16} className="text-app-blue" />
                   <h3 className="font-medium text-sm">{subject.name}</h3>
                   <p className="text-xs text-gray-500">{subject.topics.length} tópicos</p>
                 </div>
