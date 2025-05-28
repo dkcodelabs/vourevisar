@@ -38,11 +38,7 @@ export const useStudyPlanLogic = () => {
     )
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
-  // Só mostra próximas matérias se todas as do dia foram concluídas E o usuário não está numa sessão ativa
-  const nextSubjects = isAllDaySubjectsCompleted() && !expandedSubject 
-    ? materiasPendentes.slice(0, subjectsPerDay) 
-    : [];
-
+  const nextSubjects = materiasPendentes.slice(0, subjectsPerDay);
   const allDaySubjectsCompleted = isAllDaySubjectsCompleted();
   const totalDisciplinasCiclo = currentSubjects.length;
   const disciplinasConcluidas = userCycle?.ciclo_atual.length || 0;

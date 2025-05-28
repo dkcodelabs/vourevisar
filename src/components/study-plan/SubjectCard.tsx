@@ -42,7 +42,7 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
               className="text-base font-bold text-app-blue cursor-pointer flex items-center group"
               onClick={() => onToggleExpand(subject.id)}
             >
-              <BookOpen size={18} className="mr-2 text-app-blue group-hover:rotate-12 transition-transform" />
+              <BookOpen size={18} className="mr-2 text-app-blue group-hover:rotate-12 transition-transform" weight="duotone" />
               {subject.name} {isDaySubject && "(Hoje)"}
               <motion.div
                 animate={{ rotate: isExpanded ? 180 : 0 }}
