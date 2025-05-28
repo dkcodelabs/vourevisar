@@ -201,6 +201,7 @@ export const useStudyPlanLogic = () => {
       
       if (todasMateriasDoDiaConcluidas) {
         launchConfetti();
+        toast.success("Parabéns! Você concluiu todas as matérias do dia!");
         
         const todasMatConcluidas = currentSubjects.every(subject => newCicloAtual.includes(subject.id));
         
@@ -221,8 +222,6 @@ export const useStudyPlanLogic = () => {
           }, 3000);
           return;
         }
-        
-        toast.success("Parabéns! Você concluiu todas as matérias do dia!");
       } else {
         toast.success("Matéria concluída!");
       }

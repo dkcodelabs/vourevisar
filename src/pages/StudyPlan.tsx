@@ -7,6 +7,7 @@ import CycleInfo from '@/components/study-plan/CycleInfo';
 import CompletionMessage from '@/components/study-plan/CompletionMessage';
 import SubjectCard from '@/components/study-plan/SubjectCard';
 import NextSubjects from '@/components/study-plan/NextSubjects';
+import DayCompletedMessage from '@/components/study-plan/DayCompletedMessage';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -84,29 +85,29 @@ const StudyPlan = () => {
           )}
 
           <div className="space-y-4">
-            <CompletionMessage 
-              allDaySubjectsCompleted={allDaySubjectsCompleted}
-              isNewCycleStarted={isNewCycleStarted}
-              onNextDay={handleNextDay}
-            />
-
-            {dailySubjects.length > 0 && dailySubjects.map((subject) => (
-              <motion.div key={subject.id} variants={itemVariants}>
-                <SubjectCard
-                  subject={subject}
-                  isExpanded={expandedSubject === subject.id}
-                  tempMarkedTopics={tempMarkedTopics}
-                  onToggleExpand={handleToggleExpand}
-                  onMarkTopicForReview={handleMarkTopicForReview}
-                  onCancelTopicReview={handleCancelTopicReview}
-                  onCompleteSession={handleCompleteSession}
-                  isDaySubject={true}
-                />
+            {allDaySubjectsCompleted ? (
+              <motion.div variants={itemVariants}>
+                <DayCompletedMessage onNextDay={handleNextDay} />
               </motion.div>
-            ))}
+            ) : (
+              dailySubjects.length > 0 && dailySubjects.map((subject) => (
+                <motion.div key={subject.id} variants={itemVariants}>
+                  <SubjectCard
+                    subject={subject}
+                    isExpanded={expandedSubject === subject.id}
+                    tempMarkedTopics={tempMarkedTopics}
+                    onToggleExpand={handleToggleExpand}
+                    onMarkTopicForReview={handleMarkTopicForReview}
+                    onCancelTopicReview={handleCancelTopicReview}
+                    onCompleteSession={handleCompleteSession}
+                    isDaySubject={true}
+                  />
+                </motion.div>
+              ))
+            )}
           </div>
 
-          <NextSubjects nextSubjects={nextSubjects} />
+          {!allDaySubjectsCompleted && <NextSubjects nextSubjects={nextSubjects} />}
         </motion.div>
       )}
     </motion.div>
