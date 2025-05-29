@@ -56,7 +56,8 @@ const StudyPlan = () => {
     allDaySubjectsCompleted,
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
-    userCycle
+    userCycle,
+    showNewCycleMessage
   });
 
   return (
@@ -66,12 +67,6 @@ const StudyPlan = () => {
       animate="visible"
       variants={containerVariants}
     >
-      {/* Mensagem de novo ciclo (overlay) */}
-      <NewCycleMessage 
-        isVisible={showNewCycleMessage}
-        onHide={handleHideNewCycleMessage}
-      />
-
       {isLoading ? (
         <motion.div 
           className="flex justify-center items-center h-64"
@@ -100,29 +95,35 @@ const StudyPlan = () => {
           )}
 
           <div className="space-y-4">
-            {/* Sempre mostrar a mensagem de dia concluído quando não há disciplinas do dia */}
-            {allDaySubjectsCompleted && dailySubjects.length === 0 ? (
+            {/* Mostrar disciplinas do dia se existirem */}
+            {dailySubjects.length > 0 && dailySubjects.map((subject) => (
+              <motion.div key={subject.id} variants={itemVariants}>
+                <SubjectCard
+                  subject={subject}
+                  isExpanded={expandedSubject === subject.id}
+                  tempMarkedTopics={tempMarkedTopics}
+                  onToggleExpand={handleToggleExpand}
+                  onMarkTopicForReview={handleMarkTopicForReview}
+                  onCancelTopicReview={handleCancelTopicReview}
+                  onCompleteSession={handleCompleteSession}
+                  isDaySubject={true}
+                />
+              </motion.div>
+            ))}
+
+            {/* Mostrar mensagem de parabéns quando todas as disciplinas do dia foram concluídas */}
+            {allDaySubjectsCompleted && dailySubjects.length === 0 && (
               <motion.div variants={itemVariants}>
                 <DayCompletedMessage onNextDay={handleNextDay} />
               </motion.div>
-            ) : (
-              /* Mostrar disciplinas do dia se existirem */
-              dailySubjects.length > 0 && dailySubjects.map((subject) => (
-                <motion.div key={subject.id} variants={itemVariants}>
-                  <SubjectCard
-                    subject={subject}
-                    isExpanded={expandedSubject === subject.id}
-                    tempMarkedTopics={tempMarkedTopics}
-                    onToggleExpand={handleToggleExpand}
-                    onMarkTopicForReview={handleMarkTopicForReview}
-                    onCancelTopicReview={handleCancelTopicReview}
-                    onCompleteSession={handleCompleteSession}
-                    isDaySubject={true}
-                  />
-                </motion.div>
-              ))
             )}
           </div>
+
+          {/* Mensagem de novo ciclo (inline, acima das próximas disciplinas) */}
+          <NewCycleMessage 
+            isVisible={showNewCycleMessage}
+            onHide={handleHideNewCycleMessage}
+          />
 
           {/* Sempre mostrar próximas disciplinas se existirem */}
           {nextSubjects.length > 0 && (

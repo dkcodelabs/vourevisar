@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -85,29 +86,54 @@ export const useStudyPlanLogic = () => {
     }
   }, [isCycleLoading, userCycle, currentSubjects.length, subjectsPerDay]);
 
-  // Check for new cycle completion
+  // Check for new cycle completion and control message display
   useEffect(() => {
-    if (userCycle && userCycle.ciclos_realizados > lastCycleCount) {
-      console.log('Novo ciclo detectado:', userCycle.ciclos_realizados, 'vs', lastCycleCount);
+    if (!userCycle) return;
+
+    const currentCycleKey = `cycle_${userCycle.ciclos_realizados}_shown`;
+    const wasMessageShown = sessionStorage.getItem(currentCycleKey);
+
+    console.log('Verificando novo ciclo:', {
+      ciclos_realizados: userCycle.ciclos_realizados,
+      lastCycleCount,
+      wasMessageShown,
+      currentCycleKey
+    });
+
+    // Se é um novo ciclo e a mensagem ainda não foi mostrada nesta sessão
+    if (userCycle.ciclos_realizados > lastCycleCount && !wasMessageShown) {
+      console.log('Novo ciclo detectado, mostrando mensagem');
       setShowNewCycleMessage(true);
-      setLastCycleCount(userCycle.ciclos_realizados);
-    } else if (userCycle) {
-      setLastCycleCount(userCycle.ciclos_realizados);
+      sessionStorage.setItem(currentCycleKey, 'true');
+      
+      // Esconder a mensagem após 5 segundos
+      setTimeout(() => {
+        setShowNewCycleMessage(false);
+      }, 5000);
     }
+    
+    setLastCycleCount(userCycle.ciclos_realizados);
   }, [userCycle?.ciclos_realizados, lastCycleCount]);
 
-  // Check for day change and auto-load subjects if day completed
+  // Check for day change - only load if day was previously completed
   useEffect(() => {
     const checkDayChange = () => {
       const today = startOfDay(new Date());
       const lastChecked = startOfDay(lastCheckedDate);
       
       if (isAfter(today, lastChecked)) {
-        console.log('Dia mudou, verificando se deve carregar novas disciplinas');
+        console.log('Dia mudou, verificando condições para auto-load');
         setLastCheckedDate(new Date());
         
-        // Se todas as disciplinas do dia foram concluídas e é um novo dia, carregar próximas
-        if (allDaySubjectsCompleted && userCycle && materiasPendentes.length > 0) {
+        // Só carregar automaticamente se:
+        // 1. Todas as disciplinas do dia anterior foram concluídas
+        // 2. Há matérias pendentes para carregar
+        // 3. O usuário não tem disciplinas do dia atual
+        const shouldAutoLoad = allDaySubjectsCompleted && 
+                               materiasPendentes.length > 0 && 
+                               (!userCycle?.disciplinas_do_dia || userCycle.disciplinas_do_dia.length === 0);
+        
+        if (shouldAutoLoad) {
           console.log('Carregando disciplinas automaticamente devido à mudança de dia');
           const novasDisciplinas = materiasPendentes.slice(0, subjectsPerDay).map(s => s.id);
           updateUserCycle({
@@ -118,9 +144,7 @@ export const useStudyPlanLogic = () => {
       }
     };
 
-    // Verificar mudança de dia a cada minuto
     const interval = setInterval(checkDayChange, 60000);
-    
     return () => clearInterval(interval);
   }, [allDaySubjectsCompleted, userCycle, materiasPendentes.length, subjectsPerDay, lastCheckedDate]);
 
@@ -321,6 +345,15 @@ export const useStudyPlanLogic = () => {
       setTempMarkedTopics(prev => ({ ...prev, [expandedSubject]: [] }));
     }
   }, [expandedSubject]);
+
+  // Debug logs
+  console.log('StudyPlan Logic Debug:', {
+    allDaySubjectsCompleted,
+    dailySubjectsLength: dailySubjects.length,
+    disciplinas_do_dia: userCycle?.disciplinas_do_dia,
+    ciclo_atual: userCycle?.ciclo_atual,
+    showNewCycleMessage
+  });
 
   return {
     // State
