@@ -4,10 +4,10 @@ import { motion } from 'framer-motion';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import StudyPlanHeader from '@/components/study-plan/StudyPlanHeader';
 import CycleInfo from '@/components/study-plan/CycleInfo';
-import CompletionMessage from '@/components/study-plan/CompletionMessage';
 import SubjectCard from '@/components/study-plan/SubjectCard';
 import NextSubjects from '@/components/study-plan/NextSubjects';
 import DayCompletedMessage from '@/components/study-plan/DayCompletedMessage';
+import NewCycleMessage from '@/components/study-plan/NewCycleMessage';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -36,6 +36,7 @@ const StudyPlan = () => {
     isLoading,
     expandedSubject,
     tempMarkedTopics,
+    showNewCycleMessage,
     userCycle,
     dailySubjects,
     nextSubjects,
@@ -47,7 +48,8 @@ const StudyPlan = () => {
     handleCompleteSession,
     handleToggleExpand,
     handleMarkTopicForReview,
-    handleCancelTopicReview
+    handleCancelTopicReview,
+    handleHideNewCycleMessage
   } = useStudyPlanLogic();
 
   console.log('StudyPlan render:', {
@@ -64,6 +66,12 @@ const StudyPlan = () => {
       animate="visible"
       variants={containerVariants}
     >
+      {/* Mensagem de novo ciclo (overlay) */}
+      <NewCycleMessage 
+        isVisible={showNewCycleMessage}
+        onHide={handleHideNewCycleMessage}
+      />
+
       {isLoading ? (
         <motion.div 
           className="flex justify-center items-center h-64"
@@ -92,11 +100,13 @@ const StudyPlan = () => {
           )}
 
           <div className="space-y-4">
+            {/* Sempre mostrar a mensagem de dia concluído quando não há disciplinas do dia */}
             {allDaySubjectsCompleted && dailySubjects.length === 0 ? (
               <motion.div variants={itemVariants}>
                 <DayCompletedMessage onNextDay={handleNextDay} />
               </motion.div>
             ) : (
+              /* Mostrar disciplinas do dia se existirem */
               dailySubjects.length > 0 && dailySubjects.map((subject) => (
                 <motion.div key={subject.id} variants={itemVariants}>
                   <SubjectCard
@@ -114,6 +124,7 @@ const StudyPlan = () => {
             )}
           </div>
 
+          {/* Sempre mostrar próximas disciplinas se existirem */}
           {nextSubjects.length > 0 && (
             <motion.div variants={itemVariants}>
               <NextSubjects nextSubjects={nextSubjects} />

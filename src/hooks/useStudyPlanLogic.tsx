@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +16,8 @@ export const useStudyPlanLogic = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const [lastCheckedDate, setLastCheckedDate] = useState<Date>(new Date());
+  const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
+  const [lastCycleCount, setLastCycleCount] = useState<number>(0);
   const isFirstRender = useRef(true);
   
   const { userCycle, isLoading: isCycleLoading, fetchUserCycle, updateUserCycle, createInitialUserCycle, isAllDaySubjectsCompleted } = useCycleState();
@@ -84,26 +85,16 @@ export const useStudyPlanLogic = () => {
     }
   }, [isCycleLoading, userCycle, currentSubjects.length, subjectsPerDay]);
 
-  // Check for new cycle and load subjects automatically
+  // Check for new cycle completion
   useEffect(() => {
-    if (userCycle && currentSubjects.length > 0) {
-      console.log('Verificando se precisa carregar disciplinas para novo ciclo:', {
-        disciplinas_do_dia: userCycle.disciplinas_do_dia,
-        ciclo_atual: userCycle.ciclo_atual,
-        ciclos_realizados: userCycle.ciclos_realizados,
-        materiasPendentes: materiasPendentes.length
-      });
-
-      // Se é um novo ciclo (disciplinas_do_dia vazio mas há matérias pendentes)
-      if (userCycle.disciplinas_do_dia.length === 0 && materiasPendentes.length > 0) {
-        console.log('Carregando disciplinas para novo ciclo automaticamente');
-        const novasDisciplinas = materiasPendentes.slice(0, subjectsPerDay).map(s => s.id);
-        updateUserCycle({
-          disciplinas_do_dia: novasDisciplinas
-        });
-      }
+    if (userCycle && userCycle.ciclos_realizados > lastCycleCount) {
+      console.log('Novo ciclo detectado:', userCycle.ciclos_realizados, 'vs', lastCycleCount);
+      setShowNewCycleMessage(true);
+      setLastCycleCount(userCycle.ciclos_realizados);
+    } else if (userCycle) {
+      setLastCycleCount(userCycle.ciclos_realizados);
     }
-  }, [userCycle?.disciplinas_do_dia?.length, materiasPendentes.length, currentSubjects.length]);
+  }, [userCycle?.ciclos_realizados, lastCycleCount]);
 
   // Check for day change and auto-load subjects if day completed
   useEffect(() => {
@@ -309,6 +300,10 @@ export const useStudyPlanLogic = () => {
     });
   };
 
+  const handleHideNewCycleMessage = () => {
+    setShowNewCycleMessage(false);
+  };
+
   // Cleanup
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -332,6 +327,7 @@ export const useStudyPlanLogic = () => {
     isLoading: isLoading || isCycleLoading,
     expandedSubject,
     tempMarkedTopics,
+    showNewCycleMessage,
     
     // Data
     userCycle,
@@ -347,6 +343,7 @@ export const useStudyPlanLogic = () => {
     handleCompleteSession,
     handleToggleExpand,
     handleMarkTopicForReview,
-    handleCancelTopicReview
+    handleCancelTopicReview,
+    handleHideNewCycleMessage
   };
 };
