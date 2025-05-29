@@ -50,6 +50,13 @@ const StudyPlan = () => {
     handleCancelTopicReview
   } = useStudyPlanLogic();
 
+  console.log('StudyPlan render:', {
+    allDaySubjectsCompleted,
+    dailySubjectsLength: dailySubjects.length,
+    nextSubjectsLength: nextSubjects.length,
+    userCycle
+  });
+
   return (
     <motion.div 
       className="container mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-2 sm:px-4 md:px-8"
@@ -85,7 +92,7 @@ const StudyPlan = () => {
           )}
 
           <div className="space-y-4">
-            {allDaySubjectsCompleted ? (
+            {allDaySubjectsCompleted && dailySubjects.length === 0 ? (
               <motion.div variants={itemVariants}>
                 <DayCompletedMessage onNextDay={handleNextDay} />
               </motion.div>

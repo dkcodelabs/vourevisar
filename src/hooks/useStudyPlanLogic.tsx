@@ -84,6 +84,27 @@ export const useStudyPlanLogic = () => {
     }
   }, [isCycleLoading, userCycle, currentSubjects.length, subjectsPerDay]);
 
+  // Check for new cycle and load subjects automatically
+  useEffect(() => {
+    if (userCycle && currentSubjects.length > 0) {
+      console.log('Verificando se precisa carregar disciplinas para novo ciclo:', {
+        disciplinas_do_dia: userCycle.disciplinas_do_dia,
+        ciclo_atual: userCycle.ciclo_atual,
+        ciclos_realizados: userCycle.ciclos_realizados,
+        materiasPendentes: materiasPendentes.length
+      });
+
+      // Se é um novo ciclo (disciplinas_do_dia vazio mas há matérias pendentes)
+      if (userCycle.disciplinas_do_dia.length === 0 && materiasPendentes.length > 0) {
+        console.log('Carregando disciplinas para novo ciclo automaticamente');
+        const novasDisciplinas = materiasPendentes.slice(0, subjectsPerDay).map(s => s.id);
+        updateUserCycle({
+          disciplinas_do_dia: novasDisciplinas
+        });
+      }
+    }
+  }, [userCycle?.disciplinas_do_dia?.length, materiasPendentes.length, currentSubjects.length]);
+
   // Check for day change and auto-load subjects if day completed
   useEffect(() => {
     const checkDayChange = () => {
@@ -168,6 +189,8 @@ export const useStudyPlanLogic = () => {
 
   const handleCompleteSession = async (subjectId: string) => {
     const topicsToUpdate = tempMarkedTopics[subjectId] || [];
+    console.log('Iniciando conclusão de sessão para:', subjectId);
+    
     try {
       for (const topicId of topicsToUpdate) {
         const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
@@ -198,6 +221,13 @@ export const useStudyPlanLogic = () => {
       const newCicloAtual = [...(userCycle?.ciclo_atual || []), subjectId];
       const newDisciplinasDoDia = userCycle?.disciplinas_do_dia.filter(id => id !== subjectId) || [];
       
+      console.log('Atualizando ciclo:', {
+        newCicloAtual,
+        newDisciplinasDoDia,
+        currentCycle: userCycle?.ciclo_atual,
+        currentDaySubjects: userCycle?.disciplinas_do_dia
+      });
+      
       setExpandedSubject(null);
       setTempMarkedTopics(prev => {
         const updated = { ...prev };
@@ -211,12 +241,14 @@ export const useStudyPlanLogic = () => {
       });
       
       const todasMateriasDoDiaConcluidas = newDisciplinasDoDia.length === 0;
+      console.log('Todas as matérias do dia concluídas:', todasMateriasDoDiaConcluidas);
       
       if (todasMateriasDoDiaConcluidas) {
         launchConfetti();
-        toast.success("Parabéns! Você concluiu todas as matérias do dia!");
+        console.log('Lançando confetes - disciplinas do dia concluídas');
         
         const todasMatConcluidas = currentSubjects.every(subject => newCicloAtual.includes(subject.id));
+        console.log('Todas as matérias do ciclo concluídas:', todasMatConcluidas);
         
         if (todasMatConcluidas) {
           setTimeout(async () => {
