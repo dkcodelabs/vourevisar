@@ -6,7 +6,7 @@ import { useCycleState } from '@/hooks/useCycleState';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
-import { addDays } from 'date-fns';
+import { addDays, isAfter, startOfDay } from 'date-fns';
 import { Topic, RevisionStage } from '@/types';
 
 export const useStudyPlanLogic = () => {
@@ -16,6 +16,7 @@ export const useStudyPlanLogic = () => {
   const [currentSubjectIndex, setCurrentSubjectIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
+  const [lastCheckedDate, setLastCheckedDate] = useState<Date>(new Date());
   const isFirstRender = useRef(true);
   
   const { userCycle, isLoading: isCycleLoading, fetchUserCycle, updateUserCycle, createInitialUserCycle, isAllDaySubjectsCompleted } = useCycleState();
@@ -83,21 +84,33 @@ export const useStudyPlanLogic = () => {
     }
   }, [isCycleLoading, userCycle, currentSubjects.length, subjectsPerDay]);
 
-  // Update daily subjects when settings change
+  // Check for day change and auto-load subjects if day completed
   useEffect(() => {
-    if (userProfile?.settings?.subjectsPerDay && userCycle && currentSubjects.length > 0) {
-      const newSubjectsPerDay = userProfile.settings.subjectsPerDay;
+    const checkDayChange = () => {
+      const today = startOfDay(new Date());
+      const lastChecked = startOfDay(lastCheckedDate);
       
-      if (userCycle.disciplinas_do_dia.length === 0 || userCycle.disciplinas_do_dia.length !== newSubjectsPerDay) {
-        const availableSubjects = currentSubjects.filter(s => !userCycle.ciclo_atual.includes(s.id));
-        const newDisciplinasDoDia = availableSubjects.slice(0, newSubjectsPerDay).map(s => s.id);
+      if (isAfter(today, lastChecked)) {
+        console.log('Dia mudou, verificando se deve carregar novas disciplinas');
+        setLastCheckedDate(new Date());
         
-        updateUserCycle({
-          disciplinas_do_dia: newDisciplinasDoDia
-        });
+        // Se todas as disciplinas do dia foram concluídas e é um novo dia, carregar próximas
+        if (allDaySubjectsCompleted && userCycle && materiasPendentes.length > 0) {
+          console.log('Carregando disciplinas automaticamente devido à mudança de dia');
+          const novasDisciplinas = materiasPendentes.slice(0, subjectsPerDay).map(s => s.id);
+          updateUserCycle({
+            disciplinas_do_dia: novasDisciplinas
+          });
+          toast.info("Novo dia! Novas matérias carregadas para estudo!");
+        }
       }
-    }
-  }, [userProfile?.settings?.subjectsPerDay, currentSubjects.length, userCycle?.disciplinas_do_dia?.length, userCycle?.ciclo_atual?.length]);
+    };
+
+    // Verificar mudança de dia a cada minuto
+    const interval = setInterval(checkDayChange, 60000);
+    
+    return () => clearInterval(interval);
+  }, [allDaySubjectsCompleted, userCycle, materiasPendentes.length, subjectsPerDay, lastCheckedDate]);
 
   // Helper functions
   const calculateNextReview = (stage: RevisionStage | undefined): Date => {

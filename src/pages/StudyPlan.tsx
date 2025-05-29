@@ -107,7 +107,11 @@ const StudyPlan = () => {
             )}
           </div>
 
-          {!allDaySubjectsCompleted && <NextSubjects nextSubjects={nextSubjects} />}
+          {nextSubjects.length > 0 && (
+            <motion.div variants={itemVariants}>
+              <NextSubjects nextSubjects={nextSubjects} />
+            </motion.div>
+          )}
         </motion.div>
       )}
     </motion.div>
