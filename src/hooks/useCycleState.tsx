@@ -128,19 +128,26 @@ export const useCycleState = () => {
   const isAllDaySubjectsCompleted = () => {
     console.log('Verificando se todas as disciplinas do dia foram concluídas:', {
       disciplinas_do_dia: userCycle?.disciplinas_do_dia,
-      ciclo_atual: userCycle?.ciclo_atual
+      ciclo_atual: userCycle?.ciclo_atual,
+      hasDisciplinasDodia: userCycle?.disciplinas_do_dia && userCycle.disciplinas_do_dia.length > 0
     });
     
+    // Se não há disciplinas do dia definidas, retorna false
     if (!userCycle?.disciplinas_do_dia || userCycle.disciplinas_do_dia.length === 0) {
-      console.log('Não há disciplinas do dia ou array vazio');
+      console.log('Não há disciplinas do dia ou array vazio - retornando false');
       return false;
     }
     
+    // Verifica se todas as disciplinas do dia estão no ciclo atual (concluídas)
     const allCompleted = userCycle.disciplinas_do_dia.every(subjectId => 
       userCycle.ciclo_atual.includes(subjectId)
     );
     
-    console.log('Todas as disciplinas do dia concluídas:', allCompleted);
+    console.log('Resultado da verificação - todas concluídas:', allCompleted, {
+      disciplinas_do_dia_count: userCycle.disciplinas_do_dia.length,
+      disciplinas_concluidas_count: userCycle.disciplinas_do_dia.filter(id => userCycle.ciclo_atual.includes(id)).length
+    });
+    
     return allCompleted;
   };
 

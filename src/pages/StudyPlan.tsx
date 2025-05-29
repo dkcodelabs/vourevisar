@@ -57,7 +57,9 @@ const StudyPlan = () => {
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
     userCycle,
-    showNewCycleMessage
+    showNewCycleMessage,
+    disciplinas_do_dia: userCycle?.disciplinas_do_dia,
+    ciclo_atual: userCycle?.ciclo_atual
   });
 
   return (
@@ -95,8 +97,8 @@ const StudyPlan = () => {
           )}
 
           <div className="space-y-4">
-            {/* Mostrar disciplinas do dia se existirem */}
-            {dailySubjects.length > 0 && dailySubjects.map((subject) => (
+            {/* Mostrar disciplinas do dia se existirem e não foram todas concluídas */}
+            {!allDaySubjectsCompleted && dailySubjects.length > 0 && dailySubjects.map((subject) => (
               <motion.div key={subject.id} variants={itemVariants}>
                 <SubjectCard
                   subject={subject}
@@ -112,7 +114,7 @@ const StudyPlan = () => {
             ))}
 
             {/* Mostrar mensagem de parabéns quando todas as disciplinas do dia foram concluídas */}
-            {allDaySubjectsCompleted && dailySubjects.length === 0 && (
+            {allDaySubjectsCompleted && (
               <motion.div variants={itemVariants}>
                 <DayCompletedMessage onNextDay={handleNextDay} />
               </motion.div>
