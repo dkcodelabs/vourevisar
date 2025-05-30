@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { format } from 'date-fns';
@@ -21,13 +20,17 @@ interface CycleInfoProps {
   disciplinasConcluidas: number;
   totalDisciplinasCiclo: number;
   isNewCycleStarted: boolean;
+  disciplinasIniciadas: number;
+  disciplinasNaoIniciadas: number;
 }
 
 const CycleInfo: React.FC<CycleInfoProps> = ({
   userCycle,
   disciplinasConcluidas,
   totalDisciplinasCiclo,
-  isNewCycleStarted
+  isNewCycleStarted,
+  disciplinasIniciadas,
+  disciplinasNaoIniciadas
 }) => {
   return (
     <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
@@ -43,7 +46,13 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
             <div className="flex items-center gap-2">
               <CheckCircle size={16} className="text-green-500" weight="fill" />
               <p className="text-xs text-gray-600">
-                Disciplinas concluídas: <span className="font-semibold text-app-blue">{disciplinasConcluidas}/{totalDisciplinasCiclo}</span>
+                Disciplinas do ciclo: <span className="font-semibold text-app-blue">{disciplinasConcluidas}/{totalDisciplinasCiclo}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-blue-500" weight="fill" />
+              <p className="text-xs text-gray-600">
+                Disciplinas Iniciadas: <span className="font-semibold text-app-blue">{disciplinasIniciadas}/{totalDisciplinasCiclo}</span>
               </p>
             </div>
             {isNewCycleStarted && (

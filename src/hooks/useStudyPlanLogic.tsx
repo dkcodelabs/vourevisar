@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,8 +28,8 @@ export const useStudyPlanLogic = () => {
     subject.status === 'Em Estudo' || subject.status === 'Nova'
   ).sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
-  const dailySubjects = subjects.filter(
-    s => userCycle?.disciplinas_do_dia.includes(s.id)
+  const dailySubjects = currentSubjects.filter(subject =>
+    userCycle?.disciplinas_do_dia.includes(subject.id)
   );
 
   const materiasPendentes = subjects
@@ -42,10 +41,18 @@ export const useStudyPlanLogic = () => {
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
   const nextSubjects = materiasPendentes.slice(0, subjectsPerDay);
-  const allDaySubjectsCompleted = isAllDaySubjectsCompleted();
+  const allDaySubjectsCompleted = userCycle?.disciplinas_do_dia.length === 0;
   const totalDisciplinasCiclo = currentSubjects.length;
   const disciplinasConcluidas = userCycle?.ciclo_atual.length || 0;
   const isNewCycleStarted = disciplinasConcluidas === 0 && totalDisciplinasCiclo > 0 && userCycle?.ciclos_realizados > 0;
+
+  const disciplinasIniciadas = currentSubjects.filter(subject =>
+    subject.topics.some(topic => topic.reviewStage && topic.reviewStage !== "Não Iniciado")
+  ).length;
+
+  const disciplinasNaoIniciadas = currentSubjects.filter(subject =>
+    subject.topics.every(topic => !topic.reviewStage || topic.reviewStage === "Não Iniciado")
+  ).length;
 
   // Load initial data
   useEffect(() => {
@@ -193,11 +200,14 @@ export const useStudyPlanLogic = () => {
     }
 
     const novasDisciplinas = materiasPendentes.slice(0, subjectsPerDay).map(s => s.id);
-    
+
     await updateUserCycle({
       disciplinas_do_dia: novasDisciplinas
     });
-    
+
+    await fetchUserCycle();
+    await fetchSubjects(); // Garante atualização imediata das disciplinas
+
     setExpandedSubject(null);
     toast.info("Novas matérias carregadas para estudo!");
   };
@@ -370,6 +380,8 @@ export const useStudyPlanLogic = () => {
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     isNewCycleStarted,
+    disciplinasIniciadas,
+    disciplinasNaoIniciadas,
     
     // Handlers
     handleNextDay,
