@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Subject, UserProfile, StudyProgress, Status, RevisionStage } from '../types';
 import { mockUserProfile } from '../data/mockData';
@@ -13,6 +12,7 @@ interface AppContextType {
   setUserProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
   studyProgress: StudyProgress;
   setStudyProgress: React.Dispatch<React.SetStateAction<StudyProgress>>;
+  createSubject: (subject: Omit<Subject, 'id' | 'topics'>) => Promise<void>;
   addSubject: (subject: Omit<Subject, 'id'>) => Promise<void>;
   updateSubject: (id: string, subject: Partial<Subject>) => Promise<void>;
   deleteSubject: (id: string) => Promise<void>;
@@ -201,6 +201,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: topic.name,
             completed: topic.completed,
             reviewCount: topic.review_count,
+            review_count: topic.review_count, // Add compatibility field
             nextReview: topic.next_review ? new Date(topic.next_review) : undefined,
             reviewStage: topic.review_stage as RevisionStage,
             lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined
@@ -340,8 +341,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStudyProgress(newProgress);
   };
 
-  // Função para adicionar uma nova matéria
-  const addSubject = async (subject: Omit<Subject, 'id'>) => {
+  // Função para criar uma nova matéria (nova interface)
+  const createSubject = async (subject: Omit<Subject, 'id' | 'topics'>) => {
     if (!user) return;
 
     try {
@@ -352,6 +353,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           name: subject.name,
           user_id: user.id,
           status: subject.status || 'Nova',
+          color: subject.color,
           priority: subjects.length + 1
         })
         .select()
@@ -366,6 +368,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       console.error('Erro ao adicionar matéria:', error);
       toast.error("Erro ao adicionar matéria");
+      throw error;
+    }
+  };
+
+  // Função para adicionar uma nova matéria (interface antiga)
+  const addSubject = async (subject: Omit<Subject, 'id'>) => {
+    if (!user) return;
+
+    try {
+      // Criar a matéria no banco
+      const { data, error } = await supabase
+        .from('subjects')
+        .insert({
+          name: subject.name,
+          user_id: user.id,
+          status: subject.status || 'Nova',
+          color: subject.color,
+          priority: subjects.length + 1
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        toast.success("Matéria adicionada com sucesso");
+        // A atualização será feita via realtime listener
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar matéria:', error);
+      toast.error("Erro ao adicionar matéria");
+      throw error;
     }
   };
 
@@ -380,6 +414,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .update({ 
           name: updatedFields.name,
           status: updatedFields.status,
+          color: updatedFields.color,
           priority: updatedFields.priority,
           updated_at: new Date().toISOString()
         })
@@ -392,6 +427,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       console.error('Erro ao atualizar matéria:', error);
       toast.error("Erro ao atualizar matéria");
+      throw error;
     }
   };
 
@@ -416,6 +452,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       console.error('Erro ao remover matéria:', error);
       toast.error("Erro ao remover matéria");
+      throw error;
     }
   };
 
@@ -444,6 +481,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       console.error('Erro ao adicionar tópico:', error);
       toast.error("Erro ao adicionar tópico");
+      throw error;
     }
   };
 
@@ -464,6 +502,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       console.error('Erro ao remover tópico:', error);
       toast.error("Erro ao remover tópico");
+      throw error;
     }
   };
 
@@ -476,6 +515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUserProfile,
         studyProgress,
         setStudyProgress,
+        createSubject,
         addSubject,
         updateSubject,
         deleteSubject,
