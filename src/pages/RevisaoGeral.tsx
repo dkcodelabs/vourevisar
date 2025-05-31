@@ -39,19 +39,39 @@ const RevisaoGeral = () => {
   const { isSubjectCompleted, isSubjectReadyToLeaveStudyPlan } = useStudyPlanLogic();
   const [isLoading, setIsLoading] = useState(true);
 
+  console.log('RevisaoGeral - Current subjects:', subjects);
+
   // Filtrar matérias completamente dominadas (100% finalizadas - sem revisões pendentes)
   const fullyCompletedSubjects = subjects.filter(isSubjectCompleted);
+  console.log('RevisaoGeral - Fully completed subjects:', fullyCompletedSubjects);
 
   // Filtrar matérias com alto progresso (todos os tópicos "Concluído" mas ainda com revisões pendentes)
   const highProgressSubjects = subjects.filter(subject => 
     isSubjectReadyToLeaveStudyPlan(subject) && !isSubjectCompleted(subject)
   );
+  console.log('RevisaoGeral - High progress subjects:', highProgressSubjects);
 
-  // Estatísticas
+  // Estatísticas corrigidas
   const totalSubjectsWithAllTopicsCompleted = subjects.filter(isSubjectReadyToLeaveStudyPlan).length;
-  const totalFullyCompletedTopics = fullyCompletedSubjects.reduce((acc, subject) => acc + subject.topics.length, 0);
+  
+  // Contar apenas tópicos que estão realmente dominados (reviewStage "Concluído" E nextReview null)
+  const totalFullyCompletedTopics = subjects.reduce((acc, subject) => {
+    const dominatedTopics = subject.topics.filter(topic => 
+      topic.reviewStage === 'Concluído' && topic.nextReview === null
+    ).length;
+    console.log(`RevisaoGeral - Subject ${subject.name}: ${dominatedTopics} dominated topics out of ${subject.topics.length}`);
+    return acc + dominatedTopics;
+  }, 0);
+  
   const totalSubjects = subjects.length;
   const completionPercentage = totalSubjects > 0 ? Math.round((totalSubjectsWithAllTopicsCompleted / totalSubjects) * 100) : 0;
+
+  console.log('RevisaoGeral - Statistics:', {
+    totalSubjectsWithAllTopicsCompleted,
+    totalFullyCompletedTopics,
+    totalSubjects,
+    completionPercentage
+  });
 
   useEffect(() => {
     if (isDataLoaded) {
@@ -153,7 +173,7 @@ const RevisaoGeral = () => {
         <motion.div variants={itemVariants}>
           <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <CheckCircle className="h-6 w-6 text-green-600" />
-            Matérias 100% Dominadas
+            Matérias 100% Dominadas ({fullyCompletedSubjects.length})
           </h2>
 
           {fullyCompletedSubjects.length === 0 ? (
@@ -172,6 +192,9 @@ const RevisaoGeral = () => {
             <div className="grid gap-4 mb-8">
               {fullyCompletedSubjects.map((subject) => {
                 const lastReviewDate = getLastReviewDate(subject);
+                const dominatedTopics = subject.topics.filter(topic => 
+                  topic.reviewStage === 'Concluído' && topic.nextReview === null
+                ).length;
                 
                 return (
                   <motion.div key={subject.id} variants={itemVariants}>
@@ -184,7 +207,7 @@ const RevisaoGeral = () => {
                               {subject.name}
                             </CardTitle>
                             <CardDescription className="mt-2">
-                              {subject.topics.length} tópicos 100% dominados
+                              {dominatedTopics} de {subject.topics.length} tópicos 100% dominados
                             </CardDescription>
                           </div>
                           <div className="flex flex-col items-end gap-2">
@@ -229,13 +252,17 @@ const RevisaoGeral = () => {
           <motion.div variants={itemVariants}>
             <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <Target className="h-6 w-6 text-orange-600" />
-              Matérias com Alto Progresso
+              Matérias com Alto Progresso ({highProgressSubjects.length})
             </h2>
 
             <div className="grid gap-4 mb-8">
               {highProgressSubjects.map((subject) => {
                 const lastReviewDate = getLastReviewDate(subject);
                 const pendingReviews = subject.topics.filter(topic => topic.nextReview !== null).length;
+                const completedTopics = subject.topics.filter(topic => topic.reviewStage === 'Concluído').length;
+                const dominatedTopics = subject.topics.filter(topic => 
+                  topic.reviewStage === 'Concluído' && topic.nextReview === null
+                ).length;
                 
                 return (
                   <motion.div key={subject.id} variants={itemVariants}>
@@ -248,7 +275,7 @@ const RevisaoGeral = () => {
                               {subject.name}
                             </CardTitle>
                             <CardDescription className="mt-2">
-                              {subject.topics.length} tópicos concluídos, {pendingReviews} revisões pendentes
+                              {completedTopics} de {subject.topics.length} tópicos concluídos, {dominatedTopics} dominados, {pendingReviews} revisões pendentes
                             </CardDescription>
                           </div>
                           <div className="flex flex-col items-end gap-2">

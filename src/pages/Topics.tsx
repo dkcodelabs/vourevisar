@@ -43,6 +43,8 @@ const Topics = () => {
   const [showAllSubjects, setShowAllSubjects] = useState(true);
 
   console.log('Topics component rendered - subjectId:', subjectId, 'user:', user?.id);
+  console.log('Current subjects state:', subjects);
+  console.log('Selected subject:', selectedSubject);
 
   // Carregar matérias
   const loadSubjects = async () => {
@@ -68,7 +70,7 @@ const Topics = () => {
         throw subjectsError;
       }
 
-      console.log('Subjects loaded:', subjectsData?.length || 0);
+      console.log('Subjects loaded:', subjectsData?.length || 0, subjectsData);
 
       if (!subjectsData || subjectsData.length === 0) {
         setSubjects([]);
@@ -79,6 +81,8 @@ const Topics = () => {
       // Buscar tópicos para cada matéria
       const subjectsWithTopics = await Promise.all(
         subjectsData.map(async (subject) => {
+          console.log('Loading topics for subject:', subject.name, subject.id);
+          
           const { data: topicsData, error: topicsError } = await supabase
             .from('topics')
             .select('*')
@@ -94,6 +98,8 @@ const Topics = () => {
             };
           }
 
+          console.log(`Topics loaded for ${subject.name}:`, topicsData?.length || 0, topicsData);
+
           return {
             id: subject.id,
             name: subject.name,
@@ -108,6 +114,7 @@ const Topics = () => {
       // Definir matéria selecionada ou mostrar todas por padrão
       if (subjectId) {
         const found = subjectsWithTopics.find(s => s.id === subjectId);
+        console.log('Setting selected subject from URL:', found);
         setSelectedSubject(found || null);
         setShowAllSubjects(false);
       } else {
@@ -286,12 +293,14 @@ const Topics = () => {
   };
 
   const getAllTopics = () => {
-    return subjects.flatMap(subject => 
+    const allTopics = subjects.flatMap(subject => 
       subject.topics.map(topic => ({
         ...topic,
         subjectName: subject.name
       }))
     );
+    console.log('All topics calculated:', allTopics);
+    return allTopics;
   };
 
   const renderTopicCard = (topic: TopicData & { subjectName?: string }) => {
@@ -458,6 +467,7 @@ const Topics = () => {
   }
 
   console.log('Rendering main content - selectedSubject:', selectedSubject?.name, 'showAllSubjects:', showAllSubjects);
+  console.log('Topics to render:', showAllSubjects ? getAllTopics() : selectedSubject?.topics);
 
   return (
     <motion.div 
@@ -488,10 +498,12 @@ const Topics = () => {
               value={showAllSubjects ? 'all' : selectedSubject?.id || ''}
               onChange={(e) => {
                 if (e.target.value === 'all') {
+                  console.log('Switching to show all subjects');
                   setShowAllSubjects(true);
                   setSelectedSubject(null);
                 } else {
                   const subject = subjects.find(s => s.id === e.target.value);
+                  console.log('Switching to specific subject:', subject);
                   setSelectedSubject(subject || null);
                   setShowAllSubjects(false);
                 }
@@ -501,7 +513,7 @@ const Topics = () => {
               <option value="all">Todas as Matérias</option>
               {subjects.map((subject) => (
                 <option key={subject.id} value={subject.id}>
-                  {subject.name}
+                  {subject.name} ({subject.topics.length} tópicos)
                 </option>
               ))}
             </select>

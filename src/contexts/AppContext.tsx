@@ -110,7 +110,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [subjects]);
 
-  // Função para verificar se uma matéria está completamente concluída (para estatísticas e Revisão Geral)
+  // Função para verificar se uma matéria está completamente concluída (100% dominada - sem revisões pendentes)
   const isSubjectCompleted = (subject: Subject): boolean => {
     if (subject.topics.length === 0) return false;
     return subject.topics.every(topic => 
@@ -162,6 +162,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             reviewStage: topic.review_stage as RevisionStage,
             lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined
           }));
+          
+          console.log(`AppContext - Subject ${subject.name} has ${processedTopics.length} topics:`, processedTopics);
           
           return {
             id: subject.id,
@@ -227,23 +229,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Função para recalcular o progresso
+  // Função corrigida para recalcular o progresso
   const recalculateProgress = () => {
     console.log('AppContext - Recalculating progress for', subjects.length, 'subjects');
+    console.log('AppContext - Subjects data:', subjects);
     
     // Contar tópicos por status
     let totalTopics = 0;
-    let completedTopics = 0;
+    let completedTopics = 0; // Tópicos com reviewStage "Concluído" E nextReview null
     let delayedTopics = 0;
     let todayTopics = 0;
     let futureTopics = 0;
     
     subjects.forEach(subject => {
+      console.log(`AppContext - Processing subject ${subject.name} with ${subject.topics.length} topics`);
       totalTopics += subject.topics.length;
       
       subject.topics.forEach(topic => {
+        console.log(`AppContext - Topic ${topic.name}: reviewStage=${topic.reviewStage}, nextReview=${topic.nextReview}`);
+        
+        // Contar como completado APENAS se reviewStage "Concluído" E nextReview null
         if (topic.reviewStage === 'Concluído' && topic.nextReview === null) {
           completedTopics++;
+          console.log(`AppContext - Topic ${topic.name} counted as completed`);
         }
         
         if (topic.nextReview) {
@@ -262,7 +270,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     });
     
-    // Contar matérias concluídas (todas matérias cujos tópicos têm reviewStage "Concluído")
+    // Contar matérias completadas (todas matérias cujos tópicos têm reviewStage "Concluído")
     const completedSubjects = subjects.filter(subject => 
       subject.topics.length > 0 && 
       isSubjectWithAllTopicsCompleted(subject)
