@@ -36,6 +36,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
+import { useApp } from '@/contexts/AppContext';
 
 // Definindo tipos para o componente
 interface Topic {
@@ -55,8 +56,7 @@ interface Subject {
 const Subjects = () => {
   const { user } = useAuth();
   const { toast: useToastHook } = useToast();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { subjects, isLoading, error } = useApp();
   
   const [openDialog, setOpenDialog] = useState(false);
   const [newSubject, setNewSubject] = useState({ name: '', status: 'Nova' as const });
@@ -82,6 +82,13 @@ const Subjects = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  console.log('Subjects - Current state:', { 
+    subjectsCount: subjects.length, 
+    isLoading, 
+    error,
+    user: user ? 'authenticated' : 'not authenticated'
+  });
 
   // Helper function to get CSS class based on status
   const getStatusClass = (status: string) => {
@@ -248,77 +255,6 @@ const Subjects = () => {
     );
   };
 
-  // Carregar matérias do usuário
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadData = async () => {
-      if (!user) return;
-
-      setIsLoading(true);
-      try {
-        // Buscar as disciplinas do usuário
-        const { data: subjectsData, error: subjectsError } = await supabase
-          .from('subjects')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('priority', { ascending: true });
-        
-        if (subjectsError) throw subjectsError;
-        
-        // Para cada disciplina, buscar seus tópicos
-        const subjectsWithTopics = await Promise.all(
-          (subjectsData || []).map(async (subject) => {
-            const { data: topicsData, error: topicsError } = await supabase
-              .from('topics')
-              .select('*')
-              .eq('subject_id', subject.id);
-            
-            if (topicsError) throw topicsError;
-            
-            // Ensure status is a valid value for our Subject type
-            let validStatus: 'Nova' | 'Em Estudo' | 'Concluída';
-            if (subject.status === 'Nova' || subject.status === 'Em Estudo' || subject.status === 'Concluída') {
-              validStatus = subject.status as 'Nova' | 'Em Estudo' | 'Concluída';
-            } else {
-              validStatus = 'Nova'; // Default to 'Nova' if status is not valid
-            }
-            
-            return {
-              id: subject.id,
-              name: subject.name,
-              status: validStatus,
-              topics: topicsData || []
-            };
-          })
-        );
-        
-        if (isMounted) {
-          setSubjects(subjectsWithTopics as Subject[]);
-        }
-      } catch (error) {
-        console.error('Erro ao buscar matérias:', error);
-        if (isMounted) {
-          useToastHook({
-            title: "Erro",
-            description: "Não foi possível carregar suas matérias. Por favor, tente novamente.",
-            variant: "destructive"
-          });
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
-
   const handleAddSubject = async () => {
     if (!user) return;
     
@@ -337,7 +273,7 @@ const Subjects = () => {
         .insert({
           name: newSubject.name,
           user_id: user.id,
-          priority: subjects.length + 1 // Define a prioridade com base no número de matérias existentes
+          priority: subjects.length + 1
         })
         .select()
         .single();
@@ -345,17 +281,8 @@ const Subjects = () => {
       if (error) throw error;
       
       if (data) {
-        // Adiciona a nova matéria à lista
-        setSubjects(prev => [...prev, {
-          id: data.id,
-          name: data.name,
-          status: 'Nova',
-          topics: []
-        }]);
-        
         setNewSubject({ name: '', status: 'Nova' });
         setOpenDialog(false);
-        
         toast.success("Matéria adicionada com sucesso");
       }
     } catch (error) {
@@ -372,6 +299,8 @@ const Subjects = () => {
     if (!subjectToDelete) return;
     
     try {
+      console.log('Subjects - Deleting subject:', subjectToDelete);
+      
       const { error } = await supabase
         .from('subjects')
         .delete()
@@ -379,8 +308,7 @@ const Subjects = () => {
         
       if (error) throw error;
       
-      // Atualiza a lista de matérias
-      setSubjects(prev => prev.filter(subject => subject.id !== subjectToDelete));
+      console.log('Subjects - Subject deleted successfully');
       toast.success("Matéria removida com sucesso");
     } catch (error) {
       console.error('Erro ao remover matéria:', error);
@@ -403,11 +331,6 @@ const Subjects = () => {
         .eq('id', editSubject.id);
         
       if (error) throw error;
-      
-      // Atualiza a matéria na lista
-      setSubjects(prev => prev.map(subject => 
-        subject.id === editSubject.id ? { ...subject, name: editSubject.name } : subject
-      ));
       
       toast.success("Nome da matéria atualizado");
     } catch (error) {
@@ -447,17 +370,6 @@ const Subjects = () => {
       if (error) throw error;
       
       if (data) {
-        // Adiciona o novo tópico à matéria correspondente
-        setSubjects(prev => prev.map(subject => {
-          if (subject.id === currentSubjectId) {
-            return {
-              ...subject,
-              topics: [...subject.topics, data]
-            };
-          }
-          return subject;
-        }));
-        
         setNewTopic('');
         
         // Mantém o foco no campo de entrada para adicionar mais tópicos
@@ -494,17 +406,6 @@ const Subjects = () => {
         
       if (error) throw error;
       
-      // Atualiza a lista de tópicos da matéria
-      setSubjects(prev => prev.map(subject => {
-        if (subject.id === topicToDelete.subjectId) {
-          return {
-            ...subject,
-            topics: subject.topics.filter(topic => topic.id !== topicToDelete.topicId)
-          };
-        }
-        return subject;
-      }));
-      
       toast.success("Tópico removido com sucesso");
     } catch (error) {
       console.error('Erro ao remover tópico:', error);
@@ -523,17 +424,13 @@ const Subjects = () => {
     const { active, over } = event;
     
     if (over && active.id !== over.id) {
-      setSubjects((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-        
-        const newSubjects = arrayMove(items, oldIndex, newIndex);
-        
-        // Atualizar a ordem no banco de dados
-        updateSubjectsOrder(newSubjects);
-        
-        return newSubjects;
-      });
+      const oldIndex = subjects.findIndex((item) => item.id === active.id);
+      const newIndex = subjects.findIndex((item) => item.id === over.id);
+      
+      const newSubjects = arrayMove(subjects, oldIndex, newIndex);
+      
+      // Atualizar a ordem no banco de dados
+      updateSubjectsOrder(newSubjects);
     }
   };
 
@@ -541,17 +438,12 @@ const Subjects = () => {
     if (!user) return;
 
     try {
-      // Atualizar a ordem de todas as matérias com todas as propriedades necessárias
       const updates = newSubjects.map((subject, index) => ({
         id: subject.id,
-        name: subject.name,
         priority: index + 1,
-        status: subject.status,
-        user_id: user.id,
         updated_at: new Date().toISOString()
       }));
 
-      // Use upsert with onConflict parameter to update only the priority field
       const { error } = await supabase
         .from('subjects')
         .upsert(updates, { onConflict: 'id', ignoreDuplicates: false });
@@ -569,6 +461,17 @@ const Subjects = () => {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-red-600 mb-4">{error}</p>
+        <GradientButton onClick={() => window.location.reload()}>
+          Tentar Novamente
+        </GradientButton>
       </div>
     );
   }
@@ -741,7 +644,7 @@ const Subjects = () => {
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
               {subjectToDelete ? 
-                "Tem certeza que deseja excluir esta matéria? Esta ação não pode ser desfeita." :
+                "Tem certeza que deseja excluir esta matéria? Esta ação não pode ser desfeita e todos os tópicos relacionados também serão removidos." :
                 "Tem certeza que deseja excluir este tópico? Esta ação não pode ser desfeita."
               }
             </AlertDialogDescription>
