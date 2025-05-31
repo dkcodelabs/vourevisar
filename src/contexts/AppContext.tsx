@@ -110,6 +110,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [subjects]);
 
+  // Função para verificar se uma matéria está completamente concluída
+  const isSubjectCompleted = (subject: Subject): boolean => {
+    if (subject.topics.length === 0) return false;
+    return subject.topics.every(topic => 
+      topic.completed && topic.reviewStage === 'Concluído'
+    );
+  };
+
   // Função para buscar as matérias do usuário
   const fetchSubjects = async () => {
     if (!user) return;
@@ -314,12 +322,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return;
 
     try {
+      // Verificar se deve atualizar automaticamente o status
+      const subject = subjects.find(s => s.id === id);
+      let finalStatus = updatedFields.status;
+      
+      if (subject && !updatedFields.status) {
+        // Se não foi especificado um status, verificar se deve ser atualizado automaticamente
+        if (isSubjectCompleted(subject) && subject.status !== 'Concluída') {
+          finalStatus = 'Concluída';
+        }
+      }
+
       // Atualizar a matéria no banco
       const { error } = await supabase
         .from('subjects')
         .update({ 
           name: updatedFields.name,
-          status: updatedFields.status,
+          status: finalStatus || updatedFields.status,
           priority: updatedFields.priority,
           updated_at: new Date().toISOString()
         })
@@ -330,7 +349,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Atualizar a matéria na lista
       setSubjects(prev =>
         prev.map((subject) =>
-          subject.id === id ? { ...subject, ...updatedFields } : subject
+          subject.id === id ? { ...subject, ...updatedFields, status: finalStatus || updatedFields.status || subject.status } : subject
         )
       );
       

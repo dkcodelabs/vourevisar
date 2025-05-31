@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,10 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { addDays, isAfter, startOfDay } from 'date-fns';
-import { Topic, RevisionStage } from '@/types';
+import { Topic, RevisionStage, Subject } from '@/types';
 
 export const useStudyPlanLogic = () => {
-  const { subjects, userProfile, fetchSubjects, fetchUserSettings } = useApp();
+  const { subjects, userProfile, fetchSubjects, fetchUserSettings, updateSubject } = useApp();
   const { user } = useAuth();
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [currentSubjectIndex, setCurrentSubjectIndex] = useState(0);
@@ -24,9 +25,21 @@ export const useStudyPlanLogic = () => {
   
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
   
-  const currentSubjects = subjects.filter(subject => 
-    subject.status === 'Em Estudo' || subject.status === 'Nova'
-  ).sort((a, b) => (a.priority || 0) - (b.priority || 0));
+  // Função para verificar se uma matéria está completamente concluída
+  const isSubjectCompleted = (subject: Subject): boolean => {
+    if (subject.topics.length === 0) return false;
+    return subject.topics.every(topic => 
+      topic.completed && topic.reviewStage === 'Concluído'
+    );
+  };
+
+  // Filtrar matérias para excluir as completamente concluídas
+  const currentSubjects = subjects
+    .filter(subject => 
+      (subject.status === 'Em Estudo' || subject.status === 'Nova') && 
+      !isSubjectCompleted(subject)
+    )
+    .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
   const dailySubjects = currentSubjects.filter(subject =>
     userCycle?.disciplinas_do_dia.includes(subject.id)
@@ -36,7 +49,8 @@ export const useStudyPlanLogic = () => {
     .filter(subject => 
       (subject.status === 'Em Estudo' || subject.status === 'Nova') && 
       !userCycle?.ciclo_atual.includes(subject.id) &&
-      !userCycle?.disciplinas_do_dia.includes(subject.id)
+      !userCycle?.disciplinas_do_dia.includes(subject.id) &&
+      !isSubjectCompleted(subject)
     )
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
@@ -192,6 +206,17 @@ export const useStudyPlanLogic = () => {
     });
   };
 
+  // Função para verificar e atualizar status da matéria automaticamente
+  const checkAndUpdateSubjectStatus = async (subjectId: string) => {
+    const subject = subjects.find(s => s.id === subjectId);
+    if (!subject) return;
+
+    if (isSubjectCompleted(subject) && subject.status !== 'Concluída') {
+      await updateSubject(subjectId, { status: 'Concluída' });
+      toast.success(`Matéria "${subject.name}" foi marcada como concluída! 🎉`);
+    }
+  };
+
   // Event handlers
   const handleNextDay = async () => {
     if (materiasPendentes.length === 0) {
@@ -242,6 +267,9 @@ export const useStudyPlanLogic = () => {
       }
       
       await fetchSubjects();
+      
+      // Verificar e atualizar status da matéria após atualizar os dados
+      await checkAndUpdateSubjectStatus(subjectId);
       
       const newCicloAtual = [...(userCycle?.ciclo_atual || []), subjectId];
       const newDisciplinasDoDia = userCycle?.disciplinas_do_dia.filter(id => id !== subjectId) || [];
@@ -362,7 +390,8 @@ export const useStudyPlanLogic = () => {
     dailySubjectsLength: dailySubjects.length,
     disciplinas_do_dia: userCycle?.disciplinas_do_dia,
     ciclo_atual: userCycle?.ciclo_atual,
-    showNewCycleMessage
+    showNewCycleMessage,
+    completedSubjectsFiltered: subjects.filter(isSubjectCompleted).length
   });
 
   return {
@@ -389,6 +418,9 @@ export const useStudyPlanLogic = () => {
     handleToggleExpand,
     handleMarkTopicForReview,
     handleCancelTopicReview,
-    handleHideNewCycleMessage
+    handleHideNewCycleMessage,
+    
+    // Helper function (export for use in other components)
+    isSubjectCompleted
   };
 };

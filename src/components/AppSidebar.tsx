@@ -1,10 +1,11 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton 
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, LucideIcon } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, LucideIcon } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -21,6 +22,7 @@ const navItems: NavItem[] = [
   { to: "/plano-estudos", label: "Plano de Estudos", icon: Calendar },
   { to: "/topicos", label: "Tópicos", icon: List },
   { to: "/revisoes", label: "Revisões", icon: Clock },
+  { to: "/revisao-geral", label: "Revisão Geral", icon: Trophy },
   { to: "/perfil", label: "Perfil", icon: User },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ];

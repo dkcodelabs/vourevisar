@@ -1,5 +1,4 @@
 
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,6 +20,7 @@ import { AuthCallback } from "@/components/AuthCallback";
 import { useEffect } from "react";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
+import RevisaoGeral from "@/pages/RevisaoGeral";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +65,7 @@ const App = () => {
                     <Route path="materias/:subjectId/topicos" element={<Topics />} />
                     <Route path="topicos" element={<Topics />} />
                     <Route path="revisoes" element={<Revisoes />} />
+                    <Route path="revisao-geral" element={<RevisaoGeral />} />
                     <Route path="perfil" element={<Profile />} />
                     <Route path="configuracoes" element={<Settings />} />
                   </Route>
@@ -81,4 +82,3 @@ const App = () => {
 };
 
 export default App;
-
