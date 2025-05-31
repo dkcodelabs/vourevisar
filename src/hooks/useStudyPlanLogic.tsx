@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,7 +24,18 @@ export const useStudyPlanLogic = () => {
   
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
   
-  // Função para verificar se uma matéria está completamente concluída (sem revisões pendentes)
+  // Função para verificar se uma matéria deve ser removida do plano de estudos
+  // Uma matéria é considerada "pronta para sair do plano" quando todos os tópicos atingiram o estágio "Concluído"
+  const isSubjectReadyToLeaveStudyPlan = (subject: Subject): boolean => {
+    if (subject.topics.length === 0) return false;
+    
+    return subject.topics.every(topic => {
+      // Apenas verificar se o estágio é "Concluído", ignorar nextReview
+      return topic.completed && topic.reviewStage === 'Concluído';
+    });
+  };
+
+  // Função para verificar se uma matéria está 100% finalizada (para Revisão Geral)
   const isSubjectCompleted = (subject: Subject): boolean => {
     if (subject.topics.length === 0) return false;
     
@@ -37,11 +47,11 @@ export const useStudyPlanLogic = () => {
     });
   };
 
-  // Filtrar matérias para excluir as completamente concluídas (sem revisões pendentes)
+  // Filtrar matérias para o plano de estudos (excluir as que saíram do ciclo de estudos)
   const currentSubjects = subjects
     .filter(subject => 
       (subject.status === 'Em Estudo' || subject.status === 'Nova') && 
-      !isSubjectCompleted(subject)
+      !isSubjectReadyToLeaveStudyPlan(subject)
     )
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
@@ -54,7 +64,7 @@ export const useStudyPlanLogic = () => {
       (subject.status === 'Em Estudo' || subject.status === 'Nova') && 
       !userCycle?.ciclo_atual.includes(subject.id) &&
       !userCycle?.disciplinas_do_dia.includes(subject.id) &&
-      !isSubjectCompleted(subject)
+      !isSubjectReadyToLeaveStudyPlan(subject)
     )
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
@@ -399,7 +409,8 @@ export const useStudyPlanLogic = () => {
     disciplinas_do_dia: userCycle?.disciplinas_do_dia,
     ciclo_atual: userCycle?.ciclo_atual,
     showNewCycleMessage,
-    completedSubjectsFiltered: subjects.filter(isSubjectCompleted).length
+    subjectsReadyToLeave: subjects.filter(isSubjectReadyToLeaveStudyPlan).length,
+    subjectsCompleted: subjects.filter(isSubjectCompleted).length
   });
 
   return {
@@ -428,7 +439,8 @@ export const useStudyPlanLogic = () => {
     handleCancelTopicReview,
     handleHideNewCycleMessage,
     
-    // Helper function (export for use in other components)
-    isSubjectCompleted
+    // Helper functions (export for use in other components)
+    isSubjectCompleted,
+    isSubjectReadyToLeaveStudyPlan
   };
 };
