@@ -37,15 +37,19 @@ const RevisaoGeral = () => {
   const { subjects, updateSubject, isDataLoaded } = useApp();
   const [isLoading, setIsLoading] = useState(true);
 
-  // Função para verificar se uma matéria está completamente concluída
+  // Função para verificar se uma matéria está completamente concluída (sem revisões pendentes)
   const isSubjectCompleted = (subject: Subject): boolean => {
     if (subject.topics.length === 0) return false;
-    return subject.topics.every(topic => 
-      topic.completed && topic.reviewStage === 'Concluído'
-    );
+    
+    return subject.topics.every(topic => {
+      // Tópico deve estar marcado como concluído E não ter próxima revisão agendada
+      return topic.completed && 
+             topic.reviewStage === 'Concluído' && 
+             topic.nextReview === null;
+    });
   };
 
-  // Filtrar matérias completamente concluídas
+  // Filtrar matérias completamente concluídas (sem revisões pendentes)
   const completedSubjects = subjects.filter(isSubjectCompleted);
 
   // Estatísticas

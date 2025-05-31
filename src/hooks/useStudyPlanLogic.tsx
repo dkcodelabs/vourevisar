@@ -25,15 +25,19 @@ export const useStudyPlanLogic = () => {
   
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
   
-  // Função para verificar se uma matéria está completamente concluída
+  // Função para verificar se uma matéria está completamente concluída (sem revisões pendentes)
   const isSubjectCompleted = (subject: Subject): boolean => {
     if (subject.topics.length === 0) return false;
-    return subject.topics.every(topic => 
-      topic.completed && topic.reviewStage === 'Concluído'
-    );
+    
+    return subject.topics.every(topic => {
+      // Tópico deve estar marcado como concluído E não ter próxima revisão agendada
+      return topic.completed && 
+             topic.reviewStage === 'Concluído' && 
+             topic.nextReview === null;
+    });
   };
 
-  // Filtrar matérias para excluir as completamente concluídas
+  // Filtrar matérias para excluir as completamente concluídas (sem revisões pendentes)
   const currentSubjects = subjects
     .filter(subject => 
       (subject.status === 'Em Estudo' || subject.status === 'Nova') && 
@@ -245,12 +249,15 @@ export const useStudyPlanLogic = () => {
       for (const topicId of topicsToUpdate) {
         const topic = subjects.find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
         if (!topic) continue;
+        
         const nextStage = getNextReviewStage(topic.reviewStage);
         let updateData: any = {
           review_count: topic.reviewCount + 1,
           last_reviewed_at: new Date().toISOString()
         };
+        
         if (nextStage === 'Concluído') {
+          // Quando atinge Concluído, marcar como completo e limpar próxima revisão
           updateData.completed = true;
           updateData.next_review = null;
           updateData.review_stage = 'Concluído';
@@ -258,6 +265,7 @@ export const useStudyPlanLogic = () => {
           updateData.next_review = calculateNextReview(nextStage).toISOString();
           updateData.review_stage = nextStage;
         }
+        
         await supabase.from('topics').update(updateData).eq('id', topicId);
         
         console.log('Dispatching topicReviewed event for topic:', topicId);
