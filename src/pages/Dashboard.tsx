@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -31,7 +30,7 @@ import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
 import { Progress } from '@/components/ui/progress';
 
 export const Dashboard = () => {
-  const { studyProgress, fetchSubjects } = useApp();
+  const { studyProgress, subjects } = useApp();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
@@ -40,14 +39,17 @@ export const Dashboard = () => {
   const [todaysReviews, setTodaysReviews] = useState<any[]>([]);
   const [revisionsByDate, setRevisionsByDate] = useState<Record<number, any[]>>({});
   const [ciclosRealizados, setCiclosRealizados] = useState(0);
-  const [progressoCiclo, setProgressoCiclo] = useState(0);
 
-  // Fetch data when component mounts
+  console.log('Dashboard - Study Progress:', studyProgress);
+  console.log('Dashboard - Subjects loaded:', subjects.length);
+
+  // Aguardar que os dados do AppContext estejam carregados
   useEffect(() => {
-    if (user) {
-      loadData();
+    if (user && subjects.length >= 0) { // >= 0 porque pode ser que não tenha matérias mesmo
+      console.log('Dashboard - Loading dashboard-specific data...');
+      loadDashboardData();
     }
-  }, [user]);
+  }, [user, subjects]);
 
   // Buscar ciclos realizados do banco de dados
   const fetchCiclosRealizados = async () => {
@@ -193,31 +195,19 @@ export const Dashboard = () => {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchCiclosRealizados();
-    }
-    
-    // Progresso do ciclo atual: matérias concluídas / total de matérias
-    const total = studyProgress.totalSubjects;
-    const concluidas = studyProgress.completedSubjects;
-    setProgressoCiclo(total > 0 ? Math.round((concluidas / total) * 100) : 0);
-  }, [user, studyProgress.totalSubjects, studyProgress.completedSubjects]);
-
-  const loadData = async () => {
+  const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Fetch subjects and their topics
-      await fetchSubjects();
+      console.log('Dashboard - Loading specific data (reviews, cycles)...');
+      
+      // Buscar apenas dados específicos da Dashboard, não matérias (isso é do AppContext)
+      await Promise.all([
+        fetchTodaysReviews(),
+        fetchRevisionsForCalendar(),
+        fetchCiclosRealizados()
+      ]);
 
-      // Fetch today's reviews
-      await fetchTodaysReviews();
-
-      // Fetch revisions for the calendar
-      await fetchRevisionsForCalendar();
-
-      // Fetch ciclos realizados
-      await fetchCiclosRealizados();
+      console.log('Dashboard - Specific data loaded successfully');
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -228,10 +218,10 @@ export const Dashboard = () => {
   // Listener para eventos de revisão concluída - recarrega os dados
   useEffect(() => {
     const handleTopicReviewed = () => {
-      console.log('Topic reviewed event received, reloading data...');
+      console.log('Topic reviewed event received, reloading dashboard data...');
       fetchTodaysReviews();
       fetchRevisionsForCalendar();
-      fetchCiclosRealizados(); // Recarregar ciclos também
+      fetchCiclosRealizados();
     };
 
     window.addEventListener('topicReviewed', handleTopicReviewed);
@@ -250,6 +240,11 @@ export const Dashboard = () => {
     ? Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100) 
     : 0;
 
+  // Progresso do ciclo atual: matérias concluídas / total de matérias
+  const progressoCiclo = studyProgress.totalSubjects > 0 
+    ? Math.round((studyProgress.completedSubjects / studyProgress.totalSubjects) * 100) 
+    : 0;
+
   const handleDateClick = (day: number) => {
     // Only allow clicking days that have revisions
     if (revisionsByDate[day] && revisionsByDate[day].length > 0) {
@@ -260,7 +255,9 @@ export const Dashboard = () => {
 
   const currentDay = new Date().getDate();
 
-  if (isLoading) {
+  // Mostrar loading se ainda estamos carregando dados específicos da Dashboard
+  // ou se os dados básicos do AppContext ainda não foram carregados
+  if (isLoading || (user && studyProgress.totalSubjects === 0 && subjects.length === 0)) {
     return (
       <PageContainer>
         <div className="flex justify-center items-center h-64">

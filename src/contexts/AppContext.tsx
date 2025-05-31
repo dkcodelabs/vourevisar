@@ -20,6 +20,7 @@ interface AppContextType {
   fetchSubjects: () => Promise<void>;
   fetchUserSettings: () => Promise<void>;
   recalculateProgress: () => void;
+  isDataLoaded: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -36,14 +37,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     todayTopics: 0,
     futureTopics: 0
   });
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const { user } = useAuth();
+
+  console.log('AppContext - Current state:', {
+    subjectsCount: subjects.length,
+    isDataLoaded,
+    user: user ? 'authenticated' : 'not authenticated',
+    studyProgress
+  });
 
   // Buscar dados quando o usuário estiver autenticado
   useEffect(() => {
     let isMounted = true;
 
     const loadData = async () => {
-      if (!user) return;
+      if (!user) {
+        setIsDataLoaded(false);
+        return;
+      }
+
+      console.log('AppContext - Starting data load for user:', user.email);
+      setIsDataLoaded(false);
 
       try {
         // Buscar configurações e matérias em paralelo
@@ -65,10 +80,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             toast.error("Erro ao carregar matérias. Por favor, tente novamente.");
           }
         }
+
+        console.log('AppContext - Data load completed');
       } catch (error) {
         console.error('Erro ao carregar dados iniciais:', error);
         if (isMounted) {
           toast.error("Erro ao carregar dados. Por favor, tente novamente.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsDataLoaded(true);
+          console.log('AppContext - Data marked as loaded');
         }
       }
     };
@@ -80,11 +102,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [user]);
 
+  // Recalcular progresso sempre que as matérias mudarem
+  useEffect(() => {
+    if (subjects.length >= 0) { // >= 0 porque pode ser que não tenha matérias mesmo
+      console.log('AppContext - Recalculating progress due to subjects change');
+      recalculateProgress();
+    }
+  }, [subjects]);
+
   // Função para buscar as matérias do usuário
   const fetchSubjects = async () => {
     if (!user) return;
 
     try {
+      console.log('AppContext - Fetching subjects for user:', user.email);
+      
       // Buscar as disciplinas do usuário ordenadas por prioridade
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
@@ -93,6 +125,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .order('priority', { ascending: true });
       
       if (subjectsError) throw subjectsError;
+      
+      console.log('AppContext - Found subjects:', subjectsData?.length || 0);
       
       // Para cada disciplina, buscar seus tópicos
       const subjectsWithTopics = await Promise.all(
@@ -126,8 +160,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
       );
       
+      console.log('AppContext - Processed subjects with topics:', subjectsWithTopics.length);
       setSubjects(subjectsWithTopics);
-      recalculateProgress();
     } catch (error) {
       console.error('Erro ao buscar matérias:', error);
       throw error; // Propaga o erro para ser tratado no nível superior
@@ -139,6 +173,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return;
 
     try {
+      console.log('AppContext - Fetching user settings for:', user.email);
+      
       // Buscar o perfil do usuário
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -169,6 +205,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             notificationTime: settingsData.notification_time
           }
         });
+        console.log('AppContext - User settings loaded successfully');
       }
     } catch (error) {
       console.error('Erro ao buscar configurações:', error);
@@ -178,6 +215,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Função para recalcular o progresso
   const recalculateProgress = () => {
+    console.log('AppContext - Recalculating progress for', subjects.length, 'subjects');
+    
     // Contar tópicos por status
     let totalTopics = 0;
     let completedTopics = 0;
@@ -217,7 +256,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     ).length;
     
-    setStudyProgress({
+    const newProgress = {
       totalSubjects: subjects.length,
       completedSubjects,
       totalTopics,
@@ -225,7 +264,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       delayedTopics,
       todayTopics,
       futureTopics
-    });
+    };
+    
+    console.log('AppContext - New progress calculated:', newProgress);
+    setStudyProgress(newProgress);
   };
 
   // Função para adicionar uma nova matéria
@@ -258,7 +300,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         
         setSubjects(prev => [...prev, newSubject]);
-        recalculateProgress();
         
         toast.success("Matéria adicionada com sucesso");
       }
@@ -293,7 +334,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         )
       );
       
-      recalculateProgress();
       toast.success("Matéria atualizada com sucesso");
     } catch (error) {
       console.error('Erro ao atualizar matéria:', error);
@@ -356,7 +396,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       // Remover a matéria da lista
       setSubjects((prev) => prev.filter((subject) => subject.id !== id));
-      recalculateProgress();
       
       toast.success("Matéria e todos os tópicos relacionados foram removidos com sucesso");
     } catch (error) {
@@ -406,7 +445,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           })
         );
         
-        recalculateProgress();
         toast.success("Tópico adicionado com sucesso");
       }
     } catch (error) {
@@ -441,7 +479,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
       );
       
-      recalculateProgress();
       toast.success("Tópico removido com sucesso");
     } catch (error) {
       console.error('Erro ao remover tópico:', error);
@@ -465,7 +502,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         removeTopicFromSubject,
         fetchSubjects,
         fetchUserSettings,
-        recalculateProgress
+        recalculateProgress,
+        isDataLoaded
       }}
     >
       {children}
