@@ -1,3 +1,4 @@
+
 import { Subject, UserProfile, StudyProgress } from '../types';
 
 export const mockSubjects: Subject[] = [
@@ -5,8 +6,8 @@ export const mockSubjects: Subject[] = [
     id: '1',
     name: 'Português',
     topics: [
-      { id: '1-1', name: 'Concordância Verbal', completed: false, reviewCount: 0 },
-      { id: '1-2', name: 'Crase', completed: false, reviewCount: 0 }
+      { id: '1-1', name: 'Concordância Verbal', completed: false, reviewCount: 0, review_count: 0 },
+      { id: '1-2', name: 'Crase', completed: false, reviewCount: 0, review_count: 0 }
     ],
     status: 'Nova'
   },
@@ -14,8 +15,8 @@ export const mockSubjects: Subject[] = [
     id: '2',
     name: 'Matemática Financeira',
     topics: [
-      { id: '2-1', name: 'Juros Compostos', completed: false, reviewCount: 0 },
-      { id: '2-2', name: 'Desconto Simples', completed: true, reviewCount: 3 }
+      { id: '2-1', name: 'Juros Compostos', completed: false, reviewCount: 0, review_count: 0 },
+      { id: '2-2', name: 'Desconto Simples', completed: true, reviewCount: 3, review_count: 3 }
     ],
     status: 'Concluída'
   },
@@ -23,9 +24,9 @@ export const mockSubjects: Subject[] = [
     id: '3',
     name: 'Direito Constitucional',
     topics: [
-      { id: '3-1', name: 'Artigos 1-5 da CF', completed: false, reviewCount: 1 },
-      { id: '3-2', name: 'Direitos Fundamentais', completed: false, reviewCount: 0 },
-      { id: '3-3', name: 'Controle de Constitucionalidade (Introdução)', completed: true, reviewCount: 2 }
+      { id: '3-1', name: 'Artigos 1-5 da CF', completed: false, reviewCount: 1, review_count: 1 },
+      { id: '3-2', name: 'Direitos Fundamentais', completed: false, reviewCount: 0, review_count: 0 },
+      { id: '3-3', name: 'Controle de Constitucionalidade (Introdução)', completed: true, reviewCount: 2, review_count: 2 }
     ],
     status: 'Em Estudo'
   },
@@ -33,8 +34,8 @@ export const mockSubjects: Subject[] = [
     id: '4',
     name: 'Direito Administrativo',
     topics: [
-      { id: '4-1', name: 'Princípios da Administração Pública', completed: false, reviewCount: 0 },
-      { id: '4-2', name: 'Atos Administrativos', completed: false, reviewCount: 0 }
+      { id: '4-1', name: 'Princípios da Administração Pública', completed: false, reviewCount: 0, review_count: 0 },
+      { id: '4-2', name: 'Atos Administrativos', completed: false, reviewCount: 0, review_count: 0 }
     ],
     status: 'Nova'
   },
@@ -42,8 +43,8 @@ export const mockSubjects: Subject[] = [
     id: '5',
     name: 'Raciocínio Lógico',
     topics: [
-      { id: '5-1', name: 'Proposições', completed: false, reviewCount: 0 },
-      { id: '5-2', name: 'Silogismos', completed: false, reviewCount: 0 }
+      { id: '5-1', name: 'Proposições', completed: false, reviewCount: 0, review_count: 0 },
+      { id: '5-2', name: 'Silogismos', completed: false, reviewCount: 0, review_count: 0 }
     ],
     status: 'Nova'
   }
