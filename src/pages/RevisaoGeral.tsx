@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
+import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, RotateCcw, Calendar, Trophy, BookOpen } from 'lucide-react';
+import { CheckCircle, RotateCcw, Calendar, Trophy, BookOpen, Target } from 'lucide-react';
 import { Subject } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -35,27 +36,22 @@ const itemVariants = {
 
 const RevisaoGeral = () => {
   const { subjects, updateSubject, isDataLoaded } = useApp();
+  const { isSubjectCompleted, isSubjectReadyToLeaveStudyPlan } = useStudyPlanLogic();
   const [isLoading, setIsLoading] = useState(true);
 
-  // Função para verificar se uma matéria está completamente concluída (sem revisões pendentes)
-  const isSubjectCompleted = (subject: Subject): boolean => {
-    if (subject.topics.length === 0) return false;
-    
-    return subject.topics.every(topic => {
-      // Tópico deve estar marcado como concluído E não ter próxima revisão agendada
-      return topic.completed && 
-             topic.reviewStage === 'Concluído' && 
-             topic.nextReview === null;
-    });
-  };
+  // Filtrar matérias completamente dominadas (100% finalizadas - sem revisões pendentes)
+  const fullyCompletedSubjects = subjects.filter(isSubjectCompleted);
 
-  // Filtrar matérias completamente concluídas (sem revisões pendentes)
-  const completedSubjects = subjects.filter(isSubjectCompleted);
+  // Filtrar matérias com alto progresso (todos os tópicos "Concluído" mas ainda com revisões pendentes)
+  const highProgressSubjects = subjects.filter(subject => 
+    isSubjectReadyToLeaveStudyPlan(subject) && !isSubjectCompleted(subject)
+  );
 
   // Estatísticas
-  const totalCompletedTopics = completedSubjects.reduce((acc, subject) => acc + subject.topics.length, 0);
+  const totalSubjectsWithAllTopicsCompleted = subjects.filter(isSubjectReadyToLeaveStudyPlan).length;
+  const totalFullyCompletedTopics = fullyCompletedSubjects.reduce((acc, subject) => acc + subject.topics.length, 0);
   const totalSubjects = subjects.length;
-  const completionPercentage = totalSubjects > 0 ? Math.round((completedSubjects.length / totalSubjects) * 100) : 0;
+  const completionPercentage = totalSubjects > 0 ? Math.round((totalSubjectsWithAllTopicsCompleted / totalSubjects) * 100) : 0;
 
   useEffect(() => {
     if (isDataLoaded) {
@@ -118,7 +114,7 @@ const RevisaoGeral = () => {
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{completedSubjects.length}</div>
+                <div className="text-2xl font-bold text-green-600">{totalSubjectsWithAllTopicsCompleted}</div>
                 <p className="text-xs text-muted-foreground">
                   de {totalSubjects} matérias ({completionPercentage}%)
                 </p>
@@ -131,9 +127,9 @@ const RevisaoGeral = () => {
                 <BookOpen className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{totalCompletedTopics}</div>
+                <div className="text-2xl font-bold text-blue-600">{totalFullyCompletedTopics}</div>
                 <p className="text-xs text-muted-foreground">
-                  tópicos completamente revisados
+                  tópicos 100% finalizados
                 </p>
               </CardContent>
             </Card>
@@ -153,28 +149,28 @@ const RevisaoGeral = () => {
           </div>
         </motion.div>
 
-        {/* Lista de Matérias Concluídas */}
+        {/* Matérias 100% Dominadas */}
         <motion.div variants={itemVariants}>
           <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <CheckCircle className="h-6 w-6 text-green-600" />
-            Matérias Dominadas
+            Matérias 100% Dominadas
           </h2>
 
-          {completedSubjects.length === 0 ? (
+          {fullyCompletedSubjects.length === 0 ? (
             <Card>
-              <CardContent className="text-center py-12">
-                <BookOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                  Nenhuma matéria concluída ainda
+              <CardContent className="text-center py-8">
+                <CheckCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                  Nenhuma matéria 100% dominada ainda
                 </h3>
-                <p className="text-gray-500">
-                  Continue estudando para ver suas conquistas aqui!
+                <p className="text-gray-500 text-sm">
+                  Continue estudando para dominar completamente suas matérias!
                 </p>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4">
-              {completedSubjects.map((subject) => {
+            <div className="grid gap-4 mb-8">
+              {fullyCompletedSubjects.map((subject) => {
                 const lastReviewDate = getLastReviewDate(subject);
                 
                 return (
@@ -188,12 +184,12 @@ const RevisaoGeral = () => {
                               {subject.name}
                             </CardTitle>
                             <CardDescription className="mt-2">
-                              {subject.topics.length} tópicos completamente dominados
+                              {subject.topics.length} tópicos 100% dominados
                             </CardDescription>
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             <Badge variant="secondary" className="bg-green-100 text-green-800">
-                              Concluída
+                              100% Dominada
                             </Badge>
                             {lastReviewDate && (
                               <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -227,6 +223,70 @@ const RevisaoGeral = () => {
             </div>
           )}
         </motion.div>
+
+        {/* Matérias com Alto Progresso */}
+        {highProgressSubjects.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <Target className="h-6 w-6 text-orange-600" />
+              Matérias com Alto Progresso
+            </h2>
+
+            <div className="grid gap-4 mb-8">
+              {highProgressSubjects.map((subject) => {
+                const lastReviewDate = getLastReviewDate(subject);
+                const pendingReviews = subject.topics.filter(topic => topic.nextReview !== null).length;
+                
+                return (
+                  <motion.div key={subject.id} variants={itemVariants}>
+                    <Card className="border-orange-200 bg-orange-50/50">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <CardTitle className="flex items-center gap-2">
+                              <Target className="h-5 w-5 text-orange-600" />
+                              {subject.name}
+                            </CardTitle>
+                            <CardDescription className="mt-2">
+                              {subject.topics.length} tópicos concluídos, {pendingReviews} revisões pendentes
+                            </CardDescription>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                              Alto Progresso
+                            </Badge>
+                            {lastReviewDate && (
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <Calendar className="h-3 w-3" />
+                                {format(lastReviewDate, "dd/MM/yyyy", { locale: ptBR })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex justify-between items-center">
+                          <div className="text-sm text-gray-600">
+                            <strong>Tópicos:</strong> {subject.topics.map(topic => topic.name).join(', ')}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReactivateSubject(subject.id)}
+                            className="text-blue-600 hover:text-blue-800 border-blue-200 hover:bg-blue-50"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Reativar
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         {/* Dicas de Revisão */}
         <motion.div variants={itemVariants}>

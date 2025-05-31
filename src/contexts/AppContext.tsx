@@ -110,12 +110,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [subjects]);
 
-  // Função para verificar se uma matéria está completamente concluída
+  // Função para verificar se uma matéria está completamente concluída (para estatísticas e Revisão Geral)
   const isSubjectCompleted = (subject: Subject): boolean => {
     if (subject.topics.length === 0) return false;
     return subject.topics.every(topic => 
-      topic.completed && topic.reviewStage === 'Concluído'
+      topic.reviewStage === 'Concluído' && topic.nextReview === null
     );
+  };
+
+  // Função para verificar se uma matéria tem todos os tópicos no estágio "Concluído" (independente de nextReview)
+  const isSubjectWithAllTopicsCompleted = (subject: Subject): boolean => {
+    if (subject.topics.length === 0) return false;
+    return subject.topics.every(topic => topic.reviewStage === 'Concluído');
   };
 
   // Função para buscar as matérias do usuário
@@ -236,7 +242,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalTopics += subject.topics.length;
       
       subject.topics.forEach(topic => {
-        if (topic.completed && (!topic.nextReview || topic.reviewStage === 'Concluído')) {
+        if (topic.reviewStage === 'Concluído' && topic.nextReview === null) {
           completedTopics++;
         }
         
@@ -256,12 +262,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     });
     
-    // Contar matérias concluídas (todas matérias cujos tópicos estão todos concluídos)
+    // Contar matérias concluídas (todas matérias cujos tópicos têm reviewStage "Concluído")
     const completedSubjects = subjects.filter(subject => 
       subject.topics.length > 0 && 
-      subject.topics.every(topic => 
-        topic.completed && (!topic.nextReview || topic.reviewStage === 'Concluído')
-      )
+      isSubjectWithAllTopicsCompleted(subject)
     ).length;
     
     const newProgress = {

@@ -30,8 +30,8 @@ export const useStudyPlanLogic = () => {
     if (subject.topics.length === 0) return false;
     
     return subject.topics.every(topic => {
-      // Apenas verificar se o estágio é "Concluído", ignorar nextReview
-      return topic.completed && topic.reviewStage === 'Concluído';
+      // Apenas verificar se o estágio é "Concluído" (ignorar completed e nextReview)
+      return topic.reviewStage === 'Concluído';
     });
   };
 
@@ -40,10 +40,8 @@ export const useStudyPlanLogic = () => {
     if (subject.topics.length === 0) return false;
     
     return subject.topics.every(topic => {
-      // Tópico deve estar marcado como concluído E não ter próxima revisão agendada
-      return topic.completed && 
-             topic.reviewStage === 'Concluído' && 
-             topic.nextReview === null;
+      // Tópico deve ter reviewStage "Concluído" E não ter próxima revisão agendada
+      return topic.reviewStage === 'Concluído' && topic.nextReview === null;
     });
   };
 
