@@ -12,6 +12,7 @@ export interface Topic {
   reviewStage?: RevisionStage;
   reviewStatus?: RevisionStatus;
   lastReviewedAt?: Date;
+  review_count: number; // Adicionar para compatibilidade com o banco
 }
 
 export interface Subject {

@@ -1,80 +1,62 @@
-import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { Plus, ChevronUp, ChevronDown, Edit, Trash2, LayoutList, GripVertical } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Plus, Trash2, Edit2, BookOpen, GripVertical, Target, Clock, CheckCircle, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { v4 as uuidv4 } from 'uuid';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableItem } from '@/components/SortableItem';
 import { useApp } from '@/contexts/AppContext';
+import { Subject, Status } from '@/types';
 
-// Definindo tipos para o componente
-interface Topic {
-  id: string;
-  name: string;
-  completed: boolean;
-  review_count: number;
-}
+const colorOptions = [
+  { name: 'Azul', value: '#3B82F6', bgClass: 'bg-blue-500' },
+  { name: 'Verde', value: '#10B981', bgClass: 'bg-emerald-500' },
+  { name: 'Roxo', value: '#8B5CF6', bgClass: 'bg-violet-500' },
+  { name: 'Rosa', value: '#EC4899', bgClass: 'bg-pink-500' },
+  { name: 'Laranja', value: '#F97316', bgClass: 'bg-orange-500' },
+  { name: 'Vermelho', value: '#EF4444', bgClass: 'bg-red-500' },
+  { name: 'Amarelo', value: '#EAB308', bgClass: 'bg-yellow-500' },
+  { name: 'Índigo', value: '#6366F1', bgClass: 'bg-indigo-500' },
+];
 
-interface Subject {
-  id: string;
-  name: string;
-  topics: Topic[];
-  status: 'Nova' | 'Em Estudo' | 'Concluída';
-}
+const statusOptions: Status[] = ['Nova', 'Em Estudo', 'Concluída'];
+
+const getStatusColor = (status: Status) => {
+  switch (status) {
+    case 'Nova': return 'bg-gray-100 text-gray-800 border-gray-300';
+    case 'Em Estudo': return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 'Concluída': return 'bg-green-100 text-green-800 border-green-300';
+    default: return 'bg-gray-100 text-gray-800 border-gray-300';
+  }
+};
 
 const Subjects = () => {
-  const { user } = useAuth();
-  const { toast: useToastHook } = useToast();
-  const { subjects, isLoading, error } = useApp();
-  
-  const [openDialog, setOpenDialog] = useState(false);
-  const [newSubject, setNewSubject] = useState({ name: '', status: 'Nova' as const });
-  const [topicDialogOpen, setTopicDialogOpen] = useState(false);
-  const [newTopic, setNewTopic] = useState('');
-  const [currentSubjectId, setCurrentSubjectId] = useState<string>('');
-  const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
-  
-  // Delete confirmation states
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [subjectToDelete, setSubjectToDelete] = useState<string | null>(null);
-  const [topicToDelete, setTopicToDelete] = useState<{subjectId: string, topicId: string} | null>(null);
-  
-  // Edit subject states
-  const [editSubjectDialog, setEditSubjectDialog] = useState(false);
-  const [editSubject, setEditSubject] = useState({ id: '', name: '' });
-  
-  const topicInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const { subjects, isLoading, error, createSubject, deleteSubject, updateSubject } = useApp();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [newSubject, setNewSubject] = useState({
+    name: '',
+    status: 'Nova' as Status,
+    color: colorOptions[0].value
+  });
+
+  console.log('Subjects component render:', {
+    subjectsCount: subjects.length,
+    isLoading,
+    error,
+    subjectsData: subjects
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -83,584 +65,383 @@ const Subjects = () => {
     })
   );
 
-  console.log('Subjects - Current state:', { 
-    subjectsCount: subjects.length, 
-    isLoading, 
-    error,
-    user: user ? 'authenticated' : 'not authenticated'
-  });
-
-  // Helper function to get CSS class based on status
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'Nova':
-        return 'status-nova';
-      case 'Em Estudo':
-        return 'status-em-estudo';
-      case 'Concluída':
-        return 'status-concluida';
-      default:
-        return '';
-    }
+  const resetForm = () => {
+    setNewSubject({
+      name: '',
+      status: 'Nova',
+      color: colorOptions[0].value
+    });
+    setEditingSubject(null);
   };
 
-  // Open topic dialog function
-  const openTopicDialog = (subjectId: string) => {
-    setCurrentSubjectId(subjectId);
-    setTopicDialogOpen(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    // Focus on input after dialog opens
-    setTimeout(() => {
-      if (topicInputRef.current) {
-        topicInputRef.current.focus();
-      }
-    }, 100);
-  };
-
-  // Toggle expand function
-  const toggleExpand = (subjectId: string) => {
-    if (expandedSubject === subjectId) {
-      setExpandedSubject(null);
-    } else {
-      setExpandedSubject(subjectId);
-    }
-  };
-
-  // Edit subject function
-  const handleEditSubject = (subject: { id: string, name: string }) => {
-    setEditSubject(subject);
-    setEditSubjectDialog(true);
-  };
-
-  // Confirm delete subject function
-  const confirmDeleteSubject = (id: string) => {
-    setSubjectToDelete(id);
-    setDeleteConfirmOpen(true);
-  };
-
-  // Confirm delete topic function
-  const confirmDeleteTopic = (subjectId: string, topicId: string) => {
-    setTopicToDelete({subjectId, topicId});
-    setDeleteConfirmOpen(false);
-    setTimeout(() => setDeleteConfirmOpen(true), 100);
-  };
-
-  // Sortable subject component
-  const SortableSubject = ({ subject }: { subject: Subject }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: subject.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    };
-
-    return (
-      <div ref={setNodeRef} style={style} {...attributes}>
-        <GlassCard className="overflow-hidden mb-4">
-          <div className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <button
-                  className="cursor-grab active:cursor-grabbing p-2 hover:bg-gray-100 rounded"
-                  {...listeners}
-                >
-                  <GripVertical className="h-5 w-5 text-gray-400" />
-                </button>
-                <span className={`status-badge ${getStatusClass(subject.status)}`}>
-                  {subject.status}
-                </span>
-                <h2 className="text-lg font-medium">{subject.name}</h2>
-                <span className="text-sm text-gray-500">
-                  {subject.topics.length} tópicos
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <GradientButton 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openTopicDialog(subject.id)}
-                >
-                  <LayoutList className="h-4 w-4 mr-2" />
-                  Gerenciar Tópicos
-                </GradientButton>
-                <GradientButton 
-                  variant="outline"
-                  size="sm" 
-                  onClick={() => toggleExpand(subject.id)}
-                  className="p-2"
-                >
-                  {expandedSubject === subject.id ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </GradientButton>
-                <GradientButton 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEditSubject({ id: subject.id, name: subject.name })}
-                  className="p-2"
-                >
-                  <Edit className="h-4 w-4" />
-                </GradientButton>
-                <GradientButton 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => confirmDeleteSubject(subject.id)}
-                  className="p-2 text-red-500 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </GradientButton>
-              </div>
-            </div>
-            
-            {expandedSubject === subject.id && (
-              <div className="mt-4 border-t pt-4">
-                <h3 className="text-sm font-medium mb-2">Tópicos</h3>
-                {subject.topics.length > 0 ? (
-                  <ul className="space-y-2">
-                    {subject.topics.map((topic) => (
-                      <GlassCard key={topic.id} className="flex items-center justify-between p-2">
-                        <span className="text-sm">{topic.name}</span>
-                        <div className="flex items-center gap-1">
-                          <GradientButton 
-                            variant="outline"
-                            size="sm" 
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                            onClick={() => confirmDeleteTopic(subject.id, topic.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </GradientButton>
-                        </div>
-                      </GlassCard>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500">Nenhum tópico cadastrado</p>
-                )}
-              </div>
-            )}
-          </div>
-        </GlassCard>
-      </div>
-    );
-  };
-
-  const handleAddSubject = async () => {
-    if (!user) return;
-    
-    if (!newSubject.name) {
-      useToastHook({
-        title: "Erro",
-        description: "O nome da matéria é obrigatório",
-        variant: "destructive"
-      });
+    if (!newSubject.name.trim()) {
+      toast.error("Por favor, insira o nome da matéria");
       return;
     }
 
     try {
-      const { data, error } = await supabase
-        .from('subjects')
-        .insert({
-          name: newSubject.name,
-          user_id: user.id,
-          priority: subjects.length + 1
-        })
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      if (data) {
-        setNewSubject({ name: '', status: 'Nova' });
-        setOpenDialog(false);
-        toast.success("Matéria adicionada com sucesso");
+      if (editingSubject) {
+        await updateSubject(editingSubject.id, {
+          name: newSubject.name.trim(),
+          status: newSubject.status,
+          color: newSubject.color,
+        });
+        toast.success("Matéria atualizada com sucesso!");
+      } else {
+        await createSubject({
+          name: newSubject.name.trim(),
+          status: newSubject.status,
+          color: newSubject.color,
+        });
+        toast.success("Matéria criada com sucesso!");
       }
+      
+      setIsDialogOpen(false);
+      resetForm();
     } catch (error) {
-      console.error('Erro ao adicionar matéria:', error);
-      useToastHook({
-        title: "Erro",
-        description: "Não foi possível adicionar a matéria",
-        variant: "destructive"
-      });
+      console.error('Erro ao salvar matéria:', error);
+      toast.error("Erro ao salvar matéria. Tente novamente.");
     }
   };
 
-  const executeDeleteSubject = async () => {
-    if (!subjectToDelete) return;
-    
+  const handleEdit = (subject: Subject) => {
+    setEditingSubject(subject);
+    setNewSubject({
+      name: subject.name,
+      status: subject.status,
+      color: subject.color || colorOptions[0].value
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
     try {
-      console.log('Subjects - Deleting subject:', subjectToDelete);
-      
-      const { error } = await supabase
-        .from('subjects')
-        .delete()
-        .eq('id', subjectToDelete);
-        
-      if (error) throw error;
-      
-      console.log('Subjects - Subject deleted successfully');
-      toast.success("Matéria removida com sucesso");
+      await deleteSubject(id);
+      toast.success("Matéria excluída com sucesso!");
     } catch (error) {
-      console.error('Erro ao remover matéria:', error);
-      useToastHook({
-        title: "Erro",
-        description: "Não foi possível remover a matéria",
-        variant: "destructive"
-      });
-    } finally {
-      setDeleteConfirmOpen(false);
-      setSubjectToDelete(null);
-    }
-  };
-
-  const saveSubjectEdit = async () => {
-    try {
-      const { error } = await supabase
-        .from('subjects')
-        .update({ name: editSubject.name, updated_at: new Date().toISOString() })
-        .eq('id', editSubject.id);
-        
-      if (error) throw error;
-      
-      toast.success("Nome da matéria atualizado");
-    } catch (error) {
-      console.error('Erro ao atualizar matéria:', error);
-      useToastHook({
-        title: "Erro",
-        description: "Não foi possível atualizar o nome da matéria",
-        variant: "destructive"
-      });
-    } finally {
-      setEditSubjectDialog(false);
-    }
-  };
-
-  const handleTopicAdd = async () => {
-    if (!newTopic) {
-      useToastHook({
-        title: "Erro",
-        description: "O nome do tópico é obrigatório",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('topics')
-        .insert({
-          name: newTopic,
-          subject_id: currentSubjectId,
-          completed: false,
-          review_count: 0
-        })
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      if (data) {
-        setNewTopic('');
-        
-        // Mantém o foco no campo de entrada para adicionar mais tópicos
-        if (topicInputRef.current) {
-          topicInputRef.current.focus();
-        }
-        
-        toast.success("Tópico adicionado com sucesso");
-      }
-    } catch (error) {
-      console.error('Erro ao adicionar tópico:', error);
-      useToastHook({
-        title: "Erro",
-        description: "Não foi possível adicionar o tópico",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleTopicKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && newTopic) {
-      handleTopicAdd();
-    }
-  };
-
-  const executeDeleteTopic = async () => {
-    if (!topicToDelete) return;
-    
-    try {
-      const { error } = await supabase
-        .from('topics')
-        .delete()
-        .eq('id', topicToDelete.topicId);
-        
-      if (error) throw error;
-      
-      toast.success("Tópico removido com sucesso");
-    } catch (error) {
-      console.error('Erro ao remover tópico:', error);
-      useToastHook({
-        title: "Erro",
-        description: "Não foi possível remover o tópico",
-        variant: "destructive"
-      });
-    } finally {
-      setDeleteConfirmOpen(false);
-      setTopicToDelete(null);
+      console.error('Erro ao excluir matéria:', error);
+      toast.error("Erro ao excluir matéria. Tente novamente.");
     }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    
-    if (over && active.id !== over.id) {
-      const oldIndex = subjects.findIndex((item) => item.id === active.id);
-      const newIndex = subjects.findIndex((item) => item.id === over.id);
-      
-      const newSubjects = arrayMove(subjects, oldIndex, newIndex);
-      
-      // Atualizar a ordem no banco de dados
-      updateSubjectsOrder(newSubjects);
-    }
-  };
 
-  const updateSubjectsOrder = async (newSubjects: Subject[]) => {
-    if (!user) return;
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = subjects.findIndex((subject) => subject.id === active.id);
+    const newIndex = subjects.findIndex((subject) => subject.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reorderedSubjects = arrayMove(subjects, oldIndex, newIndex);
+    
+    // Criar dados de atualização em lote com apenas os campos necessários
+    const updateData = reorderedSubjects.map((subject, index) => ({
+      id: subject.id,
+      priority: index + 1,
+      updated_at: new Date().toISOString()
+    }));
 
     try {
-      const updates = newSubjects.map((subject, index) => ({
-        id: subject.id,
-        priority: index + 1,
-        updated_at: new Date().toISOString()
-      }));
+      const response = await fetch('/api/subjects/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ updates: updateData }),
+      });
 
-      const { error } = await supabase
-        .from('subjects')
-        .upsert(updates, { onConflict: 'id', ignoreDuplicates: false });
+      if (!response.ok) {
+        throw new Error('Falha ao reordenar matérias');
+      }
 
-      if (error) throw error;
-
-      toast.success("Ordem das matérias atualizada com sucesso");
+      toast.success("Ordem das matérias atualizada!");
     } catch (error) {
-      console.error('Erro ao atualizar ordem das matérias:', error);
+      console.error('Erro ao reordenar matérias:', error);
       toast.error("Erro ao atualizar ordem das matérias");
     }
   };
 
+  const getSubjectProgress = (subject: Subject) => {
+    if (subject.topics.length === 0) return 0;
+    const completedTopics = subject.topics.filter(topic => 
+      topic.reviewStage === 'Concluído' && topic.nextReview === null
+    ).length;
+    return Math.round((completedTopics / subject.topics.length) * 100);
+  };
+
+  const handleViewTopics = (subject: Subject) => {
+    navigate(`/materias/${subject.id}/topicos`);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
+      <div className="container mx-auto p-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-10">
-        <p className="text-red-600 mb-4">{error}</p>
-        <GradientButton onClick={() => window.location.reload()}>
-          Tentar Novamente
-        </GradientButton>
+      <div className="container mx-auto p-6">
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle className="text-red-600">Erro ao carregar matérias</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>
+              Tentar Novamente
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <AnimatedTitle>Gerenciamento de Matérias</AnimatedTitle>
-        <GradientButton 
-          onClick={() => setOpenDialog(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar Matéria
-        </GradientButton>
-      </div>
-
-      <div className="space-y-4 mt-6">
-        {subjects.length === 0 ? (
-          <GlassCard className="text-center py-10">
-            <p className="text-gray-500">Você ainda não tem matérias cadastradas.</p>
-            <GradientButton 
-              className="mt-4"
-              onClick={() => setOpenDialog(true)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar Matéria
-            </GradientButton>
-          </GlassCard>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={subjects.map(s => s.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {subjects.map((subject) => (
-                <SortableSubject key={subject.id} subject={subject} />
-              ))}
-            </SortableContext>
-          </DndContext>
-        )}
-      </div>
-
-      {/* Add Subject Dialog */}
-      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Adicionar Nova Matéria</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name" className="text-sm">Nome da Matéria</Label>
-              <Input
-                id="name"
-                value={newSubject.name}
-                onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })}
-                placeholder="Ex: Matemática, Português, etc."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <GradientButton
-              variant="outline"
-              onClick={() => setOpenDialog(false)}
-            >
-              Cancelar
-            </GradientButton>
-            <GradientButton 
-              onClick={handleAddSubject}
-            >
-              Adicionar
-            </GradientButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Subject Dialog */}
-      <Dialog open={editSubjectDialog} onOpenChange={setEditSubjectDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Editar Matéria</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-name" className="text-sm">Nome da Matéria</Label>
-              <Input
-                id="edit-name"
-                value={editSubject.name}
-                onChange={(e) => setEditSubject({ ...editSubject, name: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <GradientButton
-              variant="outline"
-              onClick={() => setEditSubjectDialog(false)}
-            >
-              Cancelar
-            </GradientButton>
-            <GradientButton 
-              onClick={saveSubjectEdit}
-            >
-              Salvar
-            </GradientButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Topic Dialog */}
-      <Dialog open={topicDialogOpen} onOpenChange={setTopicDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Gerenciar Tópicos</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="topic" className="text-sm">Nome do Tópico</Label>
-              <div className="flex items-center gap-2">
+    <motion.div 
+      className="container mx-auto p-6 space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Minhas Matérias</h1>
+          <p className="text-gray-600 mt-1">Gerencie suas matérias de estudo</p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Matéria
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingSubject ? 'Editar Matéria' : 'Nova Matéria'}
+              </DialogTitle>
+              <DialogDescription>
+                {editingSubject 
+                  ? 'Edite as informações da matéria'
+                  : 'Adicione uma nova matéria aos seus estudos'
+                }
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Nome da Matéria</label>
                 <Input
-                  id="topic"
-                  ref={topicInputRef}
-                  value={newTopic}
-                  onChange={(e) => setNewTopic(e.target.value)}
-                  onKeyPress={handleTopicKeyPress}
-                  placeholder="Ex: Concordância Verbal"
+                  value={newSubject.name}
+                  onChange={(e) => setNewSubject({...newSubject, name: e.target.value})}
+                  placeholder="Ex: Matemática, História..."
+                  required
                 />
-                <GradientButton
-                  onClick={handleTopicAdd}
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">Status</label>
+                <Select 
+                  value={newSubject.status} 
+                  onValueChange={(value: Status) => setNewSubject({...newSubject, status: value})}
                 >
-                  <Plus className="h-4 w-4" />
-                </GradientButton>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-            {currentSubjectId && (
-              <div className="max-h-60 overflow-y-auto">
-                <h3 className="text-sm font-medium mb-2">Tópicos Atuais</h3>
-                {subjects.find(s => s.id === currentSubjectId)?.topics.map(topic => (
-                  <GlassCard key={topic.id} className="flex items-center justify-between p-2 my-1">
-                    <span className="text-sm">{topic.name}</span>
-                    <GradientButton
-                      variant="outline"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                      onClick={() => confirmDeleteTopic(currentSubjectId, topic.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </GradientButton>
-                  </GlassCard>
-                ))}
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <GradientButton
-              onClick={() => setTopicDialogOpen(false)}
-            >
-              Fechar
-            </GradientButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Confirmation Dialog for Subject or Topic Deletion */}
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              {subjectToDelete ? 
-                "Tem certeza que deseja excluir esta matéria? Esta ação não pode ser desfeita e todos os tópicos relacionados também serão removidos." :
-                "Tem certeza que deseja excluir este tópico? Esta ação não pode ser desfeita."
-              }
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => subjectToDelete ? executeDeleteSubject() : executeDeleteTopic()} 
-              className="bg-red-600 text-white hover:bg-red-700"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+              <div>
+                <label className="text-sm font-medium">Cor</label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      className={`w-8 h-8 rounded-full ${color.bgClass} ${
+                        newSubject.color === color.value 
+                          ? 'ring-2 ring-offset-2 ring-gray-400' 
+                          : ''
+                      }`}
+                      onClick={() => setNewSubject({...newSubject, color: color.value})}
+                      title={color.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                  Cancelar
+                </Button>
+                <Button type="submit">
+                  {editingSubject ? 'Atualizar' : 'Criar'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Lista de Matérias */}
+      {subjects.length === 0 ? (
+        <Card>
+          <CardHeader className="text-center">
+            <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <CardTitle>Nenhuma matéria encontrada</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-gray-600 mb-4">
+              Comece adicionando sua primeira matéria de estudo.
+            </p>
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar Primeira Matéria
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <DndContext 
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={subjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
+            <div className="grid gap-4">
+              <AnimatePresence>
+                {subjects.map((subject) => {
+                  const progress = getSubjectProgress(subject);
+                  return (
+                    <SortableItem key={subject.id} id={subject.id}>
+                      <motion.div
+                        layout
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Card className="hover:shadow-lg transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4 flex-1">
+                                <div className="cursor-move p-1">
+                                  <GripVertical className="h-5 w-5 text-gray-400" />
+                                </div>
+                                
+                                <div 
+                                  className="w-4 h-4 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: subject.color }}
+                                />
+                                
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2">
+                                    <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
+                                    <Badge className={getStatusColor(subject.status)}>
+                                      {subject.status}
+                                    </Badge>
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                                    <div className="flex items-center space-x-1">
+                                      <Target className="h-4 w-4" />
+                                      <span>{subject.topics.length} tópicos</span>
+                                    </div>
+                                    
+                                    <div className="flex items-center space-x-1">
+                                      <CheckCircle className="h-4 w-4" />
+                                      <span>{progress}% concluído</span>
+                                    </div>
+                                  </div>
+                                  
+                                  {subject.topics.length > 0 && (
+                                    <div className="mt-2">
+                                      <Progress value={progress} className="h-2" />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleViewTopics(subject)}
+                                >
+                                  <BookOpen className="h-4 w-4 mr-1" />
+                                  Tópicos
+                                </Button>
+                                
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(subject)}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja excluir a matéria "{subject.name}"? 
+                                        Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(subject.id)}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        Excluir
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    </SortableItem>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+    </motion.div>
   );
 };
 

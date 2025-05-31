@@ -67,7 +67,11 @@ export const useStudyPlanLogic = () => {
     .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
   const nextSubjects = materiasPendentes.slice(0, subjectsPerDay);
-  const allDaySubjectsCompleted = userCycle?.disciplinas_do_dia.length === 0;
+  
+  // Corrigir a lógica de allDaySubjectsCompleted para não mostrar parabéns quando não há dados
+  const hasAvailableSubjects = currentSubjects.length > 0;
+  const allDaySubjectsCompleted = hasAvailableSubjects && userCycle?.disciplinas_do_dia.length === 0;
+  
   const totalDisciplinasCiclo = currentSubjects.length;
   const disciplinasConcluidas = userCycle?.ciclo_atual.length || 0;
   const isNewCycleStarted = disciplinasConcluidas === 0 && totalDisciplinasCiclo > 0 && userCycle?.ciclos_realizados > 0;
@@ -403,6 +407,7 @@ export const useStudyPlanLogic = () => {
   // Debug logs
   console.log('StudyPlan Logic Debug:', {
     allDaySubjectsCompleted,
+    hasAvailableSubjects,
     dailySubjectsLength: dailySubjects.length,
     disciplinas_do_dia: userCycle?.disciplinas_do_dia,
     ciclo_atual: userCycle?.ciclo_atual,
@@ -423,6 +428,7 @@ export const useStudyPlanLogic = () => {
     dailySubjects,
     nextSubjects,
     allDaySubjectsCompleted,
+    hasAvailableSubjects,
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     isNewCycleStarted,

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
@@ -7,6 +8,10 @@ import SubjectCard from '@/components/study-plan/SubjectCard';
 import NextSubjects from '@/components/study-plan/NextSubjects';
 import DayCompletedMessage from '@/components/study-plan/DayCompletedMessage';
 import NewCycleMessage from '@/components/study-plan/NewCycleMessage';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { BookOpen, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -31,6 +36,7 @@ const itemVariants = {
 };
 
 const StudyPlan = () => {
+  const navigate = useNavigate();
   const {
     isLoading,
     expandedSubject,
@@ -40,6 +46,7 @@ const StudyPlan = () => {
     dailySubjects,
     nextSubjects,
     allDaySubjectsCompleted,
+    hasAvailableSubjects,
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     isNewCycleStarted,
@@ -55,6 +62,7 @@ const StudyPlan = () => {
 
   console.log('StudyPlan render:', {
     allDaySubjectsCompleted,
+    hasAvailableSubjects,
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
     userCycle,
@@ -86,7 +94,7 @@ const StudyPlan = () => {
         <motion.div className="space-y-4" variants={containerVariants}>
           <StudyPlanHeader onNextDay={handleNextDay} />
 
-          {userCycle && (
+          {userCycle && hasAvailableSubjects && (
             <motion.div variants={itemVariants}>
               <CycleInfo 
                 userCycle={userCycle}
@@ -100,25 +108,49 @@ const StudyPlan = () => {
           )}
 
           <div className="space-y-4">
-            {dailySubjects.length > 0 ? (
-              dailySubjects.map((subject) => (
-                <motion.div key={subject.id} variants={itemVariants}>
-                  <SubjectCard
-                    subject={subject}
-                    isExpanded={expandedSubject === subject.id}
-                    tempMarkedTopics={tempMarkedTopics}
-                    onToggleExpand={handleToggleExpand}
-                    onMarkTopicForReview={handleMarkTopicForReview}
-                    onCancelTopicReview={handleCancelTopicReview}
-                    onCompleteSession={handleCompleteSession}
-                    isDaySubject={true}
-                  />
-                </motion.div>
-              ))
-            ) : (
+            {/* Se não há matérias disponíveis no sistema */}
+            {!hasAvailableSubjects ? (
               <motion.div variants={itemVariants}>
-                <DayCompletedMessage onNextDay={handleNextDay} />
+                <Card className="text-center">
+                  <CardHeader>
+                    <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                    <CardTitle>Nenhuma matéria para estudar</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 mb-4">
+                      Você ainda não adicionou matérias para estudar ou todas já foram concluídas.
+                    </p>
+                    <Button onClick={() => navigate('/materias')}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Matérias
+                    </Button>
+                  </CardContent>
+                </Card>
               </motion.div>
+            ) : (
+              /* Se há matérias, mostrar o plano de estudos normal */
+              <>
+                {dailySubjects.length > 0 ? (
+                  dailySubjects.map((subject) => (
+                    <motion.div key={subject.id} variants={itemVariants}>
+                      <SubjectCard
+                        subject={subject}
+                        isExpanded={expandedSubject === subject.id}
+                        tempMarkedTopics={tempMarkedTopics}
+                        onToggleExpand={handleToggleExpand}
+                        onMarkTopicForReview={handleMarkTopicForReview}
+                        onCancelTopicReview={handleCancelTopicReview}
+                        onCompleteSession={handleCompleteSession}
+                        isDaySubject={true}
+                      />
+                    </motion.div>
+                  ))
+                ) : allDaySubjectsCompleted ? (
+                  <motion.div variants={itemVariants}>
+                    <DayCompletedMessage onNextDay={handleNextDay} />
+                  </motion.div>
+                ) : null}
+              </>
             )}
           </div>
 
@@ -127,7 +159,7 @@ const StudyPlan = () => {
             onHide={handleHideNewCycleMessage}
           />
 
-          {nextSubjects.length > 0 && (
+          {hasAvailableSubjects && nextSubjects.length > 0 && (
             <motion.div variants={itemVariants}>
               <NextSubjects nextSubjects={nextSubjects} />
             </motion.div>
