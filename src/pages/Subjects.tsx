@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { SortableItem } from '@/components/SortableItem';
 import { useApp } from '@/contexts/AppContext';
 import { Subject, Status } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 // Função para calcular o status automaticamente baseado nos tópicos
 const calculateSubjectStatus = (subject: Subject): Status => {
@@ -142,23 +142,26 @@ const Subjects = () => {
 
     const reorderedSubjects = arrayMove(subjects, oldIndex, newIndex);
     
-    const updateData = reorderedSubjects.map((subject, index) => ({
-      id: subject.id,
-      priority: index + 1,
-      updated_at: new Date().toISOString()
-    }));
-
     try {
-      const response = await fetch('/api/subjects/reorder', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ updates: updateData }),
-      });
+      // Atualizar prioridades diretamente no Supabase
+      const updates = reorderedSubjects.map((subject, index) => ({
+        id: subject.id,
+        priority: index + 1,
+        updated_at: new Date().toISOString()
+      }));
 
-      if (!response.ok) {
-        throw new Error('Falha ao reordenar matérias');
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('subjects')
+          .update({ 
+            priority: update.priority, 
+            updated_at: update.updated_at 
+          })
+          .eq('id', update.id);
+
+        if (error) {
+          throw error;
+        }
       }
 
       toast.success("Ordem das matérias atualizada!");

@@ -38,6 +38,20 @@ const TopicItem: React.FC<TopicItemProps> = ({
   const reviewStage = getTopicReviewStage(topic);
   const isTopicCompleted = topic.reviewStage === 'Concluído';
 
+  const handleMarkForReview = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Marking topic for review:', topic.id, subjectId);
+    onMarkTopicForReview(subjectId, topic.id);
+  };
+
+  const handleCancelReview = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Canceling topic review:', topic.id, subjectId);
+    onCancelTopicReview(subjectId, topic.id);
+  };
+
   return (
     <motion.div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 rounded bg-white/60">
       <div className="flex flex-col gap-1 w-full">
@@ -52,8 +66,9 @@ const TopicItem: React.FC<TopicItemProps> = ({
             variant="outline" 
             size="sm" 
             className="text-green-600 hover:text-green-800 border border-green-200 hover:bg-green-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
-            onClick={() => onMarkTopicForReview(subjectId, topic.id)}
+            onClick={handleMarkForReview}
             disabled={isTopicCompleted}
+            type="button"
           >
             <Check className="h-3 w-3 mr-1" />
             Marcar Revisão
@@ -63,7 +78,8 @@ const TopicItem: React.FC<TopicItemProps> = ({
             variant="outline" 
             size="sm" 
             className="text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
-            onClick={() => onCancelTopicReview(subjectId, topic.id)}
+            onClick={handleCancelReview}
+            type="button"
           >
             <X className="h-3 w-3 mr-1" />
             Cancelar
