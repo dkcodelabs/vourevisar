@@ -310,107 +310,100 @@ const Subjects = () => {
                   const calculatedStatus = calculateSubjectStatus(subject);
                   return (
                     <SortableItem key={subject.id} id={subject.id}>
-                      <motion.div
-                        layout
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <Card className="hover:shadow-lg transition-shadow relative">
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-4 flex-1">
-                                <div className="cursor-move p-1">
-                                  <GripVertical className="h-5 w-5 text-gray-400" />
-                                </div>
-                                
-                                <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
-                                
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center space-x-2">
-                                    <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
-                                    <Badge className={getStatusColor(calculatedStatus)}>
-                                      {calculatedStatus}
-                                    </Badge>
+                      {({ listeners, attributes }) => (
+                        <motion.div
+                          layout
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <Card className="hover:shadow-lg transition-shadow relative">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4 flex-1">
+                                  <div className="cursor-move p-1" {...listeners} {...attributes}>
+                                    <GripVertical className="h-5 w-5 text-gray-400" />
                                   </div>
-                                  
-                                  <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
-                                    <div className="flex items-center space-x-1">
-                                      <Target className="h-4 w-4" />
-                                      <span>{subject.topics.length} tópicos</span>
+                                  <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2">
+                                      <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
+                                      <Badge className={getStatusColor(calculatedStatus)}>
+                                        {calculatedStatus}
+                                      </Badge>
                                     </div>
-                                    
-                                    <div className="flex items-center space-x-1">
-                                      <CheckCircle className="h-4 w-4" />
-                                      <span>{progress}% concluído</span>
+                                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                                      <div className="flex items-center space-x-1">
+                                        <Target className="h-4 w-4" />
+                                        <span>{subject.topics.length} tópicos</span>
+                                      </div>
+                                      <div className="flex items-center space-x-1">
+                                        <CheckCircle className="h-4 w-4" />
+                                        <span>{progress}% concluído</span>
+                                      </div>
                                     </div>
+                                    {subject.topics.length > 0 && (
+                                      <div className="mt-2">
+                                        <Progress value={progress} className="h-2" />
+                                      </div>
+                                    )}
                                   </div>
-                                  
-                                  {subject.topics.length > 0 && (
-                                    <div className="mt-2">
-                                      <Progress value={progress} className="h-2" />
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
-                              
-                              <div 
-                                className="flex items-center space-x-2"
-                                onClick={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              >
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={(e) => handleButtonClick(e, () => handleViewTopics(subject))}
+                                <div 
+                                  className="flex items-center space-x-2"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
                                 >
-                                  <BookOpen className="h-4 w-4 mr-1" />
-                                  Tópicos
-                                </Button>
-                                
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={(e) => handleButtonClick(e, () => handleEdit(subject))}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-red-500" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Tem certeza que deseja excluir a matéria "{subject.name}"? 
-                                        Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={(e) => handleButtonClick(e, () => handleDelete(subject.id))}
-                                        className="bg-red-600 hover:bg-red-700"
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => handleButtonClick(e, () => handleViewTopics(subject))}
+                                  >
+                                    <BookOpen className="h-4 w-4 mr-1" />
+                                    Tópicos
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => handleButtonClick(e, () => handleEdit(subject))}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
                                       >
-                                        Excluir
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Tem certeza que deseja excluir a matéria "{subject.name}"? 
+                                          Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={(e) => handleButtonClick(e, () => handleDelete(subject.id))}
+                                          className="bg-red-600 hover:bg-red-700"
+                                        >
+                                          Excluir
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      )}
                     </SortableItem>
                   );
                 })}

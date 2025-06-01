@@ -1,11 +1,10 @@
-
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 interface SortableItemProps {
   id: string;
-  children: React.ReactNode;
+  children: React.ReactNode | ((props: { listeners: any; attributes: any }) => React.ReactNode);
 }
 
 export const SortableItem = ({ id, children }: SortableItemProps) => {
@@ -28,11 +27,11 @@ export const SortableItem = ({ id, children }: SortableItemProps) => {
     <div 
       ref={setNodeRef} 
       style={style}
-      {...attributes}
-      {...listeners}
       className="cursor-grab active:cursor-grabbing"
     >
-      {children}
+      {typeof children === 'function'
+        ? (children as (props: { listeners: any; attributes: any }) => React.ReactNode)({ listeners, attributes })
+        : children}
     </div>
   );
 };
