@@ -15,19 +15,24 @@ export const SortableItem = ({ id, children }: SortableItemProps) => {
     setNodeRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0.5 : 1,
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
-      {React.cloneElement(children as React.ReactElement, {
-        dragAttributes: attributes,
-        dragListeners: listeners,
-      })}
+    <div 
+      ref={setNodeRef} 
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="cursor-grab active:cursor-grabbing"
+    >
+      {children}
     </div>
   );
 };

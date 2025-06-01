@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Plus, BarChart3 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
+import { useCycleState } from '@/hooks/useCycleState';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const Dashboard = () => {
   const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();
+  const { userCycle, isLoading: cycleLoading } = useCycleState();
   const navigate = useNavigate();
   const [greeting, setGreeting] = useState('');
 
@@ -19,7 +21,8 @@ const Dashboard = () => {
     isDataLoaded,
     isLoading,
     error,
-    studyProgress
+    studyProgress,
+    userCycle
   });
 
   useEffect(() => {
@@ -34,7 +37,7 @@ const Dashboard = () => {
   }, []);
 
   // Estados de loading e erro simplificados
-  if (isLoading) {
+  if (isLoading || cycleLoading) {
     console.log('Dashboard - Showing loading state');
     return (
       <div className="flex justify-center items-center min-h-[400px]">
@@ -88,8 +91,8 @@ const Dashboard = () => {
     ? Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100)
     : 0;
 
-  // Calcular ciclos realizados (simulação baseada nos dados existentes)
-  const cyclesCompleted = Math.floor(studyProgress.completedTopics / 3);
+  // Usar dados reais dos ciclos do banco de dados
+  const cyclesCompleted = userCycle?.ciclos_realizados || 0;
 
   // Gerar dias do calendário (simples para mostrar o layout)
   const generateCalendarDays = () => {
@@ -209,7 +212,7 @@ const Dashboard = () => {
                     concluído
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    Você completou {studyProgress.completedTopics} ciclos de estudo até agora.
+                    Você completou {progressPercentage}% dos seus estudos.
                   </p>
                 </CardContent>
               </Card>
@@ -222,7 +225,7 @@ const Dashboard = () => {
                     </div>
                     <div>
                       <CardTitle className="text-sm font-medium text-gray-600">Ciclos Realizados</CardTitle>
-                      <CardDescription className="text-xs text-gray-500">Progresso do ciclo atual</CardDescription>
+                      <CardDescription className="text-xs text-gray-500">Total de ciclos completos</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -234,7 +237,7 @@ const Dashboard = () => {
                     ciclos
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    Progresso do ciclo atual: {progressPercentage}%
+                    Ciclos de estudo completados até agora.
                   </p>
                 </CardContent>
               </Card>

@@ -96,8 +96,8 @@ const Subjects = () => {
       } else {
         await createSubject({
           name: newSubject.name.trim(),
-          status: 'Nova', // Status inicial sempre é 'Nova'
-          color: '#3B82F6', // Cor padrão azul
+          status: 'Nova',
+          color: '#3B82F6',
         });
         toast.success("Matéria criada com sucesso!");
       }
@@ -314,15 +314,11 @@ const Subjects = () => {
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <Card className="hover:shadow-lg transition-shadow">
+                        <Card className="hover:shadow-lg transition-shadow relative">
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-4 flex-1">
-                                <div 
-                                  className="cursor-move p-1"
-                                  {...(subject as any).dragAttributes}
-                                  {...(subject as any).dragListeners}
-                                >
+                                <div className="cursor-move p-1">
                                   <GripVertical className="h-5 w-5 text-gray-400" />
                                 </div>
                                 
@@ -356,7 +352,11 @@ const Subjects = () => {
                                 </div>
                               </div>
                               
-                              <div className="flex items-center space-x-2">
+                              <div 
+                                className="flex items-center space-x-2"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                              >
                                 <Button
                                   variant="outline"
                                   size="sm"

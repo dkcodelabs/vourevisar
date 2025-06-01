@@ -21,8 +21,18 @@ const TopicItem: React.FC<TopicItemProps> = ({
   onCancelTopicReview
 }) => {
   const getTopicReviewStage = (topic: Topic) => {
-    if (!topic.reviewStage) return "Não Iniciado";
-    return topic.reviewStage;
+    // Se não tem review_stage definido e nunca foi revisado, é "Não Iniciado"
+    if (!topic.reviewStage && topic.reviewCount === 0) {
+      return "Não Iniciado";
+    }
+    
+    // Se tem reviewStage definido, usar ele
+    if (topic.reviewStage) {
+      return topic.reviewStage;
+    }
+    
+    // Fallback para casos onde há contagem mas não há stage
+    return topic.reviewCount > 0 ? "Em Revisão" : "Não Iniciado";
   };
 
   const reviewStage = getTopicReviewStage(topic);
