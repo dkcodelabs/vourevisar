@@ -23,8 +23,11 @@ export const SortableItem = ({ id, children }: SortableItemProps) => {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
+    <div ref={setNodeRef} style={style}>
+      {React.cloneElement(children as React.ReactElement, {
+        dragAttributes: attributes,
+        dragListeners: listeners,
+      })}
     </div>
   );
 };

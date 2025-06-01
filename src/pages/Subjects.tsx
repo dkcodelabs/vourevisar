@@ -7,9 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Edit2, BookOpen, GripVertical, Target, Clock, CheckCircle, Users } from 'lucide-react';
+import { Plus, Trash2, Edit2, BookOpen, GripVertical, Target, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -18,18 +17,28 @@ import { SortableItem } from '@/components/SortableItem';
 import { useApp } from '@/contexts/AppContext';
 import { Subject, Status } from '@/types';
 
-const colorOptions = [
-  { name: 'Azul', value: '#3B82F6', bgClass: 'bg-blue-500' },
-  { name: 'Verde', value: '#10B981', bgClass: 'bg-emerald-500' },
-  { name: 'Roxo', value: '#8B5CF6', bgClass: 'bg-violet-500' },
-  { name: 'Rosa', value: '#EC4899', bgClass: 'bg-pink-500' },
-  { name: 'Laranja', value: '#F97316', bgClass: 'bg-orange-500' },
-  { name: 'Vermelho', value: '#EF4444', bgClass: 'bg-red-500' },
-  { name: 'Amarelo', value: '#EAB308', bgClass: 'bg-yellow-500' },
-  { name: 'Índigo', value: '#6366F1', bgClass: 'bg-indigo-500' },
-];
-
-const statusOptions: Status[] = ['Nova', 'Em Estudo', 'Concluída'];
+// Função para calcular o status automaticamente baseado nos tópicos
+const calculateSubjectStatus = (subject: Subject): Status => {
+  if (subject.topics.length === 0) {
+    return 'Nova';
+  }
+  
+  const completedTopics = subject.topics.filter(topic => 
+    topic.reviewStage === 'Concluído' && topic.nextReview === null
+  ).length;
+  
+  const topicsWithReview = subject.topics.filter(topic => 
+    topic.reviewCount > 0 || topic.nextReview !== undefined
+  ).length;
+  
+  if (completedTopics === subject.topics.length) {
+    return 'Concluída';
+  } else if (topicsWithReview > 0) {
+    return 'Em Estudo';
+  } else {
+    return 'Nova';
+  }
+};
 
 const getStatusColor = (status: Status) => {
   switch (status) {
@@ -46,9 +55,7 @@ const Subjects = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [newSubject, setNewSubject] = useState({
-    name: '',
-    status: 'Nova' as Status,
-    color: colorOptions[0].value
+    name: ''
   });
 
   console.log('Subjects component render:', {
@@ -67,9 +74,7 @@ const Subjects = () => {
 
   const resetForm = () => {
     setNewSubject({
-      name: '',
-      status: 'Nova',
-      color: colorOptions[0].value
+      name: ''
     });
     setEditingSubject(null);
   };
@@ -86,15 +91,13 @@ const Subjects = () => {
       if (editingSubject) {
         await updateSubject(editingSubject.id, {
           name: newSubject.name.trim(),
-          status: newSubject.status,
-          color: newSubject.color,
         });
         toast.success("Matéria atualizada com sucesso!");
       } else {
         await createSubject({
           name: newSubject.name.trim(),
-          status: newSubject.status,
-          color: newSubject.color,
+          status: 'Nova', // Status inicial sempre é 'Nova'
+          color: '#3B82F6', // Cor padrão azul
         });
         toast.success("Matéria criada com sucesso!");
       }
@@ -110,9 +113,7 @@ const Subjects = () => {
   const handleEdit = (subject: Subject) => {
     setEditingSubject(subject);
     setNewSubject({
-      name: subject.name,
-      status: subject.status,
-      color: subject.color || colorOptions[0].value
+      name: subject.name
     });
     setIsDialogOpen(true);
   };
@@ -141,7 +142,6 @@ const Subjects = () => {
 
     const reorderedSubjects = arrayMove(subjects, oldIndex, newIndex);
     
-    // Criar dados de atualização em lote com apenas os campos necessários
     const updateData = reorderedSubjects.map((subject, index) => ({
       id: subject.id,
       priority: index + 1,
@@ -183,6 +183,13 @@ const Subjects = () => {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     resetForm();
+  };
+
+  // Função para parar propagação de eventos nos botões
+  const handleButtonClick = (e: React.MouseEvent, action: () => void) => {
+    e.preventDefault();
+    e.stopPropagation();
+    action();
   };
 
   if (isLoading) {
@@ -240,7 +247,7 @@ const Subjects = () => {
               </DialogTitle>
               <DialogDescription>
                 {editingSubject 
-                  ? 'Edite as informações da matéria'
+                  ? 'Edite o nome da matéria'
                   : 'Adicione uma nova matéria aos seus estudos'
                 }
               </DialogDescription>
@@ -254,44 +261,6 @@ const Subjects = () => {
                   placeholder="Ex: Matemática, História..."
                   required
                 />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium">Status</label>
-                <Select 
-                  value={newSubject.status} 
-                  onValueChange={(value: Status) => setNewSubject({...newSubject, status: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Cor</label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {colorOptions.map((color) => (
-                    <button
-                      key={color.value}
-                      type="button"
-                      className={`w-8 h-8 rounded-full ${color.bgClass} ${
-                        newSubject.color === color.value 
-                          ? 'ring-2 ring-offset-2 ring-gray-400' 
-                          : ''
-                      }`}
-                      onClick={() => setNewSubject({...newSubject, color: color.value})}
-                      title={color.name}
-                    />
-                  ))}
-                </div>
               </div>
 
               <DialogFooter>
@@ -335,6 +304,7 @@ const Subjects = () => {
               <AnimatePresence>
                 {subjects.map((subject) => {
                   const progress = getSubjectProgress(subject);
+                  const calculatedStatus = calculateSubjectStatus(subject);
                   return (
                     <SortableItem key={subject.id} id={subject.id}>
                       <motion.div
@@ -348,20 +318,21 @@ const Subjects = () => {
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-4 flex-1">
-                                <div className="cursor-move p-1">
+                                <div 
+                                  className="cursor-move p-1"
+                                  {...(subject as any).dragAttributes}
+                                  {...(subject as any).dragListeners}
+                                >
                                   <GripVertical className="h-5 w-5 text-gray-400" />
                                 </div>
                                 
-                                <div 
-                                  className="w-4 h-4 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: subject.color }}
-                                />
+                                <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
                                 
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center space-x-2">
                                     <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
-                                    <Badge className={getStatusColor(subject.status)}>
-                                      {subject.status}
+                                    <Badge className={getStatusColor(calculatedStatus)}>
+                                      {calculatedStatus}
                                     </Badge>
                                   </div>
                                   
@@ -389,7 +360,7 @@ const Subjects = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleViewTopics(subject)}
+                                  onClick={(e) => handleButtonClick(e, () => handleViewTopics(subject))}
                                 >
                                   <BookOpen className="h-4 w-4 mr-1" />
                                   Tópicos
@@ -398,14 +369,18 @@ const Subjects = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleEdit(subject)}
+                                  onClick={(e) => handleButtonClick(e, () => handleEdit(subject))}
                                 >
                                   <Edit2 className="h-4 w-4" />
                                 </Button>
                                 
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <Button variant="outline" size="sm">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
                                       <Trash2 className="h-4 w-4 text-red-500" />
                                     </Button>
                                   </AlertDialogTrigger>
@@ -420,7 +395,7 @@ const Subjects = () => {
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                       <AlertDialogAction
-                                        onClick={() => handleDelete(subject.id)}
+                                        onClick={(e) => handleButtonClick(e, () => handleDelete(subject.id))}
                                         className="bg-red-600 hover:bg-red-700"
                                       >
                                         Excluir
