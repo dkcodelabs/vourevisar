@@ -35,15 +35,28 @@ const itemVariants = {
 };
 
 const RevisaoGeral = () => {
-  const { subjects, updateSubject, isDataLoaded } = useApp();
+  const { subjects, updateSubject, isDataLoaded, fetchSubjects } = useApp();
   const { isSubjectCompleted, isSubjectReadyToLeaveStudyPlan } = useStudyPlanLogic();
   const [isLoading, setIsLoading] = useState(true);
 
   console.log('RevisaoGeral - Current subjects:', subjects);
 
-  // Função para verificar se um tópico está completamente dominado
+  // Função melhorada para verificar se um tópico está completamente dominado
   const isTopicFullyDominated = (topic: Topic): boolean => {
-    return topic.reviewStage === 'Concluído' && topic.nextReview === null;
+    console.log('Checking topic:', topic.name, 'reviewStage:', topic.reviewStage, 'nextReview:', topic.nextReview, 'completed:', topic.completed);
+    
+    // Um tópico está dominado se:
+    // 1. reviewStage é 'Concluído' OU completed é true
+    // 2. E não tem próxima revisão agendada (nextReview é null)
+    const isDominated = (topic.reviewStage === 'Concluído' || topic.completed === true) && topic.nextReview === null;
+    
+    console.log('Topic', topic.name, 'is dominated:', isDominated);
+    return isDominated;
+  };
+
+  // Função para verificar se um tópico está concluído (mesmo que ainda tenha revisões)
+  const isTopicCompleted = (topic: Topic): boolean => {
+    return topic.reviewStage === 'Concluído' || topic.completed === true;
   };
 
   // Filtrar matérias completamente dominadas (100% finalizadas - sem revisões pendentes)
@@ -60,13 +73,16 @@ const RevisaoGeral = () => {
   const subjectsWithDominatedTopics = subjects
     .map(subject => {
       const dominatedTopics = subject.topics.filter(isTopicFullyDominated);
+      const completedTopics = subject.topics.filter(isTopicCompleted);
       return {
         ...subject,
         dominatedTopics,
-        hasDominatedTopics: dominatedTopics.length > 0
+        completedTopics,
+        hasDominatedTopics: dominatedTopics.length > 0,
+        hasCompletedTopics: completedTopics.length > 0
       };
     })
-    .filter(subject => subject.hasDominatedTopics)
+    .filter(subject => subject.hasDominatedTopics || subject.hasCompletedTopics)
     .sort((a, b) => b.dominatedTopics.length - a.dominatedTopics.length);
 
   console.log('RevisaoGeral - Subjects with dominated topics:', subjectsWithDominatedTopics);
@@ -74,10 +90,16 @@ const RevisaoGeral = () => {
   // Estatísticas corrigidas
   const totalSubjectsWithAllTopicsCompleted = subjects.filter(isSubjectReadyToLeaveStudyPlan).length;
   
-  // Contar apenas tópicos que estão realmente dominados (reviewStage "Concluído" E nextReview null)
+  // Contar tópicos que estão realmente dominados (reviewStage "Concluído" OU completed=true E nextReview null)
   const totalFullyCompletedTopics = subjects.reduce((acc, subject) => {
     const dominatedTopics = subject.topics.filter(isTopicFullyDominated).length;
     return acc + dominatedTopics;
+  }, 0);
+
+  // Contar tópicos concluídos (incluindo os que ainda têm revisões)
+  const totalCompletedTopics = subjects.reduce((acc, subject) => {
+    const completedTopics = subject.topics.filter(isTopicCompleted).length;
+    return acc + completedTopics;
   }, 0);
 
   // Total de tópicos em todas as matérias
@@ -85,22 +107,39 @@ const RevisaoGeral = () => {
   
   const totalSubjects = subjects.length;
   const completionPercentage = totalSubjects > 0 ? Math.round((totalSubjectsWithAllTopicsCompleted / totalSubjects) * 100) : 0;
-  const topicsCompletionPercentage = totalTopics > 0 ? Math.round((totalFullyCompletedTopics / totalTopics) * 100) : 0;
+  const topicsCompletionPercentage = totalTopics > 0 ? Math.round((totalCompletedTopics / totalTopics) * 100) : 0;
+  const topicsDominationPercentage = totalTopics > 0 ? Math.round((totalFullyCompletedTopics / totalTopics) * 100) : 0;
 
   console.log('RevisaoGeral - Statistics:', {
     totalSubjectsWithAllTopicsCompleted,
     totalFullyCompletedTopics,
+    totalCompletedTopics,
     totalTopics,
     totalSubjects,
     completionPercentage,
-    topicsCompletionPercentage
+    topicsCompletionPercentage,
+    topicsDominationPercentage
   });
 
+  // Recarregar dados quando necessário
   useEffect(() => {
     if (isDataLoaded) {
       setIsLoading(false);
     }
   }, [isDataLoaded]);
+
+  // Força uma atualização dos dados ao entrar na página
+  useEffect(() => {
+    const refreshData = async () => {
+      try {
+        await fetchSubjects();
+      } catch (error) {
+        console.error('Erro ao atualizar dados:', error);
+      }
+    };
+    
+    refreshData();
+  }, []);
 
   const handleReactivateSubject = async (subjectId: string) => {
     try {
@@ -166,11 +205,11 @@ const RevisaoGeral = () => {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tópicos Dominados</CardTitle>
+                <CardTitle className="text-sm font-medium">Tópicos Concluídos</CardTitle>
                 <BookOpen className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{totalFullyCompletedTopics}</div>
+                <div className="text-2xl font-bold text-blue-600">{totalCompletedTopics}</div>
                 <p className="text-xs text-muted-foreground">
                   de {totalTopics} tópicos ({topicsCompletionPercentage}%)
                 </p>
@@ -179,37 +218,37 @@ const RevisaoGeral = () => {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Matérias 100% Dominadas</CardTitle>
+                <CardTitle className="text-sm font-medium">Tópicos Dominados</CardTitle>
                 <Star className="h-4 w-4 text-yellow-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">{fullyCompletedSubjects.length}</div>
+                <div className="text-2xl font-bold text-yellow-600">{totalFullyCompletedTopics}</div>
                 <p className="text-xs text-muted-foreground">
-                  completamente finalizadas
+                  de {totalTopics} tópicos ({topicsDominationPercentage}%)
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Taxa de Sucesso</CardTitle>
+                <CardTitle className="text-sm font-medium">Matérias 100% Dominadas</CardTitle>
                 <Trophy className="h-4 w-4 text-purple-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-600">{topicsCompletionPercentage}%</div>
+                <div className="text-2xl font-bold text-purple-600">{fullyCompletedSubjects.length}</div>
                 <p className="text-xs text-muted-foreground">
-                  de tópicos dominados
+                  completamente finalizadas
                 </p>
               </CardContent>
             </Card>
           </div>
         </motion.div>
 
-        {/* Tópicos Dominados Individualmente */}
+        {/* Tópicos Concluídos e Dominados */}
         <motion.div variants={itemVariants}>
           <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <Star className="h-6 w-6 text-blue-600" />
-            Tópicos Dominados ({totalFullyCompletedTopics})
+            Progresso por Matéria
           </h2>
 
           {subjectsWithDominatedTopics.length === 0 ? (
@@ -217,10 +256,10 @@ const RevisaoGeral = () => {
               <CardContent className="text-center py-8">
                 <Star className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                  Nenhum tópico dominado ainda
+                  Nenhum tópico concluído ainda
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  Continue estudando para dominar seus tópicos!
+                  Continue estudando para concluir seus tópicos!
                 </p>
               </CardContent>
             </Card>
@@ -240,13 +279,23 @@ const RevisaoGeral = () => {
                               {subject.name}
                             </CardTitle>
                             <CardDescription className="mt-2">
-                              {subject.dominatedTopics.length} de {subject.topics.length} tópicos dominados
+                              {subject.completedTopics.length} de {subject.topics.length} tópicos concluídos
+                              {subject.dominatedTopics.length > 0 && (
+                                <span className="text-green-600 font-medium">
+                                  {" "}• {subject.dominatedTopics.length} dominados
+                                </span>
+                              )}
                             </CardDescription>
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                              {Math.round((subject.dominatedTopics.length / subject.topics.length) * 100)}% Dominada
+                              {Math.round((subject.completedTopics.length / subject.topics.length) * 100)}% Concluída
                             </Badge>
+                            {subject.dominatedTopics.length > 0 && (
+                              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                {subject.dominatedTopics.length} Dominados
+                              </Badge>
+                            )}
                             {lastReviewDate && (
                               <div className="flex items-center gap-1 text-xs text-gray-500">
                                 <Calendar className="h-3 w-3" />
@@ -258,23 +307,34 @@ const RevisaoGeral = () => {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">
-                          <div className="text-sm text-gray-600">
-                            <strong>Tópicos dominados:</strong>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {subject.dominatedTopics.map(topic => (
-                                <Badge key={topic.id} variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                  {topic.name}
-                                </Badge>
-                              ))}
+                          {subject.completedTopics.length > 0 && (
+                            <div className="text-sm text-gray-600">
+                              <strong>Tópicos concluídos:</strong>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {subject.completedTopics.map(topic => (
+                                  <Badge 
+                                    key={topic.id} 
+                                    variant="outline" 
+                                    className={
+                                      isTopicFullyDominated(topic) 
+                                        ? "bg-green-50 text-green-700 border-green-200"
+                                        : "bg-blue-50 text-blue-700 border-blue-200"
+                                    }
+                                  >
+                                    {topic.name}
+                                    {isTopicFullyDominated(topic) && " ★"}
+                                  </Badge>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
-                          {subject.topics.length > subject.dominatedTopics.length && (
+                          {subject.topics.length > subject.completedTopics.length && (
                             <div className="text-sm text-gray-500">
                               <strong>Tópicos restantes:</strong>
                               <div className="mt-1 flex flex-wrap gap-1">
                                 {subject.topics
-                                  .filter(topic => !isTopicFullyDominated(topic))
+                                  .filter(topic => !isTopicCompleted(topic))
                                   .map(topic => (
                                     <Badge key={topic.id} variant="outline" className="bg-gray-50 text-gray-600">
                                       {topic.name}

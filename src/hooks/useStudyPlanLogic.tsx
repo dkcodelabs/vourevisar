@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,25 +24,32 @@ export const useStudyPlanLogic = () => {
   
   const subjectsPerDay = userProfile?.settings?.subjectsPerDay || 3;
   
-  // Função para verificar se uma matéria deve ser removida do plano de estudos
-  // Uma matéria é considerada "pronta para sair do plano" quando todos os tópicos atingiram o estágio "Concluído"
+  // Função melhorada para verificar se uma matéria deve ser removida do plano de estudos
+  // Uma matéria é considerada "pronta para sair do plano" quando todos os tópicos atingiram o estágio "Concluído" OU completed=true
   const isSubjectReadyToLeaveStudyPlan = (subject: Subject): boolean => {
     if (subject.topics.length === 0) return false;
     
     return subject.topics.every(topic => {
-      // Apenas verificar se o estágio é "Concluído" (ignorar completed e nextReview)
-      return topic.reviewStage === 'Concluído';
+      // Verificar se o estágio é "Concluído" OU se completed é true
+      return topic.reviewStage === 'Concluído' || topic.completed === true;
     });
   };
 
-  // Função para verificar se uma matéria está 100% finalizada (para Revisão Geral)
+  // Função melhorada para verificar se uma matéria está 100% finalizada (para Revisão Geral)
   const isSubjectCompleted = (subject: Subject): boolean => {
     if (subject.topics.length === 0) return false;
     
     return subject.topics.every(topic => {
-      // Tópico deve ter reviewStage "Concluído" E não ter próxima revisão agendada
-      return topic.reviewStage === 'Concluído' && topic.nextReview === null;
+      // Tópico deve ter reviewStage "Concluído" OU completed=true E não ter próxima revisão agendada
+      const isCompleted = topic.reviewStage === 'Concluído' || topic.completed === true;
+      return isCompleted && topic.nextReview === null;
     });
+  };
+
+  // Função para verificar se um tópico individual está dominado
+  const isTopicDominated = (topic: Topic): boolean => {
+    const isCompleted = topic.reviewStage === 'Concluído' || topic.completed === true;
+    return isCompleted && topic.nextReview === null;
   };
 
   // Filtrar matérias para o plano de estudos (excluir as que saíram do ciclo de estudos)
@@ -223,12 +229,21 @@ export const useStudyPlanLogic = () => {
     });
   };
 
-  // Função para verificar e atualizar status da matéria automaticamente
+  // Função melhorada para verificar e atualizar status da matéria automaticamente
   const checkAndUpdateSubjectStatus = async (subjectId: string) => {
     const subject = subjects.find(s => s.id === subjectId);
     if (!subject) return;
 
+    console.log('Checking subject status for:', subject.name);
+    console.log('Subject topics:', subject.topics.map(t => ({ 
+      name: t.name, 
+      reviewStage: t.reviewStage, 
+      completed: t.completed, 
+      nextReview: t.nextReview 
+    })));
+
     if (isSubjectCompleted(subject) && subject.status !== 'Concluída') {
+      console.log('Subject should be marked as completed:', subject.name);
       await updateSubject(subjectId, { status: 'Concluída' });
       toast.success(`Matéria "${subject.name}" foi marcada como concluída! 🎉`);
     }
@@ -405,7 +420,7 @@ export const useStudyPlanLogic = () => {
     }
   }, [expandedSubject]);
 
-  // Debug logs
+  // Debug logs melhorados
   console.log('StudyPlan Logic Debug:', {
     allDaySubjectsCompleted,
     hasAvailableSubjects,
@@ -414,7 +429,10 @@ export const useStudyPlanLogic = () => {
     ciclo_atual: userCycle?.ciclo_atual,
     showNewCycleMessage,
     subjectsReadyToLeave: subjects.filter(isSubjectReadyToLeaveStudyPlan).length,
-    subjectsCompleted: subjects.filter(isSubjectCompleted).length
+    subjectsCompleted: subjects.filter(isSubjectCompleted).length,
+    totalDominatedTopics: subjects.reduce((acc, subject) => 
+      acc + subject.topics.filter(isTopicDominated).length, 0
+    )
   });
 
   return {
@@ -446,6 +464,7 @@ export const useStudyPlanLogic = () => {
     
     // Helper functions (export for use in other components)
     isSubjectCompleted,
-    isSubjectReadyToLeaveStudyPlan
+    isSubjectReadyToLeaveStudyPlan,
+    isTopicDominated
   };
 };
