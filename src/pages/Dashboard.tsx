@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { useSwipeable } from 'react-swipeable';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { CalendarView } from '@/components/calendar/CalendarView';
 
 const Dashboard = () => {
   const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();
@@ -22,20 +22,16 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [greeting, setGreeting] = useState('');
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   // Buscar dados de revisões para o calendário
   const { data: reviewData, isLoading: reviewLoading } = useQuery({
-    queryKey: ['dashboard-reviews', user?.id, currentMonth],
+    queryKey: ['dashboard-reviews', user?.id],
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
       
-      // Buscar tópicos com next_review no mês atual
-      const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-      const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-      
+      // Buscar tópicos com next_review
       const { data: topicsData, error: topicsError } = await supabase
         .from('topics')
         .select(`
@@ -45,9 +41,7 @@ const Dashboard = () => {
           next_review,
           subject_id
         `)
-        .not('next_review', 'is', null)
-        .gte('next_review', startOfMonth.toISOString())
-        .lte('next_review', endOfMonth.toISOString());
+        .not('next_review', 'is', null);
 
       if (topicsError) {
         console.error('Error fetching review data:', topicsError);
@@ -91,22 +85,6 @@ const Dashboard = () => {
       return topicsWithSubjects;
     },
     enabled: !!user
-  });
-
-  // Swipe handlers para navegação por meses
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)),
-    onSwipedRight: () => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)),
-    trackMouse: true
-  });
-
-  console.log('Dashboard - Render state:', {
-    subjectsCount: subjects.length,
-    isDataLoaded,
-    isLoading,
-    error,
-    studyProgress,
-    userCycle
   });
 
   useEffect(() => {
@@ -176,30 +154,21 @@ const Dashboard = () => {
   // Usar dados reais dos ciclos do banco de dados
   const cyclesCompleted = userCycle?.ciclos_realizados || 0;
 
-  // Mapear revisões por dia para o calendário
-  const revisoesPorDia: Record<string, { subject: string, topic: string, status: 'hoje' | 'pendente' | 'futura' }[]> = {};
+  const handleCalendarDateSelect = (date: Date) => {
+    setSelectedCalendarDate(date);
+    setShowReviewModal(true);
+  };
 
-  if (reviewData) {
-    reviewData.forEach(topic => {
-      if (topic.next_review) {
-        const reviewDate = startOfDay(new Date(topic.next_review));
-        const today = startOfDay(new Date());
-        let status: 'hoje' | 'pendente' | 'futura' = 'hoje';
-        if (reviewDate.getTime() < today.getTime()) status = 'pendente';
-        else if (reviewDate.getTime() > today.getTime()) status = 'futura';
-        const dateKey = format(reviewDate, 'yyyy-MM-dd');
-        if (!revisoesPorDia[dateKey]) revisoesPorDia[dateKey] = [];
-        revisoesPorDia[dateKey].push({ 
-          subject: topic.subject_name, 
-          topic: topic.name, 
-          status 
-        });
-      }
+  // Obter revisões para a data selecionada
+  const getReviewsForDate = (date: Date) => {
+    if (!reviewData) return [];
+    
+    return reviewData.filter(topic => {
+      if (!topic.next_review) return false;
+      const reviewDate = startOfDay(new Date(topic.next_review));
+      return reviewDate.getTime() === startOfDay(date).getTime();
     });
-  }
-
-  // Gerar dias do mês atual
-  const diasNoMes = Array.from({ length: new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate() }, (_, i) => i + 1);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
@@ -375,137 +344,53 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Card Calendário de Revisões */}
-              <Card className="bg-white/60 backdrop-blur-md shadow-xl border-none rounded-3xl">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-200/60 rounded-full flex items-center justify-center shadow-md">
-                      <Calendar className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-blue-900">Calendário de Revisões</CardTitle>
-                      <CardDescription className="text-sm text-blue-700">Toque em um dia para ver suas revisões</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {reviewLoading ? (
-                    <div className="flex justify-center py-8">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
-                    </div>
-                  ) : (
-                    <div {...swipeHandlers} className="select-none">
-                      <div className="flex justify-between items-center mb-2 px-2">
-                        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="text-blue-500 hover:text-blue-700 text-lg">&#8592;</button>
-                        <span className="font-bold text-blue-800 text-base">{format(currentMonth, 'MMMM yyyy', { locale: ptBR })}</span>
-                        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="text-blue-500 hover:text-blue-700 text-lg">&#8594;</button>
-                      </div>
-                      <div className="relative">
-                        <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1">
-                          {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-                            <div key={i} className="p-1 text-blue-400 font-bold">{d}</div>
-                          ))}
-                          {Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay()).fill(null).map((_, i) => (
-                            <div key={"empty-"+i}></div>
-                          ))}
-                          {diasNoMes.map((dia) => {
-                            const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dia);
-                            const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
-                            const revisoes = revisoesPorDia[dateKey] || [];
-                            const temRevisao = revisoes.length > 0;
-                            return (
-                              <div
-                                key={dia}
-                                className={`p-2 rounded-2xl font-bold cursor-pointer transition shadow-md ${temRevisao ? 'bg-gradient-to-br from-blue-400/80 to-purple-400/80 text-white hover:scale-105' : 'bg-white/70 text-blue-700 hover:bg-blue-100/60'} ${selectedDay && date.getDate() === selectedDay.getDate() && date.getMonth() === selectedDay.getMonth() ? 'ring-2 ring-blue-500' : ''}`}
-                                style={{ minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
-                                onClick={() => { setSelectedDay(date); setShowModal(true); }}
-                              >
-                                {dia}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {/* Painel lateral/embutido de revisões do dia */}
-                        {showModal && selectedDay && (
-                          <div className="absolute left-0 top-0 w-full h-full z-20 flex items-start justify-center" style={{pointerEvents: 'none'}}>
-                            <div className="w-full max-w-md bg-white/90 rounded-2xl shadow-2xl p-4 border border-blue-100 backdrop-blur-md" style={{pointerEvents: 'auto'}}>
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="flex items-center gap-2 font-bold text-blue-900 text-base">
-                                  <Clock className="h-5 w-5 text-blue-600" /> Revisões do dia {format(selectedDay, 'dd/MM/yyyy')}
-                                </span>
-                                <button className="text-blue-500 hover:text-blue-700 text-xl" onClick={() => setShowModal(false)}>&times;</button>
-                              </div>
-                              {(() => {
-                                const dateKey = format(startOfDay(selectedDay), 'yyyy-MM-dd');
-                                const revisoes = revisoesPorDia[dateKey] || [];
-                                if (revisoes.length === 0) {
-                                  return <div className="text-center text-blue-700 font-medium py-6">Nenhuma revisão para este dia.<br/>Aproveite para descansar ou revisar conteúdos antigos! 😊</div>;
-                                }
-                                return (
-                                  <div className="space-y-4">
-                                    {revisoes.filter(r => r.status === 'hoje').length > 0 && (
-                                      <div>
-                                        <div className="flex items-center gap-2 mb-2 text-yellow-700 font-semibold">
-                                          <AlertCircle className="h-4 w-4 text-yellow-500" /> Revisão para Hoje
-                                        </div>
-                                        <ul className="space-y-2">
-                                          {revisoes.filter(r => r.status === 'hoje').map((rev, idx) => (
-                                            <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
-                                              <BookOpen className="h-4 w-4 text-blue-500" />
-                                              <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
-                                              <span className="text-gray-600">:</span>
-                                              <span className="font-medium text-gray-700">{rev.topic}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                    {revisoes.filter(r => r.status === 'pendente').length > 0 && (
-                                      <div>
-                                        <div className="flex items-center gap-2 mb-2 text-red-700 font-semibold">
-                                          <AlertCircle className="h-4 w-4 text-red-500" /> Revisão Pendente
-                                        </div>
-                                        <ul className="space-y-2">
-                                          {revisoes.filter(r => r.status === 'pendente').map((rev, idx) => (
-                                            <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
-                                              <BookOpen className="h-4 w-4 text-blue-500" />
-                                              <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
-                                              <span className="text-gray-600">:</span>
-                                              <span className="font-medium text-gray-700">{rev.topic}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                    {revisoes.filter(r => r.status === 'futura').length > 0 && (
-                                      <div>
-                                        <div className="flex items-center gap-2 mb-2 text-blue-700 font-semibold">
-                                          <CheckCircle2 className="h-4 w-4 text-blue-500" /> Revisão Futura
-                                        </div>
-                                        <ul className="space-y-2">
-                                          {revisoes.filter(r => r.status === 'futura').map((rev, idx) => (
-                                            <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
-                                              <BookOpen className="h-4 w-4 text-blue-500" />
-                                              <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
-                                              <span className="text-gray-600">:</span>
-                                              <span className="font-medium text-gray-700">{rev.topic}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Card Calendário de Revisões - Usando o novo componente */}
+              <CalendarView
+                reviewData={reviewData || []}
+                isLoading={reviewLoading}
+                onDateSelect={handleCalendarDateSelect}
+                selectedDate={selectedCalendarDate || undefined}
+                className="bg-white/60 backdrop-blur-md shadow-xl border-none rounded-3xl"
+              />
             </div>
+
+            {/* Modal de revisões do dia selecionado */}
+            {showReviewModal && selectedCalendarDate && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">
+                      Revisões para {format(selectedCalendarDate, 'dd/MM/yyyy')}
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowReviewModal(false)}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {getReviewsForDate(selectedCalendarDate).map((review, idx) => (
+                      <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="font-medium text-gray-900">{review.subject_name}</div>
+                        <div className="text-gray-700">{review.name}</div>
+                        <Badge variant="outline" className="mt-1 text-xs">
+                          {review.review_stage}
+                        </Badge>
+                      </div>
+                    ))}
+                    
+                    {getReviewsForDate(selectedCalendarDate).length === 0 && (
+                      <p className="text-gray-500 text-center py-4">
+                        Nenhuma revisão agendada para este dia.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Ações Rápidas */}
             <Card className="bg-white border border-gray-200 shadow-sm">
