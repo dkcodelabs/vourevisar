@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,21 +7,92 @@ import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircl
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfDay } from 'date-fns';
+import { format, startOfDay, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { useSwipeable } from 'react-swipeable';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
-  // HOOKS DEVEM FICAR NO TOPO!
   const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();
   const { userCycle, isLoading: cycleLoading } = useCycleState();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [greeting, setGreeting] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Buscar dados de revisões para o calendário
+  const { data: reviewData, isLoading: reviewLoading } = useQuery({
+    queryKey: ['dashboard-reviews', user?.id, currentMonth],
+    queryFn: async () => {
+      if (!user) throw new Error('User not authenticated');
+      
+      // Buscar tópicos com next_review no mês atual
+      const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      
+      const { data: topicsData, error: topicsError } = await supabase
+        .from('topics')
+        .select(`
+          id,
+          name,
+          review_stage,
+          next_review,
+          subject_id
+        `)
+        .not('next_review', 'is', null)
+        .gte('next_review', startOfMonth.toISOString())
+        .lte('next_review', endOfMonth.toISOString());
+
+      if (topicsError) {
+        console.error('Error fetching review data:', topicsError);
+        throw topicsError;
+      }
+
+      if (!topicsData || topicsData.length === 0) {
+        return [];
+      }
+
+      // Buscar subjects do usuário
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('id, name')
+        .eq('user_id', user.id);
+
+      if (subjectsError) {
+        console.error('Error fetching subjects:', subjectsError);
+        throw subjectsError;
+      }
+
+      // Filtrar apenas tópicos que pertencem aos subjects do usuário
+      const userSubjectIds = (subjectsData || []).map(s => s.id);
+      const filteredTopics = topicsData.filter(topic => 
+        userSubjectIds.includes(topic.subject_id)
+      );
+
+      // Mapear com nomes dos subjects
+      const topicsWithSubjects = filteredTopics.map(topic => {
+        const subject = subjectsData?.find(s => s.id === topic.subject_id);
+        return {
+          id: topic.id,
+          name: topic.name,
+          subject_name: subject?.name || 'Sem disciplina',
+          review_stage: topic.review_stage,
+          next_review: topic.next_review,
+        };
+      });
+
+      console.log('Dashboard review data loaded:', topicsWithSubjects);
+      return topicsWithSubjects;
+    },
+    enabled: !!user
+  });
+
   // Swipe handlers para navegação por meses
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)),
@@ -90,14 +162,12 @@ const Dashboard = () => {
   console.log('Dashboard - Rendering main content with', subjects.length, 'subjects');
 
   // Cálculos para estatísticas
-  const todayTopics = subjects.flatMap(subject => 
-    subject.topics.filter(topic => {
-      if (!topic.nextReview) return false;
-      const reviewDate = startOfDay(new Date(topic.nextReview));
-      const today = startOfDay(new Date());
-      return reviewDate.getTime() === today.getTime();
-    })
-  );
+  const todayTopics = reviewData?.filter(topic => {
+    if (!topic.next_review) return false;
+    const reviewDate = startOfDay(new Date(topic.next_review));
+    const today = startOfDay(new Date());
+    return reviewDate.getTime() === today.getTime();
+  }) || [];
 
   const progressPercentage = studyProgress.totalTopics > 0 
     ? Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100)
@@ -106,33 +176,27 @@ const Dashboard = () => {
   // Usar dados reais dos ciclos do banco de dados
   const cyclesCompleted = userCycle?.ciclos_realizados || 0;
 
-  // Gerar dias do calendário (simples para mostrar o layout)
-  const generateCalendarDays = () => {
-    const days = [];
-    for (let i = 1; i <= 31; i++) {
-      days.push(i);
-    }
-    return days;
-  };
-
-  const calendarDays = generateCalendarDays();
-
+  // Mapear revisões por dia para o calendário
   const revisoesPorDia: Record<string, { subject: string, topic: string, status: 'hoje' | 'pendente' | 'futura' }[]> = {};
 
-  subjects.forEach(subject => {
-    subject.topics.forEach(topic => {
-      if (topic.nextReview) {
-        const reviewDate = startOfDay(new Date(topic.nextReview));
+  if (reviewData) {
+    reviewData.forEach(topic => {
+      if (topic.next_review) {
+        const reviewDate = startOfDay(new Date(topic.next_review));
         const today = startOfDay(new Date());
         let status: 'hoje' | 'pendente' | 'futura' = 'hoje';
         if (reviewDate.getTime() < today.getTime()) status = 'pendente';
         else if (reviewDate.getTime() > today.getTime()) status = 'futura';
         const dateKey = format(reviewDate, 'yyyy-MM-dd');
         if (!revisoesPorDia[dateKey]) revisoesPorDia[dateKey] = [];
-        revisoesPorDia[dateKey].push({ subject: subject.name, topic: topic.name, status });
+        revisoesPorDia[dateKey].push({ 
+          subject: topic.subject_name, 
+          topic: topic.name, 
+          status 
+        });
       }
     });
-  });
+  }
 
   // Gerar dias do mês atual
   const diasNoMes = Array.from({ length: new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate() }, (_, i) => i + 1);
@@ -144,10 +208,13 @@ const Dashboard = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-medium text-gray-900 mb-1">
-              Bem-vindo(a) de volta! Aqui está seu progresso.
+              {greeting}! Aqui está seu progresso.
             </h1>
           </div>
-          <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+          <Button 
+            className="bg-blue-500 hover:bg-blue-600 text-white"
+            onClick={() => navigate('/plano-estudo')}
+          >
             <Calendar className="h-4 w-4 mr-2" />
             Iniciar Estudos do Dia
           </Button>
@@ -280,9 +347,31 @@ const Dashboard = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">Nenhuma revisão agendada para hoje.</p>
-                  </div>
+                  {reviewLoading ? (
+                    <div className="flex justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600" />
+                    </div>
+                  ) : todayTopics.length > 0 ? (
+                    <div className="space-y-2">
+                      {todayTopics.map((topic, idx) => (
+                        <div key={idx} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                          <div className="flex items-center gap-2">
+                            <BookOpen className="h-4 w-4 text-orange-600" />
+                            <span className="font-semibold text-gray-800">{topic.subject_name}</span>
+                            <span className="text-gray-600">:</span>
+                            <span className="text-gray-700">{topic.name}</span>
+                          </div>
+                          <Badge variant="outline" className="mt-1 text-xs">
+                            {topic.review_stage}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">Nenhuma revisão agendada para hoje.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -300,97 +389,120 @@ const Dashboard = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div {...swipeHandlers} className="select-none">
-                    <div className="flex justify-between items-center mb-2 px-2">
-                      <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="text-blue-500 hover:text-blue-700 text-lg">&#8592;</button>
-                      <span className="font-bold text-blue-800 text-base">{format(currentMonth, 'MMMM yyyy', { locale: ptBR })}</span>
-                      <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="text-blue-500 hover:text-blue-700 text-lg">&#8594;</button>
+                  {reviewLoading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
                     </div>
-                    <div className="relative">
-                      <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1">
-                        {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-                          <div key={i} className="p-1 text-blue-400 font-bold">{d}</div>
-                        ))}
-                        {Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay()).fill(null).map((_, i) => (
-                          <div key={"empty-"+i}></div>
-                        ))}
-                        {diasNoMes.map((dia) => {
-                          const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dia);
-                          const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
-                          const revisoes = revisoesPorDia[dateKey] || [];
-                          const temRevisao = revisoes.some(r => r.status === 'hoje' || r.status === 'pendente');
-                          return (
-                            <div
-                              key={dia}
-                              className={`p-2 rounded-2xl font-bold cursor-pointer transition shadow-md ${temRevisao ? 'bg-gradient-to-br from-blue-400/80 to-purple-400/80 text-white hover:scale-105' : 'bg-white/70 text-blue-700 hover:bg-blue-100/60'} ${selectedDay && date.getDate() === selectedDay.getDate() && date.getMonth() === selectedDay.getMonth() ? 'ring-2 ring-blue-500' : ''}`}
-                              style={{ minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
-                              onClick={() => { setSelectedDay(date); setShowModal(true); }}
-                            >
-                              {dia}
-                            </div>
-                          );
-                        })}
+                  ) : (
+                    <div {...swipeHandlers} className="select-none">
+                      <div className="flex justify-between items-center mb-2 px-2">
+                        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="text-blue-500 hover:text-blue-700 text-lg">&#8592;</button>
+                        <span className="font-bold text-blue-800 text-base">{format(currentMonth, 'MMMM yyyy', { locale: ptBR })}</span>
+                        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="text-blue-500 hover:text-blue-700 text-lg">&#8594;</button>
                       </div>
-                      {/* Painel lateral/embutido de revisões do dia */}
-                      {showModal && selectedDay && (
-                        <div className="absolute left-0 top-0 w-full h-full z-20 flex items-start justify-center" style={{pointerEvents: 'none'}}>
-                          <div className="w-full max-w-md bg-white/90 rounded-2xl shadow-2xl p-4 border border-blue-100 backdrop-blur-md" style={{pointerEvents: 'auto'}}>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="flex items-center gap-2 font-bold text-blue-900 text-base">
-                                <Clock className="h-5 w-5 text-blue-600" /> Revisões do dia {format(selectedDay, 'dd/MM/yyyy')}
-                              </span>
-                              <button className="text-blue-500 hover:text-blue-700 text-xl" onClick={() => setShowModal(false)}>&times;</button>
-                            </div>
-                            {(() => {
-                              const dateKey = format(startOfDay(selectedDay), 'yyyy-MM-dd');
-                              const revisoes = (revisoesPorDia[dateKey] || []).filter(r => r.status === 'hoje' || r.status === 'pendente');
-                              if (revisoes.length === 0) {
-                                return <div className="text-center text-blue-700 font-medium py-6">Nenhuma revisão para este dia.<br/>Aproveite para descansar ou revisar conteúdos antigos! 😊</div>;
-                              }
-                              return (
-                                <div className="space-y-4">
-                                  {revisoes.filter(r => r.status === 'hoje').length > 0 && (
-                                    <div>
-                                      <div className="flex items-center gap-2 mb-2 text-yellow-700 font-semibold">
-                                        <AlertCircle className="h-4 w-4 text-yellow-500" /> Revisão para Hoje
-                                      </div>
-                                      <ul className="space-y-2">
-                                        {revisoes.filter(r => r.status === 'hoje').map((rev, idx) => (
-                                          <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
-                                            <BookOpen className="h-4 w-4 text-blue-500" />
-                                            <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
-                                            <span className="text-gray-600">:</span>
-                                            <span className="font-medium text-gray-700">{rev.topic}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                  {revisoes.filter(r => r.status === 'pendente').length > 0 && (
-                                    <div>
-                                      <div className="flex items-center gap-2 mb-2 text-red-700 font-semibold">
-                                        <AlertCircle className="h-4 w-4 text-red-500" /> Revisão Pendente
-                                      </div>
-                                      <ul className="space-y-2">
-                                        {revisoes.filter(r => r.status === 'pendente').map((rev, idx) => (
-                                          <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
-                                            <BookOpen className="h-4 w-4 text-blue-500" />
-                                            <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
-                                            <span className="text-gray-600">:</span>
-                                            <span className="font-medium text-gray-700">{rev.topic}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
+                      <div className="relative">
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1">
+                          {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+                            <div key={i} className="p-1 text-blue-400 font-bold">{d}</div>
+                          ))}
+                          {Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay()).fill(null).map((_, i) => (
+                            <div key={"empty-"+i}></div>
+                          ))}
+                          {diasNoMes.map((dia) => {
+                            const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dia);
+                            const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
+                            const revisoes = revisoesPorDia[dateKey] || [];
+                            const temRevisao = revisoes.length > 0;
+                            return (
+                              <div
+                                key={dia}
+                                className={`p-2 rounded-2xl font-bold cursor-pointer transition shadow-md ${temRevisao ? 'bg-gradient-to-br from-blue-400/80 to-purple-400/80 text-white hover:scale-105' : 'bg-white/70 text-blue-700 hover:bg-blue-100/60'} ${selectedDay && date.getDate() === selectedDay.getDate() && date.getMonth() === selectedDay.getMonth() ? 'ring-2 ring-blue-500' : ''}`}
+                                style={{ minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+                                onClick={() => { setSelectedDay(date); setShowModal(true); }}
+                              >
+                                {dia}
+                              </div>
+                            );
+                          })}
                         </div>
-                      )}
+                        {/* Painel lateral/embutido de revisões do dia */}
+                        {showModal && selectedDay && (
+                          <div className="absolute left-0 top-0 w-full h-full z-20 flex items-start justify-center" style={{pointerEvents: 'none'}}>
+                            <div className="w-full max-w-md bg-white/90 rounded-2xl shadow-2xl p-4 border border-blue-100 backdrop-blur-md" style={{pointerEvents: 'auto'}}>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="flex items-center gap-2 font-bold text-blue-900 text-base">
+                                  <Clock className="h-5 w-5 text-blue-600" /> Revisões do dia {format(selectedDay, 'dd/MM/yyyy')}
+                                </span>
+                                <button className="text-blue-500 hover:text-blue-700 text-xl" onClick={() => setShowModal(false)}>&times;</button>
+                              </div>
+                              {(() => {
+                                const dateKey = format(startOfDay(selectedDay), 'yyyy-MM-dd');
+                                const revisoes = revisoesPorDia[dateKey] || [];
+                                if (revisoes.length === 0) {
+                                  return <div className="text-center text-blue-700 font-medium py-6">Nenhuma revisão para este dia.<br/>Aproveite para descansar ou revisar conteúdos antigos! 😊</div>;
+                                }
+                                return (
+                                  <div className="space-y-4">
+                                    {revisoes.filter(r => r.status === 'hoje').length > 0 && (
+                                      <div>
+                                        <div className="flex items-center gap-2 mb-2 text-yellow-700 font-semibold">
+                                          <AlertCircle className="h-4 w-4 text-yellow-500" /> Revisão para Hoje
+                                        </div>
+                                        <ul className="space-y-2">
+                                          {revisoes.filter(r => r.status === 'hoje').map((rev, idx) => (
+                                            <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
+                                              <BookOpen className="h-4 w-4 text-blue-500" />
+                                              <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
+                                              <span className="text-gray-600">:</span>
+                                              <span className="font-medium text-gray-700">{rev.topic}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {revisoes.filter(r => r.status === 'pendente').length > 0 && (
+                                      <div>
+                                        <div className="flex items-center gap-2 mb-2 text-red-700 font-semibold">
+                                          <AlertCircle className="h-4 w-4 text-red-500" /> Revisão Pendente
+                                        </div>
+                                        <ul className="space-y-2">
+                                          {revisoes.filter(r => r.status === 'pendente').map((rev, idx) => (
+                                            <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
+                                              <BookOpen className="h-4 w-4 text-blue-500" />
+                                              <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
+                                              <span className="text-gray-600">:</span>
+                                              <span className="font-medium text-gray-700">{rev.topic}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {revisoes.filter(r => r.status === 'futura').length > 0 && (
+                                      <div>
+                                        <div className="flex items-center gap-2 mb-2 text-blue-700 font-semibold">
+                                          <CheckCircle2 className="h-4 w-4 text-blue-500" /> Revisão Futura
+                                        </div>
+                                        <ul className="space-y-2">
+                                          {revisoes.filter(r => r.status === 'futura').map((rev, idx) => (
+                                            <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
+                                              <BookOpen className="h-4 w-4 text-blue-500" />
+                                              <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
+                                              <span className="text-gray-600">:</span>
+                                              <span className="font-medium text-gray-700">{rev.topic}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
