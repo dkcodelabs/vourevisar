@@ -57,6 +57,11 @@ const Subjects = () => {
   const [newSubject, setNewSubject] = useState({
     name: ''
   });
+  const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
+
+  useEffect(() => {
+    setLocalSubjects(subjects);
+  }, [subjects]);
 
   console.log('Subjects component render:', {
     subjectsCount: subjects.length,
@@ -135,12 +140,15 @@ const Subjects = () => {
       return;
     }
 
-    const oldIndex = subjects.findIndex((subject) => subject.id === active.id);
-    const newIndex = subjects.findIndex((subject) => subject.id === over.id);
+    const oldIndex = localSubjects.findIndex((subject) => subject.id === active.id);
+    const newIndex = localSubjects.findIndex((subject) => subject.id === over.id);
 
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const reorderedSubjects = arrayMove(subjects, oldIndex, newIndex);
+    const reorderedSubjects = arrayMove(localSubjects, oldIndex, newIndex);
+    
+    // Atualizar o estado local imediatamente
+    setLocalSubjects(reorderedSubjects);
     
     try {
       // Atualizar prioridades diretamente no Supabase
@@ -280,7 +288,7 @@ const Subjects = () => {
       </div>
 
       {/* Lista de Matérias */}
-      {subjects.length === 0 ? (
+      {localSubjects.length === 0 ? (
         <Card>
           <CardHeader className="text-center">
             <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
@@ -302,10 +310,10 @@ const Subjects = () => {
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext items={subjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
             <div className="grid gap-4">
               <AnimatePresence>
-                {subjects.map((subject) => {
+                {localSubjects.map((subject) => {
                   const progress = getSubjectProgress(subject);
                   const calculatedStatus = calculateSubjectStatus(subject);
                   return (

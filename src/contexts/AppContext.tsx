@@ -4,6 +4,7 @@ import { mockUserProfile } from '../data/mockData';
 import { supabase } from '../integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
+import { startOfDay } from 'date-fns';
 
 interface AppContextType {
   subjects: Subject[];

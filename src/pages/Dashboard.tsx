@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,14 +6,27 @@ import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircl
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { useSwipeable } from 'react-swipeable';
 
 const Dashboard = () => {
+  // HOOKS DEVEM FICAR NO TOPO!
   const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();
   const { userCycle, isLoading: cycleLoading } = useCycleState();
   const navigate = useNavigate();
   const [greeting, setGreeting] = useState('');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  // Swipe handlers para navegação por meses
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)),
+    onSwipedRight: () => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)),
+    trackMouse: true
+  });
 
   console.log('Dashboard - Render state:', {
     subjectsCount: subjects.length,
@@ -81,9 +93,9 @@ const Dashboard = () => {
   const todayTopics = subjects.flatMap(subject => 
     subject.topics.filter(topic => {
       if (!topic.nextReview) return false;
-      const reviewDate = new Date(topic.nextReview);
-      const today = new Date();
-      return reviewDate.toDateString() === today.toDateString();
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      const today = startOfDay(new Date());
+      return reviewDate.getTime() === today.getTime();
     })
   );
 
@@ -105,8 +117,28 @@ const Dashboard = () => {
 
   const calendarDays = generateCalendarDays();
 
+  const revisoesPorDia: Record<string, { subject: string, topic: string, status: 'hoje' | 'pendente' | 'futura' }[]> = {};
+
+  subjects.forEach(subject => {
+    subject.topics.forEach(topic => {
+      if (topic.nextReview) {
+        const reviewDate = startOfDay(new Date(topic.nextReview));
+        const today = startOfDay(new Date());
+        let status: 'hoje' | 'pendente' | 'futura' = 'hoje';
+        if (reviewDate.getTime() < today.getTime()) status = 'pendente';
+        else if (reviewDate.getTime() > today.getTime()) status = 'futura';
+        const dateKey = format(reviewDate, 'yyyy-MM-dd');
+        if (!revisoesPorDia[dateKey]) revisoesPorDia[dateKey] = [];
+        revisoesPorDia[dateKey].push({ subject: subject.name, topic: topic.name, status });
+      }
+    });
+  });
+
+  // Gerar dias do mês atual
+  const diasNoMes = Array.from({ length: new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate() }, (_, i) => i + 1);
+
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -158,9 +190,7 @@ const Dashboard = () => {
                   <div className="text-2xl font-bold text-blue-600">
                     {studyProgress.completedSubjects}/{studyProgress.totalSubjects}
                   </div>
-                  <div className="text-xs text-gray-600 mt-1">
-                    matérias
-                  </div>
+                 
                   <p className="text-xs text-gray-500 mt-2">
                     Você concluiu {studyProgress.completedSubjects} de {studyProgress.totalSubjects} matérias cadastradas.
                   </p>
@@ -182,9 +212,6 @@ const Dashboard = () => {
                 <CardContent className="pt-0">
                   <div className="text-2xl font-bold text-purple-600">
                     {studyProgress.completedTopics}/{studyProgress.totalTopics}
-                  </div>
-                  <div className="text-xs text-gray-600 mt-1">
-                    tópicos
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
                     Você já concluiu {studyProgress.completedTopics} de {studyProgress.totalTopics} tópicos cadastrados.
@@ -208,9 +235,6 @@ const Dashboard = () => {
                   <div className="text-2xl font-bold text-green-600">
                     {progressPercentage}%
                   </div>
-                  <div className="text-xs text-gray-600 mt-1">
-                    concluído
-                  </div>
                   <p className="text-xs text-gray-500 mt-2">
                     Você completou {progressPercentage}% dos seus estudos.
                   </p>
@@ -232,9 +256,6 @@ const Dashboard = () => {
                 <CardContent className="pt-0">
                   <div className="text-2xl font-bold text-teal-600">
                     {cyclesCompleted}
-                  </div>
-                  <div className="text-xs text-gray-600 mt-1">
-                    ciclos
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
                     Ciclos de estudo completados até agora.
@@ -266,64 +287,109 @@ const Dashboard = () => {
               </Card>
 
               {/* Card Calendário de Revisões */}
-              <Card className="bg-white border border-gray-200 shadow-sm">
+              <Card className="bg-white/60 backdrop-blur-md shadow-xl border-none rounded-3xl">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-blue-200/60 rounded-full flex items-center justify-center shadow-md">
                       <Calendar className="h-4 w-4 text-blue-600" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-medium text-gray-900">Calendário de Revisões</CardTitle>
-                      <CardDescription className="text-sm text-gray-500">Próximas revisões</CardDescription>
+                      <CardTitle className="text-lg font-semibold text-blue-900">Calendário de Revisões</CardTitle>
+                      <CardDescription className="text-sm text-blue-700">Toque em um dia para ver suas revisões</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                    {/* Dias da semana */}
-                    {['1', '2', '3', '4', '5', '6', '7'].map((day) => (
-                      <div key={day} className="p-1 text-gray-400">{day}</div>
-                    ))}
-                    {/* Primeira linha */}
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-                    {/* Segunda linha */}
-                    <div className="p-2 text-gray-600">8</div>
-                    <div className="p-2 text-gray-600">9</div>
-                    <div className="p-2 text-gray-600">10</div>
-                    <div className="p-2 text-gray-600">11</div>
-                    <div className="p-2 text-gray-600">12</div>
-                    <div className="p-2 text-gray-600">13</div>
-                    <div className="p-2 text-gray-600">14</div>
-                    {/* Terceira linha */}
-                    <div className="p-2 text-gray-600">15</div>
-                    <div className="p-2 text-gray-600">16</div>
-                    <div className="p-2 text-gray-600">17</div>
-                    <div className="p-2 text-gray-600">18</div>
-                    <div className="p-2 text-gray-600">19</div>
-                    <div className="p-2 text-gray-600">20</div>
-                    <div className="p-2 text-gray-600">21</div>
-                    {/* Quarta linha */}
-                    <div className="p-2 text-gray-600">22</div>
-                    <div className="p-2 text-gray-600">23</div>
-                    <div className="p-2 bg-blue-100 text-blue-600 rounded-full">24</div>
-                    <div className="p-2 text-gray-600">25</div>
-                    <div className="p-2 text-gray-600">26</div>
-                    <div className="p-2 text-gray-600">27</div>
-                    <div className="p-2 text-gray-600">28</div>
-                    {/* Quinta linha */}
-                    <div className="p-2 text-gray-600">29</div>
-                    <div className="p-2 text-gray-600">30</div>
-                    <div className="p-2 bg-blue-500 text-white rounded-full">31</div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
+                  <div {...swipeHandlers} className="select-none">
+                    <div className="flex justify-between items-center mb-2 px-2">
+                      <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="text-blue-500 hover:text-blue-700 text-lg">&#8592;</button>
+                      <span className="font-bold text-blue-800 text-base">{format(currentMonth, 'MMMM yyyy', { locale: ptBR })}</span>
+                      <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="text-blue-500 hover:text-blue-700 text-lg">&#8594;</button>
+                    </div>
+                    <div className="relative">
+                      <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1">
+                        {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+                          <div key={i} className="p-1 text-blue-400 font-bold">{d}</div>
+                        ))}
+                        {Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay()).fill(null).map((_, i) => (
+                          <div key={"empty-"+i}></div>
+                        ))}
+                        {diasNoMes.map((dia) => {
+                          const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dia);
+                          const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
+                          const revisoes = revisoesPorDia[dateKey] || [];
+                          const temRevisao = revisoes.some(r => r.status === 'hoje' || r.status === 'pendente');
+                          return (
+                            <div
+                              key={dia}
+                              className={`p-2 rounded-2xl font-bold cursor-pointer transition shadow-md ${temRevisao ? 'bg-gradient-to-br from-blue-400/80 to-purple-400/80 text-white hover:scale-105' : 'bg-white/70 text-blue-700 hover:bg-blue-100/60'} ${selectedDay && date.getDate() === selectedDay.getDate() && date.getMonth() === selectedDay.getMonth() ? 'ring-2 ring-blue-500' : ''}`}
+                              style={{ minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+                              onClick={() => { setSelectedDay(date); setShowModal(true); }}
+                            >
+                              {dia}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Painel lateral/embutido de revisões do dia */}
+                      {showModal && selectedDay && (
+                        <div className="absolute left-0 top-0 w-full h-full z-20 flex items-start justify-center" style={{pointerEvents: 'none'}}>
+                          <div className="w-full max-w-md bg-white/90 rounded-2xl shadow-2xl p-4 border border-blue-100 backdrop-blur-md" style={{pointerEvents: 'auto'}}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="flex items-center gap-2 font-bold text-blue-900 text-base">
+                                <Clock className="h-5 w-5 text-blue-600" /> Revisões do dia {format(selectedDay, 'dd/MM/yyyy')}
+                              </span>
+                              <button className="text-blue-500 hover:text-blue-700 text-xl" onClick={() => setShowModal(false)}>&times;</button>
+                            </div>
+                            {(() => {
+                              const dateKey = format(startOfDay(selectedDay), 'yyyy-MM-dd');
+                              const revisoes = (revisoesPorDia[dateKey] || []).filter(r => r.status === 'hoje' || r.status === 'pendente');
+                              if (revisoes.length === 0) {
+                                return <div className="text-center text-blue-700 font-medium py-6">Nenhuma revisão para este dia.<br/>Aproveite para descansar ou revisar conteúdos antigos! 😊</div>;
+                              }
+                              return (
+                                <div className="space-y-4">
+                                  {revisoes.filter(r => r.status === 'hoje').length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-2 text-yellow-700 font-semibold">
+                                        <AlertCircle className="h-4 w-4 text-yellow-500" /> Revisão para Hoje
+                                      </div>
+                                      <ul className="space-y-2">
+                                        {revisoes.filter(r => r.status === 'hoje').map((rev, idx) => (
+                                          <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
+                                            <BookOpen className="h-4 w-4 text-blue-500" />
+                                            <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
+                                            <span className="text-gray-600">:</span>
+                                            <span className="font-medium text-gray-700">{rev.topic}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {revisoes.filter(r => r.status === 'pendente').length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-2 text-red-700 font-semibold">
+                                        <AlertCircle className="h-4 w-4 text-red-500" /> Revisão Pendente
+                                      </div>
+                                      <ul className="space-y-2">
+                                        {revisoes.filter(r => r.status === 'pendente').map((rev, idx) => (
+                                          <li key={idx} className="flex items-center gap-2 bg-white/90 shadow rounded-xl px-3 py-2">
+                                            <BookOpen className="h-4 w-4 text-blue-500" />
+                                            <span className="font-bold uppercase text-gray-800">{rev.subject}</span>
+                                            <span className="text-gray-600">:</span>
+                                            <span className="font-medium text-gray-700">{rev.topic}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
