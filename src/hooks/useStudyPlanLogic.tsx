@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -187,14 +188,14 @@ export const useStudyPlanLogic = () => {
 
   // Helper functions
   const calculateNextReview = (stage: RevisionStage | undefined): Date => {
-    const now = new Date();
+    const now = startOfDay(new Date()); // Usar startOfDay para evitar avançar horas extras
     
     switch(stage) {
       case '24h':
         return addDays(now, 1);
-      case '7dias':
+      case '7 dias':
         return addDays(now, 7);
-      case '30dias':
+      case '30 dias':
         return addDays(now, 30);
       default:
         return addDays(now, 1);
@@ -204,10 +205,10 @@ export const useStudyPlanLogic = () => {
   const getNextReviewStage = (currentStage: RevisionStage | undefined): RevisionStage => {
     switch(currentStage) {
       case '24h':
-        return '7dias';
-      case '7dias':
-        return '30dias';
-      case '30dias':
+        return '7 dias';
+      case '7 dias':
+        return '30 dias';
+      case '30 dias':
         return 'Concluído';
       default:
         return '24h';
