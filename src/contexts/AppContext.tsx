@@ -5,6 +5,7 @@ import { supabase } from '../integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 import { startOfDay } from 'date-fns';
+import { Button } from '@/components/ui/button';
 
 interface AppContextType {
   subjects: Subject[];
@@ -301,8 +302,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalTopics += subject.topics.length;
       
       subject.topics.forEach(topic => {
-        // Contar como completado APENAS se reviewStage "Concluído" E nextReview null
-        if (topic.reviewStage === 'Concluído' && topic.nextReview === null) {
+        // Novo critério: considerar concluído se reviewStage === 'Concluído' OU completed === true
+        if (topic.reviewStage === 'Concluído' || topic.completed === true) {
           completedTopics++;
         }
         

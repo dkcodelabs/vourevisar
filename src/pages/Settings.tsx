@@ -12,6 +12,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 import { format } from 'date-fns';
 import { useCycleState } from '@/hooks/useCycleState';
+import { useApp } from '@/contexts/AppContext';
 
 // Definindo o tipo para as configurações do usuário
 interface UserSettings {
@@ -47,6 +48,8 @@ const Settings = () => {
   // Use the custom hook for cycle management
   const { userCycle, isLoading: isCycleLoading, fetchUserCycle, resetCycle } = useCycleState();
   const [isResettingCycle, setIsResettingCycle] = useState(false);
+  
+  const { fetchUserSettings: fetchUserSettingsContext } = useApp();
   
   // Buscar configurações do usuário ao carregar a página
   useEffect(() => {
@@ -166,6 +169,8 @@ const Settings = () => {
       
       if (error) throw error;
       
+      // Atualizar o contexto global imediatamente
+      await fetchUserSettingsContext();
       toast({
         title: "Sucesso",
         description: "Configurações salvas com sucesso",
@@ -198,6 +203,100 @@ const Settings = () => {
   return (
     <div className="space-y-6">
       <AnimatedTitle>Configurações</AnimatedTitle>
+      
+      {/* Novo Card: Limpeza do Sistema */}
+      <GlassCard className="p-6">
+        <h2 className="text-lg font-bold mb-2">Limpar Sistema</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Use as opções abaixo para reiniciar seu ambiente de estudos. 
+          <br />
+          <span className="font-semibold text-red-600">Atenção:</span> esta ação não pode ser desfeita!
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Limpar tudo */}
+          <Button
+            variant="destructive"
+            onClick={async () => {
+              if (window.confirm("Tem certeza que deseja excluir TODAS as matérias, tópicos e revisões? Esta ação não pode ser desfeita!")) {
+                // Excluir tópicos e matérias do usuário
+                await supabase.from('topics').delete().neq('id', ''); // deleta todos os tópicos
+                await supabase.from('subjects').delete().neq('id', ''); // deleta todas as matérias
+                toast({
+                  title: "Sistema limpo!",
+                  description: "Todas as matérias, tópicos e revisões foram removidos.",
+                });
+                window.location.reload();
+              }
+            }}
+          >
+            Limpar tudo
+          </Button>
+          {/* Limpar apenas revisões */}
+          <Button
+            variant="outline"
+            className="border-blue-500 text-blue-700"
+            onClick={async () => {
+              if (!user) {
+                toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+                return;
+              }
+              if (window.confirm("Tem certeza que deseja limpar apenas as revisões? As matérias e tópicos serão mantidos, mas todo o progresso será zerado.")) {
+                try {
+                  // Buscar todas as matérias do usuário
+                  const { data: subjectsData, error: subjectsError } = await supabase
+                    .from('subjects')
+                    .select('id')
+                    .eq('user_id', user.id);
+                  if (subjectsError) throw subjectsError;
+                  const subjectIds = (subjectsData || []).map(s => s.id);
+                  // Resetar tópicos do usuário
+                  if (subjectIds.length > 0) {
+                    await supabase
+                      .from('topics')
+                      .update({
+                        review_stage: null,
+                        review_count: 0,
+                        next_review: null,
+                        last_reviewed_at: null,
+                        completed: false
+                      })
+                      .in('subject_id', subjectIds);
+                  }
+                  // Resetar matérias do usuário
+                  await supabase
+                    .from('subjects')
+                    .update({ status: 'Nova' })
+                    .eq('user_id', user.id);
+                  // Resetar ciclos do usuário
+                  await supabase
+                    .from('user_cycles')
+                    .update({
+                      ciclo_atual: [],
+                      disciplinas_do_dia: [],
+                      ciclos_realizados: 0,
+                      data_inicio_ciclo: null,
+                      data_fim_ciclo: null
+                    })
+                    .eq('user_id', user.id);
+                  toast({
+                    title: "Revisões e progresso limpos!",
+                    description: "Todo o progresso foi zerado. Você pode recomeçar seus estudos.",
+                  });
+                  window.location.reload();
+                } catch (err) {
+                  toast({
+                    title: "Erro ao limpar revisões",
+                    description: "Ocorreu um erro ao tentar zerar o progresso. Tente novamente.",
+                    variant: "destructive"
+                  });
+                }
+              }
+            }}
+          >
+            Limpar apenas revisões
+          </Button>
+        </div>
+      </GlassCard>
       
       {error && (
         <Alert variant="destructive">

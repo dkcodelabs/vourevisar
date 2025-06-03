@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useApp } from '@/contexts/AppContext';
 
 interface TopicData {
   id: string;
@@ -26,14 +27,16 @@ interface SubjectData {
   id: string;
   name: string;
   topics: TopicData[];
+  status?: string;
 }
 
 const Topics = () => {
   const { subjectId } = useParams<{ subjectId?: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { updateSubject, subjects } = useApp();
   
-  const [subjects, setSubjects] = useState<SubjectData[]>([]);
+  const [subjectsData, setSubjects] = useState<SubjectData[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<SubjectData | null>(null);
   const [newTopicName, setNewTopicName] = useState('');
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
@@ -43,7 +46,7 @@ const Topics = () => {
   const [showAllSubjects, setShowAllSubjects] = useState(true);
 
   console.log('Topics component rendered - subjectId:', subjectId, 'user:', user?.id);
-  console.log('Current subjects state:', subjects);
+  console.log('Current subjects state:', subjectsData);
   console.log('Selected subject:', selectedSubject);
 
   // Carregar matérias
@@ -282,7 +285,7 @@ const Topics = () => {
     setExpandedTopics(newExpanded);
   };
 
-  const handleTopicCheck = (topicId: string, checked: boolean) => {
+  const handleTopicCheck = async (topicId: string, checked: boolean) => {
     const newChecked = new Set(checkedTopics);
     if (checked) {
       newChecked.add(topicId);
@@ -290,10 +293,41 @@ const Topics = () => {
       newChecked.delete(topicId);
     }
     setCheckedTopics(newChecked);
+
+    // Atualizar o tópico no banco
+    const topic = selectedSubject?.topics.find(t => t.id === topicId);
+    if (topic) {
+      try {
+        await supabase
+          .from('topics')
+          .update({
+            completed: checked,
+            review_stage: checked ? 'Concluído' : null
+          })
+          .eq('id', topicId);
+        // Recarregar tópicos da matéria do banco
+        if (selectedSubject) {
+          const { data: topicsData, error: topicsError } = await supabase
+            .from('topics')
+            .select('*')
+            .eq('subject_id', selectedSubject.id);
+          if (!topicsError && topicsData) {
+            setSelectedSubject(prev => prev ? { ...prev, topics: topicsData } : null);
+            setSubjects(prev => prev.map(subject => subject.id === selectedSubject.id ? { ...subject, topics: topicsData } : subject));
+          }
+        }
+      } catch (error) {
+        toast.error('Erro ao atualizar tópico');
+      }
+    }
+    // Após marcar/desmarcar, verificar status da matéria
+    if (selectedSubject) {
+      await checkAndUpdateSubjectStatus(selectedSubject.id);
+    }
   };
 
   const getAllTopics = () => {
-    const allTopics = subjects.flatMap(subject => 
+    const allTopics = subjectsData.flatMap(subject => 
       subject.topics.map(topic => ({
         ...topic,
         subjectName: subject.name
@@ -301,6 +335,16 @@ const Topics = () => {
     );
     console.log('All topics calculated:', allTopics);
     return allTopics;
+  };
+
+  // Função para verificar e atualizar status da matéria
+  const checkAndUpdateSubjectStatus = async (subjectId: string) => {
+    const subject = subjectsData.find(s => s.id === subjectId);
+    if (!subject) return;
+    const allCompleted = subject.topics.length > 0 && subject.topics.every(topic => topic.completed || topic.review_stage === 'Concluído');
+    if (allCompleted && subject.status !== 'Concluída') {
+      await updateSubject(subjectId, { status: 'Concluída' });
+    }
   };
 
   const renderTopicCard = (topic: TopicData & { subjectName?: string }) => {
@@ -450,7 +494,7 @@ const Topics = () => {
     );
   }
 
-  if (subjects.length === 0) {
+  if (subjectsData.length === 0) {
     console.log('Rendering no subjects state');
     return (
       <div className="container mx-auto p-6">
@@ -502,7 +546,7 @@ const Topics = () => {
                   setShowAllSubjects(true);
                   setSelectedSubject(null);
                 } else {
-                  const subject = subjects.find(s => s.id === e.target.value);
+                  const subject = subjectsData.find(s => s.id === e.target.value);
                   console.log('Switching to specific subject:', subject);
                   setSelectedSubject(subject || null);
                   setShowAllSubjects(false);
@@ -511,7 +555,7 @@ const Topics = () => {
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Todas as Matérias</option>
-              {subjects.map((subject) => (
+              {subjectsData.map((subject) => (
                 <option key={subject.id} value={subject.id}>
                   {subject.name} ({subject.topics.length} tópicos)
                 </option>
