@@ -155,12 +155,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [subjects, isDataLoaded]);
 
-  // Função para verificar se uma matéria está completamente concluída (100% dominada - sem revisões pendentes)
+  // Função para verificar se uma matéria está completamente concluída (todos os tópicos com reviewStage "Concluído")
   const isSubjectCompleted = (subject: Subject): boolean => {
     if (subject.topics.length === 0) return false;
-    return subject.topics.every(topic => 
-      topic.reviewStage === 'Concluído' && topic.nextReview === null
-    );
+    return subject.topics.every(topic => topic.reviewStage === 'Concluído');
   };
 
   // Função para verificar se uma matéria tem todos os tópicos no estágio "Concluído" (independente de nextReview)
@@ -293,7 +291,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     // Contar tópicos por status
     let totalTopics = 0;
-    let completedTopics = 0; // Tópicos com reviewStage "Concluído" E nextReview null
+    let completedTopics = 0; // Tópicos com reviewStage "Concluído"
     let delayedTopics = 0;
     let todayTopics = 0;
     let futureTopics = 0;
@@ -302,8 +300,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalTopics += subject.topics.length;
       
       subject.topics.forEach(topic => {
-        // Novo critério: considerar concluído se reviewStage === 'Concluído' OU completed === true
-        if (topic.reviewStage === 'Concluído' || topic.completed === true) {
+        // Critério correto: considerar concluído se reviewStage === 'Concluído'
+        if (topic.reviewStage === 'Concluído') {
           completedTopics++;
         }
         

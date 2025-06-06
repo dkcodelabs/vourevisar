@@ -17,27 +17,34 @@ import { useApp } from '@/contexts/AppContext';
 import { Subject, Status } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
-// Função para calcular o status automaticamente baseado nos tópicos
+// Função corrigida para calcular o status automaticamente baseado nos tópicos
 const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) {
     return 'Nova';
   }
   
-  const completedTopics = subject.topics.filter(topic => 
-    topic.reviewStage === 'Concluído' && topic.nextReview === null
-  ).length;
+  // Verificar se todos os tópicos estão concluídos (reviewStage === 'Concluído')
+  const allTopicsCompleted = subject.topics.every(topic => 
+    topic.reviewStage === 'Concluído'
+  );
   
-  const topicsWithReview = subject.topics.filter(topic => 
-    topic.reviewCount > 0 || topic.nextReview !== undefined
-  ).length;
-  
-  if (completedTopics === subject.topics.length) {
+  if (allTopicsCompleted) {
     return 'Concluída';
-  } else if (topicsWithReview > 0) {
-    return 'Em Estudo';
-  } else {
-    return 'Nova';
   }
+  
+  // Verificar se algum tópico foi iniciado (tem reviewCount > 0 ou reviewStage definido)
+  const hasStartedTopics = subject.topics.some(topic => 
+    topic.reviewCount > 0 || 
+    (topic.reviewStage && topic.reviewStage !== '') ||
+    topic.nextReview !== undefined ||
+    topic.completed === true
+  );
+  
+  if (hasStartedTopics) {
+    return 'Em Estudo';
+  }
+  
+  return 'Nova';
 };
 
 const getStatusColor = (status: Status) => {
@@ -179,11 +186,15 @@ const Subjects = () => {
     }
   };
 
+  // Função corrigida para calcular o progresso baseado em tópicos concluídos
   const getSubjectProgress = (subject: Subject) => {
     if (subject.topics.length === 0) return 0;
+    
+    // Contar tópicos que estão realmente concluídos (reviewStage === 'Concluído')
     const completedTopics = subject.topics.filter(topic => 
-      topic.reviewStage === 'Concluído' && topic.nextReview === null
+      topic.reviewStage === 'Concluído'
     ).length;
+    
     return Math.round((completedTopics / subject.topics.length) * 100);
   };
 
