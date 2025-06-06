@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
@@ -35,7 +34,7 @@ const itemVariants = {
 };
 
 const RevisaoGeral = () => {
-  const { subjects, updateSubject, isDataLoaded, fetchSubjects } = useApp();
+  const { subjects, updateSubject, isDataLoaded, fetchSubjects, studyProgress } = useApp();
   const { isSubjectCompleted, isSubjectReadyToLeaveStudyPlan } = useStudyPlanLogic();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -108,7 +107,10 @@ const RevisaoGeral = () => {
   const totalSubjects = subjects.length;
   const completionPercentage = totalSubjects > 0 ? Math.round((totalSubjectsWithAllTopicsCompleted / totalSubjects) * 100) : 0;
   const topicsCompletionPercentage = totalTopics > 0 ? Math.round((totalCompletedTopics / totalTopics) * 100) : 0;
-  const topicsDominationPercentage = totalTopics > 0 ? Math.round((totalFullyCompletedTopics / totalTopics) * 100) : 0;
+
+  // Usar dados do studyProgress para tópicos atrasados e futuros
+  const totalDelayedTopics = studyProgress.delayedTopics;
+  const totalFutureTopics = studyProgress.futureTopics;
 
   console.log('RevisaoGeral - Statistics:', {
     totalSubjectsWithAllTopicsCompleted,
@@ -118,7 +120,8 @@ const RevisaoGeral = () => {
     totalSubjects,
     completionPercentage,
     topicsCompletionPercentage,
-    topicsDominationPercentage
+    totalDelayedTopics,
+    totalFutureTopics
   });
 
   // Recarregar dados quando necessário
@@ -195,9 +198,8 @@ const RevisaoGeral = () => {
           totalCompletedTopics={totalCompletedTopics}
           totalTopics={totalTopics}
           topicsCompletionPercentage={topicsCompletionPercentage}
-          totalFullyCompletedTopics={totalFullyCompletedTopics}
-          topicsDominationPercentage={topicsDominationPercentage}
-          fullyCompletedSubjectsCount={fullyCompletedSubjects.length}
+          totalDelayedTopics={totalDelayedTopics}
+          totalFutureTopics={totalFutureTopics}
         />
 
         {/* Tópicos Concluídos e Dominados */}

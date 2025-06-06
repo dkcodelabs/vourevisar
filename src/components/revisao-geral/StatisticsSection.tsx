@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, BookOpen, Star, Trophy } from 'lucide-react';
+import { CheckCircle, BookOpen, AlertTriangle, Clock } from 'lucide-react';
 
 interface StatisticsSectionProps {
   totalSubjectsWithAllTopicsCompleted: number;
@@ -11,9 +11,8 @@ interface StatisticsSectionProps {
   totalCompletedTopics: number;
   totalTopics: number;
   topicsCompletionPercentage: number;
-  totalFullyCompletedTopics: number;
-  topicsDominationPercentage: number;
-  fullyCompletedSubjectsCount: number;
+  totalDelayedTopics: number;
+  totalFutureTopics: number;
 }
 
 const itemVariants = {
@@ -35,9 +34,8 @@ export const StatisticsSection: React.FC<StatisticsSectionProps> = ({
   totalCompletedTopics,
   totalTopics,
   topicsCompletionPercentage,
-  totalFullyCompletedTopics,
-  topicsDominationPercentage,
-  fullyCompletedSubjectsCount
+  totalDelayedTopics,
+  totalFutureTopics
 }) => {
   return (
     <motion.div variants={itemVariants}>
@@ -70,26 +68,26 @@ export const StatisticsSection: React.FC<StatisticsSectionProps> = ({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tópicos Dominados</CardTitle>
-            <Star className="h-4 w-4 text-yellow-500" />
+            <CardTitle className="text-sm font-medium">Tópicos Atrasados</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{totalFullyCompletedTopics}</div>
+            <div className="text-2xl font-bold text-red-600">{totalDelayedTopics}</div>
             <p className="text-xs text-muted-foreground">
-              de {totalTopics} tópicos ({topicsDominationPercentage}%)
+              revisões em atraso
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Matérias 100% Dominadas</CardTitle>
-            <Trophy className="h-4 w-4 text-purple-500" />
+            <CardTitle className="text-sm font-medium">Revisões Futuras</CardTitle>
+            <Clock className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{fullyCompletedSubjectsCount}</div>
+            <div className="text-2xl font-bold text-purple-600">{totalFutureTopics}</div>
             <p className="text-xs text-muted-foreground">
-              completamente finalizadas
+              revisões agendadas
             </p>
           </CardContent>
         </Card>
