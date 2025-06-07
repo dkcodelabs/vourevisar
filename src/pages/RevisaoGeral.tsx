@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
@@ -62,7 +63,7 @@ const RevisaoGeral = () => {
   const fullyCompletedSubjects = subjects.filter(isSubjectCompleted);
   console.log('RevisaoGeral - Fully completed subjects:', fullyCompletedSubjects);
 
-  // Filtrar matérias com alto progresso (todos os tópicos "Concluído" mas ainda com revisões pendentes)
+  // Corrigir: Filtrar matérias com alto progresso EXCLUINDO as que já estão 100% dominadas
   const highProgressSubjects = subjects.filter(subject => 
     isSubjectReadyToLeaveStudyPlan(subject) && !isSubjectCompleted(subject)
   );
