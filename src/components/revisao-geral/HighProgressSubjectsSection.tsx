@@ -55,7 +55,7 @@ export const HighProgressSubjectsSection: React.FC<HighProgressSubjectsSectionPr
             Matérias com Alto Progresso ({totalCount})
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Matérias com todos os tópicos concluídos, mas ainda com revisões pendentes
+            Matérias com todos os tópicos concluídos, mas ainda com revisões futuras agendadas
           </p>
         </div>
         {hasMoreItems && (
