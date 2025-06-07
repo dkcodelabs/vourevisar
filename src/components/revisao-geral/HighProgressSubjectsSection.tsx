@@ -49,10 +49,15 @@ export const HighProgressSubjectsSection: React.FC<HighProgressSubjectsSectionPr
   return (
     <motion.div variants={itemVariants}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-          <Target className="h-6 w-6 text-orange-600" />
-          Matérias com Alto Progresso ({totalCount})
-        </h2>
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+            <Target className="h-6 w-6 text-orange-600" />
+            Matérias com Alto Progresso ({totalCount})
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Matérias com todos os tópicos concluídos, mas ainda com revisões pendentes
+          </p>
+        </div>
         {hasMoreItems && (
           <Button
             variant="outline"
@@ -79,7 +84,7 @@ export const HighProgressSubjectsSection: React.FC<HighProgressSubjectsSectionPr
         {highProgressSubjects.map((subject) => {
           const lastReviewDate = getLastReviewDate(subject);
           const pendingReviews = subject.topics.filter(topic => topic.nextReview !== null).length;
-          const completedTopics = subject.topics.filter(topic => topic.reviewStage === 'Concluído').length;
+          const completedTopics = subject.topics.filter(topic => topic.reviewStage === 'Concluído' || topic.completed === true).length;
           const dominatedTopics = subject.topics.filter(isTopicFullyDominated).length;
           
           return (

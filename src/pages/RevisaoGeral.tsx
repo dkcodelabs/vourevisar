@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
@@ -47,9 +48,6 @@ const RevisaoGeral = () => {
   const isTopicFullyDominated = (topic: Topic): boolean => {
     console.log('Checking topic:', topic.name, 'reviewStage:', topic.reviewStage, 'nextReview:', topic.nextReview, 'completed:', topic.completed);
     
-    // Um tópico está dominado se:
-    // 1. reviewStage é 'Concluído' OU completed é true
-    // 2. E não tem próxima revisão agendada (nextReview é null)
     const isDominated = (topic.reviewStage === 'Concluído' || topic.completed === true) && topic.nextReview === null;
     
     console.log('Topic', topic.name, 'is dominated:', isDominated);
@@ -76,6 +74,9 @@ const RevisaoGeral = () => {
       shouldInclude: isReady && !isFullyCompleted
     });
     
+    // Uma matéria só aparece em "Alto Progresso" se:
+    // 1. Está pronta para sair do plano (todos tópicos concluídos)
+    // 2. MAS não está 100% dominada (ainda tem revisões pendentes)
     return isReady && !isFullyCompleted;
   });
   console.log('RevisaoGeral - High progress subjects:', highProgressSubjects.map(s => s.name));
@@ -93,7 +94,12 @@ const RevisaoGeral = () => {
         hasCompletedTopics: completedTopics.length > 0
       };
     })
-    .filter(subject => subject.hasDominatedTopics || subject.hasCompletedTopics)
+    .filter(subject => {
+      // Só incluir se tem tópicos dominados/concluídos E não está 100% concluída
+      const hasProgress = subject.hasDominatedTopics || subject.hasCompletedTopics;
+      const isNotFullyCompleted = !isSubjectCompleted(subject);
+      return hasProgress && isNotFullyCompleted;
+    })
     .sort((a, b) => b.dominatedTopics.length - a.dominatedTopics.length);
 
   console.log('RevisaoGeral - Subjects with dominated topics:', subjectsWithDominatedTopics.map(s => s.name));
@@ -119,7 +125,7 @@ const RevisaoGeral = () => {
   const totalDelayedTopics = studyProgress.delayedTopics;
   const totalFutureTopics = studyProgress.futureTopics;
 
-  // Limites para visualização
+  // Limites para visualização - IMPLEMENTADO
   const ITEMS_LIMIT = 5;
   const displayedProgressSubjects = showAllProgress 
     ? subjectsWithDominatedTopics 
@@ -211,7 +217,7 @@ const RevisaoGeral = () => {
           totalFutureTopics={totalFutureTopics}
         />
 
-        {/* Tópicos Concluídos e Dominados */}
+        {/* Tópicos Concluídos e Dominados por Matéria */}
         <ProgressBySubjectSection
           subjectsWithDominatedTopics={displayedProgressSubjects}
           isTopicFullyDominated={isTopicFullyDominated}
@@ -224,7 +230,7 @@ const RevisaoGeral = () => {
           limit={ITEMS_LIMIT}
         />
 
-        {/* Matérias Concluídas */}
+        {/* Matérias Concluídas (100% Dominadas) */}
         <FullyCompletedSubjectsSection
           fullyCompletedSubjects={displayedCompletedSubjects}
           isTopicFullyDominated={isTopicFullyDominated}
@@ -236,7 +242,7 @@ const RevisaoGeral = () => {
           limit={ITEMS_LIMIT}
         />
 
-        {/* Matérias com Alto Progresso */}
+        {/* Matérias com Alto Progresso (Concluídas mas ainda com revisões) */}
         <HighProgressSubjectsSection
           highProgressSubjects={displayedHighProgressSubjects}
           isTopicFullyDominated={isTopicFullyDominated}
