@@ -49,33 +49,36 @@ export const FullyCompletedSubjectsSection: React.FC<FullyCompletedSubjectsSecti
   return (
     <motion.div variants={itemVariants}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-          <CheckCircle className="h-6 w-6 text-green-600" />
-          Matérias Concluídas ({totalCount})
+        <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+          <CheckCircle className="h-5 w-5 text-green-600" />
+          Matérias Concluídas
+          <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+            {totalCount}
+          </Badge>
         </h2>
         {hasMoreItems && (
           <Button
             variant="outline"
             size="sm"
             onClick={onToggleShowAll}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-xs"
           >
             {showAll ? (
               <>
                 <ChevronUp className="h-4 w-4" />
-                Mostrar Menos
+                Menos
               </>
             ) : (
               <>
                 <ChevronDown className="h-4 w-4" />
-                Ver Mais ({totalCount - limit} restantes)
+                +{totalCount - limit}
               </>
             )}
           </Button>
         )}
       </div>
 
-      <div className="grid gap-4 mb-8">
+      <div className="grid gap-3 mb-6">
         {fullyCompletedSubjects.map((subject) => {
           const lastReviewDate = getLastReviewDate(subject);
           const dominatedTopics = subject.topics.filter(isTopicFullyDominated).length;
@@ -83,42 +86,51 @@ export const FullyCompletedSubjectsSection: React.FC<FullyCompletedSubjectsSecti
           return (
             <motion.div key={subject.id} variants={itemVariants}>
               <Card className="border-green-200 bg-green-50/50">
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
                         {subject.name}
                       </CardTitle>
-                      <CardDescription className="mt-2">
-                        {dominatedTopics} de {subject.topics.length} tópicos 100% dominados
+                      <CardDescription className="mt-1 text-sm">
+                        {dominatedTopics}/{subject.topics.length} tópicos 100% dominados
                       </CardDescription>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
                         100% Concluída
                       </Badge>
                       {lastReviewDate && (
                         <div className="flex items-center gap-1 text-xs text-gray-500">
                           <Calendar className="h-3 w-3" />
-                          {format(lastReviewDate, "dd/MM/yyyy", { locale: ptBR })}
+                          {format(lastReviewDate, "dd/MM", { locale: ptBR })}
                         </div>
                       )}
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <div className="flex justify-between items-center">
-                    <div className="text-sm text-gray-600">
-                      <strong>Tópicos:</strong> {subject.topics.map(topic => topic.name).join(', ')}
+                    <div className="text-xs text-gray-600 flex-1 mr-3">
+                      <div className="flex flex-wrap gap-1">
+                        {subject.topics.slice(0, 3).map(topic => (
+                          <Badge key={topic.id} variant="outline" className="text-xs px-1 py-0">
+                            {topic.name}
+                          </Badge>
+                        ))}
+                        {subject.topics.length > 3 && (
+                          <span className="text-xs text-gray-500">+{subject.topics.length - 3}</span>
+                        )}
+                      </div>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleReactivateSubject(subject.id)}
-                      className="text-blue-600 hover:text-blue-800 border-blue-200 hover:bg-blue-50"
+                      className="text-blue-600 hover:text-blue-800 border-blue-200 hover:bg-blue-50 text-xs h-7"
                     >
-                      <RotateCcw className="h-4 w-4 mr-2" />
+                      <RotateCcw className="h-3 w-3 mr-1" />
                       Reativar
                     </Button>
                   </div>

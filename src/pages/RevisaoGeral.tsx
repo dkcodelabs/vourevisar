@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
@@ -199,8 +198,8 @@ const RevisaoGeral = () => {
   const totalDelayedTopics = studyProgress.delayedTopics;
   const totalFutureTopics = studyProgress.futureTopics;
 
-  // Limites para visualização
-  const ITEMS_LIMIT = 5;
+  // Limite reduzido para melhor visualização
+  const ITEMS_LIMIT = 3;
   const displayedProgressSubjects = showAllProgress 
     ? subjectsWithDominatedTopics 
     : subjectsWithDominatedTopics.slice(0, ITEMS_LIMIT);
@@ -266,14 +265,14 @@ const RevisaoGeral = () => {
       animate="visible"
       variants={containerVariants}
     >
-      <motion.div className="space-y-6" variants={containerVariants}>
+      <motion.div className="space-y-4" variants={containerVariants}>
         {/* Header */}
-        <motion.div variants={itemVariants} className="text-center py-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Trophy className="h-8 w-8 text-yellow-500" />
-            <h1 className="text-4xl font-bold text-gray-800">Revisão Geral</h1>
+        <motion.div variants={itemVariants} className="text-center py-6">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <Trophy className="h-7 w-7 text-yellow-500" />
+            <h1 className="text-3xl font-bold text-gray-800">Revisão Geral</h1>
           </div>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-base text-gray-600 max-w-2xl mx-auto">
             Acompanhe suas conquistas e gerencie matérias e tópicos dominados
           </p>
         </motion.div>
