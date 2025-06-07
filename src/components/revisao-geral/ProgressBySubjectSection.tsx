@@ -4,22 +4,26 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Star, Calendar, RotateCcw } from 'lucide-react';
+import { BookOpen, Calendar, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Subject, Topic } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface ProgressBySubjectSectionProps {
-  subjectsWithDominatedTopics: Array<Subject & {
+  subjectsWithDominatedTopics: (Subject & {
     dominatedTopics: Topic[];
     completedTopics: Topic[];
     hasDominatedTopics: boolean;
     hasCompletedTopics: boolean;
-  }>;
+  })[];
   isTopicFullyDominated: (topic: Topic) => boolean;
   isTopicCompleted: (topic: Topic) => boolean;
   handleReactivateSubject: (subjectId: string) => void;
   getLastReviewDate: (subject: Subject) => Date | null;
+  totalCount: number;
+  showAll: boolean;
+  onToggleShowAll: () => void;
+  limit: number;
 }
 
 const itemVariants = {
@@ -39,127 +43,141 @@ export const ProgressBySubjectSection: React.FC<ProgressBySubjectSectionProps> =
   isTopicFullyDominated,
   isTopicCompleted,
   handleReactivateSubject,
-  getLastReviewDate
+  getLastReviewDate,
+  totalCount,
+  showAll,
+  onToggleShowAll,
+  limit
 }) => {
+  if (subjectsWithDominatedTopics.length === 0) return null;
+
+  const hasMoreItems = totalCount > limit;
+
   return (
     <motion.div variants={itemVariants}>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-        <Star className="h-6 w-6 text-blue-600" />
-        Progresso por Matéria
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+          <BookOpen className="h-6 w-6 text-blue-600" />
+          Progresso por Matéria ({totalCount})
+        </h2>
+        {hasMoreItems && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onToggleShowAll}
+            className="flex items-center gap-2"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Mostrar Menos
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                Ver Mais ({totalCount - limit} restantes)
+              </>
+            )}
+          </Button>
+        )}
+      </div>
 
-      {subjectsWithDominatedTopics.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8">
-            <Star className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-2">
-              Nenhum tópico concluído ainda
-            </h3>
-            <p className="text-gray-500 text-sm">
-              Continue estudando para concluir seus tópicos!
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 mb-8">
-          {subjectsWithDominatedTopics.map((subject) => {
-            const lastReviewDate = getLastReviewDate(subject);
-            
-            return (
-              <motion.div key={subject.id} variants={itemVariants}>
-                <Card className="border-blue-200 bg-blue-50/50">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="flex items-center gap-2">
-                          <Star className="h-5 w-5 text-blue-600" />
-                          {subject.name}
-                        </CardTitle>
-                        <CardDescription className="mt-2">
-                          {subject.completedTopics.length} de {subject.topics.length} tópicos concluídos
-                          {subject.dominatedTopics.length > 0 && (
-                            <span className="text-green-600 font-medium">
-                              {" "}• {subject.dominatedTopics.length} dominados
-                            </span>
-                          )}
-                        </CardDescription>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                          {Math.round((subject.completedTopics.length / subject.topics.length) * 100)}% Concluída
-                        </Badge>
+      <div className="grid gap-4 mb-8">
+        {subjectsWithDominatedTopics.map((subject) => {
+          const lastReviewDate = getLastReviewDate(subject);
+          const pendingReviews = subject.topics.filter(topic => topic.nextReview !== null).length;
+          
+          return (
+            <motion.div key={subject.id} variants={itemVariants}>
+              <Card className="border-blue-200 bg-blue-50/30">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <BookOpen className="h-5 w-5 text-blue-600" />
+                        {subject.name}
+                      </CardTitle>
+                      <CardDescription className="mt-2">
+                        {subject.completedTopics.length} de {subject.topics.length} tópicos concluídos, 
+                        {subject.dominatedTopics.length} dominados, {pendingReviews} revisões pendentes
+                      </CardDescription>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex gap-2">
                         {subject.dominatedTopics.length > 0 && (
                           <Badge variant="secondary" className="bg-green-100 text-green-800">
                             {subject.dominatedTopics.length} Dominados
                           </Badge>
                         )}
-                        {lastReviewDate && (
-                          <div className="flex items-center gap-1 text-xs text-gray-500">
-                            <Calendar className="h-3 w-3" />
-                            {format(lastReviewDate, "dd/MM/yyyy", { locale: ptBR })}
-                          </div>
+                        {subject.completedTopics.length > subject.dominatedTopics.length && (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                            {subject.completedTopics.length - subject.dominatedTopics.length} Em Revisão
+                          </Badge>
                         )}
                       </div>
+                      {lastReviewDate && (
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <Calendar className="h-3 w-3" />
+                          {format(lastReviewDate, "dd/MM/yyyy", { locale: ptBR })}
+                        </div>
+                      )}
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {subject.completedTopics.length > 0 && (
-                        <div className="text-sm text-gray-600">
-                          <strong>Tópicos concluídos:</strong>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {subject.completedTopics.map(topic => (
-                              <Badge 
-                                key={topic.id} 
-                                variant="outline" 
-                                className={
-                                  isTopicFullyDominated(topic) 
-                                    ? "bg-green-50 text-green-700 border-green-200"
-                                    : "bg-blue-50 text-blue-700 border-blue-200"
-                                }
-                              >
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {/* Tópicos Dominados */}
+                    {subject.dominatedTopics.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700 mb-2">
+                          Tópicos Dominados ({subject.dominatedTopics.length}):
+                        </h4>
+                        <div className="flex flex-wrap gap-1">
+                          {subject.dominatedTopics.map(topic => (
+                            <Badge key={topic.id} variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                              {topic.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Tópicos Em Revisão */}
+                    {subject.completedTopics.length > subject.dominatedTopics.length && (
+                      <div>
+                        <h4 className="text-sm font-medium text-blue-700 mb-2">
+                          Tópicos Em Revisão ({subject.completedTopics.length - subject.dominatedTopics.length}):
+                        </h4>
+                        <div className="flex flex-wrap gap-1">
+                          {subject.completedTopics
+                            .filter(topic => !isTopicFullyDominated(topic))
+                            .map(topic => (
+                              <Badge key={topic.id} variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
                                 {topic.name}
-                                {isTopicFullyDominated(topic) && " ★"}
                               </Badge>
                             ))}
-                          </div>
                         </div>
-                      )}
-                      
-                      {subject.topics.length > subject.completedTopics.length && (
-                        <div className="text-sm text-gray-500">
-                          <strong>Tópicos restantes:</strong>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {subject.topics
-                              .filter(topic => !isTopicCompleted(topic))
-                              .map(topic => (
-                                <Badge key={topic.id} variant="outline" className="bg-gray-50 text-gray-600">
-                                  {topic.name}
-                                </Badge>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="flex justify-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleReactivateSubject(subject.id)}
-                          className="text-blue-600 hover:text-blue-800 border-blue-200 hover:bg-blue-50"
-                        >
-                          <RotateCcw className="h-4 w-4 mr-2" />
-                          Reativar
-                        </Button>
                       </div>
+                    )}
+                    
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleReactivateSubject(subject.id)}
+                        className="text-blue-600 hover:text-blue-800 border-blue-200 hover:bg-blue-50"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Reativar
+                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </div>
     </motion.div>
   );
 };

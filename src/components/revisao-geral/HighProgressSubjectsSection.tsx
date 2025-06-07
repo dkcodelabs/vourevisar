@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Target, Calendar, RotateCcw } from 'lucide-react';
+import { Target, Calendar, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Subject, Topic } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,6 +14,10 @@ interface HighProgressSubjectsSectionProps {
   isTopicFullyDominated: (topic: Topic) => boolean;
   handleReactivateSubject: (subjectId: string) => void;
   getLastReviewDate: (subject: Subject) => Date | null;
+  totalCount: number;
+  showAll: boolean;
+  onToggleShowAll: () => void;
+  limit: number;
 }
 
 const itemVariants = {
@@ -32,16 +36,44 @@ export const HighProgressSubjectsSection: React.FC<HighProgressSubjectsSectionPr
   highProgressSubjects,
   isTopicFullyDominated,
   handleReactivateSubject,
-  getLastReviewDate
+  getLastReviewDate,
+  totalCount,
+  showAll,
+  onToggleShowAll,
+  limit
 }) => {
   if (highProgressSubjects.length === 0) return null;
 
+  const hasMoreItems = totalCount > limit;
+
   return (
     <motion.div variants={itemVariants}>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-        <Target className="h-6 w-6 text-orange-600" />
-        Matérias com Alto Progresso ({highProgressSubjects.length})
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+          <Target className="h-6 w-6 text-orange-600" />
+          Matérias com Alto Progresso ({totalCount})
+        </h2>
+        {hasMoreItems && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onToggleShowAll}
+            className="flex items-center gap-2"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Mostrar Menos
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                Ver Mais ({totalCount - limit} restantes)
+              </>
+            )}
+          </Button>
+        )}
+      </div>
 
       <div className="grid gap-4 mb-8">
         {highProgressSubjects.map((subject) => {

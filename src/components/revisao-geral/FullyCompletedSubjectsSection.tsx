@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Calendar, RotateCcw } from 'lucide-react';
+import { CheckCircle, Calendar, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Subject, Topic } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,6 +14,10 @@ interface FullyCompletedSubjectsSectionProps {
   isTopicFullyDominated: (topic: Topic) => boolean;
   handleReactivateSubject: (subjectId: string) => void;
   getLastReviewDate: (subject: Subject) => Date | null;
+  totalCount: number;
+  showAll: boolean;
+  onToggleShowAll: () => void;
+  limit: number;
 }
 
 const itemVariants = {
@@ -32,16 +36,44 @@ export const FullyCompletedSubjectsSection: React.FC<FullyCompletedSubjectsSecti
   fullyCompletedSubjects,
   isTopicFullyDominated,
   handleReactivateSubject,
-  getLastReviewDate
+  getLastReviewDate,
+  totalCount,
+  showAll,
+  onToggleShowAll,
+  limit
 }) => {
   if (fullyCompletedSubjects.length === 0) return null;
 
+  const hasMoreItems = totalCount > limit;
+
   return (
     <motion.div variants={itemVariants}>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-        <CheckCircle className="h-6 w-6 text-green-600" />
-        Matérias 100% Dominadas ({fullyCompletedSubjects.length})
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+          <CheckCircle className="h-6 w-6 text-green-600" />
+          Matérias Concluídas ({totalCount})
+        </h2>
+        {hasMoreItems && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onToggleShowAll}
+            className="flex items-center gap-2"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Mostrar Menos
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                Ver Mais ({totalCount - limit} restantes)
+              </>
+            )}
+          </Button>
+        )}
+      </div>
 
       <div className="grid gap-4 mb-8">
         {fullyCompletedSubjects.map((subject) => {
@@ -64,7 +96,7 @@ export const FullyCompletedSubjectsSection: React.FC<FullyCompletedSubjectsSecti
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        100% Dominada
+                        100% Concluída
                       </Badge>
                       {lastReviewDate && (
                         <div className="flex items-center gap-1 text-xs text-gray-500">
