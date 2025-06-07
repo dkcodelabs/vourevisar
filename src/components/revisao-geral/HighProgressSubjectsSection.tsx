@@ -42,6 +42,13 @@ export const HighProgressSubjectsSection: React.FC<HighProgressSubjectsSectionPr
   onToggleShowAll,
   limit
 }) => {
+  console.log('HighProgressSubjectsSection - Data:', {
+    highProgressSubjects: highProgressSubjects.map(s => s.name),
+    totalCount,
+    showAll,
+    limit
+  });
+
   if (highProgressSubjects.length === 0) return null;
 
   const hasMoreItems = totalCount > limit;
@@ -83,9 +90,31 @@ export const HighProgressSubjectsSection: React.FC<HighProgressSubjectsSectionPr
       <div className="grid gap-4 mb-8">
         {highProgressSubjects.map((subject) => {
           const lastReviewDate = getLastReviewDate(subject);
-          const pendingReviews = subject.topics.filter(topic => topic.nextReview !== null).length;
-          const completedTopics = subject.topics.filter(topic => topic.reviewStage === 'Concluído' || topic.completed === true).length;
+          
+          // Função auxiliar para normalizar nextReview
+          const hasTopicPendingReviews = (topic: Topic): boolean => {
+            let normalizedNextReview = topic.nextReview;
+            if (normalizedNextReview === undefined || 
+                (typeof normalizedNextReview === 'object' && normalizedNextReview !== null && Object.keys(normalizedNextReview).length === 0)) {
+              normalizedNextReview = null;
+            }
+            return normalizedNextReview !== null;
+          };
+          
+          const isTopicCompleted = (topic: Topic): boolean => {
+            return topic.reviewStage === 'Concluído' || topic.completed === true;
+          };
+          
+          const pendingReviews = subject.topics.filter(hasTopicPendingReviews).length;
+          const completedTopics = subject.topics.filter(isTopicCompleted).length;
           const dominatedTopics = subject.topics.filter(isTopicFullyDominated).length;
+          
+          console.log(`HighProgress Subject ${subject.name}:`, {
+            completedTopics,
+            dominatedTopics,
+            pendingReviews,
+            totalTopics: subject.topics.length
+          });
           
           return (
             <motion.div key={subject.id} variants={itemVariants}>

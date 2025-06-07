@@ -44,16 +44,31 @@ const RevisaoGeral = () => {
 
   console.log('RevisaoGeral - Current subjects:', subjects);
 
-  // Função para verificar se um tópico está completamente dominado (100% finalizado)
+  // Função melhorada para verificar se um tópico está completamente dominado (100% finalizado)
   const isTopicFullyDominated = (topic: Topic): boolean => {
     console.log('Checking topic:', topic.name, 'reviewStage:', topic.reviewStage, 'nextReview:', topic.nextReview, 'completed:', topic.completed);
+    
+    // Normalizar nextReview - tratar undefined, null e objetos vazios como null
+    let normalizedNextReview = topic.nextReview;
+    if (normalizedNextReview === undefined || 
+        (typeof normalizedNextReview === 'object' && normalizedNextReview !== null && Object.keys(normalizedNextReview).length === 0)) {
+      normalizedNextReview = null;
+    }
     
     // Um tópico está 100% dominado quando:
     // 1. reviewStage é 'Concluído' OU completed é true
     // 2. E não tem próxima revisão agendada (nextReview é null)
-    const isDominated = (topic.reviewStage === 'Concluído' || topic.completed === true) && topic.nextReview === null;
+    const isCompleted = topic.reviewStage === 'Concluído' || topic.completed === true;
+    const hasNoReview = normalizedNextReview === null;
+    const isDominated = isCompleted && hasNoReview;
     
-    console.log('Topic', topic.name, 'is dominated:', isDominated);
+    console.log('Topic', topic.name, 'analysis:', {
+      isCompleted,
+      hasNoReview,
+      normalizedNextReview,
+      isDominated
+    });
+    
     return isDominated;
   };
 
@@ -64,25 +79,33 @@ const RevisaoGeral = () => {
 
   // Função para verificar se um tópico tem revisões pendentes
   const hasTopicPendingReviews = (topic: Topic): boolean => {
-    return topic.nextReview !== null;
+    // Normalizar nextReview
+    let normalizedNextReview = topic.nextReview;
+    if (normalizedNextReview === undefined || 
+        (typeof normalizedNextReview === 'object' && normalizedNextReview !== null && Object.keys(normalizedNextReview).length === 0)) {
+      normalizedNextReview = null;
+    }
+    
+    return normalizedNextReview !== null;
   };
 
-  // NOVA LÓGICA: Filtrar matérias 100% dominadas (todas sem revisões pendentes)
+  // LÓGICA CORRIGIDA: Filtrar matérias 100% dominadas (todas sem revisões pendentes)
   const fullyCompletedSubjects = subjects.filter(subject => {
     if (subject.topics.length === 0) return false;
     
     const allTopicsCompleted = subject.topics.every(isTopicCompleted);
-    const noTopicsHavePendingReviews = subject.topics.every(topic => !hasTopicPendingReviews(topic));
+    const allTopicsDominated = subject.topics.every(isTopicFullyDominated);
     
-    const isFullyDominated = allTopicsCompleted && noTopicsHavePendingReviews;
+    const isFullyDominated = allTopicsCompleted && allTopicsDominated;
     
     console.log(`Subject ${subject.name} - Fully Dominated Analysis:`, {
       allTopicsCompleted,
-      noTopicsHavePendingReviews,
+      allTopicsDominated,
       isFullyDominated,
       topics: subject.topics.map(t => ({
         name: t.name,
         completed: isTopicCompleted(t),
+        dominated: isTopicFullyDominated(t),
         hasPendingReviews: hasTopicPendingReviews(t)
       }))
     });
@@ -91,22 +114,25 @@ const RevisaoGeral = () => {
   });
   console.log('RevisaoGeral - Fully completed subjects:', fullyCompletedSubjects.map(s => s.name));
 
-  // NOVA LÓGICA: Filtrar matérias com alto progresso (todos concluídos MAS com revisões pendentes)
+  // LÓGICA CORRIGIDA: Filtrar matérias com alto progresso (todos concluídos MAS com revisões pendentes)
   const highProgressSubjects = subjects.filter(subject => {
     if (subject.topics.length === 0) return false;
     
     const allTopicsCompleted = subject.topics.every(isTopicCompleted);
     const someTopicsHavePendingReviews = subject.topics.some(hasTopicPendingReviews);
+    const notFullyDominated = !subject.topics.every(isTopicFullyDominated);
     
-    const isHighProgress = allTopicsCompleted && someTopicsHavePendingReviews;
+    const isHighProgress = allTopicsCompleted && someTopicsHavePendingReviews && notFullyDominated;
     
     console.log(`Subject ${subject.name} - High Progress Analysis:`, {
       allTopicsCompleted,
       someTopicsHavePendingReviews,
+      notFullyDominated,
       isHighProgress,
       topics: subject.topics.map(t => ({
         name: t.name,
         completed: isTopicCompleted(t),
+        dominated: isTopicFullyDominated(t),
         hasPendingReviews: hasTopicPendingReviews(t)
       }))
     });
@@ -115,7 +141,7 @@ const RevisaoGeral = () => {
   });
   console.log('RevisaoGeral - High progress subjects:', highProgressSubjects.map(s => s.name));
 
-  // NOVA LÓGICA: Matérias com progresso parcial (nem todos tópicos concluídos)
+  // LÓGICA CORRIGIDA: Matérias com progresso parcial (nem todos tópicos concluídos)
   const subjectsWithDominatedTopics = subjects
     .map(subject => {
       const dominatedTopics = subject.topics.filter(isTopicFullyDominated);
@@ -131,19 +157,19 @@ const RevisaoGeral = () => {
     .filter(subject => {
       // Incluir apenas matérias que:
       // 1. Têm pelo menos um tópico dominado/concluído
-      // 2. NÃO estão 100% dominadas
-      // 3. NÃO estão com alto progresso
+      // 2. NÃO têm todos os tópicos concluídos (para não sobrepor com outras categorias)
       const hasProgress = subject.hasDominatedTopics || subject.hasCompletedTopics;
-      const isNotFullyDominated = !fullyCompletedSubjects.some(fs => fs.id === subject.id);
-      const isNotHighProgress = !highProgressSubjects.some(hs => hs.id === subject.id);
+      const notAllTopicsCompleted = !subject.topics.every(isTopicCompleted);
       
-      const shouldInclude = hasProgress && isNotFullyDominated && isNotHighProgress;
+      const shouldInclude = hasProgress && notAllTopicsCompleted;
       
       console.log(`Subject ${subject.name} - Progress Analysis:`, {
         hasProgress,
-        isNotFullyDominated,
-        isNotHighProgress,
-        shouldInclude
+        notAllTopicsCompleted,
+        shouldInclude,
+        totalTopics: subject.topics.length,
+        completedTopics: subject.completedTopics.length,
+        dominatedTopics: subject.dominatedTopics.length
       });
       
       return shouldInclude;
@@ -194,7 +220,6 @@ const RevisaoGeral = () => {
     }
   }, [isDataLoaded]);
 
-  // Força uma atualização dos dados ao entrar na página
   useEffect(() => {
     const refreshData = async () => {
       try {

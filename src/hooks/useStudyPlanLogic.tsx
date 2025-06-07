@@ -48,8 +48,16 @@ export const useStudyPlanLogic = () => {
 
   // Função para verificar se um tópico individual está dominado
   const isTopicDominated = (topic: Topic): boolean => {
+    // Normalizar nextReview - tratar undefined, null e objetos vazios como null
+    let normalizedNextReview = topic.nextReview;
+    if (normalizedNextReview === undefined || 
+        (typeof normalizedNextReview === 'object' && normalizedNextReview !== null && Object.keys(normalizedNextReview).length === 0)) {
+      normalizedNextReview = null;
+    }
+    
     const isCompleted = topic.reviewStage === 'Concluído' || topic.completed === true;
-    return isCompleted && topic.nextReview === null;
+    const hasNoReview = normalizedNextReview === null;
+    return isCompleted && hasNoReview;
   };
 
   // Filtrar matérias para o plano de estudos (excluir as que saíram do ciclo de estudos)
