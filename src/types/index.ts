@@ -1,3 +1,4 @@
+
 export type Status = 'Nova' | 'Em Estudo' | 'Concluída';
 export type RevisionStatus = 'Atrasado' | 'Hoje' | 'Futura';
 export type RevisionStage = '24h' | '7 dias' | '30 dias' | 'Concluído' | string;
@@ -52,6 +53,18 @@ export interface StudyProgress {
   futureTopics: number;
 }
 
+export interface UserCycle {
+  id: string;
+  user_id: string;
+  ciclo_atual: string[];
+  disciplinas_do_dia: string[];
+  ciclos_realizados: number;
+  data_inicio_ciclo: string;
+  data_fim_ciclo: string | null;
+  atualizado_em: string;
+  created_at: string;
+}
+
 export interface AppContextType {
   subjects: Subject[];
   studyProgress: StudyProgress;
@@ -65,4 +78,7 @@ export interface AppContextType {
   updateTopic: (subjectId: string, topicId: string, updates: Partial<Topic>) => Promise<void>;
   deleteTopic: (subjectId: string, topicId: string) => Promise<void>;
   refreshData: () => Promise<void>;
+  createSubject: (subject: Omit<Subject, 'id'>) => Promise<void>;
+  fetchSubjects: () => Promise<void>;
+  fetchUserSettings: () => Promise<void>;
 }

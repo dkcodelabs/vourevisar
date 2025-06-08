@@ -133,6 +133,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Alias for addSubject to match the interface
+  const createSubject = addSubject;
+
   const updateSubject = async (id: string, updates: Partial<Subject>) => {
     if (!user) return;
 
@@ -264,6 +267,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Alias for loadSubjects to match the interface
+  const fetchSubjects = loadSubjects;
+
+  // Placeholder for fetchUserSettings - implement as needed
+  const fetchUserSettings = async () => {
+    // This would load user settings if needed
+    console.log('Fetching user settings...');
+  };
+
   useEffect(() => {
     if (user) {
       loadSubjects();
@@ -286,6 +298,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateTopic,
     deleteTopic,
     refreshData,
+    createSubject,
+    fetchSubjects,
+    fetchUserSettings,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
