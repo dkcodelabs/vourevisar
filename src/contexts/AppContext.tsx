@@ -1,38 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Subject, UserProfile, StudyProgress, Status, RevisionStage } from '../types';
-import { mockUserProfile } from '../data/mockData';
-import { supabase } from '../integrations/supabase/client';
+import { Subject, Topic, Status, StudyProgress, AppContextType } from '@/types';
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
-import { startOfDay } from 'date-fns';
-import { Button } from '@/components/ui/button';
-
-interface AppContextType {
-  subjects: Subject[];
-  setSubjects: React.Dispatch<React.SetStateAction<Subject[]>>;
-  userProfile: UserProfile;
-  setUserProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
-  studyProgress: StudyProgress;
-  setStudyProgress: React.Dispatch<React.SetStateAction<StudyProgress>>;
-  createSubject: (subject: Omit<Subject, 'id' | 'topics'>) => Promise<void>;
-  addSubject: (subject: Omit<Subject, 'id'>) => Promise<void>;
-  updateSubject: (id: string, subject: Partial<Subject>) => Promise<void>;
-  deleteSubject: (id: string) => Promise<void>;
-  addTopicToSubject: (subjectId: string, topicName: string) => Promise<void>;
-  removeTopicFromSubject: (subjectId: string, topicId: string) => Promise<void>;
-  fetchSubjects: () => Promise<void>;
-  fetchUserSettings: () => Promise<void>;
-  recalculateProgress: () => void;
-  isDataLoaded: boolean;
-  isLoading: boolean;
-  error: string | null;
-}
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [userProfile, setUserProfile] = useState<UserProfile>(mockUserProfile);
   const [studyProgress, setStudyProgress] = useState<StudyProgress>({
     totalSubjects: 0,
     completedSubjects: 0,
@@ -40,503 +16,434 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     completedTopics: 0,
     delayedTopics: 0,
     todayTopics: 0,
-    futureTopics: 0
+    futureTopics: 0,
   });
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  console.log('AppContext - Current state:', {
-    subjectsCount: subjects.length,
-    isDataLoaded,
-    isLoading,
-    user: user ? 'authenticated' : 'not authenticated',
-    error
-  });
-
-  // Setup realtime listeners
-  useEffect(() => {
+  const loadSubjects = async () => {
     if (!user) return;
 
-    console.log('AppContext - Setting up realtime listeners');
-
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'subjects'
-        },
-        (payload) => {
-          console.log('AppContext - Subjects realtime change:', payload);
-          fetchSubjects();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'topics'
-        },
-        (payload) => {
-          console.log('AppContext - Topics realtime change:', payload);
-          fetchSubjects();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('AppContext - Cleaning up realtime listeners');
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
-  // Buscar dados quando o usuário estiver autenticado
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadData = async () => {
-      if (!user) {
-        console.log('AppContext - No user, clearing data');
-        setSubjects([]);
-        setIsDataLoaded(false);
-        setIsLoading(false);
-        setError(null);
-        return;
-      }
-
-      if (isLoading) {
-        console.log('AppContext - Already loading, skipping');
-        return;
-      }
-
-      console.log('AppContext - Starting data load for user:', user.email);
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        await Promise.all([
-          fetchUserSettings(),
-          fetchSubjects()
-        ]);
-
-        console.log('AppContext - Data load completed successfully');
-      } catch (error) {
-        console.error('AppContext - Error loading data:', error);
-        if (isMounted) {
-          setError('Erro ao carregar dados');
-          toast.error("Erro ao carregar dados. Por favor, tente novamente.");
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-          setIsDataLoaded(true);
-          console.log('AppContext - Data marked as loaded');
-        }
-      }
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.id]); // Only depend on user.id to avoid infinite loops
-
-  // Recalcular progresso sempre que as matérias mudarem
-  useEffect(() => {
-    if (isDataLoaded) {
-      console.log('AppContext - Recalculating progress due to subjects change');
-      recalculateProgress();
-    }
-  }, [subjects, isDataLoaded]);
-
-  // Função para verificar se uma matéria está completamente concluída (todos os tópicos com reviewStage "Concluído")
-  const isSubjectCompleted = (subject: Subject): boolean => {
-    if (subject.topics.length === 0) return false;
-    return subject.topics.every(topic => topic.reviewStage === 'Concluído');
-  };
-
-  // Função para verificar se uma matéria tem todos os tópicos no estágio "Concluído" (independente de nextReview)
-  const isSubjectWithAllTopicsCompleted = (subject: Subject): boolean => {
-    if (subject.topics.length === 0) return false;
-    return subject.topics.every(topic => topic.reviewStage === 'Concluído');
-  };
-
-  // Função para buscar as matérias do usuário
-  const fetchSubjects = async () => {
-    if (!user) return;
+    setIsLoading(true);
+    setError(null);
 
     try {
-      console.log('AppContext - Fetching subjects for user:', user.email);
-      
-      // Buscar as disciplinas do usuário ordenadas por prioridade
-      const { data: subjectsData, error: subjectsError } = await supabase
+      const { data, error } = await supabase
         .from('subjects')
-        .select('*')
+        .select(`
+          id,
+          created_at,
+          updated_at,
+          name,
+          status,
+          priority,
+          color,
+          user_id,
+          topics (
+            id,
+            created_at,
+            updated_at,
+            name,
+            completed,
+            subject_id,
+            review_stage,
+						next_review,
+						review_count,
+						last_reviewed_at
+          )
+        `)
         .eq('user_id', user.id)
-        .order('priority', { ascending: true });
-      
-      if (subjectsError) throw subjectsError;
-      
-      console.log('AppContext - Found subjects:', subjectsData?.length || 0);
-      
-      // Para cada disciplina, buscar seus tópicos
-      const subjectsWithTopics = await Promise.all(
-        (subjectsData || []).map(async (subject) => {
-          const { data: topicsData, error: topicsError } = await supabase
-            .from('topics')
-            .select('*')
-            .eq('subject_id', subject.id);
-          
-          if (topicsError) throw topicsError;
-          
-          // Converter dados do banco para o formato da aplicação
-          const processedTopics = (topicsData || []).map(topic => ({
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching subjects:', error);
+        setError(error.message);
+        return;
+      }
+
+      if (data) {
+        const formattedSubjects = data.map(subject => ({
+          id: subject.id,
+          name: subject.name,
+          status: subject.status as Status,
+          priority: subject.priority || undefined,
+          color: subject.color || undefined,
+          topics: (subject.topics || []).map(topic => ({
             id: topic.id,
             name: topic.name,
             completed: topic.completed,
-            reviewCount: topic.review_count,
-            review_count: topic.review_count, // Add compatibility field
-            nextReview: topic.next_review ? new Date(topic.next_review) : undefined,
-            reviewStage: topic.review_stage as RevisionStage,
-            lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined
-          }));
-          
-          console.log(`AppContext - Subject ${subject.name} has ${processedTopics.length} topics`);
-          
-          return {
-            id: subject.id,
-            name: subject.name,
-            priority: subject.priority,
-            status: subject.status as Status || 'Nova',
-            color: subject.color,
-            topics: processedTopics
-          };
-        })
-      );
-      
-      console.log('AppContext - Processed subjects with topics:', subjectsWithTopics.length);
-      setSubjects(subjectsWithTopics);
-    } catch (error) {
-      console.error('Erro ao buscar matérias:', error);
-      throw error;
-    }
-  };
-
-  // Função para buscar configurações do usuário
-  const fetchUserSettings = async () => {
-    if (!user) return;
-
-    try {
-      console.log('AppContext - Fetching user settings for:', user.email);
-      
-      // Buscar o perfil do usuário
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-      
-      if (profileError) throw profileError;
-      
-      // Buscar configurações do usuário
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (settingsError) throw settingsError;
-      
-      // Atualizar o perfil do usuário
-      if (profileData && settingsData) {
-        setUserProfile({
-          name: profileData.name || '',
-          email: profileData.email || user.email || '',
-          phone: profileData.phone || '',
-          settings: {
-            subjectsPerDay: settingsData.subjects_per_day,
-            notificationsEnabled: settingsData.notifications_enabled,
-            notificationTime: settingsData.notification_time
-          }
-        });
-        console.log('AppContext - User settings loaded successfully');
-      } else if (profileData) {
-        // Se só tem profile, usar configurações padrão
-        setUserProfile({
-          name: profileData.name || '',
-          email: profileData.email || user.email || '',
-          phone: profileData.phone || '',
-          settings: {
-            subjectsPerDay: 3,
-            notificationsEnabled: true,
-            notificationTime: '08:00'
-          }
-        });
+						nextReview: topic.next_review ? new Date(topic.next_review) : undefined,
+						reviewCount: topic.review_count || 0,
+						reviewStage: topic.review_stage || undefined,
+						lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined,
+            review_count: topic.review_count || 0, // Adicionado para compatibilidade
+          })),
+        }));
+        setSubjects(formattedSubjects);
+        setIsDataLoaded(true);
       }
-    } catch (error) {
-      console.error('Erro ao buscar configurações:', error);
-      throw error;
+    } catch (err) {
+      console.error('Unexpected error fetching subjects:', err);
+      setError('Failed to load subjects. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Função corrigida para recalcular o progresso
-  const recalculateProgress = () => {
-    console.log('AppContext - Recalculating progress for', subjects.length, 'subjects');
-    
-    // Contar tópicos por status
-    let totalTopics = 0;
-    let completedTopics = 0; // Tópicos com reviewStage "Concluído"
+  const updateStudyProgress = () => {
+    const totalSubjects = subjects.length;
+    const completedSubjects = subjects.filter(subject => subject.status === 'Concluída').length;
+    const totalTopics = subjects.reduce((sum, subject) => sum + subject.topics.length, 0);
+    const completedTopics = subjects.reduce((sum, subject) => sum + subject.topics.filter(topic => topic.completed).length, 0);
+
+    // Calcula o número de tópicos atrasados, para hoje e futuros
     let delayedTopics = 0;
     let todayTopics = 0;
     let futureTopics = 0;
-    
+
     subjects.forEach(subject => {
-      totalTopics += subject.topics.length;
-      
       subject.topics.forEach(topic => {
-        // Critério correto: considerar concluído se reviewStage === 'Concluído'
-        if (topic.reviewStage === 'Concluído') {
-          completedTopics++;
-        }
-        
         if (topic.nextReview) {
-          const reviewDate = new Date(topic.nextReview);
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          
-          if (new Date(reviewDate).toDateString() === today.toDateString()) {
-            todayTopics++;
-          } else if (reviewDate < today) {
+          const nextReviewDate = new Date(topic.nextReview);
+          nextReviewDate.setHours(0, 0, 0, 0);
+
+          if (nextReviewDate.getTime() < today.getTime()) {
             delayedTopics++;
-          } else if (reviewDate > today) {
+          } else if (nextReviewDate.getTime() === today.getTime()) {
+            todayTopics++;
+          } else {
             futureTopics++;
           }
         }
       });
     });
-    
-    // Contar matérias completadas (todas matérias cujos tópicos têm reviewStage "Concluído")
-    const completedSubjects = subjects.filter(subject => 
-      subject.topics.length > 0 && 
-      isSubjectWithAllTopicsCompleted(subject)
-    ).length;
-    
-    const newProgress = {
-      totalSubjects: subjects.length,
+
+    setStudyProgress({
+      totalSubjects,
       completedSubjects,
       totalTopics,
       completedTopics,
       delayedTopics,
       todayTopics,
-      futureTopics
-    };
-    
-    console.log('AppContext - New progress calculated:', newProgress);
-    setStudyProgress(newProgress);
+      futureTopics,
+    });
   };
 
-  // Função para criar uma nova matéria (nova interface)
-  const createSubject = async (subject: Omit<Subject, 'id' | 'topics'>) => {
-    if (!user) return;
-
-    try {
-      // Criar a matéria no banco
-      const { data, error } = await supabase
-        .from('subjects')
-        .insert({
-          name: subject.name,
-          user_id: user.id,
-          status: subject.status || 'Nova',
-          color: subject.color,
-          priority: subjects.length + 1
-        })
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      if (data) {
-        toast.success("Matéria adicionada com sucesso");
-        // A atualização será feita via realtime listener
-      }
-    } catch (error) {
-      console.error('Erro ao adicionar matéria:', error);
-      toast.error("Erro ao adicionar matéria");
-      throw error;
+  useEffect(() => {
+    if (isDataLoaded) {
+      updateStudyProgress();
     }
-  };
+  }, [subjects, isDataLoaded]);
 
-  // Função para adicionar uma nova matéria (interface antiga)
+  useEffect(() => {
+    if (user) {
+      loadSubjects();
+    }
+  }, [user]);
+
   const addSubject = async (subject: Omit<Subject, 'id'>) => {
     if (!user) return;
 
+    setIsLoading(true);
+    setError(null);
+
     try {
-      // Criar a matéria no banco
       const { data, error } = await supabase
         .from('subjects')
         .insert({
-          name: subject.name,
+          ...subject,
           user_id: user.id,
-          status: subject.status || 'Nova',
-          color: subject.color,
-          priority: subjects.length + 1
         })
         .select()
         .single();
-        
-      if (error) throw error;
-      
-      if (data) {
-        toast.success("Matéria adicionada com sucesso");
-        // A atualização será feita via realtime listener
+
+      if (error) {
+        console.error('Error adding subject:', error);
+        setError(error.message);
+        return;
       }
-    } catch (error) {
-      console.error('Erro ao adicionar matéria:', error);
-      toast.error("Erro ao adicionar matéria");
-      throw error;
+
+      if (data) {
+        const newSubject: Subject = {
+          id: data.id,
+          name: data.name,
+          status: data.status as Status,
+          priority: data.priority || undefined,
+          color: data.color || undefined,
+          topics: [],
+        };
+        setSubjects(prevSubjects => [...prevSubjects, newSubject]);
+        toast.success('Matéria adicionada com sucesso!');
+      }
+    } catch (err) {
+      console.error('Unexpected error adding subject:', err);
+      setError('Failed to add subject. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Função para atualizar uma matéria
-  const updateSubject = async (id: string, updatedFields: Partial<Subject>) => {
+  const updateSubject = async (id: string, updates: Partial<Subject>) => {
     if (!user) return;
 
+    setIsLoading(true);
+    setError(null);
+
     try {
-      // Atualizar a matéria no banco
       const { error } = await supabase
         .from('subjects')
-        .update({ 
-          name: updatedFields.name,
-          status: updatedFields.status,
-          color: updatedFields.color,
-          priority: updatedFields.priority,
-          updated_at: new Date().toISOString()
-        })
+        .update(updates)
         .eq('id', id);
-        
-      if (error) throw error;
-      
-      toast.success("Matéria atualizada com sucesso");
-      // A atualização será feita via realtime listener
-    } catch (error) {
-      console.error('Erro ao atualizar matéria:', error);
-      toast.error("Erro ao atualizar matéria");
-      throw error;
+
+      if (error) {
+        console.error('Error updating subject:', error);
+        setError(error.message);
+        return;
+      }
+
+      setSubjects(prevSubjects =>
+        prevSubjects.map(subject =>
+          subject.id === id ? { ...subject, ...updates } : subject
+        )
+      );
+      toast.success('Matéria atualizada com sucesso!');
+    } catch (err) {
+      console.error('Unexpected error updating subject:', err);
+      setError('Failed to update subject. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Função melhorada para excluir uma matéria
   const deleteSubject = async (id: string) => {
     if (!user) return;
 
-    try {
-      console.log('AppContext - Deleting subject:', id);
+    setIsLoading(true);
+    setError(null);
 
-      // Com CASCADE configurado, não precisamos excluir tópicos manualmente
+    try {
       const { error } = await supabase
         .from('subjects')
         .delete()
         .eq('id', id);
-        
-      if (error) throw error;
-      
-      console.log('AppContext - Subject deleted successfully');
-      toast.success("Matéria e todos os tópicos relacionados foram removidos com sucesso");
-      // A atualização será feita via realtime listener
-    } catch (error) {
-      console.error('Erro ao remover matéria:', error);
-      toast.error("Erro ao remover matéria");
-      throw error;
+
+      if (error) {
+        console.error('Error deleting subject:', error);
+        setError(error.message);
+        return;
+      }
+
+      setSubjects(prevSubjects => prevSubjects.filter(subject => subject.id !== id));
+      toast.success('Matéria removida com sucesso!');
+    } catch (err) {
+      console.error('Unexpected error deleting subject:', err);
+      setError('Failed to delete subject. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Função para adicionar um tópico a uma matéria
-  const addTopicToSubject = async (subjectId: string, topicName: string) => {
+  const addTopic = async (subjectId: string, topic: Omit<Topic, 'id'>) => {
     if (!user) return;
+
+    setIsLoading(true);
+    setError(null);
 
     try {
       const { data, error } = await supabase
         .from('topics')
         .insert({
-          name: topicName,
+          ...topic,
           subject_id: subjectId,
-          completed: false,
-          review_count: 0
         })
         .select()
         .single();
-        
-      if (error) throw error;
-      
-      if (data) {
-        toast.success("Tópico adicionado com sucesso");
-        // A atualização será feita via realtime listener
+
+      if (error) {
+        console.error('Error adding topic:', error);
+        setError(error.message);
+        return;
       }
-    } catch (error) {
-      console.error('Erro ao adicionar tópico:', error);
-      toast.error("Erro ao adicionar tópico");
-      throw error;
+
+      if (data) {
+        const newTopic: Topic = {
+          id: data.id,
+          name: data.name,
+          completed: data.completed,
+					nextReview: data.next_review ? new Date(data.next_review) : undefined,
+					reviewCount: data.review_count || 0,
+					reviewStage: data.review_stage || undefined,
+					lastReviewedAt: data.last_reviewed_at ? new Date(data.last_reviewed_at) : undefined,
+          review_count: data.review_count || 0, // Adicionado para compatibilidade
+        };
+
+        setSubjects(prevSubjects =>
+          prevSubjects.map(subject =>
+            subject.id === subjectId
+              ? { ...subject, topics: [...subject.topics, newTopic] }
+              : subject
+          )
+        );
+        toast.success('Tópico adicionado com sucesso!');
+      }
+    } catch (err) {
+      console.error('Unexpected error adding topic:', err);
+      setError('Failed to add topic. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Função para remover um tópico de uma matéria
-  const removeTopicFromSubject = async (subjectId: string, topicId: string) => {
+  const updateTopic = async (subjectId: string, topicId: string, updates: Partial<Topic>) => {
     if (!user) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .update(updates)
+        .eq('id', topicId);
+
+      if (error) {
+        console.error('Error updating topic:', error);
+        setError(error.message);
+        return;
+      }
+
+      setSubjects(prevSubjects =>
+        prevSubjects.map(subject =>
+          subject.id === subjectId
+            ? {
+              ...subject,
+              topics: subject.topics.map(topic =>
+                topic.id === topicId ? { ...topic, ...updates } : topic
+              ),
+            }
+            : subject
+        )
+      );
+      toast.success('Tópico atualizado com sucesso!');
+    } catch (err) {
+      console.error('Unexpected error updating topic:', err);
+      setError('Failed to update topic. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteTopic = async (subjectId: string, topicId: string) => {
+    if (!user) return;
+
+    setIsLoading(true);
+    setError(null);
 
     try {
       const { error } = await supabase
         .from('topics')
         .delete()
         .eq('id', topicId);
-        
-      if (error) throw error;
-      
-      toast.success("Tópico removido com sucesso");
-      // A atualização será feita via realtime listener
-    } catch (error) {
-      console.error('Erro ao remover tópico:', error);
-      toast.error("Erro ao remover tópico");
-      throw error;
+
+      if (error) {
+        console.error('Error deleting topic:', error);
+        setError(error.message);
+        return;
+      }
+
+      setSubjects(prevSubjects =>
+        prevSubjects.map(subject =>
+          subject.id === subjectId
+            ? {
+              ...subject,
+              topics: subject.topics.filter(topic => topic.id !== topicId),
+            }
+            : subject
+        )
+      );
+      toast.success('Tópico removido com sucesso!');
+    } catch (err) {
+      console.error('Unexpected error deleting topic:', err);
+      setError('Failed to delete topic. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  return (
-    <AppContext.Provider
-      value={{
-        subjects,
-        setSubjects,
-        userProfile,
-        setUserProfile,
-        studyProgress,
-        setStudyProgress,
-        createSubject,
-        addSubject,
-        updateSubject,
-        deleteSubject,
-        addTopicToSubject,
-        removeTopicFromSubject,
-        fetchSubjects,
-        fetchUserSettings,
-        recalculateProgress,
-        isDataLoaded,
-        isLoading,
-        error
-      }}
-    >
-      {children}
-    </AppContext.Provider>
-  );
+  const loadUserCycle = async () => {
+    if (!user) return;
+
+    try {
+      // Fetch user's subjects
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('id, name, status')
+        .eq('user_id', user.id);
+
+      if (subjectsError) {
+        console.error('Error fetching subjects:', subjectsError);
+        return;
+      }
+
+      // Update subjects state
+      if (subjectsData) {
+        const formattedSubjects = subjectsData.map(subject => ({
+          id: subject.id,
+          name: subject.name,
+          status: subject.status as Status,
+          topics: [], // Assuming topics are loaded separately
+        }));
+        setSubjects(formattedSubjects);
+      }
+    } catch (error) {
+      console.error('Error loading user cycle:', error);
+    }
+  };
+
+  const refreshData = async () => {
+    if (!user) return;
+    
+    console.log('AppContext - Refreshing all data...');
+    setIsLoading(true);
+    
+    try {
+      await Promise.all([
+        loadSubjects(),
+        loadUserCycle()
+      ]);
+      console.log('AppContext - Data refreshed successfully');
+    } catch (error) {
+      console.error('AppContext - Error refreshing data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const value: AppContextType = {
+    subjects,
+    studyProgress,
+    isDataLoaded,
+    isLoading,
+    error,
+    addSubject,
+    updateSubject,
+    deleteSubject,
+    addTopic,
+    updateTopic,
+    deleteTopic,
+    refreshData,
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-export const useApp = () => {
+export const useApp = (): AppContextType => {
   const context = useContext(AppContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;

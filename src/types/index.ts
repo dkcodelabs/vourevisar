@@ -1,4 +1,3 @@
-
 export type Status = 'Nova' | 'Em Estudo' | 'Concluída';
 export type RevisionStatus = 'Atrasado' | 'Hoje' | 'Futura';
 export type RevisionStage = '24h' | '7 dias' | '30 dias' | 'Concluído' | string;
@@ -51,4 +50,19 @@ export interface StudyProgress {
   delayedTopics: number;
   todayTopics: number;
   futureTopics: number;
+}
+
+export interface AppContextType {
+  subjects: Subject[];
+  studyProgress: StudyProgress;
+  isDataLoaded: boolean;
+  isLoading: boolean;
+  error: string | null;
+  addSubject: (subject: Omit<Subject, 'id'>) => Promise<void>;
+  updateSubject: (id: string, updates: Partial<Subject>) => Promise<void>;
+  deleteSubject: (id: string) => Promise<void>;
+  addTopic: (subjectId: string, topic: Omit<Topic, 'id'>) => Promise<void>;
+  updateTopic: (subjectId: string, topicId: string, updates: Partial<Topic>) => Promise<void>;
+  deleteTopic: (subjectId: string, topicId: string) => Promise<void>;
+  refreshData: () => Promise<void>;
 }

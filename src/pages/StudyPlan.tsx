@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
@@ -8,6 +7,7 @@ import SubjectCard from '@/components/study-plan/SubjectCard';
 import NextSubjects from '@/components/study-plan/NextSubjects';
 import DayCompletedMessage from '@/components/study-plan/DayCompletedMessage';
 import NewCycleMessage from '@/components/study-plan/NewCycleMessage';
+import AllStudiesCompletedMessage from '@/components/study-plan/AllStudiesCompletedMessage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Plus } from 'lucide-react';
@@ -50,6 +50,7 @@ const StudyPlan = () => {
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     isNewCycleStarted,
+    allStudiesCompleted,
     handleNextDay,
     handleCompleteSession,
     handleToggleExpand,
@@ -67,6 +68,7 @@ const StudyPlan = () => {
     nextSubjectsLength: nextSubjects.length,
     userCycle,
     showNewCycleMessage,
+    allStudiesCompleted,
     disciplinas_do_dia: userCycle?.disciplinas_do_dia,
     ciclo_atual: userCycle?.ciclo_atual
   });
@@ -94,7 +96,7 @@ const StudyPlan = () => {
         <motion.div className="space-y-4" variants={containerVariants}>
           <StudyPlanHeader onNextDay={handleNextDay} />
 
-          {userCycle && hasAvailableSubjects && (
+          {userCycle && hasAvailableSubjects && !allStudiesCompleted && (
             <motion.div variants={itemVariants}>
               <CycleInfo 
                 userCycle={userCycle}
@@ -108,8 +110,13 @@ const StudyPlan = () => {
           )}
 
           <div className="space-y-4">
-            {/* Se não há matérias disponíveis no sistema */}
-            {!hasAvailableSubjects ? (
+            {/* PRIORIDADE 1: Conclusão TOTAL dos estudos */}
+            {allStudiesCompleted ? (
+              <motion.div variants={itemVariants}>
+                <AllStudiesCompletedMessage />
+              </motion.div>
+            ) : !hasAvailableSubjects ? (
+              /* Se não há matérias disponíveis no sistema */
               <motion.div variants={itemVariants}>
                 <Card className="text-center">
                   <CardHeader>
@@ -146,6 +153,7 @@ const StudyPlan = () => {
                     </motion.div>
                   ))
                 ) : allDaySubjectsCompleted ? (
+                  /* PRIORIDADE 2: Conclusão do dia (só se não for conclusão total) */
                   <motion.div variants={itemVariants}>
                     <DayCompletedMessage onNextDay={handleNextDay} />
                   </motion.div>
@@ -154,12 +162,15 @@ const StudyPlan = () => {
             )}
           </div>
 
-          <NewCycleMessage 
-            isVisible={showNewCycleMessage}
-            onHide={handleHideNewCycleMessage}
-          />
+          {/* PRIORIDADE 3: Mensagem de novo ciclo (só se não for conclusão total) */}
+          {!allStudiesCompleted && (
+            <NewCycleMessage 
+              isVisible={showNewCycleMessage}
+              onHide={handleHideNewCycleMessage}
+            />
+          )}
 
-          {hasAvailableSubjects && nextSubjects.length > 0 && (
+          {hasAvailableSubjects && nextSubjects.length > 0 && !allStudiesCompleted && (
             <motion.div variants={itemVariants}>
               <NextSubjects nextSubjects={nextSubjects} />
             </motion.div>

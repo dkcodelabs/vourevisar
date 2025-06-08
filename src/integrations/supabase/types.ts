@@ -39,34 +39,73 @@ export type Database = {
         }
         Relationships: []
       }
+      study_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          session_date: string
+          session_duration_minutes: number | null
+          subjects_worked: Json | null
+          topics_studied: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          session_date?: string
+          session_duration_minutes?: number | null
+          subjects_worked?: Json | null
+          topics_studied?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          session_date?: string
+          session_duration_minutes?: number | null
+          subjects_worked?: Json | null
+          topics_studied?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subjects: {
         Row: {
           color: string | null
+          completed_at: string | null
           created_at: string
           id: string
           name: string
           priority: number | null
           status: string
+          total_study_time_minutes: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           color?: string | null
+          completed_at?: string | null
           created_at?: string
           id?: string
           name: string
           priority?: number | null
           status?: string
+          total_study_time_minutes?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
           color?: string | null
+          completed_at?: string | null
           created_at?: string
           id?: string
           name?: string
           priority?: number | null
           status?: string
+          total_study_time_minutes?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -76,6 +115,7 @@ export type Database = {
         Row: {
           completed: boolean
           created_at: string
+          first_studied_at: string | null
           id: string
           last_reviewed_at: string | null
           name: string
@@ -83,11 +123,13 @@ export type Database = {
           review_count: number
           review_stage: string | null
           subject_id: string
+          total_reviews: number | null
           updated_at: string
         }
         Insert: {
           completed?: boolean
           created_at?: string
+          first_studied_at?: string | null
           id?: string
           last_reviewed_at?: string | null
           name: string
@@ -95,11 +137,13 @@ export type Database = {
           review_count?: number
           review_stage?: string | null
           subject_id: string
+          total_reviews?: number | null
           updated_at?: string
         }
         Update: {
           completed?: boolean
           created_at?: string
+          first_studied_at?: string | null
           id?: string
           last_reviewed_at?: string | null
           name?: string
@@ -107,6 +151,7 @@ export type Database = {
           review_count?: number
           review_stage?: string | null
           subject_id?: string
+          total_reviews?: number | null
           updated_at?: string
         }
         Relationships: [

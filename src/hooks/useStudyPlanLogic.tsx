@@ -19,6 +19,7 @@ export const useStudyPlanLogic = () => {
   const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
   const [lastCycleCount, setLastCycleCount] = useState<number>(0);
   const isFirstRender = useRef(true);
+  const [allStudiesCompleted, setAllStudiesCompleted] = useState(false);
   
   const { userCycle, isLoading: isCycleLoading, fetchUserCycle, updateUserCycle, createInitialUserCycle, isAllDaySubjectsCompleted } = useCycleState();
   
