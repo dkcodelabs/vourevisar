@@ -1,13 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Subject, Topic, Status, StudyProgress, AppContextType } from '@/types';
-import { v4 as uuidv4 } from 'uuid';
+
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './AuthContext';
+import { Subject, Topic, StudyProgress, AppContextType } from '@/types';
 import { toast } from 'sonner';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [studyProgress, setStudyProgress] = useState<StudyProgress>({
     totalSubjects: 0,
@@ -21,106 +22,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
 
   const loadSubjects = async () => {
     if (!user) return;
-
+    
     setIsLoading(true);
-    setError(null);
-
     try {
-      const { data, error } = await supabase
+      console.log('AppContext - Loading subjects for user:', user.id);
+      
+      const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
         .select(`
-          id,
-          created_at,
-          updated_at,
-          name,
-          status,
-          priority,
-          color,
-          user_id,
-          topics (
-            id,
-            created_at,
-            updated_at,
-            name,
-            completed,
-            subject_id,
-            review_stage,
-						next_review,
-						review_count,
-						last_reviewed_at
-          )
+          *,
+          topics (*)
         `)
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching subjects:', error);
-        setError(error.message);
-        return;
-      }
+      if (subjectsError) throw subjectsError;
 
-      if (data) {
-        const formattedSubjects = data.map(subject => ({
-          id: subject.id,
-          name: subject.name,
-          status: subject.status as Status,
-          priority: subject.priority || undefined,
-          color: subject.color || undefined,
-          topics: (subject.topics || []).map(topic => ({
-            id: topic.id,
-            name: topic.name,
-            completed: topic.completed,
-						nextReview: topic.next_review ? new Date(topic.next_review) : undefined,
-						reviewCount: topic.review_count || 0,
-						reviewStage: topic.review_stage || undefined,
-						lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined,
-            review_count: topic.review_count || 0, // Adicionado para compatibilidade
-          })),
-        }));
-        setSubjects(formattedSubjects);
-        setIsDataLoaded(true);
-      }
-    } catch (err) {
-      console.error('Unexpected error fetching subjects:', err);
-      setError('Failed to load subjects. Please try again.');
+      const transformedSubjects: Subject[] = (subjectsData || []).map(subject => ({
+        id: subject.id,
+        name: subject.name,
+        status: subject.status as 'Nova' | 'Em Estudo' | 'Concluída',
+        priority: subject.priority || 0,
+        color: subject.color || undefined,
+        topics: (subject.topics || []).map(topic => ({
+          id: topic.id,
+          name: topic.name,
+          completed: topic.completed || false,
+          reviewCount: topic.review_count || 0,
+          review_count: topic.review_count || 0,
+          reviewStage: topic.review_stage as any,
+          nextReview: topic.next_review ? new Date(topic.next_review) : undefined,
+          lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined,
+        }))
+      }));
+
+      setSubjects(transformedSubjects);
+      calculateProgress(transformedSubjects);
+      setIsDataLoaded(true);
+      console.log('AppContext - Subjects loaded successfully:', transformedSubjects.length);
+    } catch (error: any) {
+      console.error('AppContext - Error loading subjects:', error);
+      setError(error.message);
+      toast.error('Erro ao carregar matérias');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const updateStudyProgress = () => {
+  const calculateProgress = (subjects: Subject[]) => {
     const totalSubjects = subjects.length;
-    const completedSubjects = subjects.filter(subject => subject.status === 'Concluída').length;
-    const totalTopics = subjects.reduce((sum, subject) => sum + subject.topics.length, 0);
-    const completedTopics = subjects.reduce((sum, subject) => sum + subject.topics.filter(topic => topic.completed).length, 0);
+    const completedSubjects = subjects.filter(s => s.status === 'Concluída').length;
+    const allTopics = subjects.flatMap(s => s.topics);
+    const totalTopics = allTopics.length;
+    const completedTopics = allTopics.filter(t => t.completed).length;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
-    // Calcula o número de tópicos atrasados, para hoje e futuros
-    let delayedTopics = 0;
-    let todayTopics = 0;
-    let futureTopics = 0;
+    const delayedTopics = allTopics.filter(t => 
+      t.nextReview && t.nextReview < now && !t.completed
+    ).length;
 
-    subjects.forEach(subject => {
-      subject.topics.forEach(topic => {
-        if (topic.nextReview) {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const nextReviewDate = new Date(topic.nextReview);
-          nextReviewDate.setHours(0, 0, 0, 0);
+    const todayTopics = allTopics.filter(t => 
+      t.nextReview && t.nextReview >= today && t.nextReview < tomorrow && !t.completed
+    ).length;
 
-          if (nextReviewDate.getTime() < today.getTime()) {
-            delayedTopics++;
-          } else if (nextReviewDate.getTime() === today.getTime()) {
-            todayTopics++;
-          } else {
-            futureTopics++;
-          }
-        }
-      });
-    });
+    const futureTopics = allTopics.filter(t => 
+      t.nextReview && t.nextReview >= tomorrow && !t.completed
+    ).length;
 
     setStudyProgress({
       totalSubjects,
@@ -133,274 +106,145 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  useEffect(() => {
-    if (isDataLoaded) {
-      updateStudyProgress();
-    }
-  }, [subjects, isDataLoaded]);
-
-  useEffect(() => {
-    if (user) {
-      loadSubjects();
-    }
-  }, [user]);
-
-  const addSubject = async (subject: Omit<Subject, 'id'>) => {
+  const addSubject = async (subjectData: Omit<Subject, 'id'>) => {
     if (!user) return;
-
-    setIsLoading(true);
-    setError(null);
 
     try {
       const { data, error } = await supabase
         .from('subjects')
         .insert({
-          ...subject,
           user_id: user.id,
+          name: subjectData.name,
+          status: subjectData.status,
+          priority: subjectData.priority || 0,
+          color: subjectData.color
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Error adding subject:', error);
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
-      if (data) {
-        const newSubject: Subject = {
-          id: data.id,
-          name: data.name,
-          status: data.status as Status,
-          priority: data.priority || undefined,
-          color: data.color || undefined,
-          topics: [],
-        };
-        setSubjects(prevSubjects => [...prevSubjects, newSubject]);
-        toast.success('Matéria adicionada com sucesso!');
-      }
-    } catch (err) {
-      console.error('Unexpected error adding subject:', err);
-      setError('Failed to add subject. Please try again.');
-    } finally {
-      setIsLoading(false);
+      await loadSubjects();
+      toast.success('Matéria adicionada com sucesso!');
+    } catch (error: any) {
+      console.error('Error adding subject:', error);
+      toast.error('Erro ao adicionar matéria');
+      throw error;
     }
   };
 
   const updateSubject = async (id: string, updates: Partial<Subject>) => {
     if (!user) return;
 
-    setIsLoading(true);
-    setError(null);
-
     try {
       const { error } = await supabase
         .from('subjects')
-        .update(updates)
-        .eq('id', id);
+        .update({
+          name: updates.name,
+          status: updates.status,
+          priority: updates.priority,
+          color: updates.color
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error updating subject:', error);
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
-      setSubjects(prevSubjects =>
-        prevSubjects.map(subject =>
-          subject.id === id ? { ...subject, ...updates } : subject
-        )
-      );
+      await loadSubjects();
       toast.success('Matéria atualizada com sucesso!');
-    } catch (err) {
-      console.error('Unexpected error updating subject:', err);
-      setError('Failed to update subject. Please try again.');
-    } finally {
-      setIsLoading(false);
+    } catch (error: any) {
+      console.error('Error updating subject:', error);
+      toast.error('Erro ao atualizar matéria');
+      throw error;
     }
   };
 
   const deleteSubject = async (id: string) => {
     if (!user) return;
 
-    setIsLoading(true);
-    setError(null);
-
     try {
       const { error } = await supabase
         .from('subjects')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error deleting subject:', error);
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
-      setSubjects(prevSubjects => prevSubjects.filter(subject => subject.id !== id));
+      await loadSubjects();
       toast.success('Matéria removida com sucesso!');
-    } catch (err) {
-      console.error('Unexpected error deleting subject:', err);
-      setError('Failed to delete subject. Please try again.');
-    } finally {
-      setIsLoading(false);
+    } catch (error: any) {
+      console.error('Error deleting subject:', error);
+      toast.error('Erro ao remover matéria');
+      throw error;
     }
   };
 
-  const addTopic = async (subjectId: string, topic: Omit<Topic, 'id'>) => {
+  const addTopic = async (subjectId: string, topicData: Omit<Topic, 'id'>) => {
     if (!user) return;
 
-    setIsLoading(true);
-    setError(null);
-
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('topics')
         .insert({
-          ...topic,
           subject_id: subjectId,
-        })
-        .select()
-        .single();
+          name: topicData.name,
+          completed: false,
+          review_count: 0,
+          review_stage: '24h',
+          next_review: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        });
 
-      if (error) {
-        console.error('Error adding topic:', error);
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
-      if (data) {
-        const newTopic: Topic = {
-          id: data.id,
-          name: data.name,
-          completed: data.completed,
-					nextReview: data.next_review ? new Date(data.next_review) : undefined,
-					reviewCount: data.review_count || 0,
-					reviewStage: data.review_stage || undefined,
-					lastReviewedAt: data.last_reviewed_at ? new Date(data.last_reviewed_at) : undefined,
-          review_count: data.review_count || 0, // Adicionado para compatibilidade
-        };
-
-        setSubjects(prevSubjects =>
-          prevSubjects.map(subject =>
-            subject.id === subjectId
-              ? { ...subject, topics: [...subject.topics, newTopic] }
-              : subject
-          )
-        );
-        toast.success('Tópico adicionado com sucesso!');
-      }
-    } catch (err) {
-      console.error('Unexpected error adding topic:', err);
-      setError('Failed to add topic. Please try again.');
-    } finally {
-      setIsLoading(false);
+      await loadSubjects();
+      toast.success('Tópico adicionado com sucesso!');
+    } catch (error: any) {
+      console.error('Error adding topic:', error);
+      toast.error('Erro ao adicionar tópico');
+      throw error;
     }
   };
 
   const updateTopic = async (subjectId: string, topicId: string, updates: Partial<Topic>) => {
-    if (!user) return;
-
-    setIsLoading(true);
-    setError(null);
-
     try {
       const { error } = await supabase
         .from('topics')
-        .update(updates)
+        .update({
+          name: updates.name,
+          completed: updates.completed,
+          review_count: updates.reviewCount || updates.review_count,
+          review_stage: updates.reviewStage,
+          next_review: updates.nextReview?.toISOString(),
+          last_reviewed_at: updates.lastReviewedAt?.toISOString()
+        })
         .eq('id', topicId);
 
-      if (error) {
-        console.error('Error updating topic:', error);
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
-      setSubjects(prevSubjects =>
-        prevSubjects.map(subject =>
-          subject.id === subjectId
-            ? {
-              ...subject,
-              topics: subject.topics.map(topic =>
-                topic.id === topicId ? { ...topic, ...updates } : topic
-              ),
-            }
-            : subject
-        )
-      );
-      toast.success('Tópico atualizado com sucesso!');
-    } catch (err) {
-      console.error('Unexpected error updating topic:', err);
-      setError('Failed to update topic. Please try again.');
-    } finally {
-      setIsLoading(false);
+      await loadSubjects();
+    } catch (error: any) {
+      console.error('Error updating topic:', error);
+      toast.error('Erro ao atualizar tópico');
+      throw error;
     }
   };
 
   const deleteTopic = async (subjectId: string, topicId: string) => {
-    if (!user) return;
-
-    setIsLoading(true);
-    setError(null);
-
     try {
       const { error } = await supabase
         .from('topics')
         .delete()
         .eq('id', topicId);
 
-      if (error) {
-        console.error('Error deleting topic:', error);
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
-      setSubjects(prevSubjects =>
-        prevSubjects.map(subject =>
-          subject.id === subjectId
-            ? {
-              ...subject,
-              topics: subject.topics.filter(topic => topic.id !== topicId),
-            }
-            : subject
-        )
-      );
+      await loadSubjects();
       toast.success('Tópico removido com sucesso!');
-    } catch (err) {
-      console.error('Unexpected error deleting topic:', err);
-      setError('Failed to delete topic. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadUserCycle = async () => {
-    if (!user) return;
-
-    try {
-      // Fetch user's subjects
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('id, name, status')
-        .eq('user_id', user.id);
-
-      if (subjectsError) {
-        console.error('Error fetching subjects:', subjectsError);
-        return;
-      }
-
-      // Update subjects state
-      if (subjectsData) {
-        const formattedSubjects = subjectsData.map(subject => ({
-          id: subject.id,
-          name: subject.name,
-          status: subject.status as Status,
-          topics: [], // Assuming topics are loaded separately
-        }));
-        setSubjects(formattedSubjects);
-      }
-    } catch (error) {
-      console.error('Error loading user cycle:', error);
+    } catch (error: any) {
+      console.error('Error deleting topic:', error);
+      toast.error('Erro ao remover tópico');
+      throw error;
     }
   };
 
@@ -411,10 +255,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoading(true);
     
     try {
-      await Promise.all([
-        loadSubjects(),
-        loadUserCycle()
-      ]);
+      await loadSubjects();
       console.log('AppContext - Data refreshed successfully');
     } catch (error) {
       console.error('AppContext - Error refreshing data:', error);
@@ -422,6 +263,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      loadSubjects();
+    } else {
+      setSubjects([]);
+      setIsDataLoaded(false);
+    }
+  }, [user]);
 
   const value: AppContextType = {
     subjects,
@@ -441,10 +291,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-export const useApp = (): AppContextType => {
+export const useApp = () => {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
+  if (context === undefined) {
+    throw new Error('useApp deve ser usado dentro de um AppProvider');
   }
   return context;
 };
