@@ -58,7 +58,7 @@ const getStatusColor = (status: Status) => {
 
 const Subjects = () => {
   const navigate = useNavigate();
-  const { subjects, isLoading, error, createSubject, deleteSubject, updateSubject } = useApp();
+  const { subjects, isLoading, error, addSubject, deleteSubject, updateSubject } = useApp();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [newSubject, setNewSubject] = useState({
@@ -106,10 +106,11 @@ const Subjects = () => {
         });
         toast.success("Matéria atualizada com sucesso!");
       } else {
-        await createSubject({
+        await addSubject({
           name: newSubject.name.trim(),
           status: 'Nova',
           color: '#3B82F6',
+          topics: [], // Add empty topics array
         });
         toast.success("Matéria criada com sucesso!");
       }

@@ -1,20 +1,10 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Subject, Topic } from '@/types';
+import { Subject, Topic, UserCycle } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
-
-interface UserCycle {
-  id: string;
-  user_id: string;
-  ciclo_atual: string[];
-  disciplinas_do_dia: string[];
-  data_inicio_ciclo: string;
-  data_fim_ciclo: string | null;
-}
 
 export const useStudyPlanLogic = () => {
   const { subjects, isLoading } = useApp();
