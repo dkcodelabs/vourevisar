@@ -104,8 +104,8 @@ const StudyPlan = () => {
                 disciplinasConcluidas={disciplinasConcluidas}
                 totalDisciplinasCiclo={totalDisciplinasCiclo}
                 isNewCycleStarted={isNewCycleStarted}
-                disciplinasIniciadas={disciplinasIniciadas}
-                disciplinasNaoIniciadas={disciplinasNaoIniciadas}
+                disciplinasIniciadas={disciplinasIniciadas.length}
+                disciplinasNaoIniciadas={disciplinasNaoIniciadas.length}
               />
             </motion.div>
           )}
