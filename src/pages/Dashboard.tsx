@@ -98,6 +98,12 @@ const Dashboard = () => {
     }
   }, []);
 
+  // Função para navegar para o plano de estudos
+  const handleStartStudy = () => {
+    console.log('Navegando para o plano de estudos...');
+    navigate('/plano-estudo');
+  };
+
   // Estados de loading e erro simplificados
   if (isLoading || cycleLoading) {
     console.log('Dashboard - Showing loading state');
@@ -182,7 +188,7 @@ const Dashboard = () => {
           </div>
           <Button 
             className="bg-blue-500 hover:bg-blue-600 text-white"
-            onClick={() => navigate('/plano-estudo')}
+            onClick={handleStartStudy}
           >
             <Calendar className="h-4 w-4 mr-2" />
             Iniciar Estudos do Dia
@@ -404,7 +410,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <Button 
                     variant="outline" 
-                    onClick={() => navigate('/plano-estudo')}
+                    onClick={handleStartStudy}
                     className="border-gray-200 text-gray-700 hover:bg-gray-50"
                   >
                     <BookOpen className="h-4 w-4 mr-2" />
