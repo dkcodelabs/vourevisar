@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,15 +32,15 @@ export const useStudyPlanLogic = () => {
   useEffect(() => {
     if (subjects.length > 0) {
       const allCompleted = checkAllStudiesCompleted(subjects);
+      console.log('🎯 useStudyPlanLogic - Setting allStudiesCompleted:', allCompleted);
       setAllStudiesCompleted(allCompleted);
-      
-      console.log('All studies completed check:', {
-        subjectsLength: subjects.length,
-        allCompleted,
-        completedSubjects: subjects.filter(s => s.status === 'Concluída').length
-      });
     }
   }, [subjects]);
+
+  // Debug log when allStudiesCompleted changes
+  useEffect(() => {
+    console.log('🎯 useStudyPlanLogic - allStudiesCompleted state changed:', allStudiesCompleted);
+  }, [allStudiesCompleted]);
 
   // Load user cycle
   useEffect(() => {
@@ -74,10 +73,18 @@ export const useStudyPlanLogic = () => {
       ).slice(0, 3)
     : [];
 
+  // Only show day completed if there are daily subjects and they're all done, and not all studies are completed
   const allDaySubjectsCompleted = dailySubjects.length === 0 && 
     userCycle && 
     userCycle.disciplinas_do_dia.length > 0 &&
-    !allStudiesCompleted; // Don't show day completed if all studies are completed
+    !allStudiesCompleted;
+
+  console.log('🎯 useStudyPlanLogic - Render state:', {
+    allStudiesCompleted,
+    allDaySubjectsCompleted,
+    subjectsLength: subjects.length,
+    dailySubjectsLength: dailySubjects.length
+  });
 
   const handleNextDay = useCallback(async () => {
     if (!user || !userCycle) return;

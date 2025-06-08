@@ -3,15 +3,19 @@ import { Subject } from '@/types';
 
 export const checkAllStudiesCompleted = (subjects: Subject[]): boolean => {
   if (!subjects || subjects.length === 0) {
+    console.log('🔍 checkAllStudiesCompleted: Nenhuma matéria encontrada');
     return false;
   }
 
   // Verifica se TODAS as matérias estão com status 'Concluída'
+  const completedSubjects = subjects.filter(subject => subject.status === 'Concluída');
   const allSubjectsCompleted = subjects.every(subject => subject.status === 'Concluída');
   
-  console.log('Verificação de estudos completos:', {
+  console.log('🔍 Verificação de estudos completos:', {
     totalSubjects: subjects.length,
-    completedSubjects: subjects.filter(s => s.status === 'Concluída').length,
+    completedSubjects: completedSubjects.length,
+    completedSubjectNames: completedSubjects.map(s => s.name),
+    allSubjectsStatus: subjects.map(s => ({ name: s.name, status: s.status })),
     allSubjectsCompleted
   });
 
