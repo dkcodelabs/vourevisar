@@ -27,7 +27,7 @@ export const useStudyPlanLogic = () => {
   const isNewCycleStarted = userCycle && userCycle.ciclo_atual.length > 0 && 
     !userCycle.data_fim_ciclo && userCycle.disciplinas_do_dia.length === 0;
 
-  // Check for all studies completed
+  // Check for all studies completed - mais rigorosa
   useEffect(() => {
     const checkAllStudiesCompleted = () => {
       if (!subjects || subjects.length === 0) {
@@ -35,12 +35,20 @@ export const useStudyPlanLogic = () => {
         return;
       }
 
-      const allCompleted = subjects.every(subject => subject.status === 'Concluída');
+      // Verifica se TODAS as matérias estão concluídas E se todos os tópicos estão dominados
+      const allSubjectsCompleted = subjects.every(subject => subject.status === 'Concluída');
+      const allTopicsDominated = subjects.every(subject => 
+        subject.topics.every(topic => topic.reviewStage === 'Concluído')
+      );
+      
+      const allCompleted = allSubjectsCompleted && allTopicsDominated;
       setAllStudiesCompleted(allCompleted);
       
       console.log('Verificação de estudos completos:', {
         totalSubjects: subjects.length,
         completedSubjects: subjects.filter(s => s.status === 'Concluída').length,
+        allSubjectsCompleted,
+        allTopicsDominated,
         allCompleted
       });
     };

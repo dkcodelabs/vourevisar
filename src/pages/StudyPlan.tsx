@@ -97,84 +97,86 @@ const StudyPlan = () => {
         <motion.div className="space-y-4" variants={containerVariants}>
           <StudyPlanHeader onNextDay={handleNextDay} />
 
-          {userCycle && hasAvailableSubjects && !allStudiesCompleted && (
+          {/* PRIORIDADE MÁXIMA: Mensagem de conclusão total - sempre visível quando aplicável */}
+          {allStudiesCompleted ? (
             <motion.div variants={itemVariants}>
-              <CycleInfo 
-                userCycle={userCycle}
-                disciplinasConcluidas={disciplinasConcluidas}
-                totalDisciplinasCiclo={totalDisciplinasCiclo}
-                isNewCycleStarted={isNewCycleStarted}
-                disciplinasIniciadas={disciplinasIniciadas.length}
-                disciplinasNaoIniciadas={disciplinasNaoIniciadas.length}
-              />
+              <AllStudiesCompletedMessage />
             </motion.div>
-          )}
+          ) : (
+            <>
+              {userCycle && hasAvailableSubjects && (
+                <motion.div variants={itemVariants}>
+                  <CycleInfo 
+                    userCycle={userCycle}
+                    disciplinasConcluidas={disciplinasConcluidas}
+                    totalDisciplinasCiclo={totalDisciplinasCiclo}
+                    isNewCycleStarted={isNewCycleStarted}
+                    disciplinasIniciadas={disciplinasIniciadas.length}
+                    disciplinasNaoIniciadas={disciplinasNaoIniciadas.length}
+                  />
+                </motion.div>
+              )}
 
-          <div className="space-y-4">
-            {/* PRIORIDADE 1: Conclusão TOTAL dos estudos */}
-            {allStudiesCompleted ? (
-              <motion.div variants={itemVariants}>
-                <AllStudiesCompletedMessage />
-              </motion.div>
-            ) : !hasAvailableSubjects ? (
-              /* Se não há matérias disponíveis no sistema */
-              <motion.div variants={itemVariants}>
-                <Card className="text-center">
-                  <CardHeader>
-                    <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <CardTitle>Nenhuma matéria para estudar</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 mb-4">
-                      Você ainda não adicionou matérias para estudar ou todas já foram concluídas.
-                    </p>
-                    <Button onClick={() => navigate('/materias')}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Matérias
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : (
-              /* Se há matérias, mostrar o plano de estudos normal */
-              <>
-                {dailySubjects.length > 0 ? (
-                  dailySubjects.map((subject) => (
-                    <motion.div key={subject.id} variants={itemVariants}>
-                      <SubjectCard
-                        subject={subject}
-                        isExpanded={expandedSubject === subject.id}
-                        tempMarkedTopics={tempMarkedTopics}
-                        onToggleExpand={handleToggleExpand}
-                        onMarkTopicForReview={handleMarkTopicForReview}
-                        onCancelTopicReview={handleCancelTopicReview}
-                        onCompleteSession={handleCompleteSession}
-                        isDaySubject={true}
-                      />
-                    </motion.div>
-                  ))
-                ) : allDaySubjectsCompleted ? (
-                  /* PRIORIDADE 2: Conclusão do dia (só se não for conclusão total) */
+              <div className="space-y-4">
+                {!hasAvailableSubjects ? (
+                  /* Se não há matérias disponíveis no sistema */
                   <motion.div variants={itemVariants}>
-                    <DayCompletedMessage onNextDay={handleNextDay} />
+                    <Card className="text-center">
+                      <CardHeader>
+                        <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                        <CardTitle>Nenhuma matéria para estudar</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-gray-600 mb-4">
+                          Você ainda não adicionou matérias para estudar.
+                        </p>
+                        <Button onClick={() => navigate('/materias')}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Matérias
+                        </Button>
+                      </CardContent>
+                    </Card>
                   </motion.div>
-                ) : null}
-              </>
-            )}
-          </div>
+                ) : (
+                  /* Se há matérias, mostrar o plano de estudos normal */
+                  <>
+                    {dailySubjects.length > 0 ? (
+                      dailySubjects.map((subject) => (
+                        <motion.div key={subject.id} variants={itemVariants}>
+                          <SubjectCard
+                            subject={subject}
+                            isExpanded={expandedSubject === subject.id}
+                            tempMarkedTopics={tempMarkedTopics}
+                            onToggleExpand={handleToggleExpand}
+                            onMarkTopicForReview={handleMarkTopicForReview}
+                            onCancelTopicReview={handleCancelTopicReview}
+                            onCompleteSession={handleCompleteSession}
+                            isDaySubject={true}
+                          />
+                        </motion.div>
+                      ))
+                    ) : allDaySubjectsCompleted ? (
+                      /* Conclusão do dia */
+                      <motion.div variants={itemVariants}>
+                        <DayCompletedMessage onNextDay={handleNextDay} />
+                      </motion.div>
+                    ) : null}
+                  </>
+                )}
+              </div>
 
-          {/* PRIORIDADE 3: Mensagem de novo ciclo (só se não for conclusão total) */}
-          {!allStudiesCompleted && (
-            <NewCycleMessage 
-              isVisible={showNewCycleMessage}
-              onHide={handleHideNewCycleMessage}
-            />
-          )}
+              {/* Mensagem de novo ciclo */}
+              <NewCycleMessage 
+                isVisible={showNewCycleMessage}
+                onHide={handleHideNewCycleMessage}
+              />
 
-          {hasAvailableSubjects && nextSubjects.length > 0 && !allStudiesCompleted && (
-            <motion.div variants={itemVariants}>
-              <NextSubjects nextSubjects={nextSubjects} />
-            </motion.div>
+              {hasAvailableSubjects && nextSubjects.length > 0 && (
+                <motion.div variants={itemVariants}>
+                  <NextSubjects nextSubjects={nextSubjects} />
+                </motion.div>
+              )}
+            </>
           )}
         </motion.div>
       )}

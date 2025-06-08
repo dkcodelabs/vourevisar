@@ -9,10 +9,10 @@ import confetti from 'canvas-confetti';
 import SubjectReactivationModal from './SubjectReactivationModal';
 
 interface AllStudiesCompletedMessageProps {
-  onHide?: () => void;
+  // Removemos a prop onHide pois a mensagem deve ficar sempre visível
 }
 
-const AllStudiesCompletedMessage: React.FC<AllStudiesCompletedMessageProps> = ({ onHide }) => {
+const AllStudiesCompletedMessage: React.FC<AllStudiesCompletedMessageProps> = () => {
   const navigate = useNavigate();
   const [showReactivationModal, setShowReactivationModal] = useState(false);
 
@@ -138,22 +138,6 @@ const AllStudiesCompletedMessage: React.FC<AllStudiesCompletedMessageProps> = ({
                 Ver Revisão Geral
               </Button>
             </motion.div>
-            
-            {onHide && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1, duration: 0.5 }}
-              >
-                <Button
-                  onClick={onHide}
-                  variant="ghost"
-                  className="text-gray-500 hover:text-gray-700 text-sm"
-                >
-                  Fechar mensagem
-                </Button>
-              </motion.div>
-            )}
           </CardContent>
         </Card>
       </motion.div>
