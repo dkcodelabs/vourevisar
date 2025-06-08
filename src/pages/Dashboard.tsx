@@ -101,7 +101,7 @@ const Dashboard = () => {
   // Função para navegar para o plano de estudos
   const handleStartStudy = () => {
     console.log('Navegando para o plano de estudos...');
-    navigate('/plano-estudo');
+    navigate('/plano-estudos');
   };
 
   // Estados de loading e erro simplificados
