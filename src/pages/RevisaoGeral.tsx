@@ -1,178 +1,51 @@
+
 import React, { useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
-import { BarChart, BookOpenCheck, BrainCircuit, CalendarClock, CheckCircle2, GraduationCap, Sparkles } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { ModernStatisticsSection } from '@/components/revisao-geral/ModernStatisticsSection';
+import { HighProgressSubjectsSection } from '@/components/revisao-geral/HighProgressSubjectsSection';
+import { FullyCompletedSubjectsSection } from '@/components/revisao-geral/FullyCompletedSubjectsSection';
+import { TipsSection } from '@/components/revisao-geral/TipsSection';
+import { 
+  checkAllStudiesCompleted, 
+  isTopicDominated, 
+  getHighProgressSubjects, 
+  getFullyCompletedSubjects 
+} from '@/utils/studiesCompletionChecker';
+import { toast } from 'sonner';
+import { isAfter, isBefore, isToday } from 'date-fns';
+import { useState } from 'react';
 
-const PageContainer = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <div className="container mx-auto p-6">
-      {children}
-    </div>
-  );
-};
-
-const StatisticsSection = ({ studyProgress, isLoading }: { studyProgress: any, isLoading: boolean }) => {
-  if (isLoading) {
-    return <p>Carregando estatísticas...</p>;
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
   }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Estatísticas Gerais</CardTitle>
-        <CardDescription>Visão geral do seu progresso</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm font-medium">Matérias Concluídas</p>
-            <div className="text-2xl font-bold">{studyProgress.completedSubjects} / {studyProgress.totalSubjects}</div>
-          </div>
-          <div>
-            <p className="text-sm font-medium">Tópicos Concluídos</p>
-            <div className="text-2xl font-bold">{studyProgress.completedTopics} / {studyProgress.totalTopics}</div>
-          </div>
-          <div>
-            <p className="text-sm font-medium">Tópicos Atrasados</p>
-            <div className="text-2xl font-bold">{studyProgress.delayedTopics}</div>
-          </div>
-          <div>
-            <p className="text-sm font-medium">Tópicos para Hoje</p>
-            <div className="text-2xl font-bold">{studyProgress.todayTopics}</div>
-          </div>
-          <div>
-            <p className="text-sm font-medium">Tópicos Futuros</p>
-            <div className="text-2xl font-bold">{studyProgress.futureTopics}</div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
 };
 
-const ProgressBySubjectSection = ({ subjects, isLoading }: { subjects: any[], isLoading: boolean }) => {
-  if (isLoading) {
-    return <p>Carregando progresso por matéria...</p>;
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100
+    }
   }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Progresso por Matéria</CardTitle>
-        <CardDescription>Seu progresso detalhado em cada matéria</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[300px] w-full">
-          <div className="space-y-4">
-            {subjects.map((subject) => (
-              <div key={subject.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BookOpenCheck className="h-4 w-4 text-gray-500" />
-                    <span className="font-medium">{subject.name}</span>
-                  </div>
-                  <Badge variant="secondary">{subject.status}</Badge>
-                </div>
-                <Progress value={(subject.topics.filter((topic: { completed: any; }) => topic.completed).length / subject.topics.length) * 100} />
-                <div className="text-sm text-gray-500">
-                  {subject.topics.filter((topic: { completed: any; }) => topic.completed).length} / {subject.topics.length} Tópicos Concluídos
-                </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
-  );
-};
-
-const HighProgressSubjectsSection = ({ subjects, isLoading }: { subjects: any[], isLoading: boolean }) => {
-  if (isLoading) {
-    return <p>Carregando matérias com alto progresso...</p>;
-  }
-
-  const highProgressSubjects = subjects.filter((subject: { topics: any; }) =>
-    subject.topics.length > 0 && (subject.topics.filter((topic: { completed: any; }) => topic.completed).length / subject.topics.length) > 0.75
-  );
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Matérias com Alto Progresso</CardTitle>
-        <CardDescription>Matérias que você está quase concluindo</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {highProgressSubjects.length > 0 ? (
-          <ul className="list-disc pl-4">
-            {highProgressSubjects.map((subject: { id: any; name: any; }) => (
-              <li key={subject.id}>{subject.name}</li>
-            ))}
-          </ul>
-        ) : (
-          <p>Nenhuma matéria com alto progresso no momento.</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-const FullyCompletedSubjectsSection = ({ subjects, isLoading }: { subjects: any[], isLoading: boolean }) => {
-  if (isLoading) {
-    return <p>Carregando matérias totalmente concluídas...</p>;
-  }
-
-  const completedSubjects = subjects.filter((subject: { status: string; }) => subject.status === 'Concluída');
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Matérias Totalmente Concluídas</CardTitle>
-        <CardDescription>Parabéns pelas matérias que você já dominou!</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {completedSubjects.length > 0 ? (
-          <ul className="list-disc pl-4">
-            {completedSubjects.map((subject: { id: any; name: any; }) => (
-              <li key={subject.id}>{subject.name}</li>
-            ))}
-          </ul>
-        ) : (
-          <p>Nenhuma matéria totalmente concluída ainda.</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-const TipsSection = () => {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Dicas para Melhorar seus Estudos</CardTitle>
-        <CardDescription>Sugestões para otimizar seu aprendizado</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="list-disc pl-4 space-y-2">
-          <li>Revise os tópicos mais difíceis regularmente.</li>
-          <li>Varie os métodos de estudo para manter o interesse.</li>
-          <li>Estabeleça metas realistas e celebre suas conquistas.</li>
-          <li>Use flashcards para memorização.</li>
-          <li>Ensine o que você aprendeu para reforçar o conhecimento.</li>
-        </ul>
-      </CardContent>
-    </Card>
-  );
 };
 
 const RevisaoGeral = () => {
-  const { subjects, studyProgress, isLoading } = useApp();
+  const { subjects, isLoading } = useApp();
   const { user } = useAuth();
+  const [showAllHighProgress, setShowAllHighProgress] = useState(false);
+  const [showAllCompleted, setShowAllCompleted] = useState(false);
 
   // Query para buscar métricas de sessões de estudo
   const { data: studyMetrics, isLoading: metricsLoading } = useQuery({
@@ -180,7 +53,6 @@ const RevisaoGeral = () => {
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
       
-      // Buscar sessões de estudo
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('study_sessions')
         .select('*')
@@ -189,16 +61,7 @@ const RevisaoGeral = () => {
 
       if (sessionsError) throw sessionsError;
 
-      // Buscar matérias concluídas
-      const { data: completedSubjects, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('id, name, status, completed_at, created_at')
-        .eq('user_id', user.id)
-        .eq('status', 'Concluída');
-
-      if (subjectsError) throw subjectsError;
-
-      // Buscar total de tópicos dominados
+      const userSubjectIds = subjects.map(s => s.id);
       const { data: dominatedTopics, error: topicsError } = await supabase
         .from('topics')
         .select('id, review_stage, subject_id')
@@ -206,13 +69,10 @@ const RevisaoGeral = () => {
 
       if (topicsError) throw topicsError;
 
-      // Filtrar tópicos que pertencem ao usuário
-      const userSubjectIds = subjects.map(s => s.id);
       const userDominatedTopics = dominatedTopics?.filter(topic => 
         userSubjectIds.includes(topic.subject_id)
       ) || [];
 
-      // Calcular dias estudando consecutivos
       let consecutiveDays = 0;
       if (sessionsData && sessionsData.length > 0) {
         const today = new Date();
@@ -234,107 +94,188 @@ const RevisaoGeral = () => {
         }
       }
 
-      // Calcular tempo total de estudo estimado
-      const totalStudyTime = sessionsData?.reduce((sum, session) => 
-        sum + (session.session_duration_minutes || 0), 0) || 0;
-
       return {
         totalSessions: sessionsData?.length || 0,
-        totalStudyTime,
-        completedSubjectsCount: completedSubjects?.length || 0,
-        dominatedTopicsCount: userDominatedTopics.length,
         consecutiveDays,
-        lastStudyDate: sessionsData?.[0]?.session_date || null,
-        completedSubjects: completedSubjects || []
+        dominatedTopicsCount: userDominatedTopics.length
       };
     },
     enabled: !!user && subjects.length > 0
   });
 
-  return (
-    <PageContainer>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Revisão Geral dos Estudos</h1>
-          <p className="text-gray-600">Acompanhe seu progresso e conquistas</p>
-        </div>
+  // Calcular estatísticas dos tópicos
+  const calculateTopicStats = () => {
+    let completedTopics = 0;
+    let dominatedTopics = 0;
+    let delayedTopics = 0;
+    let futureTopics = 0;
+    let totalTopics = 0;
 
-        {/* Métricas Principais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-center">Matérias Dominadas</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <div className="text-3xl font-bold text-green-600 mb-2">
-                {studyMetrics?.completedSubjectsCount || 0}
-              </div>
-              <p className="text-sm text-gray-600">Matérias 100% concluídas</p>
-            </CardContent>
-          </Card>
+    subjects.forEach(subject => {
+      subject.topics.forEach(topic => {
+        totalTopics++;
+        
+        if (topic.completed || topic.reviewStage) {
+          completedTopics++;
+        }
+        
+        if (isTopicDominated(topic)) {
+          dominatedTopics++;
+        }
+        
+        if (topic.nextReview) {
+          const reviewDate = new Date(topic.nextReview);
+          if (isToday(reviewDate)) {
+            // Para hoje, não contamos como atrasado nem futuro
+          } else if (isBefore(reviewDate, new Date())) {
+            delayedTopics++;
+          } else if (isAfter(reviewDate, new Date())) {
+            futureTopics++;
+          }
+        }
+      });
+    });
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-center">Tópicos Dominados</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2">
-                {studyMetrics?.dominatedTopicsCount || 0}
-              </div>
-              <p className="text-sm text-gray-600">Tópicos totalmente dominados</p>
-            </CardContent>
-          </Card>
+    return {
+      totalTopics,
+      completedTopics,
+      dominatedTopics,
+      delayedTopics,
+      futureTopics
+    };
+  };
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-center">Dias Consecutivos</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <div className="text-3xl font-bold text-purple-600 mb-2">
-                {studyMetrics?.consecutiveDays || 0}
-              </div>
-              <p className="text-sm text-gray-600">Estudando sem parar</p>
-            </CardContent>
-          </Card>
+  const topicStats = calculateTopicStats();
+  const completedSubjects = getFullyCompletedSubjects(subjects);
+  const highProgressSubjects = getHighProgressSubjects(subjects);
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-center">Sessões de Estudo</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <div className="text-3xl font-bold text-orange-600 mb-2">
-                {studyMetrics?.totalSessions || 0}
-              </div>
-              <p className="text-sm text-gray-600">Sessões realizadas</p>
-            </CardContent>
-          </Card>
-        </div>
+  const handleReactivateSubject = async (subjectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('subjects')
+        .update({ status: 'Em Estudo' })
+        .eq('id', subjectId);
 
-        {/* Seções existentes */}
-        <StatisticsSection 
-          studyProgress={studyProgress}
-          isLoading={isLoading}
-        />
+      if (error) throw error;
 
-        <ProgressBySubjectSection 
-          subjects={subjects}
-          isLoading={isLoading}
-        />
+      toast.success('Matéria reativada com sucesso!');
+      // Refresh the page data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error reactivating subject:', error);
+      toast.error('Erro ao reativar matéria');
+    }
+  };
 
-        <HighProgressSubjectsSection 
-          subjects={subjects}
-          isLoading={isLoading}
-        />
+  const getLastReviewDate = (subject: any): Date | null => {
+    const lastDates = subject.topics
+      .map((topic: any) => topic.last_reviewed_at)
+      .filter(Boolean)
+      .map((date: string) => new Date(date));
+    
+    return lastDates.length > 0 ? new Date(Math.max(...lastDates.map(d => d.getTime()))) : null;
+  };
 
-        <FullyCompletedSubjectsSection 
-          subjects={subjects}
-          isLoading={isLoading}
-        />
+  const highProgressLimit = 3;
+  const completedLimit = 5;
 
-        <TipsSection />
+  const displayedHighProgress = showAllHighProgress 
+    ? highProgressSubjects 
+    : highProgressSubjects.slice(0, highProgressLimit);
+
+  const displayedCompleted = showAllCompleted 
+    ? completedSubjects 
+    : completedSubjects.slice(0, completedLimit);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
-    </PageContainer>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <motion.div 
+        className="space-y-8"
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+      >
+        {/* Header */}
+        <motion.div variants={itemVariants} className="text-center mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
+            🎯 Revisão Geral dos Estudos
+          </h1>
+          <p className="text-lg text-gray-600">Acompanhe seu progresso e conquistas acadêmicas</p>
+        </motion.div>
+
+        {/* Métricas Principais com Cards Destacados */}
+        <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-gradient-to-br from-green-100 to-emerald-100 p-6 rounded-xl border border-green-200 text-center">
+            <div className="text-4xl font-bold text-green-600 mb-2">{completedSubjects.length}</div>
+            <h3 className="text-lg font-semibold text-green-800 mb-1">Matérias Dominadas</h3>
+            <p className="text-sm text-green-600">100% concluídas</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-100 to-cyan-100 p-6 rounded-xl border border-blue-200 text-center">
+            <div className="text-4xl font-bold text-blue-600 mb-2">{topicStats.dominatedTopics}</div>
+            <h3 className="text-lg font-semibold text-blue-800 mb-1">Tópicos Dominados</h3>
+            <p className="text-sm text-blue-600">totalmente dominados</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-100 to-violet-100 p-6 rounded-xl border border-purple-200 text-center">
+            <div className="text-4xl font-bold text-purple-600 mb-2">{studyMetrics?.consecutiveDays || 0}</div>
+            <h3 className="text-lg font-semibold text-purple-800 mb-1">Dias Consecutivos</h3>
+            <p className="text-sm text-purple-600">estudando sem parar</p>
+          </div>
+        </motion.div>
+
+        {/* Estatísticas Detalhadas */}
+        <ModernStatisticsSection 
+          totalSubjects={subjects.length}
+          completedSubjects={completedSubjects.length}
+          totalTopics={topicStats.totalTopics}
+          completedTopics={topicStats.completedTopics}
+          delayedTopics={topicStats.delayedTopics}
+          futureTopics={topicStats.futureTopics}
+          dominatedTopics={topicStats.dominatedTopics}
+          isLoading={isLoading || metricsLoading}
+        />
+
+        {/* Matérias com Alto Progresso - só mostrar se houver */}
+        {highProgressSubjects.length > 0 && (
+          <HighProgressSubjectsSection
+            highProgressSubjects={displayedHighProgress}
+            isTopicFullyDominated={isTopicDominated}
+            handleReactivateSubject={handleReactivateSubject}
+            getLastReviewDate={getLastReviewDate}
+            totalCount={highProgressSubjects.length}
+            showAll={showAllHighProgress}
+            onToggleShowAll={() => setShowAllHighProgress(!showAllHighProgress)}
+            limit={highProgressLimit}
+          />
+        )}
+
+        {/* Matérias Totalmente Concluídas */}
+        {completedSubjects.length > 0 && (
+          <FullyCompletedSubjectsSection
+            fullyCompletedSubjects={displayedCompleted}
+            isTopicFullyDominated={isTopicDominated}
+            handleReactivateSubject={handleReactivateSubject}
+            getLastReviewDate={getLastReviewDate}
+            totalCount={completedSubjects.length}
+            showAll={showAllCompleted}
+            onToggleShowAll={() => setShowAllCompleted(!showAllCompleted)}
+            limit={completedLimit}
+          />
+        )}
+
+        {/* Dicas para Estudos */}
+        <TipsSection />
+      </motion.div>
+    </div>
   );
 };
 

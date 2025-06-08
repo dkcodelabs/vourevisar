@@ -8,11 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import SubjectReactivationModal from './SubjectReactivationModal';
 
-interface AllStudiesCompletedMessageProps {
-  // Removemos a prop onHide pois a mensagem deve ficar sempre visível
-}
-
-const AllStudiesCompletedMessage: React.FC<AllStudiesCompletedMessageProps> = () => {
+const AllStudiesCompletedMessage: React.FC = () => {
   const navigate = useNavigate();
   const [showReactivationModal, setShowReactivationModal] = useState(false);
 

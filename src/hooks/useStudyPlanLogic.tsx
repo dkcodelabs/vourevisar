@@ -29,10 +29,18 @@ export const useStudyPlanLogic = () => {
   const isNewCycleStarted = userCycle && userCycle.ciclo_atual.length > 0 && 
     !userCycle.data_fim_ciclo && userCycle.disciplinas_do_dia.length === 0;
 
-  // Check for all studies completed
+  // Check for all studies completed - this should be persistent
   useEffect(() => {
-    const allCompleted = checkAllStudiesCompleted(subjects);
-    setAllStudiesCompleted(allCompleted);
+    if (subjects.length > 0) {
+      const allCompleted = checkAllStudiesCompleted(subjects);
+      setAllStudiesCompleted(allCompleted);
+      
+      console.log('All studies completed check:', {
+        subjectsLength: subjects.length,
+        allCompleted,
+        completedSubjects: subjects.filter(s => s.status === 'Concluída').length
+      });
+    }
   }, [subjects]);
 
   // Load user cycle
@@ -68,7 +76,8 @@ export const useStudyPlanLogic = () => {
 
   const allDaySubjectsCompleted = dailySubjects.length === 0 && 
     userCycle && 
-    userCycle.disciplinas_do_dia.length > 0;
+    userCycle.disciplinas_do_dia.length > 0 &&
+    !allStudiesCompleted; // Don't show day completed if all studies are completed
 
   const handleNextDay = useCallback(async () => {
     if (!user || !userCycle) return;
