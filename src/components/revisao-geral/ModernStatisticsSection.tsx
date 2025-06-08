@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { GlassCard } from '@/components/ui/glass-card';
+import GlassCard from '@/components/ui/glass-card';
 import { CheckCircle, BookOpen, AlertTriangle, Clock, Trophy, TrendingUp } from 'lucide-react';
 
 interface ModernStatisticsSectionProps {
