@@ -62,7 +62,7 @@ const StudyPlan = () => {
     disciplinasNaoIniciadas
   } = useStudyPlanLogic();
 
-  console.log('StudyPlan render:', {
+  console.log('📊 StudyPlan render - Detailed state:', {
     allDaySubjectsCompleted,
     hasAvailableSubjects,
     dailySubjectsLength: dailySubjects.length,
@@ -71,7 +71,11 @@ const StudyPlan = () => {
     showNewCycleMessage,
     allStudiesCompleted,
     disciplinas_do_dia: userCycle?.disciplinas_do_dia,
-    ciclo_atual: userCycle?.ciclo_atual
+    ciclo_atual: userCycle?.ciclo_atual,
+    disciplinasIniciadas: disciplinasIniciadas.length,
+    disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
+    totalDisciplinasCiclo,
+    disciplinasConcluidas
   });
 
   return (

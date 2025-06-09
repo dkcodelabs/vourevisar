@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,12 +29,24 @@ export const useStudyPlanLogic = () => {
   const isNewCycleStarted = userCycle && userCycle.ciclo_atual.length > 0 && 
     !userCycle.data_fim_ciclo && userCycle.disciplinas_do_dia.length === 0;
 
+  // Debug log dos subjects carregados
+  useEffect(() => {
+    console.log('📚 useStudyPlanLogic - Subjects loaded:', {
+      subjectsCount: subjects.length,
+      subjects: subjects.map(s => ({ id: s.id, name: s.name, status: s.status })),
+      isLoading
+    });
+  }, [subjects, isLoading]);
+
   // Check for all studies completed - this should be persistent
   useEffect(() => {
     if (subjects.length > 0) {
       const allCompleted = checkAllStudiesCompleted(subjects);
       console.log('🎯 useStudyPlanLogic - Setting allStudiesCompleted:', allCompleted);
       setAllStudiesCompleted(allCompleted);
+    } else {
+      console.log('🎯 useStudyPlanLogic - No subjects found, setting allStudiesCompleted to false');
+      setAllStudiesCompleted(false);
     }
   }, [subjects]);
 
@@ -49,6 +62,7 @@ export const useStudyPlanLogic = () => {
 
       try {
         const data = await loadUserCycle(user.id);
+        console.log('🔄 useStudyPlanLogic - User cycle loaded:', data);
         setUserCycle(data);
       } catch (error) {
         console.error('Exception loading user cycle:', error);
@@ -83,7 +97,10 @@ export const useStudyPlanLogic = () => {
     allStudiesCompleted,
     allDaySubjectsCompleted,
     subjectsLength: subjects.length,
-    dailySubjectsLength: dailySubjects.length
+    dailySubjectsLength: dailySubjects.length,
+    hasAvailableSubjects,
+    disciplinasIniciadas: disciplinasIniciadas.length,
+    disciplinasNaoIniciadas: disciplinasNaoIniciadas.length
   });
 
   const handleNextDay = useCallback(async () => {

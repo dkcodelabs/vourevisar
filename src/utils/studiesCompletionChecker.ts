@@ -2,6 +2,11 @@
 import { Subject } from '@/types';
 
 export const checkAllStudiesCompleted = (subjects: Subject[]): boolean => {
+  console.log('🔍 checkAllStudiesCompleted chamado com:', {
+    subjectsCount: subjects.length,
+    subjects: subjects.map(s => ({ id: s.id, name: s.name, status: s.status }))
+  });
+
   if (!subjects || subjects.length === 0) {
     console.log('🔍 checkAllStudiesCompleted: Nenhuma matéria encontrada');
     return false;
