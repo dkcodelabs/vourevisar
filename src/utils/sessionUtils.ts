@@ -118,7 +118,7 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     subjectCompleted = true;
   }
 
-  // CRITICAL FIX: Atualizar o ciclo do usuário - SEMPRE remover a matéria da fila do dia
+  // CORREÇÃO CRÍTICA: Atualizar o ciclo do usuário corretamente
   const { data: user } = await supabase.auth.getUser();
   if (user.user) {
     // Get current user cycle
@@ -131,15 +131,15 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     if (currentCycle) {
       console.log('🔄 Removendo matéria da fila do dia após sessão concluída');
       
-      // SEMPRE remove a matéria da fila do dia, independente se foi concluída ou não
+      // SEMPRE remove a matéria da fila do dia
       const updatedDisciplinasoDia = currentCycle.disciplinas_do_dia.filter((id: string) => id !== subjectId);
       
       // Get user settings for subjects per day
       const userSettings = await getUserSettings(user.user.id);
       const subjectsPerDay = userSettings.subjects_per_day;
       
-      // Get remaining subjects in cycle that are available for study
-      // Ordenar por prioridade (menor número = maior prioridade)
+      // CORREÇÃO: Filtrar apenas matérias que estão no ciclo atual E não estão concluídas
+      // E ordenar por prioridade corretamente
       const availableSubjects = subjects
         .filter(s => 
           currentCycle.ciclo_atual.includes(s.id) && 
@@ -147,7 +147,13 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
           !updatedDisciplinasoDia.includes(s.id) &&
           s.id !== subjectId // Exclude the just studied subject
         )
-        .sort((a, b) => (a.priority || 999) - (b.priority || 999)); // Ordenar por prioridade
+        .sort((a, b) => (a.priority || 999) - (b.priority || 999)); // Ordenar por prioridade CORRETAMENTE
+
+      console.log('📚 Matérias disponíveis após filtro:', {
+        availableSubjects: availableSubjects.map(s => ({ name: s.name, priority: s.priority, status: s.status })),
+        currentCycleIds: currentCycle.ciclo_atual,
+        allSubjects: subjects.map(s => ({ name: s.name, status: s.status, priority: s.priority }))
+      });
 
       // Add new subjects to fill the daily quota if available
       const spotsToFill = Math.max(0, subjectsPerDay - updatedDisciplinasoDia.length);
@@ -163,7 +169,9 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
         removedSubject: subjectId,
         oldQueue: currentCycle.disciplinas_do_dia,
         newQueue: finalDisciplinasoDia,
-        addedSubjects: subjectsToAdd.map(s => ({ name: s.name, priority: s.priority }))
+        addedSubjects: subjectsToAdd.map(s => ({ name: s.name, priority: s.priority })),
+        spotsToFill,
+        subjectsPerDay
       });
 
       // Update the user cycle

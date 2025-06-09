@@ -71,7 +71,10 @@ const StudyPlan = () => {
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
     userCycle,
-    showNewCycleMessage
+    showNewCycleMessage,
+    disciplinasConcluidas,
+    totalDisciplinasCiclo,
+    disciplinasIniciadas
   });
 
   return (
@@ -188,7 +191,7 @@ const StudyPlan = () => {
                     <DayCompletedMessage onNextDay={handleNextDay} />
                   </motion.div>
                 ) : dailySubjects.length > 0 ? (
-                  /* Se há matérias do dia para estudar */
+                  /* Se há matérias do dia para estudar - ordenadas por prioridade */
                   dailySubjects.map((subject) => (
                     <motion.div key={subject.id} variants={itemVariants}>
                       <SubjectCard
@@ -212,6 +215,7 @@ const StudyPlan = () => {
                 onHide={handleHideNewCycleMessage}
               />
 
+              {/* CORREÇÃO: Só mostrar próximas matérias se há matérias disponíveis E nextSubjects > 0 */}
               {hasAvailableSubjects && nextSubjects.length > 0 && (
                 <motion.div variants={itemVariants}>
                   <NextSubjects nextSubjects={nextSubjects} />

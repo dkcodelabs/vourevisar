@@ -12,6 +12,9 @@ interface NextSubjectsProps {
 const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
   if (nextSubjects.length === 0) return null;
 
+  // CORREÇÃO: Garantir que as matérias estão ordenadas por prioridade
+  const sortedSubjects = [...nextSubjects].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+
   return (
     <>
       <h2 className="text-lg font-bold mb-2 flex items-center">
@@ -19,7 +22,7 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
         Próximas Disciplinas
       </h2>
       <div className="space-y-1">
-        {nextSubjects.map(subject => (
+        {sortedSubjects.map(subject => (
           <motion.div
             key={subject.id}
             whileHover={{ scale: 1.01 }}
@@ -32,6 +35,11 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
                   <BookOpen size={16} className="text-app-blue" />
                   <h3 className="font-medium text-sm">{subject.name}</h3>
                   <p className="text-xs text-gray-500">{subject.topics.length} tópicos</p>
+                  {subject.priority && (
+                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                      #{subject.priority}
+                    </span>
+                  )}
                 </div>
               </CardContent>
             </Card>
