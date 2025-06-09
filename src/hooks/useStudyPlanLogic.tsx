@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -135,19 +134,26 @@ export const useStudyPlanLogic = () => {
     return () => clearTimeout(timeoutId);
   }, [user, subjects, userCycle, isRefreshing]);
 
+  // Ordenar dailySubjects por prioridade
   const dailySubjects = userCycle?.disciplinas_do_dia
-    ? subjects.filter(subject => 
-        userCycle.disciplinas_do_dia.includes(subject.id) && 
-        subject.status !== 'Concluída'
-      )
+    ? subjects
+        .filter(subject => 
+          userCycle.disciplinas_do_dia.includes(subject.id) && 
+          subject.status !== 'Concluída'
+        )
+        .sort((a, b) => (a.priority || 999) - (b.priority || 999)) // Ordenar por prioridade
     : [];
 
+  // Ordenar nextSubjects por prioridade e filtrar matérias que não estão concluídas
   const nextSubjects = userCycle?.ciclo_atual
-    ? subjects.filter(subject => 
-        userCycle.ciclo_atual.includes(subject.id) && 
-        !userCycle.disciplinas_do_dia.includes(subject.id) &&
-        subject.status !== 'Concluída'
-      ).slice(0, 3)
+    ? subjects
+        .filter(subject => 
+          userCycle.ciclo_atual.includes(subject.id) && 
+          !userCycle.disciplinas_do_dia.includes(subject.id) &&
+          subject.status !== 'Concluída' // IMPORTANTE: não mostrar matérias concluídas
+        )
+        .sort((a, b) => (a.priority || 999) - (b.priority || 999)) // Ordenar por prioridade
+        .slice(0, 3)
     : [];
 
   // CRITICAL FIX: Lógica melhorada para day completed
@@ -164,6 +170,7 @@ export const useStudyPlanLogic = () => {
     currentCycleCompleted,
     subjectsLength: subjects.length,
     dailySubjectsLength: dailySubjects.length,
+    nextSubjectsLength: nextSubjects.length,
     hasAvailableSubjects,
     disciplinasIniciadas: disciplinasIniciadas.length,
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
@@ -221,16 +228,13 @@ export const useStudyPlanLogic = () => {
       setExpandedSubject('');
       toast.success('Sessão concluída com sucesso!');
 
-      // Refresh dos dados para garantir que a interface seja atualizada
-      setTimeout(() => {
-        refreshData().finally(() => {
-          setIsRefreshing(false);
-        });
-      }, 1000);
+      // OTIMIZAÇÃO: Refresh imediato sem delay para interface mais fluida
+      await refreshData();
 
     } catch (error) {
       console.error('Error completing session:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao concluir sessão');
+    } finally {
       setIsRefreshing(false);
     }
   }, [tempMarkedTopics, subjects, refreshData, isRefreshing]);
