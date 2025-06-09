@@ -80,21 +80,29 @@ const SubjectReactivationModal: React.FC<SubjectReactivationModalProps> = ({ isO
         })
         .in('id', subjectIds);
 
-      if (subjectsError) throw subjectsError;
+      if (subjectsError) {
+        console.error('❌ Error updating subjects:', subjectsError);
+        throw subjectsError;
+      }
+
+      console.log('✅ Subjects updated to "Em Estudo"');
 
       // 2. Create new cycle with reactivated subjects
       const cycleResult = await createNewCycleForReactivatedSubjects(user.id, subjectIds);
 
       console.log('✅ Novo ciclo criado:', cycleResult);
 
-      toast.success(`${subjectIds.length} matéria(s) reativada(s) com sucesso! Ciclo resetado.`);
+      toast.success(`${subjectIds.length} matéria(s) reativada(s) com sucesso! Novo ciclo criado.`);
       
-      // Refresh dos dados
+      // 3. Refresh dos dados e aguardar um pouco para garantir que tudo foi atualizado
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await refreshData();
+      
+      console.log('✅ Dados atualizados após reativação');
       
       onClose();
     } catch (error) {
-      console.error('Erro ao reativar matérias:', error);
+      console.error('❌ Erro ao reativar matérias:', error);
       toast.error('Erro ao reativar matérias. Tente novamente.');
     } finally {
       setIsReactivating(false);

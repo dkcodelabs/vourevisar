@@ -59,25 +59,68 @@ export const createNewCycleForReactivatedSubjects = async (
   userId: string, 
   subjectIds: string[]
 ) => {
+  console.log('🔄 createNewCycleForReactivatedSubjects - Starting:', { userId, subjectIds });
+  
   const userSettings = await getUserSettings(userId);
   const subjectsPerDay = userSettings.subjects_per_day;
   
   // Select first N subjects for today based on user settings
   const dailySubjects = subjectIds.slice(0, Math.min(subjectsPerDay, subjectIds.length));
 
-  const { error } = await supabase
+  console.log('📚 Settings and daily subjects:', { subjectsPerDay, dailySubjects });
+
+  // Use UPSERT to ensure the record is created or updated
+  const { data, error } = await supabase
     .from('user_cycles')
-    .update({
+    .upsert({
+      user_id: userId,
       ciclo_atual: subjectIds,
       disciplinas_do_dia: dailySubjects,
       ciclos_realizados: 0, // Reset cycle count
       data_inicio_ciclo: new Date().toISOString(),
       data_fim_ciclo: null,
       atualizado_em: new Date().toISOString()
+    }, {
+      onConflict: 'user_id'
     })
-    .eq('user_id', userId);
+    .select()
+    .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('❌ Error creating/updating cycle:', error);
+    throw error;
+  }
 
-  return { dailySubjects, totalCycleSubjects: subjectIds.length };
+  console.log('✅ Cycle created/updated successfully:', data);
+
+  return { 
+    dailySubjects, 
+    totalCycleSubjects: subjectIds.length,
+    cycleData: data
+  };
+};
+
+export const createCycleForOrphanSubjects = async (userId: string, subjects: Subject[]) => {
+  console.log('🔄 createCycleForOrphanSubjects - Starting');
+  
+  // Find subjects that are "Em Estudo" but not in any cycle
+  const orphanSubjects = subjects.filter(s => s.status === 'Em Estudo');
+  
+  if (orphanSubjects.length === 0) {
+    console.log('📚 No orphan subjects found');
+    return null;
+  }
+
+  console.log('📚 Found orphan subjects:', orphanSubjects.map(s => s.name));
+
+  const subjectIds = orphanSubjects.map(s => s.id);
+  
+  try {
+    const result = await createNewCycleForReactivatedSubjects(userId, subjectIds);
+    console.log('✅ Cycle created for orphan subjects:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Error creating cycle for orphan subjects:', error);
+    throw error;
+  }
 };
