@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
@@ -11,7 +10,7 @@ import NewCycleMessage from '@/components/study-plan/NewCycleMessage';
 import AllStudiesCompletedMessage from '@/components/study-plan/AllStudiesCompletedMessage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Plus } from 'lucide-react';
+import { BookOpen, Plus, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const containerVariants = {
@@ -52,6 +51,7 @@ const StudyPlan = () => {
     disciplinasConcluidas,
     isNewCycleStarted,
     allStudiesCompleted,
+    currentCycleCompleted,
     handleNextDay,
     handleCompleteSession,
     handleToggleExpand,
@@ -70,6 +70,7 @@ const StudyPlan = () => {
     userCycle,
     showNewCycleMessage,
     allStudiesCompleted,
+    currentCycleCompleted,
     disciplinas_do_dia: userCycle?.disciplinas_do_dia,
     ciclo_atual: userCycle?.ciclo_atual,
     disciplinasIniciadas,
@@ -101,13 +102,58 @@ const StudyPlan = () => {
         <motion.div className="space-y-4" variants={containerVariants}>
           <StudyPlanHeader onNextDay={handleNextDay} />
 
-          {/* PRIORIDADE MÁXIMA: Mensagem de conclusão total - sempre visível quando aplicável */}
+          {/* PRIORIDADE MÁXIMA: Mensagem de conclusão total - apenas quando TODOS os estudos estão completos */}
           {allStudiesCompleted ? (
             <motion.div variants={itemVariants}>
               <AllStudiesCompletedMessage />
             </motion.div>
+          ) : currentCycleCompleted ? (
+            /* Mensagem de ciclo completo - quando apenas o ciclo atual foi concluído */
+            <motion.div variants={itemVariants}>
+              <Card className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-4 border-green-300 shadow-xl">
+                <CardHeader className="text-center pb-6">
+                  <motion.div
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: 0.3, duration: 0.6, type: "spring", bounce: 0.5 }}
+                    className="flex justify-center mb-4"
+                  >
+                    <Trophy className="h-16 w-16 text-green-500 drop-shadow-lg" />
+                  </motion.div>
+                  
+                  <CardTitle className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent mb-3">
+                    🎉 CICLO COMPLETO! 🎉
+                  </CardTitle>
+                  <div className="text-xl md:text-2xl font-bold text-gray-800 mb-3">
+                    Parabéns! Você completou este ciclo de estudos!
+                  </div>
+                  <p className="text-gray-700 text-base leading-relaxed max-w-xl mx-auto mb-4">
+                    Excelente trabalho! Você concluiu todas as matérias do seu ciclo atual. 
+                    Agora você pode iniciar um novo ciclo ou adicionar mais matérias.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button
+                      onClick={handleNextDay}
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                    >
+                      Iniciar Novo Ciclo
+                    </Button>
+                    <Button
+                      onClick={() => navigate('/materias')}
+                      variant="outline"
+                      className="border-2 border-green-400 text-green-700 hover:bg-green-50"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Matérias
+                    </Button>
+                  </div>
+                </CardHeader>
+              </Card>
+            </motion.div>
           ) : (
             <>
+              {/* Sempre mostrar informações do ciclo quando há um ciclo ativo */}
               {userCycle && hasAvailableSubjects && (
                 <motion.div variants={itemVariants}>
                   <CycleInfo 

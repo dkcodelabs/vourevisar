@@ -33,6 +33,11 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
   disciplinasIniciadas,
   disciplinasNaoIniciadas
 }) => {
+  // Se não há ciclo, não renderizar
+  if (!userCycle || !userCycle.ciclo_atual || userCycle.ciclo_atual.length === 0) {
+    return null;
+  }
+
   return (
     <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
       <CardContent className="p-4">
