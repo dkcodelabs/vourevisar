@@ -1,4 +1,3 @@
-
 import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextReviewDate } from './reviewStageUtils';
@@ -31,23 +30,23 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     switch (currentReviewCount) {
       case 0: // First review
         newReviewStage = '1d';
-        nextReviewDate = getNextReviewDate('1d');
+        nextReviewDate = new Date(getNextReviewDate('1d'));
         break;
       case 1: // Second review
         newReviewStage = '3d';
-        nextReviewDate = getNextReviewDate('3d');
+        nextReviewDate = new Date(getNextReviewDate('3d'));
         break;
       case 2: // Third review
         newReviewStage = '7d';
-        nextReviewDate = getNextReviewDate('7d');
+        nextReviewDate = new Date(getNextReviewDate('7d'));
         break;
       case 3: // Fourth review
         newReviewStage = '15d';
-        nextReviewDate = getNextReviewDate('15d');
+        nextReviewDate = new Date(getNextReviewDate('15d'));
         break;
       case 4: // Fifth review
         newReviewStage = '30d';
-        nextReviewDate = getNextReviewDate('30d');
+        nextReviewDate = new Date(getNextReviewDate('30d'));
         break;
       default: // Sixth review and beyond
         newReviewStage = 'Concluído';
