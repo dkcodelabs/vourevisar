@@ -36,6 +36,9 @@ const TopicItem: React.FC<TopicItemProps> = ({
   };
 
   const reviewStage = getTopicReviewStage(topic);
+  
+  // FIXED: Only disable if the topic is truly completed (review_stage === 'Concluído')
+  // Not just based on the old 'completed' field
   const isTopicCompleted = topic.reviewStage === 'Concluído';
 
   const handleMarkForReview = (e: React.MouseEvent) => {
