@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
@@ -62,21 +63,15 @@ const StudyPlan = () => {
     disciplinasNaoIniciadas
   } = useStudyPlanLogic();
 
-  console.log('📊 StudyPlan render - Detailed state:', {
-    allDaySubjectsCompleted,
-    hasAvailableSubjects,
+  console.log('📊 StudyPlan render - PRIORITY CHECK:', {
+    '1-allStudiesCompleted': allStudiesCompleted,
+    '2-currentCycleCompleted': currentCycleCompleted,
+    '3-allDaySubjectsCompleted': allDaySubjectsCompleted,
+    '4-hasAvailableSubjects': hasAvailableSubjects,
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
     userCycle,
-    showNewCycleMessage,
-    allStudiesCompleted,
-    currentCycleCompleted,
-    disciplinas_do_dia: userCycle?.disciplinas_do_dia,
-    ciclo_atual: userCycle?.ciclo_atual,
-    disciplinasIniciadas,
-    disciplinasNaoIniciadas,
-    totalDisciplinasCiclo,
-    disciplinasConcluidas
+    showNewCycleMessage
   });
 
   return (
@@ -102,13 +97,13 @@ const StudyPlan = () => {
         <motion.div className="space-y-4" variants={containerVariants}>
           <StudyPlanHeader onNextDay={handleNextDay} />
 
-          {/* PRIORIDADE MÁXIMA: Mensagem de conclusão total - apenas quando TODOS os estudos estão completos */}
+          {/* PRIORIDADE 1: Verificar se REALMENTE todos os estudos estão completos */}
           {allStudiesCompleted ? (
             <motion.div variants={itemVariants}>
               <AllStudiesCompletedMessage />
             </motion.div>
           ) : currentCycleCompleted ? (
-            /* Mensagem de ciclo completo - quando apenas o ciclo atual foi concluído */
+            /* PRIORIDADE 2: Mensagem de ciclo completo - quando apenas o ciclo atual foi concluído */
             <motion.div variants={itemVariants}>
               <Card className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-4 border-green-300 shadow-xl">
                 <CardHeader className="text-center pb-6">
@@ -153,7 +148,7 @@ const StudyPlan = () => {
             </motion.div>
           ) : (
             <>
-              {/* Sempre mostrar informações do ciclo quando há um ciclo ativo */}
+              {/* SEMPRE mostrar informações do ciclo quando há um ciclo ativo E matérias disponíveis */}
               {userCycle && hasAvailableSubjects && (
                 <motion.div variants={itemVariants}>
                   <CycleInfo 
@@ -187,32 +182,28 @@ const StudyPlan = () => {
                       </CardContent>
                     </Card>
                   </motion.div>
-                ) : (
-                  /* Se há matérias, mostrar o plano de estudos normal */
-                  <>
-                    {dailySubjects.length > 0 ? (
-                      dailySubjects.map((subject) => (
-                        <motion.div key={subject.id} variants={itemVariants}>
-                          <SubjectCard
-                            subject={subject}
-                            isExpanded={expandedSubject === subject.id}
-                            tempMarkedTopics={tempMarkedTopics}
-                            onToggleExpand={handleToggleExpand}
-                            onMarkTopicForReview={handleMarkTopicForReview}
-                            onCancelTopicReview={handleCancelTopicReview}
-                            onCompleteSession={handleCompleteSession}
-                            isDaySubject={true}
-                          />
-                        </motion.div>
-                      ))
-                    ) : allDaySubjectsCompleted ? (
-                      /* Conclusão do dia */
-                      <motion.div variants={itemVariants}>
-                        <DayCompletedMessage onNextDay={handleNextDay} />
-                      </motion.div>
-                    ) : null}
-                  </>
-                )}
+                ) : allDaySubjectsCompleted ? (
+                  /* PRIORIDADE 3: Conclusão do dia - quando todas as matérias do dia foram completadas */
+                  <motion.div variants={itemVariants}>
+                    <DayCompletedMessage onNextDay={handleNextDay} />
+                  </motion.div>
+                ) : dailySubjects.length > 0 ? (
+                  /* Se há matérias do dia para estudar */
+                  dailySubjects.map((subject) => (
+                    <motion.div key={subject.id} variants={itemVariants}>
+                      <SubjectCard
+                        subject={subject}
+                        isExpanded={expandedSubject === subject.id}
+                        tempMarkedTopics={tempMarkedTopics}
+                        onToggleExpand={handleToggleExpand}
+                        onMarkTopicForReview={handleMarkTopicForReview}
+                        onCancelTopicReview={handleCancelTopicReview}
+                        onCompleteSession={handleCompleteSession}
+                        isDaySubject={true}
+                      />
+                    </motion.div>
+                  ))
+                ) : null}
               </div>
 
               {/* Mensagem de novo ciclo */}

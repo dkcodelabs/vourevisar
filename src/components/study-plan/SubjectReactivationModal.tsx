@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -68,42 +69,48 @@ const SubjectReactivationModal: React.FC<SubjectReactivationModalProps> = ({ isO
     setIsReactivating(true);
     
     try {
-      console.log('🔄 Reativando matérias:', { subjectIds, userId: user.id });
+      console.log('🔄 Iniciando reativação das matérias:', { subjectIds, userId: user.id });
 
-      // 1. Update subject status to "Em Estudo" - DON'T touch topics
-      const { error: subjectsError } = await supabase
+      // 1. CRÍTICO: Update subject status to "Em Estudo" AND clear completed_at
+      const { data: updatedSubjects, error: subjectsError } = await supabase
         .from('subjects')
         .update({ 
           status: 'Em Estudo',
           completed_at: null,
           updated_at: new Date().toISOString()
         })
-        .in('id', subjectIds);
+        .in('id', subjectIds)
+        .select('id, name, status');
 
       if (subjectsError) {
         console.error('❌ Error updating subjects:', subjectsError);
-        throw subjectsError;
+        throw new Error(`Erro ao atualizar matérias: ${subjectsError.message}`);
       }
 
-      console.log('✅ Subjects updated to "Em Estudo"');
+      console.log('✅ Subjects updated successfully:', updatedSubjects);
 
       // 2. Create new cycle with reactivated subjects
       const cycleResult = await createNewCycleForReactivatedSubjects(user.id, subjectIds);
-
       console.log('✅ Novo ciclo criado:', cycleResult);
+
+      // 3. Force immediate data refresh
+      console.log('🔄 Forçando refresh dos dados...');
+      await refreshData();
+
+      // 4. Wait a bit and refresh again to ensure everything is synced
+      setTimeout(async () => {
+        await refreshData();
+        console.log('✅ Segundo refresh concluído');
+      }, 1500);
 
       toast.success(`${subjectIds.length} matéria(s) reativada(s) com sucesso! Novo ciclo criado.`);
       
-      // 3. Refresh dos dados e aguardar um pouco para garantir que tudo foi atualizado
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      await refreshData();
-      
-      console.log('✅ Dados atualizados após reativação');
-      
+      // Close modal only after successful operations
       onClose();
+      
     } catch (error) {
-      console.error('❌ Erro ao reativar matérias:', error);
-      toast.error('Erro ao reativar matérias. Tente novamente.');
+      console.error('❌ Erro completo ao reativar matérias:', error);
+      toast.error(`Erro ao reativar matérias: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsReactivating(false);
     }
