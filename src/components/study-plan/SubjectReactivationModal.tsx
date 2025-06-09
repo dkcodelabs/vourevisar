@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { createNewCycleForReactivatedSubjects } from '@/utils/cycleUtils';
 
 interface SubjectReactivationModalProps {
   isOpen: boolean;
@@ -68,56 +68,26 @@ const SubjectReactivationModal: React.FC<SubjectReactivationModalProps> = ({ isO
     setIsReactivating(true);
     
     try {
-      // Buscar todos os tópicos das matérias selecionadas
-      const { data: topicsData, error: topicsError } = await supabase
-        .from('topics')
-        .select('id, subject_id')
-        .in('subject_id', subjectIds);
+      console.log('🔄 Reativando matérias:', { subjectIds, userId: user.id });
 
-      if (topicsError) throw topicsError;
-
-      // Atualizar status das matérias para "Em Estudo"
+      // 1. Update subject status to "Em Estudo" - DON'T touch topics
       const { error: subjectsError } = await supabase
         .from('subjects')
         .update({ 
           status: 'Em Estudo',
-          completed_at: null
+          completed_at: null,
+          updated_at: new Date().toISOString()
         })
         .in('id', subjectIds);
 
       if (subjectsError) throw subjectsError;
 
-      // Reset dos tópicos para o primeiro estágio de revisão
-      if (topicsData && topicsData.length > 0) {
-        const topicIds = topicsData.map(t => t.id);
-        
-        const { error: topicsUpdateError } = await supabase
-          .from('topics')
-          .update({
-            completed: false,
-            review_stage: '24h',
-            next_review: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-          })
-          .in('id', topicIds);
+      // 2. Create new cycle with reactivated subjects
+      const cycleResult = await createNewCycleForReactivatedSubjects(user.id, subjectIds);
 
-        if (topicsUpdateError) throw topicsUpdateError;
-      }
+      console.log('✅ Novo ciclo criado:', cycleResult);
 
-      // Reset do ciclo do usuário
-      const { error: cycleError } = await supabase
-        .from('user_cycles')
-        .update({
-          ciclo_atual: [],
-          disciplinas_do_dia: [],
-          data_inicio_ciclo: new Date().toISOString(),
-          data_fim_ciclo: null,
-          atualizado_em: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-
-      if (cycleError) throw cycleError;
-
-      toast.success(`${subjectIds.length} matéria(s) reativada(s) com sucesso!`);
+      toast.success(`${subjectIds.length} matéria(s) reativada(s) com sucesso! Ciclo resetado.`);
       
       // Refresh dos dados
       await refreshData();
@@ -171,9 +141,9 @@ const SubjectReactivationModal: React.FC<SubjectReactivationModalProps> = ({ isO
                     <p className="font-medium mb-1">O que acontecerá ao reativar:</p>
                     <ul className="space-y-1 text-blue-700">
                       <li>• As matérias voltarão ao status "Em Estudo"</li>
-                      <li>• Todos os tópicos voltarão para o primeiro estágio de revisão (24h)</li>
-                      <li>• Seu ciclo atual será resetado</li>
-                      <li>• O histórico de revisões será preservado</li>
+                      <li>• Será criado um novo ciclo de estudos com as matérias selecionadas</li>
+                      <li>• Os ciclos realizados serão resetados para 0</li>
+                      <li>• Os tópicos manterão seu progresso atual (não serão resetados)</li>
                     </ul>
                   </div>
                 </div>
@@ -236,7 +206,8 @@ const SubjectReactivationModal: React.FC<SubjectReactivationModalProps> = ({ isO
                   <div className="text-sm text-gray-700">
                     <p><strong>Resumo da reativação:</strong></p>
                     <p>• {selectedCount} matéria(s) selecionada(s)</p>
-                    <p>• {totalTopicsToReactivate} tópico(s) voltarão para revisão</p>
+                    <p>• {totalTopicsToReactivate} tópico(s) no total</p>
+                    <p>• Novo ciclo será criado com estas matérias</p>
                   </div>
                 </div>
               )}

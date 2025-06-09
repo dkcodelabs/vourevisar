@@ -1,12 +1,17 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Subject } from '@/types';
+import { getUserSettings } from './userSettingsUtils';
 
 export const generateNextDay = async (
   userId: string, 
   userCycle: any, 
   subjects: Subject[]
 ) => {
+  // Get user settings to determine how many subjects per day
+  const userSettings = await getUserSettings(userId);
+  const subjectsPerDay = userSettings.subjects_per_day;
+
   const availableSubjects = subjects.filter(s => 
     userCycle.ciclo_atual.includes(s.id) && 
     s.status !== 'Concluída'
@@ -16,7 +21,7 @@ export const generateNextDay = async (
     return { shouldShowNewCycleMessage: true };
   }
 
-  const nextBatch = availableSubjects.slice(0, Math.min(3, availableSubjects.length));
+  const nextBatch = availableSubjects.slice(0, Math.min(subjectsPerDay, availableSubjects.length));
   const nextBatchIds = nextBatch.map(s => s.id);
 
   const { error } = await supabase
@@ -48,4 +53,31 @@ export const loadUserCycle = async (userId: string) => {
   }
 
   return data;
+};
+
+export const createNewCycleForReactivatedSubjects = async (
+  userId: string, 
+  subjectIds: string[]
+) => {
+  const userSettings = await getUserSettings(userId);
+  const subjectsPerDay = userSettings.subjects_per_day;
+  
+  // Select first N subjects for today based on user settings
+  const dailySubjects = subjectIds.slice(0, Math.min(subjectsPerDay, subjectIds.length));
+
+  const { error } = await supabase
+    .from('user_cycles')
+    .update({
+      ciclo_atual: subjectIds,
+      disciplinas_do_dia: dailySubjects,
+      ciclos_realizados: 0, // Reset cycle count
+      data_inicio_ciclo: new Date().toISOString(),
+      data_fim_ciclo: null,
+      atualizado_em: new Date().toISOString()
+    })
+    .eq('user_id', userId);
+
+  if (error) throw error;
+
+  return { dailySubjects, totalCycleSubjects: subjectIds.length };
 };
