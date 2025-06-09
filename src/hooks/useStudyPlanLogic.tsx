@@ -6,10 +6,10 @@ import { UserCycle } from '@/types';
 import { toast } from 'sonner';
 import { generateNextDay, loadUserCycle } from '@/utils/cycleUtils';
 import { completeStudySession } from '@/utils/sessionUtils';
-import { checkAllStudiesCompleted, isTopicDominated } from '@/utils/studiesCompletionChecker';
+import { checkAllStudiesCompleted, isTopicDominated, syncSubjectStatus } from '@/utils/studiesCompletionChecker';
 
 export const useStudyPlanLogic = () => {
-  const { subjects, isLoading } = useApp();
+  const { subjects, isLoading, refreshData } = useApp();
   const { user } = useAuth();
   const [expandedSubject, setExpandedSubject] = useState<string>('');
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
@@ -38,17 +38,30 @@ export const useStudyPlanLogic = () => {
     });
   }, [subjects, isLoading]);
 
-  // Check for all studies completed - this should be persistent
+  // Sincronização periódica dos status das matérias
+  useEffect(() => {
+    if (subjects.length > 0) {
+      syncSubjectStatus(subjects);
+    }
+  }, [subjects]);
+
+  // Check for all studies completed - lógica melhorada e persistente
   useEffect(() => {
     if (subjects.length > 0) {
       const allCompleted = checkAllStudiesCompleted(subjects);
       console.log('🎯 useStudyPlanLogic - Setting allStudiesCompleted:', allCompleted);
       setAllStudiesCompleted(allCompleted);
+      
+      // Se todos os estudos estão completos, refresh dos dados para garantir consistência
+      if (allCompleted) {
+        console.log('🎯 Todos os estudos completos - fazendo refresh dos dados');
+        setTimeout(() => refreshData(), 1000);
+      }
     } else {
       console.log('🎯 useStudyPlanLogic - No subjects found, setting allStudiesCompleted to false');
       setAllStudiesCompleted(false);
     }
-  }, [subjects]);
+  }, [subjects, refreshData]);
 
   // Debug log when allStudiesCompleted changes
   useEffect(() => {
@@ -87,7 +100,7 @@ export const useStudyPlanLogic = () => {
       ).slice(0, 3)
     : [];
 
-  // Only show day completed if there are daily subjects and they're all done, and not all studies are completed
+  // Lógica melhorada para day completed - só mostra se não estão todos os estudos completos
   const allDaySubjectsCompleted = dailySubjects.length === 0 && 
     userCycle && 
     userCycle.disciplinas_do_dia.length > 0 &&
@@ -100,7 +113,9 @@ export const useStudyPlanLogic = () => {
     dailySubjectsLength: dailySubjects.length,
     hasAvailableSubjects,
     disciplinasIniciadas: disciplinasIniciadas.length,
-    disciplinasNaoIniciadas: disciplinasNaoIniciadas.length
+    disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
+    totalDisciplinasCiclo,
+    disciplinasConcluidas
   });
 
   const handleNextDay = useCallback(async () => {
@@ -134,6 +149,9 @@ export const useStudyPlanLogic = () => {
       
       if (result.subjectCompleted) {
         toast.success(`Matéria "${result.subjectName}" concluída! 🎉`);
+        
+        // Refresh dos dados para garantir que a interface seja atualizada
+        setTimeout(() => refreshData(), 500);
       }
 
       // Clear temp marked topics
@@ -149,7 +167,7 @@ export const useStudyPlanLogic = () => {
       console.error('Error completing session:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao concluir sessão');
     }
-  }, [tempMarkedTopics, subjects]);
+  }, [tempMarkedTopics, subjects, refreshData]);
 
   const handleToggleExpand = useCallback((subjectId: string) => {
     setExpandedSubject(prev => prev === subjectId ? '' : subjectId);
