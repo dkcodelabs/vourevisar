@@ -118,7 +118,7 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     subjectCompleted = true;
   }
 
-  // CORREÇÃO CRÍTICA: Atualizar o ciclo do usuário corretamente
+  // CORREÇÃO PRINCIPAL: Remover matéria da fila do dia após sessão concluída
   const { data: user } = await supabase.auth.getUser();
   if (user.user) {
     // Get current user cycle
@@ -138,8 +138,8 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
       const userSettings = await getUserSettings(user.user.id);
       const subjectsPerDay = userSettings.subjects_per_day;
       
-      // CORREÇÃO: Filtrar apenas matérias que estão no ciclo atual E não estão concluídas
-      // E ordenar por prioridade corretamente
+      // CORREÇÃO: Buscar matérias para adicionar à fila do dia (NÃO às próximas disciplinas)
+      // Apenas matérias que estão no ciclo atual, não estão concluídas, não estão na fila atual e não é a matéria que acabou de ser estudada
       const availableSubjects = subjects
         .filter(s => 
           currentCycle.ciclo_atual.includes(s.id) && 
@@ -147,15 +147,15 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
           !updatedDisciplinasoDia.includes(s.id) &&
           s.id !== subjectId // Exclude the just studied subject
         )
-        .sort((a, b) => (a.priority || 999) - (b.priority || 999)); // Ordenar por prioridade CORRETAMENTE
+        .sort((a, b) => (a.priority || 999) - (b.priority || 999)); // Ordenar por prioridade
 
-      console.log('📚 Matérias disponíveis após filtro:', {
+      console.log('📚 Matérias disponíveis para adicionar à fila do dia:', {
         availableSubjects: availableSubjects.map(s => ({ name: s.name, priority: s.priority, status: s.status })),
-        currentCycleIds: currentCycle.ciclo_atual,
-        allSubjects: subjects.map(s => ({ name: s.name, status: s.status, priority: s.priority }))
+        currentQueueAfterRemoval: updatedDisciplinasoDia.length,
+        subjectsPerDay
       });
 
-      // Add new subjects to fill the daily quota if available
+      // Calcular quantas matérias adicionar para completar a cota diária
       const spotsToFill = Math.max(0, subjectsPerDay - updatedDisciplinasoDia.length);
       const subjectsToAdd = availableSubjects.slice(0, spotsToFill);
       

@@ -10,10 +10,16 @@ interface NextSubjectsProps {
 }
 
 const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
+  // CORREÇÃO: Não mostrar nada se não há próximas matérias
   if (nextSubjects.length === 0) return null;
 
-  // CORREÇÃO: Garantir que as matérias estão ordenadas por prioridade
-  const sortedSubjects = [...nextSubjects].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  // CORREÇÃO: Garantir que as matérias estão ordenadas por prioridade E filtradas corretamente
+  const sortedSubjects = [...nextSubjects]
+    .filter(subject => subject.status !== 'Concluída') // Garantir que matérias concluídas não aparecem
+    .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+
+  // Se após o filtro não há matérias, não renderizar
+  if (sortedSubjects.length === 0) return null;
 
   return (
     <>
