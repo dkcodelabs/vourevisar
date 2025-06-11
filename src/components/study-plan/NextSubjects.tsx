@@ -10,30 +10,25 @@ interface NextSubjectsProps {
 }
 
 const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
-  // CORREÇÃO: Não mostrar nada se não há próximas matérias
-  if (nextSubjects.length === 0) return null;
+  // CORREÇÃO CRÍTICA: Filtro ultra-rigoroso - JAMAIS mostrar matérias concluídas
+  const validSubjects = nextSubjects.filter(subject => {
+    const isNotCompleted = subject.status !== 'Concluída';
+    console.log('🔍 NextSubjects ULTRA FILTER:', {
+      subjectName: subject.name,
+      status: subject.status,
+      isNotCompleted,
+      willShow: isNotCompleted
+    });
+    return isNotCompleted;
+  });
 
-  // CORREÇÃO: Filtro rigoroso - JAMAIS mostrar matérias concluídas nas próximas disciplinas
-  const sortedSubjects = [...nextSubjects]
-    .filter(subject => {
-      const isNotCompleted = subject.status !== 'Concluída';
-      console.log('🔍 NextSubjects filter check:', {
-        subjectName: subject.name,
-        status: subject.status,
-        isNotCompleted,
-        willShow: isNotCompleted
-      });
-      return isNotCompleted;
-    })
-    .sort((a, b) => (a.priority || 999) - (b.priority || 999));
-
-  // Se após o filtro rigoroso não há matérias, não renderizar
-  if (sortedSubjects.length === 0) {
-    console.log('🚫 NextSubjects: Nenhuma matéria válida após filtro - não renderizando');
+  // Se não há matérias válidas, não mostrar nada
+  if (validSubjects.length === 0) {
+    console.log('🚫 NextSubjects: Nenhuma matéria válida - não renderizando');
     return null;
   }
 
-  console.log('✅ NextSubjects: Renderizando', sortedSubjects.length, 'matérias válidas');
+  console.log('✅ NextSubjects: Renderizando', validSubjects.length, 'matérias válidas');
 
   return (
     <>
@@ -42,7 +37,7 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
         Próximas Disciplinas
       </h2>
       <div className="space-y-1">
-        {sortedSubjects.map(subject => (
+        {validSubjects.map(subject => (
           <motion.div
             key={subject.id}
             whileHover={{ scale: 1.01 }}

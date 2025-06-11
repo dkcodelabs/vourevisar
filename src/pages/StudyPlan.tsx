@@ -106,7 +106,7 @@ const StudyPlan = () => {
               <AllStudiesCompletedMessage />
             </motion.div>
           ) : currentCycleCompleted ? (
-            /* PRIORIDADE 2: Mensagem de ciclo completo - quando apenas o ciclo atual foi concluído */
+            /* PRIORIDADE 2: Mensagem de ciclo completo */
             <motion.div variants={itemVariants}>
               <Card className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-4 border-green-300 shadow-xl">
                 <CardHeader className="text-center pb-6">
@@ -151,7 +151,7 @@ const StudyPlan = () => {
             </motion.div>
           ) : (
             <>
-              {/* SEMPRE mostrar informações do ciclo quando há um ciclo ativo E matérias disponíveis */}
+              {/* SEMPRE mostrar informações do ciclo quando há um ciclo ativo */}
               {userCycle && hasAvailableSubjects && (
                 <motion.div variants={itemVariants}>
                   <CycleInfo 
@@ -186,12 +186,12 @@ const StudyPlan = () => {
                     </Card>
                   </motion.div>
                 ) : allDaySubjectsCompleted ? (
-                  /* PRIORIDADE 3: Conclusão do dia - quando todas as matérias do dia foram completadas MAS ainda há matérias no ciclo */
+                  /* PRIORIDADE 3: CORREÇÃO - Mensagem de dia concluído */
                   <motion.div variants={itemVariants}>
                     <DayCompletedMessage onNextDay={handleNextDay} />
                   </motion.div>
                 ) : dailySubjects.length > 0 ? (
-                  /* Se há matérias do dia para estudar - ordenadas por prioridade */
+                  /* Se há matérias do dia para estudar */
                   dailySubjects.map((subject) => (
                     <motion.div key={subject.id} variants={itemVariants}>
                       <SubjectCard
@@ -215,8 +215,11 @@ const StudyPlan = () => {
                 onHide={handleHideNewCycleMessage}
               />
 
-              {/* CORREÇÃO: Só mostrar próximas matérias se há matérias disponíveis E nextSubjects > 0 E dailySubjects > 0 */}
-              {hasAvailableSubjects && nextSubjects.length > 0 && dailySubjects.length > 0 && (
+              {/* CORREÇÃO: Só mostrar próximas matérias se há matérias no ciclo E não estamos em estado de dia/ciclo completo */}
+              {hasAvailableSubjects && 
+               nextSubjects.length > 0 && 
+               !allDaySubjectsCompleted && 
+               !currentCycleCompleted && (
                 <motion.div variants={itemVariants}>
                   <NextSubjects nextSubjects={nextSubjects} />
                 </motion.div>

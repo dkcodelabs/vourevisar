@@ -29,27 +29,27 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
 
     // Determine new review stage
     switch (currentReviewCount) {
-      case 0: // First review
+      case 0:
         newReviewStage = '1d';
         nextReviewDate = new Date(getNextReviewDate('1d'));
         break;
-      case 1: // Second review
+      case 1:
         newReviewStage = '3d';
         nextReviewDate = new Date(getNextReviewDate('3d'));
         break;
-      case 2: // Third review
+      case 2:
         newReviewStage = '7d';
         nextReviewDate = new Date(getNextReviewDate('7d'));
         break;
-      case 3: // Fourth review
+      case 3:
         newReviewStage = '15d';
         nextReviewDate = new Date(getNextReviewDate('15d'));
         break;
-      case 4: // Fifth review
+      case 4:
         newReviewStage = '30d';
         nextReviewDate = new Date(getNextReviewDate('30d'));
         break;
-      default: // Sixth review and beyond
+      default:
         newReviewStage = 'Concluído';
         nextReviewDate = null;
         break;
@@ -85,12 +85,10 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
 
   // Verificar se todos os tópicos da matéria estão dominados
   const allTopicsDominated = subject.topics.every(topic => {
-    // Se foi marcado nesta sessão, considera como dominado se chegou no final
     if (markedTopicIds.includes(topic.id)) {
       const newReviewCount = (topic.reviewCount || 0) + 1;
-      return newReviewCount >= 5; // 5+ reviews = Concluído
+      return newReviewCount >= 5;
     }
-    // Se não foi marcado, verifica o estado atual
     return topic.reviewStage === 'Concluído';
   });
 
@@ -117,10 +115,9 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     subjectCompleted = true;
   }
 
-  // CORREÇÃO PRINCIPAL: Apenas remover a matéria da fila do dia - NÃO adicionar novas automaticamente
+  // CORREÇÃO CRÍTICA: Remover a matéria da fila do dia SEMPRE que uma sessão é completada
   const { data: user } = await supabase.auth.getUser();
   if (user.user) {
-    // Get current user cycle
     const { data: currentCycle } = await supabase
       .from('user_cycles')
       .select('*')
@@ -128,19 +125,20 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
       .single();
 
     if (currentCycle) {
-      console.log('🔄 Removendo matéria da fila do dia após sessão concluída - SEM adicionar novas automaticamente');
+      console.log('🔄 Removendo matéria da fila do dia após sessão concluída');
       
-      // APENAS remove a matéria da fila do dia - as outras só sobem quando o usuário avança o dia
+      // SEMPRE remove a matéria da fila do dia - independente de estar concluída ou não
       const updatedDisciplinasoDia = currentCycle.disciplinas_do_dia.filter((id: string) => id !== subjectId);
 
-      console.log('📚 Atualizando fila do dia (apenas remoção):', {
+      console.log('📚 Atualizando fila do dia (remoção após sessão):', {
         removedSubject: subjectId,
+        subjectName: subject.name,
         oldQueue: currentCycle.disciplinas_do_dia,
         newQueue: updatedDisciplinasoDia,
-        message: 'Matérias só serão adicionadas quando o usuário avançar o dia'
+        message: 'Matéria removida da fila após completar sessão'
       });
 
-      // Update the user cycle - apenas com a remoção
+      // Update the user cycle
       const { error: cycleError } = await supabase
         .from('user_cycles')
         .update({
@@ -151,7 +149,6 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
 
       if (cycleError) {
         console.error('Error updating user cycle:', cycleError);
-        // Don't throw error here as the main operation succeeded
       }
     }
 
@@ -163,12 +160,11 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
         session_date: new Date().toISOString().split('T')[0],
         topics_studied: markedTopicIds.length,
         subjects_worked: [subjectId],
-        session_duration_minutes: 30 // Default duration
+        session_duration_minutes: 30
       });
 
     if (sessionError) {
       console.error('Error recording study session:', sessionError);
-      // Don't throw error here as the main operation succeeded
     }
   }
 

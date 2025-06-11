@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,16 +22,16 @@ export const useStudyPlanLogic = () => {
   const disciplinasConcluidas = subjects.filter(s => s.status === 'Concluída');
   const hasAvailableSubjects = subjects.length > 0;
 
-  // CORREÇÃO: Calculate cycle metrics correctly baseado no que realmente existe
+  // CORREÇÃO PRINCIPAL: Calculate cycle metrics baseado no ciclo atual
   const totalDisciplinasCiclo = userCycle?.ciclo_atual?.length || 0;
   
-  // CORREÇÃO: Disciplinas concluídas = subjects that are marked as completed AND are in the current cycle
+  // CORREÇÃO: Disciplinas concluídas apenas no ciclo atual
   const disciplinasConcluidasNoCiclo = userCycle?.ciclo_atual?.filter(subjectId => {
     const subject = subjects.find(s => s.id === subjectId);
     return subject?.status === 'Concluída';
   }).length || 0;
 
-  // CORREÇÃO: Get subjects that are in cycle but not completed (these are initiated but not finished)
+  // CORREÇÃO: Disciplinas iniciadas apenas no ciclo atual (não concluídas)
   const disciplinasIniciadasNoCiclo = userCycle?.ciclo_atual?.filter(subjectId => {
     const subject = subjects.find(s => s.id === subjectId);
     return subject && subject.status !== 'Concluída';
@@ -134,51 +133,71 @@ export const useStudyPlanLogic = () => {
     return () => clearTimeout(timeoutId);
   }, [user, subjects, userCycle, isRefreshing]);
 
-  // CORREÇÃO: Ordenar dailySubjects por prioridade corretamente
+  // CORREÇÃO: Filtered daily subjects - apenas matérias que estão na fila do dia E não concluídas
   const dailySubjects = userCycle?.disciplinas_do_dia
     ? subjects
         .filter(subject => 
           userCycle.disciplinas_do_dia.includes(subject.id) && 
           subject.status !== 'Concluída'
         )
-        .sort((a, b) => (a.priority || 999) - (b.priority || 999)) // Ordenar por prioridade
+        .sort((a, b) => {
+          // Ordenar pela posição na fila de disciplinas do dia
+          const indexA = userCycle.disciplinas_do_dia.indexOf(a.id);
+          const indexB = userCycle.disciplinas_do_dia.indexOf(b.id);
+          if (indexA !== indexB) return indexA - indexB;
+          // Se mesma posição, ordenar por prioridade
+          return (a.priority || 999) - (b.priority || 999);
+        })
     : [];
 
-  // CORREÇÃO: Ordenar nextSubjects por prioridade e filtrar matérias que não estão concluídas
-  // IMPORTANTE: NÃO incluir matérias que acabaram de completar sessão
+  // CORREÇÃO CRÍTICA: NextSubjects - JAMAIS incluir matérias concluídas
   const nextSubjects = userCycle?.ciclo_atual
     ? subjects
-        .filter(subject => 
-          userCycle.ciclo_atual.includes(subject.id) && 
-          !userCycle.disciplinas_do_dia.includes(subject.id) &&
-          subject.status !== 'Concluída' // IMPORTANTE: não mostrar matérias concluídas
-        )
-        .sort((a, b) => (a.priority || 999) - (b.priority || 999)) // Ordenar por prioridade
+        .filter(subject => {
+          // Deve estar no ciclo atual
+          const isInCycle = userCycle.ciclo_atual.includes(subject.id);
+          // NÃO deve estar na fila do dia
+          const isNotInDailyQueue = !userCycle.disciplinas_do_dia.includes(subject.id);
+          // NÃO deve estar concluída
+          const isNotCompleted = subject.status !== 'Concluída';
+          
+          console.log('🔍 NextSubjects filter:', {
+            subjectName: subject.name,
+            subjectId: subject.id,
+            status: subject.status,
+            isInCycle,
+            isNotInDailyQueue,
+            isNotCompleted,
+            willShow: isInCycle && isNotInDailyQueue && isNotCompleted
+          });
+          
+          return isInCycle && isNotInDailyQueue && isNotCompleted;
+        })
+        .sort((a, b) => (a.priority || 999) - (b.priority || 999))
         .slice(0, 3)
     : [];
 
   // CORREÇÃO: Lógica melhorada para day completed
-  const allDaySubjectsCompleted = dailySubjects.length === 0 && 
-    userCycle && 
-    userCycle.disciplinas_do_dia.length > 0 &&
-    !allStudiesCompleted &&
-    !currentCycleCompleted &&
+  const allDaySubjectsCompleted = userCycle && 
+    userCycle.disciplinas_do_dia.length > 0 && // Havia matérias na fila do dia
+    dailySubjects.length === 0 && // Agora não há mais matérias na fila
+    !allStudiesCompleted && // Nem todos os estudos estão completos
+    !currentCycleCompleted && // Nem o ciclo atual está completo
     !isRefreshing;
 
-  console.log('🎯 useStudyPlanLogic - Final render state:', {
+  console.log('🎯 useStudyPlanLogic - FINAL STATE CHECK:', {
     allStudiesCompleted,
     allDaySubjectsCompleted,
     currentCycleCompleted,
-    subjectsLength: subjects.length,
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
     hasAvailableSubjects,
-    disciplinasIniciadas: disciplinasIniciadas.length,
+    disciplinasIniciadas: disciplinasIniciadasNoCiclo,
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     totalDisciplinasCiclo,
     disciplinasConcluidasNoCiclo,
-    disciplinasIniciadasNoCiclo,
-    isRefreshing
+    isRefreshing,
+    dailyQueueLength: userCycle?.disciplinas_do_dia?.length || 0
   });
 
   const handleNextDay = useCallback(async () => {
@@ -229,10 +248,10 @@ export const useStudyPlanLogic = () => {
       setExpandedSubject('');
       toast.success('Sessão concluída com sucesso!');
 
-      // CORREÇÃO CRÍTICA: Atualização otimizada - SEM refresh completo, apenas refresh dos dados e atualização local do ciclo
+      // CORREÇÃO CRÍTICA: Atualização otimizada dos dados
       await refreshData();
 
-      // Atualizar o estado local do ciclo também
+      // Atualizar o estado local do ciclo
       if (user) {
         const updatedCycle = await loadUserCycle(user.id);
         setUserCycle(updatedCycle);
@@ -279,7 +298,7 @@ export const useStudyPlanLogic = () => {
     allDaySubjectsCompleted,
     hasAvailableSubjects,
     totalDisciplinasCiclo,
-    disciplinasConcluidas: disciplinasConcluidasNoCiclo, // CORREÇÃO: usar a contagem correta
+    disciplinasConcluidas: disciplinasConcluidasNoCiclo,
     isNewCycleStarted,
     allStudiesCompleted,
     currentCycleCompleted,
@@ -289,7 +308,7 @@ export const useStudyPlanLogic = () => {
     handleMarkTopicForReview,
     handleCancelTopicReview,
     handleHideNewCycleMessage,
-    disciplinasIniciadas: disciplinasIniciadasNoCiclo, // CORREÇÃO: usar a contagem correta
+    disciplinasIniciadas: disciplinasIniciadasNoCiclo,
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     isTopicDominated
   };
