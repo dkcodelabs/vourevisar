@@ -72,8 +72,8 @@ const StudyPlan = () => {
     allStudiesCompleted,
     disciplinas_do_dia: userCycle?.disciplinas_do_dia,
     ciclo_atual: userCycle?.ciclo_atual,
-    disciplinasIniciadas,
-    disciplinasNaoIniciadas,
+    disciplinasIniciadas: disciplinasIniciadas.length,
+    disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     totalDisciplinasCiclo,
     disciplinasConcluidas
   });
@@ -115,8 +115,8 @@ const StudyPlan = () => {
                     disciplinasConcluidas={disciplinasConcluidas}
                     totalDisciplinasCiclo={totalDisciplinasCiclo}
                     isNewCycleStarted={isNewCycleStarted}
-                    disciplinasIniciadas={disciplinasIniciadas}
-                    disciplinasNaoIniciadas={disciplinasNaoIniciadas}
+                    disciplinasIniciadas={disciplinasIniciadas.length}
+                    disciplinasNaoIniciadas={disciplinasNaoIniciadas.length}
                   />
                 </motion.div>
               )}
