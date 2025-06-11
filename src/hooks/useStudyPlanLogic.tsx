@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,7 +5,7 @@ import { UserCycle } from '@/types';
 import { toast } from 'sonner';
 import { generateNextDay, loadUserCycle, createCycleForOrphanSubjects } from '@/utils/cycleUtils';
 import { completeStudySession } from '@/utils/sessionUtils';
-import { isTopicDominated, syncSubjectStatus } from '@/utils/studiesCompletionChecker';
+import { checkAllStudiesCompleted, isTopicDominated, syncSubjectStatus } from '@/utils/studiesCompletionChecker';
 
 export const useStudyPlanLogic = () => {
   const { subjects, isLoading, refreshData } = useApp();
@@ -15,6 +14,7 @@ export const useStudyPlanLogic = () => {
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
+  const [allStudiesCompleted, setAllStudiesCompleted] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Filtered subjects based on status
@@ -40,32 +40,21 @@ export const useStudyPlanLogic = () => {
   const isNewCycleStarted = userCycle && userCycle.ciclo_atual.length > 0 && 
     !userCycle.data_fim_ciclo && userCycle.disciplinas_do_dia.length === 0;
 
-  // CRITICAL FIX: Check if current cycle is completed (all subjects in cycle are completed)
+  // Check if current cycle is completed (all subjects in cycle are completed)
   const currentCycleCompleted = userCycle && userCycle.ciclo_atual.length > 0 && 
-    disciplinasConcluidas === totalDisciplinasCiclo && disciplinasConcluidas > 0;
+    disciplinasConcluidas === totalDisciplinasCiclo;
 
-  // CRITICAL FIX: Check if ALL studies are completed (no subjects with status != 'Concluída')
-  // Only consider this true if there are NO subjects with status 'Em Estudo' or 'Nova'
-  const allStudiesCompleted = subjects.length > 0 && 
-    subjects.every(subject => subject.status === 'Concluída') &&
-    subjects.filter(s => s.status === 'Em Estudo').length === 0 &&
-    subjects.filter(s => s.status === 'Nova').length === 0;
+  // Check if ALL studies are completed (no subjects with status != 'Concluída')
+  const allStudiesReallyCompleted = subjects.length > 0 && 
+    subjects.every(subject => subject.status === 'Concluída');
 
-  console.log('🎯 useStudyPlanLogic - DEBUGGING STATE:', {
-    totalSubjects: subjects.length,
-    subjectsByStatus: {
-      'Concluída': subjects.filter(s => s.status === 'Concluída').length,
-      'Em Estudo': subjects.filter(s => s.status === 'Em Estudo').length,
-      'Nova': subjects.filter(s => s.status === 'Nova').length
-    },
+  console.log('📊 useStudyPlanLogic - Cycle vs Studies completion:', {
     currentCycleCompleted,
-    allStudiesCompleted,
+    allStudiesReallyCompleted,
     disciplinasConcluidas,
     totalDisciplinasCiclo,
-    userCycle: userCycle ? {
-      ciclo_atual: userCycle.ciclo_atual.length,
-      disciplinas_do_dia: userCycle.disciplinas_do_dia.length
-    } : null
+    subjectsWithStatusNotCompleted: subjects.filter(s => s.status !== 'Concluída').length,
+    totalSubjects: subjects.length
   });
 
   // Debug log dos subjects carregados
@@ -87,6 +76,33 @@ export const useStudyPlanLogic = () => {
       return () => clearTimeout(timeoutId);
     }
   }, [subjects, isRefreshing]);
+
+  // Check for all studies completed - apenas quando REALMENTE todos os estudos estão completos
+  useEffect(() => {
+    if (subjects.length > 0 && !isRefreshing) {
+      const allCompleted = allStudiesReallyCompleted;
+      console.log('🎯 useStudyPlanLogic - Setting allStudiesCompleted:', allCompleted);
+      
+      // Só atualiza se o valor realmente mudou
+      if (allStudiesCompleted !== allCompleted) {
+        setAllStudiesCompleted(allCompleted);
+        
+        // Se todos os estudos estão completos, refresh dos dados apenas uma vez
+        if (allCompleted && !isRefreshing) {
+          setIsRefreshing(true);
+          console.log('🎯 Todos os estudos completos - fazendo refresh dos dados');
+          setTimeout(() => {
+            refreshData().finally(() => {
+              setIsRefreshing(false);
+            });
+          }, 2000);
+        }
+      }
+    } else if (subjects.length === 0 && !isLoading) {
+      console.log('🎯 useStudyPlanLogic - No subjects found, setting allStudiesCompleted to false');
+      setAllStudiesCompleted(false);
+    }
+  }, [subjects, refreshData, allStudiesCompleted, isRefreshing, isLoading, allStudiesReallyCompleted]);
 
   // Load user cycle and handle orphan subjects - com proteção contra loops
   useEffect(() => {
@@ -150,7 +166,7 @@ export const useStudyPlanLogic = () => {
       ).slice(0, 3)
     : [];
 
-  // CRITICAL FIX: Lógica melhorada para day completed
+  // Lógica melhorada para day completed - só mostra se o dia foi completo mas ainda há matérias no ciclo
   const allDaySubjectsCompleted = dailySubjects.length === 0 && 
     userCycle && 
     userCycle.disciplinas_do_dia.length > 0 &&
@@ -158,7 +174,7 @@ export const useStudyPlanLogic = () => {
     !currentCycleCompleted &&
     !isRefreshing;
 
-  console.log('🎯 useStudyPlanLogic - Final render state:', {
+  console.log('🎯 useStudyPlanLogic - Render state:', {
     allStudiesCompleted,
     allDaySubjectsCompleted,
     currentCycleCompleted,
@@ -170,7 +186,11 @@ export const useStudyPlanLogic = () => {
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     disciplinasIniciadasNoCiclo,
-    isRefreshing
+    isRefreshing,
+    userCycle: userCycle ? {
+      ciclo_atual: userCycle.ciclo_atual,
+      disciplinas_do_dia: userCycle.disciplinas_do_dia
+    } : null
   });
 
   const handleNextDay = useCallback(async () => {

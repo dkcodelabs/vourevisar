@@ -33,9 +33,8 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
   disciplinasIniciadas,
   disciplinasNaoIniciadas
 }) => {
-  // CRITICAL FIX: Só não renderizar se realmente não há ciclo ou dados importantes
-  // Mas sempre mostrar quando há um ciclo ativo, mesmo que vazio temporariamente
-  if (!userCycle) {
+  // Se não há ciclo, não renderizar
+  if (!userCycle || !userCycle.ciclo_atual || userCycle.ciclo_atual.length === 0) {
     return null;
   }
 
