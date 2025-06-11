@@ -1,3 +1,4 @@
+
 import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextReviewDate } from './reviewStageUtils';
@@ -116,9 +117,43 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     subjectCompleted = true;
   }
 
-  // Record study session
+  // SEMPRE remover a matéria da lista diária após conclusão da sessão
+  console.log('🔄 Removendo matéria da lista diária após sessão');
   const { data: user } = await supabase.auth.getUser();
+  
   if (user.user) {
+    // Buscar o ciclo atual
+    const { data: userCycle, error: cycleError } = await supabase
+      .from('user_cycles')
+      .select('*')
+      .eq('user_id', user.user.id)
+      .single();
+
+    if (cycleError) {
+      console.error('Error fetching user cycle:', cycleError);
+    } else if (userCycle) {
+      // Remover a matéria da lista do dia
+      const updatedDisciplinasoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+      
+      const { error: updateError } = await supabase
+        .from('user_cycles')
+        .update({
+          disciplinas_do_dia: updatedDisciplinasoDia,
+          atualizado_em: new Date().toISOString()
+        })
+        .eq('user_id', user.user.id);
+
+      if (updateError) {
+        console.error('Error updating user cycle:', updateError);
+      } else {
+        console.log('✅ Matéria removida da lista diária:', {
+          subjectId,
+          updatedList: updatedDisciplinasoDia
+        });
+      }
+    }
+
+    // Record study session
     const { error: sessionError } = await supabase
       .from('study_sessions')
       .insert({
@@ -138,12 +173,14 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
   console.log('✅ Sessão de estudo completada:', {
     subjectCompleted,
     topicsUpdated: markedTopicIds.length,
-    allTopicsDominated
+    allTopicsDominated,
+    subjectRemovedFromDaily: true
   });
 
   return {
     subjectCompleted,
     subjectName: subject.name,
-    topicsUpdated: markedTopicIds.length
+    topicsUpdated: markedTopicIds.length,
+    subjectRemovedFromDaily: true
   };
 };

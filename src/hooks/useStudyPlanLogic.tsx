@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { generateNextDay, loadUserCycle } from '@/utils/cycleUtils';
 import { completeStudySession } from '@/utils/sessionUtils';
 import { checkAllStudiesCompleted, isTopicDominated, syncSubjectStatus } from '@/utils/studiesCompletionChecker';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useStudyPlanLogic = () => {
   const { subjects, isLoading, refreshData } = useApp();
@@ -16,10 +17,13 @@ export const useStudyPlanLogic = () => {
   const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
   const [allStudiesCompleted, setAllStudiesCompleted] = useState(false);
+  const [userSettings, setUserSettings] = useState<{ subjects_per_day: number } | null>(null);
 
   const disciplinasIniciadas = subjects.filter(s => s.status === 'Em Estudo');
   const disciplinasNaoIniciadas = subjects.filter(s => s.status === 'Nova');
   const hasAvailableSubjects = subjects.length > 0;
+  
+  // Contar apenas matérias do ciclo atual
   const totalDisciplinasCiclo = userCycle?.ciclo_atual?.length || 0;
   const disciplinasConcluidas = userCycle?.ciclo_atual?.filter(id => {
     const subject = subjects.find(s => s.id === id);
@@ -37,6 +41,33 @@ export const useStudyPlanLogic = () => {
       isLoading
     });
   }, [subjects, isLoading]);
+
+  // Load user settings
+  useEffect(() => {
+    const fetchUserSettings = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_settings')
+          .select('subjects_per_day')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching user settings:', error);
+          setUserSettings({ subjects_per_day: 3 }); // default
+        } else {
+          setUserSettings(data);
+        }
+      } catch (error) {
+        console.error('Error fetching user settings:', error);
+        setUserSettings({ subjects_per_day: 3 }); // default
+      }
+    };
+
+    fetchUserSettings();
+  }, [user]);
 
   // Sincronização periódica dos status das matérias
   useEffect(() => {
@@ -85,6 +116,7 @@ export const useStudyPlanLogic = () => {
     loadCycle();
   }, [user]);
 
+  // Filtrar apenas matérias que não estão concluídas para a lista diária
   const dailySubjects = userCycle?.disciplinas_do_dia
     ? subjects.filter(subject => 
         userCycle.disciplinas_do_dia.includes(subject.id) && 
@@ -92,18 +124,18 @@ export const useStudyPlanLogic = () => {
       )
     : [];
 
+  // Filtrar próximas matérias (apenas as que não estão concluídas e não estão no dia)
   const nextSubjects = userCycle?.ciclo_atual
     ? subjects.filter(subject => 
         userCycle.ciclo_atual.includes(subject.id) && 
         !userCycle.disciplinas_do_dia.includes(subject.id) &&
         subject.status !== 'Concluída'
-      ).slice(0, 3)
+      ).slice(0, userSettings?.subjects_per_day || 3)
     : [];
 
-  // Lógica melhorada para day completed - só mostra se não estão todos os estudos completos
-  const allDaySubjectsCompleted = dailySubjects.length === 0 && 
-    userCycle && 
-    userCycle.disciplinas_do_dia.length > 0 &&
+  // Detectar quando o dia está completo (todas as matérias do dia foram removidas)
+  const allDaySubjectsCompleted = userCycle && 
+    userCycle.disciplinas_do_dia.length === 0 && 
     !allStudiesCompleted;
 
   console.log('🎯 useStudyPlanLogic - Render state:', {
@@ -115,7 +147,12 @@ export const useStudyPlanLogic = () => {
     disciplinasIniciadas: disciplinasIniciadas.length,
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     totalDisciplinasCiclo,
-    disciplinasConcluidas
+    disciplinasConcluidas,
+    userSettings,
+    userCycleInfo: userCycle ? {
+      disciplinas_do_dia: userCycle.disciplinas_do_dia,
+      ciclo_atual: userCycle.ciclo_atual
+    } : null
   });
 
   const handleNextDay = useCallback(async () => {
@@ -149,9 +186,6 @@ export const useStudyPlanLogic = () => {
       
       if (result.subjectCompleted) {
         toast.success(`Matéria "${result.subjectName}" concluída! 🎉`);
-        
-        // Refresh dos dados para garantir que a interface seja atualizada
-        setTimeout(() => refreshData(), 500);
       }
 
       // Clear temp marked topics
@@ -161,13 +195,23 @@ export const useStudyPlanLogic = () => {
       }));
 
       setExpandedSubject('');
+      
+      // Refresh dados imediatamente para atualizar a interface
+      await refreshData();
+      
+      // Recarregar o ciclo do usuário para refletir as mudanças
+      if (user) {
+        const updatedCycle = await loadUserCycle(user.id);
+        setUserCycle(updatedCycle);
+      }
+
       toast.success('Sessão concluída com sucesso!');
 
     } catch (error) {
       console.error('Error completing session:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao concluir sessão');
     }
-  }, [tempMarkedTopics, subjects, refreshData]);
+  }, [tempMarkedTopics, subjects, refreshData, user]);
 
   const handleToggleExpand = useCallback((subjectId: string) => {
     setExpandedSubject(prev => prev === subjectId ? '' : subjectId);

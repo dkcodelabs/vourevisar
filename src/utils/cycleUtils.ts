@@ -7,6 +7,15 @@ export const generateNextDay = async (
   userCycle: any, 
   subjects: Subject[]
 ) => {
+  // Get user settings for subjects_per_day
+  const { data: userSettings } = await supabase
+    .from('user_settings')
+    .select('subjects_per_day')
+    .eq('user_id', userId)
+    .single();
+
+  const subjectsPerDay = userSettings?.subjects_per_day || 3;
+
   const availableSubjects = subjects.filter(s => 
     userCycle.ciclo_atual.includes(s.id) && 
     s.status !== 'Concluída'
@@ -16,7 +25,7 @@ export const generateNextDay = async (
     return { shouldShowNewCycleMessage: true };
   }
 
-  const nextBatch = availableSubjects.slice(0, Math.min(3, availableSubjects.length));
+  const nextBatch = availableSubjects.slice(0, Math.min(subjectsPerDay, availableSubjects.length));
   const nextBatchIds = nextBatch.map(s => s.id);
 
   const { error } = await supabase
