@@ -1,8 +1,6 @@
-
 import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextReviewDate } from './reviewStageUtils';
-import { getUserSettings } from './userSettingsUtils';
 
 export const completeStudySession = async (subjectId: string, markedTopicIds: string[], subjects: Subject[]) => {
   const subject = subjects.find(s => s.id === subjectId);
@@ -118,67 +116,9 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     subjectCompleted = true;
   }
 
-  // CRITICAL FIX: Atualizar o ciclo do usuário para remover a matéria da fila do dia
+  // Record study session
   const { data: user } = await supabase.auth.getUser();
   if (user.user) {
-    // Get current user cycle
-    const { data: currentCycle } = await supabase
-      .from('user_cycles')
-      .select('*')
-      .eq('user_id', user.user.id)
-      .single();
-
-    if (currentCycle) {
-      console.log('🔄 Atualizando ciclo do usuário - removendo matéria da fila do dia');
-      
-      // Remove the completed subject from today's queue
-      const updatedDisciplinasoDia = currentCycle.disciplinas_do_dia.filter((id: string) => id !== subjectId);
-      
-      // Get user settings for subjects per day
-      const userSettings = await getUserSettings(user.user.id);
-      const subjectsPerDay = userSettings.subjects_per_day;
-      
-      // Get remaining subjects in cycle that are not completed and not already in today's queue
-      const availableSubjects = subjects.filter(s => 
-        currentCycle.ciclo_atual.includes(s.id) && 
-        s.status !== 'Concluída' && 
-        !updatedDisciplinasoDia.includes(s.id) &&
-        s.id !== subjectId // Exclude the just completed subject
-      );
-
-      // Add new subjects to fill the daily quota if available
-      const spotsToFill = Math.max(0, subjectsPerDay - updatedDisciplinasoDia.length);
-      const subjectsToAdd = availableSubjects.slice(0, spotsToFill);
-      
-      // Add the new subjects to today's queue
-      const finalDisciplinasoDia = [
-        ...updatedDisciplinasoDia,
-        ...subjectsToAdd.map(s => s.id)
-      ];
-
-      console.log('📚 Atualizando fila do dia:', {
-        removedSubject: subjectId,
-        oldQueue: currentCycle.disciplinas_do_dia,
-        newQueue: finalDisciplinasoDia,
-        addedSubjects: subjectsToAdd.map(s => s.name)
-      });
-
-      // Update the user cycle
-      const { error: cycleError } = await supabase
-        .from('user_cycles')
-        .update({
-          disciplinas_do_dia: finalDisciplinasoDia,
-          atualizado_em: new Date().toISOString()
-        })
-        .eq('user_id', user.user.id);
-
-      if (cycleError) {
-        console.error('Error updating user cycle:', cycleError);
-        // Don't throw error here as the main operation succeeded
-      }
-    }
-
-    // Record study session
     const { error: sessionError } = await supabase
       .from('study_sessions')
       .insert({

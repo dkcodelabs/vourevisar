@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,16 +7,11 @@ import { Trophy, BookOpen, BarChart3, Sparkles, RotateCcw, Plus } from 'lucide-r
 import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import SubjectReactivationModal from './SubjectReactivationModal';
-import { useApp } from '@/contexts/AppContext';
 
 const AllStudiesCompletedMessage: React.FC = () => {
   const navigate = useNavigate();
-  const { subjects, refreshData } = useApp();
   const [showReactivationModal, setShowReactivationModal] = useState(false);
   const [confettiShown, setConfettiShown] = useState(false);
-
-  // Get completed subjects for the reactivation modal - with null check
-  const completedSubjects = subjects?.filter(subject => subject.status === 'Concluída') || [];
 
   useEffect(() => {
     // Só executar confetti uma vez
@@ -101,11 +97,6 @@ const AllStudiesCompletedMessage: React.FC = () => {
 
   const handleViewStatistics = () => {
     navigate('/statistics');
-  };
-
-  const handleReactivationComplete = () => {
-    // Refresh the data to update the interface
-    refreshData();
   };
 
   return (
@@ -254,8 +245,6 @@ const AllStudiesCompletedMessage: React.FC = () => {
       <SubjectReactivationModal
         isOpen={showReactivationModal}
         onClose={() => setShowReactivationModal(false)}
-        completedSubjects={completedSubjects}
-        onReactivationComplete={handleReactivationComplete}
       />
     </>
   );
