@@ -14,7 +14,7 @@ const NewCycleMessage: React.FC<NewCycleMessageProps> = ({ isVisible, onHide }) 
     if (isVisible) {
       const timer = setTimeout(() => {
         onHide();
-      }, 5000); // Hide after 5 seconds
+      }, 8000); // Increased from 5 to 8 seconds
 
       return () => clearTimeout(timer);
     }

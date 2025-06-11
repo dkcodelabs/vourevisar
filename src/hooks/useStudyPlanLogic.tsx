@@ -6,7 +6,7 @@ import { UserCycle } from '@/types';
 import { toast } from 'sonner';
 import { generateNextDay, loadUserCycle, createCycleForOrphanSubjects } from '@/utils/cycleUtils';
 import { completeStudySession } from '@/utils/sessionUtils';
-import { checkAllStudiesCompleted, isTopicDominated, syncSubjectStatus } from '@/utils/studiesCompletionChecker';
+import { isTopicDominated, syncSubjectStatus } from '@/utils/studiesCompletionChecker';
 
 export const useStudyPlanLogic = () => {
   const { subjects, isLoading, refreshData } = useApp();
@@ -15,7 +15,7 @@ export const useStudyPlanLogic = () => {
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
   const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
-  const [allStudiesCompleted, setAllStudiesCompleted] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Filtered subjects based on status
   const disciplinasIniciadas = subjects.filter(s => s.status === 'Em Estudo');
@@ -40,6 +40,34 @@ export const useStudyPlanLogic = () => {
   const isNewCycleStarted = userCycle && userCycle.ciclo_atual.length > 0 && 
     !userCycle.data_fim_ciclo && userCycle.disciplinas_do_dia.length === 0;
 
+  // CRITICAL FIX: Check if current cycle is completed (all subjects in cycle are completed)
+  const currentCycleCompleted = userCycle && userCycle.ciclo_atual.length > 0 && 
+    disciplinasConcluidas === totalDisciplinasCiclo && disciplinasConcluidas > 0;
+
+  // CRITICAL FIX: Check if ALL studies are completed (no subjects with status != 'Concluída')
+  // Only consider this true if there are NO subjects with status 'Em Estudo' or 'Nova'
+  const allStudiesCompleted = subjects.length > 0 && 
+    subjects.every(subject => subject.status === 'Concluída') &&
+    subjects.filter(s => s.status === 'Em Estudo').length === 0 &&
+    subjects.filter(s => s.status === 'Nova').length === 0;
+
+  console.log('🎯 useStudyPlanLogic - DEBUGGING STATE:', {
+    totalSubjects: subjects.length,
+    subjectsByStatus: {
+      'Concluída': subjects.filter(s => s.status === 'Concluída').length,
+      'Em Estudo': subjects.filter(s => s.status === 'Em Estudo').length,
+      'Nova': subjects.filter(s => s.status === 'Nova').length
+    },
+    currentCycleCompleted,
+    allStudiesCompleted,
+    disciplinasConcluidas,
+    totalDisciplinasCiclo,
+    userCycle: userCycle ? {
+      ciclo_atual: userCycle.ciclo_atual.length,
+      disciplinas_do_dia: userCycle.disciplinas_do_dia.length
+    } : null
+  });
+
   // Debug log dos subjects carregados
   useEffect(() => {
     console.log('📚 useStudyPlanLogic - Subjects loaded:', {
@@ -49,72 +77,63 @@ export const useStudyPlanLogic = () => {
     });
   }, [subjects, isLoading]);
 
-  // Sincronização periódica dos status das matérias
+  // Sincronização periódica dos status das matérias - com debounce para evitar loops
   useEffect(() => {
-    if (subjects.length > 0) {
-      syncSubjectStatus(subjects);
-    }
-  }, [subjects]);
-
-  // Check for all studies completed - lógica melhorada e persistente
-  useEffect(() => {
-    if (subjects.length > 0) {
-      const allCompleted = checkAllStudiesCompleted(subjects);
-      console.log('🎯 useStudyPlanLogic - Setting allStudiesCompleted:', allCompleted);
-      setAllStudiesCompleted(allCompleted);
+    if (subjects.length > 0 && !isRefreshing) {
+      const timeoutId = setTimeout(() => {
+        syncSubjectStatus(subjects);
+      }, 1000);
       
-      // Se todos os estudos estão completos, refresh dos dados para garantir consistência
-      if (allCompleted) {
-        console.log('🎯 Todos os estudos completos - fazendo refresh dos dados');
-        setTimeout(() => refreshData(), 1000);
-      }
-    } else {
-      console.log('🎯 useStudyPlanLogic - No subjects found, setting allStudiesCompleted to false');
-      setAllStudiesCompleted(false);
+      return () => clearTimeout(timeoutId);
     }
-  }, [subjects, refreshData]);
+  }, [subjects, isRefreshing]);
 
-  // Debug log when allStudiesCompleted changes
-  useEffect(() => {
-    console.log('🎯 useStudyPlanLogic - allStudiesCompleted state changed:', allStudiesCompleted);
-  }, [allStudiesCompleted]);
-
-  // Load user cycle and handle orphan subjects
+  // Load user cycle and handle orphan subjects - com proteção contra loops
   useEffect(() => {
     const loadCycleAndHandleOrphans = async () => {
-      if (!user || subjects.length === 0) return;
+      if (!user || subjects.length === 0 || isRefreshing) return;
 
       try {
         console.log('🔄 Loading user cycle...');
         const data = await loadUserCycle(user.id);
         console.log('🔄 User cycle loaded:', data);
         
+        // Se o ciclo atual mudou, atualiza o estado
+        if (JSON.stringify(data) !== JSON.stringify(userCycle)) {
+          setUserCycle(data);
+        }
+        
         // If no cycle exists or cycle is empty but there are "Em Estudo" subjects
         if (!data || !data.ciclo_atual || data.ciclo_atual.length === 0) {
           const orphanSubjects = subjects.filter(s => s.status === 'Em Estudo');
           
-          if (orphanSubjects.length > 0) {
+          if (orphanSubjects.length > 0 && !isRefreshing) {
             console.log('🔄 Found orphan subjects, creating cycle...');
-            const result = await createCycleForOrphanSubjects(user.id, subjects);
+            setIsRefreshing(true);
             
-            if (result) {
-              // Reload the cycle after creating it
-              const newCycle = await loadUserCycle(user.id);
-              setUserCycle(newCycle);
-              toast.success(`Ciclo criado para ${orphanSubjects.length} matéria(s) reativada(s)!`);
-              return;
+            try {
+              const result = await createCycleForOrphanSubjects(user.id, subjects);
+              
+              if (result) {
+                // Reload the cycle after creating it
+                const newCycle = await loadUserCycle(user.id);
+                setUserCycle(newCycle);
+                toast.success(`Ciclo criado para ${orphanSubjects.length} matéria(s) reativada(s)!`);
+              }
+            } finally {
+              setIsRefreshing(false);
             }
           }
         }
-        
-        setUserCycle(data);
       } catch (error) {
         console.error('Exception loading user cycle:', error);
+        setIsRefreshing(false);
       }
     };
 
-    loadCycleAndHandleOrphans();
-  }, [user, subjects]);
+    const timeoutId = setTimeout(loadCycleAndHandleOrphans, 500);
+    return () => clearTimeout(timeoutId);
+  }, [user, subjects, userCycle, isRefreshing]);
 
   const dailySubjects = userCycle?.disciplinas_do_dia
     ? subjects.filter(subject => 
@@ -131,15 +150,18 @@ export const useStudyPlanLogic = () => {
       ).slice(0, 3)
     : [];
 
-  // Lógica melhorada para day completed - só mostra se não estão todos os estudos completos
+  // CRITICAL FIX: Lógica melhorada para day completed
   const allDaySubjectsCompleted = dailySubjects.length === 0 && 
     userCycle && 
     userCycle.disciplinas_do_dia.length > 0 &&
-    !allStudiesCompleted;
+    !allStudiesCompleted &&
+    !currentCycleCompleted &&
+    !isRefreshing;
 
-  console.log('🎯 useStudyPlanLogic - Render state:', {
+  console.log('🎯 useStudyPlanLogic - Final render state:', {
     allStudiesCompleted,
     allDaySubjectsCompleted,
+    currentCycleCompleted,
     subjectsLength: subjects.length,
     dailySubjectsLength: dailySubjects.length,
     hasAvailableSubjects,
@@ -148,16 +170,14 @@ export const useStudyPlanLogic = () => {
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     disciplinasIniciadasNoCiclo,
-    userCycle: userCycle ? {
-      ciclo_atual: userCycle.ciclo_atual,
-      disciplinas_do_dia: userCycle.disciplinas_do_dia
-    } : null
+    isRefreshing
   });
 
   const handleNextDay = useCallback(async () => {
-    if (!user || !userCycle) return;
+    if (!user || !userCycle || isRefreshing) return;
 
     try {
+      setIsRefreshing(true);
       const result = await generateNextDay(user.id, userCycle, subjects);
       
       if (result.shouldShowNewCycleMessage) {
@@ -174,20 +194,22 @@ export const useStudyPlanLogic = () => {
     } catch (error) {
       console.error('Error generating next day:', error);
       toast.error('Erro ao gerar próximo dia');
+    } finally {
+      setIsRefreshing(false);
     }
-  }, [user, userCycle, subjects]);
+  }, [user, userCycle, subjects, isRefreshing]);
 
   const handleCompleteSession = useCallback(async (subjectId: string) => {
     const markedTopics = tempMarkedTopics[subjectId] || [];
     
+    if (isRefreshing) return;
+    
     try {
+      setIsRefreshing(true);
       const result = await completeStudySession(subjectId, markedTopics, subjects);
       
       if (result.subjectCompleted) {
         toast.success(`Matéria "${result.subjectName}" concluída! 🎉`);
-        
-        // Refresh dos dados para garantir que a interface seja atualizada
-        setTimeout(() => refreshData(), 500);
       }
 
       // Clear temp marked topics
@@ -199,11 +221,19 @@ export const useStudyPlanLogic = () => {
       setExpandedSubject('');
       toast.success('Sessão concluída com sucesso!');
 
+      // Refresh dos dados para garantir que a interface seja atualizada
+      setTimeout(() => {
+        refreshData().finally(() => {
+          setIsRefreshing(false);
+        });
+      }, 1000);
+
     } catch (error) {
       console.error('Error completing session:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao concluir sessão');
+      setIsRefreshing(false);
     }
-  }, [tempMarkedTopics, subjects, refreshData]);
+  }, [tempMarkedTopics, subjects, refreshData, isRefreshing]);
 
   const handleToggleExpand = useCallback((subjectId: string) => {
     setExpandedSubject(prev => prev === subjectId ? '' : subjectId);
@@ -228,7 +258,7 @@ export const useStudyPlanLogic = () => {
   }, []);
 
   return {
-    isLoading,
+    isLoading: isLoading || isRefreshing,
     expandedSubject,
     tempMarkedTopics,
     showNewCycleMessage,
@@ -241,13 +271,14 @@ export const useStudyPlanLogic = () => {
     disciplinasConcluidas,
     isNewCycleStarted,
     allStudiesCompleted,
+    currentCycleCompleted,
     handleNextDay,
     handleCompleteSession,
     handleToggleExpand,
     handleMarkTopicForReview,
     handleCancelTopicReview,
     handleHideNewCycleMessage,
-    disciplinasIniciadas: disciplinasIniciadasNoCiclo, // Use the correct calculation
+    disciplinasIniciadas: disciplinasIniciadasNoCiclo,
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     isTopicDominated
   };
