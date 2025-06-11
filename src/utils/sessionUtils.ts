@@ -1,4 +1,3 @@
-
 import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextReviewDate } from './reviewStageUtils';
@@ -147,31 +146,4 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     subjectName: subject.name,
     topicsUpdated: markedTopicIds.length
   };
-};
-
-// Nova função para atualizar status de matérias baseado nos tópicos
-export const updateSubjectStatusBasedOnTopics = async (subjectId: string, subjects: Subject[]) => {
-  const subject = subjects.find(s => s.id === subjectId);
-  if (!subject) return;
-
-  // Verifica se todos os tópicos estão dominados
-  const allTopicsDominated = subject.topics.every(topic => topic.reviewStage === 'Concluído');
-
-  // Se todos os tópicos estão dominados e a matéria não está marcada como concluída
-  if (allTopicsDominated && subject.status !== 'Concluída') {
-    console.log('🔄 Atualizando status da matéria baseado nos tópicos:', subject.name);
-    
-    const { error } = await supabase
-      .from('subjects')
-      .update({
-        status: 'Concluída',
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', subjectId);
-
-    if (error) {
-      console.error('Erro ao atualizar status da matéria:', error);
-    }
-  }
 };
