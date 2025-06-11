@@ -186,7 +186,7 @@ const StudyPlan = () => {
                     </Card>
                   </motion.div>
                 ) : allDaySubjectsCompleted ? (
-                  /* PRIORIDADE 3: Conclusão do dia - quando todas as matérias do dia foram completadas */
+                  /* PRIORIDADE 3: Conclusão do dia - quando todas as matérias do dia foram completadas MAS ainda há matérias no ciclo */
                   <motion.div variants={itemVariants}>
                     <DayCompletedMessage onNextDay={handleNextDay} />
                   </motion.div>
@@ -209,14 +209,14 @@ const StudyPlan = () => {
                 ) : null}
               </div>
 
-              {/* Mensagem de novo ciclo */}
+              {/* Mensagem de novo ciclo - controlada corretamente */}
               <NewCycleMessage 
                 isVisible={showNewCycleMessage}
                 onHide={handleHideNewCycleMessage}
               />
 
-              {/* CORREÇÃO: Só mostrar próximas matérias se há matérias disponíveis E nextSubjects > 0 */}
-              {hasAvailableSubjects && nextSubjects.length > 0 && (
+              {/* CORREÇÃO: Só mostrar próximas matérias se há matérias disponíveis E nextSubjects > 0 E dailySubjects > 0 */}
+              {hasAvailableSubjects && nextSubjects.length > 0 && dailySubjects.length > 0 && (
                 <motion.div variants={itemVariants}>
                   <NextSubjects nextSubjects={nextSubjects} />
                 </motion.div>

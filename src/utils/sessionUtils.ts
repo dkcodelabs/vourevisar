@@ -1,4 +1,3 @@
-
 import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextReviewDate } from './reviewStageUtils';
@@ -118,7 +117,7 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     subjectCompleted = true;
   }
 
-  // CORREÇÃO PRINCIPAL: Remover matéria da fila do dia após sessão concluída
+  // CORREÇÃO PRINCIPAL: Apenas remover a matéria da fila do dia - NÃO adicionar novas automaticamente
   const { data: user } = await supabase.auth.getUser();
   if (user.user) {
     // Get current user cycle
@@ -129,56 +128,23 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
       .single();
 
     if (currentCycle) {
-      console.log('🔄 Removendo matéria da fila do dia após sessão concluída');
+      console.log('🔄 Removendo matéria da fila do dia após sessão concluída - SEM adicionar novas automaticamente');
       
-      // SEMPRE remove a matéria da fila do dia
+      // APENAS remove a matéria da fila do dia - as outras só sobem quando o usuário avança o dia
       const updatedDisciplinasoDia = currentCycle.disciplinas_do_dia.filter((id: string) => id !== subjectId);
-      
-      // Get user settings for subjects per day
-      const userSettings = await getUserSettings(user.user.id);
-      const subjectsPerDay = userSettings.subjects_per_day;
-      
-      // CORREÇÃO: Buscar matérias para adicionar à fila do dia (NÃO às próximas disciplinas)
-      // Apenas matérias que estão no ciclo atual, não estão concluídas, não estão na fila atual e não é a matéria que acabou de ser estudada
-      const availableSubjects = subjects
-        .filter(s => 
-          currentCycle.ciclo_atual.includes(s.id) && 
-          s.status !== 'Concluída' && 
-          !updatedDisciplinasoDia.includes(s.id) &&
-          s.id !== subjectId // Exclude the just studied subject
-        )
-        .sort((a, b) => (a.priority || 999) - (b.priority || 999)); // Ordenar por prioridade
 
-      console.log('📚 Matérias disponíveis para adicionar à fila do dia:', {
-        availableSubjects: availableSubjects.map(s => ({ name: s.name, priority: s.priority, status: s.status })),
-        currentQueueAfterRemoval: updatedDisciplinasoDia.length,
-        subjectsPerDay
-      });
-
-      // Calcular quantas matérias adicionar para completar a cota diária
-      const spotsToFill = Math.max(0, subjectsPerDay - updatedDisciplinasoDia.length);
-      const subjectsToAdd = availableSubjects.slice(0, spotsToFill);
-      
-      // Add the new subjects to today's queue
-      const finalDisciplinasoDia = [
-        ...updatedDisciplinasoDia,
-        ...subjectsToAdd.map(s => s.id)
-      ];
-
-      console.log('📚 Atualizando fila do dia:', {
+      console.log('📚 Atualizando fila do dia (apenas remoção):', {
         removedSubject: subjectId,
         oldQueue: currentCycle.disciplinas_do_dia,
-        newQueue: finalDisciplinasoDia,
-        addedSubjects: subjectsToAdd.map(s => ({ name: s.name, priority: s.priority })),
-        spotsToFill,
-        subjectsPerDay
+        newQueue: updatedDisciplinasoDia,
+        message: 'Matérias só serão adicionadas quando o usuário avançar o dia'
       });
 
-      // Update the user cycle
+      // Update the user cycle - apenas com a remoção
       const { error: cycleError } = await supabase
         .from('user_cycles')
         .update({
-          disciplinas_do_dia: finalDisciplinasoDia,
+          disciplinas_do_dia: updatedDisciplinasoDia,
           atualizado_em: new Date().toISOString()
         })
         .eq('user_id', user.user.id);

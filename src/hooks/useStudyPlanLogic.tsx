@@ -229,7 +229,7 @@ export const useStudyPlanLogic = () => {
       setExpandedSubject('');
       toast.success('Sessão concluída com sucesso!');
 
-      // CORREÇÃO CRÍTICA: Refresh imediato sem delay e atualizar estado local
+      // CORREÇÃO CRÍTICA: Atualização otimizada - SEM refresh completo, apenas refresh dos dados e atualização local do ciclo
       await refreshData();
 
       // Atualizar o estado local do ciclo também

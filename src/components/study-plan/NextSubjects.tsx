@@ -13,13 +13,27 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
   // CORREÇÃO: Não mostrar nada se não há próximas matérias
   if (nextSubjects.length === 0) return null;
 
-  // CORREÇÃO: Garantir que as matérias estão ordenadas por prioridade E filtradas corretamente
+  // CORREÇÃO: Filtro rigoroso - JAMAIS mostrar matérias concluídas nas próximas disciplinas
   const sortedSubjects = [...nextSubjects]
-    .filter(subject => subject.status !== 'Concluída') // Garantir que matérias concluídas não aparecem
+    .filter(subject => {
+      const isNotCompleted = subject.status !== 'Concluída';
+      console.log('🔍 NextSubjects filter check:', {
+        subjectName: subject.name,
+        status: subject.status,
+        isNotCompleted,
+        willShow: isNotCompleted
+      });
+      return isNotCompleted;
+    })
     .sort((a, b) => (a.priority || 999) - (b.priority || 999));
 
-  // Se após o filtro não há matérias, não renderizar
-  if (sortedSubjects.length === 0) return null;
+  // Se após o filtro rigoroso não há matérias, não renderizar
+  if (sortedSubjects.length === 0) {
+    console.log('🚫 NextSubjects: Nenhuma matéria válida após filtro - não renderizando');
+    return null;
+  }
+
+  console.log('✅ NextSubjects: Renderizando', sortedSubjects.length, 'matérias válidas');
 
   return (
     <>
