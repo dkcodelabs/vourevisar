@@ -22,14 +22,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<number>(0);
 
   const loadSubjects = async () => {
     if (!user) return;
     
     setIsLoading(true);
-    setError(null);
-    
     try {
       console.log('AppContext - Loading subjects for user:', user.id);
       
@@ -42,10 +39,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
 
-      if (subjectsError) {
-        console.error('AppContext - Supabase error:', subjectsError);
-        throw new Error(`Erro ao carregar matérias: ${subjectsError.message}`);
-      }
+      if (subjectsError) throw subjectsError;
 
       const transformedSubjects: Subject[] = (subjectsData || []).map(subject => ({
         id: subject.id,
@@ -68,16 +62,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSubjects(transformedSubjects);
       calculateProgress(transformedSubjects);
       setIsDataLoaded(true);
-      setLastRefresh(Date.now());
       console.log('AppContext - Subjects loaded successfully:', transformedSubjects.length);
     } catch (error: any) {
       console.error('AppContext - Error loading subjects:', error);
       setError(error.message);
-      
-      // Não mostrar toast de erro se for um erro de conexão conhecido
-      if (!error.message.includes('Failed to fetch')) {
-        toast.error('Erro ao carregar matérias');
-      }
+      toast.error('Erro ao carregar matérias');
     } finally {
       setIsLoading(false);
     }
@@ -265,20 +254,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshData = async () => {
     if (!user) return;
     
-    // Evitar refresh múltiplos muito próximos
-    const now = Date.now();
-    if (now - lastRefresh < 1000) {
-      console.log('AppContext - Refresh throttled');
-      return;
-    }
-    
     console.log('AppContext - Refreshing all data...');
+    setIsLoading(true);
     
     try {
       await loadSubjects();
       console.log('AppContext - Data refreshed successfully');
     } catch (error) {
       console.error('AppContext - Error refreshing data:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -297,7 +282,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       setSubjects([]);
       setIsDataLoaded(false);
-      setError(null);
     }
   }, [user]);
 

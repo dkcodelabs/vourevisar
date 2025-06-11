@@ -11,32 +11,26 @@ import SubjectReactivationModal from './SubjectReactivationModal';
 const AllStudiesCompletedMessage: React.FC = () => {
   const navigate = useNavigate();
   const [showReactivationModal, setShowReactivationModal] = useState(false);
-  const [confettiShown, setConfettiShown] = useState(false);
 
   useEffect(() => {
-    // Só executar confetti uma vez
-    if (confettiShown) return;
-    
-    setConfettiShown(true);
-    
-    // Confetti especial para conclusão total - mais controlado
-    const duration = 3000;
+    // Confetti especial para conclusão total - mais dramático
+    const duration = 4000;
     const animationEnd = Date.now() + duration;
 
     const randomInRange = (min: number, max: number) => {
       return Math.random() * (max - min) + min;
     };
 
-    // Executar confetti de forma controlada
-    const confettiInterval = setInterval(() => {
+    // Múltiplas explosões de confetti
+    const interval = setInterval(() => {
       const timeLeft = animationEnd - Date.now();
 
       if (timeLeft <= 0) {
-        clearInterval(confettiInterval);
+        clearInterval(interval);
         return;
       }
 
-      const particleCount = 30 * (timeLeft / duration);
+      const particleCount = 60 * (timeLeft / duration);
 
       // Confetti da esquerda
       confetti({
@@ -62,7 +56,7 @@ const AllStudiesCompletedMessage: React.FC = () => {
         colors: ['#FFD700', '#FFA500', '#FF6347', '#32CD32', '#1E90FF']
       });
 
-      // Confetti do centro (apenas nos primeiros 1.5 segundos)
+      // Confetti do centro (apenas nos primeiros 2 segundos)
       if (timeLeft > duration / 2) {
         confetti({
           particleCount: particleCount / 2,
@@ -75,13 +69,10 @@ const AllStudiesCompletedMessage: React.FC = () => {
           colors: ['#FFD700', '#FFA500']
         });
       }
-    }, 250);
+    }, 200);
 
-    // Cleanup function
-    return () => {
-      clearInterval(confettiInterval);
-    };
-  }, [confettiShown]);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleStartNewStudies = () => {
     setShowReactivationModal(true);

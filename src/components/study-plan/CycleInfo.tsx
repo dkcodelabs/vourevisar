@@ -33,12 +33,6 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
   disciplinasIniciadas,
   disciplinasNaoIniciadas
 }) => {
-  // CRITICAL FIX: Só não renderizar se realmente não há ciclo ou dados importantes
-  // Mas sempre mostrar quando há um ciclo ativo, mesmo que vazio temporariamente
-  if (!userCycle) {
-    return null;
-  }
-
   return (
     <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
       <CardContent className="p-4">
