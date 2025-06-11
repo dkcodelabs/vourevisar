@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { format } from 'date-fns';
@@ -20,7 +21,7 @@ interface CycleInfoProps {
   disciplinasConcluidas: number;
   totalDisciplinasCiclo: number;
   isNewCycleStarted: boolean;
-  disciplinasIniciadas: number;
+  disciplinasIniciadasCiclo: number; // Usar a contagem correta do ciclo
   disciplinasNaoIniciadas: number;
 }
 
@@ -29,7 +30,7 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
   disciplinasConcluidas,
   totalDisciplinasCiclo,
   isNewCycleStarted,
-  disciplinasIniciadas,
+  disciplinasIniciadasCiclo,
   disciplinasNaoIniciadas
 }) => {
   return (
@@ -52,7 +53,7 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
             <div className="flex items-center gap-2">
               <CheckCircle size={16} className="text-blue-500" weight="fill" />
               <p className="text-xs text-gray-600">
-                Disciplinas Iniciadas: <span className="font-semibold text-app-blue">{disciplinasIniciadas}/{totalDisciplinasCiclo}</span>
+                Disciplinas Iniciadas: <span className="font-semibold text-app-blue">{disciplinasIniciadasCiclo}/{totalDisciplinasCiclo}</span>
               </p>
             </div>
             {isNewCycleStarted && (

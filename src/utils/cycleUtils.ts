@@ -16,17 +16,34 @@ export const generateNextDay = async (
 
   const subjectsPerDay = userSettings?.subjects_per_day || 3;
 
+  // Filtrar apenas matérias do ciclo atual que NÃO estão concluídas
   const availableSubjects = subjects.filter(s => 
     userCycle.ciclo_atual.includes(s.id) && 
     s.status !== 'Concluída'
   );
 
+  console.log('🔄 Gerando próximo dia:', {
+    totalSubjects: subjects.length,
+    cycleSubjects: userCycle.ciclo_atual.length,
+    availableSubjects: availableSubjects.length,
+    subjectsPerDay,
+    availableSubjectNames: availableSubjects.map(s => s.name)
+  });
+
   if (availableSubjects.length === 0) {
+    console.log('🏁 Nenhuma matéria disponível - fim do ciclo');
     return { shouldShowNewCycleMessage: true };
   }
 
-  const nextBatch = availableSubjects.slice(0, Math.min(subjectsPerDay, availableSubjects.length));
+  // Ordenar por prioridade e pegar as próximas matérias
+  const sortedSubjects = availableSubjects.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  const nextBatch = sortedSubjects.slice(0, Math.min(subjectsPerDay, sortedSubjects.length));
   const nextBatchIds = nextBatch.map(s => s.id);
+
+  console.log('📋 Próximo lote de matérias:', {
+    selectedSubjects: nextBatch.map(s => ({ id: s.id, name: s.name, priority: s.priority })),
+    nextBatchIds
+  });
 
   const { error } = await supabase
     .from('user_cycles')
@@ -36,7 +53,10 @@ export const generateNextDay = async (
     })
     .eq('user_id', userId);
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error updating user cycle:', error);
+    throw error;
+  }
 
   return { 
     shouldShowNewCycleMessage: false, 

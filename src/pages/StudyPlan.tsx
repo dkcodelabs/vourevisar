@@ -59,7 +59,8 @@ const StudyPlan = () => {
     handleCancelTopicReview,
     handleHideNewCycleMessage,
     disciplinasIniciadas,
-    disciplinasNaoIniciadas
+    disciplinasNaoIniciadas,
+    disciplinasIniciadasCiclo
   } = useStudyPlanLogic();
 
   console.log('📊 StudyPlan render - Detailed state:', {
@@ -74,6 +75,7 @@ const StudyPlan = () => {
     ciclo_atual: userCycle?.ciclo_atual,
     disciplinasIniciadas: disciplinasIniciadas.length,
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
+    disciplinasIniciadasCiclo,
     totalDisciplinasCiclo,
     disciplinasConcluidas
   });
@@ -115,7 +117,7 @@ const StudyPlan = () => {
                     disciplinasConcluidas={disciplinasConcluidas}
                     totalDisciplinasCiclo={totalDisciplinasCiclo}
                     isNewCycleStarted={isNewCycleStarted}
-                    disciplinasIniciadas={disciplinasIniciadas.length}
+                    disciplinasIniciadasCiclo={disciplinasIniciadasCiclo}
                     disciplinasNaoIniciadas={disciplinasNaoIniciadas.length}
                   />
                 </motion.div>

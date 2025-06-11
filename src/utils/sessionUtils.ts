@@ -135,6 +135,12 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
       // Remover a matéria da lista do dia
       const updatedDisciplinasoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
       
+      console.log('🔄 Atualizando lista diária:', {
+        before: userCycle.disciplinas_do_dia,
+        after: updatedDisciplinasoDia,
+        removedSubject: subjectId
+      });
+
       const { error: updateError } = await supabase
         .from('user_cycles')
         .update({
@@ -145,6 +151,7 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
 
       if (updateError) {
         console.error('Error updating user cycle:', updateError);
+        throw new Error(`Erro ao atualizar ciclo: ${updateError.message}`);
       } else {
         console.log('✅ Matéria removida da lista diária:', {
           subjectId,

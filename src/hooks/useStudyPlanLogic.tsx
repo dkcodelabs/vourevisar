@@ -25,9 +25,17 @@ export const useStudyPlanLogic = () => {
   
   // Contar apenas matérias do ciclo atual
   const totalDisciplinasCiclo = userCycle?.ciclo_atual?.length || 0;
+  
+  // CORRIGIR: Disciplinas concluídas devem ser as que têm status 'Concluída' no ciclo atual
   const disciplinasConcluidas = userCycle?.ciclo_atual?.filter(id => {
     const subject = subjects.find(s => s.id === id);
     return subject?.status === 'Concluída';
+  }).length || 0;
+
+  // CORRIGIR: Disciplinas iniciadas devem ser as que têm status 'Em Estudo' no ciclo atual
+  const disciplinasIniciadasCiclo = userCycle?.ciclo_atual?.filter(id => {
+    const subject = subjects.find(s => s.id === id);
+    return subject?.status === 'Em Estudo';
   }).length || 0;
 
   const isNewCycleStarted = userCycle && userCycle.ciclo_atual.length > 0 && 
@@ -38,9 +46,13 @@ export const useStudyPlanLogic = () => {
     console.log('📚 useStudyPlanLogic - Subjects loaded:', {
       subjectsCount: subjects.length,
       subjects: subjects.map(s => ({ id: s.id, name: s.name, status: s.status })),
-      isLoading
+      isLoading,
+      userCycle: userCycle ? {
+        ciclo_atual: userCycle.ciclo_atual,
+        disciplinas_do_dia: userCycle.disciplinas_do_dia
+      } : null
     });
-  }, [subjects, isLoading]);
+  }, [subjects, isLoading, userCycle]);
 
   // Load user settings
   useEffect(() => {
@@ -116,7 +128,7 @@ export const useStudyPlanLogic = () => {
     loadCycle();
   }, [user]);
 
-  // Filtrar apenas matérias que não estão concluídas para a lista diária
+  // Filtrar apenas matérias que estão na lista diária E não estão concluídas
   const dailySubjects = userCycle?.disciplinas_do_dia
     ? subjects.filter(subject => 
         userCycle.disciplinas_do_dia.includes(subject.id) && 
@@ -124,7 +136,7 @@ export const useStudyPlanLogic = () => {
       )
     : [];
 
-  // Filtrar próximas matérias (apenas as que não estão concluídas e não estão no dia)
+  // Filtrar próximas matérias (apenas as que não estão concluídas, não estão no dia e estão no ciclo)
   const nextSubjects = userCycle?.ciclo_atual
     ? subjects.filter(subject => 
         userCycle.ciclo_atual.includes(subject.id) && 
@@ -148,6 +160,7 @@ export const useStudyPlanLogic = () => {
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     totalDisciplinasCiclo,
     disciplinasConcluidas,
+    disciplinasIniciadasCiclo,
     userSettings,
     userCycleInfo: userCycle ? {
       disciplinas_do_dia: userCycle.disciplinas_do_dia,
@@ -203,6 +216,11 @@ export const useStudyPlanLogic = () => {
       if (user) {
         const updatedCycle = await loadUserCycle(user.id);
         setUserCycle(updatedCycle);
+        
+        console.log('🔄 Ciclo atualizado após sessão:', {
+          before: userCycle?.disciplinas_do_dia,
+          after: updatedCycle?.disciplinas_do_dia
+        });
       }
 
       toast.success('Sessão concluída com sucesso!');
@@ -211,7 +229,7 @@ export const useStudyPlanLogic = () => {
       console.error('Error completing session:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao concluir sessão');
     }
-  }, [tempMarkedTopics, subjects, refreshData, user]);
+  }, [tempMarkedTopics, subjects, refreshData, user, userCycle]);
 
   const handleToggleExpand = useCallback((subjectId: string) => {
     setExpandedSubject(prev => prev === subjectId ? '' : subjectId);
@@ -257,6 +275,7 @@ export const useStudyPlanLogic = () => {
     handleHideNewCycleMessage,
     disciplinasIniciadas,
     disciplinasNaoIniciadas,
+    disciplinasIniciadasCiclo, // Adicionar esta nova variável
     isTopicDominated
   };
 };
