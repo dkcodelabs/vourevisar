@@ -17,24 +17,13 @@ export const useStudyPlanLogic = () => {
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
   const [allStudiesCompleted, setAllStudiesCompleted] = useState(false);
 
-  // Filtered subjects based on status
   const disciplinasIniciadas = subjects.filter(s => s.status === 'Em Estudo');
   const disciplinasNaoIniciadas = subjects.filter(s => s.status === 'Nova');
   const hasAvailableSubjects = subjects.length > 0;
-
-  // Calculate cycle metrics correctly
   const totalDisciplinasCiclo = userCycle?.ciclo_atual?.length || 0;
-  
-  // Disciplinas concluídas = subjects that are marked as completed AND are in the current cycle
-  const disciplinasConcluidas = userCycle?.ciclo_atual?.filter(subjectId => {
-    const subject = subjects.find(s => s.id === subjectId);
+  const disciplinasConcluidas = userCycle?.ciclo_atual?.filter(id => {
+    const subject = subjects.find(s => s.id === id);
     return subject?.status === 'Concluída';
-  }).length || 0;
-
-  // Get subjects that are in cycle but not completed (these are initiated but not finished)
-  const disciplinasIniciadasNoCiclo = userCycle?.ciclo_atual?.filter(subjectId => {
-    const subject = subjects.find(s => s.id === subjectId);
-    return subject && subject.status !== 'Concluída';
   }).length || 0;
 
   const isNewCycleStarted = userCycle && userCycle.ciclo_atual.length > 0 && 
@@ -126,8 +115,7 @@ export const useStudyPlanLogic = () => {
     disciplinasIniciadas: disciplinasIniciadas.length,
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     totalDisciplinasCiclo,
-    disciplinasConcluidas,
-    disciplinasIniciadasNoCiclo
+    disciplinasConcluidas
   });
 
   const handleNextDay = useCallback(async () => {
@@ -223,8 +211,8 @@ export const useStudyPlanLogic = () => {
     handleMarkTopicForReview,
     handleCancelTopicReview,
     handleHideNewCycleMessage,
-    disciplinasIniciadas: disciplinasIniciadasNoCiclo, // Use the correct calculation
-    disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
+    disciplinasIniciadas,
+    disciplinasNaoIniciadas,
     isTopicDominated
   };
 };

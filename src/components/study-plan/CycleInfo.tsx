@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { Sparkle, CheckCircle, Calendar, BookOpen } from 'lucide-react';
+import { Sparkle, CheckCircle, Calendar } from '@phosphor-icons/react';
 
 interface UserCycle {
   id: string;
@@ -39,26 +38,26 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Sparkle className="h-4 w-4 text-yellow-500" />
+              <Sparkle size={16} className="text-yellow-500" weight="fill" />
               <p className="text-xs text-gray-600">
                 Ciclos realizados: <span className="font-semibold text-app-blue">{userCycle.ciclos_realizados}</span>
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              <CheckCircle size={16} className="text-green-500" weight="fill" />
               <p className="text-xs text-gray-600">
-                Disciplinas concluídas: <span className="font-semibold text-app-blue">{disciplinasConcluidas}/{totalDisciplinasCiclo}</span>
+                Disciplinas do ciclo: <span className="font-semibold text-app-blue">{disciplinasConcluidas}/{totalDisciplinasCiclo}</span>
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-blue-500" />
+              <CheckCircle size={16} className="text-blue-500" weight="fill" />
               <p className="text-xs text-gray-600">
-                Disciplinas em estudo: <span className="font-semibold text-app-blue">{disciplinasIniciadas}/{totalDisciplinasCiclo}</span>
+                Disciplinas Iniciadas: <span className="font-semibold text-app-blue">{disciplinasIniciadas}/{totalDisciplinasCiclo}</span>
               </p>
             </div>
             {isNewCycleStarted && (
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-purple-500" />
+                <Calendar size={16} className="text-purple-500" weight="fill" />
                 <p className="text-xs text-purple-600 font-medium">
                   🔄 Novo ciclo iniciado!
                 </p>
@@ -66,7 +65,7 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
             )}
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-600">
-            <Calendar className="h-4 w-4 text-purple-500" />
+            <Calendar size={16} className="text-purple-500" weight="fill" />
             Início: {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
           </div>
         </div>
