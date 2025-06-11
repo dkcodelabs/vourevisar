@@ -1,3 +1,4 @@
+
 import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextReviewDate } from './reviewStageUtils';
@@ -29,27 +30,27 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
 
     // Determine new review stage
     switch (currentReviewCount) {
-      case 0:
+      case 0: // First review
         newReviewStage = '1d';
         nextReviewDate = new Date(getNextReviewDate('1d'));
         break;
-      case 1:
+      case 1: // Second review
         newReviewStage = '3d';
         nextReviewDate = new Date(getNextReviewDate('3d'));
         break;
-      case 2:
+      case 2: // Third review
         newReviewStage = '7d';
         nextReviewDate = new Date(getNextReviewDate('7d'));
         break;
-      case 3:
+      case 3: // Fourth review
         newReviewStage = '15d';
         nextReviewDate = new Date(getNextReviewDate('15d'));
         break;
-      case 4:
+      case 4: // Fifth review
         newReviewStage = '30d';
         nextReviewDate = new Date(getNextReviewDate('30d'));
         break;
-      default:
+      default: // Sixth review and beyond
         newReviewStage = 'Concluído';
         nextReviewDate = null;
         break;
@@ -85,10 +86,12 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
 
   // Verificar se todos os tópicos da matéria estão dominados
   const allTopicsDominated = subject.topics.every(topic => {
+    // Se foi marcado nesta sessão, considera como dominado se chegou no final
     if (markedTopicIds.includes(topic.id)) {
       const newReviewCount = (topic.reviewCount || 0) + 1;
-      return newReviewCount >= 5;
+      return newReviewCount >= 5; // 5+ reviews = Concluído
     }
+    // Se não foi marcado, verifica o estado atual
     return topic.reviewStage === 'Concluído';
   });
 
@@ -115,9 +118,10 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     subjectCompleted = true;
   }
 
-  // CORREÇÃO CRÍTICA: Remover a matéria da fila do dia SEMPRE que uma sessão é completada
+  // CRITICAL FIX: Atualizar o ciclo do usuário para remover a matéria da fila do dia
   const { data: user } = await supabase.auth.getUser();
   if (user.user) {
+    // Get current user cycle
     const { data: currentCycle } = await supabase
       .from('user_cycles')
       .select('*')
@@ -125,30 +129,52 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
       .single();
 
     if (currentCycle) {
-      console.log('🔄 Removendo matéria da fila do dia após sessão concluída');
+      console.log('🔄 Atualizando ciclo do usuário - removendo matéria da fila do dia');
       
-      // SEMPRE remove a matéria da fila do dia - independente de estar concluída ou não
+      // Remove the completed subject from today's queue
       const updatedDisciplinasoDia = currentCycle.disciplinas_do_dia.filter((id: string) => id !== subjectId);
+      
+      // Get user settings for subjects per day
+      const userSettings = await getUserSettings(user.user.id);
+      const subjectsPerDay = userSettings.subjects_per_day;
+      
+      // Get remaining subjects in cycle that are not completed and not already in today's queue
+      const availableSubjects = subjects.filter(s => 
+        currentCycle.ciclo_atual.includes(s.id) && 
+        s.status !== 'Concluída' && 
+        !updatedDisciplinasoDia.includes(s.id) &&
+        s.id !== subjectId // Exclude the just completed subject
+      );
 
-      console.log('📚 Atualizando fila do dia (remoção após sessão):', {
+      // Add new subjects to fill the daily quota if available
+      const spotsToFill = Math.max(0, subjectsPerDay - updatedDisciplinasoDia.length);
+      const subjectsToAdd = availableSubjects.slice(0, spotsToFill);
+      
+      // Add the new subjects to today's queue
+      const finalDisciplinasoDia = [
+        ...updatedDisciplinasoDia,
+        ...subjectsToAdd.map(s => s.id)
+      ];
+
+      console.log('📚 Atualizando fila do dia:', {
         removedSubject: subjectId,
-        subjectName: subject.name,
         oldQueue: currentCycle.disciplinas_do_dia,
-        newQueue: updatedDisciplinasoDia,
-        message: 'Matéria removida da fila após completar sessão'
+        newQueue: finalDisciplinasoDia,
+        addedSubjects: subjectsToAdd.map(s => s.name)
       });
 
       // Update the user cycle
       const { error: cycleError } = await supabase
         .from('user_cycles')
         .update({
-          disciplinas_do_dia: updatedDisciplinasoDia,
+          disciplinas_do_dia: finalDisciplinasoDia,
           atualizado_em: new Date().toISOString()
         })
         .eq('user_id', user.user.id);
 
       if (cycleError) {
         console.error('Error updating user cycle:', cycleError);
+        // Don't throw error here as the main operation succeeded
       }
     }
 
@@ -160,11 +186,12 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
         session_date: new Date().toISOString().split('T')[0],
         topics_studied: markedTopicIds.length,
         subjects_worked: [subjectId],
-        session_duration_minutes: 30
+        session_duration_minutes: 30 // Default duration
       });
 
     if (sessionError) {
       console.error('Error recording study session:', sessionError);
+      // Don't throw error here as the main operation succeeded
     }
   }
 

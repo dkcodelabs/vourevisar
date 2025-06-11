@@ -71,10 +71,7 @@ const StudyPlan = () => {
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
     userCycle,
-    showNewCycleMessage,
-    disciplinasConcluidas,
-    totalDisciplinasCiclo,
-    disciplinasIniciadas
+    showNewCycleMessage
   });
 
   return (
@@ -106,7 +103,7 @@ const StudyPlan = () => {
               <AllStudiesCompletedMessage />
             </motion.div>
           ) : currentCycleCompleted ? (
-            /* PRIORIDADE 2: Mensagem de ciclo completo */
+            /* PRIORIDADE 2: Mensagem de ciclo completo - quando apenas o ciclo atual foi concluído */
             <motion.div variants={itemVariants}>
               <Card className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-4 border-green-300 shadow-xl">
                 <CardHeader className="text-center pb-6">
@@ -151,7 +148,7 @@ const StudyPlan = () => {
             </motion.div>
           ) : (
             <>
-              {/* SEMPRE mostrar informações do ciclo quando há um ciclo ativo */}
+              {/* SEMPRE mostrar informações do ciclo quando há um ciclo ativo E matérias disponíveis */}
               {userCycle && hasAvailableSubjects && (
                 <motion.div variants={itemVariants}>
                   <CycleInfo 
@@ -186,7 +183,7 @@ const StudyPlan = () => {
                     </Card>
                   </motion.div>
                 ) : allDaySubjectsCompleted ? (
-                  /* PRIORIDADE 3: CORREÇÃO - Mensagem de dia concluído */
+                  /* PRIORIDADE 3: Conclusão do dia - quando todas as matérias do dia foram completadas */
                   <motion.div variants={itemVariants}>
                     <DayCompletedMessage onNextDay={handleNextDay} />
                   </motion.div>
@@ -209,17 +206,13 @@ const StudyPlan = () => {
                 ) : null}
               </div>
 
-              {/* Mensagem de novo ciclo - controlada corretamente */}
+              {/* Mensagem de novo ciclo */}
               <NewCycleMessage 
                 isVisible={showNewCycleMessage}
                 onHide={handleHideNewCycleMessage}
               />
 
-              {/* CORREÇÃO: Só mostrar próximas matérias se há matérias no ciclo E não estamos em estado de dia/ciclo completo */}
-              {hasAvailableSubjects && 
-               nextSubjects.length > 0 && 
-               !allDaySubjectsCompleted && 
-               !currentCycleCompleted && (
+              {hasAvailableSubjects && nextSubjects.length > 0 && (
                 <motion.div variants={itemVariants}>
                   <NextSubjects nextSubjects={nextSubjects} />
                 </motion.div>

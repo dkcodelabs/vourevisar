@@ -10,25 +10,7 @@ interface NextSubjectsProps {
 }
 
 const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
-  // CORREÇÃO CRÍTICA: Filtro ultra-rigoroso - JAMAIS mostrar matérias concluídas
-  const validSubjects = nextSubjects.filter(subject => {
-    const isNotCompleted = subject.status !== 'Concluída';
-    console.log('🔍 NextSubjects ULTRA FILTER:', {
-      subjectName: subject.name,
-      status: subject.status,
-      isNotCompleted,
-      willShow: isNotCompleted
-    });
-    return isNotCompleted;
-  });
-
-  // Se não há matérias válidas, não mostrar nada
-  if (validSubjects.length === 0) {
-    console.log('🚫 NextSubjects: Nenhuma matéria válida - não renderizando');
-    return null;
-  }
-
-  console.log('✅ NextSubjects: Renderizando', validSubjects.length, 'matérias válidas');
+  if (nextSubjects.length === 0) return null;
 
   return (
     <>
@@ -37,7 +19,7 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
         Próximas Disciplinas
       </h2>
       <div className="space-y-1">
-        {validSubjects.map(subject => (
+        {nextSubjects.map(subject => (
           <motion.div
             key={subject.id}
             whileHover={{ scale: 1.01 }}
@@ -50,11 +32,6 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ nextSubjects }) => {
                   <BookOpen size={16} className="text-app-blue" />
                   <h3 className="font-medium text-sm">{subject.name}</h3>
                   <p className="text-xs text-gray-500">{subject.topics.length} tópicos</p>
-                  {subject.priority && (
-                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                      #{subject.priority}
-                    </span>
-                  )}
                 </div>
               </CardContent>
             </Card>
