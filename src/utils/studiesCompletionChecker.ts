@@ -1,5 +1,6 @@
 
 import { Subject } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 export const checkAllStudiesCompleted = (subjects: Subject[]): boolean => {
   console.log('🔍 checkAllStudiesCompleted chamado com:', {
@@ -12,38 +13,45 @@ export const checkAllStudiesCompleted = (subjects: Subject[]): boolean => {
     return false;
   }
 
-  // Lógica melhorada: verifica tanto o status quanto os tópicos
+  // CORRIGIDO: Verificação mais rigorosa para evitar false positives
   const allSubjectsCompleted = subjects.every(subject => {
-    // Se já está marcada como concluída, está ok
-    if (subject.status === 'Concluída') {
-      return true;
-    }
-
-    // Se não tem tópicos, não pode estar concluída
+    // Deve ter status 'Concluída' E todos os tópicos dominados
+    const hasStatusCompleted = subject.status === 'Concluída';
+    
     if (!subject.topics || subject.topics.length === 0) {
+      console.log(`⚠️ Matéria "${subject.name}" sem tópicos - não pode estar concluída`);
       return false;
     }
 
-    // Se todos os tópicos estão dominados, considera como concluída
-    return subject.topics.every(topic => isTopicDominated(topic));
+    const allTopicsDominated = subject.topics.every(topic => isTopicDominated(topic));
+    const isCompleted = hasStatusCompleted && allTopicsDominated;
+    
+    console.log(`📋 Matéria "${subject.name}":`, {
+      status: subject.status,
+      hasStatusCompleted,
+      topicsCount: subject.topics.length,
+      dominatedTopics: subject.topics.filter(isTopicDominated).length,
+      allTopicsDominated,
+      isCompleted
+    });
+    
+    return isCompleted;
   });
   
-  console.log('🔍 Verificação de estudos completos:', {
+  console.log('🔍 Resultado final da verificação:', {
     totalSubjects: subjects.length,
-    subjectsStatus: subjects.map(s => ({ 
-      name: s.name, 
-      status: s.status,
-      topicsCount: s.topics?.length || 0,
-      dominatedTopics: s.topics?.filter(isTopicDominated).length || 0
-    })),
-    allSubjectsCompleted
+    allSubjectsCompleted,
+    completedSubjects: subjects.filter(s => s.status === 'Concluída').length
   });
 
   return allSubjectsCompleted;
 };
 
 export const isTopicDominated = (topic: any): boolean => {
-  return topic.reviewStage === 'Concluído';
+  // CORRIGIDO: Verificação mais rigorosa para tópicos dominados
+  const isDominated = topic.reviewStage === 'Concluído' || (topic.reviewCount && topic.reviewCount >= 5);
+  console.log(`🔍 Tópico "${topic.name}": reviewStage=${topic.reviewStage}, reviewCount=${topic.reviewCount}, isDominated=${isDominated}`);
+  return isDominated;
 };
 
 export const calculateSubjectProgress = (subject: Subject): number => {
@@ -55,7 +63,7 @@ export const calculateSubjectProgress = (subject: Subject): number => {
 
 export const getHighProgressSubjects = (subjects: Subject[]): Subject[] => {
   return subjects.filter(subject => {
-    if (subject.status === 'Concluída') return false; // Não incluir matérias já concluídas
+    if (subject.status === 'Concluída') return false;
     
     const progress = calculateSubjectProgress(subject);
     return progress > 75 && progress < 100;
@@ -64,27 +72,50 @@ export const getHighProgressSubjects = (subjects: Subject[]): Subject[] => {
 
 export const getFullyCompletedSubjects = (subjects: Subject[]): Subject[] => {
   return subjects.filter(subject => {
-    // Considera tanto status quanto tópicos dominados
-    if (subject.status === 'Concluída') return true;
-    
-    if (!subject.topics || subject.topics.length === 0) return false;
-    
-    return subject.topics.every(isTopicDominated);
+    return subject.status === 'Concluída' && 
+           subject.topics && 
+           subject.topics.length > 0 && 
+           subject.topics.every(isTopicDominated);
   });
 };
 
-// Nova função para sincronizar status das matérias
+// NOVA: Função para verificar se há matérias realmente disponíveis para estudo
+export const hasStudyableSubjects = (subjects: Subject[]): boolean => {
+  return subjects.some(subject => 
+    subject.status !== 'Concluída' && 
+    subject.topics && 
+    subject.topics.length > 0
+  );
+};
+
+// Função de sincronização melhorada
 export const syncSubjectStatus = async (subjects: Subject[]): Promise<void> => {
   console.log('🔄 Sincronizando status das matérias...');
   
-  // Esta função pode ser chamada periodicamente para manter consistência
-  // Por enquanto, apenas log - a implementação real seria feita via AppContext
-  subjects.forEach(subject => {
+  for (const subject of subjects) {
     if (subject.status !== 'Concluída' && subject.topics && subject.topics.length > 0) {
       const allTopicsDominated = subject.topics.every(isTopicDominated);
+      
       if (allTopicsDominated) {
-        console.log(`⚠️ Matéria "${subject.name}" deveria estar marcada como concluída`);
+        console.log(`🔄 Atualizando status da matéria "${subject.name}" para Concluída`);
+        
+        try {
+          const { error } = await supabase
+            .from('subjects')
+            .update({
+              status: 'Concluída',
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', subject.id);
+
+          if (error) {
+            console.error('Erro ao atualizar status da matéria:', error);
+          }
+        } catch (error) {
+          console.error('Erro na sincronização:', error);
+        }
       }
     }
-  });
+  }
 };

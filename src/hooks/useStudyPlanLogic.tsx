@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,7 +5,7 @@ import { UserCycle } from '@/types';
 import { toast } from 'sonner';
 import { generateNextDay, loadUserCycle } from '@/utils/cycleUtils';
 import { completeStudySession } from '@/utils/sessionUtils';
-import { checkAllStudiesCompleted, isTopicDominated, syncSubjectStatus } from '@/utils/studiesCompletionChecker';
+import { checkAllStudiesCompleted, isTopicDominated, syncSubjectStatus, hasStudyableSubjects } from '@/utils/studiesCompletionChecker';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useStudyPlanLogic = () => {
@@ -21,7 +20,7 @@ export const useStudyPlanLogic = () => {
 
   const disciplinasIniciadas = subjects.filter(s => s.status === 'Em Estudo');
   const disciplinasNaoIniciadas = subjects.filter(s => s.status === 'Nova');
-  const hasAvailableSubjects = subjects.length > 0;
+  const hasAvailableSubjects = hasStudyableSubjects(subjects); // CORRIGIDO: Usar nova função
   
   // Contar apenas matérias do ciclo atual
   const totalDisciplinasCiclo = userCycle?.ciclo_atual?.length || 0;
@@ -88,23 +87,38 @@ export const useStudyPlanLogic = () => {
     }
   }, [subjects]);
 
-  // Check for all studies completed - lógica melhorada e persistente
+  // CORRIGIDO: Verificação melhorada de estudos completos
   useEffect(() => {
     if (subjects.length > 0) {
-      const allCompleted = checkAllStudiesCompleted(subjects);
-      console.log('🎯 useStudyPlanLogic - Setting allStudiesCompleted:', allCompleted);
-      setAllStudiesCompleted(allCompleted);
+      console.log('🔍 Verificando estudos completos...');
       
-      // Se todos os estudos estão completos, refresh dos dados para garantir consistência
-      if (allCompleted) {
-        console.log('🎯 Todos os estudos completos - fazendo refresh dos dados');
-        setTimeout(() => refreshData(), 1000);
+      // Verificar se realmente há matérias disponíveis para estudo
+      const hasStudyable = hasStudyableSubjects(subjects);
+      
+      if (!hasStudyable) {
+        console.log('🎯 Nenhuma matéria disponível para estudo');
+        setAllStudiesCompleted(false);
+        return;
+      }
+      
+      const allCompleted = checkAllStudiesCompleted(subjects);
+      console.log('🎯 Resultado da verificação:', { allCompleted, hasStudyable });
+      
+      // Só considerar completo se TODAS as matérias estão realmente concluídas
+      if (allCompleted !== allStudiesCompleted) {
+        console.log('🎯 Mudando estado allStudiesCompleted:', allCompleted);
+        setAllStudiesCompleted(allCompleted);
+        
+        if (allCompleted) {
+          console.log('🎯 Todos os estudos completos - fazendo refresh dos dados');
+          setTimeout(() => refreshData(), 1000);
+        }
       }
     } else {
-      console.log('🎯 useStudyPlanLogic - No subjects found, setting allStudiesCompleted to false');
+      console.log('🎯 Nenhuma matéria encontrada');
       setAllStudiesCompleted(false);
     }
-  }, [subjects, refreshData]);
+  }, [subjects, refreshData, allStudiesCompleted]); // CORRIGIDO: Adicionar allStudiesCompleted nas dependências
 
   // Debug log when allStudiesCompleted changes
   useEffect(() => {
@@ -128,12 +142,23 @@ export const useStudyPlanLogic = () => {
     loadCycle();
   }, [user]);
 
-  // Filtrar apenas matérias que estão na lista diária E não estão concluídas
+  // CORRIGIDO: Filtrar corretamente as matérias diárias
   const dailySubjects = userCycle?.disciplinas_do_dia
-    ? subjects.filter(subject => 
-        userCycle.disciplinas_do_dia.includes(subject.id) && 
-        subject.status !== 'Concluída'
-      )
+    ? subjects.filter(subject => {
+        const isInDailyList = userCycle.disciplinas_do_dia.includes(subject.id);
+        const isNotCompleted = subject.status !== 'Concluída';
+        const hasTopics = subject.topics && subject.topics.length > 0;
+        
+        console.log(`📋 Matéria "${subject.name}":`, {
+          isInDailyList,
+          isNotCompleted,
+          hasTopics,
+          status: subject.status,
+          includeInDaily: isInDailyList && isNotCompleted && hasTopics
+        });
+        
+        return isInDailyList && isNotCompleted && hasTopics;
+      })
     : [];
 
   // Filtrar próximas matérias (apenas as que não estão concluídas, não estão no dia e estão no ciclo)
@@ -145,12 +170,11 @@ export const useStudyPlanLogic = () => {
       ).slice(0, userSettings?.subjects_per_day || 3)
     : [];
 
-  // Detectar quando o dia está completo (todas as matérias do dia foram removidas)
   const allDaySubjectsCompleted = userCycle && 
     userCycle.disciplinas_do_dia.length === 0 && 
     !allStudiesCompleted;
 
-  console.log('🎯 useStudyPlanLogic - Render state:', {
+  console.log('🎯 useStudyPlanLogic - Estado atual:', {
     allStudiesCompleted,
     allDaySubjectsCompleted,
     subjectsLength: subjects.length,
@@ -161,7 +185,6 @@ export const useStudyPlanLogic = () => {
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     disciplinasIniciadasCiclo,
-    userSettings,
     userCycleInfo: userCycle ? {
       disciplinas_do_dia: userCycle.disciplinas_do_dia,
       ciclo_atual: userCycle.ciclo_atual
@@ -275,7 +298,7 @@ export const useStudyPlanLogic = () => {
     handleHideNewCycleMessage,
     disciplinasIniciadas,
     disciplinasNaoIniciadas,
-    disciplinasIniciadasCiclo, // Adicionar esta nova variável
+    disciplinasIniciadasCiclo,
     isTopicDominated
   };
 };

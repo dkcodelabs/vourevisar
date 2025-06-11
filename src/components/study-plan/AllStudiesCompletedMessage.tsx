@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,30 +11,40 @@ import SubjectReactivationModal from './SubjectReactivationModal';
 const AllStudiesCompletedMessage: React.FC = () => {
   const navigate = useNavigate();
   const [showReactivationModal, setShowReactivationModal] = useState(false);
+  const confettiTriggered = useRef(false); // CORRIGIDO: Controle para evitar loop
 
   useEffect(() => {
-    // Confetti especial para conclusão total - mais dramático
-    const duration = 4000;
+    // CORRIGIDO: Evitar loop de confetti
+    if (confettiTriggered.current) {
+      console.log('🎉 Confetti já foi executado, pulando...');
+      return;
+    }
+
+    console.log('🎉 Iniciando confetti para conclusão total...');
+    confettiTriggered.current = true;
+
+    const duration = 3000; // REDUZIDO: Duração menor
     const animationEnd = Date.now() + duration;
+    let intervalId: NodeJS.Timeout;
 
     const randomInRange = (min: number, max: number) => {
       return Math.random() * (max - min) + min;
     };
 
-    // Múltiplas explosões de confetti
-    const interval = setInterval(() => {
+    const runConfetti = () => {
       const timeLeft = animationEnd - Date.now();
 
       if (timeLeft <= 0) {
-        clearInterval(interval);
+        clearInterval(intervalId);
+        console.log('🎉 Confetti finalizado');
         return;
       }
 
-      const particleCount = 60 * (timeLeft / duration);
+      const particleCount = 50 * (timeLeft / duration);
 
       // Confetti da esquerda
       confetti({
-        particleCount,
+        particleCount: Math.floor(particleCount),
         startVelocity: 30,
         spread: 360,
         origin: {
@@ -46,7 +56,7 @@ const AllStudiesCompletedMessage: React.FC = () => {
       
       // Confetti da direita
       confetti({
-        particleCount,
+        particleCount: Math.floor(particleCount),
         startVelocity: 30,
         spread: 360,
         origin: {
@@ -55,24 +65,20 @@ const AllStudiesCompletedMessage: React.FC = () => {
         },
         colors: ['#FFD700', '#FFA500', '#FF6347', '#32CD32', '#1E90FF']
       });
+    };
 
-      // Confetti do centro (apenas nos primeiros 2 segundos)
-      if (timeLeft > duration / 2) {
-        confetti({
-          particleCount: particleCount / 2,
-          startVelocity: 25,
-          spread: 180,
-          origin: {
-            x: 0.5,
-            y: 0.3
-          },
-          colors: ['#FFD700', '#FFA500']
-        });
+    // CORRIGIDO: Executar imediatamente e depois em intervalos
+    runConfetti();
+    intervalId = setInterval(runConfetti, 300);
+
+    // CLEANUP: Limpar interval no unmount
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        console.log('🎉 Confetti cleanup executado');
       }
-    }, 200);
-
-    return () => clearInterval(interval);
-  }, []);
+    };
+  }, []); // CORRIGIDO: Dependências vazias para executar apenas uma vez
 
   const handleStartNewStudies = () => {
     setShowReactivationModal(true);
@@ -99,7 +105,6 @@ const AllStudiesCompletedMessage: React.FC = () => {
         className="w-full"
       >
         <Card className="bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 border-4 border-yellow-300 shadow-2xl relative overflow-hidden">
-          {/* Efeito de brilho de fundo */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
           
           <CardHeader className="text-center pb-6 relative z-10">
@@ -125,20 +130,6 @@ const AllStudiesCompletedMessage: React.FC = () => {
                 >
                   <Sparkles className="h-8 w-8 text-amber-400" />
                 </motion.div>
-                <motion.div
-                  animate={{ 
-                    rotate: -360,
-                    scale: [1, 1.1, 1]
-                  }}
-                  transition={{ 
-                    duration: 4, 
-                    repeat: Infinity, 
-                    ease: "linear"
-                  }}
-                  className="absolute -bottom-2 -left-2"
-                >
-                  <Sparkles className="h-6 w-6 text-orange-400" />
-                </motion.div>
               </div>
             </motion.div>
             
@@ -154,8 +145,7 @@ const AllStudiesCompletedMessage: React.FC = () => {
                 Você DOMINOU todos os seus estudos!
               </div>
               <p className="text-gray-700 text-lg leading-relaxed max-w-2xl mx-auto">
-                <strong>Incrível conquista!</strong> Você concluiu todas as matérias e dominou todos os tópicos do seu plano de estudos. 
-                Agora você pode começar novos estudos, revisar suas conquistas ou adicionar novas matérias.
+                <strong>Incrível conquista!</strong> Você concluiu todas as matérias e dominou todos os tópicos do seu plano de estudos.
               </p>
             </motion.div>
           </CardHeader>
@@ -225,8 +215,7 @@ const AllStudiesCompletedMessage: React.FC = () => {
               className="bg-white/60 backdrop-blur-sm rounded-lg p-4 border border-yellow-200"
             >
               <p className="text-sm text-gray-600 italic">
-                💡 <strong>Dica:</strong> Continue mantendo o hábito de estudos! Você pode reativar matérias para revisão 
-                ou adicionar novas áreas de conhecimento para continuar crescendo.
+                💡 <strong>Dica:</strong> Continue mantendo o hábito de estudos!
               </p>
             </motion.div>
           </CardContent>
