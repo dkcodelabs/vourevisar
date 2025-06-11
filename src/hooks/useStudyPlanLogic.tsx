@@ -4,7 +4,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserCycle } from '@/types';
 import { toast } from 'sonner';
-import { generateNextDay, loadUserCycle, createCycleForOrphanSubjects } from '@/utils/cycleUtils';
+import { generateNextDay, loadUserCycle } from '@/utils/cycleUtils';
 import { completeStudySession } from '@/utils/sessionUtils';
 import { checkAllStudiesCompleted, isTopicDominated, syncSubjectStatus } from '@/utils/studiesCompletionChecker';
 
@@ -79,42 +79,22 @@ export const useStudyPlanLogic = () => {
     console.log('🎯 useStudyPlanLogic - allStudiesCompleted state changed:', allStudiesCompleted);
   }, [allStudiesCompleted]);
 
-  // Load user cycle and handle orphan subjects
+  // Load user cycle
   useEffect(() => {
-    const loadCycleAndHandleOrphans = async () => {
-      if (!user || subjects.length === 0) return;
+    const loadCycle = async () => {
+      if (!user) return;
 
       try {
-        console.log('🔄 Loading user cycle...');
         const data = await loadUserCycle(user.id);
-        console.log('🔄 User cycle loaded:', data);
-        
-        // If no cycle exists or cycle is empty but there are "Em Estudo" subjects
-        if (!data || !data.ciclo_atual || data.ciclo_atual.length === 0) {
-          const orphanSubjects = subjects.filter(s => s.status === 'Em Estudo');
-          
-          if (orphanSubjects.length > 0) {
-            console.log('🔄 Found orphan subjects, creating cycle...');
-            const result = await createCycleForOrphanSubjects(user.id, subjects);
-            
-            if (result) {
-              // Reload the cycle after creating it
-              const newCycle = await loadUserCycle(user.id);
-              setUserCycle(newCycle);
-              toast.success(`Ciclo criado para ${orphanSubjects.length} matéria(s) reativada(s)!`);
-              return;
-            }
-          }
-        }
-        
+        console.log('🔄 useStudyPlanLogic - User cycle loaded:', data);
         setUserCycle(data);
       } catch (error) {
         console.error('Exception loading user cycle:', error);
       }
     };
 
-    loadCycleAndHandleOrphans();
-  }, [user, subjects]);
+    loadCycle();
+  }, [user]);
 
   const dailySubjects = userCycle?.disciplinas_do_dia
     ? subjects.filter(subject => 
@@ -147,11 +127,7 @@ export const useStudyPlanLogic = () => {
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     totalDisciplinasCiclo,
     disciplinasConcluidas,
-    disciplinasIniciadasNoCiclo,
-    userCycle: userCycle ? {
-      ciclo_atual: userCycle.ciclo_atual,
-      disciplinas_do_dia: userCycle.disciplinas_do_dia
-    } : null
+    disciplinasIniciadasNoCiclo
   });
 
   const handleNextDay = useCallback(async () => {
