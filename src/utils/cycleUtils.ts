@@ -7,6 +7,15 @@ export const generateNextDay = async (
   userCycle: any, 
   subjects: Subject[]
 ) => {
+  console.log('🔄 generateNextDay iniciado:', {
+    userId,
+    userCycle: {
+      ciclo_atual: userCycle?.ciclo_atual,
+      disciplinas_do_dia: userCycle?.disciplinas_do_dia
+    },
+    subjectsCount: subjects.length
+  });
+
   // Get user settings for subjects_per_day
   const { data: userSettings } = await supabase
     .from('user_settings')
@@ -19,15 +28,16 @@ export const generateNextDay = async (
   // Filtrar apenas matérias do ciclo atual que NÃO estão concluídas
   const availableSubjects = subjects.filter(s => 
     userCycle.ciclo_atual.includes(s.id) && 
-    s.status !== 'Concluída'
+    s.status !== 'Concluída' &&
+    s.topics && s.topics.length > 0
   );
 
-  console.log('🔄 Gerando próximo dia:', {
+  console.log('🔄 Matérias disponíveis para próximo dia:', {
     totalSubjects: subjects.length,
     cycleSubjects: userCycle.ciclo_atual.length,
     availableSubjects: availableSubjects.length,
     subjectsPerDay,
-    availableSubjectNames: availableSubjects.map(s => s.name)
+    availableSubjectNames: availableSubjects.map(s => ({ id: s.id, name: s.name, status: s.status }))
   });
 
   if (availableSubjects.length === 0) {
@@ -35,12 +45,25 @@ export const generateNextDay = async (
     return { shouldShowNewCycleMessage: true };
   }
 
+  // Filtrar matérias que não estão no dia atual
+  const subjectsNotInToday = availableSubjects.filter(s => 
+    !userCycle.disciplinas_do_dia.includes(s.id)
+  );
+
+  console.log('🎯 Matérias não estudadas hoje:', {
+    totalNotInToday: subjectsNotInToday.length,
+    subjects: subjectsNotInToday.map(s => ({ id: s.id, name: s.name }))
+  });
+
+  // Se não há matérias novas, pegar as que já foram estudadas hoje
+  const subjectsToSelect = subjectsNotInToday.length > 0 ? subjectsNotInToday : availableSubjects;
+
   // Ordenar por prioridade e pegar as próximas matérias
-  const sortedSubjects = availableSubjects.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  const sortedSubjects = subjectsToSelect.sort((a, b) => (a.priority || 999) - (b.priority || 999));
   const nextBatch = sortedSubjects.slice(0, Math.min(subjectsPerDay, sortedSubjects.length));
   const nextBatchIds = nextBatch.map(s => s.id);
 
-  console.log('📋 Próximo lote de matérias:', {
+  console.log('📋 Próximo lote de matérias selecionado:', {
     selectedSubjects: nextBatch.map(s => ({ id: s.id, name: s.name, priority: s.priority })),
     nextBatchIds
   });
@@ -58,6 +81,8 @@ export const generateNextDay = async (
     throw error;
   }
 
+  console.log('✅ Ciclo atualizado no banco de dados');
+
   return { 
     shouldShowNewCycleMessage: false, 
     newDisciplinasoDia: nextBatchIds 
@@ -65,6 +90,8 @@ export const generateNextDay = async (
 };
 
 export const loadUserCycle = async (userId: string) => {
+  console.log('📋 Carregando ciclo do usuário:', userId);
+  
   const { data, error } = await supabase
     .from('user_cycles')
     .select('*')
@@ -76,5 +103,6 @@ export const loadUserCycle = async (userId: string) => {
     return null;
   }
 
+  console.log('📋 Ciclo carregado:', data);
   return data;
 };

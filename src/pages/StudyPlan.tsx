@@ -63,21 +63,27 @@ const StudyPlan = () => {
     disciplinasIniciadasCiclo
   } = useStudyPlanLogic();
 
-  console.log('📊 StudyPlan render - Detailed state:', {
+  console.log('📊 StudyPlan render - Estado detalhado:', {
+    isLoading,
     allDaySubjectsCompleted,
     hasAvailableSubjects,
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
-    userCycle,
+    userCycle: userCycle ? {
+      disciplinas_do_dia: userCycle.disciplinas_do_dia,
+      ciclo_atual: userCycle.ciclo_atual,
+      disciplinas_do_dia_length: userCycle.disciplinas_do_dia?.length,
+      ciclo_atual_length: userCycle.ciclo_atual?.length
+    } : null,
     showNewCycleMessage,
     allStudiesCompleted,
-    disciplinas_do_dia: userCycle?.disciplinas_do_dia,
-    ciclo_atual: userCycle?.ciclo_atual,
     disciplinasIniciadas: disciplinasIniciadas.length,
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     disciplinasIniciadasCiclo,
     totalDisciplinasCiclo,
-    disciplinasConcluidas
+    disciplinasConcluidas,
+    dailySubjects: dailySubjects.map(s => s.name),
+    nextSubjects: nextSubjects.map(s => s.name)
   });
 
   return (
@@ -108,9 +114,28 @@ const StudyPlan = () => {
             <motion.div variants={itemVariants}>
               <AllStudiesCompletedMessage />
             </motion.div>
+          ) : !hasAvailableSubjects ? (
+            /* Se não há matérias disponíveis no sistema */
+            <motion.div variants={itemVariants}>
+              <Card className="text-center">
+                <CardHeader>
+                  <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <CardTitle>Nenhuma matéria para estudar</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 mb-4">
+                    Você ainda não adicionou matérias para estudar.
+                  </p>
+                  <Button onClick={() => navigate('/materias')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Matérias
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
           ) : (
             <>
-              {userCycle && hasAvailableSubjects && (
+              {userCycle && (
                 <motion.div variants={itemVariants}>
                   <CycleInfo 
                     userCycle={userCycle}
@@ -124,50 +149,44 @@ const StudyPlan = () => {
               )}
 
               <div className="space-y-4">
-                {!hasAvailableSubjects ? (
-                  /* Se não há matérias disponíveis no sistema */
+                {dailySubjects.length > 0 ? (
+                  dailySubjects.map((subject) => (
+                    <motion.div key={subject.id} variants={itemVariants}>
+                      <SubjectCard
+                        subject={subject}
+                        isExpanded={expandedSubject === subject.id}
+                        tempMarkedTopics={tempMarkedTopics}
+                        onToggleExpand={handleToggleExpand}
+                        onMarkTopicForReview={handleMarkTopicForReview}
+                        onCancelTopicReview={handleCancelTopicReview}
+                        onCompleteSession={handleCompleteSession}
+                        isDaySubject={true}
+                      />
+                    </motion.div>
+                  ))
+                ) : allDaySubjectsCompleted ? (
+                  /* Conclusão do dia */
+                  <motion.div variants={itemVariants}>
+                    <DayCompletedMessage onNextDay={handleNextDay} />
+                  </motion.div>
+                ) : (
+                  /* Se há matérias mas nenhuma no dia atual */
                   <motion.div variants={itemVariants}>
                     <Card className="text-center">
                       <CardHeader>
-                        <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <CardTitle>Nenhuma matéria para estudar</CardTitle>
+                        <BookOpen className="h-12 w-12 mx-auto text-blue-400 mb-4" />
+                        <CardTitle>Nenhuma matéria programada para hoje</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <p className="text-gray-600 mb-4">
-                          Você ainda não adicionou matérias para estudar.
+                          Clique no botão abaixo para carregar as próximas matérias do seu ciclo.
                         </p>
-                        <Button onClick={() => navigate('/materias')}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Adicionar Matérias
+                        <Button onClick={handleNextDay} className="bg-blue-500 hover:bg-blue-600">
+                          Carregar próximas matérias
                         </Button>
                       </CardContent>
                     </Card>
                   </motion.div>
-                ) : (
-                  /* Se há matérias, mostrar o plano de estudos normal */
-                  <>
-                    {dailySubjects.length > 0 ? (
-                      dailySubjects.map((subject) => (
-                        <motion.div key={subject.id} variants={itemVariants}>
-                          <SubjectCard
-                            subject={subject}
-                            isExpanded={expandedSubject === subject.id}
-                            tempMarkedTopics={tempMarkedTopics}
-                            onToggleExpand={handleToggleExpand}
-                            onMarkTopicForReview={handleMarkTopicForReview}
-                            onCancelTopicReview={handleCancelTopicReview}
-                            onCompleteSession={handleCompleteSession}
-                            isDaySubject={true}
-                          />
-                        </motion.div>
-                      ))
-                    ) : allDaySubjectsCompleted ? (
-                      /* Conclusão do dia */
-                      <motion.div variants={itemVariants}>
-                        <DayCompletedMessage onNextDay={handleNextDay} />
-                      </motion.div>
-                    ) : null}
-                  </>
                 )}
               </div>
 
@@ -177,7 +196,7 @@ const StudyPlan = () => {
                 onHide={handleHideNewCycleMessage}
               />
 
-              {hasAvailableSubjects && nextSubjects.length > 0 && (
+              {nextSubjects.length > 0 && (
                 <motion.div variants={itemVariants}>
                   <NextSubjects nextSubjects={nextSubjects} />
                 </motion.div>

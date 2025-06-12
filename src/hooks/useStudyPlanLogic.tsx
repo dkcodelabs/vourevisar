@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +21,19 @@ export const useStudyPlanLogic = () => {
 
   const disciplinasIniciadas = subjects.filter(s => s.status === 'Em Estudo');
   const disciplinasNaoIniciadas = subjects.filter(s => s.status === 'Nova');
-  const hasAvailableSubjects = hasStudyableSubjects(subjects); // CORRIGIDO: Usar nova função
+  const hasAvailableSubjects = hasStudyableSubjects(subjects);
+
+  console.log('🔍 useStudyPlanLogic - Estado inicial:', {
+    subjectsCount: subjects.length,
+    hasAvailableSubjects,
+    userCycle: userCycle ? {
+      ciclo_atual: userCycle.ciclo_atual,
+      disciplinas_do_dia: userCycle.disciplinas_do_dia,
+      ciclo_atual_length: userCycle.ciclo_atual?.length,
+      disciplinas_do_dia_length: userCycle.disciplinas_do_dia?.length
+    } : null,
+    subjects: subjects.map(s => ({ id: s.id, name: s.name, status: s.status, topicsCount: s.topics?.length || 0 }))
+  });
   
   // Contar apenas matérias do ciclo atual
   const totalDisciplinasCiclo = userCycle?.ciclo_atual?.length || 0;
@@ -40,19 +53,6 @@ export const useStudyPlanLogic = () => {
   const isNewCycleStarted = userCycle && userCycle.ciclo_atual.length > 0 && 
     !userCycle.data_fim_ciclo && userCycle.disciplinas_do_dia.length === 0;
 
-  // Debug log dos subjects carregados
-  useEffect(() => {
-    console.log('📚 useStudyPlanLogic - Subjects loaded:', {
-      subjectsCount: subjects.length,
-      subjects: subjects.map(s => ({ id: s.id, name: s.name, status: s.status })),
-      isLoading,
-      userCycle: userCycle ? {
-        ciclo_atual: userCycle.ciclo_atual,
-        disciplinas_do_dia: userCycle.disciplinas_do_dia
-      } : null
-    });
-  }, [subjects, isLoading, userCycle]);
-
   // Load user settings
   useEffect(() => {
     const fetchUserSettings = async () => {
@@ -67,18 +67,84 @@ export const useStudyPlanLogic = () => {
 
         if (error) {
           console.error('Error fetching user settings:', error);
-          setUserSettings({ subjects_per_day: 3 }); // default
+          setUserSettings({ subjects_per_day: 3 });
         } else {
           setUserSettings(data);
         }
       } catch (error) {
         console.error('Error fetching user settings:', error);
-        setUserSettings({ subjects_per_day: 3 }); // default
+        setUserSettings({ subjects_per_day: 3 });
       }
     };
 
     fetchUserSettings();
   }, [user]);
+
+  // Inicializar ciclo se não existir
+  useEffect(() => {
+    const initializeCycle = async () => {
+      if (!user || !subjects.length || userCycle) return;
+
+      console.log('🚀 Inicializando ciclo para usuário:', user.id);
+      
+      try {
+        // Verificar se já existe um ciclo
+        const existingCycle = await loadUserCycle(user.id);
+        
+        if (!existingCycle) {
+          console.log('📝 Criando novo ciclo...');
+          
+          // Criar novo ciclo com todas as matérias disponíveis
+          const availableSubjects = subjects.filter(s => 
+            s.status !== 'Concluída' && s.topics && s.topics.length > 0
+          );
+          
+          if (availableSubjects.length === 0) {
+            console.log('⚠️ Nenhuma matéria disponível para o ciclo');
+            return;
+          }
+
+          const cycleSubjectIds = availableSubjects.map(s => s.id);
+          const subjectsPerDay = userSettings?.subjects_per_day || 3;
+          const firstDaySubjects = cycleSubjectIds.slice(0, subjectsPerDay);
+
+          console.log('📋 Novo ciclo:', {
+            totalSubjects: cycleSubjectIds.length,
+            firstDaySubjects: firstDaySubjects.length,
+            subjectsPerDay
+          });
+
+          const { error } = await supabase
+            .from('user_cycles')
+            .insert({
+              user_id: user.id,
+              ciclo_atual: cycleSubjectIds,
+              disciplinas_do_dia: firstDaySubjects,
+              data_inicio_ciclo: new Date().toISOString(),
+              atualizado_em: new Date().toISOString()
+            });
+
+          if (error) {
+            console.error('Erro ao criar ciclo:', error);
+            return;
+          }
+
+          // Recarregar o ciclo criado
+          const newCycle = await loadUserCycle(user.id);
+          setUserCycle(newCycle);
+          
+          console.log('✅ Ciclo criado com sucesso:', newCycle);
+        } else {
+          console.log('📋 Ciclo existente carregado:', existingCycle);
+          setUserCycle(existingCycle);
+        }
+      } catch (error) {
+        console.error('Erro ao inicializar ciclo:', error);
+      }
+    };
+
+    initializeCycle();
+  }, [user, subjects, userCycle, userSettings]);
 
   // Sincronização periódica dos status das matérias
   useEffect(() => {
@@ -87,12 +153,11 @@ export const useStudyPlanLogic = () => {
     }
   }, [subjects]);
 
-  // CORRIGIDO: Verificação melhorada de estudos completos
+  // Verificação de estudos completos
   useEffect(() => {
     if (subjects.length > 0) {
       console.log('🔍 Verificando estudos completos...');
       
-      // Verificar se realmente há matérias disponíveis para estudo
       const hasStudyable = hasStudyableSubjects(subjects);
       
       if (!hasStudyable) {
@@ -104,7 +169,6 @@ export const useStudyPlanLogic = () => {
       const allCompleted = checkAllStudiesCompleted(subjects);
       console.log('🎯 Resultado da verificação:', { allCompleted, hasStudyable });
       
-      // Só considerar completo se TODAS as matérias estão realmente concluídas
       if (allCompleted !== allStudiesCompleted) {
         console.log('🎯 Mudando estado allStudiesCompleted:', allCompleted);
         setAllStudiesCompleted(allCompleted);
@@ -118,38 +182,17 @@ export const useStudyPlanLogic = () => {
       console.log('🎯 Nenhuma matéria encontrada');
       setAllStudiesCompleted(false);
     }
-  }, [subjects, refreshData, allStudiesCompleted]); // CORRIGIDO: Adicionar allStudiesCompleted nas dependências
-
-  // Debug log when allStudiesCompleted changes
-  useEffect(() => {
-    console.log('🎯 useStudyPlanLogic - allStudiesCompleted state changed:', allStudiesCompleted);
-  }, [allStudiesCompleted]);
-
-  // Load user cycle
-  useEffect(() => {
-    const loadCycle = async () => {
-      if (!user) return;
-
-      try {
-        const data = await loadUserCycle(user.id);
-        console.log('🔄 useStudyPlanLogic - User cycle loaded:', data);
-        setUserCycle(data);
-      } catch (error) {
-        console.error('Exception loading user cycle:', error);
-      }
-    };
-
-    loadCycle();
-  }, [user]);
+  }, [subjects, refreshData, allStudiesCompleted]);
 
   // CORRIGIDO: Filtrar corretamente as matérias diárias
-  const dailySubjects = userCycle?.disciplinas_do_dia
+  const dailySubjects = userCycle?.disciplinas_do_dia && userCycle.disciplinas_do_dia.length > 0
     ? subjects.filter(subject => {
         const isInDailyList = userCycle.disciplinas_do_dia.includes(subject.id);
         const isNotCompleted = subject.status !== 'Concluída';
         const hasTopics = subject.topics && subject.topics.length > 0;
         
-        console.log(`📋 Matéria "${subject.name}":`, {
+        console.log(`📋 Verificando matéria "${subject.name}":`, {
+          id: subject.id,
           isInDailyList,
           isNotCompleted,
           hasTopics,
@@ -162,37 +205,53 @@ export const useStudyPlanLogic = () => {
     : [];
 
   // Filtrar próximas matérias (apenas as que não estão concluídas, não estão no dia e estão no ciclo)
-  const nextSubjects = userCycle?.ciclo_atual
-    ? subjects.filter(subject => 
-        userCycle.ciclo_atual.includes(subject.id) && 
-        !userCycle.disciplinas_do_dia.includes(subject.id) &&
-        subject.status !== 'Concluída'
-      ).slice(0, userSettings?.subjects_per_day || 3)
+  const nextSubjects = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0
+    ? subjects.filter(subject => {
+        const isInCycle = userCycle.ciclo_atual.includes(subject.id);
+        const isNotInDaily = !userCycle.disciplinas_do_dia.includes(subject.id);
+        const isNotCompleted = subject.status !== 'Concluída';
+        const hasTopics = subject.topics && subject.topics.length > 0;
+        
+        console.log(`🔄 Verificando próxima matéria "${subject.name}":`, {
+          id: subject.id,
+          isInCycle,
+          isNotInDaily, 
+          isNotCompleted,
+          hasTopics,
+          includeInNext: isInCycle && isNotInDaily && isNotCompleted && hasTopics
+        });
+        
+        return isInCycle && isNotInDaily && isNotCompleted && hasTopics;
+      }).slice(0, userSettings?.subjects_per_day || 3)
     : [];
 
   const allDaySubjectsCompleted = userCycle && 
     userCycle.disciplinas_do_dia.length === 0 && 
     !allStudiesCompleted;
 
-  console.log('🎯 useStudyPlanLogic - Estado atual:', {
+  console.log('🎯 useStudyPlanLogic - Estado final:', {
     allStudiesCompleted,
     allDaySubjectsCompleted,
     subjectsLength: subjects.length,
     dailySubjectsLength: dailySubjects.length,
+    nextSubjectsLength: nextSubjects.length,
     hasAvailableSubjects,
     disciplinasIniciadas: disciplinasIniciadas.length,
     disciplinasNaoIniciadas: disciplinasNaoIniciadas.length,
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     disciplinasIniciadasCiclo,
-    userCycleInfo: userCycle ? {
-      disciplinas_do_dia: userCycle.disciplinas_do_dia,
-      ciclo_atual: userCycle.ciclo_atual
-    } : null
+    dailySubjects: dailySubjects.map(s => s.name),
+    nextSubjects: nextSubjects.map(s => s.name)
   });
 
   const handleNextDay = useCallback(async () => {
-    if (!user || !userCycle) return;
+    if (!user || !userCycle) {
+      console.log('❌ handleNextDay: user ou userCycle não disponível');
+      return;
+    }
+
+    console.log('🚀 handleNextDay executado');
 
     try {
       const result = await generateNextDay(user.id, userCycle, subjects);
@@ -202,10 +261,14 @@ export const useStudyPlanLogic = () => {
         return;
       }
 
-      setUserCycle(prev => prev ? {
-        ...prev,
-        disciplinas_do_dia: result.newDisciplinasoDia
-      } : null);
+      // Recarregar o ciclo completo do banco
+      const updatedCycle = await loadUserCycle(user.id);
+      setUserCycle(updatedCycle);
+
+      console.log('✅ Próximo dia gerado:', {
+        newDisciplinasoDia: result.newDisciplinasoDia,
+        updatedCycle
+      });
 
       toast.success('Novo plano diário gerado!');
     } catch (error) {
