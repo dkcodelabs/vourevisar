@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Subject } from '@/types';
 
@@ -45,25 +44,20 @@ export const generateNextDay = async (
     return { shouldShowNewCycleMessage: true };
   }
 
-  // Filtrar matérias que não estão no dia atual
-  const subjectsNotInToday = availableSubjects.filter(s => 
-    !userCycle.disciplinas_do_dia.includes(s.id)
-  );
+  // Selecionar próximas matérias do ciclo_atual, na ordem original
+  const nextBatchIds = userCycle.ciclo_atual.filter(id => {
+    const s = subjects.find(sub => sub.id === id);
+    return (
+      s &&
+      s.status !== 'Concluída' &&
+      s.topics && s.topics.length > 0 &&
+      !userCycle.disciplinas_do_dia.includes(id)
+    );
+  }).slice(0, subjectsPerDay);
 
-  console.log('🎯 Matérias não estudadas hoje:', {
-    totalNotInToday: subjectsNotInToday.length,
-    subjects: subjectsNotInToday.map(s => ({ id: s.id, name: s.name }))
-  });
+  const nextBatch = nextBatchIds.map(id => subjects.find(s => s.id === id));
 
-  // Se não há matérias novas, pegar as que já foram estudadas hoje
-  const subjectsToSelect = subjectsNotInToday.length > 0 ? subjectsNotInToday : availableSubjects;
-
-  // Ordenar por prioridade e pegar as próximas matérias
-  const sortedSubjects = subjectsToSelect.sort((a, b) => (a.priority || 999) - (b.priority || 999));
-  const nextBatch = sortedSubjects.slice(0, Math.min(subjectsPerDay, sortedSubjects.length));
-  const nextBatchIds = nextBatch.map(s => s.id);
-
-  console.log('📋 Próximo lote de matérias selecionado:', {
+  console.log('📋 Próximo lote de matérias selecionado (ordem do ciclo):', {
     selectedSubjects: nextBatch.map(s => ({ id: s.id, name: s.name, priority: s.priority })),
     nextBatchIds
   });

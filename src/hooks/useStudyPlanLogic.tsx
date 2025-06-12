@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -136,7 +135,52 @@ export const useStudyPlanLogic = () => {
           console.log('✅ Ciclo criado com sucesso:', newCycle);
         } else {
           console.log('📋 Ciclo existente carregado:', existingCycle);
-          setUserCycle(existingCycle);
+          // Se ciclo_atual está vazio mas há matérias disponíveis, atualizar ciclo
+          if (existingCycle.ciclo_atual.length === 0 && subjects.length > 0) {
+            const availableSubjects = subjects.filter(s => 
+              s.status !== 'Concluída' && s.topics && s.topics.length > 0
+            );
+            if (availableSubjects.length > 0) {
+              const cycleSubjectIds = availableSubjects.map(s => s.id);
+              const subjectsPerDay = userSettings?.subjects_per_day || 3;
+              const firstDaySubjects = cycleSubjectIds.slice(0, subjectsPerDay);
+              console.log('🛠️ Atualizando ciclo vazio com novas matérias:', cycleSubjectIds);
+              const { error } = await supabase
+                .from('user_cycles')
+                .update({
+                  ciclo_atual: cycleSubjectIds,
+                  disciplinas_do_dia: firstDaySubjects,
+                  atualizado_em: new Date().toISOString()
+                })
+                .eq('user_id', user.id);
+              if (error) {
+                console.error('Erro ao atualizar ciclo vazio:', error);
+              } else {
+                const updatedCycle = await loadUserCycle(user.id);
+                setUserCycle(updatedCycle);
+                console.log('✅ Ciclo vazio atualizado:', updatedCycle);
+              }
+              return;
+            }
+          }
+          // Verificar se precisa gerar próximo dia
+          if (existingCycle.disciplinas_do_dia.length === 0 && existingCycle.ciclo_atual.length > 0) {
+            console.log('🔄 Gerando próximo dia automaticamente...');
+            const result = await generateNextDay(user.id, existingCycle, subjects);
+            console.log('🔄 Resultado generateNextDay:', result);
+            if (result.shouldShowNewCycleMessage) {
+              setShowNewCycleMessage(true);
+              console.log('⚠️ Mostrando mensagem de novo ciclo');
+            } else {
+              // Recarregar o ciclo completo do banco
+              const updatedCycle = await loadUserCycle(user.id);
+              console.log('✅ Ciclo recarregado após gerar próximo dia:', updatedCycle);
+              setUserCycle(updatedCycle);
+            }
+          } else {
+            setUserCycle(existingCycle);
+            console.log('✅ Ciclo setado normalmente:', existingCycle);
+          }
         }
       } catch (error) {
         console.error('Erro ao inicializar ciclo:', error);

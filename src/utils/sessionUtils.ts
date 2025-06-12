@@ -1,4 +1,3 @@
-
 import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextReviewDate } from './reviewStageUtils';
@@ -117,10 +116,9 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     subjectCompleted = true;
   }
 
-  // SEMPRE remover a matéria da lista diária após conclusão da sessão
-  console.log('🔄 Removendo matéria da lista diária após sessão');
+  // SEMPRE remover a matéria da lista diária e do ciclo ao concluir a sessão
+  console.log('🔄 Removendo matéria da lista diária e do ciclo após sessão');
   const { data: user } = await supabase.auth.getUser();
-  
   if (user.user) {
     // Buscar o ciclo atual
     const { data: userCycle, error: cycleError } = await supabase
@@ -132,30 +130,59 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
     if (cycleError) {
       console.error('Error fetching user cycle:', cycleError);
     } else if (userCycle) {
-      // Remover a matéria da lista do dia
+      // Remover a matéria da lista do dia e do ciclo
       const updatedDisciplinasoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
-      
-      console.log('🔄 Atualizando lista diária:', {
-        before: userCycle.disciplinas_do_dia,
-        after: updatedDisciplinasoDia,
-        removedSubject: subjectId
-      });
-
+      const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
+      let updateObj: any = {
+        disciplinas_do_dia: updatedDisciplinasoDia,
+        ciclo_atual: updatedCicloAtual,
+        atualizado_em: new Date().toISOString()
+      };
+      let ciclosRealizados = userCycle.ciclos_realizados || 0;
+      // Se ciclo_atual ficou vazio, reiniciar ciclo e incrementar ciclos_realizados
+      if (updatedCicloAtual.length === 0) {
+        ciclosRealizados += 1;
+        // Buscar matérias disponíveis para novo ciclo
+        const { data: allSubjects } = await supabase
+          .from('subjects')
+          .select('id, status, user_id')
+          .eq('user_id', user.user.id);
+        let availableSubjects = [];
+        if (allSubjects && allSubjects.length > 0) {
+          for (const subj of allSubjects) {
+            const { data: topicsData } = await supabase
+              .from('topics')
+              .select('id')
+              .eq('subject_id', subj.id);
+            if (topicsData && topicsData.length > 0) {
+              availableSubjects.push(subj.id);
+            }
+          }
+        }
+        // Definir matérias do novo ciclo
+        const { data: userSettings } = await supabase
+          .from('user_settings')
+          .select('subjects_per_day')
+          .eq('user_id', user.user.id)
+          .single();
+        const subjectsPerDay = userSettings?.subjects_per_day || 3;
+        const firstDaySubjects = availableSubjects.slice(0, subjectsPerDay);
+        updateObj.ciclo_atual = availableSubjects;
+        updateObj.disciplinas_do_dia = firstDaySubjects;
+        updateObj.ciclos_realizados = ciclosRealizados;
+        updateObj.data_inicio_ciclo = new Date().toISOString();
+      }
       const { error: updateError } = await supabase
         .from('user_cycles')
-        .update({
-          disciplinas_do_dia: updatedDisciplinasoDia,
-          atualizado_em: new Date().toISOString()
-        })
+        .update(updateObj)
         .eq('user_id', user.user.id);
-
       if (updateError) {
         console.error('Error updating user cycle:', updateError);
         throw new Error(`Erro ao atualizar ciclo: ${updateError.message}`);
       } else {
-        console.log('✅ Matéria removida da lista diária:', {
+        console.log('✅ Matéria removida da lista diária, do ciclo e ciclo atualizado se necessário:', {
           subjectId,
-          updatedList: updatedDisciplinasoDia
+          updateObj
         });
       }
     }
