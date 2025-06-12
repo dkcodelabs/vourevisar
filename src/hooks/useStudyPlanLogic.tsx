@@ -7,9 +7,11 @@ import { generateNextDay, loadUserCycle } from '@/utils/cycleUtils';
 import { completeStudySession } from '@/utils/sessionUtils';
 import { checkAllStudiesCompleted, isTopicDominated, syncSubjectStatus, hasStudyableSubjects } from '@/utils/studiesCompletionChecker';
 import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Trophy, ArrowRight } from 'lucide-react';
 
 export const useStudyPlanLogic = () => {
-  const { subjects, isLoading, refreshData } = useApp();
+  const { subjects, isLoading: isAppLoading, refreshData } = useApp();
   const { user } = useAuth();
   const [expandedSubject, setExpandedSubject] = useState<string>('');
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
@@ -17,6 +19,11 @@ export const useStudyPlanLogic = () => {
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
   const [allStudiesCompleted, setAllStudiesCompleted] = useState(false);
   const [userSettings, setUserSettings] = useState<{ subjects_per_day: number } | null>(null);
+  const [isCycleCompleted, setIsCycleCompleted] = useState(false);
+  const [isStartingNewCycle, setIsStartingNewCycle] = useState(false);
+
+  // Combinar os estados de loading
+  const isLoading = isAppLoading || isStartingNewCycle;
 
   const disciplinasIniciadas = subjects.filter(s => s.status === 'Em Estudo');
   const disciplinasNaoIniciadas = subjects.filter(s => s.status === 'Nova');
@@ -269,9 +276,23 @@ export const useStudyPlanLogic = () => {
       }).slice(0, userSettings?.subjects_per_day || 3)
     : [];
 
+  // Verificar se todas as matérias do dia foram concluídas e ainda existem matérias para o próximo dia
   const allDaySubjectsCompleted = userCycle && 
-    userCycle.disciplinas_do_dia.length === 0 && 
-    !allStudiesCompleted;
+    userCycle.disciplinas_do_dia.length === 0 && // Não há matérias no dia atual
+    userCycle.ciclo_atual.length > 0 && // Ainda existem matérias no ciclo
+    !allStudiesCompleted && // Não concluiu todos os estudos
+    !isCycleCompleted && // O ciclo não está concluído
+    nextSubjects.length > 0; // Existem matérias disponíveis para o próximo dia
+
+  console.log('🔍 Verificação allDaySubjectsCompleted:', {
+    hasCycle: Boolean(userCycle),
+    disciplinasDoDiaLength: userCycle?.disciplinas_do_dia.length,
+    cicloAtualLength: userCycle?.ciclo_atual.length,
+    allStudiesCompleted,
+    isCycleCompleted,
+    nextSubjectsLength: nextSubjects.length,
+    shouldShowMessage: allDaySubjectsCompleted
+  });
 
   console.log('🎯 useStudyPlanLogic - Estado final:', {
     allStudiesCompleted,
@@ -289,7 +310,11 @@ export const useStudyPlanLogic = () => {
     nextSubjects: nextSubjects.map(s => s.name)
   });
 
-  const handleNextDay = useCallback(async () => {
+  const handleNextDay = async () => {
+    if (isCycleCompleted) {
+      console.log('⚠️ Ciclo atual concluído, necessário iniciar novo ciclo');
+      return; // Não permitir avançar dia se o ciclo estiver concluído
+    }
     if (!user || !userCycle) {
       console.log('❌ handleNextDay: user ou userCycle não disponível');
       return;
@@ -319,47 +344,58 @@ export const useStudyPlanLogic = () => {
       console.error('Error generating next day:', error);
       toast.error('Erro ao gerar próximo dia');
     }
-  }, [user, userCycle, subjects]);
+  };
 
   const handleCompleteSession = useCallback(async (subjectId: string) => {
+    if (!user) {
+      toast.error('Usuário não encontrado');
+      return;
+    }
+
     const markedTopics = tempMarkedTopics[subjectId] || [];
+    const subject = subjects.find(s => s.id === subjectId);
+    
+    if (!subject) {
+      toast.error('Matéria não encontrada');
+      return;
+    }
     
     try {
-      const result = await completeStudySession(subjectId, markedTopics, subjects);
-      
-      if (result.subjectCompleted) {
-        toast.success(`Matéria "${result.subjectName}" concluída! 🎉`);
-      }
-
-      // Clear temp marked topics
+      // Atualizar estado local primeiro para uma transição suave
+      setExpandedSubject('');
       setTempMarkedTopics(prev => ({
         ...prev,
         [subjectId]: []
       }));
 
-      setExpandedSubject('');
+      // Atualizar no banco de dados em paralelo
+      const result = await completeStudySession(
+        user.id,
+        subjectId,
+        subject.name,
+        markedTopics,
+        subject.status || 'Em Estudo'
+      );
       
-      // Refresh dados imediatamente para atualizar a interface
-      await refreshData();
+      // Atualizar dados em paralelo
+      await Promise.all([
+        (async () => {
+          const updatedCycle = await loadUserCycle(user.id);
+          setUserCycle(updatedCycle);
+        })(),
+        refreshData()
+      ]);
       
-      // Recarregar o ciclo do usuário para refletir as mudanças
-      if (user) {
-        const updatedCycle = await loadUserCycle(user.id);
-        setUserCycle(updatedCycle);
-        
-        console.log('🔄 Ciclo atualizado após sessão:', {
-          before: userCycle?.disciplinas_do_dia,
-          after: updatedCycle?.disciplinas_do_dia
-        });
+      if (result.subjectCompleted) {
+        toast.success(`Matéria "${result.subjectName}" concluída! 🎉`);
       }
 
       toast.success('Sessão concluída com sucesso!');
-
     } catch (error) {
       console.error('Error completing session:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao concluir sessão');
     }
-  }, [tempMarkedTopics, subjects, refreshData, user, userCycle]);
+  }, [tempMarkedTopics, subjects, refreshData, user]);
 
   const handleToggleExpand = useCallback((subjectId: string) => {
     setExpandedSubject(prev => prev === subjectId ? '' : subjectId);
@@ -382,6 +418,71 @@ export const useStudyPlanLogic = () => {
   const handleHideNewCycleMessage = useCallback(() => {
     setShowNewCycleMessage(false);
   }, []);
+
+  // Verificar estado do ciclo quando o userCycle mudar
+  useEffect(() => {
+    if (!userCycle) return;
+
+    const cycleCompleted = userCycle.ciclo_atual.length === 0 && Boolean(userCycle.data_fim_ciclo);
+    setIsCycleCompleted(cycleCompleted);
+  }, [userCycle]);
+
+  // Adicionar função para iniciar novo ciclo
+  const handleStartNewCycle = async () => {
+    if (!user) return;
+
+    try {
+      // Iniciar loading e limpar estados
+      setIsStartingNewCycle(true);
+      setUserCycle(null); // Limpar o ciclo atual para evitar flash do estado anterior
+      setIsCycleCompleted(false);
+      setShowNewCycleMessage(false);
+
+      // Filtrar apenas matérias não concluídas
+      const availableSubjects = subjects.filter(s => 
+        s.status !== 'Concluída' && s.topics && s.topics.length > 0
+      );
+
+      if (availableSubjects.length === 0) {
+        toast.error('Não há matérias disponíveis para um novo ciclo');
+        return;
+      }
+
+      const cycleSubjectIds = availableSubjects.map(s => s.id);
+      const subjectsPerDay = userSettings?.subjects_per_day || 3;
+      const firstDaySubjects = cycleSubjectIds.slice(0, subjectsPerDay);
+
+      // Atualizar o ciclo no banco de dados
+      const { error } = await supabase
+        .from('user_cycles')
+        .update({
+          ciclo_atual: cycleSubjectIds,
+          disciplinas_do_dia: firstDaySubjects,
+          data_inicio_ciclo: new Date().toISOString(),
+          data_fim_ciclo: null,
+          atualizado_em: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Atualizar os dados em paralelo e aguardar ambos terminarem
+      await Promise.all([
+        (async () => {
+          const updatedCycle = await loadUserCycle(user.id);
+          setUserCycle(updatedCycle);
+        })(),
+        refreshData()
+      ]);
+      
+      toast.success('Novo ciclo iniciado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao iniciar novo ciclo:', error);
+      toast.error('Erro ao iniciar novo ciclo');
+    } finally {
+      setIsStartingNewCycle(false);
+    }
+  };
 
   return {
     isLoading,
@@ -406,6 +507,8 @@ export const useStudyPlanLogic = () => {
     disciplinasIniciadas,
     disciplinasNaoIniciadas,
     disciplinasIniciadasCiclo,
-    isTopicDominated
+    isTopicDominated,
+    isCycleCompleted,
+    handleStartNewCycle
   };
 };

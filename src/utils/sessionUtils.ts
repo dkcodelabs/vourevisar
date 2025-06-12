@@ -2,143 +2,208 @@ import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextReviewDate } from './reviewStageUtils';
 
-export const completeStudySession = async (subjectId: string, markedTopicIds: string[], subjects: Subject[]) => {
-  const subject = subjects.find(s => s.id === subjectId);
-  if (!subject) {
-    throw new Error('Matéria não encontrada');
-  }
-
-  console.log('🎯 Completando sessão de estudo:', {
-    subjectId,
-    subjectName: subject.name,
-    markedTopicIds,
-    currentStatus: subject.status
-  });
-
-  // Update marked topics
-  for (const topicId of markedTopicIds) {
-    const topic = subject.topics.find(t => t.id === topicId);
-    if (!topic) continue;
-
-    const currentReviewCount = topic.reviewCount || 0;
-    const newReviewCount = currentReviewCount + 1;
-    
-    let newReviewStage: string;
-    let nextReviewDate: Date | null = null;
-
-    // Determine new review stage
-    switch (currentReviewCount) {
-      case 0: // First review
-        newReviewStage = '1d';
-        nextReviewDate = new Date(getNextReviewDate('1d'));
-        break;
-      case 1: // Second review
-        newReviewStage = '3d';
-        nextReviewDate = new Date(getNextReviewDate('3d'));
-        break;
-      case 2: // Third review
-        newReviewStage = '7d';
-        nextReviewDate = new Date(getNextReviewDate('7d'));
-        break;
-      case 3: // Fourth review
-        newReviewStage = '15d';
-        nextReviewDate = new Date(getNextReviewDate('15d'));
-        break;
-      case 4: // Fifth review
-        newReviewStage = '30d';
-        nextReviewDate = new Date(getNextReviewDate('30d'));
-        break;
-      default: // Sixth review and beyond
-        newReviewStage = 'Concluído';
-        nextReviewDate = null;
-        break;
-    }
-
-    console.log('🔄 Atualizando tópico:', {
-      topicId,
-      topicName: topic.name,
-      currentReviewCount,
-      newReviewCount,
-      newReviewStage,
-      nextReviewDate
+export const completeStudySession = async (
+  user_id: string,
+  subjectId: string,
+  subjectName: string,
+  markedTopicIds: string[],
+  currentStatus: string
+) => {
+  try {
+    // Log para debug
+    console.log('🎯 Completando sessão de estudo:', {
+      user_id,
+      subjectId,
+      subjectName,
+      markedTopicIds,
+      currentStatus
     });
 
-    // Update topic in database
-    const { error } = await supabase
-      .from('topics')
-      .update({
-        review_count: newReviewCount,
-        review_stage: newReviewStage,
-        next_review: nextReviewDate?.toISOString(),
-        last_reviewed_at: new Date().toISOString(),
-        completed: true,
-        first_studied_at: topic.lastReviewedAt ? undefined : new Date().toISOString()
-      })
-      .eq('id', topicId);
-
-    if (error) {
-      console.error('Error updating topic:', error);
-      throw new Error(`Erro ao atualizar tópico: ${error.message}`);
-    }
-  }
-
-  // Verificar se todos os tópicos da matéria estão dominados
-  const allTopicsDominated = subject.topics.every(topic => {
-    // Se foi marcado nesta sessão, considera como dominado se chegou no final
-    if (markedTopicIds.includes(topic.id)) {
-      const newReviewCount = (topic.reviewCount || 0) + 1;
-      return newReviewCount >= 5; // 5+ reviews = Concluído
-    }
-    // Se não foi marcado, verifica o estado atual
-    return topic.reviewStage === 'Concluído';
-  });
-
-  let subjectCompleted = false;
-
-  // Se todos os tópicos estão dominados, marcar a matéria como concluída
-  if (allTopicsDominated && subject.status !== 'Concluída') {
-    console.log('🎉 Todos os tópicos dominados - marcando matéria como concluída');
-    
-    const { error: subjectError } = await supabase
-      .from('subjects')
-      .update({
-        status: 'Concluída',
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', subjectId);
-
-    if (subjectError) {
-      console.error('Error updating subject status:', subjectError);
-      throw new Error(`Erro ao atualizar status da matéria: ${subjectError.message}`);
-    }
-
-    subjectCompleted = true;
-  }
-
-  // SEMPRE remover a matéria da lista diária e do ciclo ao concluir a sessão
-  console.log('🔄 Removendo matéria da lista diária e do ciclo após sessão');
-  const { data: user } = await supabase.auth.getUser();
-  if (user.user) {
     // Buscar o ciclo atual
-    const { data: userCycle, error: cycleError } = await supabase
+    const { data: cycleData, error: cycleError } = await supabase
       .from('user_cycles')
       .select('*')
-      .eq('user_id', user.user.id)
-      .single();
+      .eq('user_id', user_id)
+      .maybeSingle();
 
     if (cycleError) {
-      console.error('Error fetching user cycle:', cycleError);
-    } else if (userCycle) {
+      console.error('Erro ao buscar ciclo:', cycleError);
+      throw new Error('Erro ao buscar ciclo do usuário');
+    }
+
+    if (!cycleData) {
+      console.error('Ciclo não encontrado para o usuário:', user_id);
+      throw new Error('Ciclo não encontrado');
+    }
+
+    // Verificar se é a última matéria do ciclo
+    const isLastSubjectInCycle = cycleData.ciclo_atual.length === 1 && 
+                                cycleData.ciclo_atual[0] === subjectId;
+
+    // Se for a última matéria do ciclo, apenas remover e não gerar próximo dia
+    if (isLastSubjectInCycle) {
+      const updateObj = {
+        ciclo_atual: [],
+        disciplinas_do_dia: [],
+        data_fim_ciclo: new Date().toISOString(),
+        ciclos_realizados: (cycleData.ciclos_realizados || 0) + 1,
+        atualizado_em: new Date().toISOString()
+      };
+
+      const { error: updateError } = await supabase
+        .from('user_cycles')
+        .update(updateObj)
+        .eq('user_id', user_id);
+
+      if (updateError) throw updateError;
+
+      console.log('🏆 Ciclo concluído, aguardando início de novo ciclo');
+      return {
+        subjectCompleted: false,
+        topicsUpdated: markedTopicIds.length,
+        allTopicsDominated: false,
+        subjectRemovedFromDaily: true,
+        cycleCompleted: true
+      };
+    }
+
+    // Se não for a última matéria, continuar com a lógica normal
+    const { data: subject, error: subjectError } = await supabase
+      .from('subjects')
+      .select(`
+        *,
+        topics (
+          id,
+          name,
+          review_count,
+          review_stage,
+          next_review,
+          completed,
+          last_reviewed_at
+        )
+      `)
+      .eq('id', subjectId)
+      .single();
+
+    if (subjectError || !subject) {
+      console.error('Erro ao buscar matéria:', subjectError);
+      throw new Error('Matéria não encontrada');
+    }
+
+    // Update marked topics
+    for (const topicId of markedTopicIds) {
+      const topic = subject.topics.find(t => t.id === topicId);
+      if (!topic) continue;
+
+      const currentReviewCount = topic.review_count || 0;
+      const newReviewCount = currentReviewCount + 1;
+      
+      let newReviewStage: string;
+      let nextReviewDate: Date | null = null;
+
+      // Determine new review stage
+      switch (currentReviewCount) {
+        case 0: // First review
+          newReviewStage = '1d';
+          nextReviewDate = new Date(getNextReviewDate('1d'));
+          break;
+        case 1: // Second review
+          newReviewStage = '3d';
+          nextReviewDate = new Date(getNextReviewDate('3d'));
+          break;
+        case 2: // Third review
+          newReviewStage = '7d';
+          nextReviewDate = new Date(getNextReviewDate('7d'));
+          break;
+        case 3: // Fourth review
+          newReviewStage = '15d';
+          nextReviewDate = new Date(getNextReviewDate('15d'));
+          break;
+        case 4: // Fifth review
+          newReviewStage = '30d';
+          nextReviewDate = new Date(getNextReviewDate('30d'));
+          break;
+        default: // Sixth review and beyond
+          newReviewStage = 'Concluído';
+          nextReviewDate = null;
+          break;
+      }
+
+      console.log('🔄 Atualizando tópico:', {
+        topicId,
+        topicName: topic.name,
+        currentReviewCount,
+        newReviewCount,
+        newReviewStage,
+        nextReviewDate
+      });
+
+      // Update topic in database
+      const { error } = await supabase
+        .from('topics')
+        .update({
+          review_count: newReviewCount,
+          review_stage: newReviewStage,
+          next_review: nextReviewDate?.toISOString(),
+          last_reviewed_at: new Date().toISOString(),
+          completed: true,
+          first_studied_at: topic.last_reviewed_at ? undefined : new Date().toISOString()
+        })
+        .eq('id', topicId);
+
+      if (error) {
+        console.error('Error updating topic:', error);
+        throw new Error(`Erro ao atualizar tópico: ${error.message}`);
+      }
+    }
+
+    // Verificar se todos os tópicos da matéria estão dominados
+    const allTopicsDominated = subject.topics.every(topic => {
+      // Se foi marcado nesta sessão, considera como dominado se chegou no final
+      if (markedTopicIds.includes(topic.id)) {
+        const newReviewCount = (topic.review_count || 0) + 1;
+        return newReviewCount >= 5; // 5+ reviews = Concluído
+      }
+      // Se não foi marcado, verifica o estado atual
+      return topic.review_stage === 'Concluído';
+    });
+
+    let subjectCompleted = false;
+
+    // Se todos os tópicos estão dominados, marcar a matéria como concluída
+    if (allTopicsDominated && subject.status !== 'Concluída') {
+      console.log('🎉 Todos os tópicos dominados - marcando matéria como concluída');
+      
+      const { error: subjectError } = await supabase
+        .from('subjects')
+        .update({
+          status: 'Concluída',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', subjectId);
+
+      if (subjectError) {
+        console.error('Error updating subject status:', subjectError);
+        throw new Error(`Erro ao atualizar status da matéria: ${subjectError.message}`);
+      }
+
+      subjectCompleted = true;
+    }
+
+    // SEMPRE remover a matéria da lista diária e do ciclo ao concluir a sessão
+    console.log('🔄 Removendo matéria da lista diária e do ciclo após sessão');
+    const { data: user } = await supabase.auth.getUser();
+    if (user.user) {
       // Remover a matéria da lista do dia e do ciclo
-      const updatedDisciplinasoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
-      const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
+      const updatedDisciplinasoDia = cycleData.disciplinas_do_dia.filter(id => id !== subjectId);
+      const updatedCicloAtual = cycleData.ciclo_atual.filter(id => id !== subjectId);
       let updateObj: any = {
         disciplinas_do_dia: updatedDisciplinasoDia,
         ciclo_atual: updatedCicloAtual,
         atualizado_em: new Date().toISOString()
       };
-      let ciclosRealizados = userCycle.ciclos_realizados || 0;
+      let ciclosRealizados = cycleData.ciclos_realizados || 0;
       // Se ciclo_atual ficou vazio, reiniciar ciclo e incrementar ciclos_realizados
       if (updatedCicloAtual.length === 0) {
         ciclosRealizados += 1;
@@ -202,19 +267,22 @@ export const completeStudySession = async (subjectId: string, markedTopicIds: st
       console.error('Error recording study session:', sessionError);
       // Don't throw error here as the main operation succeeded
     }
+
+    console.log('✅ Sessão de estudo completada:', {
+      subjectCompleted,
+      topicsUpdated: markedTopicIds.length,
+      allTopicsDominated,
+      subjectRemovedFromDaily: true
+    });
+
+    return {
+      subjectCompleted,
+      subjectName: subject.name,
+      topicsUpdated: markedTopicIds.length,
+      subjectRemovedFromDaily: true
+    };
+  } catch (error) {
+    console.error('Erro ao completar sessão de estudo:', error);
+    throw error;
   }
-
-  console.log('✅ Sessão de estudo completada:', {
-    subjectCompleted,
-    topicsUpdated: markedTopicIds.length,
-    allTopicsDominated,
-    subjectRemovedFromDaily: true
-  });
-
-  return {
-    subjectCompleted,
-    subjectName: subject.name,
-    topicsUpdated: markedTopicIds.length,
-    subjectRemovedFromDaily: true
-  };
 };
