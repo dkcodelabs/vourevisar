@@ -94,7 +94,31 @@ export const loadUserCycle = async (userId: string) => {
 
   if (error && error.code !== 'PGRST116') {
     console.error('Error loading user cycle:', error);
-    return null;
+    return {
+      id: '',
+      user_id: userId,
+      ciclo_atual: [],
+      disciplinas_do_dia: [],
+      ciclos_realizados: 0,
+      data_inicio_ciclo: new Date().toISOString(),
+      data_fim_ciclo: null,
+      atualizado_em: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    };
+  }
+
+  if (!data) {
+    return {
+      id: '',
+      user_id: userId,
+      ciclo_atual: [],
+      disciplinas_do_dia: [],
+      ciclos_realizados: 0,
+      data_inicio_ciclo: new Date().toISOString(),
+      data_fim_ciclo: null,
+      atualizado_em: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    };
   }
 
   console.log('📋 Ciclo carregado:', data);

@@ -67,10 +67,42 @@ const StudyPlan = () => {
   } = useStudyPlanLogic();
 
   // Não renderizar nada até que os dados iniciais estejam carregados
-  if (isLoading || !userCycle) {
+  if (isLoading) {
     return (
       <div className="container mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-2 sm:px-4 md:px-8 flex items-center justify-center">
         <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // Se não há ciclo, mostrar mensagem para adicionar matérias
+  if (!userCycle) {
+    return (
+      <div className="container mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-2 sm:px-4 md:px-8">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="py-8 space-y-6"
+        >
+          <motion.div variants={itemVariants}>
+            <Card className="text-center">
+              <CardHeader>
+                <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <CardTitle>Nenhuma matéria para estudar</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 mb-4">
+                  Você ainda não adicionou matérias para estudar.
+                </p>
+                <Button onClick={() => navigate('/materias')}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Matérias
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
