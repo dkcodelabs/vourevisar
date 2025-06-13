@@ -106,7 +106,7 @@ const StudyPlan = () => {
         animate="visible"
         className="py-8 space-y-6"
       >
-        <StudyPlanHeader />
+        <StudyPlanHeader onNextDay={handleNextDay} />
         
         {isCycleCompleted ? (
           <CycleCompletedMessage onStartNewCycle={handleStartNewCycle} />

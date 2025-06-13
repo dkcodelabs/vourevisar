@@ -217,15 +217,69 @@ const Settings = () => {
           <Button
             variant="destructive"
             onClick={async () => {
+              if (!user) {
+                toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+                return;
+              }
               if (window.confirm("Tem certeza que deseja excluir TODAS as matérias, tópicos e revisões? Esta ação não pode ser desfeita!")) {
-                // Excluir tópicos e matérias do usuário
-                await supabase.from('topics').delete().neq('id', ''); // deleta todos os tópicos
-                await supabase.from('subjects').delete().neq('id', ''); // deleta todas as matérias
-                toast({
-                  title: "Sistema limpo!",
-                  description: "Todas as matérias, tópicos e revisões foram removidos.",
-                });
-                window.location.reload();
+                try {
+                  // 1. Buscar todas as matérias do usuário
+                  const { data: userSubjects, error: subjectsError } = await supabase
+                    .from('subjects')
+                    .select('id')
+                    .eq('user_id', user.id);
+                  
+                  if (subjectsError) throw subjectsError;
+                  
+                  const subjectIds = (userSubjects || []).map(s => s.id);
+                  
+                  // 2. Deletar tópicos das matérias do usuário
+                  if (subjectIds.length > 0) {
+                    const { error: topicsError } = await supabase
+                      .from('topics')
+                      .delete()
+                      .in('subject_id', subjectIds);
+                    
+                    if (topicsError) throw topicsError;
+                  }
+                  
+                  // 3. Deletar matérias do usuário
+                  const { error: subjectsDeleteError } = await supabase
+                    .from('subjects')
+                    .delete()
+                    .eq('user_id', user.id);
+                  
+                  if (subjectsDeleteError) throw subjectsDeleteError;
+                  
+                  // 4. Deletar ciclos do usuário
+                  const { error: cyclesError } = await supabase
+                    .from('user_cycles')
+                    .delete()
+                    .eq('user_id', user.id);
+                  
+                  if (cyclesError) throw cyclesError;
+                  
+                  // 5. Deletar sessões de estudo do usuário
+                  const { error: sessionsError } = await supabase
+                    .from('study_sessions')
+                    .delete()
+                    .eq('user_id', user.id);
+                  
+                  if (sessionsError) throw sessionsError;
+                  
+                  toast({
+                    title: "Sistema limpo!",
+                    description: "Todas as suas matérias, tópicos e revisões foram removidos.",
+                  });
+                  window.location.reload();
+                } catch (err) {
+                  console.error('Erro ao limpar sistema:', err);
+                  toast({
+                    title: "Erro ao limpar sistema",
+                    description: "Ocorreu um erro ao tentar limpar o sistema. Tente novamente.",
+                    variant: "destructive"
+                  });
+                }
               }
             }}
           >
