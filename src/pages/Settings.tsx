@@ -223,6 +223,8 @@ const Settings = () => {
               }
               if (window.confirm("Tem certeza que deseja excluir TODAS as matérias, tópicos e revisões? Esta ação não pode ser desfeita!")) {
                 try {
+                  console.log('🧹 Iniciando limpeza completa do sistema para usuário:', user.id);
+                  
                   // 1. Buscar todas as matérias do usuário
                   const { data: userSubjects, error: subjectsError } = await supabase
                     .from('subjects')
@@ -232,6 +234,7 @@ const Settings = () => {
                   if (subjectsError) throw subjectsError;
                   
                   const subjectIds = (userSubjects || []).map(s => s.id);
+                  console.log('🧹 Matérias encontradas:', subjectIds.length);
                   
                   // 2. Deletar tópicos das matérias do usuário
                   if (subjectIds.length > 0) {
@@ -241,6 +244,7 @@ const Settings = () => {
                       .in('subject_id', subjectIds);
                     
                     if (topicsError) throw topicsError;
+                    console.log('🧹 Tópicos deletados');
                   }
                   
                   // 3. Deletar matérias do usuário
@@ -250,6 +254,7 @@ const Settings = () => {
                     .eq('user_id', user.id);
                   
                   if (subjectsDeleteError) throw subjectsDeleteError;
+                  console.log('🧹 Matérias deletadas');
                   
                   // 4. Deletar ciclos do usuário
                   const { error: cyclesError } = await supabase
@@ -258,6 +263,7 @@ const Settings = () => {
                     .eq('user_id', user.id);
                   
                   if (cyclesError) throw cyclesError;
+                  console.log('🧹 Ciclos deletados');
                   
                   // 5. Deletar sessões de estudo do usuário
                   const { error: sessionsError } = await supabase
@@ -266,12 +272,18 @@ const Settings = () => {
                     .eq('user_id', user.id);
                   
                   if (sessionsError) throw sessionsError;
+                  console.log('🧹 Sessões deletadas');
                   
                   toast({
                     title: "Sistema limpo!",
                     description: "Todas as suas matérias, tópicos e revisões foram removidos.",
                   });
-                  window.location.reload();
+                  
+                  // Aguardar um pouco para garantir que a operação foi concluída no banco
+                  setTimeout(() => {
+                    console.log('🧹 Recarregando página após limpeza');
+                    window.location.reload();
+                  }, 1000);
                 } catch (err) {
                   console.error('Erro ao limpar sistema:', err);
                   toast({
@@ -296,6 +308,8 @@ const Settings = () => {
               }
               if (window.confirm("Tem certeza que deseja limpar apenas as revisões? As matérias e tópicos serão mantidos, mas todo o progresso será zerado.")) {
                 try {
+                  console.log('🔄 Iniciando reset das revisões para usuário:', user.id);
+                  
                   // Buscar todas as matérias do usuário
                   const { data: subjectsData, error: subjectsError } = await supabase
                     .from('subjects')
@@ -303,6 +317,8 @@ const Settings = () => {
                     .eq('user_id', user.id);
                   if (subjectsError) throw subjectsError;
                   const subjectIds = (subjectsData || []).map(s => s.id);
+                  console.log('🔄 Matérias encontradas:', subjectIds.length);
+                  
                   // Resetar tópicos do usuário
                   if (subjectIds.length > 0) {
                     await supabase
@@ -315,12 +331,16 @@ const Settings = () => {
                         completed: false
                       })
                       .in('subject_id', subjectIds);
+                    console.log('🔄 Tópicos resetados');
                   }
+                  
                   // Resetar matérias do usuário
                   await supabase
                     .from('subjects')
                     .update({ status: 'Nova' })
                     .eq('user_id', user.id);
+                  console.log('🔄 Matérias resetadas');
+                  
                   // Resetar ciclos do usuário
                   await supabase
                     .from('user_cycles')
@@ -332,12 +352,20 @@ const Settings = () => {
                       data_fim_ciclo: null
                     })
                     .eq('user_id', user.id);
+                  console.log('🔄 Ciclos resetados');
+                  
                   toast({
                     title: "Revisões e progresso limpos!",
                     description: "Todo o progresso foi zerado. Você pode recomeçar seus estudos.",
                   });
-                  window.location.reload();
+                  
+                  // Aguardar um pouco para garantir que a operação foi concluída
+                  setTimeout(() => {
+                    console.log('🔄 Recarregando página após reset');
+                    window.location.reload();
+                  }, 1000);
                 } catch (err) {
+                  console.error('Erro ao limpar revisões:', err);
                   toast({
                     title: "Erro ao limpar revisões",
                     description: "Ocorreu um erro ao tentar zerar o progresso. Tente novamente.",

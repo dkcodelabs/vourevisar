@@ -278,12 +278,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (user) {
+      console.log('AppContext - User changed, loading subjects for:', user.id);
       loadSubjects();
     } else {
+      console.log('AppContext - No user, clearing subjects');
       setSubjects([]);
       setIsDataLoaded(false);
+      setIsLoading(false);
+      setError(null);
     }
-  }, [user]);
+  }, [user?.id]); // Usar user.id em vez de user para evitar re-renderizações desnecessárias
 
   const value: AppContextType = {
     subjects,
