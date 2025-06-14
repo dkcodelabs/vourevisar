@@ -1,11 +1,29 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Subject, Topic, StudyProgress, AppContextType } from '@/types';
+import { Subject, Topic, StudyProgress } from '@/types';
 import { toast } from 'sonner';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export type AppContextType = {
+  subjects: Subject[];
+  isLoading: boolean;
+  refreshData: () => Promise<void>;
+  updateTopic: (subjectId: string, topicId: string, data: Partial<Topic>) => Promise<void>;
+  setSubjects: React.Dispatch<React.SetStateAction<Subject[]>>;
+  studyProgress: StudyProgress;
+  isDataLoaded: boolean;
+  error: string | null;
+  addSubject: (subjectData: Omit<Subject, 'id'>) => Promise<void>;
+  updateSubject: (id: string, updates: Partial<Subject>) => Promise<void>;
+  deleteSubject: (id: string) => Promise<void>;
+  addTopic: (subjectId: string, topicData: Omit<Topic, 'id'>) => Promise<void>;
+  deleteTopic: (subjectId: string, topicId: string) => Promise<void>;
+  createSubject: (subjectData: Omit<Subject, 'id'>) => Promise<void>;
+  fetchSubjects: () => Promise<void>;
+  fetchUserSettings: () => Promise<void>;
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -37,7 +55,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           topics (*)
         `)
         .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
+        .order('priority', { ascending: true });
 
       if (subjectsError) throw subjectsError;
 
@@ -60,6 +78,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
 
       setSubjects(transformedSubjects);
+      const priorities = transformedSubjects.map(s => s.priority);
+      const hasNull = priorities.some(p => p === null || p === undefined);
+      const hasDuplicate = new Set(priorities).size !== priorities.length;
+      if (hasNull || hasDuplicate) {
+        const fixedSubjects = transformedSubjects.map((s, idx) => ({ ...s, priority: idx + 1 }));
+        setSubjects(fixedSubjects);
+        Promise.all(fixedSubjects.map(s =>
+          supabase.from('subjects').update({ priority: s.priority }).eq('id', s.id)
+        ));
+      }
       calculateProgress(transformedSubjects);
       setIsDataLoaded(true);
       console.log('AppContext - Subjects loaded successfully:', transformedSubjects.length);
@@ -124,7 +152,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (error) throw error;
 
-      await loadSubjects();
+      setSubjects(prev => [
+        ...prev,
+        {
+          ...data,
+          topics: [],
+          status: data.status as 'Nova' | 'Em Estudo' | 'Concluída',
+          color: data.color || undefined,
+          priority: data.priority || 0
+        }
+      ]);
+
+      loadSubjects();
+
       toast.success('Matéria adicionada com sucesso!');
     } catch (error: any) {
       console.error('Error adding subject:', error);
@@ -201,6 +241,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
 
       await loadSubjects();
+      await refreshData();
       toast.success('Tópico adicionado com sucesso!');
     } catch (error: any) {
       console.error('Error adding topic:', error);
@@ -305,6 +346,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     createSubject,
     fetchSubjects,
     fetchUserSettings,
+    setSubjects,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -122,6 +121,17 @@ const Revisoes = () => {
       setFilteredTopics(filtered);
     }
   }, [topics, searchTerm, selectedDate, viewMode]);
+
+  // Adiciona refresh automático ao focar na página
+  useEffect(() => {
+    const handleFocus = () => {
+      refetch();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refetch]);
 
   const resetFilters = () => {
     setSelectedDate(undefined);

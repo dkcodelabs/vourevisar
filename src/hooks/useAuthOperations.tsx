@@ -216,6 +216,28 @@ export function useAuthOperations() {
     }
   };
 
+  const addSubject = async (userId: string, subjectData: any) => {
+    setLoading(true);
+    try {
+      // Buscar perfil do usuário
+      const { data: userSettings } = await supabase
+        .from('user_settings')
+        .select('review_profile')
+        .eq('user_id', userId)
+        .single();
+      if (!userSettings?.review_profile) {
+        throw new Error('Você precisa definir um perfil de revisão antes de adicionar matérias.');
+      }
+      // ... restante da lógica de inserção
+    } catch (error: any) {
+      console.error('Error adding subject:', error);
+      toast.error('Erro ao adicionar matéria');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     signIn,
@@ -224,6 +246,7 @@ export function useAuthOperations() {
     signOut,
     resetPassword,
     updatePassword,
-    updateProfile
+    updateProfile,
+    addSubject
   };
 }

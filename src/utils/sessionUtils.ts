@@ -40,8 +40,64 @@ export const completeStudySession = async (
     const isLastSubjectInCycle = cycleData.ciclo_atual.length === 1 && 
                                 cycleData.ciclo_atual[0] === subjectId;
 
-    // Se for a última matéria do ciclo, apenas remover e não gerar próximo dia
+    // Se for a última matéria do ciclo, atualizar tópicos marcados normalmente antes de finalizar o ciclo
     if (isLastSubjectInCycle) {
+      // Buscar a matéria e seus tópicos
+      const { data: subject, error: subjectError } = await supabase
+        .from('subjects')
+        .select(`*, topics (id, name, review_count, review_stage, next_review, completed, last_reviewed_at)`)
+        .eq('id', subjectId)
+        .single();
+      if (subjectError || !subject) {
+        console.error('Erro ao buscar matéria:', subjectError);
+        throw new Error('Matéria não encontrada');
+      }
+      for (const topicId of markedTopicIds) {
+        const topic = subject.topics.find(t => t.id === topicId);
+        if (!topic) continue;
+        const currentReviewCount = topic.review_count || 0;
+        const newReviewCount = currentReviewCount + 1;
+        let newReviewStage: string;
+        let nextReviewDate: Date | null = null;
+        switch (currentReviewCount) {
+          case 0:
+            newReviewStage = '1d';
+            nextReviewDate = new Date(getNextReviewDate('1d'));
+            break;
+          case 1:
+            newReviewStage = '3d';
+            nextReviewDate = new Date(getNextReviewDate('3d'));
+            break;
+          case 2:
+            newReviewStage = '7d';
+            nextReviewDate = new Date(getNextReviewDate('7d'));
+            break;
+          case 3:
+            newReviewStage = '15d';
+            nextReviewDate = new Date(getNextReviewDate('15d'));
+            break;
+          case 4:
+            newReviewStage = '30d';
+            nextReviewDate = new Date(getNextReviewDate('30d'));
+            break;
+          default:
+            newReviewStage = 'Concluído';
+            nextReviewDate = null;
+            break;
+        }
+        await supabase
+          .from('topics')
+          .update({
+            review_count: newReviewCount,
+            review_stage: newReviewStage,
+            next_review: nextReviewDate?.toISOString(),
+            last_reviewed_at: new Date().toISOString(),
+            completed: newReviewStage === 'Concluído',
+            first_studied_at: topic.last_reviewed_at ? undefined : new Date().toISOString()
+          })
+          .eq('id', topicId);
+      }
+      // Agora finalizar o ciclo normalmente
       const updateObj = {
         ciclo_atual: [],
         disciplinas_do_dia: [],
@@ -49,14 +105,11 @@ export const completeStudySession = async (
         ciclos_realizados: (cycleData.ciclos_realizados || 0) + 1,
         atualizado_em: new Date().toISOString()
       };
-
       const { error: updateError } = await supabase
         .from('user_cycles')
         .update(updateObj)
         .eq('user_id', user_id);
-
       if (updateError) throw updateError;
-
       console.log('🏆 Ciclo concluído, aguardando início de novo ciclo');
       return {
         subjectCompleted: false,
@@ -146,7 +199,7 @@ export const completeStudySession = async (
           review_stage: newReviewStage,
           next_review: nextReviewDate?.toISOString(),
           last_reviewed_at: new Date().toISOString(),
-          completed: true,
+          completed: newReviewStage === 'Concluído',
           first_studied_at: topic.last_reviewed_at ? undefined : new Date().toISOString()
         })
         .eq('id', topicId);
@@ -154,6 +207,22 @@ export const completeStudySession = async (
       if (error) {
         console.error('Error updating topic:', error);
         throw new Error(`Erro ao atualizar tópico: ${error.message}`);
+      }
+    }
+
+    // Se a matéria está como 'Nova' e tem tópicos marcados, atualizar para 'Em Estudo'
+    if (subject.status === 'Nova' && markedTopicIds.length > 0) {
+      const { error: subjectError } = await supabase
+        .from('subjects')
+        .update({
+          status: 'Em Estudo',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', subjectId);
+
+      if (subjectError) {
+        console.error('Error updating subject status:', subjectError);
+        throw new Error(`Erro ao atualizar status da matéria: ${subjectError.message}`);
       }
     }
 

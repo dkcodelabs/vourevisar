@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,10 +16,11 @@ import Statistics from "@/pages/Statistics";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import { AuthCallback } from "@/components/AuthCallback";
-import { useEffect } from "react";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
 import RevisaoGeral from "@/pages/RevisaoGeral";
+import { Toaster as ReactHotToastToaster } from 'react-hot-toast';
+import { ProfileOnboardingGate } from "@/components/ProfileOnboardingGate";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,18 +32,6 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      // Prevent default behavior that might cause page reloads
-    };
-    
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, []);
-  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -52,10 +40,11 @@ const App = () => {
             <AppProvider>
               <Toaster />
               <Sonner />
+              <ReactHotToastToaster />
+              <ProfileOnboardingGate />
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
-                
                 <Route path="/*" element={<ProtectedRoute />}>
                   <Route path="" element={<AppLayout />}>
                     <Route index element={<Dashboard />} />
@@ -70,7 +59,6 @@ const App = () => {
                     <Route path="configuracoes" element={<Settings />} />
                   </Route>
                 </Route>
-                
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AppProvider>

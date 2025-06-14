@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,11 @@ import { SortableItem } from '@/components/SortableItem';
 import { useApp } from '@/contexts/AppContext';
 import { Subject, Status } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
+import { UserProfileProvider, useUserProfile } from '@/contexts/UserProfileContext';
+import { ProfileSelector } from '@/components/ProfileSelector';
+import { useAuth } from '@/contexts/AuthContext';
+import { ReviewProfile } from '@/types/study';
+import { useToast } from '@/components/ui/use-toast';
 
 // Função corrigida para calcular o status automaticamente baseado nos tópicos
 const calculateSubjectStatus = (subject: Subject): Status => {
@@ -57,18 +62,67 @@ const getStatusColor = (status: Status) => {
 };
 
 const Subjects = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { subjects, isLoading, error, addSubject, deleteSubject, updateSubject } = useApp();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-  const [newSubject, setNewSubject] = useState({
-    name: ''
-  });
+  const [newSubjectName, setNewSubjectName] = useState('');
   const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
+  const { profile, setProfile } = useUserProfile();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [toastShown, setToastShown] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('review_profile')
+        .eq('user_id', user.id)
+        .single();
+      if (
+        error ||
+        !data ||
+        !data.review_profile ||
+        ![ReviewProfile.BEGINNER, ReviewProfile.INTERMEDIATE, ReviewProfile.ADVANCED].includes(data.review_profile)
+      ) {
+        if (!toastShown) {
+          toast({
+            variant: "destructive",
+            title: "Perfil de revisão obrigatório",
+            description: "Você precisa escolher um perfil de revisão antes de adicionar matérias."
+          });
+          setToastShown(true);
+        }
+        navigate('/configuracoes');
+      } else {
+        setLoading(false);
+      }
+    };
+    checkProfile();
+  }, [user, navigate, toast, toastShown]);
 
   useEffect(() => {
     setLocalSubjects(subjects);
   }, [subjects]);
+
+  useLayoutEffect(() => {
+    if (!loading && newSubjectName === '' && inputRef.current) {
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 0);
+    }
+  }, [loading, localSubjects, newSubjectName]);
+
+  useEffect(() => {
+    if (inputRef.current && newSubjectName === '') {
+      inputRef.current.focus();
+    }
+  }, []);
 
   console.log('Subjects component render:', {
     subjectsCount: subjects.length,
@@ -84,60 +138,62 @@ const Subjects = () => {
     })
   );
 
-  const resetForm = () => {
-    setNewSubject({
-      name: ''
-    });
-    setEditingSubject(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newSubject.name.trim()) {
-      toast.error("Por favor, insira o nome da matéria");
+  const handleAddSubject = async () => {
+    if (!newSubjectName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Atenção",
+        description: "Por favor, insira o nome da matéria"
+      });
       return;
     }
-
     try {
-      if (editingSubject) {
-        await updateSubject(editingSubject.id, {
-          name: newSubject.name.trim(),
-        });
-        toast.success("Matéria atualizada com sucesso!");
-      } else {
-        await addSubject({
-          name: newSubject.name.trim(),
-          status: 'Nova',
-          color: '#3B82F6',
-          topics: [], // Add empty topics array
-        });
-        toast.success("Matéria criada com sucesso!");
+      // Calcular o próximo valor de priority
+      const maxPriority = localSubjects.length > 0 ? Math.max(...localSubjects.map(s => s.priority || 0)) : 0;
+      await addSubject({
+        name: newSubjectName.trim().toUpperCase(),
+        status: 'Nova',
+        color: '#3B82F6',
+        topics: [],
+        priority: maxPriority + 1,
+      });
+      toast({
+        title: "Sucesso",
+        description: "Matéria criada com sucesso!"
+      });
+      setNewSubjectName('');
+      if (inputRef.current) {
+        inputRef.current.focus();
       }
-      
-      setIsDialogOpen(false);
-      resetForm();
     } catch (error) {
       console.error('Erro ao salvar matéria:', error);
-      toast.error("Erro ao salvar matéria. Tente novamente.");
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao salvar matéria. Tente novamente."
+      });
     }
   };
 
   const handleEdit = (subject: Subject) => {
     setEditingSubject(subject);
-    setNewSubject({
-      name: subject.name
-    });
-    setIsDialogOpen(true);
+    setNewSubjectName(subject.name);
   };
 
   const handleDelete = async (id: string) => {
     try {
       await deleteSubject(id);
-      toast.success("Matéria excluída com sucesso!");
+      toast({
+        title: "Sucesso",
+        description: "Matéria excluída com sucesso!"
+      });
     } catch (error) {
       console.error('Erro ao excluir matéria:', error);
-      toast.error("Erro ao excluir matéria. Tente novamente.");
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao excluir matéria. Tente novamente."
+      });
     }
   };
 
@@ -154,36 +210,47 @@ const Subjects = () => {
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reorderedSubjects = arrayMove(localSubjects, oldIndex, newIndex);
-    
-    // Atualizar o estado local imediatamente
     setLocalSubjects(reorderedSubjects);
-    
+
     try {
-      // Atualizar prioridades diretamente no Supabase
+      // Atualizar prioridades diretamente no Supabase, aguardando todos os updates
       const updates = reorderedSubjects.map((subject, index) => ({
         id: subject.id,
         priority: index + 1,
         updated_at: new Date().toISOString()
       }));
 
-      for (const update of updates) {
-        const { error } = await supabase
+      const updatePromises = updates.map(update =>
+        supabase
           .from('subjects')
-          .update({ 
-            priority: update.priority, 
-            updated_at: update.updated_at 
-          })
-          .eq('id', update.id);
+          .update({ priority: update.priority, updated_at: update.updated_at })
+          .eq('id', update.id)
+      );
 
-        if (error) {
-          throw error;
-        }
+      const results = await Promise.all(updatePromises);
+      const hasError = results.some(r => r.error);
+      if (hasError) {
+        console.error('Erro ao atualizar prioridades:', results);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao atualizar ordem das matérias"
+        });
+      } else {
+        toast({
+          title: "Sucesso",
+          description: "Ordem das matérias atualizada!"
+        });
       }
-
-      toast.success("Ordem das matérias atualizada!");
+      // Recarregar a lista após todos os updates
+      window.location.reload();
     } catch (error) {
       console.error('Erro ao reordenar matérias:', error);
-      toast.error("Erro ao atualizar ordem das matérias");
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao atualizar ordem das matérias"
+      });
     }
   };
 
@@ -203,17 +270,9 @@ const Subjects = () => {
     navigate(`/materias/${subject.id}/topicos`);
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    resetForm();
-  };
-
-  // Função para parar propagação de eventos nos botões
-  const handleButtonClick = (e: React.MouseEvent, action: () => void) => {
-    e.preventDefault();
-    e.stopPropagation();
-    action();
-  };
+  if (loading) {
+    return <div>Carregando...</div>;
+  }
 
   if (isLoading) {
     return (
@@ -244,195 +303,167 @@ const Subjects = () => {
   }
 
   return (
-    <motion.div 
-      className="container mx-auto p-6 space-y-6"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Minhas Matérias</h1>
-          <p className="text-gray-600 mt-1">Gerencie suas matérias de estudo</p>
+    <UserProfileProvider>
+      <motion.div 
+        className="container mx-auto p-6 space-y-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        {/* Header */}
+        <div className="flex flex-col gap-4 mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Minhas Matérias</h1>
+            <p className="text-gray-600 mt-1">Gerencie suas matérias de estudo</p>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              placeholder="Nome da nova matéria"
+              value={newSubjectName}
+              onChange={e => setNewSubjectName(e.target.value)}
+              onKeyPress={e => e.key === 'Enter' && handleAddSubject()}
+              className="flex-1"
+              ref={inputRef}
+            />
+            <Button onClick={handleAddSubject} disabled={!newSubjectName.trim()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar
+            </Button>
+          </div>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Matéria
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingSubject ? 'Editar Matéria' : 'Nova Matéria'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingSubject 
-                  ? 'Edite o nome da matéria'
-                  : 'Adicione uma nova matéria aos seus estudos'
-                }
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Nome da Matéria</label>
-                <Input
-                  value={newSubject.name}
-                  onChange={(e) => setNewSubject({...newSubject, name: e.target.value})}
-                  placeholder="Ex: Matemática, História..."
-                  required
-                />
-              </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                  Cancelar
-                </Button>
-                <Button type="submit">
-                  {editingSubject ? 'Atualizar' : 'Criar'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Lista de Matérias */}
-      {localSubjects.length === 0 ? (
-        <Card>
-          <CardHeader className="text-center">
-            <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <CardTitle>Nenhuma matéria encontrada</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-gray-600 mb-4">
-              Comece adicionando sua primeira matéria de estudo.
-            </p>
-            <Button onClick={() => setIsDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Primeira Matéria
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <DndContext 
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
-            <div className="grid gap-4">
-              <AnimatePresence>
-                {localSubjects.map((subject) => {
-                  const progress = getSubjectProgress(subject);
-                  const calculatedStatus = calculateSubjectStatus(subject);
-                  return (
-                    <SortableItem key={subject.id} id={subject.id}>
-                      {({ listeners, attributes }) => (
-                        <motion.div
-                          layout
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -20 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <Card className="hover:shadow-lg transition-shadow relative">
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-4 flex-1">
-                                  <div className="cursor-move p-1" {...listeners} {...attributes}>
-                                    <GripVertical className="h-5 w-5 text-gray-400" />
-                                  </div>
-                                  <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center space-x-2">
-                                      <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
-                                      <Badge className={getStatusColor(calculatedStatus)}>
-                                        {calculatedStatus}
-                                      </Badge>
+        {/* Lista de Matérias */}
+        {localSubjects.length === 0 ? (
+          <Card>
+            <CardHeader className="text-center">
+              <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <CardTitle>Nenhuma matéria encontrada</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-gray-600 mb-4">
+                Comece adicionando sua primeira matéria de estudo.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
+              <div className="grid gap-4">
+                <AnimatePresence>
+                  {localSubjects.map((subject) => {
+                    const progress = getSubjectProgress(subject);
+                    const calculatedStatus = calculateSubjectStatus(subject);
+                    return (
+                      <SortableItem key={subject.id} id={subject.id}>
+                        {({ listeners, attributes }) => (
+                          <motion.div
+                            layout
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <Card className="hover:shadow-lg transition-shadow relative">
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-4 flex-1">
+                                    <div className="cursor-move p-1" {...listeners} {...attributes}>
+                                      <GripVertical className="h-5 w-5 text-gray-400" />
                                     </div>
-                                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
-                                      <div className="flex items-center space-x-1">
-                                        <Target className="h-4 w-4" />
-                                        <span>{subject.topics.length} tópicos</span>
+                                    <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center space-x-2">
+                                        <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
+                                        <Badge className={getStatusColor(calculatedStatus)}>
+                                          {calculatedStatus}
+                                        </Badge>
                                       </div>
-                                      <div className="flex items-center space-x-1">
-                                        <CheckCircle className="h-4 w-4" />
-                                        <span>{progress}% concluído</span>
+                                      <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                                        <div className="flex items-center space-x-1">
+                                          <Target className="h-4 w-4" />
+                                          <span>{subject.topics.length} tópicos</span>
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                          <CheckCircle className="h-4 w-4" />
+                                          <span>{progress}% concluído</span>
+                                        </div>
                                       </div>
+                                      {subject.topics.length > 0 && (
+                                        <div className="mt-2">
+                                          <Progress value={progress} className="h-2" />
+                                        </div>
+                                      )}
                                     </div>
-                                    {subject.topics.length > 0 && (
-                                      <div className="mt-2">
-                                        <Progress value={progress} className="h-2" />
-                                      </div>
-                                    )}
                                   </div>
-                                </div>
-                                <div 
-                                  className="flex items-center space-x-2"
-                                  onClick={(e) => e.stopPropagation()}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                >
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => handleButtonClick(e, () => handleViewTopics(subject))}
+                                  <div 
+                                    className="flex items-center space-x-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.stopPropagation()}
                                   >
-                                    <BookOpen className="h-4 w-4 mr-1" />
-                                    Tópicos
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => handleButtonClick(e, () => handleEdit(subject))}
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </Button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm"
-                                      >
-                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Tem certeza que deseja excluir a matéria "{subject.name}"? 
-                                          Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={(e) => handleButtonClick(e, () => handleDelete(subject.id))}
-                                          className="bg-red-600 hover:bg-red-700"
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={e => { e.preventDefault(); e.stopPropagation(); handleViewTopics(subject); }}
+                                    >
+                                      <BookOpen className="h-4 w-4 mr-1" />
+                                      Tópicos
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={e => { e.preventDefault(); e.stopPropagation(); handleEdit(subject); }}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
                                         >
-                                          Excluir
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
+                                          <Trash2 className="h-4 w-4 text-red-500" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Tem certeza que deseja excluir a matéria "{subject.name}"? 
+                                            Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
+                                            className="bg-red-600 hover:bg-red-700"
+                                          >
+                                            Excluir
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
                                 </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      )}
-                    </SortableItem>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
-    </motion.div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        )}
+                      </SortableItem>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
+      </motion.div>
+    </UserProfileProvider>
   );
 };
 

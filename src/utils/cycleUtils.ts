@@ -45,7 +45,7 @@ export const generateNextDay = async (
   }
 
   // Selecionar próximas matérias do ciclo_atual, na ordem original
-  const nextBatchIds = userCycle.ciclo_atual.filter(id => {
+  let nextBatchIds = userCycle.ciclo_atual.filter(id => {
     const s = subjects.find(sub => sub.id === id);
     return (
       s &&
@@ -54,6 +54,18 @@ export const generateNextDay = async (
       !userCycle.disciplinas_do_dia.includes(id)
     );
   }).slice(0, subjectsPerDay);
+
+  // Se não houver próximas matérias, mas ainda houver matérias não concluídas, reiniciar disciplinas_do_dia
+  if (nextBatchIds.length === 0 && availableSubjects.length > 0) {
+    nextBatchIds = userCycle.ciclo_atual.filter(id => {
+      const s = subjects.find(sub => sub.id === id);
+      return (
+        s &&
+        s.status !== 'Concluída' &&
+        s.topics && s.topics.length > 0
+      );
+    }).slice(0, subjectsPerDay);
+  }
 
   const nextBatch = nextBatchIds.map(id => subjects.find(s => s.id === id));
 

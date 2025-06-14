@@ -101,12 +101,23 @@ const Topics = () => {
             };
           }
 
-          console.log(`Topics loaded for ${subject.name}:`, topicsData?.length || 0, topicsData);
+          // Normalizar campos dos tópicos
+          const normalizeTopic = (topic: any) => ({
+            ...topic,
+            reviewCount: topic.review_count,
+            reviewStage: topic.review_stage,
+            nextReview: topic.next_review,
+            lastReviewedAt: topic.last_reviewed_at,
+          });
+
+          const normalizedTopics = (topicsData || []).map(normalizeTopic);
+
+          console.log(`Topics loaded for ${subject.name}:`, normalizedTopics.length || 0, normalizedTopics);
 
           return {
             id: subject.id,
             name: subject.name,
-            topics: topicsData || []
+            topics: normalizedTopics
           };
         })
       );
@@ -156,7 +167,10 @@ const Topics = () => {
           name: newTopicName.trim(),
           subject_id: selectedSubject.id,
           completed: false,
-          review_count: 0
+          review_count: 0,
+          review_stage: null,
+          next_review: null,
+          last_reviewed_at: null
         })
         .select()
         .single();

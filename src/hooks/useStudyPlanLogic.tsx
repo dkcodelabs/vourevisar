@@ -9,9 +9,10 @@ import { checkAllStudiesCompleted, isTopicDominated, syncSubjectStatus, hasStudy
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Trophy, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export const useStudyPlanLogic = () => {
-  const { subjects, isLoading: isAppLoading, refreshData } = useApp();
+  const { subjects, isLoading: isAppLoading, refreshData, updateTopic, setSubjects } = useApp();
   const { user } = useAuth();
   const [expandedSubject, setExpandedSubject] = useState<string>('');
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
@@ -22,6 +23,10 @@ export const useStudyPlanLogic = () => {
   const [isCycleCompleted, setIsCycleCompleted] = useState(false);
   const [isStartingNewCycle, setIsStartingNewCycle] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [isNextDayLoading, setIsNextDayLoading] = useState(false);
+  const [isCycleLoading, setIsCycleLoading] = useState(true);
+  const [showNewCycleStarted, setShowNewCycleStarted] = useState(false);
 
   // Combinar os estados de loading
   const isLoading = isAppLoading || isStartingNewCycle;
@@ -90,48 +95,39 @@ export const useStudyPlanLogic = () => {
   // Inicializar ciclo apenas uma vez
   useEffect(() => {
     const initializeCycle = async () => {
+      setIsCycleLoading(true);
       if (!user || !subjects.length || !userSettings) {
         setIsInitialized(true);
+        setIsCycleLoading(false);
         return;
       }
 
       try {
         const existingCycle = await loadUserCycle(user.id);
-        
-        if (!existingCycle || !existingCycle.id) {
-          console.log('📝 Criando novo ciclo...');
-          
-          const availableSubjects = subjects.filter(s => 
-            s.status !== 'Concluída' && s.topics && s.topics.length > 0
-          );
-          
-          if (availableSubjects.length === 0) {
-            console.log('⚠️ Nenhuma matéria disponível para o ciclo');
-            setUserCycle({
-              id: '',
-              user_id: user.id,
-              ciclo_atual: [],
-              disciplinas_do_dia: [],
-              ciclos_realizados: 0,
-              data_inicio_ciclo: new Date().toISOString(),
-              data_fim_ciclo: null,
-              atualizado_em: new Date().toISOString(),
-              created_at: new Date().toISOString()
-            });
-            setIsInitialized(true);
-            return;
-          }
+        const availableSubjects = subjects.filter(s => 
+          s.status !== 'Concluída' && s.topics && s.topics.length > 0
+        );
+        const cycleSubjectIds = availableSubjects.map(s => s.id);
+        const subjectsPerDay = userSettings.subjects_per_day || 3;
 
-          const cycleSubjectIds = availableSubjects.map(s => s.id);
-          const subjectsPerDay = userSettings.subjects_per_day || 3;
-          const firstDaySubjects = cycleSubjectIds.slice(0, subjectsPerDay);
+        // Detectar se há matérias válidas fora do ciclo
+        const missingSubjects = cycleSubjectIds.filter(id => !existingCycle?.ciclo_atual?.includes(id));
+        const shouldRecreate = !existingCycle || !existingCycle.id;
+
+        if (shouldRecreate && availableSubjects.length > 0) {
+          // Sempre criar/recriar ciclo se não existir, se ciclo_atual está vazio ou se há matérias válidas fora do ciclo
+          console.log('📝 (Re)Criando ciclo automaticamente...');
+          // Deleta ciclo antigo se existir
+          if (existingCycle && existingCycle.id) {
+            await supabase.from('user_cycles').delete().eq('user_id', user.id);
+          }
 
           const { error } = await supabase
             .from('user_cycles')
             .insert({
               user_id: user.id,
               ciclo_atual: cycleSubjectIds,
-              disciplinas_do_dia: firstDaySubjects,
+              disciplinas_do_dia: cycleSubjectIds.slice(0, subjectsPerDay),
               data_inicio_ciclo: new Date().toISOString(),
               atualizado_em: new Date().toISOString()
             });
@@ -139,19 +135,23 @@ export const useStudyPlanLogic = () => {
           if (error) {
             console.error('Erro ao criar ciclo:', error);
             setIsInitialized(true);
+            setIsCycleLoading(false);
             return;
           }
 
           const newCycle = await loadUserCycle(user.id);
           setUserCycle(newCycle);
-        } else {
+        } else if (existingCycle && existingCycle.id) {
           console.log('📋 Ciclo existente carregado:', existingCycle);
           setUserCycle(existingCycle);
+        } else {
+          setUserCycle(null);
         }
       } catch (error) {
         console.error('Erro ao inicializar ciclo:', error);
       } finally {
         setIsInitialized(true);
+        setIsCycleLoading(false);
       }
     };
 
@@ -206,21 +206,20 @@ export const useStudyPlanLogic = () => {
 
   // Filtrar próximas matérias (apenas as que não estão concluídas, não estão no dia e estão no ciclo)
   const nextSubjects = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0
-    ? subjects.filter(subject => {
-        const isInCycle = userCycle.ciclo_atual.includes(subject.id);
-        const isNotInDaily = !userCycle.disciplinas_do_dia.includes(subject.id);
-        const isNotCompleted = subject.status !== 'Concluída';
-        const hasTopics = subject.topics && subject.topics.length > 0;
-        
-        return isInCycle && isNotInDaily && isNotCompleted && hasTopics;
-      })
-      // Manter a ordem do ciclo e limitar pela configuração
-      .sort((a, b) => {
-        const indexA = userCycle.ciclo_atual.indexOf(a.id);
-        const indexB = userCycle.ciclo_atual.indexOf(b.id);
-        return indexA - indexB;
-      })
-      .slice(0, userSettings?.subjects_per_day || 3)
+    ? userCycle.ciclo_atual
+        .filter(id => {
+          // Só as que não estão no dia e não estão concluídas
+          const subject = subjects.find(s => s.id === id);
+          return (
+            subject &&
+            !userCycle.disciplinas_do_dia.includes(id) &&
+            subject.status !== 'Concluída' &&
+            subject.topics && subject.topics.length > 0
+          );
+        })
+        .slice(0, userSettings?.subjects_per_day || 3)
+        .map(id => subjects.find(s => s.id === id))
+        .filter(Boolean)
     : [];
 
   // Verificar se todas as matérias do dia foram concluídas e ainda existem matérias para o próximo dia
@@ -260,19 +259,33 @@ export const useStudyPlanLogic = () => {
   const handleNextDay = async () => {
     if (!user || !userCycle || isCycleCompleted) return;
 
+    console.log('➡️ Antes de gerar próximo dia:', {
+      disciplinas_do_dia: userCycle.disciplinas_do_dia,
+      ciclo_atual: userCycle.ciclo_atual
+    });
+
+    setIsNextDayLoading(true);
     try {
       const result = await generateNextDay(user.id, userCycle, subjects);
-      
-      if (result.shouldShowNewCycleMessage) {
+      // Sempre recarregar ciclo e matérias após atualizar o dia
+      const updatedCycle = await loadUserCycle(user.id);
+      console.log('⬅️ Depois de gerar próximo dia:', {
+        disciplinas_do_dia: updatedCycle.disciplinas_do_dia,
+        ciclo_atual: updatedCycle.ciclo_atual
+      });
+      setUserCycle(updatedCycle);
+      await refreshData();
+      // Só mostrar mensagem de ciclo completo se, após recarregar, não houver matérias
+      const hasMatériasParaHoje = updatedCycle.disciplinas_do_dia && updatedCycle.disciplinas_do_dia.length > 0;
+      if (result.shouldShowNewCycleMessage && !hasMatériasParaHoje) {
         setShowNewCycleMessage(true);
         setIsCycleCompleted(true);
-      } else {
-        const updatedCycle = await loadUserCycle(user.id);
-        setUserCycle(updatedCycle);
       }
     } catch (error) {
       console.error('Erro ao gerar próximo dia:', error);
       toast.error('Erro ao carregar próximas matérias');
+    } finally {
+      setIsNextDayLoading(false);
     }
   };
 
@@ -286,20 +299,72 @@ export const useStudyPlanLogic = () => {
         return;
       }
 
-      await completeStudySession(
-        user.id,
-        subjectId,
-        subject.name,
-        tempMarkedTopics[subjectId] || [],
-        subject.status || 'Em Estudo'
-      );
-      
+      const topicsToReview = tempMarkedTopics[subjectId] || [];
+
+      if (topicsToReview.length > 0) {
+        // Marcar tópicos para revisão normalmente
+        await completeStudySession(
+          user.id,
+          subjectId,
+          subject.name,
+          topicsToReview,
+          subject.status || 'Em Estudo'
+        );
+      } else {
+        // Se não marcou nenhum tópico, marcar todos como concluídos
+        const allTopicIds = subject.topics.map(t => t.id);
+        if (allTopicIds.length > 0) {
+          const { error } = await supabase
+            .from('topics')
+            .update({
+              review_count: 5,
+              review_stage: 'Concluído',
+              is_completed: true,
+              completed: true,
+              next_review: null,
+              last_reviewed_at: new Date().toISOString()
+            })
+            .eq('id', allTopicIds[0]); // Atualizar um por vez para evitar erro 400
+
+          if (error) {
+            console.error('Erro ao atualizar tópico:', error);
+            throw error;
+          }
+        }
+      }
+
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
       setExpandedSubject('');
+
+      // Remover a matéria do ciclo_atual e disciplinas_do_dia no banco
+      const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
+      const updatedDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
       
-      const updatedCycle = await loadUserCycle(user.id);
-      setUserCycle(updatedCycle);
-      
+      // Atualizar o ciclo no banco
+      const { error: updateError } = await supabase
+        .from('user_cycles')
+        .update({
+          ciclo_atual: updatedCicloAtual,
+          disciplinas_do_dia: updatedDisciplinasDoDia,
+          atualizado_em: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('Erro ao atualizar ciclo:', updateError);
+        throw updateError;
+      }
+
+      // Buscar novamente o ciclo atualizado do banco
+      const freshCycle = await loadUserCycle(user.id);
+      if (!freshCycle) {
+        throw new Error('Erro ao carregar ciclo atualizado');
+      }
+      setUserCycle(freshCycle);
+
+      // Recarregar dados globais para refletir avanço dos tópicos
+      await refreshData();
+
       toast.success('Sessão concluída com sucesso!');
     } catch (error) {
       console.error('Erro ao concluir sessão:', error);
@@ -311,6 +376,7 @@ export const useStudyPlanLogic = () => {
     setExpandedSubject(prev => prev === subjectId ? '' : subjectId);
   };
 
+  // Marcação/desmarcação local de tópicos para revisão
   const handleMarkTopicForReview = (subjectId: string, topicId: string) => {
     setTempMarkedTopics(prev => ({
       ...prev,
@@ -364,12 +430,113 @@ export const useStudyPlanLogic = () => {
       setIsCycleCompleted(false);
       setShowNewCycleMessage(false);
       
+      // Exibir mensagem de novo ciclo iniciado
+      setShowNewCycleStarted(true);
+      setTimeout(() => setShowNewCycleStarted(false), 5000);
+      
       toast.success('Novo ciclo iniciado com sucesso!');
     } catch (error) {
       console.error('Erro ao iniciar novo ciclo:', error);
       toast.error('Erro ao iniciar novo ciclo');
     } finally {
       setIsStartingNewCycle(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newSubject.name.trim()) {
+      toast.error("Por favor, insira o nome da matéria");
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      if (editingSubject) {
+        await updateSubject(editingSubject.id, {
+          name: newSubject.name.trim(),
+        });
+        toast.success("Matéria atualizada com sucesso!");
+        setIsDialogOpen(false);
+        resetForm();
+      } else {
+        await addSubject({
+          name: newSubject.name.trim(),
+          status: 'Nova',
+          color: '#3B82F6',
+          topics: [],
+        });
+        toast.success("Matéria criada com sucesso!");
+        setNewSubject({ name: "" }); // Limpa o campo, mantém o modal aberto
+      }
+    } catch (error) {
+      console.error('Erro ao salvar matéria:', error);
+      toast.error("Erro ao salvar matéria. Tente novamente.");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const markTopicAsReviewed = async (topicId: string) => {
+    try {
+      const { data: topic } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('id', topicId)
+        .single();
+
+      if (!topic) return;
+
+      const { data: settings } = await supabase
+        .from('user_settings')
+        .select('review_profile')
+        .eq('user_id', user.id)
+        .single();
+
+      const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
+      const intervals = REVIEW_PROFILES[profile].intervals;
+      const maxReviews = REVIEW_PROFILES[profile].maxReviews;
+
+      const nextReviewDate = new Date();
+      nextReviewDate.setDate(nextReviewDate.getDate() + intervals[topic.review_count]);
+
+      const newReviewCount = topic.review_count + 1;
+      const isCompleted = newReviewCount >= maxReviews;
+
+      const { error } = await supabase
+        .from('topics')
+        .update({
+          review_count: newReviewCount,
+          next_review_date: isCompleted ? null : nextReviewDate.toISOString(),
+          review_stage: isCompleted ? 'Concluído' : `${intervals[topic.review_count]}d`,
+          last_review_date: new Date().toISOString(),
+          is_completed: isCompleted
+        })
+        .eq('id', topicId);
+
+      if (error) throw error;
+
+      // Atualiza o estado local
+      setTopics(prevTopics => 
+        prevTopics.map(t => 
+          t.id === topicId 
+            ? {
+                ...t,
+                review_count: newReviewCount,
+                next_review_date: isCompleted ? null : nextReviewDate.toISOString(),
+                review_stage: isCompleted ? 'Concluído' : `${intervals[topic.review_count]}d`,
+                last_review_date: new Date().toISOString(),
+                is_completed: isCompleted
+              }
+            : t
+        )
+      );
+
+      toast.success('Revisão registrada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao marcar tópico como revisado:', error);
+      toast.error('Erro ao registrar revisão');
     }
   };
 
@@ -397,6 +564,12 @@ export const useStudyPlanLogic = () => {
     disciplinasNaoIniciadas,
     disciplinasIniciadasCiclo,
     isCycleCompleted,
-    handleStartNewCycle
+    handleStartNewCycle,
+    isAdding,
+    handleSubmit,
+    isNextDayLoading,
+    isCycleLoading,
+    showNewCycleStarted,
+    markTopicAsReviewed
   };
 };

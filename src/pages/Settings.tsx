@@ -13,13 +13,8 @@ import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 import { format } from 'date-fns';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useApp } from '@/contexts/AppContext';
-
-// Definindo o tipo para as configurações do usuário
-interface UserSettings {
-  subjects_per_day: number;
-  notifications_enabled: boolean;
-  notification_time: string;
-}
+import { ReviewProfile, REVIEW_PROFILES, UserSettings } from '@/types/study';
+import { ProfileSelector } from '@/components/ProfileSelector';
 
 interface UserCycle {
   id: string;
@@ -40,21 +35,28 @@ const Settings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<UserSettings>({
+    id: '',
+    user_id: user?.id || '',
+    review_profile: ReviewProfile.INTERMEDIATE,
     subjects_per_day: 3,
     notifications_enabled: true,
-    notification_time: "08:00"
+    notification_time: "08:00",
+    created_at: '',
+    updated_at: ''
   });
+  const [hasReviews, setHasReviews] = useState(false);
 
   // Use the custom hook for cycle management
   const { userCycle, isLoading: isCycleLoading, fetchUserCycle, resetCycle } = useCycleState();
   const [isResettingCycle, setIsResettingCycle] = useState(false);
   
-  const { fetchUserSettings: fetchUserSettingsContext } = useApp();
+  const { fetchUserSettings: fetchUserSettingsContext, refreshData } = useApp();
   
   // Buscar configurações do usuário ao carregar a página
   useEffect(() => {
     if (user) {
       fetchUserSettings();
+      checkHasReviews();
     } else {
       setIsLoading(false);
     }
@@ -77,19 +79,28 @@ const Settings = () => {
       
       if (data) {
         setSettings({
+          id: data.id || '',
+          user_id: data.user_id || '',
+          review_profile: data.review_profile as ReviewProfile,
           subjects_per_day: data.subjects_per_day,
           notifications_enabled: data.notifications_enabled,
-          notification_time: data.notification_time
-        });
+          notification_time: data.notification_time,
+          created_at: data.created_at || '',
+          updated_at: data.updated_at || ''
+        } as UserSettings);
       } else {
         // Create default settings if none exist
         const { error: insertError } = await supabase
           .from('user_settings')
           .insert({
+            id: '',
             user_id: user.id,
+            review_profile: settings.review_profile,
             subjects_per_day: settings.subjects_per_day,
             notifications_enabled: settings.notifications_enabled,
-            notification_time: settings.notification_time
+            notification_time: settings.notification_time,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           });
           
         if (insertError) throw insertError;
@@ -98,13 +109,27 @@ const Settings = () => {
       console.error('Erro ao buscar configurações:', err);
       setError('Não foi possível carregar suas configurações. Por favor, tente novamente mais tarde.');
       toast({
+        variant: "destructive",
         title: "Erro",
-        description: "Não foi possível carregar suas configurações",
-        variant: "destructive"
+        description: "Erro ao carregar configurações"
       });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const checkHasReviews = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('topics')
+      .select('id, subject_id, subjects!inner(user_id)')
+      .eq('subjects.user_id', user.id)
+      .gt('review_count', 0)
+      .limit(1);
+    if (error) {
+      setHasReviews(false);
+    }
+    setHasReviews(data && data.length > 0);
   };
 
   const handleResetCycle = async () => {
@@ -115,14 +140,14 @@ const Settings = () => {
       await resetCycle();
       toast({
         title: "Sucesso",
-        description: "Ciclo resetado com sucesso",
+        description: "Ciclo resetado com sucesso"
       });
     } catch (err: any) {
       console.error('Erro ao resetar ciclo:', err);
       toast({
+        variant: "destructive",
         title: "Erro",
-        description: "Não foi possível resetar o ciclo",
-        variant: "destructive"
+        description: "Não foi possível resetar o ciclo"
       });
     } finally {
       setIsResettingCycle(false);
@@ -150,6 +175,34 @@ const Settings = () => {
     }));
   };
   
+  const handleProfileChange = async (newProfile: ReviewProfile) => {
+    if (hasReviews) return;
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ review_profile: newProfile })
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      setSettings(prev => ({
+        ...prev,
+        review_profile: newProfile
+      }));
+      toast({
+        title: "Sucesso",
+        description: "Perfil de revisão atualizado com sucesso!"
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar perfil:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao atualizar perfil de revisão"
+      });
+    }
+  };
+  
   const handleSaveSettings = async () => {
     if (!user) return;
     
@@ -164,6 +217,7 @@ const Settings = () => {
           subjects_per_day: settings.subjects_per_day,
           notifications_enabled: settings.notifications_enabled,
           notification_time: settings.notification_time,
+          review_profile: settings.review_profile,
           updated_at: new Date().toISOString()
         });
       
@@ -173,15 +227,15 @@ const Settings = () => {
       await fetchUserSettingsContext();
       toast({
         title: "Sucesso",
-        description: "Configurações salvas com sucesso",
+        description: "Configurações salvas com sucesso"
       });
     } catch (err: any) {
       console.error('Erro ao salvar configurações:', err);
       setError('Não foi possível salvar suas configurações. Por favor, tente novamente mais tarde.');
       toast({
+        variant: "destructive",
         title: "Erro",
-        description: "Não foi possível salvar suas configurações",
-        variant: "destructive"
+        description: "Não foi possível salvar suas configurações"
       });
     } finally {
       setIsSaving(false);
@@ -190,6 +244,97 @@ const Settings = () => {
 
   // Calcular disciplinas concluídas do ciclo atual
   const disciplinasConcluidas = userCycle?.ciclo_atual?.length || 0;
+  
+  const handleClearAll = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Usuário não autenticado."
+      });
+      return;
+    }
+    
+    if (window.confirm("Tem certeza que deseja excluir TODAS as matérias, tópicos e revisões? Esta ação não pode ser desfeita!")) {
+      try {
+        console.log('🧹 Iniciando limpeza completa do sistema para usuário:', user.id);
+        
+        // 1. Buscar todas as matérias do usuário
+        const { data: userSubjects, error: subjectsError } = await supabase
+          .from('subjects')
+          .select('id')
+          .eq('user_id', user.id);
+        
+        if (subjectsError) throw subjectsError;
+        
+        const subjectIds = (userSubjects || []).map(s => s.id);
+        console.log('🧹 Matérias encontradas:', subjectIds.length);
+        
+        // 2. Deletar tópicos das matérias do usuário
+        if (subjectIds.length > 0) {
+          const { error: topicsError } = await supabase
+            .from('topics')
+            .delete()
+            .in('subject_id', subjectIds);
+          
+          if (topicsError) throw topicsError;
+          console.log('🧹 Tópicos deletados');
+        }
+        
+        // 3. Deletar matérias do usuário
+        const { error: subjectsDeleteError } = await supabase
+          .from('subjects')
+          .delete()
+          .eq('user_id', user.id);
+        
+        if (subjectsDeleteError) throw subjectsDeleteError;
+        console.log('🧹 Matérias deletadas');
+        
+        // 4. Deletar ciclos do usuário
+        const { error: cyclesError } = await supabase
+          .from('user_cycles')
+          .delete()
+          .eq('user_id', user.id);
+        
+        if (cyclesError) throw cyclesError;
+        console.log('🧹 Ciclos deletados');
+        
+        // 5. Deletar sessões de estudo do usuário
+        const { error: sessionsError } = await supabase
+          .from('study_sessions')
+          .delete()
+          .eq('user_id', user.id);
+        
+        if (sessionsError) throw sessionsError;
+        console.log('🧹 Sessões deletadas');
+
+        // 6. Atualizar estados locais e contextos
+        await Promise.all([
+          refreshData(), // Atualiza o contexto global
+          fetchUserCycle(), // Atualiza o ciclo do usuário
+          fetchUserSettingsContext(), // Atualiza as configurações
+          checkHasReviews() // Atualiza o estado de revisões
+        ]);
+        
+        toast({
+          title: "Sucesso",
+          description: "Sistema limpo com sucesso!"
+        });
+        
+        // Recarregar a página após um pequeno delay para garantir que todos os estados foram atualizados
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } catch (err) {
+        console.error('Erro ao limpar sistema:', err);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Ocorreu um erro ao tentar limpar o sistema. Tente novamente."
+        });
+      }
+    }
+  };
   
   if (isLoading || isCycleLoading) {
     return (
@@ -204,6 +349,26 @@ const Settings = () => {
     <div className="space-y-6">
       <AnimatedTitle>Configurações</AnimatedTitle>
       
+      {/* Perfil de Revisão */}
+      <GlassCard className="p-6">
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Perfil de Revisão</h2>
+          <p className="text-sm text-gray-600">
+            Escolha seu perfil de acordo com sua experiência e necessidade de revisão.
+          </p>
+          
+          <div className="max-w-2xl">
+            <ProfileSelector selected={settings?.review_profile} onSelect={handleProfileChange} onboarding={false} disabled={hasReviews} />
+            {hasReviews && (
+              <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded">
+                Você já possui revisões em andamento. O perfil de revisão não pode ser alterado para não comprometer seu progresso.<br />
+                <span className="block mt-2 text-sm text-yellow-700">Assim que concluir todas as revisões dos seus tópicos, você poderá escolher outro perfil de revisão nas configurações.</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </GlassCard>
+      
       {/* Novo Card: Limpeza do Sistema */}
       <GlassCard className="p-6">
         <h2 className="text-lg font-bold mb-2">Limpar Sistema</h2>
@@ -216,84 +381,7 @@ const Settings = () => {
           {/* Limpar tudo */}
           <Button
             variant="destructive"
-            onClick={async () => {
-              if (!user) {
-                toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
-                return;
-              }
-              if (window.confirm("Tem certeza que deseja excluir TODAS as matérias, tópicos e revisões? Esta ação não pode ser desfeita!")) {
-                try {
-                  console.log('🧹 Iniciando limpeza completa do sistema para usuário:', user.id);
-                  
-                  // 1. Buscar todas as matérias do usuário
-                  const { data: userSubjects, error: subjectsError } = await supabase
-                    .from('subjects')
-                    .select('id')
-                    .eq('user_id', user.id);
-                  
-                  if (subjectsError) throw subjectsError;
-                  
-                  const subjectIds = (userSubjects || []).map(s => s.id);
-                  console.log('🧹 Matérias encontradas:', subjectIds.length);
-                  
-                  // 2. Deletar tópicos das matérias do usuário
-                  if (subjectIds.length > 0) {
-                    const { error: topicsError } = await supabase
-                      .from('topics')
-                      .delete()
-                      .in('subject_id', subjectIds);
-                    
-                    if (topicsError) throw topicsError;
-                    console.log('🧹 Tópicos deletados');
-                  }
-                  
-                  // 3. Deletar matérias do usuário
-                  const { error: subjectsDeleteError } = await supabase
-                    .from('subjects')
-                    .delete()
-                    .eq('user_id', user.id);
-                  
-                  if (subjectsDeleteError) throw subjectsDeleteError;
-                  console.log('🧹 Matérias deletadas');
-                  
-                  // 4. Deletar ciclos do usuário
-                  const { error: cyclesError } = await supabase
-                    .from('user_cycles')
-                    .delete()
-                    .eq('user_id', user.id);
-                  
-                  if (cyclesError) throw cyclesError;
-                  console.log('🧹 Ciclos deletados');
-                  
-                  // 5. Deletar sessões de estudo do usuário
-                  const { error: sessionsError } = await supabase
-                    .from('study_sessions')
-                    .delete()
-                    .eq('user_id', user.id);
-                  
-                  if (sessionsError) throw sessionsError;
-                  console.log('🧹 Sessões deletadas');
-                  
-                  toast({
-                    title: "Sistema limpo!",
-                    description: "Todas as suas matérias, tópicos e revisões foram removidos.",
-                  });
-                  
-                  // Aguardar um pouco para garantir que a operação foi concluída no banco
-                  setTimeout(() => {
-                    console.log('🧹 Recarregando página após limpeza');
-                    window.location.reload();
-                  }, 1000);
-                } catch (err) {
-                  console.error('Erro ao limpar sistema:', err);
-                  toast({
-                    title: "Erro ao limpar sistema",
-                    description: "Ocorreu um erro ao tentar limpar o sistema. Tente novamente.",
-                    variant: "destructive"
-                  });
-                }
-              }
-            }}
+            onClick={handleClearAll}
           >
             Limpar tudo
           </Button>
@@ -303,7 +391,11 @@ const Settings = () => {
             className="border-blue-500 text-blue-700"
             onClick={async () => {
               if (!user) {
-                toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+                toast({
+                  variant: "destructive",
+                  title: "Erro",
+                  description: "Usuário não autenticado."
+                });
                 return;
               }
               if (window.confirm("Tem certeza que deseja limpar apenas as revisões? As matérias e tópicos serão mantidos, mas todo o progresso será zerado.")) {
@@ -355,8 +447,8 @@ const Settings = () => {
                   console.log('🔄 Ciclos resetados');
                   
                   toast({
-                    title: "Revisões e progresso limpos!",
-                    description: "Todo o progresso foi zerado. Você pode recomeçar seus estudos.",
+                    title: "Sucesso",
+                    description: "Revisões e progresso limpos!"
                   });
                   
                   // Aguardar um pouco para garantir que a operação foi concluída
@@ -367,9 +459,9 @@ const Settings = () => {
                 } catch (err) {
                   console.error('Erro ao limpar revisões:', err);
                   toast({
-                    title: "Erro ao limpar revisões",
-                    description: "Ocorreu um erro ao tentar zerar o progresso. Tente novamente.",
-                    variant: "destructive"
+                    variant: "destructive",
+                    title: "Erro",
+                    description: "Ocorreu um erro ao tentar zerar o progresso. Tente novamente."
                   });
                 }
               }
