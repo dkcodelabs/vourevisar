@@ -188,6 +188,10 @@ const StudyPlan = () => {
               </CardContent>
             </Card>
           </motion.div>
+        ) : allDaySubjectsCompleted ? (
+          <motion.div variants={itemVariants}>
+            <DayCompletedMessage onNextDay={handleNextDay} />
+          </motion.div>
         ) : dailySubjects.length === 0 ? (
           <motion.div variants={itemVariants}>
             <Card className="text-center">
@@ -271,7 +275,7 @@ const StudyPlan = () => {
           </div>
         )}
 
-        {nextSubjects.length > 0 && (
+        {nextSubjects.length > 0 && !allDaySubjectsCompleted && (
           <motion.div variants={itemVariants}>
             <NextSubjects nextSubjects={nextSubjects} />
           </motion.div>
