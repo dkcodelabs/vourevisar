@@ -8,6 +8,7 @@ import NextSubjects from '@/components/study-plan/NextSubjects';
 import DayCompletedMessage from '@/components/study-plan/DayCompletedMessage';
 import NewCycleMessage from '@/components/study-plan/NewCycleMessage';
 import AllStudiesCompletedMessage from '@/components/study-plan/AllStudiesCompletedMessage';
+import AllTopicsInReviewMessage from '@/components/study-plan/AllTopicsInReviewMessage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Plus, Trophy, ArrowRight } from 'lucide-react';
@@ -70,7 +71,8 @@ const StudyPlan = () => {
     handleStartNewCycle,
     isNextDayLoading,
     isCycleLoading,
-    showNewCycleStarted
+    showNewCycleStarted,
+    allTopicsInReview
   } = useStudyPlanLogic();
   const { subjects } = useApp();
 
@@ -197,6 +199,10 @@ const StudyPlan = () => {
         
         {isCycleCompleted ? (
           <CycleCompletedMessage onStartNewCycle={handleStartNewCycle} />
+        ) : allTopicsInReview ? (
+          <motion.div variants={itemVariants}>
+            <AllTopicsInReviewMessage />
+          </motion.div>
         ) : !hasAvailableSubjects ? (
           <motion.div variants={itemVariants}>
             <Card className="text-center">

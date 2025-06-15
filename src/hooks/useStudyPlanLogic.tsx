@@ -35,6 +35,11 @@ export const useStudyPlanLogic = () => {
   const disciplinasIniciadas = subjects.filter(s => s.status === 'Em Estudo');
   const disciplinasNaoIniciadas = subjects.filter(s => s.status === 'Nova');
   const hasAvailableSubjects = hasStudyableSubjects(subjects);
+  
+  // Verificar se todas as matérias estão concluídas e há tópicos em revisão
+  const allTopicsInReview = subjects.length > 0 && 
+    subjects.every(s => s.status === 'Concluída') &&
+    subjects.some(s => s.topics && s.topics.some(t => t.review_count > 0));
 
   console.log('🔍 useStudyPlanLogic - Estado inicial:', {
     subjectsCount: subjects.length,
@@ -588,6 +593,7 @@ export const useStudyPlanLogic = () => {
     isNextDayLoading,
     isCycleLoading,
     showNewCycleStarted,
-    markTopicAsReviewed
+    markTopicAsReviewed,
+    allTopicsInReview
   };
 };
