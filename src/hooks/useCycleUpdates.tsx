@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject, UserCycle } from '@/types';
@@ -12,10 +12,23 @@ export const useCycleUpdates = (
   setUserCycle: (cycle: any) => void
 ) => {
   const { user } = useAuth();
+  const lastSubjectsPerDay = useRef<number | null>(null);
 
   useEffect(() => {
     const updateDailySubjects = async () => {
       if (!user || !userCycle || !userSettings || userCycle.ciclo_atual.length === 0) return;
+      
+      // Só atualizar se o subjects_per_day realmente mudou
+      if (lastSubjectsPerDay.current === userSettings.subjects_per_day) {
+        return;
+      }
+      
+      // Não atualizar se as disciplinas_do_dia estão vazias (pode ser resultado de "Concluir Sessão")
+      if (userCycle.disciplinas_do_dia.length === 0) {
+        console.log('🔄 Skipping update - disciplinas_do_dia está vazio (possivelmente após Concluir Sessão)');
+        lastSubjectsPerDay.current = userSettings.subjects_per_day;
+        return;
+      }
       
       console.log('🔄 Detectada mudança em subjects_per_day:', userSettings.subjects_per_day);
       
@@ -24,6 +37,7 @@ export const useCycleUpdates = (
       
       if (currentDailyCount === newCount) {
         console.log('🔄 Quantidade já está correta, não há mudança necessária');
+        lastSubjectsPerDay.current = userSettings.subjects_per_day;
         return;
       }
       
@@ -63,6 +77,7 @@ export const useCycleUpdates = (
         setUserCycle(updatedCycle);
         
         console.log('✅ disciplinas_do_dia atualizado com sucesso');
+        lastSubjectsPerDay.current = userSettings.subjects_per_day;
       } catch (error) {
         console.error('Erro ao atualizar disciplinas_do_dia:', error);
       }
