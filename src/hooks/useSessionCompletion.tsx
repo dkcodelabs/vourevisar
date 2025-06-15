@@ -75,23 +75,14 @@ export const useSessionCompletion = () => {
       console.log('🔵 Limpando tópicos marcados temporariamente...');
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
-      // SEMPRE remover a matéria das disciplinas_do_dia quando uma sessão é concluída
+      // SEMPRE remover a matéria de AMBOS disciplinas_do_dia E ciclo_atual
       const updatedDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+      const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
       
-      // NOVO: Verificar se a matéria ainda tem tópicos não revisados
-      const hasUnreviewedTopics = subject.topics && subject.topics.some(topic => topic.review_count === 0);
-      
-      // Se não há mais tópicos não revisados, remover também do ciclo_atual
-      const updatedCicloAtual = hasUnreviewedTopics 
-        ? userCycle.ciclo_atual 
-        : userCycle.ciclo_atual.filter(id => id !== subjectId);
-      
-      console.log('🔵 Atualizando ciclo após concluir sessão:', {
+      console.log('🔵 Removendo matéria completamente do ciclo atual:', {
         subjectId,
         subject: subject.name,
         topicsMarkedForReview: topicsToReview.length,
-        hasUnreviewedTopics,
-        removedFromCycle: !hasUnreviewedTopics,
         cicloAtual_antes: userCycle.ciclo_atual.length,
         cicloAtual_depois: updatedCicloAtual.length,
         disciplinasDoDia_antes: userCycle.disciplinas_do_dia.length,

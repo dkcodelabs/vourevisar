@@ -36,11 +36,8 @@ export const useNextDay = () => {
 
       const subjectsPerDay = userSettings?.subjects_per_day || 3;
 
-      // Filtrar matérias disponíveis do ciclo atual que não estão nas disciplinas_do_dia
+      // Filtrar matérias disponíveis APENAS do ciclo_atual (que não foram concluídas)
       const availableSubjectsInCycle = userCycle.ciclo_atual.filter(id => {
-        // Não incluir matérias que já estão no dia atual
-        if (userCycle.disciplinas_do_dia.includes(id)) return false;
-        
         const subject = subjects.find(s => s.id === id);
         return subject && 
                subject.status !== 'Concluída' &&

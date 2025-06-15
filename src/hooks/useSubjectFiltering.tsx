@@ -41,7 +41,7 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
     });
   }, [subjects, userCycle?.disciplinas_do_dia]);
 
-  // CORRIGIDO: Filtrar próximas matérias excluindo as que já estão em disciplinas_do_dia ou foram processadas
+  // Filtrar próximas matérias - APENAS as que estão no ciclo_atual e não estão nas disciplinas_do_dia
   const nextSubjects = useMemo(() => {
     if (!userCycle?.ciclo_atual || userCycle.ciclo_atual.length === 0) return [];
     
@@ -52,7 +52,7 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
           return false;
         }
         
-        // NOVO: Não incluir se já está nas disciplinas do dia (mesmo que vazio)
+        // Não incluir se já está nas disciplinas do dia
         if (userCycle.disciplinas_do_dia.includes(id)) {
           return false;
         }
@@ -67,7 +67,7 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
 
   const allStudiesCompleted = subjects.length > 0 ? checkAllStudiesCompleted(subjects) : false;
 
-  // NOVO: Detectar quando o ciclo foi completamente concluído
+  // Detectar quando o ciclo foi completamente concluído
   const isCycleCompleted = useMemo(() => {
     if (!userCycle || !userCycle.ciclo_atual || userCycle.ciclo_atual.length === 0) return false;
     
