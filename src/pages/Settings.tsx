@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
-import { format } from 'date-fns';
+import { format, startOfDay, isBefore } from 'date-fns';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useApp } from '@/contexts/AppContext';
 import { ReviewProfile, REVIEW_PROFILES, UserSettings } from '@/types/study';
@@ -82,7 +82,7 @@ const Settings = () => {
       
       if (data) {
         setSettings({
-          id: data.id || '',
+          id: '', // Campo removido da tabela user_settings
           user_id: data.user_id || '',
           review_profile: data.review_profile as ReviewProfile,
           subjects_per_day: data.subjects_per_day,

@@ -86,7 +86,7 @@ const Subjects = () => {
         error ||
         !data ||
         !data.review_profile ||
-        ![ReviewProfile.BEGINNER, ReviewProfile.INTERMEDIATE, ReviewProfile.ADVANCED].includes(data.review_profile)
+        ![ReviewProfile.BEGINNER, ReviewProfile.INTERMEDIATE, ReviewProfile.ADVANCED].includes(data.review_profile as ReviewProfile)
       ) {
         if (!toastShown) {
           toast({
