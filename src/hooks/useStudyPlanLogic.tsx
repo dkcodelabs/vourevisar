@@ -188,14 +188,14 @@ export const useStudyPlanLogic = () => {
     }
   }, [subjects, userCycle, allStudiesCompleted, refreshData]);
 
-  // Filtrar corretamente as matérias diárias (excluir tópicos que já iniciaram revisão)
+  // Filtrar matérias diárias - aparecem enquanto houver tópicos não marcados para revisão
   const dailySubjects = userCycle?.disciplinas_do_dia && userCycle.disciplinas_do_dia.length > 0
     ? subjects.filter(subject => {
         const isInDailyList = userCycle.disciplinas_do_dia.includes(subject.id);
         const isNotCompleted = subject.status !== 'Concluída';
         const hasTopics = subject.topics && subject.topics.length > 0;
         
-        // Filtrar apenas tópicos que ainda não iniciaram revisão (review_count === 0)
+        // Matéria aparece para estudo enquanto houver tópicos não marcados para revisão
         const hasUnreviewedTopics = subject.topics && subject.topics.some(t => t.review_count === 0);
         
         return isInDailyList && isNotCompleted && hasTopics && hasUnreviewedTopics;
