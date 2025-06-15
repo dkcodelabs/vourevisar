@@ -117,7 +117,9 @@ export type Database = {
           created_at: string
           first_studied_at: string | null
           id: string
+          is_marked_for_review: boolean | null
           last_reviewed_at: string | null
+          marked_for_review_at: string | null
           name: string
           next_review: string | null
           review_count: number
@@ -131,7 +133,9 @@ export type Database = {
           created_at?: string
           first_studied_at?: string | null
           id?: string
+          is_marked_for_review?: boolean | null
           last_reviewed_at?: string | null
+          marked_for_review_at?: string | null
           name: string
           next_review?: string | null
           review_count?: number
@@ -145,7 +149,9 @@ export type Database = {
           created_at?: string
           first_studied_at?: string | null
           id?: string
+          is_marked_for_review?: boolean | null
           last_reviewed_at?: string | null
+          marked_for_review_at?: string | null
           name?: string
           next_review?: string | null
           review_count?: number
@@ -213,6 +219,7 @@ export type Database = {
           created_at: string
           notification_time: string
           notifications_enabled: boolean
+          review_profile: string | null
           subjects_per_day: number
           updated_at: string
           user_id: string
@@ -221,6 +228,7 @@ export type Database = {
           created_at?: string
           notification_time?: string
           notifications_enabled?: boolean
+          review_profile?: string | null
           subjects_per_day?: number
           updated_at?: string
           user_id: string
@@ -229,6 +237,7 @@ export type Database = {
           created_at?: string
           notification_time?: string
           notifications_enabled?: boolean
+          review_profile?: string | null
           subjects_per_day?: number
           updated_at?: string
           user_id?: string

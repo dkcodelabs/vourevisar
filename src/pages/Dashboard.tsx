@@ -19,7 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Loader2 } from "lucide-react";
 import { motion } from 'framer-motion';
-import TopicItem from './TopicItem';
+// import TopicItem from './TopicItem';
 
 const Dashboard = () => {
   const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();

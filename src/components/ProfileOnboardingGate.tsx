@@ -19,7 +19,10 @@ export function ProfileOnboardingGate() {
 
   useEffect(() => {
     const checkProfile = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoadingProfile(false);
+        return;
+      }
       setLoadingProfile(true);
       
       try {
@@ -30,7 +33,7 @@ export function ProfileOnboardingGate() {
           .eq('user_id', user.id)
           .single();
         
-        setProfile(data?.review_profile || null);
+        setProfile(data?.review_profile as ReviewProfile || null);
         
         // Checar se já existem revisões
         const { data: topics } = await supabase
@@ -97,7 +100,8 @@ export function ProfileOnboardingGate() {
     setShowOnboarding(false);
   };
 
-  if (loadingProfile) {
+  // Não mostrar loading se o usuário não estiver autenticado
+  if (loadingProfile && user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>

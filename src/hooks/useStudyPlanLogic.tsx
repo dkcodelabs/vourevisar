@@ -449,36 +449,9 @@ export const useStudyPlanLogic = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!newSubject.name.trim()) {
-      toast.error("Por favor, insira o nome da matéria");
-      return;
-    }
-
-    setIsAdding(true);
-    try {
-      if (editingSubject) {
-        await updateSubject(editingSubject.id, {
-          name: newSubject.name.trim(),
-        });
-        toast.success("Matéria atualizada com sucesso!");
-        setIsDialogOpen(false);
-        resetForm();
-      } else {
-        await addSubject({
-          name: newSubject.name.trim(),
-          status: 'Nova',
-          color: '#3B82F6',
-          topics: [],
-        });
-        toast.success("Matéria criada com sucesso!");
-        setNewSubject({ name: "" }); // Limpa o campo, mantém o modal aberto
-      }
-    } catch (error) {
-      console.error('Erro ao salvar matéria:', error);
-      toast.error("Erro ao salvar matéria. Tente novamente.");
-    } finally {
-      setIsAdding(false);
-    }
+    // TODO: Implementar novamente a funcionalidade
+    toast.success("Funcionalidade temporariamente desabilitada");
+    setIsAdding(false);
   };
 
   const markTopicAsReviewed = async (topicId: string) => {
