@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Trophy, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 
 export const useStudyPlanLogic = () => {
   const { subjects, isLoading: isAppLoading, refreshData, updateTopic, setSubjects } = useApp();
@@ -104,9 +105,8 @@ export const useStudyPlanLogic = () => {
 
       try {
         const existingCycle = await loadUserCycle(user.id);
-        const availableSubjects = subjects.filter(s => 
-          s.status !== 'Concluída' && s.topics && s.topics.length > 0
-        );
+        // Permitir matérias novas (mesmo sem tópicos) entrarem no ciclo
+        const availableSubjects = subjects.filter(s => s.status !== 'Concluída');
         const cycleSubjectIds = availableSubjects.map(s => s.id);
         const subjectsPerDay = userSettings.subjects_per_day || 3;
 
@@ -289,6 +289,31 @@ export const useStudyPlanLogic = () => {
     }
   };
 
+  // Marcação/desmarcação local de tópicos para revisão
+  const handleMarkTopicForReview = (subjectId: string, topicId: string) => {
+    setTempMarkedTopics(prev => {
+      const novo = {
+        ...prev,
+        [subjectId]: [...(prev[subjectId] || []), topicId]
+      };
+      console.log('🟢 handleMarkTopicForReview', { subjectId, topicId, tempMarkedTopics: novo });
+      return novo;
+    });
+  };
+
+  // Cancelar marcação local
+  const handleCancelTopicReview = (subjectId: string, topicId: string) => {
+    setTempMarkedTopics(prev => {
+      const novo = {
+        ...prev,
+        [subjectId]: (prev[subjectId] || []).filter(id => id !== topicId)
+      };
+      console.log('🔴 handleCancelTopicReview', { subjectId, topicId, tempMarkedTopics: novo });
+      return novo;
+    });
+  };
+
+  // Concluir sessão: salvar de fato no banco todos os tópicos marcados
   const handleCompleteSession = async (subjectId: string) => {
     if (!user || !userCycle) return;
 
@@ -302,34 +327,28 @@ export const useStudyPlanLogic = () => {
       const topicsToReview = tempMarkedTopics[subjectId] || [];
 
       if (topicsToReview.length > 0) {
-        // Marcar tópicos para revisão normalmente
-        await completeStudySession(
-          user.id,
-          subjectId,
-          subject.name,
-          topicsToReview,
-          subject.status || 'Em Estudo'
-        );
-      } else {
-        // Se não marcou nenhum tópico, marcar todos como concluídos
-        const allTopicIds = subject.topics.map(t => t.id);
-        if (allTopicIds.length > 0) {
-          const { error } = await supabase
-            .from('topics')
-            .update({
-              review_count: 5,
-              review_stage: 'Concluído',
-              is_completed: true,
-              completed: true,
-              next_review: null,
-              last_reviewed_at: new Date().toISOString()
-            })
-            .eq('id', allTopicIds[0]); // Atualizar um por vez para evitar erro 400
+        // Buscar perfil de revisão do usuário
+        const { data: settings, error: settingsError } = await supabase
+          .from('user_settings')
+          .select('review_profile')
+          .eq('user_id', user.id)
+          .single();
+        if (settingsError) throw settingsError;
+        const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
+        const { intervals } = REVIEW_PROFILES[profile];
+        const firstInterval = intervals[0];
+        const reviewStage = firstInterval === 1 ? '24h' : `${firstInterval}d`;
+        const nextReview = new Date();
+        nextReview.setDate(nextReview.getDate() + firstInterval);
 
-          if (error) {
-            console.error('Erro ao atualizar tópico:', error);
-            throw error;
-          }
+        // Marcar todos os tópicos selecionados para revisão
+        for (const topicId of topicsToReview) {
+          await updateTopic(subjectId, topicId, {
+            reviewCount: 1,
+            reviewStage,
+            nextReview,
+            completed: false
+          });
         }
       }
 
@@ -339,7 +358,6 @@ export const useStudyPlanLogic = () => {
       // Remover a matéria do ciclo_atual e disciplinas_do_dia no banco
       const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
       const updatedDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
-      
       // Atualizar o ciclo no banco
       const { error: updateError } = await supabase
         .from('user_cycles')
@@ -374,21 +392,6 @@ export const useStudyPlanLogic = () => {
 
   const handleToggleExpand = (subjectId: string) => {
     setExpandedSubject(prev => prev === subjectId ? '' : subjectId);
-  };
-
-  // Marcação/desmarcação local de tópicos para revisão
-  const handleMarkTopicForReview = (subjectId: string, topicId: string) => {
-    setTempMarkedTopics(prev => ({
-      ...prev,
-      [subjectId]: [...(prev[subjectId] || []), topicId]
-    }));
-  };
-
-  const handleCancelTopicReview = (subjectId: string, topicId: string) => {
-    setTempMarkedTopics(prev => ({
-      ...prev,
-      [subjectId]: (prev[subjectId] || []).filter(id => id !== topicId)
-    }));
   };
 
   const handleHideNewCycleMessage = () => {
@@ -495,44 +498,86 @@ export const useStudyPlanLogic = () => {
         .single();
 
       const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
-      const intervals = REVIEW_PROFILES[profile].intervals;
-      const maxReviews = REVIEW_PROFILES[profile].maxReviews;
+      const { intervals, maxReviews } = REVIEW_PROFILES[profile];
 
-      const nextReviewDate = new Date();
-      nextReviewDate.setDate(nextReviewDate.getDate() + intervals[topic.review_count]);
+      let newReviewCount = topic.review_count + 1;
+      let reviewStage;
+      let nextReview = null;
+      let completed = false;
 
-      const newReviewCount = topic.review_count + 1;
-      const isCompleted = newReviewCount >= maxReviews;
+      if (newReviewCount <= intervals.length) {
+        // Ainda há revisões a fazer
+        const nextInterval = intervals[newReviewCount - 1];
+        reviewStage = nextInterval === 1 ? '24h' : `${nextInterval}d`;
+        const nextReviewDate = new Date();
+        nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
+        nextReview = nextReviewDate.toISOString();
+      } else {
+        // Todas as revisões feitas
+        reviewStage = 'Concluído';
+        nextReview = null;
+        completed = true;
+      }
 
       const { error } = await supabase
         .from('topics')
         .update({
           review_count: newReviewCount,
-          next_review_date: isCompleted ? null : nextReviewDate.toISOString(),
-          review_stage: isCompleted ? 'Concluído' : `${intervals[topic.review_count]}d`,
-          last_review_date: new Date().toISOString(),
-          is_completed: isCompleted
+          next_review: nextReview,
+          review_stage: reviewStage,
+          completed
         })
         .eq('id', topicId);
 
       if (error) throw error;
 
-      // Atualiza o estado local
-      setTopics(prevTopics => 
-        prevTopics.map(t => 
-          t.id === topicId 
-            ? {
-                ...t,
-                review_count: newReviewCount,
-                next_review_date: isCompleted ? null : nextReviewDate.toISOString(),
-                review_stage: isCompleted ? 'Concluído' : `${intervals[topic.review_count]}d`,
-                last_review_date: new Date().toISOString(),
-                is_completed: isCompleted
-              }
-            : t
-        )
+      // Atualizar estado local
+      setSubjects(prev => 
+        prev.map(subject => ({
+          ...subject,
+          topics: subject.topics.map(t => 
+            t.id === topicId 
+              ? {
+                  ...t,
+                  review_count: newReviewCount,
+                  next_review: nextReview,
+                  review_stage: reviewStage,
+                  completed
+                }
+              : t
+          )
+        }))
       );
 
+      // --- NOVO: Atualizar status da matéria se todos os tópicos estiverem concluídos ---
+      // Encontrar a matéria do tópico
+      const subject = subjects.find(s => s.topics.some(t => t.id === topicId));
+      if (subject) {
+        // Buscar tópicos atualizados da matéria
+        const { data: updatedTopics } = await supabase
+          .from('topics')
+          .select('id, completed')
+          .eq('subject_id', subject.id);
+        if (updatedTopics && updatedTopics.length > 0) {
+          const allCompleted = updatedTopics.every(t => t.completed);
+          if (allCompleted && subject.status !== 'Concluída') {
+            // Atualizar status da matéria no banco
+            await supabase
+              .from('subjects')
+              .update({ status: 'Concluída' })
+              .eq('id', subject.id);
+            // Atualizar estado local
+            setSubjects(prev =>
+              prev.map(s =>
+                s.id === subject.id ? { ...s, status: 'Concluída' } : s
+              )
+            );
+          }
+        }
+      }
+      // --- FIM NOVO ---
+
+      await refreshData();
       toast.success('Revisão registrada com sucesso!');
     } catch (error) {
       console.error('Erro ao marcar tópico como revisado:', error);

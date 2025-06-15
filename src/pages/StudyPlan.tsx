@@ -175,6 +175,10 @@ const StudyPlan = () => {
     nextSubjects: nextSubjects.map(s => s.name)
   });
 
+  const hasSubjects = dailySubjects.length > 0 || nextSubjects.length > 0;
+  const hasTopics = subjects.some(s => s.topics && s.topics.length > 0);
+  const hasTopicsToReview = subjects.some(s => s.topics && s.topics.some(t => !t.completed));
+
   return (
     <div className="container mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-2 sm:px-4 md:px-8">
       {/* Botão temporário para resetar ciclo */}
@@ -269,11 +273,30 @@ const StudyPlan = () => {
           </>
         )}
 
-        {/* Mensagem de novo ciclo */}
-        <NewCycleMessage 
-          isVisible={showNewCycleMessage}
-          onHide={handleHideNewCycleMessage}
-        />
+        {!hasTopics && hasSubjects && (
+          <div className="flex flex-col items-center justify-center p-8 bg-white rounded-lg shadow-md mt-8">
+            <span className="text-4xl mb-4">📚</span>
+            <h2 className="text-xl font-bold mb-2">Adicione tópicos para começar a estudar esta matéria</h2>
+            <p className="text-gray-600 mb-4">Você já adicionou matérias, mas elas ainda não têm tópicos cadastrados.</p>
+            <Button onClick={() => navigate('/materias')} className="mt-2">Adicionar Tópicos</Button>
+          </div>
+        )}
+
+        {/* Mensagem de novo ciclo ou conclusão total */}
+        {showNewCycleMessage && hasTopicsToReview && (
+          <div className="mt-8 p-6 rounded-lg bg-violet-50 border border-violet-200 flex flex-col items-center">
+            <span className="text-2xl mb-2">✨</span>
+            <h2 className="text-lg font-bold text-violet-700 mb-1">Novo Ciclo Iniciado!</h2>
+            <p className="text-violet-700">Parabéns! Você completou um ciclo de estudos e iniciou um novo.</p>
+          </div>
+        )}
+        {showNewCycleMessage && !hasTopicsToReview && (
+          <div className="mt-8 p-6 rounded-lg bg-green-50 border border-green-200 flex flex-col items-center">
+            <span className="text-2xl mb-2">🎉</span>
+            <h2 className="text-lg font-bold text-green-700 mb-1">Tudo concluído!</h2>
+            <p className="text-green-700">Você concluiu todos os tópicos de todas as matérias! Não há mais revisões ou estudos pendentes.</p>
+          </div>
+        )}
 
         {nextSubjects.length > 0 && (
           <motion.div variants={itemVariants}>

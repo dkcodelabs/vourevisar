@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Plus, BarChart3 } from 'lucide-react';
+import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Plus, BarChart3, Check, X } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfDay, isBefore } from 'date-fns';
+import { format, startOfDay, isBefore, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -15,6 +15,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { CalendarView } from '@/components/calendar/CalendarView';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Loader2 } from "lucide-react";
+import { motion } from 'framer-motion';
+import TopicItem from './TopicItem';
 
 const Dashboard = () => {
   const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();
@@ -24,6 +29,7 @@ const Dashboard = () => {
   const [greeting, setGreeting] = useState('');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [tab, setTab] = useState<'hoje' | 'futuras'>('hoje');
 
   // Buscar dados de revisões para o calendário
   const { data: reviewData, isLoading: reviewLoading } = useQuery({
@@ -146,11 +152,25 @@ const Dashboard = () => {
   console.log('Dashboard - Rendering main content with', subjects.length, 'subjects');
 
   // Cálculos para estatísticas
+  const delayedTopics = reviewData?.filter(topic => {
+    if (!topic.next_review) return false;
+    const reviewDate = startOfDay(new Date(topic.next_review));
+    const today = startOfDay(new Date());
+    return isBefore(reviewDate, today);
+  }) || [];
+
   const todayTopics = reviewData?.filter(topic => {
     if (!topic.next_review) return false;
     const reviewDate = startOfDay(new Date(topic.next_review));
     const today = startOfDay(new Date());
     return reviewDate.getTime() === today.getTime();
+  }) || [];
+
+  const futureTopics = reviewData?.filter(topic => {
+    if (!topic.next_review) return false;
+    const reviewDate = startOfDay(new Date(topic.next_review));
+    const today = startOfDay(new Date());
+    return reviewDate > today;
   }) || [];
 
   const progressPercentage = studyProgress.totalTopics > 0 
@@ -175,6 +195,25 @@ const Dashboard = () => {
       return reviewDate.getTime() === startOfDay(date).getTime();
     });
   };
+
+  function agruparPorMateria(topics) {
+    if (!Array.isArray(topics)) return {};
+    const materias = {};
+    topics.forEach(topic => {
+      if (!materias[topic.subject_name]) materias[topic.subject_name] = [];
+      materias[topic.subject_name].push(topic);
+    });
+    return materias;
+  }
+
+  function separarPorStatus(topics) {
+    const hoje = startOfDay(new Date());
+    return {
+      atrasados: topics.filter(t => t.next_review && isBefore(startOfDay(new Date(t.next_review)), hoje)),
+      hoje: topics.filter(t => t.next_review && startOfDay(new Date(t.next_review)).getTime() === hoje.getTime()),
+      futuras: topics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime()),
+    };
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
@@ -443,6 +482,125 @@ const Dashboard = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Novos cards de revisões */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <Card className="bg-white border border-red-200 shadow-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-medium text-red-600">Revisões Atrasadas</CardTitle>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">{delayedTopics.length}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white border border-orange-200 shadow-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-medium text-orange-600">Revisões do Dia</CardTitle>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">{todayTopics.length}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white border border-blue-200 shadow-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-medium text-blue-600">Revisões Futuras</CardTitle>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{futureTopics.length}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {isLoading ? (
+              <div className="flex justify-center p-6">
+                <Loader2 className="animate-spin h-8 w-8 text-app-blue" />
+              </div>
+            ) : (
+              <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras')}>
+                <TabsList>
+                  <TabsTrigger value="hoje">Hoje & Atrasadas</TabsTrigger>
+                  <TabsTrigger value="futuras">Futuras</TabsTrigger>
+                </TabsList>
+                <TabsContent value="hoje">
+                  {Object.entries(agruparPorMateria(reviewData)).map(([materia, topicos]) => {
+                    const status = separarPorStatus(topicos);
+                    const topicosHojeAtrasados = [...status.atrasados, ...status.hoje];
+                    if (topicosHojeAtrasados.length === 0) return null;
+                    return (
+                      <Accordion key={materia} type="single" collapsible>
+                        <AccordionItem value={materia}>
+                          <AccordionTrigger>{materia}</AccordionTrigger>
+                          <AccordionContent>
+                            {topicosHojeAtrasados
+                              .sort((a, b) => new Date(a.next_review).getTime() - new Date(b.next_review).getTime())
+                              .map(topic => (
+                              <div key={topic.id} className="flex items-center gap-2 py-2 border-b">
+                                <span className="flex-1">{topic.name}</span>
+                                <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">{topic.review_stage}</span>
+                                <span className="text-xs text-gray-500">{topic.next_review ? new Date(topic.next_review).toLocaleDateString() : '-'}</span>
+                                <Button
+                                  size="sm"
+                                  className="ml-2"
+                                  onClick={() => handleCalendarDateSelect(new Date(topic.next_review))}
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Revisar
+                                </Button>
+                              </div>
+                            ))}
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    );
+                  })}
+                </TabsContent>
+                <TabsContent value="futuras">
+                  {Object.entries(agruparPorMateria(reviewData)).map(([materia, topicos]) => {
+                    const status = separarPorStatus(topicos);
+                    if (status.futuras.length === 0) return null;
+                    return (
+                      <Accordion key={materia} type="single" collapsible>
+                        <AccordionItem value={materia}>
+                          <AccordionTrigger>{materia}</AccordionTrigger>
+                          <AccordionContent>
+                            {status.futuras
+                              .sort((a, b) => new Date(a.next_review).getTime() - new Date(b.next_review).getTime())
+                              .map(topic => (
+                              <div key={topic.id} className="flex items-center gap-2 py-2 border-b">
+                                <span className="flex-1">{topic.name}</span>
+                                <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">{topic.review_stage}</span>
+                                <span className="text-xs text-gray-500">{topic.next_review ? new Date(topic.next_review).toLocaleDateString() : '-'}</span>
+                              </div>
+                            ))}
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    );
+                  })}
+                </TabsContent>
+              </Tabs>
+            )}
           </>
         )}
       </div>

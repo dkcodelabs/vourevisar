@@ -4,20 +4,33 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Loader2, Search, Calendar } from 'lucide-react';
+import { Loader2, Search, Calendar, Clock } from 'lucide-react';
 import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useApp } from '@/contexts/AppContext';
+import { toast } from 'react-hot-toast';
 
 interface Topic {
   id: string;
   name: string;
+  subject_id: string;
   subject_name: string;
-  review_stage?: string | null;
-  next_review?: string | null;
+  review_stage: string;
+  next_review: string | null;
+  review_count: number;
+  subjects?: {
+    id: string;
+    name: string;
+    color: string;
+  };
 }
 
 const stageOrder = {
@@ -28,72 +41,49 @@ const stageOrder = {
 
 const Revisoes = () => {
   const { user } = useAuth();
+  const { refreshData } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredTopics, setFilteredTopics] = useState<Topic[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'all' | 'date'>('all');
+  const [tab, setTab] = useState<'hoje' | 'futuras'>('hoje');
+  const { handleMarkTopicForReview, markTopicAsReviewed, isLoading: isLogicLoading } = useStudyPlanLogic();
+  const [confirmTopicId, setConfirmTopicId] = useState<string | null>(null);
 
   const { data: topics, isLoading, error, refetch } = useQuery({
-    queryKey: ['revisoes', user?.id],
+    queryKey: ['topics'],
     queryFn: async () => {
-      if (!user) throw new Error('User not authenticated');
-      
-      // Buscar tópicos com informações do subject
-      const { data: topicsData, error: topicsError } = await supabase
+      const { data, error } = await supabase
         .from('topics')
         .select(`
           id,
           name,
+          subject_id,
           review_stage,
           next_review,
-          subject_id
+          review_count,
+          completed,
+          subjects (
+            id,
+            name,
+            color,
+            user_id
+          )
         `)
-        .not('review_stage', 'is', null)
-        .neq('review_stage', 'Nova')
-        .neq('review_stage', 'Concluído');
+        .order('next_review', { ascending: true });
 
-      if (topicsError) {
-        console.error('Error fetching topics:', topicsError);
-        throw topicsError;
-      }
+      if (error) throw error;
 
-      if (!topicsData || topicsData.length === 0) {
-        return [];
-      }
+      // Filtrar tópicos apenas do usuário logado
+      const filtered = data.filter(topic => topic.subjects?.user_id === user?.id);
 
-      // Buscar subjects do usuário
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('id, name')
-        .eq('user_id', user.id);
-
-      if (subjectsError) {
-        console.error('Error fetching subjects:', subjectsError);
-        throw subjectsError;
-      }
-
-      // Filtrar apenas tópicos que pertencem aos subjects do usuário
-      const userSubjectIds = (subjectsData || []).map(s => s.id);
-      const filteredTopics = topicsData.filter(topic => 
-        userSubjectIds.includes(topic.subject_id)
-      );
-
-      // Mapear com nomes dos subjects
-      const topicsWithSubjects = filteredTopics.map(topic => {
-        const subject = subjectsData?.find(s => s.id === topic.subject_id);
-        return {
-          id: topic.id,
-          name: topic.name,
-          subject_name: subject?.name || 'Sem disciplina',
-          review_stage: topic.review_stage,
-          next_review: topic.next_review,
-        };
-      });
-
-      console.log('Topics with subjects loaded:', topicsWithSubjects);
-      return topicsWithSubjects;
-    },
-    enabled: !!user
+      // Transformar os dados para o formato esperado
+      return filtered.map(topic => ({
+        ...topic,
+        review_count: topic.review_count ?? 0,
+        subject_name: topic.subjects?.name || 'Sem disciplina'
+      }));
+    }
   });
 
   useEffect(() => {
@@ -139,9 +129,88 @@ const Revisoes = () => {
     setSearchTerm('');
   };
 
+  // Lógica para separar revisões atrasadas, do dia e futuras (igual ao painel)
+  const hoje = startOfDay(new Date());
+  const delayedTopics = filteredTopics.filter(t => t.next_review && isBefore(startOfDay(new Date(t.next_review)), hoje));
+  const todayTopics = filteredTopics.filter(t => t.next_review && startOfDay(new Date(t.next_review)).getTime() === hoje.getTime());
+  const futureTopics = filteredTopics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime());
+
+  // Novo: filtrar a tabela conforme a tab selecionada
+  let topicsToShow = filteredTopics;
+  if (tab === 'hoje') {
+    topicsToShow = filteredTopics.filter(t => {
+      if (!t.next_review) return false;
+      const reviewDate = startOfDay(new Date(t.next_review));
+      return reviewDate <= hoje; // atrasados ou hoje
+    });
+  } else if (tab === 'futuras') {
+    topicsToShow = filteredTopics.filter(t => {
+      if (!t.next_review) return false;
+      const reviewDate = startOfDay(new Date(t.next_review));
+      return reviewDate > hoje;
+    });
+  }
+
   return (
     <div className="container mx-auto p-2">
       <AnimatedTitle className="mb-4">Revisões</AnimatedTitle>
+      {/* Cards de resumo de revisões, igual ao painel */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Card className="bg-white border border-red-200 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <Clock className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-medium text-red-600">Revisões Atrasadas</CardTitle>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{delayedTopics.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border border-orange-200 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Clock className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-medium text-orange-600">Revisões do Dia</CardTitle>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{todayTopics.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border border-blue-200 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Clock className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-medium text-blue-600">Revisões Futuras</CardTitle>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{futureTopics.length}</div>
+          </CardContent>
+        </Card>
+      </div>
+      {/* Menu de tabs igual ao painel */}
+      <div className="mb-4">
+        <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras')}>
+          <TabsList>
+            <TabsTrigger value="hoje">Hoje & Atrasadas</TabsTrigger>
+            <TabsTrigger value="futuras">Futuras</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
       <GlassCard className="p-4 mb-4">
         {/* Controles de filtro */}
         <div className="flex flex-col sm:flex-row gap-4 mb-4">
@@ -203,27 +272,32 @@ const Revisoes = () => {
           </div>
         ) : (
           <div className="rounded-lg overflow-hidden border border-white/20 bg-white/60 backdrop-blur-md">
+            {/* Tabela de revisões filtrada pela tab */}
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs">Disciplina</TableHead>
-                  <TableHead className="text-xs">Tópico</TableHead>
-                  <TableHead className="text-xs">Estágio</TableHead>
-                  <TableHead className="text-xs">Próxima Revisão</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead>Disciplina</TableHead>
+                  <TableHead>Tópico</TableHead>
+                  <TableHead>Estágio</TableHead>
+                  <TableHead>Próxima Revisão</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTopics.length > 0 ? (
-                  filteredTopics
-                    .sort((a, b) => (stageOrder[a.review_stage!] || 99) - (stageOrder[b.review_stage!] || 99))
+                {topicsToShow.length > 0 ? (
+                  topicsToShow
+                    .sort((a, b) => {
+                      // Ordenar por atraso (mais atrasados primeiro)
+                      const dateA = a.next_review ? new Date(a.next_review).getTime() : 0;
+                      const dateB = b.next_review ? new Date(b.next_review).getTime() : 0;
+                      return dateA - dateB;
+                    })
                     .map((topic) => {
                       const hoje = startOfDay(new Date());
                       const proxima = topic.next_review ? startOfDay(new Date(topic.next_review)) : null;
-                      
                       let status = 'Futura';
                       let statusClass = 'text-blue-600';
-                      
                       if (proxima) {
                         if (isBefore(proxima, hoje)) {
                           const diasVencidos = differenceInDays(hoje, proxima);
@@ -234,25 +308,85 @@ const Revisoes = () => {
                           statusClass = 'text-orange-600 font-bold';
                         }
                       }
-
+                      const isConcluido = topic.review_stage === 'Concluído';
                       return (
                         <TableRow key={topic.id} className="text-xs">
                           <TableCell>{topic.subject_name}</TableCell>
                           <TableCell>{topic.name}</TableCell>
-                          <TableCell>{topic.review_stage}</TableCell>
+                          <TableCell>{topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' && topic.review_count > 0 ? topic.review_stage : 'Não iniciado'}</TableCell>
                           <TableCell>{proxima ? format(proxima, 'dd/MM/yyyy') : '-'}</TableCell>
                           <TableCell className={statusClass}>{status}</TableCell>
+                          <TableCell>
+                            {isConcluido ? (
+                              <Button variant="outline" size="sm" disabled className="text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto">
+                                Concluído
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => setConfirmTopicId(topic.id)}
+                                  disabled={isLogicLoading}
+                                >
+                                  Marcar Revisão
+                                </Button>
+                                <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Confirmar Revisão</DialogTitle>
+                                      <DialogDescription>
+                                        Tem certeza que deseja marcar este tópico como revisado?
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <DialogFooter>
+                                      <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
+                                      <Button
+                                        variant="default"
+                                        onClick={async () => {
+                                          try {
+                                            await markTopicAsReviewed(topic.id);
+                                            setConfirmTopicId(null);
+                                            // Atualizar dados globais e lista de tópicos
+                                            await Promise.all([
+                                              refreshData(),
+                                              refetch()
+                                            ]);
+                                            // Atualizar estado local
+                                            setFilteredTopics(prev => 
+                                              prev.map(t => 
+                                                t.id === topic.id 
+                                                  ? { 
+                                                      ...t, 
+                                                      review_count: (t.review_count || 0) + 1,
+                                                      review_stage: t.review_count === 0 ? '24h' : 
+                                                                   t.review_count === 1 ? '7 dias' : 
+                                                                   t.review_count === 2 ? '30 dias' : 'Concluído'
+                                                    }
+                                                  : t
+                                              )
+                                            );
+                                          } catch (error) {
+                                            console.error('Erro ao marcar revisão:', error);
+                                            toast.error('Erro ao marcar revisão');
+                                          }
+                                        }}
+                                      >
+                                        Confirmar
+                                      </Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+                              </>
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-4 text-gray-500 text-xs">
-                      {viewMode === 'date' && selectedDate 
-                        ? `Nenhuma revisão encontrada para ${format(selectedDate, 'dd/MM/yyyy', { locale: ptBR })}.`
-                        : searchTerm 
-                        ? 'Nenhuma revisão encontrada para o termo pesquisado.'
-                        : 'Nenhuma revisão iniciada.'}
+                    <TableCell colSpan={6} className="text-center text-gray-400 py-8">
+                      Nenhuma revisão encontrada para este filtro.
                     </TableCell>
                   </TableRow>
                 )}

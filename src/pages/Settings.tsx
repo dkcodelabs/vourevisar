@@ -15,6 +15,9 @@ import { useCycleState } from '@/hooks/useCycleState';
 import { useApp } from '@/contexts/AppContext';
 import { ReviewProfile, REVIEW_PROFILES, UserSettings } from '@/types/study';
 import { ProfileSelector } from '@/components/ProfileSelector';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Check } from "lucide-react";
 
 interface UserCycle {
   id: string;
@@ -343,6 +346,24 @@ const Settings = () => {
         <span className="ml-2">Carregando configurações...</span>
       </div>
     );
+  }
+  
+  function agruparPorMateria(topics) {
+    const materias = {};
+    topics.forEach(topic => {
+      if (!materias[topic.subject_name]) materias[topic.subject_name] = [];
+      materias[topic.subject_name].push(topic);
+    });
+    return materias;
+  }
+
+  function separarPorStatus(topics) {
+    const hoje = startOfDay(new Date());
+    return {
+      atrasados: topics.filter(t => t.next_review && isBefore(startOfDay(new Date(t.next_review)), hoje)),
+      hoje: topics.filter(t => t.next_review && startOfDay(new Date(t.next_review)).getTime() === hoje.getTime()),
+      futuras: topics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime()),
+    };
   }
   
   return (
