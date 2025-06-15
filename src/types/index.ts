@@ -58,6 +58,7 @@ export interface UserCycle {
   user_id: string;
   ciclo_atual: string[];
   disciplinas_do_dia: string[];
+  materias_pendentes: string[];
   ciclos_realizados: number;
   data_inicio_ciclo: string;
   data_fim_ciclo: string | null;

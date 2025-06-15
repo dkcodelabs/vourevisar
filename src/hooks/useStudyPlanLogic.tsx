@@ -115,7 +115,9 @@ export const useStudyPlanLogic = () => {
         if (!existingCycle || !existingCycle.id) {
           if (availableSubjects.length > 0) {
             console.log('📝 Criando novo ciclo...');
-            const cycleSubjectIds = availableSubjects.map(s => s.id);
+            // Ordenar matérias por prioridade
+            const sortedSubjects = [...availableSubjects].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+            const cycleSubjectIds = sortedSubjects.map(s => s.id);
             
             const { error } = await supabase
               .from('user_cycles')
@@ -123,6 +125,7 @@ export const useStudyPlanLogic = () => {
                 user_id: user.id,
                 ciclo_atual: cycleSubjectIds,
                 disciplinas_do_dia: cycleSubjectIds.slice(0, subjectsPerDay),
+                materias_pendentes: [],
                 data_inicio_ciclo: new Date().toISOString(),
                 atualizado_em: new Date().toISOString()
               });
@@ -140,25 +143,29 @@ export const useStudyPlanLogic = () => {
             setUserCycle(null);
           }
         } else {
-          // Ciclo existente - verificar se há novas matérias para adicionar
+          // Ciclo existente - verificar se há novas matérias para adicionar às pendentes
           const currentCycleSubjects = existingCycle.ciclo_atual || [];
-          const newSubjects = availableSubjects.filter(s => !currentCycleSubjects.includes(s.id));
+          const currentPendingSubjects = existingCycle.materias_pendentes || [];
+          const newSubjects = availableSubjects.filter(s => 
+            !currentCycleSubjects.includes(s.id) && 
+            !currentPendingSubjects.includes(s.id)
+          );
           
           if (newSubjects.length > 0) {
-            console.log('📝 Adicionando novas matérias ao ciclo atual (só aparecerão no próximo ciclo)...');
-            // Adicionar novas matérias APENAS ao ciclo_atual, NÃO às disciplinas_do_dia
-            const updatedCycleSubjects = [...currentCycleSubjects, ...newSubjects.map(s => s.id)];
+            console.log('📝 Adicionando novas matérias às pendentes (aparecerão no próximo ciclo)...');
+            // Adicionar novas matérias às materias_pendentes, NÃO ao ciclo atual
+            const updatedPendingSubjects = [...currentPendingSubjects, ...newSubjects.map(s => s.id)];
             
             const { error } = await supabase
               .from('user_cycles')
               .update({
-                ciclo_atual: updatedCycleSubjects,
+                materias_pendentes: updatedPendingSubjects,
                 atualizado_em: new Date().toISOString()
               })
               .eq('user_id', user.id);
 
             if (error) {
-              console.error('Erro ao atualizar ciclo:', error);
+              console.error('Erro ao atualizar matérias pendentes:', error);
             }
           }
           
@@ -443,11 +450,45 @@ export const useStudyPlanLogic = () => {
 
   // Adicionar função para iniciar novo ciclo
   const handleStartNewCycle = async () => {
-    if (!user) return;
+    if (!user || !userCycle) return;
 
     setIsStartingNewCycle(true);
     try {
-      // Limpar ciclo atual
+      // Buscar matérias disponíveis para o novo ciclo
+      const availableSubjects = subjects.filter(s => s.status !== 'Concluída');
+      
+      // Combinar matérias do ciclo anterior com matérias pendentes
+      const previousCycleSubjects = userCycle.ciclo_atual || [];
+      const pendingSubjects = userCycle.materias_pendentes || [];
+      const allSubjectIds = [...new Set([...previousCycleSubjects, ...pendingSubjects])];
+      
+      // Filtrar apenas as que ainda existem e não estão concluídas
+      const validSubjectIds = allSubjectIds.filter(id => 
+        availableSubjects.some(s => s.id === id)
+      );
+      
+      // Ordenar por prioridade definida na página de matérias
+      const sortedSubjects = validSubjectIds
+        .map(id => availableSubjects.find(s => s.id === id))
+        .filter(Boolean)
+        .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      
+      const sortedSubjectIds = sortedSubjects.map(s => s.id);
+      
+      console.log('🔄 Iniciando novo ciclo:', {
+        previousCycleSubjects,
+        pendingSubjects,
+        sortedSubjectIds: sortedSubjectIds.map(id => ({
+          id,
+          name: subjects.find(s => s.id === id)?.name,
+          priority: subjects.find(s => s.id === id)?.priority
+        }))
+      });
+
+      // Buscar configurações do usuário
+      const subjectsPerDay = userSettings?.subjects_per_day || 3;
+
+      // Deletar ciclo atual
       await supabase
         .from('user_cycles')
         .delete()
@@ -458,6 +499,20 @@ export const useStudyPlanLogic = () => {
         .from('subjects')
         .update({ status: 'Nova' })
         .eq('user_id', user.id);
+
+      // Criar novo ciclo com as matérias ordenadas por prioridade
+      if (sortedSubjectIds.length > 0) {
+        await supabase
+          .from('user_cycles')
+          .insert({
+            user_id: user.id,
+            ciclo_atual: sortedSubjectIds,
+            disciplinas_do_dia: sortedSubjectIds.slice(0, subjectsPerDay),
+            materias_pendentes: [],
+            data_inicio_ciclo: new Date().toISOString(),
+            atualizado_em: new Date().toISOString()
+          });
+      }
 
       // Recarregar dados
       await refreshData();

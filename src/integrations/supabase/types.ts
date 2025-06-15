@@ -180,6 +180,7 @@ export type Database = {
           data_inicio_ciclo: string | null
           disciplinas_do_dia: string[] | null
           id: string
+          materias_pendentes: string[] | null
           user_id: string
         }
         Insert: {
@@ -191,6 +192,7 @@ export type Database = {
           data_inicio_ciclo?: string | null
           disciplinas_do_dia?: string[] | null
           id?: string
+          materias_pendentes?: string[] | null
           user_id: string
         }
         Update: {
@@ -202,6 +204,7 @@ export type Database = {
           data_inicio_ciclo?: string | null
           disciplinas_do_dia?: string[] | null
           id?: string
+          materias_pendentes?: string[] | null
           user_id?: string
         }
         Relationships: [
