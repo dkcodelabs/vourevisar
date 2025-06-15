@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
@@ -75,34 +76,6 @@ const StudyPlan = () => {
     allTopicsInReview
   } = useStudyPlanLogic();
   const { subjects } = useApp();
-
-  // Botão temporário para resetar ciclo
-  const handleResetCycle = async () => {
-    if (!user) return;
-    // Buscar matérias válidas
-    const validSubjects = subjects.filter(s => s.status !== 'Concluída' && s.topics && s.topics.length > 0);
-    const cycleSubjectIds = validSubjects.map(s => s.id);
-
-    // Buscar o valor de matérias por dia das configurações
-    const { data: userSettings } = await supabase
-      .from('user_settings')
-      .select('subjects_per_day')
-      .eq('user_id', user.id)
-      .single();
-    const subjectsPerDay = userSettings?.subjects_per_day || 3;
-
-    // Deletar ciclo antigo
-    await supabase.from('user_cycles').delete().eq('user_id', user.id);
-    // Criar novo ciclo
-    await supabase.from('user_cycles').insert({
-      user_id: user.id,
-      ciclo_atual: cycleSubjectIds,
-      disciplinas_do_dia: cycleSubjectIds.slice(0, subjectsPerDay),
-      data_inicio_ciclo: new Date().toISOString(),
-      atualizado_em: new Date().toISOString()
-    });
-    window.location.reload();
-  };
 
   // Não renderizar nada até que os dados iniciais estejam carregados OU o ciclo esteja carregando
   if (isLoading || isCycleLoading) {
@@ -183,12 +156,6 @@ const StudyPlan = () => {
 
   return (
     <div className="container mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-2 sm:px-4 md:px-8">
-      {/* Botão temporário para resetar ciclo */}
-      <div className="mb-4">
-        <button onClick={handleResetCycle} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
-          Resetar Ciclo (TEMPORÁRIO)
-        </button>
-      </div>
       <motion.div
         variants={containerVariants}
         initial="hidden"
