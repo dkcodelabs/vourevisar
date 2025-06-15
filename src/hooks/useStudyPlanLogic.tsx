@@ -94,20 +94,22 @@ export const useStudyPlanLogic = () => {
     fetchUserSettings();
   }, [user]);
 
-  // Inicializar ciclo apenas uma vez
+  // Inicializar ciclo otimizado - não espera userSettings
   useEffect(() => {
     const initializeCycle = async () => {
       setIsCycleLoading(true);
-      if (!user || !subjects.length || !userSettings) {
+      if (!user || !subjects.length) {
         setIsInitialized(true);
         setIsCycleLoading(false);
         return;
       }
 
+      // Usar valor padrão se userSettings ainda não carregou
+      const subjectsPerDay = userSettings?.subjects_per_day || 3;
+
       try {
         const existingCycle = await loadUserCycle(user.id);
         const availableSubjects = subjects.filter(s => s.status !== 'Concluída');
-        const subjectsPerDay = userSettings.subjects_per_day || 3;
 
         // Se não existe ciclo, criar um novo
         if (!existingCycle || !existingCycle.id) {
