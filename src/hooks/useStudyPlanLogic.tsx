@@ -111,11 +111,9 @@ export const useStudyPlanLogic = () => {
         const cycleSubjectIds = availableSubjects.map(s => s.id);
         const subjectsPerDay = userSettings.subjects_per_day || 3;
 
-        // Detectar se há matérias válidas fora do ciclo
-        const missingSubjects = cycleSubjectIds.filter(id => !existingCycle?.ciclo_atual?.includes(id));
+        // Só recriar ciclo se não existir ou se estiver vazio
         const shouldRecreate = !existingCycle || !existingCycle.id || 
-          (existingCycle.ciclo_atual.length === 0 && availableSubjects.length > 0) ||
-          missingSubjects.length > 0;
+          (existingCycle.ciclo_atual.length === 0 && availableSubjects.length > 0);
 
         if (shouldRecreate && availableSubjects.length > 0) {
           // Sempre criar/recriar ciclo se não existir, se ciclo_atual está vazio ou se há matérias válidas fora do ciclo
