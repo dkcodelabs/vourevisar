@@ -36,10 +36,6 @@ export const useStudyPlanLogic = () => {
   const disciplinasNaoIniciadas = subjects.filter(s => s.status === 'Nova');
   const hasAvailableSubjects = hasStudyableSubjects(subjects);
   
-  // Verificar se todas as matérias estão concluídas e há tópicos em revisão
-  const allTopicsInReview = subjects.length > 0 && 
-    subjects.every(s => s.status === 'Concluída') &&
-    subjects.some(s => s.topics && s.topics.some(t => t.review_count > 0));
 
   console.log('🔍 useStudyPlanLogic - Estado inicial:', {
     subjectsCount: subjects.length,
@@ -233,6 +229,13 @@ export const useStudyPlanLogic = () => {
         .filter(Boolean)
     : [];
 
+  // Verificar se há tópicos em revisão e não há mais tópicos para estudar hoje
+  const allTopicsInReview = subjects.length > 0 && 
+    subjects.some(s => s.topics && s.topics.some(t => t.review_count > 0)) &&
+    dailySubjects.length === 0 && 
+    nextSubjects.length === 0 &&
+    userCycle && userCycle.ciclo_atual.length > 0;
+
   // Verificar se todas as matérias do dia foram concluídas e ainda existem matérias para o próximo dia
   const allDaySubjectsCompleted = userCycle && 
     userCycle.disciplinas_do_dia.length === 0 && // Não há matérias no dia atual
@@ -254,6 +257,7 @@ export const useStudyPlanLogic = () => {
   console.log('🎯 useStudyPlanLogic - Estado final:', {
     allStudiesCompleted,
     allDaySubjectsCompleted,
+    allTopicsInReview,
     subjectsLength: subjects.length,
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
@@ -264,7 +268,11 @@ export const useStudyPlanLogic = () => {
     disciplinasConcluidas,
     disciplinasIniciadasCiclo,
     dailySubjects: dailySubjects.map(s => s.name),
-    nextSubjects: nextSubjects.map(s => s.name)
+    nextSubjects: nextSubjects.map(s => s.name),
+    topicsInReview: subjects.map(s => ({
+      name: s.name,
+      topics: s.topics.map(t => ({ name: t.name, review_count: t.review_count }))
+    }))
   });
 
   const handleNextDay = async () => {
