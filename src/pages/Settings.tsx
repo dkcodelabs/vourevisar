@@ -164,11 +164,51 @@ const Settings = () => {
     }));
   };
   
-  const handleSubjectsPerDayChange = (value: number[]) => {
+  const handleSubjectsPerDayChange = async (value: number[]) => {
+    const newValue = value[0];
+    console.log('🔧 Mudando subjects_per_day de', settings.subjects_per_day, 'para', newValue);
+    
     setSettings(prev => ({
       ...prev,
-      subjects_per_day: value[0]
+      subjects_per_day: newValue
     }));
+
+    // Salvar imediatamente no banco de dados
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from('user_settings')
+          .update({ 
+            subjects_per_day: newValue,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+        
+        console.log('✅ subjects_per_day salvo no banco:', newValue);
+        
+        // Atualizar o contexto global imediatamente
+        await fetchUserSettingsContext();
+        
+        toast({
+          title: "Configuração atualizada",
+          description: `Agora você estudará ${newValue} matéria${newValue > 1 ? 's' : ''} por dia`
+        });
+      } catch (err) {
+        console.error('Erro ao salvar subjects_per_day:', err);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível atualizar a configuração"
+        });
+        // Reverter o valor local se houve erro
+        setSettings(prev => ({
+          ...prev,
+          subjects_per_day: settings.subjects_per_day
+        }));
+      }
+    }
   };
   
   const handleNotificationTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -511,6 +551,9 @@ const Settings = () => {
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium mb-2">Quantidade de Matérias por Dia: {settings.subjects_per_day}</h3>
+                <p className="text-xs text-gray-500 mb-2">
+                  Mudanças são aplicadas imediatamente ao seu plano de estudos.
+                </p>
                 <Slider 
                   value={[settings.subjects_per_day]}
                   max={10}
@@ -639,7 +682,7 @@ const Settings = () => {
           onClick={handleSaveSettings}
           disabled={isSaving}
         >
-          {isSaving ? 'Salvando...' : 'Salvar Configurações'}
+          {isSaving ? 'Salvando...' : 'Salvar Outras Configurações'}
         </GradientButton>
       </div>
     </div>
