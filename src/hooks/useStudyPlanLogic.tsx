@@ -67,10 +67,13 @@ export const useStudyPlanLogic = () => {
   const isNewCycleStarted = userCycle && userCycle.ciclo_atual.length > 0 && 
     !userCycle.data_fim_ciclo && userCycle.disciplinas_do_dia.length === 0;
 
-  // Load user settings
+  // Load user settings with immediate fallback
   useEffect(() => {
     const fetchUserSettings = async () => {
       if (!user) return;
+
+      // Set default immediately to avoid blocking cycle initialization
+      setUserSettings({ subjects_per_day: 3 });
 
       try {
         const { data, error } = await supabase
@@ -79,15 +82,12 @@ export const useStudyPlanLogic = () => {
           .eq('user_id', user.id)
           .single();
 
-        if (error) {
-          console.error('Error fetching user settings:', error);
-          setUserSettings({ subjects_per_day: 3 });
-        } else {
+        if (!error && data) {
           setUserSettings(data);
         }
       } catch (error) {
         console.error('Error fetching user settings:', error);
-        setUserSettings({ subjects_per_day: 3 });
+        // Keep the default value already set
       }
     };
 
