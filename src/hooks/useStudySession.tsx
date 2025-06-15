@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -154,22 +155,15 @@ export const useStudySession = () => {
       console.log('🔵 Limpando tópicos marcados temporariamente...');
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
-      // Sempre remover das disciplinas_do_dia
+      // SEMPRE remover a matéria tanto das disciplinas_do_dia quanto do ciclo_atual
+      // quando uma sessão é concluída, independentemente de tópicos marcados
       const updatedDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
-      console.log('🔵 Removendo de disciplinas_do_dia:', {
-        antes: userCycle.disciplinas_do_dia.length,
-        depois: updatedDisciplinasDoDia.length
-      });
+      const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
       
-      // Só remover do ciclo_atual se algum tópico foi marcado para revisão
-      const updatedCicloAtual = topicsToReview.length > 0 
-        ? userCycle.ciclo_atual.filter(id => id !== subjectId)
-        : userCycle.ciclo_atual; // Manter no ciclo se nenhum tópico foi marcado
-      
-      console.log('🔵 Lógica do ciclo_atual:', {
+      console.log('🔵 Removendo matéria do ciclo após concluir sessão:', {
         subjectId,
+        subject: subject.name,
         topicsMarkedForReview: topicsToReview.length,
-        removingFromCycle: topicsToReview.length > 0,
         cicloAtual_antes: userCycle.ciclo_atual.length,
         cicloAtual_depois: updatedCicloAtual.length,
         disciplinasDoDia_antes: userCycle.disciplinas_do_dia.length,
