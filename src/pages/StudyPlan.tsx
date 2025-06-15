@@ -190,7 +190,7 @@ const StudyPlan = () => {
           </motion.div>
         ) : allDaySubjectsCompleted ? (
           <motion.div variants={itemVariants}>
-            <DayCompletedMessage onNextDay={handleNextDay} />
+            <DayCompletedMessage onNextDay={handleNextDay} isLoading={isNextDayLoading} />
           </motion.div>
         ) : dailySubjects.length === 0 ? (
           <motion.div variants={itemVariants}>
