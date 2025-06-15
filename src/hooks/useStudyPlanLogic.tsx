@@ -106,47 +106,63 @@ export const useStudyPlanLogic = () => {
 
       try {
         const existingCycle = await loadUserCycle(user.id);
-        // Permitir matérias novas (mesmo sem tópicos) entrarem no ciclo
         const availableSubjects = subjects.filter(s => s.status !== 'Concluída');
-        const cycleSubjectIds = availableSubjects.map(s => s.id);
         const subjectsPerDay = userSettings.subjects_per_day || 3;
 
-        // Só recriar ciclo se não existir ou se estiver vazio
-        const shouldRecreate = !existingCycle || !existingCycle.id || 
-          (existingCycle.ciclo_atual.length === 0 && availableSubjects.length > 0);
+        // Se não existe ciclo, criar um novo
+        if (!existingCycle || !existingCycle.id) {
+          if (availableSubjects.length > 0) {
+            console.log('📝 Criando novo ciclo...');
+            const cycleSubjectIds = availableSubjects.map(s => s.id);
+            
+            const { error } = await supabase
+              .from('user_cycles')
+              .insert({
+                user_id: user.id,
+                ciclo_atual: cycleSubjectIds,
+                disciplinas_do_dia: cycleSubjectIds.slice(0, subjectsPerDay),
+                data_inicio_ciclo: new Date().toISOString(),
+                atualizado_em: new Date().toISOString()
+              });
 
-        if (shouldRecreate && availableSubjects.length > 0) {
-          // Sempre criar/recriar ciclo se não existir, se ciclo_atual está vazio ou se há matérias válidas fora do ciclo
-          console.log('📝 (Re)Criando ciclo automaticamente...');
-          // Deleta ciclo antigo se existir
-          if (existingCycle && existingCycle.id) {
-            await supabase.from('user_cycles').delete().eq('user_id', user.id);
+            if (error) {
+              console.error('Erro ao criar ciclo:', error);
+              setIsInitialized(true);
+              setIsCycleLoading(false);
+              return;
+            }
+
+            const newCycle = await loadUserCycle(user.id);
+            setUserCycle(newCycle);
+          } else {
+            setUserCycle(null);
           }
-
-          const { error } = await supabase
-            .from('user_cycles')
-            .insert({
-              user_id: user.id,
-              ciclo_atual: cycleSubjectIds,
-              disciplinas_do_dia: cycleSubjectIds.slice(0, subjectsPerDay),
-              data_inicio_ciclo: new Date().toISOString(),
-              atualizado_em: new Date().toISOString()
-            });
-
-          if (error) {
-            console.error('Erro ao criar ciclo:', error);
-            setIsInitialized(true);
-            setIsCycleLoading(false);
-            return;
-          }
-
-          const newCycle = await loadUserCycle(user.id);
-          setUserCycle(newCycle);
-        } else if (existingCycle && existingCycle.id) {
-          console.log('📋 Ciclo existente carregado:', existingCycle);
-          setUserCycle(existingCycle);
         } else {
-          setUserCycle(null);
+          // Ciclo existente - verificar se há novas matérias para adicionar
+          const currentCycleSubjects = existingCycle.ciclo_atual || [];
+          const newSubjects = availableSubjects.filter(s => !currentCycleSubjects.includes(s.id));
+          
+          if (newSubjects.length > 0) {
+            console.log('📝 Adicionando novas matérias ao ciclo atual (só aparecerão no próximo ciclo)...');
+            // Adicionar novas matérias APENAS ao ciclo_atual, NÃO às disciplinas_do_dia
+            const updatedCycleSubjects = [...currentCycleSubjects, ...newSubjects.map(s => s.id)];
+            
+            const { error } = await supabase
+              .from('user_cycles')
+              .update({
+                ciclo_atual: updatedCycleSubjects,
+                atualizado_em: new Date().toISOString()
+              })
+              .eq('user_id', user.id);
+
+            if (error) {
+              console.error('Erro ao atualizar ciclo:', error);
+            }
+          }
+          
+          // Recarregar ciclo atualizado
+          const updatedCycle = await loadUserCycle(user.id);
+          setUserCycle(updatedCycle);
         }
       } catch (error) {
         console.error('Erro ao inicializar ciclo:', error);

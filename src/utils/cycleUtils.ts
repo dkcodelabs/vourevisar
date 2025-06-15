@@ -24,11 +24,12 @@ export const generateNextDay = async (
 
   const subjectsPerDay = userSettings?.subjects_per_day || 3;
 
-  // Filtrar apenas matérias do ciclo atual que NÃO estão concluídas
+  // Filtrar apenas matérias do ciclo atual que NÃO estão concluídas E que têm tópicos não revisados
   const availableSubjects = subjects.filter(s => 
     userCycle.ciclo_atual.includes(s.id) && 
     s.status !== 'Concluída' &&
-    s.topics && s.topics.length > 0
+    s.topics && s.topics.length > 0 &&
+    s.topics.some(t => t.review_count === 0) // Só matérias com tópicos não revisados
   );
 
   console.log('🔄 Matérias disponíveis para próximo dia:', {
@@ -44,14 +45,15 @@ export const generateNextDay = async (
     return { shouldShowNewCycleMessage: true };
   }
 
-  // Selecionar próximas matérias do ciclo_atual, na ordem original
+  // Selecionar próximas matérias que estavam no início do ciclo e têm tópicos não revisados
   let nextBatchIds = userCycle.ciclo_atual.filter(id => {
     const s = subjects.find(sub => sub.id === id);
     return (
       s &&
       s.status !== 'Concluída' &&
       s.topics && s.topics.length > 0 &&
-      !userCycle.disciplinas_do_dia.includes(id)
+      s.topics.some(t => t.review_count === 0) && // Só matérias com tópicos não revisados
+      !userCycle.disciplinas_do_dia.includes(id) // Que não estão no dia atual
     );
   }).slice(0, subjectsPerDay);
 
@@ -62,7 +64,8 @@ export const generateNextDay = async (
       return (
         s &&
         s.status !== 'Concluída' &&
-        s.topics && s.topics.length > 0
+        s.topics && s.topics.length > 0 &&
+        s.topics.some(t => t.review_count === 0) // Só matérias com tópicos não revisados
       );
     }).slice(0, subjectsPerDay);
   }
