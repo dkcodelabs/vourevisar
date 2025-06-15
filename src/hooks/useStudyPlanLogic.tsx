@@ -117,7 +117,9 @@ export const useStudyPlanLogic = () => {
 
         // Detectar se há matérias válidas fora do ciclo
         const missingSubjects = cycleSubjectIds.filter(id => !existingCycle?.ciclo_atual?.includes(id));
-        const shouldRecreate = !existingCycle || !existingCycle.id;
+        const shouldRecreate = !existingCycle || !existingCycle.id || 
+          (existingCycle.ciclo_atual.length === 0 && availableSubjects.length > 0) ||
+          missingSubjects.length > 0;
 
         if (shouldRecreate && availableSubjects.length > 0) {
           // Sempre criar/recriar ciclo se não existir, se ciclo_atual está vazio ou se há matérias válidas fora do ciclo
@@ -192,14 +194,17 @@ export const useStudyPlanLogic = () => {
     }
   }, [subjects, userCycle, allStudiesCompleted, refreshData]);
 
-  // Filtrar corretamente as matérias diárias
+  // Filtrar corretamente as matérias diárias (excluir tópicos que já iniciaram revisão)
   const dailySubjects = userCycle?.disciplinas_do_dia && userCycle.disciplinas_do_dia.length > 0
     ? subjects.filter(subject => {
         const isInDailyList = userCycle.disciplinas_do_dia.includes(subject.id);
         const isNotCompleted = subject.status !== 'Concluída';
         const hasTopics = subject.topics && subject.topics.length > 0;
         
-        return isInDailyList && isNotCompleted && hasTopics;
+        // Filtrar apenas tópicos que ainda não iniciaram revisão (review_count === 0)
+        const hasUnreviewedTopics = subject.topics && subject.topics.some(t => t.review_count === 0);
+        
+        return isInDailyList && isNotCompleted && hasTopics && hasUnreviewedTopics;
       })
       // Manter a ordem original das matérias do dia
       .sort((a, b) => {
@@ -215,12 +220,13 @@ export const useStudyPlanLogic = () => {
         .filter(id => {
           // Só as que não estão no dia e não estão concluídas
           const subject = subjects.find(s => s.id === id);
-          return (
-            subject &&
-            !userCycle.disciplinas_do_dia.includes(id) &&
-            subject.status !== 'Concluída' &&
-            subject.topics && subject.topics.length > 0
-          );
+          if (!subject || userCycle.disciplinas_do_dia.includes(id) || subject.status === 'Concluída' || !subject.topics || subject.topics.length === 0) {
+            return false;
+          }
+          
+          // Filtrar apenas matérias que ainda têm tópicos não revisados
+          const hasUnreviewedTopics = subject.topics.some(t => t.review_count === 0);
+          return hasUnreviewedTopics;
         })
         .slice(0, userSettings?.subjects_per_day || 3)
         .map(id => subjects.find(s => s.id === id))

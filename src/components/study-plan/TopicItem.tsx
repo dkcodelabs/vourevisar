@@ -90,9 +90,10 @@ const TopicItem: React.FC<TopicItemProps> = ({
             className="text-green-600 hover:text-green-800 border border-green-200 hover:bg-green-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
             onClick={handleMarkForReview}
             type="button"
+            disabled={topic.reviewCount > 0}
           >
             <Check className="h-3 w-3 mr-1" />
-            Marcar Revisão
+            {topic.reviewCount > 0 ? 'Em Revisão' : 'Marcar Revisão'}
           </Button>
         )}
       </div>
