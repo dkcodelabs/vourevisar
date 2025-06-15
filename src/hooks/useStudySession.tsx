@@ -76,8 +76,21 @@ export const useStudySession = () => {
 
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
-      const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
+      // Sempre remover das disciplinas_do_dia
       const updatedDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+      
+      // Só remover do ciclo_atual se algum tópico foi marcado para revisão
+      const updatedCicloAtual = topicsToReview.length > 0 
+        ? userCycle.ciclo_atual.filter(id => id !== subjectId)
+        : userCycle.ciclo_atual; // Manter no ciclo se nenhum tópico foi marcado
+      
+      console.log('🔄 handleCompleteSession:', {
+        subjectId,
+        topicsMarkedForReview: topicsToReview.length,
+        removingFromCycle: topicsToReview.length > 0,
+        updatedCicloAtual: updatedCicloAtual.length,
+        updatedDisciplinasDoDia: updatedDisciplinasDoDia.length
+      });
       
       const { error: updateError } = await supabase
         .from('user_cycles')
