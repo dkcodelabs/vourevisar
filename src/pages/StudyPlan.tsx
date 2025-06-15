@@ -133,6 +133,7 @@ const StudyPlan = () => {
     hasAvailableSubjects,
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
+    isCycleCompleted,
     userCycle: userCycle ? {
       disciplinas_do_dia: userCycle.disciplinas_do_dia,
       ciclo_atual: userCycle.ciclo_atual,
@@ -164,6 +165,7 @@ const StudyPlan = () => {
       >
         <StudyPlanHeader onNextDay={handleNextDay} />
         
+        {/* PRIORIDADE 1: Ciclo completamente concluído */}
         {isCycleCompleted ? (
           <CycleCompletedMessage onStartNewCycle={handleStartNewCycle} />
         ) : allTopicsInReview ? (
@@ -190,7 +192,11 @@ const StudyPlan = () => {
           </motion.div>
         ) : allDaySubjectsCompleted ? (
           <motion.div variants={itemVariants}>
-            <DayCompletedMessage onNextDay={handleNextDay} isLoading={isNextDayLoading} />
+            <DayCompletedMessage 
+              onNextDay={handleNextDay} 
+              isLoading={isNextDayLoading}
+              hasMoreSubjectsInCycle={nextSubjects.length > 0}
+            />
           </motion.div>
         ) : dailySubjects.length === 0 ? (
           <motion.div variants={itemVariants}>
@@ -275,7 +281,8 @@ const StudyPlan = () => {
           </div>
         )}
 
-        {nextSubjects.length > 0 && !allDaySubjectsCompleted && (
+        {/* Mostrar próximas matérias somente se não for ciclo completo */}
+        {nextSubjects.length > 0 && !allDaySubjectsCompleted && !isCycleCompleted && (
           <motion.div variants={itemVariants}>
             <NextSubjects nextSubjects={nextSubjects} />
           </motion.div>
