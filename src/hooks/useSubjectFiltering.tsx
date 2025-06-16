@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { Subject, UserCycle } from '@/types';
 import { checkAllStudiesCompleted, hasStudyableSubjects } from '@/utils/studiesCompletionChecker';
@@ -154,34 +153,39 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
   const allDaySubjectsCompleted = useMemo(() => {
     if (!userCycle) return false;
     
-    // NOVA LÓGICA: Dia concluído quando:
-    // 1. Havia matérias nas disciplinas_do_dia mas agora não há mais (foram estudadas)
-    // 2. Ainda há matérias no ciclo atual disponíveis
-    // 3. Não é um ciclo completo
+    // CORRIGIDO: Lógica mais simples e efetiva
+    // Dia concluído quando:
+    // 1. disciplinas_do_dia está vazio E
+    // 2. Ainda há matérias disponíveis no ciclo_atual E
+    // 3. Não é um ciclo completo E
     // 4. Não são todos os estudos completos
     
-    const hadDailySubjectsOriginal = userCycle.disciplinas_do_dia.length > 0;
     const noDailySubjectsNow = dailySubjects.length === 0;
-    const hasNextSubjects = nextSubjects.length > 0;
+    const hasAvailableSubjectsInCycle = userCycle.ciclo_atual.some(id => {
+      const subject = subjects.find(s => s.id === id);
+      return subject && 
+             subject.status !== 'Concluída' && 
+             subject.topics && subject.topics.length > 0 &&
+             subject.topics.some(t => t.review_count === 0);
+    });
     
-    console.log('🔍 Verificando allDaySubjectsCompleted:', {
-      hadDailySubjectsOriginal,
+    console.log('🔍 Verificando allDaySubjectsCompleted - NOVA LÓGICA:', {
       noDailySubjectsNow,
-      hasNextSubjects,
+      hasAvailableSubjectsInCycle,
       isCycleCompleted,
       allStudiesCompleted,
       userCycle_disciplinas_do_dia: userCycle.disciplinas_do_dia,
+      userCycle_ciclo_atual: userCycle.ciclo_atual,
       dailySubjects_atual: dailySubjects.map(s => s.name),
       nextSubjects_atual: nextSubjects.map(s => s.name),
-      result: hadDailySubjectsOriginal && noDailySubjectsNow && hasNextSubjects && !isCycleCompleted && !allStudiesCompleted
+      result: noDailySubjectsNow && hasAvailableSubjectsInCycle && !isCycleCompleted && !allStudiesCompleted
     });
     
-    return hadDailySubjectsOriginal && 
-           noDailySubjectsNow && 
-           hasNextSubjects && 
+    return noDailySubjectsNow && 
+           hasAvailableSubjectsInCycle && 
            !isCycleCompleted && 
            !allStudiesCompleted;
-  }, [userCycle, dailySubjects.length, nextSubjects.length, isCycleCompleted, allStudiesCompleted]);
+  }, [userCycle, dailySubjects.length, nextSubjects.length, isCycleCompleted, allStudiesCompleted, subjects]);
 
   return {
     disciplinasIniciadas,
