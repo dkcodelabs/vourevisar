@@ -150,30 +150,38 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
            !isCycleCompleted;
   }, [subjects, dailySubjects.length, nextSubjects.length, isCycleCompleted]);
 
-  // CORRIGIDO: Melhorar a detecção de "dia concluído"
+  // CORRIGIDO: Detectar quando o dia foi concluído mas ainda há matérias no ciclo
   const allDaySubjectsCompleted = useMemo(() => {
     if (!userCycle) return false;
     
-    // Dia concluído quando:
-    // 1. Não há matérias para hoje E
-    // 2. Ainda há matérias no ciclo atual E
-    // 3. Não é um ciclo completo E
+    // NOVA LÓGICA: Dia concluído quando:
+    // 1. Havia matérias nas disciplinas_do_dia mas agora não há mais (foram estudadas)
+    // 2. Ainda há matérias no ciclo atual disponíveis
+    // 3. Não é um ciclo completo
     // 4. Não são todos os estudos completos
-    const noDailySubjects = userCycle.disciplinas_do_dia.length === 0;
-    const hasCycleSubjects = userCycle.ciclo_atual.length > 0;
+    
+    const hadDailySubjectsOriginal = userCycle.disciplinas_do_dia.length > 0;
+    const noDailySubjectsNow = dailySubjects.length === 0;
     const hasNextSubjects = nextSubjects.length > 0;
     
     console.log('🔍 Verificando allDaySubjectsCompleted:', {
-      noDailySubjects,
-      hasCycleSubjects,
+      hadDailySubjectsOriginal,
+      noDailySubjectsNow,
       hasNextSubjects,
       isCycleCompleted,
       allStudiesCompleted,
-      result: noDailySubjects && hasCycleSubjects && hasNextSubjects && !isCycleCompleted && !allStudiesCompleted
+      userCycle_disciplinas_do_dia: userCycle.disciplinas_do_dia,
+      dailySubjects_atual: dailySubjects.map(s => s.name),
+      nextSubjects_atual: nextSubjects.map(s => s.name),
+      result: hadDailySubjectsOriginal && noDailySubjectsNow && hasNextSubjects && !isCycleCompleted && !allStudiesCompleted
     });
     
-    return noDailySubjects && hasCycleSubjects && hasNextSubjects && !isCycleCompleted && !allStudiesCompleted;
-  }, [userCycle, nextSubjects.length, isCycleCompleted, allStudiesCompleted]);
+    return hadDailySubjectsOriginal && 
+           noDailySubjectsNow && 
+           hasNextSubjects && 
+           !isCycleCompleted && 
+           !allStudiesCompleted;
+  }, [userCycle, dailySubjects.length, nextSubjects.length, isCycleCompleted, allStudiesCompleted]);
 
   return {
     disciplinasIniciadas,
