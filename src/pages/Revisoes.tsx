@@ -26,6 +26,8 @@ interface Topic {
   review_stage: string;
   next_review: string | null;
   review_count: number;
+  first_studied_at: string | null;
+  last_reviewed_at: string | null;
   subjects?: {
     id: string;
     name: string;
@@ -62,7 +64,8 @@ const Revisoes = () => {
           review_stage,
           next_review,
           review_count,
-          completed,
+          first_studied_at,
+          last_reviewed_at,
           subjects (
             id,
             name,
@@ -298,9 +301,18 @@ const Revisoes = () => {
                   <TableHead>Disciplina</TableHead>
                   <TableHead>Tópico</TableHead>
                   <TableHead>Estágio</TableHead>
-                  <TableHead>Próxima Revisão</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ação</TableHead>
+                  {tab === 'concluido' ? (
+                    <>
+                      <TableHead>Data de Início</TableHead>
+                      <TableHead>Data de Conclusão</TableHead>
+                    </>
+                  ) : (
+                    <>
+                      <TableHead>Próxima Revisão</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ação</TableHead>
+                    </>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -340,78 +352,91 @@ const Revisoes = () => {
                           <TableCell>{topic.subject_name}</TableCell>
                           <TableCell>{topic.name}</TableCell>
                           <TableCell>{topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' && topic.review_count > 0 ? topic.review_stage : 'Não iniciado'}</TableCell>
-                          <TableCell>{proxima ? format(proxima, 'dd/MM/yyyy') : '-'}</TableCell>
-                          <TableCell className={statusClass}>{status}</TableCell>
-                          <TableCell>
-                            {isConcluido ? (
-                              <Button variant="outline" size="sm" disabled className="text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto">
-                                Concluído
-                              </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => setConfirmTopicId(topic.id)}
-                                  disabled={isLogicLoading}
-                                >
-                                  Marcar Revisão
-                                </Button>
-                                <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Confirmar Revisão</DialogTitle>
-                                      <DialogDescription>
-                                        Tem certeza que deseja marcar este tópico como revisado?
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <DialogFooter>
-                                      <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
-                                      <Button
-                                        variant="default"
-                                        onClick={async () => {
-                                          try {
-                                            await markTopicAsReviewed(topic.id);
-                                            setConfirmTopicId(null);
-                                            // Atualizar dados globais e lista de tópicos
-                                            await Promise.all([
-                                              refreshData(),
-                                              refetch()
-                                            ]);
-                                            // Atualizar estado local
-                                            setFilteredTopics(prev => 
-                                              prev.map(t => 
-                                                t.id === topic.id 
-                                                  ? { 
-                                                      ...t, 
-                                                      review_count: (t.review_count || 0) + 1,
-                                                      review_stage: t.review_count === 0 ? '24h' : 
-                                                                   t.review_count === 1 ? '7 dias' : 
-                                                                   t.review_count === 2 ? '30 dias' : 'Concluído'
-                                                    }
-                                                  : t
-                                              )
-                                            );
-                                          } catch (error) {
-                                            console.error('Erro ao marcar revisão:', error);
-                                            toast.error('Erro ao marcar revisão');
-                                          }
-                                        }}
-                                      >
-                                        Confirmar
-                                      </Button>
-                                    </DialogFooter>
-                                  </DialogContent>
-                                </Dialog>
-                              </>
-                            )}
-                          </TableCell>
+                          {tab === 'concluido' ? (
+                            <>
+                              <TableCell>
+                                {topic.first_studied_at ? format(new Date(topic.first_studied_at), 'dd/MM/yyyy') : '-'}
+                              </TableCell>
+                              <TableCell>
+                                {topic.last_reviewed_at ? format(new Date(topic.last_reviewed_at), 'dd/MM/yyyy') : '-'}
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell>{proxima ? format(proxima, 'dd/MM/yyyy') : '-'}</TableCell>
+                              <TableCell className={statusClass}>{status}</TableCell>
+                              <TableCell>
+                                {isConcluido ? (
+                                  <Button variant="outline" size="sm" disabled className="text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto">
+                                    Concluído
+                                  </Button>
+                                ) : (
+                                  <>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => setConfirmTopicId(topic.id)}
+                                      disabled={isLogicLoading}
+                                    >
+                                      Marcar Revisão
+                                    </Button>
+                                    <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
+                                      <DialogContent>
+                                        <DialogHeader>
+                                          <DialogTitle>Confirmar Revisão</DialogTitle>
+                                          <DialogDescription>
+                                            Tem certeza que deseja marcar este tópico como revisado?
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                        <DialogFooter>
+                                          <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
+                                          <Button
+                                            variant="default"
+                                            onClick={async () => {
+                                              try {
+                                                await markTopicAsReviewed(topic.id);
+                                                setConfirmTopicId(null);
+                                                // Atualizar dados globais e lista de tópicos
+                                                await Promise.all([
+                                                  refreshData(),
+                                                  refetch()
+                                                ]);
+                                                // Atualizar estado local
+                                                setFilteredTopics(prev => 
+                                                  prev.map(t => 
+                                                    t.id === topic.id 
+                                                      ? { 
+                                                          ...t, 
+                                                          review_count: (t.review_count || 0) + 1,
+                                                          review_stage: t.review_count === 0 ? '24h' : 
+                                                                       t.review_count === 1 ? '7 dias' : 
+                                                                       t.review_count === 2 ? '30 dias' : 'Concluído'
+                                                        }
+                                                      : t
+                                                  )
+                                                );
+                                              } catch (error) {
+                                                console.error('Erro ao marcar revisão:', error);
+                                                toast.error('Erro ao marcar revisão');
+                                              }
+                                            }}
+                                          >
+                                            Confirmar
+                                          </Button>
+                                        </DialogFooter>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </>
+                                )}
+                              </TableCell>
+                            </>
+                          )}
                         </TableRow>
                       );
                     })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-gray-400 py-8">
+                    <TableCell colSpan={tab === 'concluido' ? 5 : 6} className="text-center text-gray-400 py-8">
                       Nenhuma revisão encontrada para este filtro.
                     </TableCell>
                   </TableRow>
