@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +26,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const authOps = useAuthOperations();
@@ -45,12 +45,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (session?.user) {
           setUser(session.user);
-          // Buscar perfil sem await para evitar deadlock
-          setTimeout(() => {
-            if (isMounted) {
-              fetchProfile(session.user.id);
-            }
-          }, 0);
+          // Buscar perfil apenas se não estiver já carregando
+          if (!profileLoading) {
+            setTimeout(() => {
+              if (isMounted) {
+                fetchProfile(session.user.id);
+              }
+            }, 100);
+          }
         } else {
           setUser(null);
           setProfile(null);
@@ -78,7 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               if (isMounted) {
                 fetchProfile(session.user.id);
               }
-            }, 0);
+            }, 100);
           }
         } else {
           console.log('No existing session found');
@@ -102,8 +104,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const fetchProfile = async (userId: string) => {
+    if (profileLoading) return; // Evitar múltiplas chamadas
+    
     try {
+      setProfileLoading(true);
       console.log('Fetching profile for user:', userId);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -137,6 +143,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               
               if (newProfile) {
                 setProfile(newProfile);
+                console.log('Profile created and fetched successfully:', newProfile);
               }
             }
           }
@@ -148,6 +155,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setProfile(data);
     } catch (error) {
       console.error('Exception fetching profile:', error);
+    } finally {
+      setProfileLoading(false);
     }
   };
 
