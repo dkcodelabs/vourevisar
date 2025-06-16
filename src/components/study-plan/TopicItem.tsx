@@ -1,16 +1,9 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
 import { Topic } from '@/types';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { BookOpen } from 'lucide-react';
-import { Clock } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { isBefore, isToday, startOfDay } from 'date-fns';
-import { useState } from "react";
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface TopicItemProps {
   topic: Topic;
@@ -28,6 +21,13 @@ const TopicItem: React.FC<TopicItemProps> = ({
   onCancelTopicReview
 }) => {
   const getTopicReviewStage = (topic: Topic) => {
+    // Log para debug
+    console.log(`🔍 Tópico "${topic.name}":`, {
+      reviewStage: topic.reviewStage,
+      reviewCount: topic.reviewCount,
+      completed: topic.completed
+    });
+    
     // Se não tem review_stage definido e nunca foi revisado, é "Não Iniciado"
     if (!topic.reviewStage && topic.reviewCount === 0) {
       return "Não Iniciado";
@@ -58,10 +58,6 @@ const TopicItem: React.FC<TopicItemProps> = ({
     console.log('Canceling topic review:', topic.id, subjectId);
     onCancelTopicReview(subjectId, topic.id);
   };
-
-  const isNovo = !topic.reviewStage && topic.reviewCount === 0;
-  const isEmRevisao = !!topic.reviewStage && topic.reviewStage !== 'Concluído';
-  const isConcluido = topic.reviewStage === 'Concluído';
 
   return (
     <motion.div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 rounded bg-white/60">

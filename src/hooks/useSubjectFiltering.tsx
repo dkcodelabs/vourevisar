@@ -89,13 +89,45 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
     return cicloAtualEmpty && disciplinasDoDiaEmpty;
   }, [userCycle, nextSubjects.length]);
 
-  // Verificações de estado atualizadas
-  const allTopicsInReview = subjects.length > 0 && 
-    subjects.some(s => s.topics && s.topics.some(t => t.review_count > 0)) &&
-    dailySubjects.length === 0 && 
-    nextSubjects.length === 0 &&
-    userCycle && userCycle.ciclo_atual.length > 0 &&
-    !isCycleCompleted;
+  // CORRIGIDO: Verificação mais rigorosa para "allTopicsInReview"
+  const allTopicsInReview = useMemo(() => {
+    if (subjects.length === 0) return false;
+    
+    // Primeiro, verificar se existem matérias com tópicos
+    const subjectsWithTopics = subjects.filter(s => s.topics && s.topics.length > 0);
+    if (subjectsWithTopics.length === 0) return false;
+    
+    // Verificar se TODOS os tópicos não concluídos já iniciaram revisão (review_count > 0)
+    const allUnfinishedTopicsInReview = subjectsWithTopics.every(subject => {
+      if (subject.status === 'Concluída') return true; // Matérias concluídas não contam
+      
+      const unfinishedTopics = subject.topics.filter(t => !t.completed && t.review_stage !== 'Concluído');
+      if (unfinishedTopics.length === 0) return true; // Se não há tópicos não concluídos, está ok
+      
+      // TODOS os tópicos não concluídos devem ter iniciado revisão
+      return unfinishedTopics.every(t => t.review_count > 0);
+    });
+    
+    // Deve ter pelo menos um tópico em revisão E não ter matérias para estudar hoje
+    const hasTopicsInReview = subjects.some(s => 
+      s.topics && s.topics.some(t => t.review_count > 0 && !t.completed)
+    );
+    
+    console.log('🔍 Verificando allTopicsInReview:', {
+      subjectsWithTopics: subjectsWithTopics.length,
+      allUnfinishedTopicsInReview,
+      hasTopicsInReview,
+      dailySubjectsLength: dailySubjects.length,
+      nextSubjectsLength: nextSubjects.length,
+      result: allUnfinishedTopicsInReview && hasTopicsInReview && dailySubjects.length === 0 && nextSubjects.length === 0
+    });
+    
+    return allUnfinishedTopicsInReview && 
+           hasTopicsInReview && 
+           dailySubjects.length === 0 && 
+           nextSubjects.length === 0 &&
+           !isCycleCompleted;
+  }, [subjects, dailySubjects.length, nextSubjects.length, isCycleCompleted]);
 
   const allDaySubjectsCompleted = userCycle && 
     userCycle.disciplinas_do_dia.length === 0 &&
