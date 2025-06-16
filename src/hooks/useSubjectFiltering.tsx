@@ -101,7 +101,7 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
     const allUnfinishedTopicsInReview = subjectsWithTopics.every(subject => {
       if (subject.status === 'Concluída') return true; // Matérias concluídas não contam
       
-      const unfinishedTopics = subject.topics.filter(t => !t.completed && t.review_stage !== 'Concluído');
+      const unfinishedTopics = subject.topics.filter(t => !t.completed && t.reviewStage !== 'Concluído');
       if (unfinishedTopics.length === 0) return true; // Se não há tópicos não concluídos, está ok
       
       // TODOS os tópicos não concluídos devem ter iniciado revisão
