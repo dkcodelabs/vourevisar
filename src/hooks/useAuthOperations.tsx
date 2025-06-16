@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -81,12 +82,13 @@ export function useAuthOperations() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
-      // Get the current origin from window.location
+      console.log("Iniciando login com Google...");
+      
+      // Usar o domínio atual para callback
       const currentOrigin = window.location.origin;
       const redirectUrl = `${currentOrigin}/auth/callback`;
       
-      console.log("Initiating Google sign-in with redirect URL:", redirectUrl);
-      console.log("Current origin:", currentOrigin);
+      console.log("Redirect URL:", redirectUrl);
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -94,21 +96,21 @@ export function useAuthOperations() {
           redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
-            prompt: 'select_account'
+            prompt: 'consent'
           }
         }
       });
       
       if (error) {
-        console.error("Google login error:", error);
+        console.error("Erro no login com Google:", error);
         throw error;
       }
       
-      console.log("Google sign-in initiated successfully");
+      console.log("Login com Google iniciado com sucesso");
       return data;
     } catch (error: any) {
-      console.error("Google sign-in error:", error);
-      toast.error('Erro ao fazer login com Google. Verifique se o domínio está configurado corretamente no Supabase.');
+      console.error("Erro no login com Google:", error);
+      toast.error('Erro ao fazer login com Google. Verifique as configurações OAuth.');
       throw error;
     } finally {
       setLoading(false);
@@ -216,28 +218,6 @@ export function useAuthOperations() {
     }
   };
 
-  const addSubject = async (userId: string, subjectData: any) => {
-    setLoading(true);
-    try {
-      // Buscar perfil do usuário
-      const { data: userSettings } = await supabase
-        .from('user_settings')
-        .select('review_profile')
-        .eq('user_id', userId)
-        .single();
-      if (!userSettings?.review_profile) {
-        throw new Error('Você precisa definir um perfil de revisão antes de adicionar matérias.');
-      }
-      // ... restante da lógica de inserção
-    } catch (error: any) {
-      console.error('Error adding subject:', error);
-      toast.error('Erro ao adicionar matéria');
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return {
     loading,
     signIn,
@@ -246,7 +226,6 @@ export function useAuthOperations() {
     signOut,
     resetPassword,
     updatePassword,
-    updateProfile,
-    addSubject
+    updateProfile
   };
 }

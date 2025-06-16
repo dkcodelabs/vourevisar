@@ -13,55 +13,73 @@ export function AuthCallback() {
       try {
         console.log('Processando callback de autenticação...');
         
-        // Primeiro verificar se já há uma sessão ativa
+        // Verificar parâmetros da URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+        const authCode = urlParams.get('code');
+        
+        console.log('Parâmetros da URL:', { error, errorDescription, authCode });
+        
+        // Se há erro nos parâmetros, exibir e redirecionar
+        if (error) {
+          console.error('Erro OAuth:', error, errorDescription);
+          let errorMessage = 'Erro na autenticação';
+          
+          if (error === 'access_denied') {
+            errorMessage = 'Acesso negado pelo usuário';
+          } else if (error === 'invalid_request') {
+            errorMessage = 'Configuração OAuth inválida. Verifique as configurações no Google Cloud Console.';
+          } else if (errorDescription) {
+            errorMessage = errorDescription;
+          }
+          
+          toast.error(errorMessage);
+          setRedirectPath('/login');
+          return;
+        }
+
+        // Verificar se já há uma sessão ativa
         const { data: { session: existingSession } } = await supabase.auth.getSession();
         
         if (existingSession) {
-          console.log('Sessão já ativa encontrada, redirecionando...');
+          console.log('Sessão já ativa encontrada');
           toast.success('Login realizado com sucesso!');
           setRedirectPath('/');
           return;
         }
 
-        // Verificar se há código de autorização nos parâmetros da URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const authCode = urlParams.get('code');
-        const error = urlParams.get('error');
-        const errorDescription = urlParams.get('error_description');
-        
-        if (error) {
-          console.error('Erro OAuth:', error, errorDescription);
-          toast.error('Erro na autenticação: ' + (errorDescription || error));
-          setRedirectPath('/login');
-          return;
-        }
-        
+        // Se há código de autorização, aguardar processamento automático do Supabase
         if (authCode) {
-          console.log('Código de autorização encontrado, aguardando processamento automático...');
+          console.log('Código de autorização encontrado, aguardando processamento...');
           
-          // Aguardar um pouco para o Supabase processar automaticamente
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Aguardar processamento automático
+          let attempts = 0;
+          const maxAttempts = 10;
           
-          // Verificar novamente se a sessão foi estabelecida
-          const { data: { session: newSession } } = await supabase.auth.getSession();
-          
-          if (newSession) {
-            console.log('Sessão estabelecida com sucesso');
-            toast.success('Login realizado com sucesso!');
-            setRedirectPath('/');
-          } else {
-            console.log('Sessão não estabelecida, redirecionando para login');
-            toast.error('Erro na autenticação. Tente novamente.');
-            setRedirectPath('/login');
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            const { data: { session: newSession } } = await supabase.auth.getSession();
+            
+            if (newSession) {
+              console.log('Sessão estabelecida com sucesso');
+              toast.success('Login realizado com sucesso!');
+              setRedirectPath('/');
+              return;
+            }
+            
+            attempts++;
           }
-        } else {
-          console.log('Nenhum código de autorização encontrado, redirecionando para login');
+          
+          // Se não conseguiu estabelecer sessão após tentativas
+          console.log('Não foi possível estabelecer sessão');
+          toast.error('Erro na autenticação. Tente novamente.');
           setRedirectPath('/login');
-        }
-        
-        // Limpar a URL removendo parâmetros de consulta
-        if (window.location.search) {
-          window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+          // Sem código de autorização
+          console.log('Nenhum código de autorização encontrado');
+          setRedirectPath('/login');
         }
         
       } catch (err) {
@@ -70,6 +88,11 @@ export function AuthCallback() {
         setRedirectPath('/login');
       } finally {
         setLoading(false);
+        
+        // Limpar a URL
+        if (window.location.search) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
       }
     };
 
