@@ -70,7 +70,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
           <TableRow>
             <TableHead>Disciplina</TableHead>
             <TableHead>Tópico</TableHead>
-            <TableHead>Estágio</TableHead>
+            <TableHead>{tab === 'concluido' ? 'Status' : 'Estágio'}</TableHead>
             {tab === 'concluido' ? (
               <>
                 <TableHead>Data de Início</TableHead>
@@ -169,7 +169,9 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                                                   review_count: (t.review_count || 0) + 1,
                                                   review_stage: t.review_count === 0 ? '24h' : 
                                                                t.review_count === 1 ? '7 dias' : 
-                                                               t.review_count === 2 ? '30 dias' : 'Concluído'
+                                                               t.review_count === 2 ? '30 dias' : 'Concluído',
+                                                  last_reviewed_at: new Date().toISOString(),
+                                                  first_studied_at: t.first_studied_at || new Date().toISOString()
                                                 }
                                               : t
                                           )

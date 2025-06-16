@@ -19,8 +19,10 @@ export const useTopicOperations = (
           name: topicData.name,
           completed: false,
           review_count: 0,
-          review_stage: '24h',
-          next_review: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          review_stage: null,
+          next_review: null,
+          first_studied_at: null,
+          last_reviewed_at: null
         });
 
       if (error) throw error;
@@ -37,16 +39,25 @@ export const useTopicOperations = (
 
   const updateTopic = async (subjectId: string, topicId: string, updates: Partial<Topic>) => {
     try {
+      const updateData: any = {
+        name: updates.name,
+        completed: updates.completed,
+        review_count: updates.reviewCount || updates.review_count,
+        review_stage: updates.reviewStage,
+        next_review: updates.nextReview?.toISOString(),
+      };
+
+      // Só atualizar as datas se foram fornecidas
+      if (updates.lastReviewedAt) {
+        updateData.last_reviewed_at = updates.lastReviewedAt.toISOString();
+      }
+      if (updates.firstStudiedAt) {
+        updateData.first_studied_at = updates.firstStudiedAt.toISOString();
+      }
+
       const { error } = await supabase
         .from('topics')
-        .update({
-          name: updates.name,
-          completed: updates.completed,
-          review_count: updates.reviewCount || updates.review_count,
-          review_stage: updates.reviewStage,
-          next_review: updates.nextReview?.toISOString(),
-          last_reviewed_at: updates.lastReviewedAt?.toISOString()
-        })
+        .update(updateData)
         .eq('id', topicId);
 
       if (error) throw error;

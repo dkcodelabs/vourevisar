@@ -1,150 +1,127 @@
 
-import { useState, useEffect } from 'react';
-import { useApp } from '@/contexts/AppContext';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { syncSubjectStatus } from '@/utils/studiesCompletionChecker';
+import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useCycleManagement } from './useCycleManagement';
-import { useTopicActions } from './useTopicActions';
-import { useStudySession } from './useStudySession';
-import { useSubjectFiltering } from './useSubjectFiltering';
+import { toast } from 'sonner';
+import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 
 export const useStudyPlanLogic = () => {
-  const { subjects, isLoading: isAppLoading, refreshData } = useApp();
   const { user } = useAuth();
-  const [userSettings, setUserSettings] = useState<{ subjects_per_day: number } | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
+  const { refreshData } = useApp();
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load user settings with immediate fallback
-  useEffect(() => {
-    const fetchUserSettings = async () => {
-      if (!user) return;
+  const markTopicAsReviewed = async (topicId: string) => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      console.log('🔵 markTopicAsReviewed iniciado para topicId:', topicId);
 
-      setUserSettings({ subjects_per_day: 3 });
+      // Buscar o tópico atual
+      const { data: topic, error: topicError } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('id', topicId)
+        .single();
 
-      try {
-        const { data, error } = await supabase
-          .from('user_settings')
-          .select('subjects_per_day')
-          .eq('user_id', user.id)
-          .single();
+      if (topicError) throw topicError;
+      if (!topic) throw new Error('Tópico não encontrado');
 
-        if (!error && data) {
-          setUserSettings(data);
-        }
-      } catch (error) {
-        console.error('Error fetching user settings:', error);
+      console.log('🔵 Tópico encontrado:', topic);
+
+      // Buscar configurações do usuário
+      const { data: settings, error: settingsError } = await supabase
+        .from('user_settings')
+        .select('review_profile')
+        .eq('user_id', user.id)
+        .single();
+
+      if (settingsError) throw settingsError;
+
+      const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
+      const { intervals } = REVIEW_PROFILES[profile];
+
+      let newReviewCount = topic.review_count + 1;
+      let reviewStage;
+      let nextReview = null;
+      let completed = false;
+
+      // Calcular próximo estágio de revisão
+      if (newReviewCount <= intervals.length) {
+        const nextInterval = intervals[newReviewCount - 1];
+        reviewStage = nextInterval === 1 ? '24h' : `${nextInterval}d`;
+        const nextReviewDate = new Date();
+        nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
+        nextReview = nextReviewDate.toISOString();
+      } else {
+        reviewStage = 'Concluído';
+        nextReview = null;
+        completed = true;
       }
-    };
 
-    fetchUserSettings();
-  }, [user]);
+      // Preparar dados para atualização
+      const now = new Date().toISOString();
+      const updateData: any = {
+        review_count: newReviewCount,
+        next_review: nextReview,
+        review_stage: reviewStage,
+        completed,
+        last_reviewed_at: now
+      };
 
-  // Usar os hooks especializados
-  const cycleManagement = useCycleManagement(subjects, userSettings);
-  const topicActions = useTopicActions();
-  const studySession = useStudySession();
-  const subjectFiltering = useSubjectFiltering(subjects, cycleManagement.userCycle, userSettings);
+      // Se é a primeira revisão, definir first_studied_at
+      if (topic.review_count === 0 || !topic.first_studied_at) {
+        updateData.first_studied_at = now;
+        console.log('🔵 Primeira revisão - definindo first_studied_at:', now);
+      }
 
-  // Verificar se deve iniciar novo ciclo automaticamente após carregar dados
-  useEffect(() => {
-    if (isInitialized && cycleManagement.userCycle && userSettings && !cycleManagement.isStartingNewCycle) {
-      cycleManagement.autoStartNewCycle();
+      console.log('🔵 Dados para atualização:', updateData);
+
+      // Atualizar o tópico no banco
+      const { error: updateError } = await supabase
+        .from('topics')
+        .update(updateData)
+        .eq('id', topicId);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ Tópico atualizado com sucesso');
+
+      // Verificar se todas as revisões da matéria foram concluídas
+      const { data: allTopicsOfSubject, error: allTopicsError } = await supabase
+        .from('topics')
+        .select('id, completed')
+        .eq('subject_id', topic.subject_id);
+
+      if (allTopicsError) throw allTopicsError;
+
+      if (allTopicsOfSubject && allTopicsOfSubject.length > 0) {
+        const allCompleted = allTopicsOfSubject.every(t => t.completed);
+        
+        if (allCompleted) {
+          console.log('🔵 Todas as revisões da matéria concluídas, atualizando status da matéria');
+          await supabase
+            .from('subjects')
+            .update({ status: 'Concluída' })
+            .eq('id', topic.subject_id);
+        }
+      }
+
+      await refreshData();
+      toast.success('Revisão registrada com sucesso!');
+      
+    } catch (error) {
+      console.error('❌ Erro ao marcar tópico como revisado:', error);
+      toast.error('Erro ao registrar revisão');
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-  }, [isInitialized, cycleManagement.userCycle, userSettings, cycleManagement.isStartingNewCycle, cycleManagement.autoStartNewCycle]);
-
-  // Marcar como inicializado quando ciclo carregar
-  useEffect(() => {
-    if (!cycleManagement.isCycleLoading) {
-      setIsInitialized(true);
-    }
-  }, [cycleManagement.isCycleLoading]);
-
-  // Sincronização periódica dos status das matérias
-  useEffect(() => {
-    if (subjects.length > 0 && cycleManagement.userCycle) {
-      syncSubjectStatus(subjects);
-    }
-  }, [subjects, cycleManagement.userCycle]);
-
-  // Verificação de estudos completos
-  useEffect(() => {
-    if (subjectFiltering.allStudiesCompleted) {
-      setTimeout(() => refreshData(), 1000);
-    }
-  }, [subjectFiltering.allStudiesCompleted, refreshData]);
-
-  const isLoading = isAppLoading || cycleManagement.isStartingNewCycle;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.success("Funcionalidade temporariamente desabilitada");
-    setIsAdding(false);
   };
-
-  // Adaptar as funções para usar os novos hooks
-  const handleNextDay = () => studySession.handleNextDay(
-    cycleManagement.userCycle!, 
-    cycleManagement.setUserCycle, 
-    cycleManagement.setShowNewCycleMessage, 
-    () => {}
-  );
-
-  const handleCompleteSession = (subjectId: string) => {
-    studySession.handleCompleteSession(
-      subjectId, 
-      cycleManagement.userCycle!, 
-      topicActions.tempMarkedTopics, 
-      cycleManagement.setUserCycle, 
-      topicActions.setTempMarkedTopics
-    );
-    studySession.setExpandedSubject('');
-  };
-
-  const markTopicAsReviewed = (topicId: string) => topicActions.markTopicAsReviewed(topicId, subjects);
-
-  console.log('🎯 useStudyPlanLogic - Estado final:', {
-    allStudiesCompleted: subjectFiltering.allStudiesCompleted,
-    allDaySubjectsCompleted: subjectFiltering.allDaySubjectsCompleted,
-    allTopicsInReview: subjectFiltering.allTopicsInReview,
-    dailySubjectsLength: subjectFiltering.dailySubjects.length,
-    nextSubjectsLength: subjectFiltering.nextSubjects.length,
-    isCycleLoading: cycleManagement.isCycleLoading
-  });
 
   return {
-    isLoading,
-    expandedSubject: studySession.expandedSubject,
-    tempMarkedTopics: topicActions.tempMarkedTopics,
-    showNewCycleMessage: cycleManagement.showNewCycleMessage,
-    userCycle: cycleManagement.userCycle,
-    dailySubjects: subjectFiltering.dailySubjects,
-    nextSubjects: subjectFiltering.nextSubjects,
-    allDaySubjectsCompleted: subjectFiltering.allDaySubjectsCompleted,
-    hasAvailableSubjects: subjectFiltering.hasAvailableSubjects,
-    totalDisciplinasCiclo: subjectFiltering.totalDisciplinasCiclo,
-    disciplinasConcluidas: subjectFiltering.disciplinasConcluidas,
-    isNewCycleStarted: subjectFiltering.isNewCycleStarted,
-    allStudiesCompleted: subjectFiltering.allStudiesCompleted,
-    handleNextDay,
-    handleCompleteSession,
-    handleToggleExpand: studySession.handleToggleExpand,
-    handleMarkTopicForReview: topicActions.handleMarkTopicForReview,
-    handleCancelTopicReview: topicActions.handleCancelTopicReview,
-    handleHideNewCycleMessage: cycleManagement.handleHideNewCycleMessage,
-    disciplinasIniciadas: subjectFiltering.disciplinasIniciadas,
-    disciplinasNaoIniciadas: subjectFiltering.disciplinasNaoIniciadas,
-    disciplinasIniciadasCiclo: subjectFiltering.disciplinasIniciadasCiclo,
-    isCycleCompleted: cycleManagement.isCycleCompleted,
-    handleStartNewCycle: cycleManagement.handleStartNewCycle,
-    isAdding,
-    handleSubmit,
-    isNextDayLoading: studySession.isNextDayLoading,
-    isCycleLoading: cycleManagement.isCycleLoading,
-    showNewCycleStarted: cycleManagement.showNewCycleStarted,
     markTopicAsReviewed,
-    allTopicsInReview: subjectFiltering.allTopicsInReview
+    isLoading
   };
 };
