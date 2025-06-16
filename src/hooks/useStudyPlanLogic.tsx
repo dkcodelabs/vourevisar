@@ -110,7 +110,8 @@ export const useStudyPlanLogic = () => {
     allDaySubjectsCompleted: subjectFiltering.allDaySubjectsCompleted,
     allTopicsInReview: subjectFiltering.allTopicsInReview,
     dailySubjectsLength: subjectFiltering.dailySubjects.length,
-    nextSubjectsLength: subjectFiltering.nextSubjects.length
+    nextSubjectsLength: subjectFiltering.nextSubjects.length,
+    isCycleLoading: cycleManagement.isCycleLoading
   });
 
   return {

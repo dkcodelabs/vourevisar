@@ -10,6 +10,7 @@ import CycleCompletedMessage from './CycleCompletedMessage';
 import DayCompletedMessage from './DayCompletedMessage';
 import StudyPlanEmptyState from './StudyPlanEmptyState';
 import StudyPlanMainView from './StudyPlanMainView';
+import StudyPlanLoadingState from './StudyPlanLoadingState';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import { useApp } from '@/contexts/AppContext';
 
@@ -37,7 +38,7 @@ const itemVariants = {
 
 const StudyPlanContent = () => {
   const navigate = useNavigate();
-  const { subjects } = useApp();
+  const { subjects, isLoading: isAppLoading } = useApp();
   
   const {
     expandedSubject,
@@ -63,10 +64,13 @@ const StudyPlanContent = () => {
     handleStartNewCycle,
     isNextDayLoading,
     showNewCycleStarted,
-    allTopicsInReview
+    allTopicsInReview,
+    isCycleLoading
   } = useStudyPlanLogic();
 
   console.log('📊 StudyPlan render - Estado detalhado:', {
+    isAppLoading,
+    isCycleLoading,
     allDaySubjectsCompleted,
     hasAvailableSubjects,
     dailySubjectsLength: dailySubjects.length,
@@ -89,6 +93,11 @@ const StudyPlanContent = () => {
     dailySubjects: dailySubjects.map(s => s.name),
     nextSubjects: nextSubjects.map(s => s.name)
   });
+
+  // Mostrar loading enquanto dados estão carregando
+  if (isAppLoading || isCycleLoading || !userCycle) {
+    return <StudyPlanLoadingState />;
+  }
 
   const hasSubjects = dailySubjects.length > 0 || nextSubjects.length > 0;
   const hasTopics = subjects.some(s => s.topics && s.topics.length > 0);
