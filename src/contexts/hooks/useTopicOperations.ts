@@ -48,11 +48,11 @@ export const useTopicOperations = (
       };
 
       // Só atualizar as datas se foram fornecidas
-      if (updates.lastReviewedAt) {
-        updateData.last_reviewed_at = updates.lastReviewedAt.toISOString();
+      if (updates.lastReviewedAt || updates.last_reviewed_at) {
+        updateData.last_reviewed_at = (updates.lastReviewedAt || updates.last_reviewed_at)?.toISOString();
       }
-      if (updates.firstStudiedAt) {
-        updateData.first_studied_at = updates.firstStudiedAt.toISOString();
+      if (updates.firstStudiedAt || updates.first_studied_at) {
+        updateData.first_studied_at = (updates.firstStudiedAt || updates.first_studied_at)?.toISOString();
       }
 
       const { error } = await supabase

@@ -5,11 +5,59 @@ import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
+import { useCycleManagement } from './useCycleManagement';
+import { useSubjectFiltering } from './useSubjectFiltering';
+import { useStudySession } from './useStudySession';
+import { useTopicActions } from './useTopicActions';
 
 export const useStudyPlanLogic = () => {
   const { user } = useAuth();
-  const { refreshData } = useApp();
+  const { subjects, refreshData, userSettings } = useApp();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Usar os hooks compostos
+  const {
+    userCycle,
+    setUserCycle,
+    isCycleCompleted,
+    isStartingNewCycle,
+    isCycleLoading,
+    showNewCycleMessage,
+    setShowNewCycleMessage,
+    showNewCycleStarted,
+    handleStartNewCycle,
+    handleHideNewCycleMessage
+  } = useCycleManagement(subjects, userSettings);
+
+  const {
+    disciplinasIniciadas,
+    disciplinasNaoIniciadas,
+    hasAvailableSubjects,
+    totalDisciplinasCiclo,
+    disciplinasConcluidas,
+    disciplinasIniciadasCiclo,
+    dailySubjects,
+    nextSubjects,
+    allDaySubjectsCompleted,
+    allStudiesCompleted,
+    allTopicsInReview
+  } = useSubjectFiltering(subjects, userCycle, userSettings);
+
+  const {
+    expandedSubject,
+    setExpandedSubject,
+    isNextDayLoading,
+    handleNextDay,
+    handleCompleteSession: baseHandleCompleteSession,
+    handleToggleExpand
+  } = useStudySession();
+
+  const {
+    tempMarkedTopics,
+    setTempMarkedTopics,
+    handleMarkTopicForReview,
+    handleCancelTopicReview
+  } = useTopicActions();
 
   const markTopicAsReviewed = async (topicId: string) => {
     if (!user) return;
@@ -120,7 +168,42 @@ export const useStudyPlanLogic = () => {
     }
   };
 
+  const handleCompleteSession = (subjectId: string) => {
+    return baseHandleCompleteSession(
+      subjectId,
+      userCycle!,
+      tempMarkedTopics,
+      setUserCycle,
+      setTempMarkedTopics
+    );
+  };
+
   return {
+    expandedSubject,
+    tempMarkedTopics,
+    showNewCycleMessage,
+    userCycle,
+    dailySubjects,
+    nextSubjects,
+    allDaySubjectsCompleted,
+    hasAvailableSubjects,
+    totalDisciplinasCiclo,
+    disciplinasConcluidas,
+    allStudiesCompleted,
+    handleNextDay,
+    handleCompleteSession,
+    handleToggleExpand,
+    handleMarkTopicForReview,
+    handleCancelTopicReview,
+    disciplinasIniciadas,
+    disciplinasNaoIniciadas,
+    disciplinasIniciadasCiclo,
+    isCycleCompleted,
+    handleStartNewCycle,
+    isNextDayLoading,
+    showNewCycleStarted,
+    allTopicsInReview,
+    isCycleLoading,
     markTopicAsReviewed,
     isLoading
   };
