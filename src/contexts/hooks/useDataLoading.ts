@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject, StudyProgress } from '@/types';
-import { transformSubjectData, calculateStudyProgress } from '../utils/dataTransformers';
+import { transformSubjectsData, calculateProgress } from '../utils/dataTransformers';
 
 export const useDataLoading = (
   user: any,
@@ -52,8 +52,8 @@ export const useDataLoading = (
         console.error('❌ loadSubjects - Error loading user settings:', settingsError);
       }
 
-      const transformedSubjects = transformSubjectData(subjectsData || []);
-      const progress = calculateStudyProgress(transformedSubjects);
+      const transformedSubjects = transformSubjectsData(subjectsData || []);
+      const progress = calculateProgress(transformedSubjects);
 
       setSubjects(transformedSubjects);
       setStudyProgress(progress);
