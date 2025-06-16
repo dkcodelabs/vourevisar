@@ -134,6 +134,7 @@ const StudyPlan = () => {
     dailySubjectsLength: dailySubjects.length,
     nextSubjectsLength: nextSubjects.length,
     isCycleCompleted,
+    allTopicsInReview,
     userCycle: userCycle ? {
       disciplinas_do_dia: userCycle.disciplinas_do_dia,
       ciclo_atual: userCycle.ciclo_atual,
@@ -148,8 +149,7 @@ const StudyPlan = () => {
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     dailySubjects: dailySubjects.map(s => s.name),
-    nextSubjects: nextSubjects.map(s => s.name),
-    allTopicsInReview
+    nextSubjects: nextSubjects.map(s => s.name)
   });
 
   const hasSubjects = dailySubjects.length > 0 || nextSubjects.length > 0;
@@ -169,18 +169,18 @@ const StudyPlan = () => {
         {/* NOVO: Mensagem discreta de novo ciclo iniciado no topo */}
         <NewCycleMessage isVisible={showNewCycleStarted} onHide={() => {}} />
         
-        {/* PRIORIDADE 1: Verificar estados principais */}
+        {/* PRIORIDADE 1: Verificar estados principais - ORDEM CORRIGIDA */}
         {allStudiesCompleted ? (
           <motion.div variants={itemVariants}>
             <AllStudiesCompletedMessage />
           </motion.div>
-        ) : isCycleCompleted ? (
-          <motion.div variants={itemVariants}>
-            <CycleCompletedMessage onStartNewCycle={handleStartNewCycle} />
-          </motion.div>
         ) : allTopicsInReview ? (
           <motion.div variants={itemVariants}>
             <AllTopicsInReviewMessage />
+          </motion.div>
+        ) : isCycleCompleted ? (
+          <motion.div variants={itemVariants}>
+            <CycleCompletedMessage onStartNewCycle={handleStartNewCycle} />
           </motion.div>
         ) : !hasAvailableSubjects ? (
           <motion.div variants={itemVariants}>
@@ -279,8 +279,8 @@ const StudyPlan = () => {
           </div>
         )}
 
-        {/* Mostrar próximas matérias somente se não for ciclo completo */}
-        {nextSubjects.length > 0 && !allDaySubjectsCompleted && !isCycleCompleted && dailySubjects.length > 0 && (
+        {/* Mostrar próximas matérias somente se não for ciclo completo e não for allTopicsInReview */}
+        {nextSubjects.length > 0 && !allDaySubjectsCompleted && !isCycleCompleted && !allTopicsInReview && dailySubjects.length > 0 && (
           <motion.div variants={itemVariants}>
             <NextSubjects nextSubjects={nextSubjects} />
           </motion.div>

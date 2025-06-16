@@ -11,6 +11,45 @@ export const useCycleStatus = (
 ) => {
   const allStudiesCompleted = subjects.length > 0 ? checkAllStudiesCompleted(subjects) : false;
 
+  // CORRIGIDO: Detectar quando todos os tópicos disponíveis estão em revisão
+  const allTopicsInReview = useMemo(() => {
+    if (subjects.length === 0) return false;
+    
+    console.log('🔍 Verificando allTopicsInReview - análise completa:', {
+      totalSubjects: subjects.length
+    });
+    
+    // Verificar se existem matérias com tópicos não revisados (review_count === 0)
+    const subjectsWithUnreviewedTopics = subjects.filter(subject => {
+      if (subject.status === 'Concluída') return false;
+      if (!subject.topics || subject.topics.length === 0) return false;
+      return subject.topics.some(topic => topic.review_count === 0);
+    });
+
+    console.log('🔍 Matérias com tópicos NÃO REVISADOS:', {
+      count: subjectsWithUnreviewedTopics.length,
+      subjects: subjectsWithUnreviewedTopics.map(s => s.name)
+    });
+
+    // Se NÃO há matérias com tópicos não revisados, significa que todos os tópicos estão em revisão
+    const allTopicsStartedReview = subjectsWithUnreviewedTopics.length === 0;
+    
+    // Verificar se há pelo menos um tópico em revisão
+    const hasTopicsInReview = subjects.some(s => 
+      s.topics && s.topics.some(t => t.review_count > 0 && !t.completed)
+    );
+    
+    console.log('🔍 Estado final allTopicsInReview:', {
+      allTopicsStartedReview,
+      hasTopicsInReview,
+      dailySubjectsLength,
+      nextSubjectsLength,
+      result: allTopicsStartedReview && hasTopicsInReview && dailySubjectsLength === 0 && nextSubjectsLength === 0
+    });
+    
+    return allTopicsStartedReview && hasTopicsInReview && dailySubjectsLength === 0 && nextSubjectsLength === 0;
+  }, [subjects, dailySubjectsLength, nextSubjectsLength]);
+
   // CORRIGIDO: Detectar quando o ciclo foi completamente concluído
   const isCycleCompleted = useMemo(() => {
     if (!userCycle) return false;
@@ -22,100 +61,84 @@ export const useCycleStatus = (
       nextSubjectsLength: nextSubjectsLength
     });
 
-    // Verificar se existem matérias disponíveis com tópicos não revisados (GLOBALMENTE)
-    const availableSubjectsWithUnreviewedTopics = subjects.filter(subject => {
+    // Verificar se existem matérias disponíveis com tópicos não revisados no ciclo atual
+    const availableSubjectsInCurrentCycle = userCycle.ciclo_atual?.filter(id => {
+      const subject = subjects.find(s => s.id === id);
+      if (!subject || subject.status === 'Concluída') return false;
+      if (!subject.topics || subject.topics.length === 0) return false;
+      return subject.topics.some(topic => topic.review_count === 0);
+    }) || [];
+
+    console.log('🔍 Matérias disponíveis no ciclo atual:', {
+      count: availableSubjectsInCurrentCycle.length,
+      subjects: availableSubjectsInCurrentCycle.map(id => {
+        const subject = subjects.find(s => s.id === id);
+        return subject?.name || id;
+      })
+    });
+
+    // Verificar se existem matérias FORA do ciclo atual que ainda podem ser estudadas
+    const availableSubjectsOutsideCycle = subjects.filter(subject => {
       if (subject.status === 'Concluída') return false;
       if (!subject.topics || subject.topics.length === 0) return false;
+      if (userCycle.ciclo_atual?.includes(subject.id)) return false; // Não está no ciclo atual
       return subject.topics.some(topic => topic.review_count === 0);
     });
 
-    console.log('🔍 Matérias disponíveis com tópicos não revisados:', {
-      count: availableSubjectsWithUnreviewedTopics.length,
-      subjects: availableSubjectsWithUnreviewedTopics.map(s => s.name)
+    console.log('🔍 Matérias disponíveis FORA do ciclo atual:', {
+      count: availableSubjectsOutsideCycle.length,
+      subjects: availableSubjectsOutsideCycle.map(s => s.name)
     });
 
-    // CORRIGIDO: Ciclo está completo apenas se NÃO há matérias disponíveis para estudar
     const hasNoCurrentSubjects = dailySubjectsLength === 0 && nextSubjectsLength === 0;
-    const hasNoSubjectsToStudy = availableSubjectsWithUnreviewedTopics.length === 0;
+    const hasNoSubjectsInCurrentCycle = availableSubjectsInCurrentCycle.length === 0;
+    const hasSubjectsForNewCycle = availableSubjectsOutsideCycle.length > 0;
     
-    const cycleCompleted = hasNoCurrentSubjects && hasNoSubjectsToStudy;
+    // Ciclo está completo se:
+    // 1. Não há matérias para estudar hoje/próximas E
+    // 2. Não há mais matérias disponíveis no ciclo atual E
+    // 3. Há matérias disponíveis para um novo ciclo (senão seria allTopicsInReview)
+    const cycleCompleted = hasNoCurrentSubjects && hasNoSubjectsInCurrentCycle && hasSubjectsForNewCycle;
     
     console.log('🔍 Resultado da verificação de ciclo completo:', {
       hasNoCurrentSubjects,
-      hasNoSubjectsToStudy,
+      hasNoSubjectsInCurrentCycle,
+      hasSubjectsForNewCycle,
       cycleCompleted
     });
     
     return cycleCompleted;
   }, [userCycle, dailySubjectsLength, nextSubjectsLength, subjects]);
 
-  // CORRIGIDO: Verificação mais rigorosa para "allTopicsInReview"
-  const allTopicsInReview = useMemo(() => {
-    if (subjects.length === 0) return false;
-    
-    // Primeiro, verificar se existem matérias com tópicos
-    const subjectsWithTopics = subjects.filter(s => s.topics && s.topics.length > 0);
-    if (subjectsWithTopics.length === 0) return false;
-    
-    // Verificar se TODOS os tópicos não concluídos já iniciaram revisão (review_count > 0)
-    const allUnfinishedTopicsInReview = subjectsWithTopics.every(subject => {
-      if (subject.status === 'Concluída') return true; // Matérias concluídas não contam
-      
-      const unfinishedTopics = subject.topics.filter(t => !t.completed && t.reviewStage !== 'Concluído');
-      if (unfinishedTopics.length === 0) return true; // Se não há tópicos não concluídos, está ok
-      
-      // TODOS os tópicos não concluídos devem ter iniciado revisão
-      return unfinishedTopics.every(t => t.review_count > 0);
-    });
-    
-    // Deve ter pelo menos um tópico em revisão E não ter matérias para estudar hoje
-    const hasTopicsInReview = subjects.some(s => 
-      s.topics && s.topics.some(t => t.review_count > 0 && !t.completed)
-    );
-    
-    console.log('🔍 Verificando allTopicsInReview:', {
-      subjectsWithTopics: subjectsWithTopics.length,
-      allUnfinishedTopicsInReview,
-      hasTopicsInReview,
-      dailySubjectsLength: dailySubjectsLength,
-      nextSubjectsLength: nextSubjectsLength,
-      isCycleCompleted,
-      result: allUnfinishedTopicsInReview && hasTopicsInReview && dailySubjectsLength === 0 && nextSubjectsLength === 0 && !isCycleCompleted
-    });
-    
-    // CORRIGIDO: Só mostrar "allTopicsInReview" se NÃO estivermos em um ciclo completo
-    return allUnfinishedTopicsInReview && 
-           hasTopicsInReview && 
-           dailySubjectsLength === 0 && 
-           nextSubjectsLength === 0 &&
-           !isCycleCompleted;
-  }, [subjects, dailySubjectsLength, nextSubjectsLength, isCycleCompleted]);
-
-  // CORRIGIDO: Detectar quando o dia foi concluído mas ainda há matérias disponíveis
+  // CORRIGIDO: Detectar quando o dia foi concluído mas ainda há matérias no ciclo atual
   const allDaySubjectsCompleted = useMemo(() => {
     if (!userCycle) return false;
     
-    // CORRIGIDO: Mostrar botão "Próximo Dia" quando:
-    // 1. Não há matérias para estudar hoje E
-    // 2. Há próximas matérias disponíveis E
-    // 3. Não são todos os estudos completos
-    
+    // Verificar se há matérias disponíveis no ciclo atual
+    const availableSubjectsInCycle = userCycle.ciclo_atual?.filter(id => {
+      const subject = subjects.find(s => s.id === id);
+      if (!subject || subject.status === 'Concluída') return false;
+      if (!subject.topics || subject.topics.length === 0) return false;
+      return subject.topics.some(topic => topic.review_count === 0);
+    }) || [];
+
     const noDailySubjectsNow = dailySubjectsLength === 0;
-    const hasNextSubjects = nextSubjectsLength > 0;
+    const hasAvailableSubjectsInCycle = availableSubjectsInCycle.length > 0;
     
-    console.log('🔍 Verificando allDaySubjectsCompleted - LÓGICA CORRIGIDA:', {
+    console.log('🔍 Verificando allDaySubjectsCompleted - NOVA LÓGICA:', {
       noDailySubjectsNow,
-      hasNextSubjects,
-      allStudiesCompleted,
+      hasAvailableSubjectsInCycle,
       isCycleCompleted,
-      result: noDailySubjectsNow && hasNextSubjects && !allStudiesCompleted && !isCycleCompleted
+      allStudiesCompleted,
+      userCycle_disciplinas_do_dia: userCycle.disciplinas_do_dia,
+      result: noDailySubjectsNow && hasAvailableSubjectsInCycle && !isCycleCompleted && !allStudiesCompleted
     });
     
     return noDailySubjectsNow && 
-           hasNextSubjects && 
-           !allStudiesCompleted &&
-           !isCycleCompleted;
-  }, [userCycle, dailySubjectsLength, nextSubjectsLength, allStudiesCompleted, isCycleCompleted]);
+           hasAvailableSubjectsInCycle && 
+           !isCycleCompleted &&
+           !allStudiesCompleted;
+  }, [userCycle, dailySubjectsLength, subjects, isCycleCompleted, allStudiesCompleted]);
 
   return {
     allStudiesCompleted,
