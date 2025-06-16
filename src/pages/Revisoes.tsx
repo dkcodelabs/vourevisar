@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -135,7 +134,7 @@ const Revisoes = () => {
   const delayedTopics = filteredTopics.filter(t => t.next_review && isBefore(startOfDay(new Date(t.next_review)), hoje) && t.review_stage !== 'Concluído');
   const todayTopics = filteredTopics.filter(t => t.next_review && startOfDay(new Date(t.next_review)).getTime() === hoje.getTime() && t.review_stage !== 'Concluído');
   const futureTopics = filteredTopics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime() && t.review_stage !== 'Concluído');
-  const completedTopics = filteredTopics.filter(t => t.review_stage === 'Concluído' || t.completed);
+  const completedTopics = filteredTopics.filter(t => t.review_stage === 'Concluído');
 
   // Filtrar a tabela conforme a tab selecionada
   let topicsToShow = filteredTopics;
@@ -320,7 +319,7 @@ const Revisoes = () => {
                       let statusClass = 'text-blue-600';
                       
                       // Corrigir lógica de status para mostrar "Revisado" quando concluído
-                      if (topic.review_stage === 'Concluído' || topic.completed) {
+                      if (topic.review_stage === 'Concluído') {
                         status = 'Revisado';
                         statusClass = 'text-green-600 font-bold';
                       } else if (proxima) {
