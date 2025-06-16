@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,34 +81,30 @@ export function useAuthOperations() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
-      // Get the current origin from window.location
-      const currentOrigin = window.location.origin;
-      const redirectUrl = `${currentOrigin}/auth/callback`;
-      
-      console.log("Initiating Google sign-in with redirect URL:", redirectUrl);
-      console.log("Current origin:", currentOrigin);
+      console.log("Iniciando login com Google...");
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account'
-          }
+          },
+          skipBrowserRedirect: false
         }
       });
       
       if (error) {
-        console.error("Google login error:", error);
+        console.error("Erro no login com Google:", error);
         throw error;
       }
       
-      console.log("Google sign-in initiated successfully");
+      console.log("Login com Google iniciado com sucesso");
       return data;
     } catch (error: any) {
-      console.error("Google sign-in error:", error);
-      toast.error('Erro ao fazer login com Google. Verifique se o domínio está configurado corretamente no Supabase.');
+      console.error("Erro no login com Google:", error);
+      toast.error('Erro ao fazer login com Google. Verifique sua conexão e tente novamente.');
       throw error;
     } finally {
       setLoading(false);

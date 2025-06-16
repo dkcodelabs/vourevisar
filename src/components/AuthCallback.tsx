@@ -11,91 +11,89 @@ export function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        console.log('Processing OAuth callback...');
-        console.log('Current URL:', window.location.href);
+        console.log('Processando callback de autenticação...');
+        console.log('URL atual:', window.location.href);
         console.log('Hash:', window.location.hash);
         console.log('Search:', window.location.search);
         
-        // Check for authorization code in URL params (Google OAuth flow)
+        // Verificar se há código de autorização nos parâmetros da URL
         const urlParams = new URLSearchParams(window.location.search);
         const authCode = urlParams.get('code');
         const error = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
         
         if (error) {
-          console.error('OAuth error:', error, errorDescription);
+          console.error('Erro OAuth:', error, errorDescription);
           toast.error('Erro na autenticação: ' + (errorDescription || error));
           setRedirectPath('/login');
           return;
         }
         
         if (authCode) {
-          console.log('Authorization code found, exchanging for session...');
+          console.log('Código de autorização encontrado, trocando por sessão...');
           
-          // Exchange code for session
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(authCode);
           
           if (exchangeError) {
-            console.error('Error exchanging code for session:', exchangeError);
+            console.error('Erro ao trocar código por sessão:', exchangeError);
             toast.error('Erro na autenticação. Tente novamente.');
             setRedirectPath('/login');
           } else if (data.session) {
-            console.log('Session established successfully');
+            console.log('Sessão estabelecida com sucesso');
             toast.success('Login realizado com sucesso!');
             setRedirectPath('/');
           }
         } else {
-          // Check if we have tokens in the URL (either hash or search params)
+          // Verificar se há tokens na URL (hash ou parâmetros de busca)
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           const searchParams = new URLSearchParams(window.location.search);
           
           const accessToken = hashParams.get('access_token') || searchParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token');
           
-          console.log('Access token found:', !!accessToken);
-          console.log('Refresh token found:', !!refreshToken);
+          console.log('Access token encontrado:', !!accessToken);
+          console.log('Refresh token encontrado:', !!refreshToken);
           
           if (accessToken) {
-            // Set the session using the tokens from URL
             const { data, error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken || ''
             });
             
             if (error) {
-              console.error('Error setting session:', error);
+              console.error('Erro ao definir sessão:', error);
               toast.error('Erro na autenticação. Tente novamente.');
               setRedirectPath('/login');
             } else if (data.session) {
-              console.log('Session established successfully');
+              console.log('Sessão estabelecida com sucesso');
               toast.success('Login realizado com sucesso!');
               setRedirectPath('/');
             }
           } else {
-            // No tokens found, try to get existing session
+            // Tentar obter sessão existente
             const { data: { session }, error } = await supabase.auth.getSession();
             
             if (error) {
-              console.error('Error getting session:', error);
+              console.error('Erro ao obter sessão:', error);
               setRedirectPath('/login');
             } else if (session) {
-              console.log('Existing session found');
+              console.log('Sessão existente encontrada');
               toast.success('Login realizado com sucesso!');
               setRedirectPath('/');
             } else {
-              console.log('No session found, redirecting to login');
+              console.log('Nenhuma sessão encontrada, redirecionando para login');
               setRedirectPath('/login');
             }
           }
         }
         
-        // Clean up the URL by removing query parameters and hash
+        // Limpar a URL removendo parâmetros de consulta e hash
         if (window.location.search || window.location.hash) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
         
       } catch (err) {
-        console.error('Error in auth callback:', err);
+        console.error('Erro no callback de autenticação:', err);
         toast.error('Erro na autenticação');
         setRedirectPath('/login');
       } finally {
