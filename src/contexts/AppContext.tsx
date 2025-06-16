@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +24,7 @@ export type AppContextType = {
   createSubject: (subjectData: Omit<Subject, 'id'>) => Promise<void>;
   fetchSubjects: () => Promise<void>;
   fetchUserSettings: () => Promise<void>;
+  forceRefresh: () => Promise<void>;
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -46,7 +48,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     setIsLoading(true);
     try {
-      console.log('AppContext - Loading subjects for user:', user.id);
+      console.log('📄 AppContext - Loading subjects for user:', user.id);
       
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
@@ -90,9 +92,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       calculateProgress(transformedSubjects);
       setIsDataLoaded(true);
-      console.log('AppContext - Subjects loaded successfully:', transformedSubjects.length);
+      console.log('✅ AppContext - Subjects loaded successfully:', transformedSubjects.length);
     } catch (error: any) {
-      console.error('AppContext - Error loading subjects:', error);
+      console.error('❌ AppContext - Error loading subjects:', error);
       setError(error.message);
       toast.error('Erro ao carregar matérias');
     } finally {
@@ -163,8 +165,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       ]);
 
-      loadSubjects();
-
+      await loadSubjects();
       toast.success('Matéria adicionada com sucesso!');
     } catch (error: any) {
       console.error('Error adding subject:', error);
@@ -173,7 +174,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Alias for addSubject to match the interface
   const createSubject = addSubject;
 
   const updateSubject = async (id: string, updates: Partial<Subject>) => {
@@ -295,40 +295,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshData = async () => {
     if (!user) return;
     
-    console.log('AppContext - Refreshing all data...');
+    console.log('🔄 AppContext - Refreshing all data...');
     setIsLoading(true);
     
     try {
       await loadSubjects();
-      console.log('AppContext - Data refreshed successfully');
+      console.log('✅ AppContext - Data refreshed successfully');
     } catch (error) {
-      console.error('AppContext - Error refreshing data:', error);
+      console.error('❌ AppContext - Error refreshing data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Alias for loadSubjects to match the interface
+  // Nova função para forçar refresh completo
+  const forceRefresh = async () => {
+    if (!user) return;
+    
+    console.log('💪 AppContext - Force refreshing all data...');
+    setIsDataLoaded(false);
+    setSubjects([]);
+    setError(null);
+    
+    await refreshData();
+  };
+
   const fetchSubjects = loadSubjects;
 
-  // Placeholder for fetchUserSettings - implement as needed
   const fetchUserSettings = async () => {
-    // This would load user settings if needed
     console.log('Fetching user settings...');
   };
 
   useEffect(() => {
     if (user) {
-      console.log('AppContext - User changed, loading subjects for:', user.id);
+      console.log('👤 AppContext - User changed, loading subjects for:', user.id);
       loadSubjects();
     } else {
-      console.log('AppContext - No user, clearing subjects');
+      console.log('👻 AppContext - No user, clearing subjects');
       setSubjects([]);
       setIsDataLoaded(false);
       setIsLoading(false);
       setError(null);
     }
-  }, [user?.id]); // Usar user.id em vez de user para evitar re-renderizações desnecessárias
+  }, [user?.id]);
 
   const value: AppContextType = {
     subjects,
@@ -347,6 +356,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     fetchSubjects,
     fetchUserSettings,
     setSubjects,
+    forceRefresh,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

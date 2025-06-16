@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import StudyPlanHeader from '@/components/study-plan/StudyPlanHeader';
@@ -18,7 +18,6 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import CycleCompletedMessage from '@/components/study-plan/CycleCompletedMessage';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -45,6 +44,16 @@ const itemVariants = {
 const StudyPlan = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { refreshData } = useApp();
+  
+  // Recarregar dados sempre que a página for acessada
+  useEffect(() => {
+    console.log('📄 StudyPlan - Página acessada, recarregando dados...');
+    if (user) {
+      refreshData();
+    }
+  }, []); // Executa apenas na montagem da página
+
   const {
     isLoading,
     expandedSubject,
@@ -86,7 +95,6 @@ const StudyPlan = () => {
     );
   }
 
-  // Só mostrar a mensagem se ciclo carregado, matérias carregadas e não houver nenhuma matéria
   if (userCycle === null) {
     if (subjects.length === 0 && !isLoading && !isCycleLoading) {
       return (
@@ -118,7 +126,6 @@ const StudyPlan = () => {
         </div>
       );
     } else {
-      // Se ciclo ainda não carregou mas já há matérias, mostrar loading
       return (
         <div className="container mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-2 sm:px-4 md:px-8 flex items-center justify-center">
           <LoadingSpinner />
@@ -166,10 +173,8 @@ const StudyPlan = () => {
       >
         <StudyPlanHeader onNextDay={handleNextDay} />
         
-        {/* NOVO: Mensagem discreta de novo ciclo iniciado no topo */}
         <NewCycleMessage isVisible={showNewCycleStarted} onHide={() => {}} />
         
-        {/* PRIORIDADE 1: Verificar estados principais - ORDEM CORRIGIDA */}
         {allStudiesCompleted ? (
           <motion.div variants={itemVariants}>
             <AllStudiesCompletedMessage />
@@ -279,7 +284,6 @@ const StudyPlan = () => {
           </div>
         )}
 
-        {/* Mostrar próximas matérias somente se não for ciclo completo e não for allTopicsInReview */}
         {nextSubjects.length > 0 && !allDaySubjectsCompleted && !isCycleCompleted && !allTopicsInReview && dailySubjects.length > 0 && (
           <motion.div variants={itemVariants}>
             <NextSubjects nextSubjects={nextSubjects} />
