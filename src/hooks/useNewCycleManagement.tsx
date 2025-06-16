@@ -22,57 +22,60 @@ export const useNewCycleManagement = (
 
     console.log('🔄 Verificando se deve iniciar novo ciclo automaticamente:', {
       ciclo_atual_length: userCycle.ciclo_atual?.length,
-      materias_pendentes_length: userCycle.materias_pendentes?.length
+      disciplinas_do_dia_length: userCycle.disciplinas_do_dia?.length
     });
 
+    // CORRIGIDO: Iniciar novo ciclo quando o ciclo atual estiver vazio
     const shouldAutoStart = (!userCycle.ciclo_atual || userCycle.ciclo_atual.length === 0) && 
-                           userCycle.materias_pendentes && 
-                           userCycle.materias_pendentes.length > 0;
+                           (!userCycle.disciplinas_do_dia || userCycle.disciplinas_do_dia.length === 0);
 
     if (shouldAutoStart) {
-      console.log('🔄 Iniciando novo ciclo automaticamente...');
-      await handleStartNewCycle(userCycle);
+      // Verificar se existem matérias com tópicos não revisados
+      const subjectsWithUnreviewedTopics = subjects.filter(subject => {
+        if (subject.status === 'Concluída') return false;
+        if (!subject.topics || subject.topics.length === 0) return false;
+        return subject.topics.some(topic => topic.review_count === 0);
+      });
+
+      if (subjectsWithUnreviewedTopics.length > 0) {
+        console.log('🔄 Iniciando novo ciclo automaticamente - matérias com tópicos não revisados encontradas:', subjectsWithUnreviewedTopics.length);
+        await handleStartNewCycle(userCycle);
+      }
     }
-  }, [user, userSettings]);
+  }, [user, userSettings, subjects]);
 
   const handleStartNewCycle = async (userCycle?: UserCycle) => {
-    if (!user || !userCycle) return;
+    if (!user) return;
 
     setIsStartingNewCycle(true);
     try {
       console.log('🔄 Iniciando novo ciclo - analisando matérias:', {
-        materias_pendentes: userCycle.materias_pendentes,
-        ciclo_atual: userCycle.ciclo_atual
+        subjects_total: subjects.length
       });
 
-      const availableSubjects = subjects.filter(s => s.status !== 'Concluída');
+      // CORRIGIDO: Incluir todas as matérias que têm tópicos não revisados
+      const availableSubjects = subjects.filter(subject => {
+        if (subject.status === 'Concluída') return false;
+        if (!subject.topics || subject.topics.length === 0) return false;
+        return subject.topics.some(topic => topic.review_count === 0);
+      });
+
+      console.log('🔄 Matérias disponíveis para novo ciclo:', {
+        available_count: availableSubjects.length,
+        subjects: availableSubjects.map(s => s.name)
+      });
       
-      const pendingSubjects = (userCycle.materias_pendentes || [])
-        .map(id => availableSubjects.find(s => s.id === id))
-        .filter(Boolean);
-      
-      const previousCycleSubjects = (userCycle.ciclo_atual || [])
-        .map(id => availableSubjects.find(s => s.id === id))
-        .filter(subject => {
-          if (!subject || !subject.topics || subject.topics.length === 0) return false;
-          return subject.topics.some(topic => topic.review_count === 0);
-        });
-      
-      const allSubjectsForNewCycle = [...pendingSubjects, ...previousCycleSubjects]
-        .filter((subject, index, self) => 
-          subject && self.findIndex(s => s && s.id === subject.id) === index
-        );
-      
-      const sortedSubjects = allSubjectsForNewCycle.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      const sortedSubjects = availableSubjects.sort((a, b) => (a.priority || 999) - (b.priority || 999));
       const sortedSubjectIds = sortedSubjects.map(s => s.id);
       
       const subjectsPerDay = userSettings?.subjects_per_day || 3;
 
+      // Limpar ciclo anterior e resetar status das matérias
       await supabase.from('user_cycles').delete().eq('user_id', user.id);
       await supabase.from('subjects').update({ status: 'Nova' }).eq('user_id', user.id);
 
       if (sortedSubjectIds.length > 0) {
-        await supabase
+        const { error } = await supabase
           .from('user_cycles')
           .insert({
             user_id: user.id,
@@ -82,6 +85,16 @@ export const useNewCycleManagement = (
             data_inicio_ciclo: new Date().toISOString(),
             atualizado_em: new Date().toISOString()
           });
+
+        if (error) {
+          console.error('Erro ao criar novo ciclo:', error);
+          throw error;
+        }
+
+        console.log('✅ Novo ciclo criado com sucesso:', {
+          ciclo_atual: sortedSubjectIds.length,
+          disciplinas_do_dia: Math.min(sortedSubjectIds.length, subjectsPerDay)
+        });
       }
 
       const newCycle = await loadUserCycle(user.id);

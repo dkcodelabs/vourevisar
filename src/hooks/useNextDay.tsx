@@ -22,7 +22,7 @@ export const useNextDay = () => {
 
     setIsNextDayLoading(true);
     try {
-      console.log('🔄 handleNextDay iniciado - carregando próximas matérias:', {
+      console.log('🔄 handleNextDay iniciado:', {
         ciclo_atual: userCycle.ciclo_atual,
         disciplinas_do_dia_atual: userCycle.disciplinas_do_dia
       });
@@ -35,6 +35,28 @@ export const useNextDay = () => {
         .single();
 
       const subjectsPerDay = userSettings?.subjects_per_day || 3;
+
+      // CORRIGIDO: Se ciclo_atual está vazio, não há próximas matérias - deve iniciar novo ciclo
+      if (!userCycle.ciclo_atual || userCycle.ciclo_atual.length === 0) {
+        console.log('🏁 Ciclo atual vazio - verificando se há matérias para novo ciclo');
+        
+        // Verificar se existem matérias com tópicos não revisados para iniciar novo ciclo
+        const subjectsWithUnreviewedTopics = subjects.filter(subject => {
+          if (subject.status === 'Concluída') return false;
+          if (!subject.topics || subject.topics.length === 0) return false;
+          return subject.topics.some(topic => topic.review_count === 0);
+        });
+
+        if (subjectsWithUnreviewedTopics.length > 0) {
+          console.log('🔄 Encontradas matérias para novo ciclo, sinalizando conclusão');
+          setShowNewCycleMessage(true);
+          setIsCycleCompleted(true);
+        } else {
+          console.log('🎉 Nenhuma matéria com tópicos não revisados - estudos completos');
+          toast.success('Parabéns! Você completou todos os estudos!');
+        }
+        return;
+      }
 
       // Filtrar matérias disponíveis APENAS do ciclo_atual (que não foram concluídas)
       const availableSubjectsInCycle = userCycle.ciclo_atual.filter(id => {
@@ -52,7 +74,7 @@ export const useNextDay = () => {
       });
 
       if (availableSubjectsInCycle.length === 0) {
-        console.log('🏁 Nenhuma matéria disponível - fim do ciclo');
+        console.log('🏁 Nenhuma matéria disponível no ciclo atual - fim do ciclo');
         setShowNewCycleMessage(true);
         setIsCycleCompleted(true);
         return;

@@ -67,28 +67,27 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
 
   const allStudiesCompleted = subjects.length > 0 ? checkAllStudiesCompleted(subjects) : false;
 
-  // Detectar quando o ciclo foi completamente concluído
+  // CORRIGIDO: Detectar quando o ciclo foi completamente concluído
   const isCycleCompleted = useMemo(() => {
-    if (!userCycle || !userCycle.ciclo_atual || userCycle.ciclo_atual.length === 0) return false;
+    if (!userCycle) return false;
     
-    // Verificar se todas as matérias do ciclo atual foram processadas
-    const availableSubjectsInCycle = userCycle.ciclo_atual.filter(id => {
-      const subject = subjects.find(s => s.id === id);
-      if (!subject || subject.status === 'Concluída' || !subject.topics || subject.topics.length === 0) {
-        return false;
-      }
-      return subject.topics.some(t => t.review_count === 0);
-    });
+    // Se o ciclo_atual está vazio (todas as matérias foram processadas)
+    const cicloAtualEmpty = !userCycle.ciclo_atual || userCycle.ciclo_atual.length === 0;
+    
+    // Se disciplinas_do_dia também está vazio
+    const disciplinasDoDiaEmpty = !userCycle.disciplinas_do_dia || userCycle.disciplinas_do_dia.length === 0;
     
     console.log('🔍 Verificando se ciclo está completo:', {
-      ciclo_atual_length: userCycle.ciclo_atual.length,
-      availableSubjectsInCycle: availableSubjectsInCycle.length,
-      disciplinas_do_dia_length: userCycle.disciplinas_do_dia.length,
+      cicloAtualEmpty,
+      disciplinasDoDiaEmpty,
+      ciclo_atual_length: userCycle.ciclo_atual?.length || 0,
+      disciplinas_do_dia_length: userCycle.disciplinas_do_dia?.length || 0,
       nextSubjects_length: nextSubjects.length
     });
     
-    return availableSubjectsInCycle.length === 0 && userCycle.disciplinas_do_dia.length === 0;
-  }, [userCycle, subjects, nextSubjects.length]);
+    // Ciclo está completo se ambos estão vazios
+    return cicloAtualEmpty && disciplinasDoDiaEmpty;
+  }, [userCycle, nextSubjects.length]);
 
   // Verificações de estado atualizadas
   const allTopicsInReview = subjects.length > 0 && 
