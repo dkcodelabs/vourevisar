@@ -148,7 +148,8 @@ const StudyPlan = () => {
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     dailySubjects: dailySubjects.map(s => s.name),
-    nextSubjects: nextSubjects.map(s => s.name)
+    nextSubjects: nextSubjects.map(s => s.name),
+    allTopicsInReview
   });
 
   const hasSubjects = dailySubjects.length > 0 || nextSubjects.length > 0;
@@ -165,9 +166,18 @@ const StudyPlan = () => {
       >
         <StudyPlanHeader onNextDay={handleNextDay} />
         
-        {/* PRIORIDADE 1: Ciclo completamente concluído */}
-        {isCycleCompleted ? (
-          <CycleCompletedMessage onStartNewCycle={handleStartNewCycle} />
+        {/* NOVO: Mensagem discreta de novo ciclo iniciado no topo */}
+        <NewCycleMessage isVisible={showNewCycleStarted} onHide={() => {}} />
+        
+        {/* PRIORIDADE 1: Verificar estados principais */}
+        {allStudiesCompleted ? (
+          <motion.div variants={itemVariants}>
+            <AllStudiesCompletedMessage />
+          </motion.div>
+        ) : isCycleCompleted ? (
+          <motion.div variants={itemVariants}>
+            <CycleCompletedMessage onStartNewCycle={handleStartNewCycle} />
+          </motion.div>
         ) : allTopicsInReview ? (
           <motion.div variants={itemVariants}>
             <AllTopicsInReviewMessage />
@@ -198,6 +208,23 @@ const StudyPlan = () => {
               hasMoreSubjectsInCycle={nextSubjects.length > 0}
             />
           </motion.div>
+        ) : dailySubjects.length === 0 && nextSubjects.length > 0 ? (
+          <motion.div variants={itemVariants}>
+            <Card className="text-center">
+              <CardHeader>
+                <BookOpen className="h-12 w-12 mx-auto text-blue-400 mb-4" />
+                <CardTitle>Nenhuma matéria programada para hoje</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 mb-4">
+                  Você não tem matérias para estudar hoje, mas há matérias pendentes no ciclo atual.
+                </p>
+                <Button onClick={handleNextDay} className="bg-blue-500 hover:bg-blue-600" disabled={isNextDayLoading}>
+                  {isNextDayLoading ? <LoadingSpinner className="h-5 w-5" /> : 'Carregar próximas matérias'}
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
         ) : dailySubjects.length === 0 ? (
           <motion.div variants={itemVariants}>
             <Card className="text-center">
@@ -209,19 +236,6 @@ const StudyPlan = () => {
                 <p className="text-gray-600 mb-4">
                   Você não tem matérias para estudar hoje. Fique atento às próximas revisões!
                 </p>
-                {nextSubjects.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-medium mb-2">Próximas Revisões:</h3>
-                    <ul className="text-sm text-gray-600">
-                      {nextSubjects.map((subject) => (
-                        <li key={subject.id}>{subject.name}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                <Button onClick={handleNextDay} className="bg-blue-500 hover:bg-blue-600" disabled={isNextDayLoading}>
-                  {isNextDayLoading ? <LoadingSpinner className="h-5 w-5" /> : 'Carregar próximas matérias'}
-                </Button>
               </CardContent>
             </Card>
           </motion.div>
@@ -265,24 +279,8 @@ const StudyPlan = () => {
           </div>
         )}
 
-        {/* Mensagem de novo ciclo ou conclusão total */}
-        {showNewCycleMessage && hasTopicsToReview && (
-          <div className="mt-8 p-6 rounded-lg bg-violet-50 border border-violet-200 flex flex-col items-center">
-            <span className="text-2xl mb-2">✨</span>
-            <h2 className="text-lg font-bold text-violet-700 mb-1">Novo Ciclo Iniciado!</h2>
-            <p className="text-violet-700">Parabéns! Você completou um ciclo de estudos e iniciou um novo.</p>
-          </div>
-        )}
-        {showNewCycleMessage && !hasTopicsToReview && (
-          <div className="mt-8 p-6 rounded-lg bg-green-50 border border-green-200 flex flex-col items-center">
-            <span className="text-2xl mb-2">🎉</span>
-            <h2 className="text-lg font-bold text-green-700 mb-1">Tudo concluído!</h2>
-            <p className="text-green-700">Você concluiu todos os tópicos de todas as matérias! Não há mais revisões ou estudos pendentes.</p>
-          </div>
-        )}
-
         {/* Mostrar próximas matérias somente se não for ciclo completo */}
-        {nextSubjects.length > 0 && !allDaySubjectsCompleted && !isCycleCompleted && (
+        {nextSubjects.length > 0 && !allDaySubjectsCompleted && !isCycleCompleted && dailySubjects.length > 0 && (
           <motion.div variants={itemVariants}>
             <NextSubjects nextSubjects={nextSubjects} />
           </motion.div>

@@ -25,23 +25,9 @@ export const useNewCycleManagement = (
       disciplinas_do_dia_length: userCycle.disciplinas_do_dia?.length
     });
 
-    // CORRIGIDO: Iniciar novo ciclo quando o ciclo atual estiver vazio
-    const shouldAutoStart = (!userCycle.ciclo_atual || userCycle.ciclo_atual.length === 0) && 
-                           (!userCycle.disciplinas_do_dia || userCycle.disciplinas_do_dia.length === 0);
-
-    if (shouldAutoStart) {
-      // Verificar se existem matérias com tópicos não revisados
-      const subjectsWithUnreviewedTopics = subjects.filter(subject => {
-        if (subject.status === 'Concluída') return false;
-        if (!subject.topics || subject.topics.length === 0) return false;
-        return subject.topics.some(topic => topic.review_count === 0);
-      });
-
-      if (subjectsWithUnreviewedTopics.length > 0) {
-        console.log('🔄 Iniciando novo ciclo automaticamente - matérias com tópicos não revisados encontradas:', subjectsWithUnreviewedTopics.length);
-        await handleStartNewCycle(userCycle);
-      }
-    }
+    // DESABILITADO: Não iniciar novo ciclo automaticamente
+    // O usuário deve clicar no botão para iniciar manualmente
+    return;
   }, [user, userSettings, subjects]);
 
   const handleStartNewCycle = async (userCycle?: UserCycle) => {
@@ -102,6 +88,7 @@ export const useNewCycleManagement = (
       setIsCycleCompleted(false);
       setShowNewCycleMessage(false);
       
+      // NOVO: Mostrar mensagem discreta de novo ciclo iniciado
       setShowNewCycleStarted(true);
       setTimeout(() => setShowNewCycleStarted(false), 5000);
       
