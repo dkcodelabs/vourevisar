@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Loader2, Search, Calendar, Clock } from 'lucide-react';
+import { Loader2, Search, Calendar, Clock, CheckCircle } from 'lucide-react';
 import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
@@ -46,7 +47,7 @@ const Revisoes = () => {
   const [filteredTopics, setFilteredTopics] = useState<Topic[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'all' | 'date'>('all');
-  const [tab, setTab] = useState<'hoje' | 'futuras'>('hoje');
+  const [tab, setTab] = useState<'hoje' | 'futuras' | 'concluido'>('hoje');
   const { handleMarkTopicForReview, markTopicAsReviewed, isLoading: isLogicLoading } = useStudyPlanLogic();
   const [confirmTopicId, setConfirmTopicId] = useState<string | null>(null);
 
@@ -129,33 +130,36 @@ const Revisoes = () => {
     setSearchTerm('');
   };
 
-  // Lógica para separar revisões atrasadas, do dia e futuras (igual ao painel)
+  // Lógica para separar revisões atrasadas, do dia, futuras e concluídas
   const hoje = startOfDay(new Date());
-  const delayedTopics = filteredTopics.filter(t => t.next_review && isBefore(startOfDay(new Date(t.next_review)), hoje));
-  const todayTopics = filteredTopics.filter(t => t.next_review && startOfDay(new Date(t.next_review)).getTime() === hoje.getTime());
-  const futureTopics = filteredTopics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime());
+  const delayedTopics = filteredTopics.filter(t => t.next_review && isBefore(startOfDay(new Date(t.next_review)), hoje) && t.review_stage !== 'Concluído');
+  const todayTopics = filteredTopics.filter(t => t.next_review && startOfDay(new Date(t.next_review)).getTime() === hoje.getTime() && t.review_stage !== 'Concluído');
+  const futureTopics = filteredTopics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime() && t.review_stage !== 'Concluído');
+  const completedTopics = filteredTopics.filter(t => t.review_stage === 'Concluído' || t.completed);
 
-  // Novo: filtrar a tabela conforme a tab selecionada
+  // Filtrar a tabela conforme a tab selecionada
   let topicsToShow = filteredTopics;
   if (tab === 'hoje') {
     topicsToShow = filteredTopics.filter(t => {
-      if (!t.next_review) return false;
+      if (!t.next_review || t.review_stage === 'Concluído') return false;
       const reviewDate = startOfDay(new Date(t.next_review));
       return reviewDate <= hoje; // atrasados ou hoje
     });
   } else if (tab === 'futuras') {
     topicsToShow = filteredTopics.filter(t => {
-      if (!t.next_review) return false;
+      if (!t.next_review || t.review_stage === 'Concluído') return false;
       const reviewDate = startOfDay(new Date(t.next_review));
       return reviewDate > hoje;
     });
+  } else if (tab === 'concluido') {
+    topicsToShow = completedTopics;
   }
 
   return (
     <div className="container mx-auto p-2">
       <AnimatedTitle className="mb-4">Revisões</AnimatedTitle>
-      {/* Cards de resumo de revisões, igual ao painel */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      {/* Cards de resumo de revisões com novo card de concluídos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <Card className="bg-white border border-red-200 shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -201,13 +205,29 @@ const Revisoes = () => {
             <div className="text-2xl font-bold text-blue-600">{futureTopics.length}</div>
           </CardContent>
         </Card>
+        <Card className="bg-white border border-green-200 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-medium text-green-600">Tópicos Concluídos</CardTitle>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{completedTopics.length}</div>
+          </CardContent>
+        </Card>
       </div>
-      {/* Menu de tabs igual ao painel */}
+      {/* Menu de tabs com nova aba Concluído */}
       <div className="mb-4">
-        <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras')}>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras' | 'concluido')}>
           <TabsList>
             <TabsTrigger value="hoje">Hoje & Atrasadas</TabsTrigger>
             <TabsTrigger value="futuras">Futuras</TabsTrigger>
+            <TabsTrigger value="concluido">Concluído</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -298,7 +318,12 @@ const Revisoes = () => {
                       const proxima = topic.next_review ? startOfDay(new Date(topic.next_review)) : null;
                       let status = 'Futura';
                       let statusClass = 'text-blue-600';
-                      if (proxima) {
+                      
+                      // Corrigir lógica de status para mostrar "Revisado" quando concluído
+                      if (topic.review_stage === 'Concluído' || topic.completed) {
+                        status = 'Revisado';
+                        statusClass = 'text-green-600 font-bold';
+                      } else if (proxima) {
                         if (isBefore(proxima, hoje)) {
                           const diasVencidos = differenceInDays(hoje, proxima);
                           status = `Pendente (${diasVencidos} dias)`;
@@ -308,7 +333,9 @@ const Revisoes = () => {
                           statusClass = 'text-orange-600 font-bold';
                         }
                       }
+                      
                       const isConcluido = topic.review_stage === 'Concluído';
+                      
                       return (
                         <TableRow key={topic.id} className="text-xs">
                           <TableCell>{topic.subject_name}</TableCell>
