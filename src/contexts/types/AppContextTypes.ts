@@ -19,4 +19,5 @@ export type AppContextType = {
   fetchSubjects: () => Promise<void>;
   fetchUserSettings: () => Promise<void>;
   forceRefresh: () => Promise<void>;
+  userSettings: { subjects_per_day: number } | null;
 };

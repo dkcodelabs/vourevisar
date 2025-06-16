@@ -47,7 +47,7 @@ export const useStudyPlanLogic = () => {
     expandedSubject,
     setExpandedSubject,
     isNextDayLoading,
-    handleNextDay,
+    handleNextDay: baseHandleNextDay,
     handleCompleteSession: baseHandleCompleteSession,
     handleToggleExpand
   } = useStudySession();
@@ -58,6 +58,12 @@ export const useStudyPlanLogic = () => {
     handleMarkTopicForReview,
     handleCancelTopicReview
   } = useTopicActions();
+
+  // Wrapper function that provides the required parameters to the base handleNextDay
+  const handleNextDay = () => {
+    if (!userCycle) return;
+    return baseHandleNextDay(userCycle, setUserCycle, setShowNewCycleMessage, () => {});
+  };
 
   const markTopicAsReviewed = async (topicId: string) => {
     if (!user) return;

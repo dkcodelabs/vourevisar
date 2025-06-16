@@ -12,6 +12,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [userSettings, setUserSettings] = useState<{ subjects_per_day: number } | null>(null);
   const [studyProgress, setStudyProgress] = useState<StudyProgress>({
     totalSubjects: 0,
     completedSubjects: 0,
@@ -32,7 +33,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     forceRefresh,
     fetchSubjects,
     fetchUserSettings
-  } = useDataLoading(user, setSubjects, setStudyProgress, setIsDataLoaded, setError);
+  } = useDataLoading(user, setSubjects, setStudyProgress, setIsDataLoaded, setError, setUserSettings);
 
   const {
     addSubject,
@@ -54,6 +55,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       console.log('👻 AppContext - No user, clearing subjects');
       setSubjects([]);
+      setUserSettings(null);
       setIsDataLoaded(false);
       setError(null);
     }
@@ -77,6 +79,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     fetchUserSettings,
     setSubjects,
     forceRefresh,
+    userSettings,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
