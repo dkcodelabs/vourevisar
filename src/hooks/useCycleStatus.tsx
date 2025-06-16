@@ -22,7 +22,7 @@ export const useCycleStatus = (
       nextSubjectsLength: nextSubjectsLength
     });
 
-    // Verificar se existem matérias disponíveis com tópicos não revisados
+    // Verificar se existem matérias disponíveis com tópicos não revisados (GLOBALMENTE)
     const availableSubjectsWithUnreviewedTopics = subjects.filter(subject => {
       if (subject.status === 'Concluída') return false;
       if (!subject.topics || subject.topics.length === 0) return false;
@@ -34,18 +34,15 @@ export const useCycleStatus = (
       subjects: availableSubjectsWithUnreviewedTopics.map(s => s.name)
     });
 
-    // NOVO: Ciclo está completo se:
-    // 1. Não há matérias para hoje E
-    // 2. Não há próximas matérias no ciclo E  
-    // 3. Ainda existem matérias com tópicos não revisados (para novo ciclo)
+    // CORRIGIDO: Ciclo está completo apenas se NÃO há matérias disponíveis para estudar
     const hasNoCurrentSubjects = dailySubjectsLength === 0 && nextSubjectsLength === 0;
-    const hasSubjectsForNewCycle = availableSubjectsWithUnreviewedTopics.length > 0;
+    const hasNoSubjectsToStudy = availableSubjectsWithUnreviewedTopics.length === 0;
     
-    const cycleCompleted = hasNoCurrentSubjects && hasSubjectsForNewCycle;
+    const cycleCompleted = hasNoCurrentSubjects && hasNoSubjectsToStudy;
     
     console.log('🔍 Resultado da verificação de ciclo completo:', {
       hasNoCurrentSubjects,
-      hasSubjectsForNewCycle,
+      hasNoSubjectsToStudy,
       cycleCompleted
     });
     
@@ -94,41 +91,31 @@ export const useCycleStatus = (
            !isCycleCompleted;
   }, [subjects, dailySubjectsLength, nextSubjectsLength, isCycleCompleted]);
 
-  // CORRIGIDO: Detectar quando o dia foi concluído mas ainda há matérias no ciclo
+  // CORRIGIDO: Detectar quando o dia foi concluído mas ainda há matérias disponíveis
   const allDaySubjectsCompleted = useMemo(() => {
     if (!userCycle) return false;
     
-    // CORRIGIDO: Lógica mais simples e efetiva
-    // Dia concluído quando:
-    // 1. disciplinas_do_dia está vazio E
-    // 2. Ainda há matérias disponíveis no ciclo_atual E
-    // 3. Não é um ciclo completo E
-    // 4. Não são todos os estudos completos
+    // CORRIGIDO: Mostrar botão "Próximo Dia" quando:
+    // 1. Não há matérias para estudar hoje E
+    // 2. Há próximas matérias disponíveis E
+    // 3. Não são todos os estudos completos
     
     const noDailySubjectsNow = dailySubjectsLength === 0;
-    const hasAvailableSubjectsInCycle = userCycle.ciclo_atual.some(id => {
-      const subject = subjects.find(s => s.id === id);
-      return subject && 
-             subject.status !== 'Concluída' && 
-             subject.topics && subject.topics.length > 0 &&
-             subject.topics.some(t => t.review_count === 0);
-    });
+    const hasNextSubjects = nextSubjectsLength > 0;
     
-    console.log('🔍 Verificando allDaySubjectsCompleted - NOVA LÓGICA:', {
+    console.log('🔍 Verificando allDaySubjectsCompleted - LÓGICA CORRIGIDA:', {
       noDailySubjectsNow,
-      hasAvailableSubjectsInCycle,
-      isCycleCompleted,
+      hasNextSubjects,
       allStudiesCompleted,
-      userCycle_disciplinas_do_dia: userCycle.disciplinas_do_dia,
-      userCycle_ciclo_atual: userCycle.ciclo_atual,
-      result: noDailySubjectsNow && hasAvailableSubjectsInCycle && !isCycleCompleted && !allStudiesCompleted
+      isCycleCompleted,
+      result: noDailySubjectsNow && hasNextSubjects && !allStudiesCompleted && !isCycleCompleted
     });
     
     return noDailySubjectsNow && 
-           hasAvailableSubjectsInCycle && 
-           !isCycleCompleted && 
-           !allStudiesCompleted;
-  }, [userCycle, dailySubjectsLength, nextSubjectsLength, isCycleCompleted, allStudiesCompleted, subjects]);
+           hasNextSubjects && 
+           !allStudiesCompleted &&
+           !isCycleCompleted;
+  }, [userCycle, dailySubjectsLength, nextSubjectsLength, allStudiesCompleted, isCycleCompleted]);
 
   return {
     allStudiesCompleted,
