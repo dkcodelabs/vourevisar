@@ -11,7 +11,7 @@ interface StudyPlanMainViewProps {
   dailySubjects: Subject[];
   nextSubjects: Subject[];
   expandedSubject: string;
-  tempMarkedTopics: Record<string, boolean>;
+  tempMarkedTopics: Record<string, string[]>;
   disciplinasConcluidas: number;
   totalDisciplinasCiclo: number;
   disciplinasIniciadasCiclo: number;
