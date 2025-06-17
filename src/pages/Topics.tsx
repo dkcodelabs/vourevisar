@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -5,153 +6,42 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
-import { format, isToday, isBefore, startOfDay } from 'date-fns';
+import { format, isToday, isBefore } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useApp } from '@/contexts/AppContext';
-
-interface TopicData {
-  id: string;
-  name: string;
-  completed: boolean;
-  review_count: number;
-  next_review?: string;
-  last_reviewed_at?: string;
-  review_stage?: string;
-  subject_id: string;
-}
-
-interface SubjectData {
-  id: string;
-  name: string;
-  topics: TopicData[];
-  status?: string;
-}
 
 const Topics = () => {
   const { subjectId } = useParams<{ subjectId?: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { updateSubject, subjects } = useApp();
+  const { subjects, addTopic, deleteTopic, updateTopic, isDataLoaded, isLoading } = useApp();
   
-  const [subjectsData, setSubjects] = useState<SubjectData[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<SubjectData | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<any>(null);
   const [newTopicName, setNewTopicName] = useState('');
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [checkedTopics, setCheckedTopics] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showAllSubjects, setShowAllSubjects] = useState(true);
 
   console.log('Topics component rendered - subjectId:', subjectId, 'user:', user?.id);
-  console.log('Current subjects state:', subjectsData);
+  console.log('AppContext subjects:', subjects);
   console.log('Selected subject:', selectedSubject);
 
-  // Carregar matérias
-  const loadSubjects = async () => {
-    if (!user) {
-      console.log('No user found');
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      console.log('Loading subjects for user:', user.id);
-      setError(null);
-
-      // Buscar matérias do usuário
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('id, name')
-        .eq('user_id', user.id)
-        .order('name');
-
-      if (subjectsError) {
-        console.error('Error loading subjects:', subjectsError);
-        throw subjectsError;
-      }
-
-      console.log('Subjects loaded:', subjectsData?.length || 0, subjectsData);
-
-      if (!subjectsData || subjectsData.length === 0) {
-        setSubjects([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Buscar tópicos para cada matéria
-      const subjectsWithTopics = await Promise.all(
-        subjectsData.map(async (subject) => {
-          console.log('Loading topics for subject:', subject.name, subject.id);
-          
-          const { data: topicsData, error: topicsError } = await supabase
-            .from('topics')
-            .select('*')
-            .eq('subject_id', subject.id)
-            .order('name');
-
-          if (topicsError) {
-            console.error('Error loading topics for subject:', subject.id, topicsError);
-            return {
-              id: subject.id,
-              name: subject.name,
-              topics: []
-            };
-          }
-
-          // Normalizar campos dos tópicos
-          const normalizeTopic = (topic: any) => ({
-            ...topic,
-            reviewCount: topic.review_count,
-            reviewStage: topic.review_stage,
-            nextReview: topic.next_review,
-            lastReviewedAt: topic.last_reviewed_at,
-          });
-
-          const normalizedTopics = (topicsData || []).map(normalizeTopic);
-
-          console.log(`Topics loaded for ${subject.name}:`, normalizedTopics.length || 0, normalizedTopics);
-
-          return {
-            id: subject.id,
-            name: subject.name,
-            topics: normalizedTopics
-          };
-        })
-      );
-
-      console.log('Subjects with topics loaded:', subjectsWithTopics);
-      setSubjects(subjectsWithTopics);
-
-      // Definir matéria selecionada ou mostrar todas por padrão
-      if (subjectId) {
-        const found = subjectsWithTopics.find(s => s.id === subjectId);
-        console.log('Setting selected subject from URL:', found);
-        setSelectedSubject(found || null);
-        setShowAllSubjects(false);
-      } else {
-        setShowAllSubjects(true);
-        setSelectedSubject(null);
-      }
-
-    } catch (error) {
-      console.error('Error in loadSubjects:', error);
-      setError('Erro ao carregar matérias');
-      toast.error('Erro ao carregar matérias');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Carregar dados iniciais
+  // Definir matéria selecionada ou mostrar todas por padrão
   useEffect(() => {
-    console.log('useEffect triggered - user:', user?.id);
-    loadSubjects();
-  }, [user]);
+    if (subjectId && subjects.length > 0) {
+      const found = subjects.find(s => s.id === subjectId);
+      console.log('Setting selected subject from URL:', found);
+      setSelectedSubject(found || null);
+      setShowAllSubjects(false);
+    } else if (!subjectId) {
+      setShowAllSubjects(true);
+      setSelectedSubject(null);
+    }
+  }, [subjectId, subjects]);
 
-  // Adicionar tópico
+  // Adicionar tópico usando o AppContext
   const handleAddTopic = async () => {
     if (!newTopicName.trim() || !selectedSubject || !user) {
       console.log('Cannot add topic - missing data');
@@ -161,45 +51,14 @@ const Topics = () => {
     try {
       console.log('Adding topic:', newTopicName, 'to subject:', selectedSubject.id);
 
-      const { data, error } = await supabase
-        .from('topics')
-        .insert({
-          name: newTopicName.trim(),
-          subject_id: selectedSubject.id,
-          completed: false,
-          review_count: 0,
-          review_stage: null,
-          next_review: null,
-          last_reviewed_at: null
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error adding topic:', error);
-        throw error;
-      }
-
-      console.log('Topic added successfully:', data);
-
-      // Atualizar estado local
-      setSelectedSubject(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          topics: [...prev.topics, data]
-        };
+      await addTopic(selectedSubject.id, {
+        name: newTopicName.trim(),
+        completed: false,
+        reviewCount: 0,
+        reviewStage: null,
+        nextReview: undefined,
+        lastReviewedAt: undefined
       });
-
-      setSubjects(prev => prev.map(subject => {
-        if (subject.id === selectedSubject.id) {
-          return {
-            ...subject,
-            topics: [...subject.topics, data]
-          };
-        }
-        return subject;
-      }));
 
       setNewTopicName('');
       toast.success('Tópico adicionado com sucesso');
@@ -210,40 +69,21 @@ const Topics = () => {
     }
   };
 
-  // Remover tópico
+  // Remover tópico usando o AppContext
   const handleRemoveTopic = async (topicId: string) => {
     if (!selectedSubject && !showAllSubjects) return;
 
     try {
       console.log('Removing topic:', topicId);
 
-      const { error } = await supabase
-        .from('topics')
-        .delete()
-        .eq('id', topicId);
-
-      if (error) {
-        console.error('Error removing topic:', error);
-        throw error;
+      const subjectIdToUse = selectedSubject?.id || subjects.find(s => s.topics.some(t => t.id === topicId))?.id;
+      
+      if (!subjectIdToUse) {
+        console.error('Could not find subject for topic');
+        return;
       }
 
-      console.log('Topic removed successfully');
-
-      // Atualizar estado local
-      if (selectedSubject) {
-        setSelectedSubject(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            topics: prev.topics.filter(topic => topic.id !== topicId)
-          };
-        });
-      }
-
-      setSubjects(prev => prev.map(subject => ({
-        ...subject,
-        topics: subject.topics.filter(topic => topic.id !== topicId)
-      })));
+      await deleteTopic(subjectIdToUse, topicId);
 
       setCheckedTopics(prev => {
         const updated = new Set(prev);
@@ -259,16 +99,16 @@ const Topics = () => {
     }
   };
 
-  const getTopicStatus = (topic: TopicData) => {
-    if (topic.completed && (!topic.next_review || topic.review_stage === 'Concluído')) {
+  const getTopicStatus = (topic: any) => {
+    if (topic.completed && (!topic.nextReview || topic.reviewStage === 'Concluído')) {
       return { label: "Concluído", color: "bg-green-100 text-green-800" };
     }
     
-    if (!topic.next_review) {
+    if (!topic.nextReview) {
       return { label: "Não Iniciado", color: "bg-gray-100 text-gray-800" };
     }
     
-    const reviewDate = new Date(topic.next_review);
+    const reviewDate = new Date(topic.nextReview);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -282,11 +122,11 @@ const Topics = () => {
     }
   };
 
-  const getRevisionStage = (topic: TopicData) => {
-    if (!topic.review_stage) {
+  const getRevisionStage = (topic: any) => {
+    if (!topic.reviewStage) {
       return "Não Iniciado";
     }
-    return topic.review_stage;
+    return topic.reviewStage;
   };
 
   const toggleTopicExpansion = (topicId: string) => {
@@ -308,40 +148,26 @@ const Topics = () => {
     }
     setCheckedTopics(newChecked);
 
-    // Atualizar o tópico no banco
+    // Atualizar o tópico usando o AppContext
     const topic = selectedSubject?.topics.find(t => t.id === topicId);
     if (topic) {
       try {
-        await supabase
-          .from('topics')
-          .update({
+        const subjectIdToUse = selectedSubject?.id || subjects.find(s => s.topics.some(t => t.id === topicId))?.id;
+        
+        if (subjectIdToUse) {
+          await updateTopic(subjectIdToUse, topicId, {
             completed: checked,
-            review_stage: checked ? 'Concluído' : null
-          })
-          .eq('id', topicId);
-        // Recarregar tópicos da matéria do banco
-        if (selectedSubject) {
-          const { data: topicsData, error: topicsError } = await supabase
-            .from('topics')
-            .select('*')
-            .eq('subject_id', selectedSubject.id);
-          if (!topicsError && topicsData) {
-            setSelectedSubject(prev => prev ? { ...prev, topics: topicsData } : null);
-            setSubjects(prev => prev.map(subject => subject.id === selectedSubject.id ? { ...subject, topics: topicsData } : subject));
-          }
+            reviewStage: checked ? 'Concluído' : null
+          });
         }
       } catch (error) {
         toast.error('Erro ao atualizar tópico');
       }
     }
-    // Após marcar/desmarcar, verificar status da matéria
-    if (selectedSubject) {
-      await checkAndUpdateSubjectStatus(selectedSubject.id);
-    }
   };
 
   const getAllTopics = () => {
-    const allTopics = subjectsData.flatMap(subject => 
+    const allTopics = subjects.flatMap(subject => 
       subject.topics.map(topic => ({
         ...topic,
         subjectName: subject.name
@@ -351,17 +177,7 @@ const Topics = () => {
     return allTopics;
   };
 
-  // Função para verificar e atualizar status da matéria
-  const checkAndUpdateSubjectStatus = async (subjectId: string) => {
-    const subject = subjectsData.find(s => s.id === subjectId);
-    if (!subject) return;
-    const allCompleted = subject.topics.length > 0 && subject.topics.every(topic => topic.completed || topic.review_stage === 'Concluído');
-    if (allCompleted && subject.status !== 'Concluída') {
-      await updateSubject(subjectId, { status: 'Concluída' });
-    }
-  };
-
-  const renderTopicCard = (topic: TopicData & { subjectName?: string }) => {
+  const renderTopicCard = (topic: any) => {
     const status = getTopicStatus(topic);
     const revisionStage = getRevisionStage(topic);
     const isExpanded = expandedTopics.has(topic.id);
@@ -435,21 +251,21 @@ const Topics = () => {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="font-medium text-gray-600">Revisões:</span>
-                      <span className="ml-2 text-gray-800">{topic.review_count || 0}</span>
+                      <span className="ml-2 text-gray-800">{topic.reviewCount || 0}</span>
                     </div>
-                    {topic.last_reviewed_at && (
+                    {topic.lastReviewedAt && (
                       <div>
                         <span className="font-medium text-gray-600">Última revisão:</span>
                         <span className="ml-2 text-gray-800">
-                          {format(new Date(topic.last_reviewed_at), 'dd/MM/yyyy')}
+                          {format(new Date(topic.lastReviewedAt), 'dd/MM/yyyy')}
                         </span>
                       </div>
                     )}
-                    {topic.next_review && (
+                    {topic.nextReview && (
                       <div>
                         <span className="font-medium text-gray-600">Próxima revisão:</span>
                         <span className="ml-2 text-gray-800">
-                          {format(new Date(topic.next_review), 'dd/MM/yyyy')}
+                          {format(new Date(topic.nextReview), 'dd/MM/yyyy')}
                         </span>
                       </div>
                     )}
@@ -470,7 +286,7 @@ const Topics = () => {
   };
 
   // Estados de loading e erro
-  if (isLoading) {
+  if (isLoading || !isDataLoaded) {
     console.log('Rendering loading state');
     return (
       <div className="container mx-auto p-6">
@@ -493,22 +309,7 @@ const Topics = () => {
     );
   }
 
-  if (error) {
-    console.log('Rendering error state:', error);
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800">Erro</h1>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={loadSubjects}>
-            Tentar Novamente
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (subjectsData.length === 0) {
+  if (subjects.length === 0) {
     console.log('Rendering no subjects state');
     return (
       <div className="container mx-auto p-6">
@@ -560,7 +361,7 @@ const Topics = () => {
                   setShowAllSubjects(true);
                   setSelectedSubject(null);
                 } else {
-                  const subject = subjectsData.find(s => s.id === e.target.value);
+                  const subject = subjects.find(s => s.id === e.target.value);
                   console.log('Switching to specific subject:', subject);
                   setSelectedSubject(subject || null);
                   setShowAllSubjects(false);
@@ -569,9 +370,9 @@ const Topics = () => {
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Todas as Matérias</option>
-              {subjectsData.map((subject) => (
+              {subjects.map((subject) => (
                 <option key={subject.id} value={subject.id}>
-                  {subject.name} ({subject.topics.length} tópicos)
+                  {subject.name} ({subject.topics?.length || 0} tópicos)
                 </option>
               ))}
             </select>
@@ -609,14 +410,14 @@ const Topics = () => {
             getAllTopics().map((topic) => renderTopicCard(topic))
           )
         ) : selectedSubject ? (
-          selectedSubject.topics.length === 0 ? (
+          selectedSubject.topics?.length === 0 ? (
             <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
               <CardContent className="p-6 text-center">
                 <p className="text-gray-500">Nenhum tópico adicionado ainda.</p>
               </CardContent>
             </Card>
           ) : (
-            selectedSubject.topics.map((topic) => renderTopicCard(topic))
+            selectedSubject.topics?.map((topic) => renderTopicCard(topic)) || []
           )
         ) : null}
       </div>

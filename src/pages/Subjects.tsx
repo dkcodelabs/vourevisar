@@ -64,7 +64,7 @@ const getStatusColor = (status: Status) => {
 const Subjects = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { subjects, isLoading, error, addSubject, deleteSubject, updateSubject } = useApp();
+  const { subjects, isLoading, error, addSubject, deleteSubject, updateSubject, forceRefresh } = useApp();
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
@@ -137,6 +137,14 @@ const Subjects = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Recarregar dados sempre que a página for acessada
+  useEffect(() => {
+    console.log('📄 Subjects - Página acessada, forçando refresh dos dados...');
+    if (user) {
+      forceRefresh();
+    }
+  }, [user?.id, forceRefresh]); // Dependência mínima para evitar loops
 
   const handleAddSubject = async () => {
     if (!newSubjectName.trim()) {
