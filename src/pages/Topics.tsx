@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -25,7 +24,7 @@ const Topics = () => {
   const [showAllSubjects, setShowAllSubjects] = useState(true);
 
   console.log('Topics component rendered - subjectId:', subjectId, 'user:', user?.id);
-  console.log('AppContext subjects:', subjects);
+  console.log('Current subjects state:', subjects);
   console.log('Selected subject:', selectedSubject);
 
   // Definir matéria selecionada ou mostrar todas por padrão
@@ -55,9 +54,14 @@ const Topics = () => {
         name: newTopicName.trim(),
         completed: false,
         reviewCount: 0,
+        review_count: 0,
         reviewStage: null,
         nextReview: undefined,
-        lastReviewedAt: undefined
+        lastReviewedAt: undefined,
+        firstStudiedAt: undefined,
+        first_studied_at: undefined,
+        last_reviewed_at: undefined,
+        is_completed: false
       });
 
       setNewTopicName('');
