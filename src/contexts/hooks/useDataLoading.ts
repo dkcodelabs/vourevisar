@@ -26,7 +26,7 @@ export const useDataLoading = (
     try {
       console.log('📚 loadSubjects - Loading subjects for user:', user.id);
       
-      // Load subjects with topics
+      // Load subjects with topics - FORÇAR RELOAD SEM CACHE
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
         .select(`
@@ -52,8 +52,13 @@ export const useDataLoading = (
         console.error('❌ loadSubjects - Error loading user settings:', settingsError);
       }
 
+      console.log('📚 Raw subjects data:', subjectsData);
+      console.log('📚 Subjects with topics count:', subjectsData?.map(s => ({ name: s.name, topicsCount: s.topics?.length || 0 })));
+
       const transformedSubjects = transformSubjectsData(subjectsData || []);
       const progress = calculateProgress(transformedSubjects);
+
+      console.log('📚 Transformed subjects:', transformedSubjects.map(s => ({ name: s.name, topicsCount: s.topics?.length || 0 })));
 
       setSubjects(transformedSubjects);
       setStudyProgress(progress);
@@ -62,6 +67,7 @@ export const useDataLoading = (
 
       console.log('✅ loadSubjects - Success:', {
         subjects: transformedSubjects.length,
+        totalTopics: transformedSubjects.reduce((acc, s) => acc + (s.topics?.length || 0), 0),
         settings: settingsData
       });
       
@@ -75,16 +81,20 @@ export const useDataLoading = (
 
   const refreshData = useCallback(async () => {
     console.log('🔄 refreshData - Refreshing all data');
-    await loadSubjects();
-  }, [loadSubjects]);
-
-  const forceRefresh = useCallback(async () => {
-    console.log('🔄 forceRefresh - Force refreshing all data');
+    // Limpar estado antes de recarregar para forçar atualização
     setIsDataLoaded(false);
     await loadSubjects();
   }, [loadSubjects, setIsDataLoaded]);
 
+  const forceRefresh = useCallback(async () => {
+    console.log('🔄 forceRefresh - Force refreshing all data');
+    setIsDataLoaded(false);
+    setSubjects([]);
+    await loadSubjects();
+  }, [loadSubjects, setIsDataLoaded, setSubjects]);
+
   const fetchSubjects = useCallback(async () => {
+    console.log('🔄 fetchSubjects - Fetching subjects');
     await loadSubjects();
   }, [loadSubjects]);
 

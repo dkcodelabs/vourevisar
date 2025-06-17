@@ -12,6 +12,8 @@ export const useTopicOperations = (
     if (!user) return;
 
     try {
+      console.log('📝 addTopic - Adding topic:', { subjectId, topicData });
+      
       const { error } = await supabase
         .from('topics')
         .insert({
@@ -27,11 +29,17 @@ export const useTopicOperations = (
 
       if (error) throw error;
 
-      await loadSubjects();
-      await refreshData();
+      console.log('✅ addTopic - Success, refreshing data...');
+      
+      // Forçar atualização completa dos dados
+      await Promise.all([
+        loadSubjects(),
+        refreshData()
+      ]);
+      
       toast.success('Tópico adicionado com sucesso!');
     } catch (error: any) {
-      console.error('Error adding topic:', error);
+      console.error('❌ Error adding topic:', error);
       toast.error('Erro ao adicionar tópico');
       throw error;
     }
@@ -39,6 +47,8 @@ export const useTopicOperations = (
 
   const updateTopic = async (subjectId: string, topicId: string, updates: Partial<Topic>) => {
     try {
+      console.log('📝 updateTopic - Updating topic:', { subjectId, topicId, updates });
+      
       const updateData: any = {
         name: updates.name,
         completed: updates.completed,
@@ -62,9 +72,16 @@ export const useTopicOperations = (
 
       if (error) throw error;
 
-      await loadSubjects();
+      console.log('✅ updateTopic - Success, refreshing data...');
+      
+      // Forçar atualização completa dos dados
+      await Promise.all([
+        loadSubjects(),
+        refreshData()
+      ]);
+      
     } catch (error: any) {
-      console.error('Error updating topic:', error);
+      console.error('❌ Error updating topic:', error);
       toast.error('Erro ao atualizar tópico');
       throw error;
     }
@@ -72,6 +89,8 @@ export const useTopicOperations = (
 
   const deleteTopic = async (subjectId: string, topicId: string) => {
     try {
+      console.log('🗑️ deleteTopic - Deleting topic:', { subjectId, topicId });
+      
       const { error } = await supabase
         .from('topics')
         .delete()
@@ -79,10 +98,17 @@ export const useTopicOperations = (
 
       if (error) throw error;
 
-      await loadSubjects();
+      console.log('✅ deleteTopic - Success, refreshing data...');
+      
+      // Forçar atualização completa dos dados
+      await Promise.all([
+        loadSubjects(),
+        refreshData()
+      ]);
+      
       toast.success('Tópico removido com sucesso!');
     } catch (error: any) {
-      console.error('Error deleting topic:', error);
+      console.error('❌ Error deleting topic:', error);
       toast.error('Erro ao remover tópico');
       throw error;
     }

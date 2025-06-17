@@ -48,9 +48,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteTopic
   } = useTopicOperations(user, loadSubjects, refreshData);
 
+  // Recarregar dados quando o usuário muda
   useEffect(() => {
     if (user) {
       console.log('👤 AppContext - User changed, loading subjects for:', user.id);
+      // Limpar dados antigos primeiro
+      setSubjects([]);
+      setIsDataLoaded(false);
+      setError(null);
+      // Carregar novos dados
       loadSubjects();
     } else {
       console.log('👻 AppContext - No user, clearing subjects');
@@ -59,7 +65,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsDataLoaded(false);
       setError(null);
     }
-  }, [user?.id]);
+  }, [user?.id, loadSubjects]);
+
+  // Debug: Log quando subjects muda
+  useEffect(() => {
+    console.log('📊 AppContext - Subjects updated:', {
+      count: subjects.length,
+      subjects: subjects.map(s => ({ 
+        name: s.name, 
+        topicsCount: s.topics?.length || 0,
+        topics: s.topics?.map(t => t.name) || []
+      }))
+    });
+  }, [subjects]);
 
   const value: AppContextType = {
     subjects,
