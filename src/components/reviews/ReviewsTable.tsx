@@ -18,21 +18,19 @@ interface Topic {
   review_count: number;
   first_studied_at: string | null;
   last_reviewed_at: string | null;
-  completed?: boolean;
+  completed: boolean;
 }
 
 interface ReviewsTableProps {
   topics: Topic[];
   tab: 'hoje' | 'futuras' | 'concluido';
   refetch: () => void;
-  setFilteredTopics: (updater: (prev: Topic[]) => Topic[]) => void;
 }
 
 export const ReviewsTable: React.FC<ReviewsTableProps> = ({
   topics,
   tab,
-  refetch,
-  setFilteredTopics
+  refetch
 }) => {
   const { refreshData } = useApp();
   const { markTopicAsReviewed, isLoading: isLogicLoading } = useStudyPlanLogic();
@@ -40,25 +38,22 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
 
   const hoje = startOfDay(new Date());
   
-  // Filter topics based on selected tab - CORRIGIDO
+  // Filter topics based on selected tab
   let topicsToShow = topics;
   if (tab === 'hoje') {
     topicsToShow = topics.filter(t => {
-      // Mostrar apenas tópicos não concluídos com revisão para hoje ou atrasada
-      if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
+      if (t.completed || !t.next_review) return false;
       const reviewDate = startOfDay(new Date(t.next_review));
       return reviewDate <= hoje;
     });
   } else if (tab === 'futuras') {
     topicsToShow = topics.filter(t => {
-      // Mostrar apenas tópicos não concluídos com revisão futura
-      if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
+      if (t.completed || !t.next_review) return false;
       const reviewDate = startOfDay(new Date(t.next_review));
       return reviewDate > hoje;
     });
   } else if (tab === 'concluido') {
-    // Mostrar tópicos concluídos (usar ambos os campos para garantir)
-    topicsToShow = topics.filter(t => t.completed === true || t.review_stage === 'Concluído');
+    topicsToShow = topics.filter(t => t.completed);
   }
 
   const sortedTopics = topicsToShow.sort((a, b) => {
@@ -96,7 +91,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               let status = 'Futura';
               let statusClass = 'text-blue-600';
               
-              if (topic.completed || topic.review_stage === 'Concluído') {
+              if (topic.completed) {
                 status = 'Concluído';
                 statusClass = 'text-green-600 font-bold';
               } else if (proxima) {
@@ -109,8 +104,6 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                   statusClass = 'text-orange-600 font-bold';
                 }
               }
-              
-              const isConcluido = topic.completed || topic.review_stage === 'Concluído';
               
               return (
                 <TableRow key={topic.id} className="text-xs">
@@ -136,7 +129,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                       <TableCell>{proxima ? format(proxima, 'dd/MM/yyyy') : '-'}</TableCell>
                       <TableCell className={statusClass}>{status}</TableCell>
                       <TableCell>
-                        {isConcluido ? (
+                        {topic.completed ? (
                           <Button variant="outline" size="sm" disabled className="text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto">
                             Concluído
                           </Button>
@@ -166,7 +159,6 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                                       try {
                                         await markTopicAsReviewed(topic.id);
                                         setConfirmTopicId(null);
-                                        // Aguardar um momento antes de atualizar para garantir consistência
                                         setTimeout(async () => {
                                           await Promise.all([
                                             refreshData(),

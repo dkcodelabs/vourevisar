@@ -29,12 +29,6 @@ const Revisoes = () => {
     completedTopics
   } = useReviewsData();
 
-  const [filteredTopics, setFilteredTopics] = useState(topics);
-
-  React.useEffect(() => {
-    setFilteredTopics(topics);
-  }, [topics]);
-
   return (
     <div className="container mx-auto p-2">
       <AnimatedTitle className="mb-4">Revisões</AnimatedTitle>
@@ -80,10 +74,9 @@ const Revisoes = () => {
           </div>
         ) : (
           <ReviewsTable
-            topics={filteredTopics}
+            topics={topics}
             tab={tab}
             refetch={refetch}
-            setFilteredTopics={setFilteredTopics}
           />
         )}
       </GlassCard>
