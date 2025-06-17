@@ -18,6 +18,7 @@ interface Topic {
   review_count: number;
   first_studied_at: string | null;
   last_reviewed_at: string | null;
+  completed?: boolean;
 }
 
 interface ReviewsTableProps {
@@ -39,22 +40,25 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
 
   const hoje = startOfDay(new Date());
   
-  // Filter topics based on selected tab
+  // Filter topics based on selected tab - CORRIGIDO
   let topicsToShow = topics;
   if (tab === 'hoje') {
     topicsToShow = topics.filter(t => {
-      if (!t.next_review || t.review_stage === 'Concluído') return false;
+      // Mostrar apenas tópicos não concluídos com revisão para hoje ou atrasada
+      if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
       const reviewDate = startOfDay(new Date(t.next_review));
       return reviewDate <= hoje;
     });
   } else if (tab === 'futuras') {
     topicsToShow = topics.filter(t => {
-      if (!t.next_review || t.review_stage === 'Concluído') return false;
+      // Mostrar apenas tópicos não concluídos com revisão futura
+      if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
       const reviewDate = startOfDay(new Date(t.next_review));
       return reviewDate > hoje;
     });
   } else if (tab === 'concluido') {
-    topicsToShow = topics.filter(t => t.review_stage === 'Concluído');
+    // Mostrar tópicos concluídos (usar ambos os campos para garantir)
+    topicsToShow = topics.filter(t => t.completed === true || t.review_stage === 'Concluído');
   }
 
   const sortedTopics = topicsToShow.sort((a, b) => {
@@ -92,13 +96,13 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               let status = 'Futura';
               let statusClass = 'text-blue-600';
               
-              if (topic.review_stage === 'Concluído') {
-                status = 'Revisado';
+              if (topic.completed || topic.review_stage === 'Concluído') {
+                status = 'Concluído';
                 statusClass = 'text-green-600 font-bold';
               } else if (proxima) {
                 if (isBefore(proxima, hoje)) {
                   const diasVencidos = differenceInDays(hoje, proxima);
-                  status = `Pendente (${diasVencidos} dias)`;
+                  status = `Atrasado (${diasVencidos} dias)`;
                   statusClass = 'text-red-600 font-bold';
                 } else if (proxima.getTime() === hoje.getTime()) {
                   status = 'Hoje';
@@ -106,13 +110,18 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                 }
               }
               
-              const isConcluido = topic.review_stage === 'Concluído';
+              const isConcluido = topic.completed || topic.review_stage === 'Concluído';
               
               return (
                 <TableRow key={topic.id} className="text-xs">
                   <TableCell>{topic.subject_name}</TableCell>
                   <TableCell>{topic.name}</TableCell>
-                  <TableCell>{topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' && topic.review_count > 0 ? topic.review_stage : 'Não iniciado'}</TableCell>
+                  <TableCell>
+                    {topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' 
+                      ? topic.review_stage 
+                      : (topic.review_count > 0 ? '24h' : 'Não iniciado')
+                    }
+                  </TableCell>
                   {tab === 'concluido' ? (
                     <>
                       <TableCell>
@@ -157,25 +166,13 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                                       try {
                                         await markTopicAsReviewed(topic.id);
                                         setConfirmTopicId(null);
-                                        await Promise.all([
-                                          refreshData(),
-                                          refetch()
-                                        ]);
-                                        setFilteredTopics(prev => 
-                                          prev.map(t => 
-                                            t.id === topic.id 
-                                              ? { 
-                                                  ...t, 
-                                                  review_count: (t.review_count || 0) + 1,
-                                                  review_stage: t.review_count === 0 ? '24h' : 
-                                                               t.review_count === 1 ? '7 dias' : 
-                                                               t.review_count === 2 ? '30 dias' : 'Concluído',
-                                                  last_reviewed_at: new Date().toISOString(),
-                                                  first_studied_at: t.first_studied_at || new Date().toISOString()
-                                                }
-                                              : t
-                                          )
-                                        );
+                                        // Aguardar um momento antes de atualizar para garantir consistência
+                                        setTimeout(async () => {
+                                          await Promise.all([
+                                            refreshData(),
+                                            refetch()
+                                          ]);
+                                        }, 500);
                                       } catch (error) {
                                         console.error('Erro ao marcar revisão:', error);
                                         toast.error('Erro ao marcar revisão');

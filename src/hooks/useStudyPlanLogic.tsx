@@ -101,18 +101,33 @@ export const useStudyPlanLogic = () => {
       let nextReview = null;
       let completed = false;
 
-      // Calcular próximo estágio de revisão
+      console.log('🔵 Calculando próximo estágio:', {
+        newReviewCount,
+        intervalsLength: intervals.length,
+        intervals
+      });
+
+      // Calcular próximo estágio de revisão - CORRIGIDO
       if (newReviewCount <= intervals.length) {
         const nextInterval = intervals[newReviewCount - 1];
         reviewStage = nextInterval === 1 ? '24h' : `${nextInterval}d`;
         const nextReviewDate = new Date();
         nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
         nextReview = nextReviewDate.toISOString();
+        completed = false; // Ainda não concluído
       } else {
+        // Quando excede o número de intervalos definidos, marca como concluído
         reviewStage = 'Concluído';
         nextReview = null;
         completed = true;
       }
+
+      console.log('🔵 Resultado do cálculo:', {
+        reviewStage,
+        nextReview,
+        completed,
+        newReviewCount
+      });
 
       // Preparar dados para atualização
       const now = new Date().toISOString();
@@ -162,6 +177,7 @@ export const useStudyPlanLogic = () => {
         }
       }
 
+      // Forçar refresh completo dos dados
       await refreshData();
       toast.success('Revisão registrada com sucesso!');
       

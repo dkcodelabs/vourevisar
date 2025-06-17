@@ -15,6 +15,7 @@ interface Topic {
   review_count: number;
   first_studied_at: string | null;
   last_reviewed_at: string | null;
+  completed: boolean;
   subjects?: {
     id: string;
     name: string;
@@ -43,6 +44,7 @@ export const useReviewsData = () => {
           review_count,
           first_studied_at,
           last_reviewed_at,
+          completed,
           subjects (
             id,
             name,
@@ -59,6 +61,7 @@ export const useReviewsData = () => {
       return filtered.map(topic => ({
         ...topic,
         review_count: topic.review_count ?? 0,
+        completed: topic.completed ?? false,
         subject_name: topic.subjects?.name || 'Sem disciplina'
       }));
     }
@@ -104,12 +107,33 @@ export const useReviewsData = () => {
     setSearchTerm('');
   };
 
-  // Calculate topic categories
+  // Calculate topic categories - CORRIGIDO para usar completed
   const hoje = startOfDay(new Date());
-  const delayedTopics = filteredTopics.filter(t => t.next_review && isBefore(startOfDay(new Date(t.next_review)), hoje) && t.review_stage !== 'Concluído');
-  const todayTopics = filteredTopics.filter(t => t.next_review && startOfDay(new Date(t.next_review)).getTime() === hoje.getTime() && t.review_stage !== 'Concluído');
-  const futureTopics = filteredTopics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime() && t.review_stage !== 'Concluído');
-  const completedTopics = filteredTopics.filter(t => t.review_stage === 'Concluído');
+  const delayedTopics = filteredTopics.filter(t => 
+    !t.completed && 
+    t.review_stage !== 'Concluído' && 
+    t.next_review && 
+    isBefore(startOfDay(new Date(t.next_review)), hoje)
+  );
+  
+  const todayTopics = filteredTopics.filter(t => 
+    !t.completed && 
+    t.review_stage !== 'Concluído' && 
+    t.next_review && 
+    startOfDay(new Date(t.next_review)).getTime() === hoje.getTime()
+  );
+  
+  const futureTopics = filteredTopics.filter(t => 
+    !t.completed && 
+    t.review_stage !== 'Concluído' && 
+    t.next_review && 
+    new Date(t.next_review) > hoje && 
+    startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime()
+  );
+  
+  const completedTopics = filteredTopics.filter(t => 
+    t.completed || t.review_stage === 'Concluído'
+  );
 
   return {
     topics: filteredTopics,
