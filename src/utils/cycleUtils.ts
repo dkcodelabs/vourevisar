@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Subject } from '@/types';
 
@@ -37,7 +38,11 @@ export const generateNextDay = async (
     cycleSubjects: userCycle.ciclo_atual.length,
     availableSubjects: availableSubjects.length,
     subjectsPerDay,
-    availableSubjectNames: availableSubjects.map(s => ({ id: s.id, name: s.name, status: s.status }))
+    availableSubjectNames: availableSubjects.map(s => ({ id: s.id, name: s.name, status: s.status })),
+    ordem_atual_ciclo: userCycle.ciclo_atual.map(id => {
+      const s = subjects.find(sub => sub.id === id);
+      return s ? { id, name: s.name, position: userCycle.ciclo_atual.indexOf(id) } : { id, name: 'NOT_FOUND', position: userCycle.ciclo_atual.indexOf(id) };
+    })
   });
 
   if (availableSubjects.length === 0) {
@@ -45,19 +50,22 @@ export const generateNextDay = async (
     return { shouldShowNewCycleMessage: true };
   }
 
-  // Selecionar próximas matérias que estavam no início do ciclo e têm tópicos não revisados
-  let nextBatchIds = userCycle.ciclo_atual.filter(id => {
-    const s = subjects.find(sub => sub.id === id);
-    return (
-      s &&
-      s.status !== 'Concluída' &&
-      s.topics && s.topics.length > 0 &&
-      s.topics.some(t => t.review_count === 0) && // Só matérias com tópicos não revisados
-      !userCycle.disciplinas_do_dia.includes(id) // Que não estão no dia atual
-    );
-  }).slice(0, subjectsPerDay);
+  // IMPORTANTE: Selecionar próximas matérias respeitando a ORDEM do ciclo_atual
+  // e que não estão no dia atual
+  let nextBatchIds = [];
+  for (const subjectId of userCycle.ciclo_atual) {
+    if (nextBatchIds.length >= subjectsPerDay) break;
+    
+    // Verificar se a matéria está disponível e não está no dia atual
+    const isAvailable = availableSubjects.some(s => s.id === subjectId);
+    const isNotInCurrentDay = !userCycle.disciplinas_do_dia.includes(subjectId);
+    
+    if (isAvailable && isNotInCurrentDay) {
+      nextBatchIds.push(subjectId);
+    }
+  }
 
-  // Se não houver próximas matérias, mas ainda houver matérias não concluídas, reiniciar disciplinas_do_dia
+  // Se não houver próximas matérias, mas ainda houver matérias não concluídas, reiniciar seleção
   if (nextBatchIds.length === 0 && availableSubjects.length > 0) {
     nextBatchIds = userCycle.ciclo_atual.filter(id => {
       const s = subjects.find(sub => sub.id === id);
@@ -72,9 +80,15 @@ export const generateNextDay = async (
 
   const nextBatch = nextBatchIds.map(id => subjects.find(s => s.id === id));
 
-  console.log('📋 Próximo lote de matérias selecionado (ordem do ciclo):', {
-    selectedSubjects: nextBatch.map(s => ({ id: s.id, name: s.name, priority: s.priority })),
-    nextBatchIds
+  console.log('📋 Próximo lote de matérias selecionado (respeitando ordem do ciclo):', {
+    selectedSubjects: nextBatch.map(s => ({ id: s?.id, name: s?.name, priority: s?.priority })),
+    nextBatchIds,
+    ordem_selecionada: nextBatchIds.map((id, index) => ({
+      position: index + 1,
+      id,
+      name: subjects.find(s => s.id === id)?.name || 'NOT_FOUND',
+      posicao_no_ciclo: userCycle.ciclo_atual.indexOf(id)
+    }))
   });
 
   const { error } = await supabase

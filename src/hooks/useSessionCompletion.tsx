@@ -75,18 +75,25 @@ export const useSessionCompletion = () => {
       console.log('🔵 Limpando tópicos marcados temporariamente...');
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
-      // SEMPRE remover a matéria de AMBOS disciplinas_do_dia E ciclo_atual
+      // NOVA LÓGICA: Mover matéria para o final do ciclo em vez de remover
       const updatedDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
-      const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
       
-      console.log('🔵 Removendo matéria completamente do ciclo atual:', {
+      // Remover da posição atual e adicionar no final do ciclo
+      const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
+      updatedCicloAtual.push(subjectId);
+      
+      console.log('🔵 Movendo matéria para final da fila:', {
         subjectId,
         subject: subject.name,
         topicsMarkedForReview: topicsToReview.length,
         cicloAtual_antes: userCycle.ciclo_atual.length,
         cicloAtual_depois: updatedCicloAtual.length,
         disciplinasDoDia_antes: userCycle.disciplinas_do_dia.length,
-        disciplinasDoDia_depois: updatedDisciplinasDoDia.length
+        disciplinasDoDia_depois: updatedDisciplinasDoDia.length,
+        nova_ordem_ciclo: updatedCicloAtual.map(id => {
+          const s = subjects.find(sub => sub.id === id);
+          return s ? s.name : id;
+        })
       });
       
       console.log('🔵 Atualizando banco de dados...');
