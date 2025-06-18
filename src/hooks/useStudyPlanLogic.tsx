@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -38,6 +37,7 @@ export const useStudyPlanLogic = () => {
     disciplinasIniciadasCiclo,
     dailySubjects,
     nextSubjects,
+    subjectsByStatus,
     allDaySubjectsCompleted,
     allStudiesCompleted,
     allTopicsInReview
@@ -207,6 +207,7 @@ export const useStudyPlanLogic = () => {
     userCycle,
     dailySubjects,
     nextSubjects,
+    subjectsByStatus,
     allDaySubjectsCompleted,
     hasAvailableSubjects,
     totalDisciplinasCiclo,
