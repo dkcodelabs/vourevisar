@@ -47,6 +47,7 @@ const StudyPlanContent = () => {
     userCycle,
     dailySubjects,
     nextSubjects,
+    subjectsByStatus,
     allDaySubjectsCompleted,
     hasAvailableSubjects,
     totalDisciplinasCiclo,
@@ -91,7 +92,7 @@ const StudyPlanContent = () => {
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     dailySubjects: dailySubjects.map(s => s.name),
-    nextSubjects: nextSubjects.map(s => s.name)
+    nextSubjects: nextSubjects.map(s => s.subject.name)
   });
 
   // Mostrar loading enquanto dados estão carregando
@@ -149,6 +150,7 @@ const StudyPlanContent = () => {
             userCycle={userCycle!}
             dailySubjects={dailySubjects}
             nextSubjects={nextSubjects}
+            subjectsByStatus={subjectsByStatus}
             expandedSubject={expandedSubject}
             tempMarkedTopics={tempMarkedTopics}
             disciplinasConcluidas={disciplinasConcluidas}
