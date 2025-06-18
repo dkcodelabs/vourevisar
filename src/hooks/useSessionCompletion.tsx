@@ -75,25 +75,66 @@ export const useSessionCompletion = () => {
       console.log('🔵 Limpando tópicos marcados temporariamente...');
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
-      // NOVA LÓGICA: Mover matéria para o final do ciclo em vez de remover
-      const updatedDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+      // Get user settings for subjects_per_day
+      const { data: userSettings } = await supabase
+        .from('user_settings')
+        .select('subjects_per_day')
+        .eq('user_id', user.id)
+        .single();
+
+      const subjectsPerDay = userSettings?.subjects_per_day || 3;
+
+      // NOVA LÓGICA CORRIGIDA: Mover matéria para final do ciclo e selecionar próximas
+      const updatedCicloAtual = [...userCycle.ciclo_atual];
       
-      // Remover da posição atual e adicionar no final do ciclo
-      const updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
+      // Remover a matéria da posição atual
+      const currentIndex = updatedCicloAtual.indexOf(subjectId);
+      if (currentIndex !== -1) {
+        updatedCicloAtual.splice(currentIndex, 1);
+      }
+      
+      // Adicionar no final do ciclo
       updatedCicloAtual.push(subjectId);
-      
-      console.log('🔵 Movendo matéria para final da fila:', {
+
+      // Remover da lista de disciplinas do dia
+      const remainingDailySubjects = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+
+      // Buscar próximas matérias disponíveis para preencher o lote do dia
+      const availableSubjectsInCycle = updatedCicloAtual.filter(id => {
+        if (remainingDailySubjects.includes(id)) return false; // Já está no dia
+        
+        const subject = subjects.find(s => s.id === id);
+        return subject && 
+               subject.status !== 'Concluída' &&
+               subject.topics && subject.topics.length > 0 &&
+               subject.topics.some(t => t.review_count === 0);
+      });
+
+      console.log('🔵 NOVA LÓGICA - Organizando ciclo:', {
         subjectId,
         subject: subject.name,
         topicsMarkedForReview: topicsToReview.length,
         cicloAtual_antes: userCycle.ciclo_atual.length,
         cicloAtual_depois: updatedCicloAtual.length,
         disciplinasDoDia_antes: userCycle.disciplinas_do_dia.length,
-        disciplinasDoDia_depois: updatedDisciplinasDoDia.length,
+        remainingDailySubjects: remainingDailySubjects.length,
+        availableSubjectsInCycle: availableSubjectsInCycle.length,
+        subjectsPerDay,
         nova_ordem_ciclo: updatedCicloAtual.map(id => {
           const s = subjects.find(sub => sub.id === id);
           return s ? s.name : id;
         })
+      });
+
+      // Selecionar próximas matérias para completar o lote do dia
+      const slotsNeeded = subjectsPerDay - remainingDailySubjects.length;
+      const nextSubjectsToAdd = availableSubjectsInCycle.slice(0, slotsNeeded);
+      const newDisciplinasDoDia = [...remainingDailySubjects, ...nextSubjectsToAdd];
+
+      console.log('🔵 Selecionando próximas matérias:', {
+        slotsNeeded,
+        nextSubjectsToAdd: nextSubjectsToAdd.map(id => subjects.find(s => s.id === id)?.name || 'NOT_FOUND'),
+        newDisciplinasDoDia: newDisciplinasDoDia.map(id => subjects.find(s => s.id === id)?.name || 'NOT_FOUND')
       });
       
       console.log('🔵 Atualizando banco de dados...');
@@ -101,7 +142,7 @@ export const useSessionCompletion = () => {
         .from('user_cycles')
         .update({
           ciclo_atual: updatedCicloAtual,
-          disciplinas_do_dia: updatedDisciplinasDoDia,
+          disciplinas_do_dia: newDisciplinasDoDia,
           atualizado_em: new Date().toISOString()
         })
         .eq('user_id', user.id);
