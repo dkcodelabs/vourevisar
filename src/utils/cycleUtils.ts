@@ -50,9 +50,10 @@ export const generateNextDay = async (
     return { shouldShowNewCycleMessage: true };
   }
 
-  // IMPORTANTE: Selecionar próximas matérias respeitando a ORDEM do ciclo_atual
-  // e que não estão no dia atual
+  // CORREÇÃO PRINCIPAL: Selecionar próximas matérias respeitando a ORDEM do ciclo_atual
+  // Começar do início do ciclo e pegar as primeiras disponíveis que NÃO estão no dia atual
   let nextBatchIds = [];
+  
   for (const subjectId of userCycle.ciclo_atual) {
     if (nextBatchIds.length >= subjectsPerDay) break;
     
@@ -60,22 +61,32 @@ export const generateNextDay = async (
     const isAvailable = availableSubjects.some(s => s.id === subjectId);
     const isNotInCurrentDay = !userCycle.disciplinas_do_dia.includes(subjectId);
     
+    console.log(`🔍 Verificando matéria ${subjectId}:`, {
+      isAvailable,
+      isNotInCurrentDay,
+      subjectName: subjects.find(s => s.id === subjectId)?.name || 'NOT_FOUND'
+    });
+    
     if (isAvailable && isNotInCurrentDay) {
       nextBatchIds.push(subjectId);
+      console.log(`✅ Matéria ${subjectId} adicionada ao próximo lote`);
     }
   }
 
-  // Se não houver próximas matérias, mas ainda houver matérias não concluídas, reiniciar seleção
-  if (nextBatchIds.length === 0 && availableSubjects.length > 0) {
-    nextBatchIds = userCycle.ciclo_atual.filter(id => {
-      const s = subjects.find(sub => sub.id === id);
-      return (
-        s &&
-        s.status !== 'Concluída' &&
-        s.topics && s.topics.length > 0 &&
-        s.topics.some(t => t.review_count === 0) // Só matérias com tópicos não revisados
-      );
-    }).slice(0, subjectsPerDay);
+  // Se não conseguiu preencher o lote, tentar novamente ignorando disciplinas_do_dia
+  // (isso pode acontecer quando todas as matérias disponíveis estão em disciplinas_do_dia)
+  if (nextBatchIds.length < subjectsPerDay && availableSubjects.length > 0) {
+    console.log('🔄 Tentando preencher lote ignorando disciplinas_do_dia atual...');
+    nextBatchIds = [];
+    
+    for (const subjectId of userCycle.ciclo_atual) {
+      if (nextBatchIds.length >= subjectsPerDay) break;
+      
+      const isAvailable = availableSubjects.some(s => s.id === subjectId);
+      if (isAvailable) {
+        nextBatchIds.push(subjectId);
+      }
+    }
   }
 
   const nextBatch = nextBatchIds.map(id => subjects.find(s => s.id === id));
