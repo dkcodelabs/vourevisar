@@ -5,11 +5,19 @@ import CycleInfo from './CycleInfo';
 import SubjectCard from './SubjectCard';
 import NextSubjects from './NextSubjects';
 import { Subject, UserCycle } from '@/types';
+import { SubjectWithStatus } from '@/hooks/useNextSubjects';
 
 interface StudyPlanMainViewProps {
   userCycle: UserCycle;
   dailySubjects: Subject[];
-  nextSubjects: Subject[];
+  nextSubjects: SubjectWithStatus[];
+  subjectsByStatus: {
+    available: SubjectWithStatus[];
+    'in-review': SubjectWithStatus[];
+    completed: SubjectWithStatus[];
+    'no-topics': SubjectWithStatus[];
+    unavailable: SubjectWithStatus[];
+  };
   expandedSubject: string;
   tempMarkedTopics: Record<string, string[]>;
   disciplinasConcluidas: number;
@@ -42,6 +50,7 @@ const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
   userCycle,
   dailySubjects,
   nextSubjects,
+  subjectsByStatus,
   expandedSubject,
   tempMarkedTopics,
   disciplinasConcluidas,
@@ -87,9 +96,9 @@ const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
         ))}
       </div>
 
-      {nextSubjects.length > 0 && !allDaySubjectsCompleted && !isCycleCompleted && !allTopicsInReview && dailySubjects.length > 0 && (
+      {Object.values(subjectsByStatus).some(arr => arr.length > 0) && !allDaySubjectsCompleted && !isCycleCompleted && !allTopicsInReview && dailySubjects.length > 0 && (
         <motion.div variants={itemVariants}>
-          <NextSubjects nextSubjects={nextSubjects} />
+          <NextSubjects subjectsByStatus={subjectsByStatus} />
         </motion.div>
       )}
     </>

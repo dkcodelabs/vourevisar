@@ -9,13 +9,14 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
   // Use the specialized hooks
   const cycleStats = useCycleSubjectStats(subjects, userCycle);
   const { dailySubjects } = useDailySubjects(subjects, userCycle);
-  const { nextSubjects } = useNextSubjects(subjects, userCycle, userSettings);
+  const { nextSubjects, subjectsByStatus } = useNextSubjects(subjects, userCycle, userSettings);
   const cycleStatus = useCycleStatus(subjects, userCycle, dailySubjects.length, nextSubjects.length);
 
   return {
     ...cycleStats,
     dailySubjects,
     nextSubjects,
+    subjectsByStatus,
     ...cycleStatus
   };
 };
