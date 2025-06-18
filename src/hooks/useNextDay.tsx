@@ -35,6 +35,7 @@ export const useNextDay = () => {
         .single();
 
       const subjectsPerDay = userSettings?.subjects_per_day || 3;
+      console.log('📋 Matérias por dia configuradas:', subjectsPerDay);
 
       // Filtrar matérias do ciclo atual que têm tópicos não revisados
       let availableSubjectsInCycle = [];
@@ -51,11 +52,7 @@ export const useNextDay = () => {
       console.log('🔄 Matérias disponíveis para próximo lote (ciclo atual):', {
         availableSubjectsInCycle: availableSubjectsInCycle.length,
         subjectsPerDay,
-        availableIds: availableSubjectsInCycle,
-        ordem_ciclo_atual: userCycle.ciclo_atual.map(id => {
-          const s = subjects.find(sub => sub.id === id);
-          return { id, name: s?.name || 'NOT_FOUND', available: availableSubjectsInCycle.includes(id) };
-        })
+        availableIds: availableSubjectsInCycle
       });
 
       // Se não há matérias no ciclo atual, buscar TODAS as matérias disponíveis
@@ -82,6 +79,12 @@ export const useNextDay = () => {
         const sortedSubjects = [...allAvailableSubjects].sort((a, b) => (a.priority || 999) - (b.priority || 999));
         const nextBatchIds = sortedSubjects.slice(0, subjectsPerDay).map(s => s.id);
 
+        console.log('📋 Próximo lote selecionado (matérias globais):', {
+          nextBatchIds,
+          quantidade: nextBatchIds.length,
+          materias: nextBatchIds.map(id => subjects.find(s => s.id === id)?.name || 'NOT_FOUND')
+        });
+
         const { error } = await supabase
           .from('user_cycles')
           .update({
@@ -105,27 +108,59 @@ export const useNextDay = () => {
 
       // CORREÇÃO: Selecionar próximas matérias respeitando a ORDEM do ciclo_atual
       let nextBatchIds = [];
-      
-      for (const subjectId of userCycle.ciclo_atual) {
-        if (nextBatchIds.length >= subjectsPerDay) break;
+      let startIndex = 0;
+
+      // Se há disciplinas do dia atual, encontrar onde parar no ciclo
+      if (userCycle.disciplinas_do_dia && userCycle.disciplinas_do_dia.length > 0) {
+        const lastSubjectInDay = userCycle.disciplinas_do_dia[userCycle.disciplinas_do_dia.length - 1];
+        const lastIndex = userCycle.ciclo_atual.indexOf(lastSubjectInDay);
+        if (lastIndex !== -1) {
+          startIndex = lastIndex + 1; // Começar depois da última matéria do dia atual
+        }
+      }
+
+      console.log('📍 Índice de início no ciclo:', startIndex);
+
+      // Iterar pelo ciclo a partir do índice de início
+      for (let i = 0; i < userCycle.ciclo_atual.length && nextBatchIds.length < subjectsPerDay; i++) {
+        const currentIndex = (startIndex + i) % userCycle.ciclo_atual.length;
+        const subjectId = userCycle.ciclo_atual[currentIndex];
         
         // Verificar se a matéria está disponível
         const isAvailable = availableSubjectsInCycle.includes(subjectId);
         
-        console.log(`🔍 Verificando matéria ${subjectId}:`, {
+        console.log(`🔍 Verificando matéria ${subjectId} (índice ${currentIndex}):`, {
           isAvailable,
           subjectName: subjects.find(s => s.id === subjectId)?.name || 'NOT_FOUND'
         });
         
         if (isAvailable) {
           nextBatchIds.push(subjectId);
-          console.log(`✅ Matéria ${subjectId} adicionada ao próximo lote`);
+          console.log(`✅ Matéria ${subjectId} adicionada ao próximo lote (${nextBatchIds.length}/${subjectsPerDay})`);
+        }
+      }
+
+      // Se não conseguiu preencher o lote completo, tentar pegar matérias do início do ciclo
+      if (nextBatchIds.length < subjectsPerDay && availableSubjectsInCycle.length > nextBatchIds.length) {
+        console.log('🔄 Tentando completar lote com matérias do início do ciclo...');
+        
+        for (const subjectId of userCycle.ciclo_atual) {
+          if (nextBatchIds.length >= subjectsPerDay) break;
+          
+          const isAvailable = availableSubjectsInCycle.includes(subjectId);
+          const notInBatch = !nextBatchIds.includes(subjectId);
+          
+          if (isAvailable && notInBatch) {
+            nextBatchIds.push(subjectId);
+            console.log(`✅ Matéria ${subjectId} adicionada para completar lote (${nextBatchIds.length}/${subjectsPerDay})`);
+          }
         }
       }
 
       console.log('📋 Próximo lote selecionado (do ciclo atual):', {
         nextBatchIds,
         quantidade: nextBatchIds.length,
+        quantidadeConfigurada: subjectsPerDay,
         materias: nextBatchIds.map(id => subjects.find(s => s.id === id)?.name || 'NOT_FOUND')
       });
 

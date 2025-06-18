@@ -20,6 +20,32 @@ const StudyPlan = () => {
     }
   }, []); // Executa apenas na montagem da página
 
+  // NOVO: Verificar mudança de dia e atualizar automaticamente
+  useEffect(() => {
+    if (!user) return;
+
+    const checkDayChange = () => {
+      const now = new Date();
+      const currentDay = now.toDateString();
+      const lastCheckDay = localStorage.getItem('lastStudyPlanDay');
+      
+      if (lastCheckDay && lastCheckDay !== currentDay) {
+        console.log('📅 Detectada mudança de dia, atualizando dados...');
+        forceRefresh();
+      }
+      
+      localStorage.setItem('lastStudyPlanDay', currentDay);
+    };
+
+    // Verificar mudança de dia ao montar
+    checkDayChange();
+
+    // Verificar mudança de dia a cada minuto
+    const interval = setInterval(checkDayChange, 60000);
+
+    return () => clearInterval(interval);
+  }, [user, forceRefresh]);
+
   // Debug log
   useEffect(() => {
     console.log('📄 StudyPlan - Estado atual:', {
