@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 
 interface Topic {
   id: string;
@@ -107,33 +107,72 @@ export const useReviewsData = () => {
     setSearchTerm('');
   };
 
-  // Calculate topic categories - CORRIGIDO para usar completed
-  const hoje = startOfDay(new Date());
-  const delayedTopics = filteredTopics.filter(t => 
-    !t.completed && 
-    t.review_stage !== 'Concluído' && 
-    t.next_review && 
-    isBefore(startOfDay(new Date(t.next_review)), hoje)
-  );
+  // CORREÇÃO: Usar comparação de strings de data para evitar problemas de timezone
+  const todayDateString = format(startOfDay(new Date()), 'yyyy-MM-dd');
   
-  const todayTopics = filteredTopics.filter(t => 
-    !t.completed && 
-    t.review_stage !== 'Concluído' && 
-    t.next_review && 
-    startOfDay(new Date(t.next_review)).getTime() === hoje.getTime()
-  );
+  console.log('🔍 Debug classificação de datas:', {
+    todayDateString,
+    totalTopics: filteredTopics.length
+  });
+
+  const delayedTopics = filteredTopics.filter(t => {
+    if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
+    
+    const reviewDateString = format(startOfDay(new Date(t.next_review)), 'yyyy-MM-dd');
+    const isDelayed = reviewDateString < todayDateString;
+    
+    console.log(`📅 Tópico ${t.name} (${t.subject_name}):`, {
+      next_review: t.next_review,
+      reviewDateString,
+      todayDateString,
+      isDelayed
+    });
+    
+    return isDelayed;
+  });
   
-  const futureTopics = filteredTopics.filter(t => 
-    !t.completed && 
-    t.review_stage !== 'Concluído' && 
-    t.next_review && 
-    new Date(t.next_review) > hoje && 
-    startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime()
-  );
+  const todayTopics = filteredTopics.filter(t => {
+    if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
+    
+    const reviewDateString = format(startOfDay(new Date(t.next_review)), 'yyyy-MM-dd');
+    const isToday = reviewDateString === todayDateString;
+    
+    console.log(`📅 Tópico ${t.name} (${t.subject_name}):`, {
+      next_review: t.next_review,
+      reviewDateString,
+      todayDateString,
+      isToday
+    });
+    
+    return isToday;
+  });
+  
+  const futureTopics = filteredTopics.filter(t => {
+    if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
+    
+    const reviewDateString = format(startOfDay(new Date(t.next_review)), 'yyyy-MM-dd');
+    const isFuture = reviewDateString > todayDateString;
+    
+    console.log(`📅 Tópico ${t.name} (${t.subject_name}):`, {
+      next_review: t.next_review,
+      reviewDateString,
+      todayDateString,
+      isFuture
+    });
+    
+    return isFuture;
+  });
   
   const completedTopics = filteredTopics.filter(t => 
     t.completed || t.review_stage === 'Concluído'
   );
+
+  console.log('📊 Classificação final:', {
+    delayed: delayedTopics.length,
+    today: todayTopics.length,
+    future: futureTopics.length,
+    completed: completedTopics.length
+  });
 
   return {
     topics: filteredTopics,
