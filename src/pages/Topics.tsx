@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useApp } from '@/contexts/AppContext';
-import TopicNotesEditor from '@/components/TopicNotesEditor';
+import RichTextNotesEditor from '@/components/RichTextNotesEditor';
 import { TopicNotes } from '@/types';
 
 const Topics = () => {
@@ -186,6 +186,14 @@ const Topics = () => {
     }
   };
 
+  // Função para extrair texto puro do HTML do editor rico
+  const getPlainTextPreview = (htmlContent: string) => {
+    if (!htmlContent) return '';
+    // Remove tags HTML e pega os primeiros 50 caracteres
+    const plainText = htmlContent.replace(/<[^>]*>/g, '').trim();
+    return plainText.length > 50 ? plainText.substring(0, 50) + '...' : plainText;
+  };
+
   const getAllTopics = () => {
     const allTopics = subjects.flatMap(subject => 
       subject.topics.map(topic => ({
@@ -202,7 +210,7 @@ const Topics = () => {
     const revisionStage = getRevisionStage(topic);
     const isExpanded = expandedTopics.has(topic.id);
     const isChecked = checkedTopics.has(topic.id);
-    const hasNotes = topic.notes && (topic.notes.title || topic.notes.content);
+    const hasNotes = topic.notes && topic.notes.content && topic.notes.content.trim() !== '';
     
     return (
       <motion.div 
@@ -230,7 +238,7 @@ const Topics = () => {
                     <div className="flex items-center gap-2 mt-1">
                       <FileText className="h-3 w-3 text-blue-600" />
                       <span className="text-xs text-gray-600 truncate">
-                        {topic.notes.title || topic.notes.content?.substring(0, 50) + '...'}
+                        {getPlainTextPreview(topic.notes.content)}
                       </span>
                     </div>
                   )}
@@ -281,8 +289,8 @@ const Topics = () => {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {/* Editor de anotações substituindo as informações antigas */}
-                  <TopicNotesEditor
+                  {/* Novo editor de texto rico */}
+                  <RichTextNotesEditor
                     notes={topic.notes}
                     onSave={(notes) => handleSaveNotes(topic.id, notes)}
                     isLoading={isLoading}

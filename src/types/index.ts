@@ -3,8 +3,7 @@ export type RevisionStatus = 'Atrasado' | 'Hoje' | 'Futura';
 export type RevisionStage = '24h' | '7 dias' | '30 dias' | 'Concluído' | string;
 
 export interface TopicNotes {
-  title?: string;
-  content?: string;
+  content?: string; // Agora é só conteúdo rico (HTML do Quill)
   createdAt?: string;
   updatedAt?: string;
 }
@@ -19,11 +18,11 @@ export interface Topic {
   reviewStatus?: RevisionStatus;
   lastReviewedAt?: Date;
   firstStudiedAt?: Date;
-  review_count: number; // Adicionar para compatibilidade com o banco
-  first_studied_at?: Date; // Adicionar para compatibilidade com o banco
-  last_reviewed_at?: Date; // Adicionar para compatibilidade com o banco
-  is_completed?: boolean; // Adicionado para refletir o campo do banco
-  notes?: TopicNotes; // Campo para anotações estilo Notion
+  review_count: number;
+  first_studied_at?: Date;
+  last_reviewed_at?: Date;
+  is_completed?: boolean;
+  notes?: TopicNotes;
 }
 
 export interface Subject {
