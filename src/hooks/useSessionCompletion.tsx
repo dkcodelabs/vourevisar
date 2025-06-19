@@ -44,6 +44,7 @@ export const useSessionCompletion = () => {
       const topicsToReview = tempMarkedTopics[subjectId] || [];
       console.log('🔵 Tópicos marcados para revisão:', topicsToReview.length);
 
+      // Processar tópicos marcados para revisão
       if (topicsToReview.length > 0) {
         console.log('🔵 Processando tópicos marcados para revisão...');
         const { data: settings, error: settingsError } = await supabase
@@ -75,9 +76,10 @@ export const useSessionCompletion = () => {
       console.log('🔵 Limpando tópicos marcados temporariamente...');
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
-      // NOVA LÓGICA CORRIGIDA: 
-      // 1. Se marcou tópicos para revisão -> apenas remove da lista do dia
-      // 2. Se NÃO marcou nenhum tópico -> move para final da fila E remove da lista do dia
+      // LÓGICA CORRIGIDA: 
+      // 1. SEMPRE remover da lista do dia (matéria foi concluída)
+      // 2. Se não marcou tópicos para revisão -> mover para final da fila
+      // 3. Se marcou tópicos para revisão -> manter posição no ciclo
       let updatedCicloAtual = [...userCycle.ciclo_atual];
       
       if (topicsToReview.length === 0) {
@@ -85,8 +87,8 @@ export const useSessionCompletion = () => {
         const currentIndex = updatedCicloAtual.indexOf(subjectId);
         if (currentIndex !== -1) {
           updatedCicloAtual.splice(currentIndex, 1);
+          updatedCicloAtual.push(subjectId);
         }
-        updatedCicloAtual.push(subjectId);
         console.log('🔵 Matéria movida para final da fila (sem revisão)');
       } else {
         // Marcou tópicos para revisão -> matéria permanece na posição atual do ciclo
