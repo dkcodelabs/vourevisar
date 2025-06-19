@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject, StudyProgress } from '@/types';
-import { transformSubjectsData, calculateProgress } from '../utils/dataTransformers';
+import { transformSubjectsData, calculateStudyProgress } from '../utils/dataTransformers';
 
 export const useDataLoading = (
   user: any,
@@ -56,7 +56,7 @@ export const useDataLoading = (
       console.log('📚 Subjects with topics count:', subjectsData?.map(s => ({ name: s.name, topicsCount: s.topics?.length || 0 })));
 
       const transformedSubjects = transformSubjectsData(subjectsData || []);
-      const progress = calculateProgress(transformedSubjects);
+      const progress = calculateStudyProgress(transformedSubjects);
 
       console.log('📚 Transformed subjects:', transformedSubjects.map(s => ({ name: s.name, topicsCount: s.topics?.length || 0 })));
 
