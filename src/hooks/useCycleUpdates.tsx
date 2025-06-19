@@ -13,72 +13,77 @@ export const useCycleUpdates = (
 ) => {
   const { user } = useAuth();
   const lastSubjectsPerDay = useRef<number | null>(null);
-  const isUpdatingFromSessionCompletion = useRef<boolean>(false);
-
-  // Função para marcar que uma atualização é resultado de conclusão de sessão
-  const markAsSessionUpdate = () => {
-    isUpdatingFromSessionCompletion.current = true;
-    // Reset flag after a short delay
-    setTimeout(() => {
-      isUpdatingFromSessionCompletion.current = false;
-    }, 1000);
-  };
 
   useEffect(() => {
-    const updateDailySubjects = async () => {
+    const handleConfigurationChange = async () => {
       if (!user || !userCycle || !userSettings || userCycle.ciclo_atual.length === 0) return;
       
-      // CORREÇÃO PRINCIPAL: Não atualizar se foi resultado de conclusão de sessão
-      if (isUpdatingFromSessionCompletion.current) {
-        console.log('🔄 Skipping update - resultado de conclusão de sessão');
-        return;
-      }
-      
-      // Só atualizar se o subjects_per_day realmente mudou
+      // CORREÇÃO PRINCIPAL: Só atualizar se o subjects_per_day realmente mudou E é uma mudança de configuração
       if (lastSubjectsPerDay.current === userSettings.subjects_per_day) {
         return;
       }
       
-      // CORREÇÃO: Não atualizar se as disciplinas_do_dia estão vazias
-      // (pode ser resultado de "Concluir Sessão" que ainda não foi marcado)
-      if (userCycle.disciplinas_do_dia.length === 0) {
-        console.log('🔄 Skipping update - disciplinas_do_dia está vazio (possivelmente após Concluir Sessão)');
+      // NOVA LÓGICA: Só ajustar se é uma mudança explícita de configuração
+      // (não interferir quando disciplinas_do_dia fica vazio por conclusão de sessão)
+      if (lastSubjectsPerDay.current === null) {
+        // Primeira inicialização - apenas registrar o valor atual
+        console.log('🔧 useCycleUpdates - Primeira inicialização, registrando valor:', userSettings.subjects_per_day);
         lastSubjectsPerDay.current = userSettings.subjects_per_day;
         return;
       }
       
-      console.log('🔄 Detectada mudança REAL em subjects_per_day (configuração):', userSettings.subjects_per_day);
+      console.log('🔧 useCycleUpdates - Detectada mudança de configuração (subjects_per_day):', {
+        de: lastSubjectsPerDay.current,
+        para: userSettings.subjects_per_day,
+        disciplinas_do_dia_atual: userCycle.disciplinas_do_dia.length
+      });
       
+      // Só fazer ajuste se há uma mudança real de configuração
       const currentDailyCount = userCycle.disciplinas_do_dia.length;
       const newCount = userSettings.subjects_per_day;
       
-      if (currentDailyCount === newCount) {
-        console.log('🔄 Quantidade já está correta, não há mudança necessária');
-        lastSubjectsPerDay.current = userSettings.subjects_per_day;
-        return;
+      // Se o usuário aumentou o número de matérias por dia, adicionar mais
+      if (newCount > currentDailyCount) {
+        console.log('🔧 Usuário aumentou matérias por dia, adicionando mais...');
+        
+        const availableSubjectsInCycle = userCycle.ciclo_atual.filter(id => {
+          // Não incluir matérias que já estão no dia
+          if (userCycle.disciplinas_do_dia.includes(id)) return false;
+          
+          const subject = subjects.find(s => s.id === id);
+          return subject && subject.status !== 'Concluída' && 
+                 subject.topics && subject.topics.length > 0 &&
+                 subject.topics.some(t => t.review_count === 0);
+        });
+        
+        const additionalSubjects = availableSubjectsInCycle.slice(0, newCount - currentDailyCount);
+        const newDailySubjects = [...userCycle.disciplinas_do_dia, ...additionalSubjects];
+        
+        console.log('🔧 Adicionando matérias por mudança de configuração:', {
+          adicionar: additionalSubjects.length,
+          novas_disciplinas_do_dia: newDailySubjects
+        });
+        
+        await updateDailySubjects(newDailySubjects);
+      }
+      // Se o usuário diminuiu o número de matérias por dia, remover as últimas
+      else if (newCount < currentDailyCount) {
+        console.log('🔧 Usuário diminuiu matérias por dia, removendo últimas...');
+        
+        const newDailySubjects = userCycle.disciplinas_do_dia.slice(0, newCount);
+        
+        console.log('🔧 Removendo matérias por mudança de configuração:', {
+          remover: currentDailyCount - newCount,
+          novas_disciplinas_do_dia: newDailySubjects
+        });
+        
+        await updateDailySubjects(newDailySubjects);
       }
       
-      console.log('🔄 Atualizando disciplinas_do_dia POR MUDANÇA DE CONFIGURAÇÃO:', {
-        de: currentDailyCount,
-        para: newCount,
-        ciclo_atual: userCycle.ciclo_atual
-      });
-      
-      const availableSubjectsInCycle = userCycle.ciclo_atual.filter(id => {
-        const subject = subjects.find(s => s.id === id);
-        return subject && subject.status !== 'Concluída' && 
-               subject.topics && subject.topics.length > 0 &&
-               subject.topics.some(t => t.review_count === 0);
-      });
-      
-      const newDailySubjects = availableSubjectsInCycle.slice(0, newCount);
-      
-      console.log('🔄 Novas disciplinas do dia (por configuração):', {
-        availableInCycle: availableSubjectsInCycle.length,
-        selected: newDailySubjects.length,
-        newDailySubjects
-      });
-      
+      lastSubjectsPerDay.current = userSettings.subjects_per_day;
+    };
+
+    const updateDailySubjects = async (newDailySubjects: string[]) => {
       try {
         const { error } = await supabase
           .from('user_cycles')
@@ -86,23 +91,26 @@ export const useCycleUpdates = (
             disciplinas_do_dia: newDailySubjects,
             atualizado_em: new Date().toISOString()
           })
-          .eq('user_id', user.id);
+          .eq('user_id', user!.id);
 
         if (error) throw error;
         
-        const updatedCycle = await loadUserCycle(user.id);
+        const updatedCycle = await loadUserCycle(user!.id);
         setUserCycle(updatedCycle);
         
-        console.log('✅ disciplinas_do_dia atualizado com sucesso (por configuração)');
-        lastSubjectsPerDay.current = userSettings.subjects_per_day;
+        console.log('✅ disciplinas_do_dia atualizado por mudança de configuração');
       } catch (error) {
-        console.error('Erro ao atualizar disciplinas_do_dia:', error);
+        console.error('❌ Erro ao atualizar disciplinas_do_dia:', error);
       }
     };
 
-    updateDailySubjects();
+    handleConfigurationChange();
   }, [userSettings?.subjects_per_day, user, userCycle?.id, subjects, setUserCycle]);
 
-  // Expor função para que useSessionCompletion possa marcar updates
+  // Função vazia - não é mais necessária
+  const markAsSessionUpdate = () => {
+    // Função removida - não é mais necessária com a nova lógica simplificada
+  };
+
   return { markAsSessionUpdate };
 };

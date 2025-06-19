@@ -8,8 +8,7 @@ export const useStudyPlanActions = (
   baseHandleNextDay: any,
   baseHandleCompleteSession: any,
   tempMarkedTopics: Record<string, string[]>,
-  setTempMarkedTopics: any,
-  markAsSessionUpdate: () => void
+  setTempMarkedTopics: any
 ) => {
   // Wrapper function that provides the required parameters to the base handleNextDay
   const handleNextDay = () => {
@@ -23,8 +22,7 @@ export const useStudyPlanActions = (
       userCycle!,
       tempMarkedTopics,
       setUserCycle,
-      setTempMarkedTopics,
-      markAsSessionUpdate
+      setTempMarkedTopics
     );
   };
 

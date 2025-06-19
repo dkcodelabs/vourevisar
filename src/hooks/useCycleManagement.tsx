@@ -16,7 +16,8 @@ export const useCycleManagement = (subjects: Subject[], userSettings: { subjects
   
   const { isCycleLoading } = useCycleInitialization(subjects, userSettings, setUserCycle);
   
-  const { markAsSessionUpdate } = useCycleUpdates(subjects, userSettings, userCycle, setUserCycle);
+  // Remover markAsSessionUpdate das dependências - não é mais usado
+  useCycleUpdates(subjects, userSettings, userCycle, setUserCycle);
   
   const {
     isStartingNewCycle,
@@ -53,7 +54,6 @@ export const useCycleManagement = (subjects: Subject[], userSettings: { subjects
     showNewCycleStarted,
     handleStartNewCycle: () => handleStartNewCycle(userCycle),
     handleHideNewCycleMessage,
-    autoStartNewCycle: () => autoStartNewCycle(userCycle),
-    markAsSessionUpdate
+    autoStartNewCycle: () => autoStartNewCycle(userCycle)
   };
 };

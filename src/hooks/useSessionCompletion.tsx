@@ -16,8 +16,7 @@ export const useSessionCompletion = () => {
     userCycle: UserCycle, 
     tempMarkedTopics: Record<string, string[]>, 
     setUserCycle: any, 
-    setTempMarkedTopics: any,
-    markAsSessionUpdate: () => void
+    setTempMarkedTopics: any
   ) => {
     console.log('🔵 handleCompleteSession INICIADO:', {
       subjectId,
@@ -77,7 +76,7 @@ export const useSessionCompletion = () => {
       console.log('🔵 Limpando tópicos marcados temporariamente...');
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
-      // LÓGICA CORRIGIDA: 
+      // LÓGICA SIMPLIFICADA: 
       // 1. SEMPRE remover da lista do dia (matéria foi concluída)
       // 2. Se não marcou tópicos para revisão -> mover para final da fila
       // 3. Se marcou tópicos para revisão -> manter posição no ciclo
@@ -99,7 +98,7 @@ export const useSessionCompletion = () => {
       // SEMPRE remover da lista de disciplinas do dia
       const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
 
-      console.log('🔵 Atualizando ciclo:', {
+      console.log('🔵 Atualizando ciclo (CONCLUSÃO SIMPLIFICADA):', {
         subjectId,
         subject: subject.name,
         topicsMarkedForReview: topicsToReview.length,
@@ -110,11 +109,7 @@ export const useSessionCompletion = () => {
         action: topicsToReview.length === 0 ? 'movida_para_final' : 'removida_apenas_do_dia'
       });
       
-      // CORREÇÃO PRINCIPAL: Marcar que é conclusão de sessão ANTES da atualização
-      console.log('🔵 Marcando como conclusão de sessão para evitar auto-preenchimento...');
-      markAsSessionUpdate();
-      
-      console.log('🔵 Atualizando banco de dados (CONCLUSÃO DE SESSÃO)...');
+      console.log('🔵 Atualizando banco de dados (LÓGICA SIMPLIFICADA)...');
       const { error: updateError } = await supabase
         .from('user_cycles')
         .update({
@@ -129,7 +124,7 @@ export const useSessionCompletion = () => {
         throw updateError;
       }
 
-      console.log('✅ Banco de dados atualizado (CONCLUSÃO DE SESSÃO)');
+      console.log('✅ Banco de dados atualizado (LÓGICA SIMPLIFICADA)');
       console.log('🔵 Carregando ciclo atualizado...');
       const freshCycle = await loadUserCycle(user.id);
       if (!freshCycle) {

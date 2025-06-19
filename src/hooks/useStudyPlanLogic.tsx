@@ -15,7 +15,6 @@ export const useStudyPlanLogic = () => {
     showNewCycleStarted,
     handleStartNewCycle,
     handleHideNewCycleMessage,
-    markAsSessionUpdate,
     disciplinasIniciadas,
     disciplinasNaoIniciadas,
     hasAvailableSubjects,
@@ -46,8 +45,7 @@ export const useStudyPlanLogic = () => {
     baseHandleNextDay,
     baseHandleCompleteSession,
     tempMarkedTopics,
-    setTempMarkedTopics,
-    markAsSessionUpdate
+    setTempMarkedTopics
   );
 
   const { markTopicAsReviewed, isLoading } = useTopicReview();
