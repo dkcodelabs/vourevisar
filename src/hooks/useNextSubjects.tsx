@@ -77,18 +77,20 @@ export const useNextSubjects = (subjects: Subject[], userCycle: UserCycle | null
     
     allSubjectsWithStatus = [...allSubjectsWithStatus, ...subjectsNotInCycle];
     
-    // Remover matérias que estão nas disciplinas do dia
+    // CORREÇÃO: Filtrar próximas matérias excluindo as que estão nas disciplinas do dia
+    // E também excluindo matérias que estão "in-review" (todos tópicos em revisão)
     const nextSubjects = allSubjectsWithStatus.filter(
-      item => !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+      item => !userCycle.disciplinas_do_dia?.includes(item.subject.id) && 
+              item.status !== 'in-review' // Nova condição: excluir matérias em revisão
     );
     
-    // Agrupar por status
+    // Agrupar por status (incluindo TODAS as matérias para visualização)
     const subjectsByStatus = {
-      available: nextSubjects.filter(item => item.status === 'available'),
-      'in-review': nextSubjects.filter(item => item.status === 'in-review'),
-      completed: nextSubjects.filter(item => item.status === 'completed'),
-      'no-topics': nextSubjects.filter(item => item.status === 'no-topics'),
-      unavailable: nextSubjects.filter(item => item.status === 'unavailable')
+      available: allSubjectsWithStatus.filter(item => item.status === 'available'),
+      'in-review': allSubjectsWithStatus.filter(item => item.status === 'in-review'),
+      completed: allSubjectsWithStatus.filter(item => item.status === 'completed'),
+      'no-topics': allSubjectsWithStatus.filter(item => item.status === 'no-topics'),
+      unavailable: allSubjectsWithStatus.filter(item => item.status === 'unavailable')
     };
     
     console.log('🔄 useNextSubjects - Classificação por status:', {
@@ -97,7 +99,7 @@ export const useNextSubjects = (subjects: Subject[], userCycle: UserCycle | null
       completed: subjectsByStatus.completed.length,
       'no-topics': subjectsByStatus['no-topics'].length,
       unavailable: subjectsByStatus.unavailable.length,
-      total: nextSubjects.length
+      nextSubjectsAfterFilter: nextSubjects.length
     });
     
     return { nextSubjects, subjectsByStatus };
