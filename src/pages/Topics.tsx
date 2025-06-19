@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { format, isToday, isBefore } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useApp } from '@/contexts/AppContext';
+import TopicNotesEditor from '@/components/TopicNotesEditor';
+import { TopicNotes } from '@/types';
 
 const Topics = () => {
   const { subjectId } = useParams<{ subjectId?: string }>();
@@ -170,6 +172,20 @@ const Topics = () => {
     }
   };
 
+  // Função para salvar anotações
+  const handleSaveNotes = async (topicId: string, notes: TopicNotes) => {
+    try {
+      const subjectIdToUse = selectedSubject?.id || subjects.find(s => s.topics.some(t => t.id === topicId))?.id;
+      
+      if (subjectIdToUse) {
+        await updateTopic(subjectIdToUse, topicId, { notes });
+      }
+    } catch (error) {
+      console.error('Erro ao salvar anotações:', error);
+      throw error;
+    }
+  };
+
   const getAllTopics = () => {
     const allTopics = subjects.flatMap(subject => 
       subject.topics.map(topic => ({
@@ -186,6 +202,7 @@ const Topics = () => {
     const revisionStage = getRevisionStage(topic);
     const isExpanded = expandedTopics.has(topic.id);
     const isChecked = checkedTopics.has(topic.id);
+    const hasNotes = topic.notes && (topic.notes.title || topic.notes.content);
     
     return (
       <motion.div 
@@ -208,6 +225,15 @@ const Topics = () => {
                   {showAllSubjects && topic.subjectName && (
                     <span className="text-xs text-gray-500">{topic.subjectName}</span>
                   )}
+                  {/* Preview das anotações quando o card está fechado */}
+                  {hasNotes && !isExpanded && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <FileText className="h-3 w-3 text-blue-600" />
+                      <span className="text-xs text-gray-600 truncate">
+                        {topic.notes.title || topic.notes.content?.substring(0, 50) + '...'}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.color}`}>
@@ -216,6 +242,9 @@ const Topics = () => {
                   <span className="text-xs px-2 py-1 rounded-lg bg-purple-100 text-purple-800 font-medium">
                     {revisionStage}
                   </span>
+                  {hasNotes && (
+                    <FileText className="h-4 w-4 text-blue-600" />
+                  )}
                 </div>
               </div>
               
@@ -252,34 +281,12 @@ const Topics = () => {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-600">Revisões:</span>
-                      <span className="ml-2 text-gray-800">{topic.reviewCount || 0}</span>
-                    </div>
-                    {topic.lastReviewedAt && (
-                      <div>
-                        <span className="font-medium text-gray-600">Última revisão:</span>
-                        <span className="ml-2 text-gray-800">
-                          {format(new Date(topic.lastReviewedAt), 'dd/MM/yyyy')}
-                        </span>
-                      </div>
-                    )}
-                    {topic.nextReview && (
-                      <div>
-                        <span className="font-medium text-gray-600">Próxima revisão:</span>
-                        <span className="ml-2 text-gray-800">
-                          {format(new Date(topic.nextReview), 'dd/MM/yyyy')}
-                        </span>
-                      </div>
-                    )}
-                    <div>
-                      <span className="font-medium text-gray-600">Status:</span>
-                      <span className="ml-2 text-gray-800">
-                        {topic.completed ? 'Concluído' : 'Em andamento'}
-                      </span>
-                    </div>
-                  </div>
+                  {/* Editor de anotações substituindo as informações antigas */}
+                  <TopicNotesEditor
+                    notes={topic.notes}
+                    onSave={(notes) => handleSaveNotes(topic.id, notes)}
+                    isLoading={isLoading}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>

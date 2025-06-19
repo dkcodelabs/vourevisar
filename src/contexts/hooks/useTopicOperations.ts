@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Topic } from '@/types';
+import { Topic, TopicNotes } from '@/types';
 import { toast } from 'sonner';
 
 export const useTopicOperations = (
@@ -24,7 +24,8 @@ export const useTopicOperations = (
           review_stage: null,
           next_review: null,
           first_studied_at: null,
-          last_reviewed_at: null
+          last_reviewed_at: null,
+          notes: null
         });
 
       if (error) throw error;
@@ -63,6 +64,11 @@ export const useTopicOperations = (
       }
       if (updates.firstStudiedAt || updates.first_studied_at) {
         updateData.first_studied_at = (updates.firstStudiedAt || updates.first_studied_at)?.toISOString();
+      }
+
+      // Atualizar anotações se fornecidas
+      if (updates.notes !== undefined) {
+        updateData.notes = updates.notes;
       }
 
       const { error } = await supabase

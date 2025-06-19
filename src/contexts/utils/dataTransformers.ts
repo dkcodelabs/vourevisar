@@ -1,49 +1,72 @@
 
-import { Subject, StudyProgress } from '@/types';
+import { Subject, Topic, StudyProgress, TopicNotes } from '@/types';
+import { isToday, isBefore } from 'date-fns';
 
-export const transformSubjectsData = (subjectsData: any[]): Subject[] => {
-  return (subjectsData || []).map(subject => ({
+export const transformSubjectsData = (data: any[]): Subject[] => {
+  if (!data) return [];
+  
+  return data.map(subject => ({
     id: subject.id,
     name: subject.name,
-    status: subject.status as 'Nova' | 'Em Estudo' | 'Concluída',
-    priority: subject.priority || 0,
-    color: subject.color || undefined,
-    topics: (subject.topics || []).map(topic => ({
-      id: topic.id,
-      name: topic.name,
-      completed: topic.completed || false,
-      reviewCount: topic.review_count || 0,
-      review_count: topic.review_count || 0,
-      reviewStage: topic.review_stage as any,
-      nextReview: topic.next_review ? new Date(topic.next_review) : undefined,
-      lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined,
-    }))
+    status: subject.status,
+    priority: subject.priority,
+    color: subject.color,
+    topics: subject.topics ? subject.topics.map((topic: any) => transformTopicData(topic)) : []
   }));
 };
 
-export const calculateProgress = (subjects: Subject[]): StudyProgress => {
+export const transformTopicData = (topic: any): Topic => {
+  // Transformar anotações do banco para o tipo TopicNotes
+  const notes: TopicNotes | undefined = topic.notes ? topic.notes : undefined;
+
+  return {
+    id: topic.id,
+    name: topic.name,
+    completed: topic.completed || false,
+    nextReview: topic.next_review ? new Date(topic.next_review) : undefined,
+    reviewCount: topic.review_count || 0,
+    reviewStage: topic.review_stage,
+    lastReviewedAt: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined,
+    firstStudiedAt: topic.first_studied_at ? new Date(topic.first_studied_at) : undefined,
+    review_count: topic.review_count || 0,
+    first_studied_at: topic.first_studied_at ? new Date(topic.first_studied_at) : undefined,
+    last_reviewed_at: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined,
+    is_completed: topic.completed || false,
+    notes: notes
+  };
+};
+
+export const calculateStudyProgress = (subjects: Subject[]): StudyProgress => {
   const totalSubjects = subjects.length;
   const completedSubjects = subjects.filter(s => s.status === 'Concluída').length;
-  const allTopics = subjects.flatMap(s => s.topics);
+  
+  const allTopics = subjects.flatMap(s => s.topics || []);
   const totalTopics = allTopics.length;
   const completedTopics = allTopics.filter(t => t.completed).length;
   
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-
-  const delayedTopics = allTopics.filter(t => 
-    t.nextReview && t.nextReview < now && !t.completed
-  ).length;
-
-  const todayTopics = allTopics.filter(t => 
-    t.nextReview && t.nextReview >= today && t.nextReview < tomorrow && !t.completed
-  ).length;
-
-  const futureTopics = allTopics.filter(t => 
-    t.nextReview && t.nextReview >= tomorrow && !t.completed
-  ).length;
-
+  // Calcular tópicos por status de revisão
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let delayedTopics = 0;
+  let todayTopics = 0;
+  let futureTopics = 0;
+  
+  allTopics.forEach(topic => {
+    if (topic.nextReview && !topic.completed) {
+      const reviewDate = new Date(topic.nextReview);
+      reviewDate.setHours(0, 0, 0, 0);
+      
+      if (isBefore(reviewDate, today)) {
+        delayedTopics++;
+      } else if (isToday(reviewDate)) {
+        todayTopics++;
+      } else {
+        futureTopics++;
+      }
+    }
+  });
+  
   return {
     totalSubjects,
     completedSubjects,
@@ -51,22 +74,6 @@ export const calculateProgress = (subjects: Subject[]): StudyProgress => {
     completedTopics,
     delayedTopics,
     todayTopics,
-    futureTopics,
+    futureTopics
   };
-};
-
-export const fixSubjectPriorities = async (subjects: Subject[], supabase: any) => {
-  const priorities = subjects.map(s => s.priority);
-  const hasNull = priorities.some(p => p === null || p === undefined);
-  const hasDuplicate = new Set(priorities).size !== priorities.length;
-  
-  if (hasNull || hasDuplicate) {
-    const fixedSubjects = subjects.map((s, idx) => ({ ...s, priority: idx + 1 }));
-    await Promise.all(fixedSubjects.map(s =>
-      supabase.from('subjects').update({ priority: s.priority }).eq('id', s.id)
-    ));
-    return fixedSubjects;
-  }
-  
-  return subjects;
 };
