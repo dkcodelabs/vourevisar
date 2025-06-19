@@ -109,7 +109,7 @@ export const useSessionCompletion = () => {
         action: topicsToReview.length === 0 ? 'movida_para_final' : 'removida_apenas_do_dia'
       });
       
-      console.log('🔵 Atualizando banco de dados...');
+      console.log('🔵 Atualizando banco de dados (CONCLUSÃO DE SESSÃO)...');
       const { error: updateError } = await supabase
         .from('user_cycles')
         .update({
@@ -124,7 +124,7 @@ export const useSessionCompletion = () => {
         throw updateError;
       }
 
-      console.log('✅ Banco de dados atualizado');
+      console.log('✅ Banco de dados atualizado (CONCLUSÃO DE SESSÃO)');
       console.log('🔵 Carregando ciclo atualizado...');
       const freshCycle = await loadUserCycle(user.id);
       if (!freshCycle) {

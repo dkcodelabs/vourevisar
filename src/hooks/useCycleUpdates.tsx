@@ -13,24 +13,41 @@ export const useCycleUpdates = (
 ) => {
   const { user } = useAuth();
   const lastSubjectsPerDay = useRef<number | null>(null);
+  const isUpdatingFromSessionCompletion = useRef<boolean>(false);
+
+  // Função para marcar que uma atualização é resultado de conclusão de sessão
+  const markAsSessionUpdate = () => {
+    isUpdatingFromSessionCompletion.current = true;
+    // Reset flag after a short delay
+    setTimeout(() => {
+      isUpdatingFromSessionCompletion.current = false;
+    }, 1000);
+  };
 
   useEffect(() => {
     const updateDailySubjects = async () => {
       if (!user || !userCycle || !userSettings || userCycle.ciclo_atual.length === 0) return;
+      
+      // CORREÇÃO PRINCIPAL: Não atualizar se foi resultado de conclusão de sessão
+      if (isUpdatingFromSessionCompletion.current) {
+        console.log('🔄 Skipping update - resultado de conclusão de sessão');
+        return;
+      }
       
       // Só atualizar se o subjects_per_day realmente mudou
       if (lastSubjectsPerDay.current === userSettings.subjects_per_day) {
         return;
       }
       
-      // Não atualizar se as disciplinas_do_dia estão vazias (pode ser resultado de "Concluir Sessão")
+      // CORREÇÃO: Não atualizar se as disciplinas_do_dia estão vazias
+      // (pode ser resultado de "Concluir Sessão" que ainda não foi marcado)
       if (userCycle.disciplinas_do_dia.length === 0) {
         console.log('🔄 Skipping update - disciplinas_do_dia está vazio (possivelmente após Concluir Sessão)');
         lastSubjectsPerDay.current = userSettings.subjects_per_day;
         return;
       }
       
-      console.log('🔄 Detectada mudança em subjects_per_day:', userSettings.subjects_per_day);
+      console.log('🔄 Detectada mudança REAL em subjects_per_day (configuração):', userSettings.subjects_per_day);
       
       const currentDailyCount = userCycle.disciplinas_do_dia.length;
       const newCount = userSettings.subjects_per_day;
@@ -41,7 +58,7 @@ export const useCycleUpdates = (
         return;
       }
       
-      console.log('🔄 Atualizando disciplinas_do_dia:', {
+      console.log('🔄 Atualizando disciplinas_do_dia POR MUDANÇA DE CONFIGURAÇÃO:', {
         de: currentDailyCount,
         para: newCount,
         ciclo_atual: userCycle.ciclo_atual
@@ -56,7 +73,7 @@ export const useCycleUpdates = (
       
       const newDailySubjects = availableSubjectsInCycle.slice(0, newCount);
       
-      console.log('🔄 Novas disciplinas do dia:', {
+      console.log('🔄 Novas disciplinas do dia (por configuração):', {
         availableInCycle: availableSubjectsInCycle.length,
         selected: newDailySubjects.length,
         newDailySubjects
@@ -76,7 +93,7 @@ export const useCycleUpdates = (
         const updatedCycle = await loadUserCycle(user.id);
         setUserCycle(updatedCycle);
         
-        console.log('✅ disciplinas_do_dia atualizado com sucesso');
+        console.log('✅ disciplinas_do_dia atualizado com sucesso (por configuração)');
         lastSubjectsPerDay.current = userSettings.subjects_per_day;
       } catch (error) {
         console.error('Erro ao atualizar disciplinas_do_dia:', error);
@@ -85,4 +102,7 @@ export const useCycleUpdates = (
 
     updateDailySubjects();
   }, [userSettings?.subjects_per_day, user, userCycle?.id, subjects, setUserCycle]);
+
+  // Expor função para que useSessionCompletion possa marcar updates
+  return { markAsSessionUpdate };
 };
