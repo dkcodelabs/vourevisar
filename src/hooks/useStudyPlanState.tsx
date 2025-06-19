@@ -19,7 +19,8 @@ export const useStudyPlanState = () => {
     setShowNewCycleMessage,
     showNewCycleStarted,
     handleStartNewCycle,
-    handleHideNewCycleMessage
+    handleHideNewCycleMessage,
+    markAsSessionUpdate
   } = useCycleManagement(subjects, userSettings);
 
   const {
@@ -65,6 +66,7 @@ export const useStudyPlanState = () => {
     showNewCycleStarted,
     handleStartNewCycle,
     handleHideNewCycleMessage,
+    markAsSessionUpdate,
     
     // Subject filtering
     disciplinasIniciadas,

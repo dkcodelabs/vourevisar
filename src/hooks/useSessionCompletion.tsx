@@ -16,7 +16,8 @@ export const useSessionCompletion = () => {
     userCycle: UserCycle, 
     tempMarkedTopics: Record<string, string[]>, 
     setUserCycle: any, 
-    setTempMarkedTopics: any
+    setTempMarkedTopics: any,
+    markAsSessionUpdate: () => void
   ) => {
     console.log('🔵 handleCompleteSession INICIADO:', {
       subjectId,
@@ -108,6 +109,10 @@ export const useSessionCompletion = () => {
         disciplinasDoDia_depois: newDisciplinasDoDia.length,
         action: topicsToReview.length === 0 ? 'movida_para_final' : 'removida_apenas_do_dia'
       });
+      
+      // CORREÇÃO PRINCIPAL: Marcar que é conclusão de sessão ANTES da atualização
+      console.log('🔵 Marcando como conclusão de sessão para evitar auto-preenchimento...');
+      markAsSessionUpdate();
       
       console.log('🔵 Atualizando banco de dados (CONCLUSÃO DE SESSÃO)...');
       const { error: updateError } = await supabase
