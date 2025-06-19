@@ -75,66 +75,36 @@ export const useSessionCompletion = () => {
       console.log('🔵 Limpando tópicos marcados temporariamente...');
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
-      // Get user settings for subjects_per_day
-      const { data: userSettings } = await supabase
-        .from('user_settings')
-        .select('subjects_per_day')
-        .eq('user_id', user.id)
-        .single();
-
-      const subjectsPerDay = userSettings?.subjects_per_day || 3;
-
-      // NOVA LÓGICA CORRIGIDA: Mover matéria para final do ciclo e selecionar próximas
-      const updatedCicloAtual = [...userCycle.ciclo_atual];
+      // NOVA LÓGICA CORRIGIDA: 
+      // 1. Se marcou tópicos para revisão -> apenas remove da lista do dia
+      // 2. Se NÃO marcou nenhum tópico -> move para final da fila E remove da lista do dia
+      let updatedCicloAtual = [...userCycle.ciclo_atual];
       
-      // Remover a matéria da posição atual
-      const currentIndex = updatedCicloAtual.indexOf(subjectId);
-      if (currentIndex !== -1) {
-        updatedCicloAtual.splice(currentIndex, 1);
+      if (topicsToReview.length === 0) {
+        // Não marcou nenhum tópico para revisão -> mover para final da fila
+        const currentIndex = updatedCicloAtual.indexOf(subjectId);
+        if (currentIndex !== -1) {
+          updatedCicloAtual.splice(currentIndex, 1);
+        }
+        updatedCicloAtual.push(subjectId);
+        console.log('🔵 Matéria movida para final da fila (sem revisão)');
+      } else {
+        // Marcou tópicos para revisão -> matéria permanece na posição atual do ciclo
+        console.log('🔵 Matéria permanece na posição atual (com revisão)');
       }
-      
-      // Adicionar no final do ciclo
-      updatedCicloAtual.push(subjectId);
 
-      // Remover da lista de disciplinas do dia
-      const remainingDailySubjects = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+      // SEMPRE remover da lista de disciplinas do dia
+      const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
 
-      // Buscar próximas matérias disponíveis para preencher o lote do dia
-      const availableSubjectsInCycle = updatedCicloAtual.filter(id => {
-        if (remainingDailySubjects.includes(id)) return false; // Já está no dia
-        
-        const subject = subjects.find(s => s.id === id);
-        return subject && 
-               subject.status !== 'Concluída' &&
-               subject.topics && subject.topics.length > 0 &&
-               subject.topics.some(t => t.review_count === 0);
-      });
-
-      console.log('🔵 NOVA LÓGICA - Organizando ciclo:', {
+      console.log('🔵 Atualizando ciclo:', {
         subjectId,
         subject: subject.name,
         topicsMarkedForReview: topicsToReview.length,
         cicloAtual_antes: userCycle.ciclo_atual.length,
         cicloAtual_depois: updatedCicloAtual.length,
         disciplinasDoDia_antes: userCycle.disciplinas_do_dia.length,
-        remainingDailySubjects: remainingDailySubjects.length,
-        availableSubjectsInCycle: availableSubjectsInCycle.length,
-        subjectsPerDay,
-        nova_ordem_ciclo: updatedCicloAtual.map(id => {
-          const s = subjects.find(sub => sub.id === id);
-          return s ? s.name : id;
-        })
-      });
-
-      // Selecionar próximas matérias para completar o lote do dia
-      const slotsNeeded = subjectsPerDay - remainingDailySubjects.length;
-      const nextSubjectsToAdd = availableSubjectsInCycle.slice(0, slotsNeeded);
-      const newDisciplinasDoDia = [...remainingDailySubjects, ...nextSubjectsToAdd];
-
-      console.log('🔵 Selecionando próximas matérias:', {
-        slotsNeeded,
-        nextSubjectsToAdd: nextSubjectsToAdd.map(id => subjects.find(s => s.id === id)?.name || 'NOT_FOUND'),
-        newDisciplinasDoDia: newDisciplinasDoDia.map(id => subjects.find(s => s.id === id)?.name || 'NOT_FOUND')
+        disciplinasDoDia_depois: newDisciplinasDoDia.length,
+        action: topicsToReview.length === 0 ? 'movida_para_final' : 'removida_apenas_do_dia'
       });
       
       console.log('🔵 Atualizando banco de dados...');

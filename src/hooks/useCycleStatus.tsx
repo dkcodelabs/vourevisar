@@ -110,11 +110,14 @@ export const useCycleStatus = (
     return cycleCompleted;
   }, [userCycle, dailySubjectsLength, nextSubjectsLength, subjects]);
 
-  // CORRIGIDO: Detectar quando o dia foi concluído mas ainda há matérias no ciclo atual
+  // NOVA LÓGICA: Detectar quando o dia foi concluído (todas as matérias do dia foram estudadas)
   const allDaySubjectsCompleted = useMemo(() => {
     if (!userCycle) return false;
     
-    // Verificar se há matérias disponíveis no ciclo atual
+    // Simplesmente verifica se não há mais matérias nas disciplinas do dia
+    const noDailySubjectsNow = dailySubjectsLength === 0;
+    
+    // Verificar se há matérias disponíveis no ciclo atual para serem estudadas
     const availableSubjectsInCycle = userCycle.ciclo_atual?.filter(id => {
       const subject = subjects.find(s => s.id === id);
       if (!subject || subject.status === 'Concluída') return false;
@@ -122,7 +125,6 @@ export const useCycleStatus = (
       return subject.topics.some(topic => topic.review_count === 0);
     }) || [];
 
-    const noDailySubjectsNow = dailySubjectsLength === 0;
     const hasAvailableSubjectsInCycle = availableSubjectsInCycle.length > 0;
     
     console.log('🔍 Verificando allDaySubjectsCompleted - NOVA LÓGICA:', {
@@ -130,15 +132,22 @@ export const useCycleStatus = (
       hasAvailableSubjectsInCycle,
       isCycleCompleted,
       allStudiesCompleted,
+      allTopicsInReview,
       userCycle_disciplinas_do_dia: userCycle.disciplinas_do_dia,
-      result: noDailySubjectsNow && hasAvailableSubjectsInCycle && !isCycleCompleted && !allStudiesCompleted
+      result: noDailySubjectsNow && hasAvailableSubjectsInCycle && !isCycleCompleted && !allStudiesCompleted && !allTopicsInReview
     });
     
+    // Dia está completo se:
+    // 1. Não há matérias do dia E
+    // 2. Há matérias disponíveis no ciclo (não é fim de ciclo) E  
+    // 3. Não é fim de todos os estudos E
+    // 4. Não é situação de todos os tópicos em revisão
     return noDailySubjectsNow && 
            hasAvailableSubjectsInCycle && 
-           !isCycleCompleted &&
-           !allStudiesCompleted;
-  }, [userCycle, dailySubjectsLength, subjects, isCycleCompleted, allStudiesCompleted]);
+           !isCycleCompleted && 
+           !allStudiesCompleted && 
+           !allTopicsInReview;
+  }, [userCycle, dailySubjectsLength, subjects, isCycleCompleted, allStudiesCompleted, allTopicsInReview]);
 
   return {
     allStudiesCompleted,
