@@ -39,6 +39,54 @@ export type Database = {
         }
         Relationships: []
       }
+      question_attempts: {
+        Row: {
+          attempted_at: string
+          bank: string
+          correct_answer: string
+          created_at: string
+          difficulty: string
+          id: string
+          is_correct: boolean
+          question_text: string
+          question_type: string
+          subject: string
+          topic: string
+          user_answer: string | null
+          user_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          bank: string
+          correct_answer: string
+          created_at?: string
+          difficulty: string
+          id?: string
+          is_correct: boolean
+          question_text: string
+          question_type: string
+          subject: string
+          topic: string
+          user_answer?: string | null
+          user_id: string
+        }
+        Update: {
+          attempted_at?: string
+          bank?: string
+          correct_answer?: string
+          created_at?: string
+          difficulty?: string
+          id?: string
+          is_correct?: boolean
+          question_text?: string
+          question_type?: string
+          subject?: string
+          topic?: string
+          user_answer?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       study_sessions: {
         Row: {
           created_at: string

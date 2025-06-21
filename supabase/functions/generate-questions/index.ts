@@ -16,6 +16,98 @@ interface QuestionRequest {
   type: 'multipla-escolha' | 'verdadeiro-falso' | 'dissertativa';
 }
 
+interface ParsedQuestion {
+  id: string;
+  statement: string;
+  type: 'multipla-escolha' | 'verdadeiro-falso' | 'dissertativa';
+  options?: string[];
+  correctAnswer: string;
+  explanation: string;
+}
+
+function parseQuestions(rawText: string, type: string): ParsedQuestion[] {
+  const questions: ParsedQuestion[] = [];
+  const questionBlocks = rawText.split(/QUESTÃO \d+:/i).filter(block => block.trim());
+
+  questionBlocks.forEach((block, index) => {
+    const lines = block.trim().split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) return;
+    
+    let statement = '';
+    let options: string[] = [];
+    let correctAnswer = '';
+    let explanation = '';
+    let isReadingStatement = true;
+    let isReadingAnswer = false;
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      if (trimmedLine.startsWith('RESPOSTA:')) {
+        isReadingStatement = false;
+        isReadingAnswer = true;
+        const answerPart = trimmedLine.replace('RESPOSTA:', '').trim();
+        if (answerPart) {
+          if (type === 'multipla-escolha') {
+            const match = answerPart.match(/^([A-E])\s*[-–]\s*(.+)$/);
+            if (match) {
+              correctAnswer = match[1];
+              explanation = match[2];
+            } else {
+              correctAnswer = answerPart.charAt(0);
+              explanation = answerPart;
+            }
+          } else {
+            correctAnswer = answerPart;
+          }
+        }
+      } else if (trimmedLine.startsWith('RESPOSTA ESPERADA:')) {
+        isReadingStatement = false;
+        isReadingAnswer = true;
+        explanation = trimmedLine.replace('RESPOSTA ESPERADA:', '').trim();
+        correctAnswer = explanation;
+      } else if (isReadingAnswer) {
+        if (type === 'multipla-escolha' && !explanation) {
+          explanation = trimmedLine;
+        } else if (type !== 'multipla-escolha') {
+          if (correctAnswer && trimmedLine) {
+            explanation += ' ' + trimmedLine;
+          } else if (!correctAnswer) {
+            correctAnswer = trimmedLine;
+          }
+        }
+      } else if (isReadingStatement) {
+        const optionMatch = trimmedLine.match(/^([A-E])\)\s*(.+)$/);
+        if (optionMatch && type === 'multipla-escolha') {
+          options.push(optionMatch[2]);
+          isReadingStatement = false;
+        } else if (trimmedLine && !trimmedLine.match(/^[A-E]\)/)) {
+          statement += (statement ? ' ' : '') + trimmedLine;
+        }
+      } else {
+        const optionMatch = trimmedLine.match(/^([A-E])\)\s*(.+)$/);
+        if (optionMatch && type === 'multipla-escolha') {
+          options.push(optionMatch[2]);
+        }
+      }
+    }
+    
+    if (statement) {
+      questions.push({
+        id: `q_${index + 1}_${Date.now()}`,
+        statement: statement.trim(),
+        type: type as any,
+        options: type === 'multipla-escolha' ? options : undefined,
+        correctAnswer: correctAnswer.trim(),
+        explanation: explanation.trim()
+      });
+    }
+  });
+  
+  return questions;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -29,7 +121,6 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Configurar prompt baseado na banca e tipo
     const difficultyMap = {
       facil: 'nível básico',
       medio: 'nível intermediário',
@@ -43,15 +134,16 @@ serve(async (req) => {
     };
 
     const systemPrompt = `Você é um especialista em elaboração de questões para concursos públicos brasileiros. 
-    Crie questões de ${difficulty === 'facil' ? 'nível básico' : difficulty === 'medio' ? 'nível intermediário' : 'nível avançado'} no estilo da banca ${bank}.
+    Crie questões de ${difficultyMap[difficulty]} no estilo da banca ${bank}.
     
-    IMPORTANTE:
+    IMPORTANTE - SIGA EXATAMENTE ESTE FORMATO:
     - Use linguagem clara e objetiva
-    - Para múltipla escolha: sempre 5 alternativas (A, B, C, D, E) e indique a resposta correta
+    - Para múltipla escolha: sempre 5 alternativas (A, B, C, D, E) e indique APENAS a letra correta
     - Para V/F: apresente a afirmação e forneça justificativa
     - Para dissertativa: inclua a resposta esperada
     - Baseie-se no estilo e formato típico da banca ${bank}
-    - Foque no conteúdo de ${subject}, especificamente no tópico ${topic}`;
+    - Foque no conteúdo de ${subject}, especificamente no tópico ${topic}
+    - NUNCA use "alternativa" ou outros termos, use apenas as letras A) B) C) D) E)`;
 
     const userPrompt = `Gere ${quantity} questão(ões) do tipo ${typeMap[type]} sobre:
     Matéria: ${subject}
@@ -59,24 +151,24 @@ serve(async (req) => {
     Banca: ${bank}
     Dificuldade: ${difficultyMap[difficulty]}
     
-    Formato de resposta:
+    Formato OBRIGATÓRIO:
     ${type === 'multipla-escolha' ? 
-      `QUESTÃO X:
+      `QUESTÃO 1:
       [Enunciado da questão]
       
-      A) [alternativa]
-      B) [alternativa] 
-      C) [alternativa]
-      D) [alternativa]
-      E) [alternativa]
+      A) [opção A]
+      B) [opção B] 
+      C) [opção C]
+      D) [opção D]
+      E) [opção E]
       
-      RESPOSTA: [letra correta] - [justificativa]` :
+      RESPOSTA: [apenas a letra] - [justificativa curta]` :
       type === 'verdadeiro-falso' ?
-      `QUESTÃO X:
+      `QUESTÃO 1:
       [Afirmação]
       
       RESPOSTA: [Verdadeiro/Falso] - [justificativa]` :
-      `QUESTÃO X:
+      `QUESTÃO 1:
       [Enunciado da questão]
       
       RESPOSTA ESPERADA:
@@ -107,11 +199,15 @@ serve(async (req) => {
 
     const data = await response.json();
     const generatedQuestions = data.choices[0].message.content;
+    
+    // Parse the questions into structured format
+    const parsedQuestions = parseQuestions(generatedQuestions, type);
 
-    console.log('Questions generated successfully');
+    console.log('Questions generated and parsed successfully');
 
     return new Response(JSON.stringify({ 
-      questions: generatedQuestions,
+      questions: parsedQuestions,
+      rawText: generatedQuestions,
       metadata: {
         subject,
         topic,

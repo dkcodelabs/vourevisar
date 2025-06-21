@@ -5,11 +5,30 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, BookOpen, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, Loader2, RefreshCw, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import InteractiveQuestion from '@/components/questions/InteractiveQuestion';
+
+interface Question {
+  id: string;
+  statement: string;
+  type: 'multipla-escolha' | 'verdadeiro-falso' | 'dissertativa';
+  options?: string[];
+  correctAnswer: string;
+  explanation: string;
+}
+
+interface GenerationMetadata {
+  subject: string;
+  topic: string;
+  bank: string;
+  quantity: number;
+  difficulty: string;
+  type: string;
+}
 
 const Questoes = () => {
   const [searchParams] = useSearchParams();
@@ -29,7 +48,9 @@ const Questoes = () => {
     type: 'multipla-escolha' as 'multipla-escolha' | 'verdadeiro-falso' | 'dissertativa'
   });
   
-  const [questions, setQuestions] = useState('');
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [metadata, setMetadata] = useState<GenerationMetadata | null>(null);
+  const [rawText, setRawText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
 
@@ -74,9 +95,11 @@ const Questoes = () => {
         throw new Error(data.error);
       }
 
-      setQuestions(data.questions);
+      setQuestions(data.questions || []);
+      setMetadata(data.metadata);
+      setRawText(data.rawText || '');
       setHasGenerated(true);
-      toast.success('Questões geradas com sucesso!');
+      toast.success(`${data.questions?.length || 0} questões geradas com sucesso!`);
       
     } catch (error) {
       console.error('Erro ao gerar questões:', error);
@@ -87,7 +110,9 @@ const Questoes = () => {
   };
 
   const handleNewGeneration = () => {
-    setQuestions('');
+    setQuestions([]);
+    setMetadata(null);
+    setRawText('');
     setHasGenerated(false);
   };
 
@@ -109,14 +134,23 @@ const Questoes = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      <Button 
-        variant="outline" 
-        onClick={() => navigate(-1)}
-        className="mb-4"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Voltar
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button 
+          variant="outline" 
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar
+        </Button>
+
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/questoes/estatisticas')}
+        >
+          <BarChart3 className="mr-2 h-4 w-4" />
+          Ver Estatísticas
+        </Button>
+      </div>
 
       <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
         <CardHeader>
@@ -262,7 +296,7 @@ const Questoes = () => {
                     Questões Geradas
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {formData.subject} • {formData.topic} • {formData.bank}
+                    {metadata?.subject} • {metadata?.topic} • {metadata?.bank}
                   </p>
                 </div>
                 <Button 
@@ -274,18 +308,41 @@ const Questoes = () => {
                   Nova Geração
                 </Button>
               </div>
-
-              <Card className="bg-gray-50 border-gray-200">
-                <CardContent className="p-6">
-                  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed">
-                    {questions}
-                  </pre>
-                </CardContent>
-              </Card>
             </>
           )}
         </CardContent>
       </Card>
+
+      {/* Questões Interativas */}
+      {hasGenerated && questions.length > 0 && metadata && (
+        <div className="space-y-4">
+          {questions.map((question, index) => (
+            <InteractiveQuestion
+              key={question.id}
+              question={question}
+              metadata={metadata}
+              questionNumber={index + 1}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Fallback para texto raw se parsing falhar */}
+      {hasGenerated && questions.length === 0 && rawText && (
+        <Card className="bg-gray-50 border-gray-200">
+          <CardHeader>
+            <CardTitle>Questões Geradas (Formato Original)</CardTitle>
+            <p className="text-sm text-gray-600">
+              Não foi possível processar as questões automaticamente. Veja o texto original abaixo:
+            </p>
+          </CardHeader>
+          <CardContent>
+            <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed">
+              {rawText}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
     </motion.div>
   );
 };
