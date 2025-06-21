@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +20,7 @@ import { AuthCallback } from "@/components/AuthCallback";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
 import RevisaoGeral from "@/pages/RevisaoGeral";
+import Questoes from "@/pages/Questoes";
 import { Toaster as ReactHotToastToaster } from 'react-hot-toast';
 import { ProfileOnboardingGate } from "@/components/ProfileOnboardingGate";
 
@@ -55,6 +57,7 @@ const App = () => {
                     <Route path="topicos" element={<Topics />} />
                     <Route path="revisoes" element={<Revisoes />} />
                     <Route path="revisao-geral" element={<RevisaoGeral />} />
+                    <Route path="questoes" element={<Questoes />} />
                     <Route path="perfil" element={<Profile />} />
                     <Route path="configuracoes" element={<Settings />} />
                   </Route>

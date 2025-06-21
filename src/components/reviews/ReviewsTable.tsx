@@ -7,6 +7,7 @@ import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'react-hot-toast';
+import QuestionsButton from './QuestionsButton';
 
 interface Topic {
   id: string;
@@ -74,12 +75,13 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               <>
                 <TableHead>Data de Início</TableHead>
                 <TableHead>Data de Conclusão</TableHead>
+                <TableHead>Ações</TableHead>
               </>
             ) : (
               <>
                 <TableHead>Próxima Revisão</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Ação</TableHead>
+                <TableHead>Ações</TableHead>
               </>
             )}
           </TableRow>
@@ -123,61 +125,74 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                       <TableCell>
                         {topic.last_reviewed_at ? format(new Date(topic.last_reviewed_at), 'dd/MM/yyyy') : '-'}
                       </TableCell>
+                      <TableCell>
+                        <QuestionsButton
+                          subjectName={topic.subject_name}
+                          topicName={topic.name}
+                        />
+                      </TableCell>
                     </>
                   ) : (
                     <>
                       <TableCell>{proxima ? format(proxima, 'dd/MM/yyyy') : '-'}</TableCell>
                       <TableCell className={statusClass}>{status}</TableCell>
                       <TableCell>
-                        {topic.completed ? (
-                          <Button variant="outline" size="sm" disabled className="text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto">
-                            Concluído
-                          </Button>
-                        ) : (
-                          <>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => setConfirmTopicId(topic.id)}
-                              disabled={isLogicLoading}
-                            >
-                              Marcar Revisão
+                        <div className="flex items-center gap-2">
+                          <QuestionsButton
+                            subjectName={topic.subject_name}
+                            topicName={topic.name}
+                          />
+                          {topic.completed ? (
+                            <Button variant="outline" size="sm" disabled className="text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed text-xs px-2 py-1 h-7 min-w-[110px]">
+                              Concluído
                             </Button>
-                            <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Confirmar Revisão</DialogTitle>
-                                  <DialogDescription>
-                                    Tem certeza que deseja marcar este tópico como revisado?
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <DialogFooter>
-                                  <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
-                                  <Button
-                                    variant="default"
-                                    onClick={async () => {
-                                      try {
-                                        await markTopicAsReviewed(topic.id);
-                                        setConfirmTopicId(null);
-                                        setTimeout(async () => {
-                                          await Promise.all([
-                                            refreshData(),
-                                            refetch()
-                                          ]);
-                                        }, 500);
-                                      } catch (error) {
-                                        console.error('Erro ao marcar revisão:', error);
-                                        toast.error('Erro ao marcar revisão');
-                                      }
-                                    }}
-                                  >
-                                    Confirmar
-                                  </Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-                          </>
-                        )}
+                          ) : (
+                            <>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => setConfirmTopicId(topic.id)}
+                                disabled={isLogicLoading}
+                                className="text-xs px-2 py-1 h-7 min-w-[110px]"
+                              >
+                                Marcar Revisão
+                              </Button>
+                              <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Confirmar Revisão</DialogTitle>
+                                    <DialogDescription>
+                                      Tem certeza que deseja marcar este tópico como revisado?
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <DialogFooter>
+                                    <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
+                                    <Button
+                                      variant="default"
+                                      onClick={async () => {
+                                        try {
+                                          await markTopicAsReviewed(topic.id);
+                                          setConfirmTopicId(null);
+                                          setTimeout(async () => {
+                                            await Promise.all([
+                                              refreshData(),
+                                              refetch()
+                                            ]);
+                                          }, 500);
+                                        } catch (error) {
+                                          console.error('Erro ao marcar revisão:', error);
+                                          toast.error('Erro ao marcar revisão');
+                                        }
+                                      }}
+                                    >
+                                      Confirmar
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </>
                   )}
@@ -186,7 +201,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={tab === 'concluido' ? 5 : 6} className="text-center text-gray-400 py-8">
+              <TableCell colSpan={tab === 'concluido' ? 6 : 6} className="text-center text-gray-400 py-8">
                 Nenhuma revisão encontrada para este filtro.
               </TableCell>
             </TableRow>
