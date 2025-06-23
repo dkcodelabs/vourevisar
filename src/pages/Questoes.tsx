@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -9,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import QuestionGeneratorForm from '@/components/questions/QuestionGeneratorForm';
 import GeneratedQuestionsDisplay from '@/components/questions/GeneratedQuestionsDisplay';
+import StatsSummaryCards from '@/components/questions/StatsSummaryCards';
+import { format, subDays, startOfDay } from 'date-fns';
 import QuestionsStatistics from './QuestionsStatistics';
 
 interface Question {
@@ -108,6 +109,60 @@ const Questoes = () => {
     }
   }, [user, hasGenerated]);
 
+  // Estado para estatísticas resumidas
+  const [summaryStats, setSummaryStats] = useState({
+    totalAttempts: 0,
+    correctAttempts: 0,
+    accuracyRate: 0,
+    streakDays: 0
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Buscar estatísticas resumidas
+  useEffect(() => {
+    if (user) {
+      fetchSummaryStats();
+    }
+  }, [user]);
+
+  const fetchSummaryStats = async () => {
+    if (!user) return;
+
+    setStatsLoading(true);
+    try {
+      const fromDate = startOfDay(subDays(new Date(), 30));
+
+      const { data, error } = await supabase
+        .from('question_attempts')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('attempted_at', fromDate.toISOString());
+
+      if (error) throw error;
+
+      const attempts = data || [];
+      const total = attempts.length;
+      const correct = attempts.filter(a => a.is_correct).length;
+      const accuracy = total > 0 ? (correct / total) * 100 : 0;
+      
+      // Calcular dias únicos com atividade
+      const uniqueDays = new Set(
+        attempts.map(a => format(new Date(a.attempted_at), 'yyyy-MM-dd'))
+      );
+
+      setSummaryStats({
+        totalAttempts: total,
+        correctAttempts: correct,
+        accuracyRate: accuracy,
+        streakDays: uniqueDays.size
+      });
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="container mx-auto p-6">
@@ -131,45 +186,76 @@ const Questoes = () => {
         <p className="text-gray-600">Gere questões personalizadas e acompanhe seu desempenho</p>
       </div>
 
-      {/* Seção do Gerador de Questões */}
-      <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-800">Gerador de Questões</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!hasGenerated ? (
-            <QuestionGeneratorForm
-              formData={formData}
-              setFormData={setFormData}
-              onGenerateQuestions={handleGenerateQuestions}
-              isGenerating={isGenerating}
-            />
-          ) : (
-            <GeneratedQuestionsDisplay
-              questions={questions}
-              metadata={metadata}
-              rawText={rawText}
-              onNewGeneration={handleNewGeneration}
-            />
+      {/* Layout responsivo: duas colunas em telas grandes, uma coluna em telas pequenas */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Coluna principal - Gerador de questões (3/4 em telas grandes) */}
+        <div className="lg:col-span-3 space-y-6">
+          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-gray-800">Gerador de Questões</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!hasGenerated ? (
+                <QuestionGeneratorForm
+                  formData={formData}
+                  setFormData={setFormData}
+                  onGenerateQuestions={handleGenerateQuestions}
+                  isGenerating={isGenerating}
+                />
+              ) : (
+                <GeneratedQuestionsDisplay
+                  questions={questions}
+                  metadata={metadata}
+                  rawText={rawText}
+                  onNewGeneration={handleNewGeneration}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Questões geradas - apenas em telas grandes, senão vai para baixo */}
+          {hasGenerated && questions.length > 0 && (
+            <div className="space-y-4 lg:block hidden">
+              {questions.map((question, index) => (
+                <div key={question.id} className="space-y-4">
+                  {/* Componente InteractiveQuestion seria renderizado aqui */}
+                </div>
+              ))}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Separador */}
-      {showStatistics && (
-        <>
-          <div className="flex items-center gap-4">
-            <Separator className="flex-1" />
-            <span className="text-gray-500 font-medium">Estatísticas de Desempenho</span>
-            <Separator className="flex-1" />
+        {/* Coluna lateral - Estatísticas resumidas (1/4 em telas grandes) */}
+        <div className="lg:col-span-1">
+          <div className="lg:sticky lg:top-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Estatísticas (30 dias)</h3>
+            <StatsSummaryCards stats={summaryStats} isLoading={statsLoading} />
           </div>
+        </div>
+      </div>
 
-          {/* Seção das Estatísticas */}
-          <div className="mt-6">
-            <QuestionsStatistics hideHeader={true} />
-          </div>
-        </>
+      {/* Questões geradas - em telas pequenas aparecem aqui */}
+      {hasGenerated && questions.length > 0 && (
+        <div className="space-y-4 lg:hidden">
+          {questions.map((question, index) => (
+            <div key={question.id} className="space-y-4">
+              {/* Componente InteractiveQuestion seria renderizado aqui */}
+            </div>
+          ))}
+        </div>
       )}
+
+      {/* Separador para estatísticas detalhadas */}
+      <div className="flex items-center gap-4 mt-8">
+        <Separator className="flex-1" />
+        <span className="text-gray-500 font-medium">Estatísticas Detalhadas</span>
+        <Separator className="flex-1" />
+      </div>
+
+      {/* Estatísticas detalhadas sempre aparecem por último */}
+      <div className="mt-6">
+        <QuestionsStatistics hideHeader={true} />
+      </div>
     </motion.div>
   );
 };

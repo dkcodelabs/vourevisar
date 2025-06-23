@@ -2,9 +2,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BookOpen, Loader2 } from 'lucide-react';
+import { BookOpen, Loader2, Plus, Minus } from 'lucide-react';
+import { useSubjectsAndTopics } from '@/hooks/useSubjectsAndTopics';
 
 interface FormData {
   subject: string;
@@ -28,6 +28,8 @@ const QuestionGeneratorForm: React.FC<QuestionGeneratorFormProps> = ({
   onGenerateQuestions,
   isGenerating
 }) => {
+  const { subjects, topics, isLoading, fetchTopicsBySubject } = useSubjectsAndTopics();
+
   const bancasDisponiveis = [
     'CESPE/CEBRASPE',
     'FCC',
@@ -43,84 +45,142 @@ const QuestionGeneratorForm: React.FC<QuestionGeneratorFormProps> = ({
     'IDECAN'
   ];
 
-  return (
-    <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <BookOpen className="h-6 w-6" />
-          Gerador de Questões
-        </CardTitle>
-        <p className="text-gray-600">
-          Gere questões personalizadas usando inteligência artificial
-        </p>
-      </CardHeader>
-      
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              Matéria *
-            </label>
-            <Input
-              placeholder="Ex: Direito Constitucional"
-              value={formData.subject}
-              onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-            />
-          </div>
+  const handleSubjectChange = (value: string) => {
+    const selectedSubject = subjects.find(s => s.id === value);
+    if (selectedSubject) {
+      setFormData(prev => ({ 
+        ...prev, 
+        subject: selectedSubject.name,
+        topic: '' // Limpar tópico quando mudar matéria
+      }));
+      fetchTopicsBySubject(value);
+    }
+  };
 
+  const handleTopicSelect = (value: string) => {
+    const selectedTopic = topics.find(t => t.id === value);
+    if (selectedTopic) {
+      setFormData(prev => ({ ...prev, topic: selectedTopic.name }));
+    }
+  };
+
+  const handleQuantityChange = (increment: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      quantity: increment 
+        ? Math.min(prev.quantity + 1, 10)
+        : Math.max(prev.quantity - 1, 1)
+    }));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">
+            Matéria *
+          </label>
+          {isLoading ? (
+            <div className="h-10 bg-gray-200 animate-pulse rounded"></div>
+          ) : (
+            <div className="space-y-2">
+              <Select onValueChange={handleSubjectChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma matéria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Ou digite uma matéria personalizada"
+                value={formData.subject}
+                onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">
+            Tópico *
+          </label>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              Tópico *
-            </label>
+            {topics.length > 0 && (
+              <Select onValueChange={handleTopicSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um tópico" />
+                </SelectTrigger>
+                <SelectContent>
+                  {topics.map((topic) => (
+                    <SelectItem key={topic.id} value={topic.id}>
+                      {topic.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Input
-              placeholder="Ex: Direitos Fundamentais"
+              placeholder="Ou digite um tópico personalizado"
               value={formData.topic}
               onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              Banca *
-            </label>
-            <Select 
-              value={formData.bank} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, bank: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione a banca" />
-              </SelectTrigger>
-              <SelectContent>
-                {bancasDisponiveis.map((banca) => (
-                  <SelectItem key={banca} value={banca}>
-                    {banca}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">
+            Banca *
+          </label>
+          <Select 
+            value={formData.bank} 
+            onValueChange={(value) => setFormData(prev => ({ ...prev, bank: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a banca" />
+            </SelectTrigger>
+            <SelectContent>
+              {bancasDisponiveis.map((banca) => (
+                <SelectItem key={banca} value={banca}>
+                  {banca}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
               Quantidade
             </label>
-            <Select 
-              value={formData.quantity.toString()} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, quantity: parseInt(value) }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                  <SelectItem key={num} value={num.toString()}>
-                    {num} questão{num > 1 ? 'ões' : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuantityChange(false)}
+                disabled={formData.quantity <= 1}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <div className="flex-1 text-center py-2 px-4 border rounded-md bg-white">
+                {formData.quantity} questão{formData.quantity > 1 ? 'ões' : ''}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuantityChange(true)}
+                disabled={formData.quantity >= 10}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -161,24 +221,27 @@ const QuestionGeneratorForm: React.FC<QuestionGeneratorFormProps> = ({
             </SelectContent>
           </Select>
         </div>
+      </div>
 
-        <Button 
-          onClick={onGenerateQuestions}
-          disabled={isGenerating || !formData.subject || !formData.topic || !formData.bank}
-          className="w-full"
-          size="lg"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Gerando questões...
-            </>
-          ) : (
-            'Gerar Questões'
-          )}
-        </Button>
-      </CardContent>
-    </Card>
+      <Button 
+        onClick={onGenerateQuestions}
+        disabled={isGenerating || !formData.subject || !formData.topic || !formData.bank}
+        className="w-full"
+        size="lg"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Gerando questões...
+          </>
+        ) : (
+          <>
+            <BookOpen className="mr-2 h-4 w-4" />
+            Gerar Questões
+          </>
+        )}
+      </Button>
+    </div>
   );
 };
 
