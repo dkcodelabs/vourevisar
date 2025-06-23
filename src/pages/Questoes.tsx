@@ -1,13 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import QuestionGeneratorHeader from '@/components/questions/QuestionGeneratorHeader';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import QuestionGeneratorForm from '@/components/questions/QuestionGeneratorForm';
 import GeneratedQuestionsDisplay from '@/components/questions/GeneratedQuestionsDisplay';
+import QuestionsStatistics from './QuestionsStatistics';
 
 interface Question {
   id: string;
@@ -49,6 +51,7 @@ const Questoes = () => {
   const [rawText, setRawText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [showStatistics, setShowStatistics] = useState(false);
 
   const handleGenerateQuestions = async () => {
     if (!formData.subject || !formData.topic || !formData.bank) {
@@ -80,6 +83,7 @@ const Questoes = () => {
       setMetadata(data.metadata);
       setRawText(data.rawText || '');
       setHasGenerated(true);
+      setShowStatistics(true);
       toast.success(`${data.questions?.length || 0} questões geradas com sucesso!`);
       
     } catch (error) {
@@ -96,6 +100,13 @@ const Questoes = () => {
     setRawText('');
     setHasGenerated(false);
   };
+
+  // Exibir estatísticas automaticamente se já existem dados no banco
+  useEffect(() => {
+    if (user && !hasGenerated) {
+      setShowStatistics(true);
+    }
+  }, [user, hasGenerated]);
 
   if (!user) {
     return (
@@ -115,22 +126,49 @@ const Questoes = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      <QuestionGeneratorHeader />
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Sistema de Questões</h1>
+        <p className="text-gray-600">Gere questões personalizadas e acompanhe seu desempenho</p>
+      </div>
 
-      {!hasGenerated ? (
-        <QuestionGeneratorForm
-          formData={formData}
-          setFormData={setFormData}
-          onGenerateQuestions={handleGenerateQuestions}
-          isGenerating={isGenerating}
-        />
-      ) : (
-        <GeneratedQuestionsDisplay
-          questions={questions}
-          metadata={metadata}
-          rawText={rawText}
-          onNewGeneration={handleNewGeneration}
-        />
+      {/* Seção do Gerador de Questões */}
+      <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold text-gray-800">Gerador de Questões</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!hasGenerated ? (
+            <QuestionGeneratorForm
+              formData={formData}
+              setFormData={setFormData}
+              onGenerateQuestions={handleGenerateQuestions}
+              isGenerating={isGenerating}
+            />
+          ) : (
+            <GeneratedQuestionsDisplay
+              questions={questions}
+              metadata={metadata}
+              rawText={rawText}
+              onNewGeneration={handleNewGeneration}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Separador */}
+      {showStatistics && (
+        <>
+          <div className="flex items-center gap-4">
+            <Separator className="flex-1" />
+            <span className="text-gray-500 font-medium">Estatísticas de Desempenho</span>
+            <Separator className="flex-1" />
+          </div>
+
+          {/* Seção das Estatísticas */}
+          <div className="mt-6">
+            <QuestionsStatistics hideHeader={true} />
+          </div>
+        </>
       )}
     </motion.div>
   );

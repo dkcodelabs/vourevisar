@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-interface QuestionAttempt {
+interface Question {
   id: string;
   subject: string;
   topic: string;
@@ -38,10 +37,14 @@ interface SubjectStats {
   accuracy: number;
 }
 
-const QuestionsStatistics = () => {
+interface QuestionsStatisticsProps {
+  hideHeader?: boolean;
+}
+
+const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = false }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [attempts, setAttempts] = useState<QuestionAttempt[]>([]);
+  const [attempts, setAttempts] = useState<Question[]>([]);
   const [stats, setStats] = useState<StatsSummary>({
     totalAttempts: 0,
     correctAttempts: 0,
@@ -83,7 +86,7 @@ const QuestionsStatistics = () => {
     }
   };
 
-  const calculateStats = (attemptsData: QuestionAttempt[]) => {
+  const calculateStats = (attemptsData: Question[]) => {
     const total = attemptsData.length;
     const correct = attemptsData.filter(a => a.is_correct).length;
     const accuracy = total > 0 ? (correct / total) * 100 : 0;
@@ -96,7 +99,7 @@ const QuestionsStatistics = () => {
     });
   };
 
-  const calculateStreak = (attemptsData: QuestionAttempt[]) => {
+  const calculateStreak = (attemptsData: Question[]) => {
     // Simplificado: conta dias únicos com tentativas
     const uniqueDays = new Set(
       attemptsData.map(a => format(new Date(a.attempted_at), 'yyyy-MM-dd'))
@@ -175,40 +178,53 @@ const QuestionsStatistics = () => {
     );
   }
 
-  return (
-    <motion.div 
-      className="container mx-auto p-6 space-y-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/questoes')}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-800">Estatísticas de Questões</h1>
-        </div>
+  const content = (
+    <>
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/questoes')}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+            <h1 className="text-2xl font-bold text-gray-800">Estatísticas de Questões</h1>
+          </div>
 
-        <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">7 dias</SelectItem>
-            <SelectItem value="30">30 dias</SelectItem>
-            <SelectItem value="90">90 dias</SelectItem>
-            <SelectItem value="365">1 ano</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">7 dias</SelectItem>
+              <SelectItem value="30">30 dias</SelectItem>
+              <SelectItem value="90">90 dias</SelectItem>
+              <SelectItem value="365">1 ano</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {hideHeader && (
+        <div className="flex justify-end mb-6">
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">7 dias</SelectItem>
+              <SelectItem value="30">30 dias</SelectItem>
+              <SelectItem value="90">90 dias</SelectItem>
+              <SelectItem value="365">1 ano</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Resumo Geral */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card className="bg-white/70 backdrop-blur-lg border-white/20">
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
@@ -258,7 +274,7 @@ const QuestionsStatistics = () => {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Desempenho por Matéria */}
         <Card className="bg-white/70 backdrop-blur-lg border-white/20">
           <CardHeader>
@@ -317,7 +333,7 @@ const QuestionsStatistics = () => {
       </div>
 
       {/* Timeline de Atividade */}
-      <Card className="bg-white/70 backdrop-blur-lg border-white/20">
+      <Card className="bg-white/70 backdrop-blur-lg border-white/20 mb-6">
         <CardHeader>
           <CardTitle>Atividade Diária</CardTitle>
         </CardHeader>
@@ -378,6 +394,21 @@ const QuestionsStatistics = () => {
           </div>
         </CardContent>
       </Card>
+    </>
+  );
+
+  if (hideHeader) {
+    return <div className="space-y-6">{content}</div>;
+  }
+
+  return (
+    <motion.div 
+      className="container mx-auto p-6 space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      {content}
     </motion.div>
   );
 };
