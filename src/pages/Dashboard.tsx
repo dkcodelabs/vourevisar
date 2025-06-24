@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Loader2 } from "lucide-react";
 import { motion } from 'framer-motion';
-// import TopicItem from './TopicItem';
 
 const Dashboard = () => {
   const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();
@@ -104,12 +104,6 @@ const Dashboard = () => {
     }
   }, []);
 
-  // Função para navegar para o plano de estudos
-  const handleStartStudy = () => {
-    console.log('Navegando para o plano de estudos...');
-    navigate('/plano-estudos');
-  };
-
   // Estados de loading e erro simplificados
   if (isLoading || cycleLoading) {
     console.log('Dashboard - Showing loading state');
@@ -173,13 +167,6 @@ const Dashboard = () => {
     return reviewDate > today;
   }) || [];
 
-  const progressPercentage = studyProgress.totalTopics > 0 
-    ? Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100)
-    : 0;
-
-  // Usar dados reais dos ciclos do banco de dados
-  const cyclesCompleted = userCycle?.ciclos_realizados || 0;
-
   const handleCalendarDateSelect = (date: Date) => {
     setSelectedCalendarDate(date);
     setShowReviewModal(true);
@@ -218,20 +205,13 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
+        {/* Header Simplificado */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-medium text-gray-900 mb-1">
               {greeting}! Aqui está seu progresso.
             </h1>
           </div>
-          <Button 
-            className="bg-blue-500 hover:bg-blue-600 text-white"
-            onClick={handleStartStudy}
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Iniciar Estudos do Dia
-          </Button>
         </div>
 
         {/* Se não há matérias, mostrar estado vazio */}
@@ -253,97 +233,51 @@ const Dashboard = () => {
           </Card>
         ) : (
           <>
-            {/* Cards de estatísticas principais - Grid 2x2 com cores originais */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="bg-white border border-gray-200 shadow-sm">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <BookOpen className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-medium text-gray-600">Matérias Cadastradas</CardTitle>
-                      <CardDescription className="text-xs text-gray-500">Progresso geral</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {studyProgress.completedSubjects}/{studyProgress.totalSubjects}
-                  </div>
-                 
-                  <p className="text-xs text-gray-500 mt-2">
-                    Você concluiu {studyProgress.completedSubjects} de {studyProgress.totalSubjects} matérias cadastradas.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border border-gray-200 shadow-sm">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <Target className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-medium text-gray-600">Tópicos Cadastrados</CardTitle>
-                      <CardDescription className="text-xs text-gray-500">Progresso geral</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {studyProgress.completedTopics}/{studyProgress.totalTopics}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Você já concluiu {studyProgress.completedTopics} de {studyProgress.totalTopics} tópicos cadastrados.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border border-gray-200 shadow-sm">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-medium text-gray-600">Progresso Geral</CardTitle>
-                      <CardDescription className="text-xs text-gray-500">Ciclo atual</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-2xl font-bold text-green-600">
-                    {progressPercentage}%
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Você completou {progressPercentage}% dos seus estudos.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border border-gray-200 shadow-sm">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle2 className="h-5 w-5 text-teal-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-medium text-gray-600">Ciclos Realizados</CardTitle>
-                      <CardDescription className="text-xs text-gray-500">Total de ciclos completos</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-2xl font-bold text-teal-600">
-                    {cyclesCompleted}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Ciclos de estudo completados até agora.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Ações Rápidas */}
+            <Card className="bg-white border border-gray-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-gray-900">Ações Rápidas</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Acesse rapidamente as funcionalidades principais
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/plano-estudos')}
+                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
+                  >
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Estudar
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/revisoes')}
+                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Revisões
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/materias')}
+                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Matérias
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/estatisticas')}
+                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Estatísticas
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Cards Revisões para Hoje e Calendário */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -389,7 +323,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Card Calendário de Revisões - Usando o novo componente */}
+              {/* Card Calendário de Revisões */}
               <CalendarView
                 reviewData={reviewData || []}
                 isLoading={reviewLoading}
@@ -435,171 +369,6 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Ações Rápidas */}
-            <Card className="bg-white border border-gray-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-gray-900">Ações Rápidas</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Acesse rapidamente as funcionalidades principais
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Button 
-                    variant="outline" 
-                    onClick={handleStartStudy}
-                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
-                  >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Estudar
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate('/revisoes')}
-                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Revisões
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate('/materias')}
-                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Matérias
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate('/estatisticas')}
-                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
-                  >
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Estatísticas
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Novos cards de revisões */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <Card className="bg-white border border-red-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                      <Clock className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-medium text-red-600">Revisões Atrasadas</CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-600">{delayedTopics.length}</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white border border-orange-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <Clock className="h-5 w-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-medium text-orange-600">Revisões do Dia</CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">{todayTopics.length}</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white border border-blue-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Clock className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-medium text-blue-600">Revisões Futuras</CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{futureTopics.length}</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {isLoading ? (
-              <div className="flex justify-center p-6">
-                <Loader2 className="animate-spin h-8 w-8 text-app-blue" />
-              </div>
-            ) : (
-              <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras')}>
-                <TabsList>
-                  <TabsTrigger value="hoje">Hoje & Atrasadas</TabsTrigger>
-                  <TabsTrigger value="futuras">Futuras</TabsTrigger>
-                </TabsList>
-                <TabsContent value="hoje">
-                  {Object.entries(agruparPorMateria(reviewData)).map(([materia, topicos]) => {
-                    const status = separarPorStatus(topicos);
-                    const topicosHojeAtrasados = [...status.atrasados, ...status.hoje];
-                    if (topicosHojeAtrasados.length === 0) return null;
-                    return (
-                      <Accordion key={materia} type="single" collapsible>
-                        <AccordionItem value={materia}>
-                          <AccordionTrigger>{materia}</AccordionTrigger>
-                          <AccordionContent>
-                            {topicosHojeAtrasados
-                              .sort((a, b) => new Date(a.next_review).getTime() - new Date(b.next_review).getTime())
-                              .map(topic => (
-                              <div key={topic.id} className="flex items-center gap-2 py-2 border-b">
-                                <span className="flex-1">{topic.name}</span>
-                                <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">{topic.review_stage}</span>
-                                <span className="text-xs text-gray-500">{topic.next_review ? new Date(topic.next_review).toLocaleDateString() : '-'}</span>
-                                <Button
-                                  size="sm"
-                                  className="ml-2"
-                                  onClick={() => handleCalendarDateSelect(new Date(topic.next_review))}
-                                >
-                                  <Check className="h-3 w-3 mr-1" />
-                                  Revisar
-                                </Button>
-                              </div>
-                            ))}
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
-                    );
-                  })}
-                </TabsContent>
-                <TabsContent value="futuras">
-                  {Object.entries(agruparPorMateria(reviewData)).map(([materia, topicos]) => {
-                    const status = separarPorStatus(topicos);
-                    if (status.futuras.length === 0) return null;
-                    return (
-                      <Accordion key={materia} type="single" collapsible>
-                        <AccordionItem value={materia}>
-                          <AccordionTrigger>{materia}</AccordionTrigger>
-                          <AccordionContent>
-                            {status.futuras
-                              .sort((a, b) => new Date(a.next_review).getTime() - new Date(b.next_review).getTime())
-                              .map(topic => (
-                              <div key={topic.id} className="flex items-center gap-2 py-2 border-b">
-                                <span className="flex-1">{topic.name}</span>
-                                <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">{topic.review_stage}</span>
-                                <span className="text-xs text-gray-500">{topic.next_review ? new Date(topic.next_review).toLocaleDateString() : '-'}</span>
-                              </div>
-                            ))}
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
-                    );
-                  })}
-                </TabsContent>
-              </Tabs>
             )}
           </>
         )}

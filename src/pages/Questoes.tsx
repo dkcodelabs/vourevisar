@@ -116,15 +116,17 @@ const Questoes = () => {
           <div className="lg:sticky lg:top-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-800">Estatísticas</h3>
+            </div>
+            <div className="mb-4">
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="w-24">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="7">7d</SelectItem>
-                  <SelectItem value="30">30d</SelectItem>
-                  <SelectItem value="90">90d</SelectItem>
-                  <SelectItem value="365">1a</SelectItem>
+                  <SelectItem value="7">7 dias</SelectItem>
+                  <SelectItem value="30">30 dias</SelectItem>
+                  <SelectItem value="90">90 dias</SelectItem>
+                  <SelectItem value="365">1 ano</SelectItem>
                 </SelectContent>
               </Select>
             </div>

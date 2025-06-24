@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Minus, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useSubjectsAndTopics } from '@/hooks/useSubjectsAndTopics';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,7 +29,7 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
     subject: '',
     topic: '',
     bank: '',
-    totalQuestions: 1,
+    totalQuestions: 0,
     correctQuestions: 0
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,22 +68,21 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
     }
   };
 
-  const handleQuantityChange = (field: 'totalQuestions' | 'correctQuestions', increment: boolean) => {
-    setFormData(prev => {
-      const newValue = increment 
-        ? prev[field] + 1
-        : Math.max(prev[field] - 1, 0);
-      
-      // Garantir que questões corretas não seja maior que o total
-      if (field === 'totalQuestions' && newValue < prev.correctQuestions) {
-        return { ...prev, [field]: newValue, correctQuestions: newValue };
-      }
-      if (field === 'correctQuestions' && newValue > prev.totalQuestions) {
-        return { ...prev, [field]: prev.totalQuestions };
-      }
-      
-      return { ...prev, [field]: newValue };
-    });
+  const handleTotalQuestionsChange = (value: string) => {
+    const num = parseInt(value) || 0;
+    setFormData(prev => ({
+      ...prev,
+      totalQuestions: num,
+      correctQuestions: Math.min(prev.correctQuestions, num)
+    }));
+  };
+
+  const handleCorrectQuestionsChange = (value: string) => {
+    const num = parseInt(value) || 0;
+    setFormData(prev => ({
+      ...prev,
+      correctQuestions: Math.min(num, prev.totalQuestions)
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,7 +138,7 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
         subject: '',
         topic: '',
         bank: '',
-        totalQuestions: 1,
+        totalQuestions: 0,
         correctQuestions: 0
       });
 
@@ -241,57 +240,27 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
               <label className="text-sm font-medium text-gray-700">
                 Total de Questões
               </label>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuantityChange('totalQuestions', false)}
-                  disabled={formData.totalQuestions <= 1}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 text-center py-2 px-4 border rounded-md bg-white">
-                  {formData.totalQuestions}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuantityChange('totalQuestions', true)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+              <Input
+                type="number"
+                min="0"
+                value={formData.totalQuestions}
+                onChange={(e) => handleTotalQuestionsChange(e.target.value)}
+                placeholder="Digite o total"
+              />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
                 Questões Corretas
               </label>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuantityChange('correctQuestions', false)}
-                  disabled={formData.correctQuestions <= 0}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 text-center py-2 px-4 border rounded-md bg-white">
-                  {formData.correctQuestions}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuantityChange('correctQuestions', true)}
-                  disabled={formData.correctQuestions >= formData.totalQuestions}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+              <Input
+                type="number"
+                min="0"
+                max={formData.totalQuestions}
+                value={formData.correctQuestions}
+                onChange={(e) => handleCorrectQuestionsChange(e.target.value)}
+                placeholder="Digite quantas corretas"
+              />
             </div>
           </div>
 
