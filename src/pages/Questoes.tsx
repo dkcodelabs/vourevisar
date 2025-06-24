@@ -104,15 +104,15 @@ const Questoes = () => {
         <p className="text-gray-600">Registre suas questões resolvidas e acompanhe seu desempenho</p>
       </div>
 
-      {/* Layout responsivo: duas colunas em telas grandes, uma coluna em telas pequenas */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Coluna principal - Formulário de registro (3/4 em telas grandes) */}
+      {/* Layout responsivo: ajustado para dar mais espaço às estatísticas */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Coluna principal - Formulário de registro (3/5 em telas grandes) */}
         <div className="lg:col-span-3">
           <QuestionEntryForm onEntryAdded={handleEntryAdded} />
         </div>
 
-        {/* Coluna lateral - Estatísticas resumidas (1/4 em telas grandes) */}
-        <div className="lg:col-span-1">
+        {/* Coluna lateral - Estatísticas resumidas (2/5 em telas grandes) */}
+        <div className="lg:col-span-2">
           <div className="lg:sticky lg:top-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-800">Estatísticas</h3>

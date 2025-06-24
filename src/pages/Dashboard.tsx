@@ -261,11 +261,11 @@ const Dashboard = () => {
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={() => navigate('/materias')}
+                    onClick={() => navigate('/questoes')}
                     className="border-gray-200 text-gray-700 hover:bg-gray-50"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Matérias
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    Questões
                   </Button>
                   <Button 
                     variant="outline" 
