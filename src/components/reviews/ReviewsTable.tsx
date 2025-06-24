@@ -127,8 +127,8 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                       </TableCell>
                       <TableCell>
                         <QuestionsButton
-                          subjectName={topic.subject_name}
-                          topicName={topic.name}
+                          subject={topic.subject_name}
+                          topic={topic.name}
                         />
                       </TableCell>
                     </>
@@ -139,8 +139,8 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <QuestionsButton
-                            subjectName={topic.subject_name}
-                            topicName={topic.name}
+                            subject={topic.subject_name}
+                            topic={topic.name}
                           />
                           {topic.completed ? (
                             <Button variant="outline" size="sm" disabled className="text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed text-xs px-2 py-1 h-7 min-w-[110px]">
