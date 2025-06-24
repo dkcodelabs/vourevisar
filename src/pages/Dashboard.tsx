@@ -27,8 +27,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [greeting, setGreeting] = useState('');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [tab, setTab] = useState<'hoje' | 'futuras'>('hoje');
 
   // Buscar dados de revisões para o calendário
   const { data: reviewData, isLoading: reviewLoading } = useQuery({
@@ -144,34 +142,7 @@ const Dashboard = () => {
 
   console.log('Dashboard - Rendering main content with', subjects.length, 'subjects');
 
-  // Cálculos para estatísticas
-  const delayedTopics = reviewData?.filter(topic => {
-    if (!topic.next_review) return false;
-    const reviewDate = startOfDay(new Date(topic.next_review));
-    const today = startOfDay(new Date());
-    return isBefore(reviewDate, today);
-  }) || [];
-
-  const todayTopics = reviewData?.filter(topic => {
-    if (!topic.next_review) return false;
-    const reviewDate = startOfDay(new Date(topic.next_review));
-    const today = startOfDay(new Date());
-    return reviewDate.getTime() === today.getTime();
-  }) || [];
-
-  const futureTopics = reviewData?.filter(topic => {
-    if (!topic.next_review) return false;
-    const reviewDate = startOfDay(new Date(topic.next_review));
-    const today = startOfDay(new Date());
-    return reviewDate > today;
-  }) || [];
-
-  const handleCalendarDateSelect = (date: Date) => {
-    setSelectedCalendarDate(date);
-    setShowReviewModal(true);
-  };
-
-  // Obter revisões para a data selecionada
+  // Função para obter revisões para uma data específica
   const getReviewsForDate = (date: Date) => {
     if (!reviewData) return [];
     
@@ -182,24 +153,30 @@ const Dashboard = () => {
     });
   };
 
-  function agruparPorMateria(topics) {
-    if (!Array.isArray(topics)) return {};
-    const materias = {};
-    topics.forEach(topic => {
-      if (!materias[topic.subject_name]) materias[topic.subject_name] = [];
-      materias[topic.subject_name].push(topic);
-    });
-    return materias;
-  }
+  // Determinar quais revisões mostrar na seção "Revisão"
+  const getDisplayedReviews = () => {
+    if (selectedCalendarDate) {
+      return getReviewsForDate(selectedCalendarDate);
+    }
+    
+    // Se nenhuma data selecionada, mostrar revisões de hoje
+    const today = new Date();
+    return getReviewsForDate(today);
+  };
 
-  function separarPorStatus(topics) {
-    const hoje = startOfDay(new Date());
-    return {
-      atrasados: topics.filter(t => t.next_review && isBefore(startOfDay(new Date(t.next_review)), hoje)),
-      hoje: topics.filter(t => t.next_review && startOfDay(new Date(t.next_review)).getTime() === hoje.getTime()),
-      futuras: topics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime()),
-    };
-  }
+  // Obter texto para exibir na seção "Revisão"
+  const getReviewSectionTitle = () => {
+    if (selectedCalendarDate) {
+      return `Revisão - ${format(selectedCalendarDate, 'dd/MM/yyyy')}`;
+    }
+    return 'Revisão - Hoje';
+  };
+
+  const handleCalendarDateSelect = (date: Date) => {
+    setSelectedCalendarDate(date);
+  };
+
+  const displayedReviews = getDisplayedReviews();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
@@ -278,9 +255,9 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            {/* Cards Revisões para Hoje e Calendário */}
+            {/* Cards Revisão e Calendário */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Card Revisões para Hoje */}
+              {/* Card Revisão (dinâmico baseado na data selecionada) */}
               <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-3">
@@ -288,8 +265,12 @@ const Dashboard = () => {
                       <Clock className="h-4 w-4 text-orange-600" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-medium text-gray-900">Revisões para Hoje</CardTitle>
-                      <CardDescription className="text-sm text-gray-500">Tópicos agendados</CardDescription>
+                      <CardTitle className="text-lg font-medium text-gray-900">
+                        {getReviewSectionTitle()}
+                      </CardTitle>
+                      <CardDescription className="text-sm text-gray-500">
+                        {selectedCalendarDate ? 'Data selecionada' : 'Tópicos agendados'}
+                      </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -298,9 +279,9 @@ const Dashboard = () => {
                     <div className="flex justify-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600" />
                     </div>
-                  ) : todayTopics.length > 0 ? (
+                  ) : displayedReviews.length > 0 ? (
                     <div className="space-y-2">
-                      {todayTopics.map((topic, idx) => (
+                      {displayedReviews.map((topic, idx) => (
                         <div key={idx} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
                           <div className="flex items-center gap-2">
                             <BookOpen className="h-4 w-4 text-orange-600" />
@@ -316,7 +297,22 @@ const Dashboard = () => {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">Nenhuma revisão agendada para hoje.</p>
+                      <p className="text-gray-500">
+                        {selectedCalendarDate 
+                          ? `Nenhuma revisão agendada para ${format(selectedCalendarDate, 'dd/MM/yyyy')}.`
+                          : 'Nenhuma revisão agendada para hoje.'
+                        }
+                      </p>
+                      {selectedCalendarDate && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedCalendarDate(null)}
+                          className="mt-2 text-blue-600 hover:text-blue-700"
+                        >
+                          Ver revisões de hoje
+                        </Button>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -331,44 +327,6 @@ const Dashboard = () => {
                 className="bg-white/60 backdrop-blur-md shadow-xl border-none rounded-3xl"
               />
             </div>
-
-            {/* Modal de revisões do dia selecionado */}
-            {showReviewModal && selectedCalendarDate && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">
-                      Revisões para {format(selectedCalendarDate, 'dd/MM/yyyy')}
-                    </h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowReviewModal(false)}
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {getReviewsForDate(selectedCalendarDate).map((review, idx) => (
-                      <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                        <div className="font-medium text-gray-900">{review.subject_name}</div>
-                        <div className="text-gray-700">{review.name}</div>
-                        <Badge variant="outline" className="mt-1 text-xs">
-                          {review.review_stage}
-                        </Badge>
-                      </div>
-                    ))}
-                    
-                    {getReviewsForDate(selectedCalendarDate).length === 0 && (
-                      <p className="text-gray-500 text-center py-4">
-                        Nenhuma revisão agendada para este dia.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>

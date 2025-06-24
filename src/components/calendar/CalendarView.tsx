@@ -46,7 +46,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   className
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
 
   // Função para validar se uma data é válida
   const isValidDate = (year: number, month: number, day: number): boolean => {
@@ -142,11 +141,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return 'futura';
   };
 
-  const getDateReviews = (date: Date) => {
-    const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
-    return reviewsByDate[dateKey] || [];
-  };
-
   if (isLoading) {
     return (
       <Card className={className}>
@@ -199,8 +193,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             const isToday = isSameDay(date, new Date());
             const isSelected = selectedDate && isSameDay(date, selectedDate);
             const dateStatus = getDateStatus(date);
-            const dateReviews = getDateReviews(date);
-            const hasReviews = dateReviews.length > 0;
+            const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
+            const hasReviews = reviewsByDate[dateKey] && reviewsByDate[dateKey].length > 0;
 
             return (
               <div
@@ -210,14 +204,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   rounded-lg transition-all duration-200 hover:bg-gray-100
                   ${!isCurrentMonth ? 'text-gray-300' : 'text-gray-900'}
                   ${isToday ? 'bg-blue-100 border-2 border-blue-500 font-bold' : ''}
-                  ${isSelected ? 'bg-blue-200 border-2 border-blue-600' : ''}
+                  ${isSelected ? 'bg-blue-200 border-2 border-blue-600 ring-2 ring-blue-300' : ''}
                   ${dateStatus === 'pendente' ? 'bg-red-100 border border-red-300' : ''}
                   ${dateStatus === 'hoje' ? 'bg-orange-100 border border-orange-300' : ''}
                   ${dateStatus === 'futura' ? 'bg-green-100 border border-green-300' : ''}
                 `}
                 onClick={() => handleDateClick(date)}
-                onMouseEnter={() => setHoveredDate(date)}
-                onMouseLeave={() => setHoveredDate(null)}
               >
                 <span className="relative z-10">
                   {format(date, 'd')}
@@ -226,29 +218,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 {/* Indicador de revisões */}
                 {hasReviews && (
                   <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500" />
-                )}
-
-                {/* Tooltip com informações das revisões */}
-                {hoveredDate && isSameDay(hoveredDate, date) && hasReviews && (
-                  <div className="absolute top-12 left-0 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-48">
-                    <div className="text-xs font-medium mb-2">
-                      Revisões para {format(date, 'dd/MM/yyyy')}
-                    </div>
-                    <div className="space-y-1">
-                      {dateReviews.map((reviewGroup, idx) => 
-                        reviewGroup.reviews.map((review, reviewIdx) => (
-                          <div key={`${idx}-${reviewIdx}`} className="flex items-center gap-2 text-xs">
-                            {reviewGroup.status === 'pendente' && <AlertCircle className="h-3 w-3 text-red-500" />}
-                            {reviewGroup.status === 'hoje' && <Clock className="h-3 w-3 text-orange-500" />}
-                            {reviewGroup.status === 'futura' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
-                            <span className="font-medium">{review.subject_name}</span>
-                            <span>-</span>
-                            <span>{review.name}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
                 )}
               </div>
             );
