@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { BookOpen, Loader2, Plus, Minus } from 'lucide-react';
 import { useSubjectsAndTopics } from '@/hooks/useSubjectsAndTopics';
 
@@ -45,20 +45,32 @@ const QuestionGeneratorForm: React.FC<QuestionGeneratorFormProps> = ({
     'IDECAN'
   ];
 
-  const handleSubjectChange = (value: string) => {
-    const selectedSubject = subjects.find(s => s.id === value);
+  // Preparar opções para o combobox de matérias
+  const subjectOptions = subjects.map(subject => ({
+    value: subject.id,
+    label: subject.name
+  }));
+
+  // Preparar opções para o combobox de tópicos
+  const topicOptions = topics.map(topic => ({
+    value: topic.id,
+    label: topic.name
+  }));
+
+  const handleSubjectChange = (subjectId: string) => {
+    const selectedSubject = subjects.find(s => s.id === subjectId);
     if (selectedSubject) {
       setFormData(prev => ({ 
         ...prev, 
         subject: selectedSubject.name,
         topic: '' // Limpar tópico quando mudar matéria
       }));
-      fetchTopicsBySubject(value);
+      fetchTopicsBySubject(subjectId);
     }
   };
 
-  const handleTopicSelect = (value: string) => {
-    const selectedTopic = topics.find(t => t.id === value);
+  const handleTopicChange = (topicId: string) => {
+    const selectedTopic = topics.find(t => t.id === topicId);
     if (selectedTopic) {
       setFormData(prev => ({ ...prev, topic: selectedTopic.name }));
     }
@@ -83,25 +95,14 @@ const QuestionGeneratorForm: React.FC<QuestionGeneratorFormProps> = ({
           {isLoading ? (
             <div className="h-10 bg-gray-200 animate-pulse rounded"></div>
           ) : (
-            <div className="space-y-2">
-              <Select onValueChange={handleSubjectChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma matéria" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map((subject) => (
-                    <SelectItem key={subject.id} value={subject.id}>
-                      {subject.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Ou digite uma matéria personalizada"
-                value={formData.subject}
-                onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-              />
-            </div>
+            <Combobox
+              options={subjectOptions}
+              value={subjects.find(s => s.name === formData.subject)?.id || ''}
+              onValueChange={handleSubjectChange}
+              placeholder="Digite ou selecione uma matéria..."
+              searchPlaceholder="Pesquisar matérias..."
+              emptyText="Nenhuma matéria encontrada."
+            />
           )}
         </div>
 
@@ -109,27 +110,15 @@ const QuestionGeneratorForm: React.FC<QuestionGeneratorFormProps> = ({
           <label className="text-sm font-medium text-gray-700">
             Tópico *
           </label>
-          <div className="space-y-2">
-            {topics.length > 0 && (
-              <Select onValueChange={handleTopicSelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um tópico" />
-                </SelectTrigger>
-                <SelectContent>
-                  {topics.map((topic) => (
-                    <SelectItem key={topic.id} value={topic.id}>
-                      {topic.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Input
-              placeholder="Ou digite um tópico personalizado"
-              value={formData.topic}
-              onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
-            />
-          </div>
+          <Combobox
+            options={topicOptions}
+            value={topics.find(t => t.name === formData.topic)?.id || ''}
+            onValueChange={handleTopicChange}
+            placeholder="Digite ou selecione um tópico..."
+            searchPlaceholder="Pesquisar tópicos..."
+            emptyText={formData.subject ? "Nenhum tópico encontrado para esta matéria." : "Selecione uma matéria primeiro."}
+            disabled={!formData.subject}
+          />
         </div>
 
         <div className="space-y-2">
@@ -143,7 +132,7 @@ const QuestionGeneratorForm: React.FC<QuestionGeneratorFormProps> = ({
             <SelectTrigger>
               <SelectValue placeholder="Selecione a banca" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               {bancasDisponiveis.map((banca) => (
                 <SelectItem key={banca} value={banca}>
                   {banca}
@@ -194,7 +183,7 @@ const QuestionGeneratorForm: React.FC<QuestionGeneratorFormProps> = ({
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="facil">Fácil</SelectItem>
                 <SelectItem value="medio">Médio</SelectItem>
                 <SelectItem value="dificil">Difícil</SelectItem>
@@ -214,7 +203,7 @@ const QuestionGeneratorForm: React.FC<QuestionGeneratorFormProps> = ({
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               <SelectItem value="multipla-escolha">Múltipla Escolha</SelectItem>
               <SelectItem value="verdadeiro-falso">Verdadeiro ou Falso</SelectItem>
               <SelectItem value="dissertativa">Dissertativa</SelectItem>
