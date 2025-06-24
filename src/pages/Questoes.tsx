@@ -1,34 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import QuestionGeneratorForm from '@/components/questions/QuestionGeneratorForm';
-import GeneratedQuestionsDisplay from '@/components/questions/GeneratedQuestionsDisplay';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import QuestionEntryForm from '@/components/questions/QuestionEntryForm';
 import StatsSummaryCards from '@/components/questions/StatsSummaryCards';
-import { format, subDays, startOfDay } from 'date-fns';
 import QuestionsStatistics from './QuestionsStatistics';
-
-interface Question {
-  id: string;
-  statement: string;
-  type: 'multipla-escolha' | 'verdadeiro-falso' | 'dissertativa';
-  options?: string[];
-  correctAnswer: string;
-  explanation: string;
-}
-
-interface GenerationMetadata {
-  subject: string;
-  topic: string;
-  bank: string;
-  quantity: number;
-  difficulty: string;
-  type: string;
-}
+import { format, subDays, startOfDay } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 const Questoes = () => {
   const [searchParams] = useSearchParams();
@@ -38,76 +20,7 @@ const Questoes = () => {
   const urlSubject = searchParams.get('materia') || '';
   const urlTopic = searchParams.get('topico') || '';
   
-  const [formData, setFormData] = useState({
-    subject: urlSubject,
-    topic: urlTopic,
-    bank: '',
-    quantity: 3,
-    difficulty: 'medio' as 'facil' | 'medio' | 'dificil',
-    type: 'multipla-escolha' as 'multipla-escolha' | 'verdadeiro-falso' | 'dissertativa'
-  });
-  
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [metadata, setMetadata] = useState<GenerationMetadata | null>(null);
-  const [rawText, setRawText] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [hasGenerated, setHasGenerated] = useState(false);
-  const [showStatistics, setShowStatistics] = useState(false);
-
-  const handleGenerateQuestions = async () => {
-    if (!formData.subject || !formData.topic || !formData.bank) {
-      toast.error('Preencha todos os campos obrigatórios');
-      return;
-    }
-
-    if (!user) {
-      toast.error('Você precisa estar logado');
-      return;
-    }
-
-    setIsGenerating(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-questions', {
-        body: formData
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setQuestions(data.questions || []);
-      setMetadata(data.metadata);
-      setRawText(data.rawText || '');
-      setHasGenerated(true);
-      setShowStatistics(true);
-      toast.success(`${data.questions?.length || 0} questões geradas com sucesso!`);
-      
-    } catch (error) {
-      console.error('Erro ao gerar questões:', error);
-      toast.error('Erro ao gerar questões. Tente novamente.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleNewGeneration = () => {
-    setQuestions([]);
-    setMetadata(null);
-    setRawText('');
-    setHasGenerated(false);
-  };
-
-  // Exibir estatísticas automaticamente se já existem dados no banco
-  useEffect(() => {
-    if (user && !hasGenerated) {
-      setShowStatistics(true);
-    }
-  }, [user, hasGenerated]);
+  const [selectedPeriod, setSelectedPeriod] = useState('30');
 
   // Estado para estatísticas resumidas
   const [summaryStats, setSummaryStats] = useState({
@@ -123,14 +36,15 @@ const Questoes = () => {
     if (user) {
       fetchSummaryStats();
     }
-  }, [user]);
+  }, [user, selectedPeriod]);
 
   const fetchSummaryStats = async () => {
     if (!user) return;
 
     setStatsLoading(true);
     try {
-      const fromDate = startOfDay(subDays(new Date(), 30));
+      const daysAgo = parseInt(selectedPeriod);
+      const fromDate = startOfDay(subDays(new Date(), daysAgo));
 
       const { data, error } = await supabase
         .from('question_attempts')
@@ -163,6 +77,10 @@ const Questoes = () => {
     }
   };
 
+  const handleEntryAdded = () => {
+    fetchSummaryStats(); // Atualizar estatísticas
+  };
+
   if (!user) {
     return (
       <div className="container mx-auto p-6">
@@ -183,67 +101,37 @@ const Questoes = () => {
     >
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Sistema de Questões</h1>
-        <p className="text-gray-600">Gere questões personalizadas e acompanhe seu desempenho</p>
+        <p className="text-gray-600">Registre suas questões resolvidas e acompanhe seu desempenho</p>
       </div>
 
       {/* Layout responsivo: duas colunas em telas grandes, uma coluna em telas pequenas */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Coluna principal - Gerador de questões (3/4 em telas grandes) */}
-        <div className="lg:col-span-3 space-y-6">
-          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl font-bold text-gray-800">Gerador de Questões</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!hasGenerated ? (
-                <QuestionGeneratorForm
-                  formData={formData}
-                  setFormData={setFormData}
-                  onGenerateQuestions={handleGenerateQuestions}
-                  isGenerating={isGenerating}
-                />
-              ) : (
-                <GeneratedQuestionsDisplay
-                  questions={questions}
-                  metadata={metadata}
-                  rawText={rawText}
-                  onNewGeneration={handleNewGeneration}
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Questões geradas - apenas em telas grandes, senão vai para baixo */}
-          {hasGenerated && questions.length > 0 && (
-            <div className="space-y-4 lg:block hidden">
-              {questions.map((question, index) => (
-                <div key={question.id} className="space-y-4">
-                  {/* Componente InteractiveQuestion seria renderizado aqui */}
-                </div>
-              ))}
-            </div>
-          )}
+        {/* Coluna principal - Formulário de registro (3/4 em telas grandes) */}
+        <div className="lg:col-span-3">
+          <QuestionEntryForm onEntryAdded={handleEntryAdded} />
         </div>
 
         {/* Coluna lateral - Estatísticas resumidas (1/4 em telas grandes) */}
         <div className="lg:col-span-1">
-          <div className="lg:sticky lg:top-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Estatísticas (30 dias)</h3>
+          <div className="lg:sticky lg:top-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">Estatísticas</h3>
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">7d</SelectItem>
+                  <SelectItem value="30">30d</SelectItem>
+                  <SelectItem value="90">90d</SelectItem>
+                  <SelectItem value="365">1a</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <StatsSummaryCards stats={summaryStats} isLoading={statsLoading} />
           </div>
         </div>
       </div>
-
-      {/* Questões geradas - em telas pequenas aparecem aqui */}
-      {hasGenerated && questions.length > 0 && (
-        <div className="space-y-4 lg:hidden">
-          {questions.map((question, index) => (
-            <div key={question.id} className="space-y-4">
-              {/* Componente InteractiveQuestion seria renderizado aqui */}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Separador para estatísticas detalhadas */}
       <div className="flex items-center gap-4 mt-8">
@@ -252,9 +140,13 @@ const Questoes = () => {
         <Separator className="flex-1" />
       </div>
 
-      {/* Estatísticas detalhadas sempre aparecem por último */}
+      {/* Estatísticas detalhadas */}
       <div className="mt-6">
-        <QuestionsStatistics hideHeader={true} />
+        <QuestionsStatistics 
+          hideHeader={true} 
+          selectedPeriod={selectedPeriod}
+          onPeriodChange={setSelectedPeriod}
+        />
       </div>
     </motion.div>
   );

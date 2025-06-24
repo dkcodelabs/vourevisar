@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { ArrowLeft, Target, TrendingUp, BookOpen, Calendar } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +19,6 @@ interface Question {
   topic: string;
   bank: string;
   question_type: string;
-  difficulty: string;
   is_correct: boolean;
   attempted_at: string;
 }
@@ -40,9 +39,15 @@ interface SubjectStats {
 
 interface QuestionsStatisticsProps {
   hideHeader?: boolean;
+  selectedPeriod?: string;
+  onPeriodChange?: (period: string) => void;
 }
 
-const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = false }) => {
+const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ 
+  hideHeader = false, 
+  selectedPeriod = '30',
+  onPeriodChange 
+}) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [attempts, setAttempts] = useState<Question[]>([]);
@@ -52,7 +57,6 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = 
     accuracyRate: 0,
     streakDays: 0
   });
-  const [selectedPeriod, setSelectedPeriod] = useState('30');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -101,7 +105,6 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = 
   };
 
   const calculateStreak = (attemptsData: Question[]) => {
-    // Simplificado: conta dias únicos com tentativas
     const uniqueDays = new Set(
       attemptsData.map(a => format(new Date(a.attempted_at), 'yyyy-MM-dd'))
     );
@@ -127,22 +130,22 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = 
     })).sort((a, b) => b.total - a.total);
   };
 
-  const getDifficultyStats = () => {
-    const difficultyMap = new Map<string, { total: number; correct: number }>();
+  const getBankStats = () => {
+    const bankMap = new Map<string, { total: number; correct: number }>();
 
     attempts.forEach(attempt => {
-      const current = difficultyMap.get(attempt.difficulty) || { total: 0, correct: 0 };
-      difficultyMap.set(attempt.difficulty, {
+      const current = bankMap.get(attempt.bank) || { total: 0, correct: 0 };
+      bankMap.set(attempt.bank, {
         total: current.total + 1,
         correct: current.correct + (attempt.is_correct ? 1 : 0)
       });
     });
 
-    return Array.from(difficultyMap.entries()).map(([difficulty, data]) => ({
-      name: difficulty === 'facil' ? 'Fácil' : difficulty === 'medio' ? 'Médio' : 'Difícil',
+    return Array.from(bankMap.entries()).map(([bank, data]) => ({
+      name: bank,
       value: data.total > 0 ? (data.correct / data.total) * 100 : 0,
       total: data.total
-    }));
+    })).sort((a, b) => b.total - a.total);
   };
 
   const getTimelineData = () => {
@@ -166,7 +169,7 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = 
     return timeline;
   };
 
-  const COLORS = ['#10B981', '#F59E0B', '#EF4444'];
+  const COLORS = ['#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#8B5CF6'];
 
   if (!user) {
     return (
@@ -194,7 +197,7 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = 
             <h1 className="text-2xl font-bold text-gray-800">Estatísticas de Questões</h1>
           </div>
 
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+          <Select value={selectedPeriod} onValueChange={onPeriodChange}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
@@ -207,73 +210,6 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = 
           </Select>
         </div>
       )}
-
-      {hideHeader && (
-        <div className="flex justify-end mb-6">
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">7 dias</SelectItem>
-              <SelectItem value="30">30 dias</SelectItem>
-              <SelectItem value="90">90 dias</SelectItem>
-              <SelectItem value="365">1 ano</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Resumo Geral */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-blue-600" />
-              <div>
-                <p className="text-sm text-gray-600">Total de Questões</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.totalAttempts}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
-              <div>
-                <p className="text-sm text-gray-600">Taxa de Acerto</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.accuracyRate.toFixed(1)}%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-purple-600" />
-              <div>
-                <p className="text-sm text-gray-600">Questões Corretas</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.correctAttempts}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-orange-600" />
-              <div>
-                <p className="text-sm text-gray-600">Dias Ativos</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.streakDays}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Desempenho por Matéria */}
@@ -304,16 +240,16 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = 
           </CardContent>
         </Card>
 
-        {/* Desempenho por Dificuldade */}
+        {/* Desempenho por Banca */}
         <Card className="bg-white/70 backdrop-blur-lg border-white/20">
           <CardHeader>
-            <CardTitle>Taxa de Acerto por Dificuldade</CardTitle>
+            <CardTitle>Taxa de Acerto por Banca</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={getDifficultyStats()}
+                  data={getBankStats()}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -322,7 +258,7 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ hideHeader = 
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {getDifficultyStats().map((entry, index) => (
+                  {getBankStats().map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

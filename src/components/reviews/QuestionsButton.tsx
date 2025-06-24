@@ -5,25 +5,19 @@ import { BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface QuestionsButtonProps {
-  subjectName: string;
-  topicName: string;
-  disabled?: boolean;
+  subject: string;
+  topic: string;
 }
 
-const QuestionsButton: React.FC<QuestionsButtonProps> = ({
-  subjectName,
-  topicName,
-  disabled = false
-}) => {
+const QuestionsButton: React.FC<QuestionsButtonProps> = ({ subject, topic }) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
     const params = new URLSearchParams({
-      materia: subjectName,
-      topico: topicName
+      materia: subject,
+      topico: topic
     });
-    
-    navigate(`/questoes?${params.toString()}`);
+    navigate(`/questoes?${params}`);
   };
 
   return (
@@ -31,10 +25,9 @@ const QuestionsButton: React.FC<QuestionsButtonProps> = ({
       variant="outline"
       size="sm"
       onClick={handleClick}
-      disabled={disabled}
-      className="text-blue-600 border-blue-200 hover:bg-blue-50 text-xs px-2 py-1 h-7 min-w-[80px]"
+      className="text-xs"
     >
-      <BookOpen className="h-3 w-3 mr-1" />
+      <BookOpen className="mr-1 h-3 w-3" />
       Questões
     </Button>
   );
