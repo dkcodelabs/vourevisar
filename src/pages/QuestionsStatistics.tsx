@@ -1,14 +1,42 @@
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { InlineProgress } from '@/components/ui/inline-progress';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { format, subDays, startOfDay } from 'date-fns';
+import { ArrowLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { format, subDays, startOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+interface Question {
+  id: string;
+  subject: string;
+  topic: string;
+  bank: string;
+  question_type: string;
+  is_correct: boolean;
+  attempted_at: string;
+}
+
+interface StatsSummary {
+  totalAttempts: number;
+  correctAttempts: number;
+  accuracyRate: number;
+  streakDays: number;
+}
+
+interface SubjectStats {
+  subject: string;
+  total: number;
+  correct: number;
+  accuracy: number;
+}
 
 interface QuestionsStatisticsProps {
   hideHeader?: boolean;
@@ -16,66 +44,29 @@ interface QuestionsStatisticsProps {
   onPeriodChange?: (period: string) => void;
 }
 
-const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
-  hideHeader = false,
-  selectedPeriod: externalSelectedPeriod,
-  onPeriodChange: externalOnPeriodChange
+const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({ 
+  hideHeader = false, 
+  selectedPeriod = '30',
+  onPeriodChange 
 }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [internalSelectedPeriod, setInternalSelectedPeriod] = useState('30');
-  
-  // Use external period if provided, otherwise use internal
-  const selectedPeriod = externalSelectedPeriod || internalSelectedPeriod;
-  const onPeriodChange = externalOnPeriodChange || setInternalSelectedPeriod;
-
-  const [stats, setStats] = useState({
+  const [attempts, setAttempts] = useState<Question[]>([]);
+  const [stats, setStats] = useState<StatsSummary>({
     totalAttempts: 0,
     correctAttempts: 0,
     accuracyRate: 0,
-    averagePerDay: 0,
-    bestSubject: '',
-    worstSubject: ''
+    streakDays: 0
   });
-
-  const [chartData, setChartData] = useState({
-    dailyProgress: [],
-    subjectPerformance: [],
-    difficultyBreakdown: [],
-    bankComparison: []
-  });
-
-  const [detailedStats, setDetailedStats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Função para validar e limpar dados do gráfico
-  const cleanChartData = (data: any[]) => {
-    return data.map(item => {
-      const cleanItem = { ...item };
-      Object.keys(cleanItem).forEach(key => {
-        if (typeof cleanItem[key] === 'number' && (isNaN(cleanItem[key]) || !isFinite(cleanItem[key]))) {
-          cleanItem[key] = 0;
-        }
-      });
-      return cleanItem;
-    }).filter(item => Object.keys(item).length > 0);
-  };
-
-  // Função para calcular porcentagem segura
-  const safePercentage = (numerator: number, denominator: number): number => {
-    if (!denominator || denominator === 0 || isNaN(numerator) || isNaN(denominator)) {
-      return 0;
-    }
-    const result = (numerator / denominator) * 100;
-    return isNaN(result) || !isFinite(result) ? 0 : Math.round(result * 10) / 10;
-  };
 
   useEffect(() => {
     if (user) {
-      fetchStatistics();
+      fetchAttempts();
     }
   }, [user, selectedPeriod]);
 
-  const fetchStatistics = async () => {
+  const fetchAttempts = async () => {
     if (!user) return;
 
     setIsLoading(true);
@@ -87,198 +78,128 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
         .from('question_attempts')
         .select('*')
         .eq('user_id', user.id)
-        .gte('attempted_at', fromDate.toISOString());
+        .gte('attempted_at', fromDate.toISOString())
+        .order('attempted_at', { ascending: false });
 
       if (error) throw error;
 
-      const attempts = data || [];
-      processStatistics(attempts);
+      setAttempts(data || []);
+      calculateStats(data || []);
     } catch (error) {
-      console.error('Erro ao buscar estatísticas:', error);
+      console.error('Erro ao buscar tentativas:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const processStatistics = (attempts: any[]) => {
-    const total = attempts.length;
-    const correct = attempts.filter(a => a.is_correct).length;
-    const accuracy = safePercentage(correct, total);
-
-    const uniqueDays = new Set(
-      attempts.map(a => format(new Date(a.attempted_at), 'yyyy-MM-dd'))
-    );
-    const avgPerDay = safePercentage(total, uniqueDays.size);
-
-    // Estatísticas por matéria com validação
-    const subjectStats = attempts.reduce((acc, attempt) => {
-      const subject = attempt.subject || 'Desconhecido';
-      if (!acc[subject]) {
-        acc[subject] = { total: 0, correct: 0 };
-      }
-      acc[subject].total++;
-      if (attempt.is_correct) {
-        acc[subject].correct++;
-      }
-      return acc;
-    }, {});
-
-    const subjectPerformanceData = Object.entries(subjectStats).map(([subject, stats]: [string, any]) => ({
-      subject,
-      accuracy: safePercentage(stats.correct, stats.total),
-      total: stats.total || 0,
-      correct: stats.correct || 0
-    })).filter(item => item.total > 0);
-
-    // Progresso diário com validação
-    const dailyStats = attempts.reduce((acc, attempt) => {
-      const date = format(new Date(attempt.attempted_at), 'dd/MM');
-      if (!acc[date]) {
-        acc[date] = { total: 0, correct: 0 };
-      }
-      acc[date].total++;
-      if (attempt.is_correct) {
-        acc[date].correct++;
-      }
-      return acc;
-    }, {});
-
-    const dailyProgressData = Object.entries(dailyStats).map(([date, stats]: [string, any]) => ({
-      date,
-      accuracy: safePercentage(stats.correct, stats.total),
-      total: stats.total || 0
-    })).filter(item => item.total > 0);
-
-    // Breakdown por dificuldade com validação
-    const difficultyStats = attempts.reduce((acc, attempt) => {
-      const difficulty = attempt.difficulty || 'medio';
-      if (!acc[difficulty]) {
-        acc[difficulty] = { total: 0, correct: 0 };
-      }
-      acc[difficulty].total++;
-      if (attempt.is_correct) {
-        acc[difficulty].correct++;
-      }
-      return acc;
-    }, {});
-
-    const difficultyBreakdownData = Object.entries(difficultyStats).map(([difficulty, stats]: [string, any]) => ({
-      difficulty: difficulty === 'facil' ? 'Fácil' : difficulty === 'medio' ? 'Médio' : 'Difícil',
-      value: stats.total || 0,
-      accuracy: safePercentage(stats.correct, stats.total)
-    })).filter(item => item.value > 0);
-
-    // Comparação por banca com validação
-    const bankStats = attempts.reduce((acc, attempt) => {
-      const bank = attempt.bank || 'Desconhecido';
-      if (!acc[bank]) {
-        acc[bank] = { total: 0, correct: 0 };
-      }
-      acc[bank].total++;
-      if (attempt.is_correct) {
-        acc[bank].correct++;
-      }
-      return acc;
-    }, {});
-
-    const bankComparisonData = Object.entries(bankStats).map(([bank, stats]: [string, any]) => ({
-      bank,
-      accuracy: safePercentage(stats.correct, stats.total),
-      total: stats.total || 0
-    })).filter(item => item.total > 0);
-
-    // Estatísticas detalhadas por matéria e tópico
-    const detailedStatsData = attempts.reduce((acc, attempt) => {
-      const key = `${attempt.subject || 'Desconhecido'}-${attempt.topic || 'Desconhecido'}`;
-      if (!acc[key]) {
-        acc[key] = {
-          subject: attempt.subject || 'Desconhecido',
-          topic: attempt.topic || 'Desconhecido',
-          total: 0,
-          correct: 0
-        };
-      }
-      acc[key].total++;
-      if (attempt.is_correct) {
-        acc[key].correct++;
-      }
-      return acc;
-    }, {});
-
-    const detailedList = Object.values(detailedStatsData).filter((item: any) => item.total > 0);
-
-    // Encontrar melhor e pior matéria
-    const sortedSubjects = subjectPerformanceData.sort((a, b) => b.accuracy - a.accuracy);
-    const bestSubject = sortedSubjects[0]?.subject || '';
-    const worstSubject = sortedSubjects[sortedSubjects.length - 1]?.subject || '';
+  const calculateStats = (attemptsData: Question[]) => {
+    const total = attemptsData.length;
+    const correct = attemptsData.filter(a => a.is_correct).length;
+    const accuracy = total > 0 ? (correct / total) * 100 : 0;
 
     setStats({
       totalAttempts: total,
       correctAttempts: correct,
       accuracyRate: accuracy,
-      averagePerDay: avgPerDay,
-      bestSubject,
-      worstSubject
+      streakDays: calculateStreak(attemptsData)
     });
-
-    setChartData({
-      dailyProgress: cleanChartData(dailyProgressData),
-      subjectPerformance: cleanChartData(subjectPerformanceData),
-      difficultyBreakdown: cleanChartData(difficultyBreakdownData),
-      bankComparison: cleanChartData(bankComparisonData)
-    });
-
-    setDetailedStats(detailedList);
   };
 
-  const chartConfig = {
-    accuracy: {
-      label: "Taxa de Acerto",
-      color: "hsl(var(--chart-1))",
-    },
-    total: {
-      label: "Total de Questões",
-      color: "hsl(var(--chart-2))",
-    },
+  const calculateStreak = (attemptsData: Question[]) => {
+    const uniqueDays = new Set(
+      attemptsData.map(a => format(new Date(a.attempted_at), 'yyyy-MM-dd'))
+    );
+    return uniqueDays.size;
   };
 
-  if (isLoading) {
+  const getSubjectStats = (): SubjectStats[] => {
+    const subjectMap = new Map<string, { total: number; correct: number }>();
+
+    attempts.forEach(attempt => {
+      const current = subjectMap.get(attempt.subject) || { total: 0, correct: 0 };
+      subjectMap.set(attempt.subject, {
+        total: current.total + 1,
+        correct: current.correct + (attempt.is_correct ? 1 : 0)
+      });
+    });
+
+    return Array.from(subjectMap.entries()).map(([subject, data]) => ({
+      subject: subject.length > 15 ? subject.substring(0, 15) + '...' : subject,
+      total: data.total,
+      correct: data.correct,
+      accuracy: data.total > 0 ? (data.correct / data.total) * 100 : 0
+    })).sort((a, b) => b.total - a.total);
+  };
+
+  const getBankStats = () => {
+    const bankMap = new Map<string, { total: number; correct: number }>();
+
+    attempts.forEach(attempt => {
+      const current = bankMap.get(attempt.bank) || { total: 0, correct: 0 };
+      bankMap.set(attempt.bank, {
+        total: current.total + 1,
+        correct: current.correct + (attempt.is_correct ? 1 : 0)
+      });
+    });
+
+    return Array.from(bankMap.entries()).map(([bank, data]) => ({
+      name: bank,
+      value: data.total > 0 ? (data.correct / data.total) * 100 : 0,
+      total: data.total
+    })).sort((a, b) => b.total - a.total);
+  };
+
+  const getTimelineData = () => {
+    const days = parseInt(selectedPeriod);
+    const timeline: { date: string; attempts: number; correct: number }[] = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = subDays(new Date(), i);
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const dayAttempts = attempts.filter(a => 
+        format(new Date(a.attempted_at), 'yyyy-MM-dd') === dateStr
+      );
+
+      timeline.push({
+        date: format(date, 'dd/MM', { locale: ptBR }),
+        attempts: dayAttempts.length,
+        correct: dayAttempts.filter(a => a.is_correct).length
+      });
+    }
+
+    return timeline;
+  };
+
+  const COLORS = ['#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#8B5CF6'];
+
+  if (!user) {
     return (
       <div className="container mx-auto p-6">
-        <div className="space-y-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="bg-white/70 backdrop-blur-lg border-white/20">
-              <CardContent className="p-6">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-                  <div className="h-64 bg-gray-200 rounded"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800">Acesso Negado</h1>
+          <p className="text-gray-600">Você precisa estar logado para ver as estatísticas.</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <motion.div 
-      className="container mx-auto p-6 space-y-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
+  const content = (
+    <>
       {!hideHeader && (
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Estatísticas de Questões</h1>
-          <p className="text-gray-600">Análise detalhada do seu desempenho</p>
-        </div>
-      )}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/questoes')}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+            <h1 className="text-2xl font-bold text-gray-800">Estatísticas de Questões</h1>
+          </div>
 
-      {!hideHeader && (
-        <div className="flex justify-center mb-6">
           <Select value={selectedPeriod} onValueChange={onPeriodChange}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -291,178 +212,163 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
         </div>
       )}
 
-      {/* Cards de resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardContent className="p-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">{stats.totalAttempts}</p>
-              <p className="text-sm text-gray-600">Total de Questões</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardContent className="p-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">{stats.accuracyRate.toFixed(1)}%</p>
-              <p className="text-sm text-gray-600">Taxa de Acerto</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardContent className="p-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-orange-600">{stats.averagePerDay.toFixed(1)}</p>
-              <p className="text-sm text-gray-600">Questões/Dia</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardContent className="p-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">{stats.correctAttempts}</p>
-              <p className="text-sm text-gray-600">Questões Corretas</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Progresso Diário */}
-      {chartData.dailyProgress.length > 0 && (
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardHeader>
-            <CardTitle>Progresso Diário</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData.dailyProgress}>
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="accuracy" 
-                    stroke="hsl(var(--chart-1))" 
-                    strokeWidth={2}
-                    dot={{ fill: "hsl(var(--chart-1))" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Desempenho por Matéria */}
-      {chartData.subjectPerformance.length > 0 && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Desempenho por Matéria - Gráfico Horizontal */}
         <Card className="bg-white/70 backdrop-blur-lg border-white/20">
           <CardHeader>
             <CardTitle>Desempenho por Matéria</CardTitle>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData.subjectPerformance} layout="horizontal">
-                  <XAxis type="number" domain={[0, 100]} />
-                  <YAxis dataKey="subject" type="category" width={120} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="accuracy" fill="hsl(var(--chart-1))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart 
+                data={getSubjectStats()} 
+                layout="horizontal"
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  type="number" 
+                  domain={[0, 100]}
+                  tickFormatter={(value) => `${value}%`}
+                />
+                <YAxis 
+                  type="category" 
+                  dataKey="subject" 
+                  width={100}
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`${value.toFixed(1)}%`, 'Taxa de Acerto']}
+                  labelStyle={{ color: '#374151' }}
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Bar 
+                  dataKey="accuracy" 
+                  fill="#10B981" 
+                  radius={[0, 4, 4, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
-      )}
 
-      {/* Detalhamento por Matéria */}
-      {detailedStats.length > 0 && (
+        {/* Desempenho por Banca */}
         <Card className="bg-white/70 backdrop-blur-lg border-white/20">
           <CardHeader>
-            <CardTitle>Detalhamento por Matéria</CardTitle>
+            <CardTitle>Taxa de Acerto por Banca</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {detailedStats.map((item: any, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-800">{item.subject}</div>
-                    <div className="text-sm text-gray-600">{item.topic}</div>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={getBankStats()}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${value.toFixed(1)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {getBankStats().map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, 'Taxa de Acerto']} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Timeline de Atividade */}
+      <Card className="bg-white/70 backdrop-blur-lg border-white/20 mb-6">
+        <CardHeader>
+          <CardTitle>Atividade Diária</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={getTimelineData()}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Line 
+                type="monotone" 
+                dataKey="attempts" 
+                stroke="#3B82F6" 
+                strokeWidth={2}
+                name="Questões Respondidas"
+              />
+              <Line 
+                type="monotone" 
+                dataKey="correct" 
+                stroke="#10B981" 
+                strokeWidth={2}
+                name="Questões Corretas"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Lista de Matérias Detalhada com Gráfico Inline */}
+      <Card className="bg-white/70 backdrop-blur-lg border-white/20">
+        <CardHeader>
+          <CardTitle>Detalhamento por Matéria</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {getSubjectStats().map((subject) => (
+              <div key={subject.subject} className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-medium text-gray-800">{subject.subject}</h3>
+                    <p className="text-sm text-gray-600">
+                      {subject.correct}/{subject.total} questões corretas
+                    </p>
                   </div>
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className="flex-1 min-w-0">
-                      <InlineProgress 
-                        correct={item.correct || 0} 
-                        total={item.total || 0} 
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="text-sm text-gray-600 text-right whitespace-nowrap">
-                      {item.correct || 0}/{item.total || 0}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Comparação por Banca */}
-      {chartData.bankComparison.length > 0 && (
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardHeader>
-            <CardTitle>Comparação por Banca</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData.bankComparison} layout="horizontal">
-                  <XAxis type="number" domain={[0, 100]} />
-                  <YAxis dataKey="bank" type="category" width={100} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="accuracy" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Breakdown por Dificuldade */}
-      {chartData.difficultyBreakdown.length > 0 && (
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardHeader>
-            <CardTitle>Distribuição por Dificuldade</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData.difficultyBreakdown}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ difficulty, value }) => `${difficulty}: ${value}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
+                  <Badge 
+                    className={`${
+                      subject.accuracy >= 70 
+                        ? 'bg-green-500 hover:bg-green-600' 
+                        : subject.accuracy >= 50 
+                          ? 'bg-yellow-500 hover:bg-yellow-600' 
+                          : 'bg-red-500 hover:bg-red-600'
+                    } text-white`}
                   >
-                    {chartData.difficultyBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={`hsl(var(--chart-${(index % 3) + 1}))`} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      )}
+                    {subject.accuracy.toFixed(1)}%
+                  </Badge>
+                </div>
+                <InlineProgress 
+                  correct={subject.correct} 
+                  total={subject.total}
+                  className="mt-2"
+                />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+
+  if (hideHeader) {
+    return <div className="space-y-6">{content}</div>;
+  }
+
+  return (
+    <motion.div 
+      className="container mx-auto p-6 space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      {content}
     </motion.div>
   );
 };
