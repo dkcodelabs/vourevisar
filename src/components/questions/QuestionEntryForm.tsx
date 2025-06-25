@@ -52,32 +52,33 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
 
   // Preparar opções para o combobox de matérias
   const subjectOptions = subjects.map(subject => ({
-    value: subject.name,
+    value: subject.id,
     label: subject.name
   }));
 
   // Preparar opções para o combobox de tópicos
   const topicOptions = topics.map(topic => ({
-    value: topic.name,
+    value: topic.id,
     label: topic.name
   }));
 
-  const handleSubjectChange = (subjectName: string) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      subject: subjectName,
-      topic: '' // Limpar tópico quando mudar matéria
-    }));
-    
-    // Buscar tópicos se a matéria existe na base
-    const foundSubject = subjects.find(s => s.name === subjectName);
-    if (foundSubject) {
-      fetchTopicsBySubject(foundSubject.id);
+  const handleSubjectChange = (subjectId: string) => {
+    const selectedSubject = subjects.find(s => s.id === subjectId);
+    if (selectedSubject) {
+      setFormData(prev => ({ 
+        ...prev, 
+        subject: selectedSubject.name,
+        topic: '' // Limpar tópico quando mudar matéria
+      }));
+      fetchTopicsBySubject(subjectId);
     }
   };
 
-  const handleTopicChange = (topicName: string) => {
-    setFormData(prev => ({ ...prev, topic: topicName }));
+  const handleTopicChange = (topicId: string) => {
+    const selectedTopic = topics.find(t => t.id === topicId);
+    if (selectedTopic) {
+      setFormData(prev => ({ ...prev, topic: selectedTopic.name }));
+    }
   };
 
   const handleTotalQuestionsChange = (value: string) => {
@@ -179,12 +180,11 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
             ) : (
               <Combobox
                 options={subjectOptions}
-                value={formData.subject}
+                value={subjects.find(s => s.name === formData.subject)?.id || ''}
                 onValueChange={handleSubjectChange}
                 placeholder="Digite ou selecione uma matéria..."
                 searchPlaceholder="Pesquisar matérias..."
                 emptyText="Nenhuma matéria encontrada."
-                allowCustom={true}
               />
             )}
           </div>
@@ -195,13 +195,12 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
             </label>
             <Combobox
               options={topicOptions}
-              value={formData.topic}
+              value={topics.find(t => t.name === formData.topic)?.id || ''}
               onValueChange={handleTopicChange}
               placeholder="Digite ou selecione um tópico..."
               searchPlaceholder="Pesquisar tópicos..."
               emptyText={formData.subject ? "Nenhum tópico encontrado para esta matéria." : "Selecione uma matéria primeiro."}
               disabled={!formData.subject}
-              allowCustom={true}
             />
           </div>
 

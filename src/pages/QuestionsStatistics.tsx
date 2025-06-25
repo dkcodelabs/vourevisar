@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { InlineProgress } from '@/components/ui/inline-progress';
 import { ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -124,7 +123,7 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
     });
 
     return Array.from(subjectMap.entries()).map(([subject, data]) => ({
-      subject: subject.length > 15 ? subject.substring(0, 15) + '...' : subject,
+      subject,
       total: data.total,
       correct: data.correct,
       accuracy: data.total > 0 ? (data.correct / data.total) * 100 : 0
@@ -213,44 +212,29 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Desempenho por Matéria - Gráfico Horizontal */}
+        {/* Desempenho por Matéria */}
         <Card className="bg-white/70 backdrop-blur-lg border-white/20">
           <CardHeader>
             <CardTitle>Desempenho por Matéria</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart 
-                data={getSubjectStats()} 
-                layout="horizontal"
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
+              <BarChart data={getSubjectStats()}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
-                  type="number" 
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
-                />
-                <YAxis 
-                  type="category" 
                   dataKey="subject" 
-                  width={100}
-                  tick={{ fontSize: 12 }}
+                  angle={-45} 
+                  textAnchor="end" 
+                  height={80}
                 />
+                <YAxis />
                 <Tooltip 
-                  formatter={(value: number) => [`${value.toFixed(1)}%`, 'Taxa de Acerto']}
-                  labelStyle={{ color: '#374151' }}
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px'
-                  }}
+                  formatter={(value: number, name: string) => [
+                    `${value.toFixed(1)}%`, 
+                    name === 'accuracy' ? 'Taxa de Acerto' : name
+                  ]}
                 />
-                <Bar 
-                  dataKey="accuracy" 
-                  fill="#10B981" 
-                  radius={[0, 4, 4, 0]}
-                />
+                <Bar dataKey="accuracy" fill="#10B981" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -316,7 +300,7 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
         </CardContent>
       </Card>
 
-      {/* Lista de Matérias Detalhada com Gráfico Inline */}
+      {/* Lista de Matérias Detalhada */}
       <Card className="bg-white/70 backdrop-blur-lg border-white/20">
         <CardHeader>
           <CardTitle>Detalhamento por Matéria</CardTitle>
@@ -324,31 +308,24 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
         <CardContent>
           <div className="space-y-4">
             {getSubjectStats().map((subject) => (
-              <div key={subject.subject} className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-medium text-gray-800">{subject.subject}</h3>
-                    <p className="text-sm text-gray-600">
-                      {subject.correct}/{subject.total} questões corretas
-                    </p>
-                  </div>
-                  <Badge 
-                    className={`${
-                      subject.accuracy >= 70 
-                        ? 'bg-green-500 hover:bg-green-600' 
-                        : subject.accuracy >= 50 
-                          ? 'bg-yellow-500 hover:bg-yellow-600' 
-                          : 'bg-red-500 hover:bg-red-600'
-                    } text-white`}
-                  >
-                    {subject.accuracy.toFixed(1)}%
-                  </Badge>
+              <div key={subject.subject} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h3 className="font-medium text-gray-800">{subject.subject}</h3>
+                  <p className="text-sm text-gray-600">
+                    {subject.correct}/{subject.total} questões corretas
+                  </p>
                 </div>
-                <InlineProgress 
-                  correct={subject.correct} 
-                  total={subject.total}
-                  className="mt-2"
-                />
+                <Badge 
+                  className={`${
+                    subject.accuracy >= 70 
+                      ? 'bg-green-500' 
+                      : subject.accuracy >= 50 
+                        ? 'bg-yellow-500' 
+                        : 'bg-red-500'
+                  }`}
+                >
+                  {subject.accuracy.toFixed(1)}%
+                </Badge>
               </div>
             ))}
           </div>
