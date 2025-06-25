@@ -99,26 +99,42 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
           subject: formData.subject,
           topic: formData.topic,
           bank: formData.bank,
-          question_type: 'multipla-escolha',
+          question_type: 'multipla-escolha', // Using valid constraint value
           question_text: `Questão ${i + 1} - ${formData.subject} - ${formData.topic}`,
           correct_answer: 'N/A',
           user_answer: i < formData.correctQuestions ? 'Correto' : 'Incorreto',
           is_correct: i < formData.correctQuestions,
-          difficulty: 'medio',
+          difficulty: 'medio', // Using valid constraint value
           attempted_at: new Date().toISOString()
         });
       }
 
       console.log('Tentativas a serem inseridas:', attempts);
 
-      const { error } = await supabase
+      // Test database connection first
+      const { data: testData, error: testError } = await supabase
         .from('question_attempts')
-        .insert(attempts);
+        .select('count')
+        .limit(1);
+
+      if (testError) {
+        console.error('Erro de conexão com o banco:', testError);
+        throw new Error('Erro de conexão com o banco de dados');
+      }
+
+      console.log('Conexão com banco OK');
+
+      const { data, error } = await supabase
+        .from('question_attempts')
+        .insert(attempts)
+        .select();
 
       if (error) {
         console.error('Erro detalhado do Supabase:', error);
         throw error;
       }
+
+      console.log('Dados inseridos com sucesso:', data);
 
       toast.success(`${formData.totalQuestions} questões registradas com sucesso!`);
       
@@ -133,7 +149,11 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
       onEntryAdded();
     } catch (error) {
       console.error('Erro ao registrar questões:', error);
-      toast.error('Erro ao registrar questões. Tente novamente.');
+      if (error instanceof Error) {
+        toast.error(`Erro ao registrar questões: ${error.message}`);
+      } else {
+        toast.error('Erro ao registrar questões. Tente novamente.');
+      }
     } finally {
       setIsSubmitting(false);
     }

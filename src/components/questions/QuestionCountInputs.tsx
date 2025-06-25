@@ -15,6 +15,14 @@ const QuestionCountInputs: React.FC<QuestionCountInputsProps> = ({
   onTotalChange,
   onCorrectChange
 }) => {
+  const handleTotalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onTotalChange(e.target.value);
+  };
+
+  const handleCorrectChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onCorrectChange(e.target.value);
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="space-y-2">
@@ -24,8 +32,8 @@ const QuestionCountInputs: React.FC<QuestionCountInputsProps> = ({
         <Input
           type="number"
           min="1"
-          value={totalQuestions || ''}
-          onChange={(e) => onTotalChange(e.target.value)}
+          value={totalQuestions === 0 ? '' : totalQuestions.toString()}
+          onChange={handleTotalChange}
           placeholder="Digite o total"
           className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
@@ -39,8 +47,8 @@ const QuestionCountInputs: React.FC<QuestionCountInputsProps> = ({
           type="number"
           min="0"
           max={totalQuestions}
-          value={correctQuestions || ''}
-          onChange={(e) => onCorrectChange(e.target.value)}
+          value={correctQuestions === 0 ? '' : correctQuestions.toString()}
+          onChange={handleCorrectChange}
           placeholder="Digite quantas corretas"
           className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />

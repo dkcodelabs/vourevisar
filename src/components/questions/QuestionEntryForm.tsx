@@ -22,18 +22,24 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
   } = useQuestionEntryForm(onEntryAdded);
 
   const handleSubjectChange = (subject: string) => {
+    console.log('Subject changed to:', subject);
     setFormData(prev => ({ ...prev, subject, topic: '' }));
   };
 
   const handleTopicChange = (topic: string) => {
+    console.log('Topic changed to:', topic);
     setFormData(prev => ({ ...prev, topic }));
   };
 
   const handleBankChange = (bank: string) => {
+    console.log('Bank changed to:', bank);
     setFormData(prev => ({ ...prev, bank }));
   };
 
   const isFormValid = formData.subject && formData.topic && formData.bank && formData.totalQuestions > 0;
+
+  console.log('Form data:', formData);
+  console.log('Form valid:', isFormValid);
 
   return (
     <Card className="bg-white/70 backdrop-blur-lg border-white/20">

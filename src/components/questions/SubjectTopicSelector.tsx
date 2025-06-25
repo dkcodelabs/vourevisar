@@ -32,29 +32,39 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
     label: topic.name
   }));
 
-  const handleSubjectChange = (subjectId: string) => {
+  const handleSubjectChange = async (subjectId: string) => {
     const selectedSubject = subjects.find(s => s.id === subjectId);
     if (selectedSubject) {
       onSubjectChange(selectedSubject.name);
       onTopicChange('');
-      fetchTopicsBySubject(subjectId);
+      await fetchTopicsBySubject(subjectId);
     }
   };
 
   const handleCustomSubject = async (subjectName: string) => {
+    if (!user) {
+      toast.error('Usuário não autenticado');
+      return;
+    }
+
     try {
       const { data: newSubject, error } = await supabase
         .from('subjects')
-        .insert([{ name: subjectName, user_id: user!.id }])
+        .insert([{ name: subjectName, user_id: user.id }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao criar matéria:', error);
+        throw error;
+      }
 
       onSubjectChange(subjectName);
       onTopicChange('');
       
       toast.success(`Matéria "${subjectName}" criada com sucesso!`);
+      
+      // Refresh subjects list
       window.location.reload();
     } catch (error) {
       console.error('Erro ao criar matéria:', error);
@@ -70,6 +80,11 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
   };
 
   const handleCustomTopic = async (topicName: string) => {
+    if (!user) {
+      toast.error('Usuário não autenticado');
+      return;
+    }
+
     if (!subject) {
       toast.error('Selecione uma matéria primeiro');
       return;
@@ -77,29 +92,50 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
 
     try {
       const selectedSubject = subjects.find(s => s.name === subject);
-      if (!selectedSubject) return;
+      if (!selectedSubject) {
+        toast.error('Matéria não encontrada');
+        return;
+      }
 
       const { data: newTopic, error } = await supabase
         .from('topics')
         .insert([{ 
           name: topicName, 
           subject_id: selectedSubject.id,
-          user_id: user!.id 
+          user_id: user.id 
         }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao criar tópico:', error);
+        throw error;
+      }
 
       onTopicChange(topicName);
       
       toast.success(`Tópico "${topicName}" criado com sucesso!`);
-      fetchTopicsBySubject(selectedSubject.id);
+      await fetchTopicsBySubject(selectedSubject.id);
     } catch (error) {
       console.error('Erro ao criar tópico:', error);
       toast.error('Erro ao criar novo tópico');
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Matéria *</label>
+          <div className="h-10 bg-gray-200 animate-pulse rounded"></div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Tópico *</label>
+          <div className="h-10 bg-gray-200 animate-pulse rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -107,20 +143,16 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
         <label className="text-sm font-medium text-gray-700">
           Matéria *
         </label>
-        {isLoading ? (
-          <div className="h-10 bg-gray-200 animate-pulse rounded"></div>
-        ) : (
-          <Combobox
-            options={subjectOptions}
-            value={subjects.find(s => s.name === subject)?.id || ''}
-            onValueChange={handleSubjectChange}
-            placeholder="Digite ou selecione uma matéria..."
-            searchPlaceholder="Pesquisar matérias..."
-            emptyText="Nenhuma matéria encontrada."
-            allowCustomInput={true}
-            onCustomInput={handleCustomSubject}
-          />
-        )}
+        <Combobox
+          options={subjectOptions}
+          value={subjects.find(s => s.name === subject)?.id || ''}
+          onValueChange={handleSubjectChange}
+          placeholder="Digite ou selecione uma matéria..."
+          searchPlaceholder="Pesquisar matérias..."
+          emptyText="Nenhuma matéria encontrada."
+          allowCustomInput={true}
+          onCustomInput={handleCustomSubject}
+        />
       </div>
 
       <div className="space-y-2">
