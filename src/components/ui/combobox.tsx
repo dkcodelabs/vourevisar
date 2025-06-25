@@ -26,6 +26,8 @@ interface ComboboxProps {
   emptyText?: string
   className?: string
   disabled?: boolean
+  allowCustomInput?: boolean
+  onCustomInput?: (input: string) => void
 }
 
 export function Combobox({
@@ -37,10 +39,39 @@ export function Combobox({
   emptyText = "Nenhuma opção encontrada.",
   className,
   disabled = false,
+  allowCustomInput = false,
+  onCustomInput,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const [searchValue, setSearchValue] = React.useState("")
 
   const selectedOption = options.find(option => option.value === value)
+
+  // Filtrar opções baseado no texto de busca
+  const filteredOptions = React.useMemo(() => {
+    if (!searchValue) return options
+    return options.filter(option =>
+      option.label.toLowerCase().includes(searchValue.toLowerCase())
+    )
+  }, [options, searchValue])
+
+  const handleSelect = (selectedValue: string) => {
+    if (selectedValue === value) {
+      onValueChange("")
+    } else {
+      onValueChange(selectedValue)
+    }
+    setOpen(false)
+    setSearchValue("")
+  }
+
+  const handleCustomInput = () => {
+    if (allowCustomInput && onCustomInput && searchValue.trim()) {
+      onCustomInput(searchValue.trim())
+      setOpen(false)
+      setSearchValue("")
+    }
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -56,20 +87,35 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0 bg-white border border-gray-200 shadow-lg" align="start">
-        <Command className="bg-white">
-          <CommandInput placeholder={searchPlaceholder} />
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-white border border-gray-200 shadow-lg">
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder={searchPlaceholder}
+            value={searchValue}
+            onValueChange={setSearchValue}
+          />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandEmpty>
+              <div className="text-center py-2">
+                <p className="text-sm text-gray-500 mb-2">{emptyText}</p>
+                {allowCustomInput && searchValue.trim() && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCustomInput}
+                    className="text-xs"
+                  >
+                    Criar "{searchValue.trim()}"
+                  </Button>
+                )}
+              </div>
+            </CommandEmpty>
             <CommandGroup className="max-h-64 overflow-auto">
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.value}
-                  onSelect={(currentValue) => {
-                    onValueChange(currentValue === value ? "" : currentValue)
-                    setOpen(false)
-                  }}
+                  value={option.label}
+                  onSelect={() => handleSelect(option.value)}
                   className="hover:bg-gray-100 cursor-pointer"
                 >
                   <Check

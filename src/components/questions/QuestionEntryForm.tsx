@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,10 +73,72 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
     }
   };
 
+  const handleCustomSubject = async (subjectName: string) => {
+    try {
+      // Criar nova matéria
+      const { data: newSubject, error } = await supabase
+        .from('subjects')
+        .insert([{ name: subjectName, user_id: user!.id }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setFormData(prev => ({ 
+        ...prev, 
+        subject: subjectName,
+        topic: ''
+      }));
+      
+      toast.success(`Matéria "${subjectName}" criada com sucesso!`);
+      
+      // Recarregar matérias para incluir a nova
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao criar matéria:', error);
+      toast.error('Erro ao criar nova matéria');
+    }
+  };
+
   const handleTopicChange = (topicId: string) => {
     const selectedTopic = topics.find(t => t.id === topicId);
     if (selectedTopic) {
       setFormData(prev => ({ ...prev, topic: selectedTopic.name }));
+    }
+  };
+
+  const handleCustomTopic = async (topicName: string) => {
+    if (!formData.subject) {
+      toast.error('Selecione uma matéria primeiro');
+      return;
+    }
+
+    try {
+      const selectedSubject = subjects.find(s => s.name === formData.subject);
+      if (!selectedSubject) return;
+
+      // Criar novo tópico
+      const { data: newTopic, error } = await supabase
+        .from('topics')
+        .insert([{ 
+          name: topicName, 
+          subject_id: selectedSubject.id,
+          user_id: user!.id 
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setFormData(prev => ({ ...prev, topic: topicName }));
+      
+      toast.success(`Tópico "${topicName}" criado com sucesso!`);
+      
+      // Recarregar tópicos
+      fetchTopicsBySubject(selectedSubject.id);
+    } catch (error) {
+      console.error('Erro ao criar tópico:', error);
+      toast.error('Erro ao criar novo tópico');
     }
   };
 
@@ -185,6 +246,8 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
                 placeholder="Digite ou selecione uma matéria..."
                 searchPlaceholder="Pesquisar matérias..."
                 emptyText="Nenhuma matéria encontrada."
+                allowCustomInput={true}
+                onCustomInput={handleCustomSubject}
               />
             )}
           </div>
@@ -201,6 +264,8 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
               searchPlaceholder="Pesquisar tópicos..."
               emptyText={formData.subject ? "Nenhum tópico encontrado para esta matéria." : "Selecione uma matéria primeiro."}
               disabled={!formData.subject}
+              allowCustomInput={!!formData.subject}
+              onCustomInput={handleCustomTopic}
             />
           </div>
 
