@@ -222,7 +222,7 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
           subject: formData.subject,
           topic: formData.topic,
           bank: formData.bank,
-          question_type: 'generated', // Mudando de 'manual' para 'generated'
+          question_type: 'multipla-escolha', // Alterado para um valor válido
           question_text: `Questão ${i + 1} - ${formData.subject} - ${formData.topic}`,
           correct_answer: 'N/A',
           user_answer: i < formData.correctQuestions ? 'Correto' : 'Incorreto',
