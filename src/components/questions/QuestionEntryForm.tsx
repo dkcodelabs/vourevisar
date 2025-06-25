@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,7 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
     subject: '',
     topic: '',
     bank: '',
-    totalQuestions: 0,
+    totalQuestions: 1,
     correctQuestions: 0
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,20 +144,43 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
   };
 
   const handleTotalQuestionsChange = (value: string) => {
-    const num = parseInt(value) || 0;
-    setFormData(prev => ({
-      ...prev,
-      totalQuestions: num,
-      correctQuestions: Math.min(prev.correctQuestions, num)
-    }));
+    // Permitir campo vazio durante a edição
+    if (value === '') {
+      setFormData(prev => ({
+        ...prev,
+        totalQuestions: 0,
+        correctQuestions: 0
+      }));
+      return;
+    }
+
+    const num = parseInt(value);
+    if (!isNaN(num) && num >= 0) {
+      setFormData(prev => ({
+        ...prev,
+        totalQuestions: num,
+        correctQuestions: Math.min(prev.correctQuestions, num)
+      }));
+    }
   };
 
   const handleCorrectQuestionsChange = (value: string) => {
-    const num = parseInt(value) || 0;
-    setFormData(prev => ({
-      ...prev,
-      correctQuestions: Math.min(num, prev.totalQuestions)
-    }));
+    // Permitir campo vazio durante a edição
+    if (value === '') {
+      setFormData(prev => ({
+        ...prev,
+        correctQuestions: 0
+      }));
+      return;
+    }
+
+    const num = parseInt(value);
+    if (!isNaN(num) && num >= 0) {
+      setFormData(prev => ({
+        ...prev,
+        correctQuestions: Math.min(num, prev.totalQuestions)
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -180,6 +204,15 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
     setIsSubmitting(true);
 
     try {
+      console.log('Dados a serem enviados:', {
+        user_id: user.id,
+        subject: formData.subject,
+        topic: formData.topic,
+        bank: formData.bank,
+        totalQuestions: formData.totalQuestions,
+        correctQuestions: formData.correctQuestions
+      });
+
       // Inserir registros individuais para cada questão
       const attempts = [];
       
@@ -189,7 +222,7 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
           subject: formData.subject,
           topic: formData.topic,
           bank: formData.bank,
-          question_type: 'manual',
+          question_type: 'generated', // Mudando de 'manual' para 'generated'
           question_text: `Questão ${i + 1} - ${formData.subject} - ${formData.topic}`,
           correct_answer: 'N/A',
           user_answer: i < formData.correctQuestions ? 'Correto' : 'Incorreto',
@@ -199,11 +232,16 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
         });
       }
 
+      console.log('Tentativas a serem inseridas:', attempts);
+
       const { error } = await supabase
         .from('question_attempts')
         .insert(attempts);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro detalhado do Supabase:', error);
+        throw error;
+      }
 
       toast.success(`${formData.totalQuestions} questões registradas com sucesso!`);
       
@@ -212,7 +250,7 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
         subject: '',
         topic: '',
         bank: '',
-        totalQuestions: 0,
+        totalQuestions: 1,
         correctQuestions: 0
       });
 
@@ -293,14 +331,15 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Total de Questões
+                Total de Questões *
               </label>
               <Input
                 type="number"
-                min="0"
-                value={formData.totalQuestions}
+                min="1"
+                value={formData.totalQuestions || ''}
                 onChange={(e) => handleTotalQuestionsChange(e.target.value)}
                 placeholder="Digite o total"
+                className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
 
@@ -312,9 +351,10 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
                 type="number"
                 min="0"
                 max={formData.totalQuestions}
-                value={formData.correctQuestions}
+                value={formData.correctQuestions || ''}
                 onChange={(e) => handleCorrectQuestionsChange(e.target.value)}
                 placeholder="Digite quantas corretas"
+                className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
           </div>
@@ -322,7 +362,7 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
           <div className="pt-4">
             <Button 
               type="submit"
-              disabled={isSubmitting || !formData.subject || !formData.topic || !formData.bank}
+              disabled={isSubmitting || !formData.subject || !formData.topic || !formData.bank || formData.totalQuestions === 0}
               className="w-full"
               size="lg"
             >

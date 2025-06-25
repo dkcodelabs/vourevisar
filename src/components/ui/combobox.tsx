@@ -93,6 +93,7 @@ export function Combobox({
             placeholder={searchPlaceholder}
             value={searchValue}
             onValueChange={setSearchValue}
+            className="border-0 focus:ring-0 focus:ring-offset-0"
           />
           <CommandList>
             <CommandEmpty>
