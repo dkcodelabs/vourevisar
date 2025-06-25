@@ -26,6 +26,7 @@ interface ComboboxProps {
   emptyText?: string
   className?: string
   disabled?: boolean
+  allowCustom?: boolean
 }
 
 export function Combobox({
@@ -37,10 +38,43 @@ export function Combobox({
   emptyText = "Nenhuma opção encontrada.",
   className,
   disabled = false,
+  allowCustom = true,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const [inputValue, setInputValue] = React.useState("")
 
   const selectedOption = options.find(option => option.value === value)
+  const displayValue = selectedOption ? selectedOption.label : (value || "")
+
+  // Filtrar opções baseado no input
+  const filteredOptions = options.filter(option =>
+    option.label.toLowerCase().includes(inputValue.toLowerCase())
+  )
+
+  const handleSelect = (currentValue: string) => {
+    if (currentValue === value) {
+      onValueChange("")
+    } else {
+      onValueChange(currentValue)
+    }
+    setOpen(false)
+    setInputValue("")
+  }
+
+  const handleCustomValue = () => {
+    if (allowCustom && inputValue.trim() && !filteredOptions.some(opt => opt.label.toLowerCase() === inputValue.toLowerCase())) {
+      onValueChange(inputValue.trim())
+      setOpen(false)
+      setInputValue("")
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && allowCustom && inputValue.trim()) {
+      e.preventDefault()
+      handleCustomValue()
+    }
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -52,24 +86,38 @@ export function Combobox({
           className={cn("w-full justify-between", className)}
           disabled={disabled}
         >
-          {selectedOption ? selectedOption.label : placeholder}
+          <span className="truncate">{displayValue || placeholder}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0 bg-white border border-gray-200 shadow-lg" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-white border border-gray-200 shadow-lg z-50" align="start">
         <Command className="bg-white">
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput 
+            placeholder={searchPlaceholder}
+            value={inputValue}
+            onValueChange={setInputValue}
+            onKeyDown={handleKeyDown}
+          />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandEmpty>
+              <div className="py-2">
+                <p className="text-sm text-gray-500">{emptyText}</p>
+                {allowCustom && inputValue.trim() && (
+                  <button
+                    onClick={handleCustomValue}
+                    className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Criar "{inputValue.trim()}"
+                  </button>
+                )}
+              </div>
+            </CommandEmpty>
             <CommandGroup className="max-h-64 overflow-auto">
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.value}
-                  onSelect={(currentValue) => {
-                    onValueChange(currentValue === value ? "" : currentValue)
-                    setOpen(false)
-                  }}
+                  value={option.label}
+                  onSelect={() => handleSelect(option.value)}
                   className="hover:bg-gray-100 cursor-pointer"
                 >
                   <Check
@@ -78,7 +126,7 @@ export function Combobox({
                       value === option.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {option.label}
+                  <span className="truncate">{option.label}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
