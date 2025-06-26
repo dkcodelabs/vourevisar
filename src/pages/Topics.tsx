@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
@@ -113,7 +114,9 @@ const Topics = () => {
       )}
 
       <NotesModal
-        topic={selectedTopic}
+        topicId={selectedTopic?.id || ''}
+        topicName={selectedTopic?.name || ''}
+        subjectName={selectedTopic?.subjectName || ''}
         isOpen={isNotesModalOpen}
         onClose={() => {
           setIsNotesModalOpen(false);
