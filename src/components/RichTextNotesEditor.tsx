@@ -12,12 +12,14 @@ interface RichTextNotesEditorProps {
   notes?: TopicNotes;
   onSave: (notes: TopicNotes) => Promise<void>;
   isLoading?: boolean;
+  onChange?: () => void;
 }
 
 const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   notes,
   onSave,
-  isLoading = false
+  isLoading = false,
+  onChange
 }) => {
   const [content, setContent] = useState(notes?.content || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -28,8 +30,14 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   // Detectar mudanças no conteúdo
   useEffect(() => {
     const originalContent = notes?.content || '';
-    setHasChanges(content !== originalContent);
-  }, [content, notes?.content]);
+    const hasChanges = content !== originalContent;
+    setHasChanges(hasChanges);
+    
+    // Chamar callback quando houver mudanças
+    if (hasChanges && onChange) {
+      onChange();
+    }
+  }, [content, notes?.content, onChange]);
 
   const handleSave = async () => {
     if (isSaving) return;

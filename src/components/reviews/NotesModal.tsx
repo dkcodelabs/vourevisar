@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { X, Save } from 'lucide-react';
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
@@ -8,6 +8,7 @@ import { TopicNotes } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-hot-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useApp } from '@/contexts/AppContext';
 
 interface NotesModalProps {
   isOpen: boolean;
@@ -26,7 +27,10 @@ const NotesModal: React.FC<NotesModalProps> = ({
 }) => {
   const [notes, setNotes] = useState<TopicNotes | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isMobile = useIsMobile();
+  const { refreshData } = useApp();
 
   // Buscar notas do tópico
   useEffect(() => {
@@ -60,6 +64,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
   };
 
   const saveNotes = async (updatedNotes: TopicNotes) => {
+    setIsSaving(true);
     try {
       const { error } = await supabase
         .from('topics')
@@ -69,17 +74,44 @@ const NotesModal: React.FC<NotesModalProps> = ({
       if (error) throw error;
 
       setNotes(updatedNotes);
+      setHasUnsavedChanges(false);
       toast.success('Anotações salvas com sucesso!');
+      
+      // Refresh dos dados do AppContext para atualizar a página de tópicos
+      await refreshData();
     } catch (error) {
       console.error('Erro ao salvar anotações:', error);
       toast.error('Erro ao salvar anotações');
       throw error;
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleSaveAndClose = async () => {
-    // Se há anotações pendentes, elas já foram salvas pelo RichTextNotesEditor
+    if (hasUnsavedChanges) {
+      try {
+        // Forçar salvamento antes de fechar
+        const editorComponent = document.querySelector('.ql-editor');
+        if (editorComponent) {
+          const content = editorComponent.innerHTML;
+          const notesToSave: TopicNotes = {
+            content: content.trim(),
+            updatedAt: new Date().toISOString(),
+            createdAt: notes?.createdAt || new Date().toISOString()
+          };
+          await saveNotes(notesToSave);
+        }
+      } catch (error) {
+        console.error('Erro ao salvar antes de fechar:', error);
+        return; // Não fechar se houve erro ao salvar
+      }
+    }
     onClose();
+  };
+
+  const handleNotesChange = () => {
+    setHasUnsavedChanges(true);
   };
 
   return (
@@ -91,14 +123,15 @@ const NotesModal: React.FC<NotesModalProps> = ({
         }
         hideCloseButton={isMobile}
       >
-        {/* Header */}
         <DialogHeader className={`${isMobile ? 'p-4 border-b' : 'p-6 pb-4'} bg-white`}>
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-lg font-semibold text-gray-900">
                 Anotações - {topicName}
               </DialogTitle>
-              <p className="text-sm text-gray-600 mt-1">{subjectName}</p>
+              <DialogDescription className="text-sm text-gray-600 mt-1">
+                {subjectName}
+              </DialogDescription>
             </div>
             {isMobile && (
               <Button
@@ -106,6 +139,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
                 size="sm"
                 onClick={handleSaveAndClose}
                 className="h-8 w-8 p-0"
+                disabled={isSaving}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -123,7 +157,8 @@ const NotesModal: React.FC<NotesModalProps> = ({
             <RichTextNotesEditor
               notes={notes}
               onSave={saveNotes}
-              isLoading={isLoading}
+              isLoading={isLoading || isSaving}
+              onChange={handleNotesChange}
             />
           )}
         </div>
@@ -135,9 +170,10 @@ const NotesModal: React.FC<NotesModalProps> = ({
               variant="default"
               onClick={handleSaveAndClose}
               className="flex items-center gap-2"
+              disabled={isSaving}
             >
               <Save className="h-4 w-4" />
-              Salvar e Fechar
+              {isSaving ? 'Salvando...' : 'Salvar e Fechar'}
             </Button>
           </div>
         )}
