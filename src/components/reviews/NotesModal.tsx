@@ -63,7 +63,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
     try {
       const { error } = await supabase
         .from('topics')
-        .update({ notes: updatedNotes })
+        .update({ notes: updatedNotes as any })
         .eq('id', topicId);
 
       if (error) throw error;
