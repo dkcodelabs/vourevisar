@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Combobox } from '@/components/ui/combobox';
 import { useSubjectsAndTopics } from '@/hooks/useSubjectsAndTopics';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +22,22 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
   const { user } = useAuth();
   const { subjects, topics, isLoading, fetchTopicsBySubject } = useSubjectsAndTopics();
 
+  // Carregar tópicos automaticamente quando subject for preenchido
+  useEffect(() => {
+    const loadTopicsForSubject = async () => {
+      if (subject && subjects.length > 0) {
+        console.log('Loading topics for subject:', subject);
+        const selectedSubject = subjects.find(s => s.name === subject);
+        if (selectedSubject) {
+          console.log('Found subject:', selectedSubject);
+          await fetchTopicsBySubject(selectedSubject.id);
+        }
+      }
+    };
+
+    loadTopicsForSubject();
+  }, [subject, subjects, fetchTopicsBySubject]);
+
   const subjectOptions = subjects.map(subject => ({
     value: subject.id,
     label: subject.name
@@ -35,6 +51,7 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
   const handleSubjectChange = async (subjectId: string) => {
     const selectedSubject = subjects.find(s => s.id === subjectId);
     if (selectedSubject) {
+      console.log('Subject changed to:', selectedSubject.name);
       onSubjectChange(selectedSubject.name);
       onTopicChange('');
       await fetchTopicsBySubject(subjectId);
@@ -75,6 +92,7 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
   const handleTopicChange = (topicId: string) => {
     const selectedTopic = topics.find(t => t.id === topicId);
     if (selectedTopic) {
+      console.log('Topic changed to:', selectedTopic.name);
       onTopicChange(selectedTopic.name);
     }
   };
