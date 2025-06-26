@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
-import { FileText, BookOpen, CheckCircle2 } from 'lucide-react';
+import { FileText, CheckCircle2 } from 'lucide-react';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
 import NotesModal from './NotesModal';
+import RegisterQuestionsButton from './RegisterQuestionsButton';
 
 interface Topic {
   id: string;
@@ -37,7 +37,6 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
   tab,
   refetch
 }) => {
-  const navigate = useNavigate();
   const { refreshData } = useApp();
   const { markTopicAsReviewed, isLoading: isLogicLoading } = useStudyPlanLogic();
   const [confirmTopicId, setConfirmTopicId] = useState<string | null>(null);
@@ -86,14 +85,6 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
       topicName: topic.name,
       subjectName: topic.subject_name
     });
-  };
-
-  const handleQuestionsClick = (topic: Topic) => {
-    const params = new URLSearchParams({
-      materia: topic.subject_name,
-      topico: topic.name
-    });
-    navigate(`/questoes?${params}`);
   };
 
   const closeNotesModal = () => {
@@ -187,21 +178,10 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                               </TooltipContent>
                             </Tooltip>
 
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleQuestionsClick(topic)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <BookOpen className="h-4 w-4 text-green-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Resolver questões</p>
-                              </TooltipContent>
-                            </Tooltip>
+                            <RegisterQuestionsButton
+                              subject={topic.subject_name}
+                              topic={topic.name}
+                            />
                           </div>
                         </TableCell>
                       </>
@@ -229,21 +209,10 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                               </TooltipContent>
                             </Tooltip>
 
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleQuestionsClick(topic)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <BookOpen className="h-4 w-4 text-green-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Resolver questões</p>
-                              </TooltipContent>
-                            </Tooltip>
+                            <RegisterQuestionsButton
+                              subject={topic.subject_name}
+                              topic={topic.name}
+                            />
 
                             {topic.completed ? (
                               <Tooltip>

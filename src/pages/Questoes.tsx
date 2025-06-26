@@ -21,6 +21,7 @@ const Questoes = () => {
   const urlTopic = searchParams.get('topico') || '';
   
   const [selectedPeriod, setSelectedPeriod] = useState('30');
+  const [formKey, setFormKey] = useState(0); // Para forçar re-render do form
 
   // Estado para estatísticas resumidas
   const [summaryStats, setSummaryStats] = useState({
@@ -37,6 +38,14 @@ const Questoes = () => {
       fetchSummaryStats();
     }
   }, [user, selectedPeriod]);
+
+  // Forçar re-render do form quando parâmetros da URL mudarem
+  useEffect(() => {
+    if (urlSubject && urlTopic) {
+      console.log('Parâmetros da URL detectados:', { urlSubject, urlTopic });
+      setFormKey(prev => prev + 1);
+    }
+  }, [urlSubject, urlTopic]);
 
   const fetchSummaryStats = async () => {
     if (!user) return;
@@ -108,7 +117,12 @@ const Questoes = () => {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Coluna principal - Formulário de registro (3/5 em telas grandes) */}
         <div className="lg:col-span-3">
-          <QuestionEntryForm onEntryAdded={handleEntryAdded} />
+          <QuestionEntryForm 
+            key={formKey}
+            onEntryAdded={handleEntryAdded}
+            initialSubject={urlSubject}
+            initialTopic={urlTopic}
+          />
         </div>
 
         {/* Coluna lateral - Estatísticas resumidas (2/5 em telas grandes) */}

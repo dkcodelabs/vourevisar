@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuestionEntryForm } from '@/hooks/useQuestionEntryForm';
 import SubjectTopicSelector from './SubjectTopicSelector';
@@ -9,9 +9,15 @@ import SubmitButton from './SubmitButton';
 
 interface QuestionEntryFormProps {
   onEntryAdded: () => void;
+  initialSubject?: string;
+  initialTopic?: string;
 }
 
-const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) => {
+const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ 
+  onEntryAdded, 
+  initialSubject = '', 
+  initialTopic = '' 
+}) => {
   const {
     formData,
     setFormData,
@@ -20,6 +26,18 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
     handleCorrectQuestionsChange,
     handleSubmit
   } = useQuestionEntryForm(onEntryAdded);
+
+  // Preencher formulário com valores iniciais da URL
+  useEffect(() => {
+    if (initialSubject && initialTopic) {
+      console.log('Preenchendo formulário com valores iniciais:', { initialSubject, initialTopic });
+      setFormData(prev => ({
+        ...prev,
+        subject: initialSubject,
+        topic: initialTopic
+      }));
+    }
+  }, [initialSubject, initialTopic, setFormData]);
 
   const handleSubjectChange = (subject: string) => {
     console.log('Subject changed to:', subject);
@@ -37,9 +55,6 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
   };
 
   const isFormValid = formData.subject && formData.topic && formData.bank && formData.totalQuestions > 0;
-
-  console.log('Form data:', formData);
-  console.log('Form valid:', isFormValid);
 
   return (
     <Card className="bg-white/70 backdrop-blur-lg border-white/20">
