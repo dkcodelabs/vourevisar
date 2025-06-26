@@ -18,7 +18,7 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
     subject: '',
     topic: '',
     bank: '',
-    totalQuestions: 1,
+    totalQuestions: 0,
     correctQuestions: 0
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -142,7 +142,7 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
         subject: '',
         topic: '',
         bank: '',
-        totalQuestions: 1,
+        totalQuestions: 0,
         correctQuestions: 0
       });
 

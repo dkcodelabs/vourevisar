@@ -26,7 +26,7 @@ const QuestionCountInputs: React.FC<QuestionCountInputsProps> = ({
           min="0"
           value={totalQuestions}
           onChange={(e) => setTotalQuestions(e.target.value)}
-          placeholder=""
+          placeholder="0"
         />
       </div>
       <div>
@@ -38,7 +38,7 @@ const QuestionCountInputs: React.FC<QuestionCountInputsProps> = ({
           max={totalQuestions || undefined}
           value={correctQuestions}
           onChange={(e) => setCorrectQuestions(e.target.value)}
-          placeholder=""
+          placeholder="0"
         />
       </div>
     </div>
