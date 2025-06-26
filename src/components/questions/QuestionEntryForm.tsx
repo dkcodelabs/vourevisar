@@ -61,10 +61,10 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({ onEntryAdded }) =
           />
 
           <QuestionCountInputs
-            totalQuestions={formData.totalQuestions}
-            correctQuestions={formData.correctQuestions}
-            onTotalChange={handleTotalQuestionsChange}
-            onCorrectChange={handleCorrectQuestionsChange}
+            totalQuestions={formData.totalQuestions.toString()}
+            setTotalQuestions={handleTotalQuestionsChange}
+            correctQuestions={formData.correctQuestions.toString()}
+            setCorrectQuestions={handleCorrectQuestionsChange}
           />
 
           <SubmitButton
