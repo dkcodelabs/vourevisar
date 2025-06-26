@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import QuestionEntryForm from '@/components/questions/QuestionEntryForm';
 import StatsSummaryCards from '@/components/questions/StatsSummaryCards';
 import QuestionsStatistics from './QuestionsStatistics';
+import QuestionsOverview from '@/components/questions/QuestionsOverview';
 import { format, subDays, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -111,6 +112,11 @@ const Questoes = () => {
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Sistema de Questões</h1>
         <p className="text-gray-600">Registre suas questões resolvidas e acompanhe seu desempenho</p>
+      </div>
+
+      {/* Novo Layout: Detalhamento por Matéria e Tópico */}
+      <div className="mb-8">
+        <QuestionsOverview />
       </div>
 
       {/* Layout responsivo: ajustado para dar mais espaço às estatísticas */}
