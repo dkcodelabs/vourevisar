@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
-import { FileText, BookOpen } from 'lucide-react';
+import { FileText, BookOpen, CheckCircle2 } from 'lucide-react';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'react-hot-toast';
@@ -246,20 +246,34 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                             </Tooltip>
 
                             {topic.completed ? (
-                              <Button variant="outline" size="sm" disabled className="text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed text-xs px-2 py-1 h-7 min-w-[110px]">
-                                Concluído
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="sm" disabled className="h-8 w-8 p-0 text-gray-400 cursor-not-allowed">
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Tópico concluído</p>
+                                </TooltipContent>
+                              </Tooltip>
                             ) : (
                               <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => setConfirmTopicId(topic.id)}
-                                  disabled={isLogicLoading}
-                                  className="text-xs px-2 py-1 h-7 min-w-[110px]"
-                                >
-                                  Marcar Revisão
-                                </Button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setConfirmTopicId(topic.id)}
+                                      disabled={isLogicLoading}
+                                      className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
+                                    >
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Marcar como revisado</p>
+                                  </TooltipContent>
+                                </Tooltip>
                                 <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
                                   <DialogContent>
                                     <DialogHeader>

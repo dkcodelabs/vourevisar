@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton 
@@ -31,6 +31,26 @@ const navItems: NavItem[] = [
 
 export function AppSidebar() {
   const { user } = useAuth();
+  const location = useLocation();
+
+  // Função para verificar se o item está ativo
+  const isItemActive = (item: NavItem) => {
+    if (item.end) {
+      return location.pathname === item.to;
+    }
+    
+    // Para tópicos, considerar ativo se estiver em /topicos ou /materias/*/topicos
+    if (item.to === '/topicos') {
+      return location.pathname === '/topicos' || location.pathname.includes('/topicos');
+    }
+    
+    // Para matérias, considerar ativo apenas se estiver exatamente em /materias
+    if (item.to === '/materias') {
+      return location.pathname === '/materias';
+    }
+    
+    return location.pathname.startsWith(item.to);
+  };
 
   return (
     <Sidebar className="border-r w-64">
@@ -43,10 +63,12 @@ export function AppSidebar() {
       <SidebarContent className="p-4">
         <SidebarGroup>
           <SidebarMenu className="space-y-2">
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.to}>
-                <NavLink to={item.to} end={item.end ?? false}>
-                  {({ isActive }) => (
+            {navItems.map((item) => {
+              const isActive = isItemActive(item);
+              
+              return (
+                <SidebarMenuItem key={item.to}>
+                  <NavLink to={item.to} end={item.end ?? false}>
                     <SidebarMenuButton 
                       isActive={isActive} 
                       asChild 
@@ -61,10 +83,10 @@ export function AppSidebar() {
                         <span>{item.label}</span>
                       </div>
                     </SidebarMenuButton>
-                  )}
-                </NavLink>
-              </SidebarMenuItem>
-            ))}
+                  </NavLink>
+                </SidebarMenuItem>
+              );
+            })}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

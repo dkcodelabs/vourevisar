@@ -1,56 +1,44 @@
 
 import React from 'react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface QuestionCountInputsProps {
-  totalQuestions: number;
-  correctQuestions: number;
-  onTotalChange: (value: string) => void;
-  onCorrectChange: (value: string) => void;
+  totalQuestions: string;
+  setTotalQuestions: (value: string) => void;
+  correctQuestions: string;
+  setCorrectQuestions: (value: string) => void;
 }
 
 const QuestionCountInputs: React.FC<QuestionCountInputsProps> = ({
   totalQuestions,
+  setTotalQuestions,
   correctQuestions,
-  onTotalChange,
-  onCorrectChange
+  setCorrectQuestions,
 }) => {
-  const handleTotalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onTotalChange(e.target.value);
-  };
-
-  const handleCorrectChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onCorrectChange(e.target.value);
-  };
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">
-          Total de Questões *
-        </label>
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor="total-questions">Total de Questões</Label>
         <Input
-          type="number"
-          min="1"
-          value={totalQuestions === 0 ? '' : totalQuestions.toString()}
-          onChange={handleTotalChange}
-          placeholder="Digite o total"
-          className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">
-          Questões Corretas
-        </label>
-        <Input
+          id="total-questions"
           type="number"
           min="0"
-          max={totalQuestions}
-          value={correctQuestions === 0 ? '' : correctQuestions.toString()}
-          onChange={handleCorrectChange}
-          placeholder="Digite quantas corretas"
-          className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          value={totalQuestions}
+          onChange={(e) => setTotalQuestions(e.target.value)}
+          placeholder=""
+        />
+      </div>
+      <div>
+        <Label htmlFor="correct-questions">Questões Corretas</Label>
+        <Input
+          id="correct-questions"
+          type="number"
+          min="0"
+          max={totalQuestions || undefined}
+          value={correctQuestions}
+          onChange={(e) => setCorrectQuestions(e.target.value)}
+          placeholder=""
         />
       </div>
     </div>

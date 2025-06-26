@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, ChevronDown, ChevronUp, FileText, Search } from 'lucide-react';
 import { format, isToday, isBefore } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +25,7 @@ const Topics = () => {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [checkedTopics, setCheckedTopics] = useState<Set<string>>(new Set());
   const [showAllSubjects, setShowAllSubjects] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   console.log('Topics component rendered - subjectId:', subjectId, 'user:', user?.id);
   console.log('Current subjects state:', subjects);
@@ -205,6 +207,16 @@ const Topics = () => {
     return allTopics;
   };
 
+  // Função para filtrar tópicos por nome
+  const filterTopicsByName = (topics: any[]) => {
+    if (!searchTerm.trim()) return topics;
+    
+    return topics.filter(topic => 
+      topic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (topic.subjectName && topic.subjectName.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  };
+
   const renderTopicCard = (topic: any) => {
     const status = getTopicStatus(topic);
     const revisionStage = getRevisionStage(topic);
@@ -344,8 +356,11 @@ const Topics = () => {
     );
   }
 
+  // Obter tópicos filtrados
+  const topicsToDisplay = showAllSubjects ? filterTopicsByName(getAllTopics()) : filterTopicsByName(selectedSubject?.topics || []);
+
   console.log('Rendering main content - selectedSubject:', selectedSubject?.name, 'showAllSubjects:', showAllSubjects);
-  console.log('Topics to render:', showAllSubjects ? getAllTopics() : selectedSubject?.topics);
+  console.log('Topics to render:', topicsToDisplay);
 
   return (
     <motion.div 
@@ -396,6 +411,23 @@ const Topics = () => {
               ))}
             </select>
           </div>
+
+          {/* Campo de busca */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Filtrar por nome:
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                type="text"
+                placeholder="Digite o nome do tópico..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
         </CardHeader>
         {selectedSubject && !showAllSubjects && (
           <CardContent>
@@ -418,27 +450,17 @@ const Topics = () => {
       </Card>
 
       <div className="space-y-3">
-        {showAllSubjects ? (
-          getAllTopics().length === 0 ? (
-            <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
-              <CardContent className="p-6 text-center">
-                <p className="text-gray-500">Nenhum tópico adicionado ainda.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            getAllTopics().map((topic) => renderTopicCard(topic))
-          )
-        ) : selectedSubject ? (
-          selectedSubject.topics?.length === 0 ? (
-            <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
-              <CardContent className="p-6 text-center">
-                <p className="text-gray-500">Nenhum tópico adicionado ainda.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            selectedSubject.topics?.map((topic) => renderTopicCard(topic)) || []
-          )
-        ) : null}
+        {topicsToDisplay.length === 0 ? (
+          <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg">
+            <CardContent className="p-6 text-center">
+              <p className="text-gray-500">
+                {searchTerm.trim() ? 'Nenhum tópico encontrado com este filtro.' : 'Nenhum tópico adicionado ainda.'}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          topicsToDisplay.map((topic) => renderTopicCard(topic))
+        )}
       </div>
     </motion.div>
   );
