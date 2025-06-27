@@ -207,7 +207,15 @@ const Topics = () => {
             {filteredAndSortedTopics.map(topic => (
               <TopicListItem
                 key={topic.id}
-                topic={topic}
+                topic={{
+                  id: topic.id,
+                  name: topic.name,
+                  subjectName: topic.subjectName,
+                  subjectColor: topic.subjectColor,
+                  nextReview: topic.nextReview ? topic.nextReview.toISOString() : null,
+                  reviewCount: topic.reviewCount,
+                  completed: topic.completed
+                }}
                 onEdit={handleEditTopic}
                 onDelete={handleDeleteTopic}
               />
