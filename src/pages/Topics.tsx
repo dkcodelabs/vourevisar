@@ -1,39 +1,114 @@
+
 import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Plus } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Topic } from '@/types';
-import TopicCard from '@/components/topics/TopicCard';
-import NotesModal from '@/components/reviews/NotesModal';
 import { toast } from "react-hot-toast";
+import { format, isToday, isPast, startOfDay } from 'date-fns';
+import TopicsSummaryCards from '@/components/topics/TopicsSummaryCards';
+import TopicsFilters from '@/components/topics/TopicsFilters';
+import TopicListItem from '@/components/topics/TopicListItem';
+import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
 
 const Topics = () => {
-  const { subjects, deleteTopic, isLoading, updateTopic } = useApp();
+  const { subjects, deleteTopic, updateTopic, isLoading } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState<(Topic & { subjectName: string }) | null>(null);
-  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    topic: (Topic & { subjectName: string }) | null;
+  }>({ isOpen: false, topic: null });
 
   const allTopics = subjects.flatMap(subject => 
     subject.topics.map(topic => ({
       ...topic,
-      subjectName: subject.name
+      subjectName: subject.name,
+      subjectColor: subject.color
     }))
   );
 
-  const filteredTopics = useMemo(() => {
-    if (!searchTerm.trim()) return allTopics;
-    
-    const searchLower = searchTerm.toLowerCase();
-    return allTopics.filter(topic => 
-      topic.name.toLowerCase().includes(searchLower) ||
-      topic.subjectName.toLowerCase().includes(searchLower)
-    );
-  }, [allTopics, searchTerm]);
+  const filteredAndSortedTopics = useMemo(() => {
+    let filtered = allTopics;
 
-  const handleDeleteTopic = async (topicId: string) => {
+    // Aplicar filtro de pesquisa
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(topic => 
+        topic.name.toLowerCase().includes(searchLower) ||
+        topic.subjectName.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Aplicar filtro de status
+    if (statusFilter !== 'all') {
+      const today = startOfDay(new Date());
+      
+      filtered = filtered.filter(topic => {
+        if (topic.completed) return statusFilter === 'upcoming'; // Concluídos vão para "próximos"
+        if (!topic.nextReview) return statusFilter === 'upcoming';
+        
+        const reviewDate = startOfDay(new Date(topic.nextReview));
+        
+        if (statusFilter === 'delayed') {
+          return reviewDate < today;
+        } else if (statusFilter === 'upcoming') {
+          return reviewDate >= today;
+        }
+        
+        return true;
+      });
+    }
+
+    // Aplicar ordenação
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'subject':
+          return a.subjectName.localeCompare(b.subjectName);
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'date':
+        default:
+          // Se não tem data de revisão, coloca no final
+          if (!a.nextReview && !b.nextReview) return 0;
+          if (!a.nextReview) return 1;
+          if (!b.nextReview) return -1;
+          
+          return new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime();
+      }
+    });
+
+    return filtered;
+  }, [allTopics, searchTerm, statusFilter, sortBy]);
+
+  // Calcular estatísticas
+  const stats = useMemo(() => {
+    const today = startOfDay(new Date());
+    
+    const delayed = allTopics.filter(topic => {
+      if (topic.completed || !topic.nextReview) return false;
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      return reviewDate < today;
+    }).length;
+
+    const upcoming = allTopics.filter(topic => {
+      if (topic.completed) return true;
+      if (!topic.nextReview) return true;
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      return reviewDate >= today;
+    }).length;
+
+    return {
+      total: allTopics.length,
+      delayed,
+      upcoming
+    };
+  }, [allTopics]);
+
+  const handleEditTopic = async (topicId: string, newName: string) => {
     const topic = allTopics.find(t => t.id === topicId);
     if (!topic) return;
 
@@ -41,19 +116,35 @@ const Topics = () => {
     if (!subject) return;
 
     try {
-      await deleteTopic(subject.id, topicId);
+      await updateTopic(subject.id, topicId, { name: newName });
+      toast.success('Nome do tópico atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao deletar tópico:', error);
+      console.error('Erro ao atualizar tópico:', error);
+      toast.error('Erro ao atualizar nome do tópico');
     }
   };
 
-  const handleNotesClick = (topic: Topic & { subjectName: string }) => {
-    setSelectedTopic(topic);
-    setIsNotesModalOpen(true);
+  const handleDeleteTopic = (topicId: string) => {
+    const topic = allTopics.find(t => t.id === topicId);
+    if (!topic) return;
+
+    setDeleteModal({ isOpen: true, topic });
   };
 
-  const handleEditTopic = (topic) => {
-    // Comportamento original, se houver
+  const confirmDelete = async () => {
+    if (!deleteModal.topic) return;
+
+    const subject = subjects.find(s => s.name === deleteModal.topic!.subjectName);
+    if (!subject) return;
+
+    try {
+      await deleteTopic(subject.id, deleteModal.topic.id);
+      toast.success('Tópico excluído com sucesso!');
+      setDeleteModal({ isOpen: false, topic: null });
+    } catch (error) {
+      console.error('Erro ao deletar tópico:', error);
+      toast.error('Erro ao excluir tópico');
+    }
   };
 
   if (isLoading) {
@@ -68,36 +159,42 @@ const Topics = () => {
 
   return (
     <motion.div 
-      className="container mx-auto p-6"
+      className="container mx-auto p-6 min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Tópicos</h1>
+        <h1 className="text-4xl font-bold text-gray-800 mb-2">Tópicos</h1>
         <p className="text-gray-600">Gerencie todos os seus tópicos de estudo</p>
       </div>
 
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Pesquisar tópicos ou matérias..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
+      <TopicsSummaryCards
+        totalTopics={stats.total}
+        delayedTopics={stats.delayed}
+        futureTopics={stats.upcoming}
+      />
 
-      {filteredTopics.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-gray-500 mb-4">
-              {searchTerm ? 'Nenhum tópico encontrado para sua busca.' : 'Nenhum tópico cadastrado ainda.'}
+      <TopicsFilters
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+      />
+
+      {filteredAndSortedTopics.length === 0 ? (
+        <Card className="bg-white/80 backdrop-blur-md border-white/20 shadow-lg">
+          <CardContent className="text-center py-12">
+            <p className="text-gray-500 mb-4 text-lg">
+              {searchTerm || statusFilter !== 'all' 
+                ? 'Nenhum tópico encontrado para os filtros aplicados.' 
+                : 'Nenhum tópico cadastrado ainda.'
+              }
             </p>
-            {!searchTerm && (
-              <Button onClick={() => window.location.href = '/materias'}>
+            {!searchTerm && statusFilter === 'all' && (
+              <Button onClick={() => window.location.href = '/materias'} className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar Primeira Matéria
               </Button>
@@ -105,45 +202,26 @@ const Topics = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4 mt-4">
-          {filteredTopics.map(topic => (
-            <div key={topic.id} className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="font-semibold text-base">{topic.name}</span>
-                <button
-                  className="text-purple-500"
-                  onClick={() => handleEditTopic(topic)}
-                  title="Editar nome do tópico"
-                  style={{ background: 'none', border: 'none', padding: 0 }}
-                >
-                  <Edit2 />
-                </button>
-                <button
-                  className="text-red-500"
-                  title="Excluir tópico"
-                  style={{ background: 'none', border: 'none', padding: 0 }}
-                  onClick={() => handleDeleteTopic(topic.id)}
-                >
-                  <Trash2 />
-                </button>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">{topic.subjectName}</div>
-              </div>
-            </div>
-          ))}
+        <div className="space-y-4">
+          <AnimatePresence>
+            {filteredAndSortedTopics.map(topic => (
+              <TopicListItem
+                key={topic.id}
+                topic={topic}
+                onEdit={handleEditTopic}
+                onDelete={handleDeleteTopic}
+              />
+            ))}
+          </AnimatePresence>
         </div>
       )}
 
-      <NotesModal
-        topicId={selectedTopic?.id || ''}
-        topicName={selectedTopic?.name || ''}
-        subjectName={selectedTopic?.subjectName || ''}
-        isOpen={isNotesModalOpen}
-        onClose={() => {
-          setIsNotesModalOpen(false);
-          setSelectedTopic(null);
-        }}
+      <ConfirmDeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, topic: null })}
+        onConfirm={confirmDelete}
+        topicName={deleteModal.topic?.name || ''}
+        subjectName={deleteModal.topic?.subjectName || ''}
       />
     </motion.div>
   );
