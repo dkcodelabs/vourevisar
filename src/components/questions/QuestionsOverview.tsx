@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -149,24 +148,6 @@ const QuestionsOverview: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <BookOpen className="h-5 w-5" />
-            Detalhamento por Matéria e Tópico
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="text-sm text-gray-600 mb-4">
-            <p><strong>Visão Geral (sem expansão)</strong></p>
-            <ul className="mt-2 space-y-1 text-xs">
-              <li>• Cada matéria tem uma <strong>seta de expansão</strong> (▶ ou 📋)</li>
-              <li>• A cor indica o desempenho geral</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="space-y-3">
         {subjectsData.map((subjectData, index) => (
           <SubjectProgressCard

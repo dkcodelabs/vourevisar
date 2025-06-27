@@ -1,17 +1,17 @@
-
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Topic } from '@/types';
 import TopicCard from '@/components/topics/TopicCard';
 import NotesModal from '@/components/reviews/NotesModal';
+import { toast } from "react-hot-toast";
 
 const Topics = () => {
-  const { subjects, deleteTopic, isLoading } = useApp();
+  const { subjects, deleteTopic, isLoading, updateTopic } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<(Topic & { subjectName: string }) | null>(null);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
@@ -50,6 +50,10 @@ const Topics = () => {
   const handleNotesClick = (topic: Topic & { subjectName: string }) => {
     setSelectedTopic(topic);
     setIsNotesModalOpen(true);
+  };
+
+  const handleEditTopic = (topic) => {
+    // Comportamento original, se houver
   };
 
   if (isLoading) {
@@ -101,14 +105,32 @@ const Topics = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
-          {filteredTopics.map((topic) => (
-            <TopicCard
-              key={topic.id}
-              topic={topic}
-              onDelete={handleDeleteTopic}
-              onNotesClick={handleNotesClick}
-            />
+        <div className="space-y-4 mt-4">
+          {filteredTopics.map(topic => (
+            <div key={topic.id} className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="font-semibold text-base">{topic.name}</span>
+                <button
+                  className="text-purple-500"
+                  onClick={() => handleEditTopic(topic)}
+                  title="Editar nome do tópico"
+                  style={{ background: 'none', border: 'none', padding: 0 }}
+                >
+                  <Edit2 />
+                </button>
+                <button
+                  className="text-red-500"
+                  title="Excluir tópico"
+                  style={{ background: 'none', border: 'none', padding: 0 }}
+                  onClick={() => handleDeleteTopic(topic.id)}
+                >
+                  <Trash2 />
+                </button>
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">{topic.subjectName}</div>
+              </div>
+            </div>
           ))}
         </div>
       )}

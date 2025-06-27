@@ -1,8 +1,6 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 interface TopicProgress {
   name: string;
@@ -44,121 +42,68 @@ const SubjectProgressCard: React.FC<SubjectProgressCardProps> = ({
     return 'text-red-600';
   };
 
-  const negligencedTopics = topics.filter(topic => topic.questions < 3);
-
   return (
-    <Card className="bg-white/80 backdrop-blur-md border-white/20 shadow-lg hover:shadow-xl transition-all duration-300">
+    <Card className="bg-white/80 backdrop-blur-md border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 mb-4">
       <CardContent className="p-4">
-        <div 
-          className="flex items-center justify-between cursor-pointer"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <div className="flex items-center gap-3">
-            <motion.div
-              animate={{ rotate: isExpanded ? 90 : 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-5 w-5 text-gray-600" />
-              ) : (
-                <ChevronRight className="h-5 w-5 text-gray-600" />
-              )}
-            </motion.div>
-            
-            <div className="flex items-center gap-2">
-              <div 
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: color }}
-              />
-              <span className="font-semibold text-gray-800">{subject}</span>
-            </div>
+        {/* Cabeçalho da matéria com seta de expandir/recolher */}
+        <div className="flex items-center justify-between mb-2 cursor-pointer" onClick={() => setIsExpanded((v) => !v)}>
+          <div className="flex items-center gap-2">
+            {isExpanded ? (
+              <ChevronDown className="h-5 w-5 text-gray-600" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-gray-600" />
+            )}
+            <div className="w-1.5 h-6 rounded bg-gray-300" style={{ backgroundColor: color }} />
+            <span className="font-bold text-gray-800 text-base uppercase">{subject}</span>
           </div>
-
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">
-              {completedTopics}/{totalTopics}
-            </span>
-            <span className={`font-semibold ${getStatusColor(percentage)}`}>
-              {percentage}%
-            </span>
-          </div>
+          <span className={`font-semibold text-sm px-2 py-1 rounded-full ${
+            percentage >= 80
+              ? 'bg-green-500 text-white'
+              : percentage >= 60
+              ? 'bg-blue-500 text-white'
+              : percentage >= 40
+              ? 'bg-yellow-400 text-white'
+              : 'bg-red-500 text-white'
+          }`}>
+            {percentage}%
+          </span>
         </div>
+        <div className="text-xs text-gray-500 mb-2">{completedTopics}/{totalTopics} tópicos concluídos</div>
 
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-4 overflow-hidden"
-            >
-              {negligencedTopics.length > 0 && (
-                <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-400 rounded-r">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="h-4 w-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-800">
-                      Tópicos com pouca prática:
-                    </span>
+        {/* Tópicos (expandido) */}
+        {isExpanded && (
+          <div className="space-y-3 mt-2">
+            {topics.map((topic, index) => (
+              <div key={index} className="flex items-start gap-2 border-b border-gray-100 pb-2 last:border-b-0">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-800 truncate">{topic.name}</div>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                    <div
+                      className={`h-1.5 rounded-full transition-all duration-300 ${getProgressBarColor(topic.percentage)}`}
+                      style={{ width: `${topic.percentage}%` }}
+                    />
                   </div>
-                  <ul className="text-sm text-red-700">
-                    {negligencedTopics.map((topic, index) => (
-                      <li key={index}>
-                        - {topic.name} ({topic.questions} questões)
-                      </li>
-                    ))}
-                  </ul>
                 </div>
-              )}
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-1 font-medium text-gray-700">TÓPICO</th>
-                      <th className="text-center py-2 px-1 font-medium text-gray-700">QUESTÕES</th>
-                      <th className="text-center py-2 px-1 font-medium text-gray-700">ACERTOS</th>
-                      <th className="text-center py-2 px-1 font-medium text-gray-700">%</th>
-                      <th className="text-left py-2 px-4 font-medium text-gray-700">BARRA DE PROGRESSO</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topics.map((topic, index) => (
-                      <tr key={index} className="border-b border-gray-100">
-                        <td className="py-2 px-1 text-gray-800">{topic.name}</td>
-                        <td className="py-2 px-1 text-center text-gray-600">{topic.questions}</td>
-                        <td className="py-2 px-1 text-center text-gray-600">{topic.correct}</td>
-                        <td className="py-2 px-1 text-center font-medium">
-                          {topic.questions > 0 ? (
-                            <span className={getStatusColor(topic.percentage)}>
-                              {topic.percentage}%
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">0%</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-4">
-                          {topic.questions > 0 ? (
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(topic.percentage)}`}
-                                style={{ width: `${topic.percentage}%` }}
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <span className="text-xs text-gray-500">(neutro ou não iniciado)</span>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="flex flex-col items-end min-w-[60px] text-xs font-medium">
+                  <span className="text-gray-600">Qst</span>
+                  <span className="text-gray-800">{topic.questions}</span>
+                </div>
+                <div className="flex flex-col items-end min-w-[60px] text-xs font-medium">
+                  <span className="text-gray-600">Acertos</span>
+                  <span className="text-blue-700">{topic.correct}</span>
+                </div>
+                <div className="flex flex-col items-end min-w-[60px] text-xs font-medium">
+                  <span className="text-gray-600">%</span>
+                  {topic.questions > 0 ? (
+                    <span className={getStatusColor(topic.percentage)}>{topic.percentage}%</span>
+                  ) : (
+                    <span className="text-gray-400">0%</span>
+                  )}
+                </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

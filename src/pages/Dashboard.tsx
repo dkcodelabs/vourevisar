@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Plus, BarChart3, Check, X, HelpCircle } from 'lucide-react';
+import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Plus, BarChart3, Check, X, HelpCircle, Eye } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [greeting, setGreeting] = useState('');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
   // Buscar dados de revisões para o calendário
   const { data: reviewData, isLoading: reviewLoading } = useQuery({
@@ -174,6 +175,13 @@ const Dashboard = () => {
 
   const handleCalendarDateSelect = (date: Date) => {
     setSelectedCalendarDate(date);
+    setCalendarMonth(date);
+  };
+
+  const handleGoToToday = () => {
+    const today = new Date();
+    setSelectedCalendarDate(today);
+    setCalendarMonth(today);
   };
 
   const displayedReviews = getDisplayedReviews();
@@ -258,7 +266,18 @@ const Dashboard = () => {
             {/* Cards Revisão e Calendário */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Card Revisão (dinâmico baseado na data selecionada) */}
-              <Card className="bg-white border border-gray-200 shadow-sm">
+              <Card className="bg-white border border-gray-200 shadow-sm relative">
+                {/* Ícone de "Ver revisões de hoje" no canto superior direito */}
+                {selectedCalendarDate && (
+                  <button
+                    onClick={handleGoToToday}
+                    title="Ver revisões de hoje"
+                    className="absolute top-4 right-4 bg-blue-50 hover:bg-blue-100 rounded-full p-2 shadow transition-colors"
+                    style={{ lineHeight: 0 }}
+                  >
+                    <Eye className="h-5 w-5 text-blue-600" />
+                  </button>
+                )}
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
@@ -281,38 +300,48 @@ const Dashboard = () => {
                     </div>
                   ) : displayedReviews.length > 0 ? (
                     <div className="space-y-2">
-                      {displayedReviews.map((topic, idx) => (
-                        <div key={idx} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="h-4 w-4 text-orange-600" />
-                            <span className="font-semibold text-gray-800">{topic.subject_name}</span>
-                            <span className="text-gray-600">:</span>
-                            <span className="text-gray-700">{topic.name}</span>
+                      {displayedReviews.map((topic, idx) => {
+                        // Determina o status da revisão
+                        const reviewDate = startOfDay(new Date(topic.next_review));
+                        const today = startOfDay(new Date());
+                        let status: 'pendente' | 'hoje' | 'futura' = 'futura';
+                        if (reviewDate.getTime() === today.getTime()) {
+                          status = 'hoje';
+                        } else if (reviewDate.getTime() < today.getTime()) {
+                          status = 'pendente';
+                        }
+
+                        // Define a cor de fundo de acordo com o status
+                        const bgColor =
+                          status === 'pendente'
+                            ? 'bg-red-50 border border-red-200'
+                            : status === 'hoje'
+                            ? 'bg-yellow-50 border border-yellow-200'
+                            : 'bg-green-50 border border-green-200';
+
+                        return (
+                          <div key={idx} className={`p-3 rounded-lg ${bgColor}`}>
+                            <div className="flex items-center gap-2">
+                              <BookOpen className="h-4 w-4 text-orange-600" />
+                              <span className="font-semibold text-gray-800">{topic.subject_name}</span>
+                              <span className="text-gray-600">:</span>
+                              <span className="text-gray-700">{topic.name}</span>
+                            </div>
+                            <Badge variant="outline" className="mt-1 text-xs">
+                              {topic.review_stage}
+                            </Badge>
                           </div>
-                          <Badge variant="outline" className="mt-1 text-xs">
-                            {topic.review_stage}
-                          </Badge>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-8">
+                      <h2 className="text-gray-700 text-lg font-semibold mb-2">
+                        Nenhuma revisão agendada para este dia
+                      </h2>
                       <p className="text-gray-500">
-                        {selectedCalendarDate 
-                          ? `Nenhuma revisão agendada para ${format(selectedCalendarDate, 'dd/MM/yyyy')}.`
-                          : 'Nenhuma revisão agendada para hoje.'
-                        }
+                        Aproveite para revisar outros conteúdos, reforçar pontos importantes ou tirar um tempo para descansar.
                       </p>
-                      {selectedCalendarDate && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedCalendarDate(null)}
-                          className="mt-2 text-blue-600 hover:text-blue-700"
-                        >
-                          Ver revisões de hoje
-                        </Button>
-                      )}
                     </div>
                   )}
                 </CardContent>
@@ -324,6 +353,8 @@ const Dashboard = () => {
                 isLoading={reviewLoading}
                 onDateSelect={handleCalendarDateSelect}
                 selectedDate={selectedCalendarDate || undefined}
+                currentMonth={calendarMonth}
+                onMonthChange={setCalendarMonth}
                 className="bg-white/60 backdrop-blur-md shadow-xl border-none rounded-3xl"
               />
             </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { format, 
@@ -36,6 +35,8 @@ interface CalendarViewProps {
   onDateSelect?: (date: Date) => void;
   selectedDate?: Date;
   className?: string;
+  currentMonth?: Date;
+  onMonthChange?: (date: Date) => void;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -43,9 +44,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   isLoading = false,
   onDateSelect,
   selectedDate,
-  className
+  className,
+  currentMonth,
+  onMonthChange
 }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonthState, setCurrentMonth] = useState(currentMonth || new Date());
 
   // Função para validar se uma data é válida
   const isValidDate = (year: number, month: number, day: number): boolean => {
@@ -103,8 +106,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Gerar dias do calendário
   const generateCalendarDays = () => {
-    const start = startOfWeek(startOfMonth(currentMonth));
-    const end = endOfWeek(endOfMonth(currentMonth));
+    const start = startOfWeek(startOfMonth(currentMonthState));
+    const end = endOfWeek(endOfMonth(currentMonthState));
     const days = [];
     let currentDate = start;
 
@@ -120,8 +123,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentMonth(direction === 'next' 
-      ? addMonths(currentMonth, 1) 
-      : subMonths(currentMonth, 1)
+      ? addMonths(currentMonthState, 1) 
+      : subMonths(currentMonthState, 1)
     );
   };
 
@@ -129,16 +132,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     onDateSelect?.(date);
   };
 
-  const getDateStatus = (date: Date) => {
+  // Função para obter todos os status de revisão de uma data
+  const getDateStatuses = (date: Date) => {
     const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
     const dayReviews = reviewsByDate[dateKey];
-    
-    if (!dayReviews || dayReviews.length === 0) return null;
-    
-    // Priorizar status: pendente > hoje > futura
-    if (dayReviews.some(r => r.status === 'pendente')) return 'pendente';
-    if (dayReviews.some(r => r.status === 'hoje')) return 'hoje';
-    return 'futura';
+    if (!dayReviews || dayReviews.length === 0) return [];
+    return Array.from(new Set(dayReviews.map(r => r.status)));
   };
 
   if (isLoading) {
@@ -156,7 +155,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">
-            {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+            {format(currentMonthState, 'MMMM yyyy', { locale: ptBR })}
           </CardTitle>
           <div className="flex gap-2">
             <Button
@@ -192,33 +191,45 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             const isCurrentMonth = isSameMonth(date, currentMonth);
             const isToday = isSameDay(date, new Date());
             const isSelected = selectedDate && isSameDay(date, selectedDate);
-            const dateStatus = getDateStatus(date);
-            const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
-            const hasReviews = reviewsByDate[dateKey] && reviewsByDate[dateKey].length > 0;
+            const statuses = getDateStatuses(date);
+
+            // Função para gradiente de status
+            const getStatusBg = () => {
+              if (statuses.length > 1) {
+                // Pendente + Hoje
+                if (statuses.includes('pendente') && statuses.includes('hoje')) {
+                  return 'bg-gradient-to-r from-red-100 to-yellow-100';
+                }
+                // Pendente + Futura
+                if (statuses.includes('pendente') && statuses.includes('futura')) {
+                  return 'bg-gradient-to-r from-red-100 to-green-100';
+                }
+                // Hoje + Futura
+                if (statuses.includes('hoje') && statuses.includes('futura')) {
+                  return 'bg-gradient-to-r from-yellow-100 to-green-100';
+                }
+              }
+              if (statuses.includes('pendente')) return 'bg-red-100';
+              if (statuses.includes('hoje')) return 'bg-yellow-100';
+              if (statuses.includes('futura')) return 'bg-green-100';
+              return '';
+            };
 
             return (
               <div
                 key={index}
                 className={`
                   relative p-2 h-12 flex items-center justify-center text-sm cursor-pointer
-                  rounded-lg transition-all duration-200 hover:bg-gray-100
+                  rounded-lg transition-all duration-200
                   ${!isCurrentMonth ? 'text-gray-300' : 'text-gray-900'}
-                  ${isToday ? 'bg-blue-100 border-2 border-blue-500 font-bold' : ''}
-                  ${isSelected ? 'bg-blue-200 border-2 border-blue-600 ring-2 ring-blue-300' : ''}
-                  ${dateStatus === 'pendente' ? 'bg-red-100 border border-red-300' : ''}
-                  ${dateStatus === 'hoje' ? 'bg-orange-100 border border-orange-300' : ''}
-                  ${dateStatus === 'futura' ? 'bg-green-100 border border-green-300' : ''}
-                `}
+                  ${getStatusBg()}
+                ` + (isSelected ? ' border-2 border-blue-400 z-10' : '')}
                 onClick={() => handleDateClick(date)}
+                style={{ zIndex: isSelected ? 10 : 1 }}
               >
-                <span className="relative z-10">
+                <span className={`relative z-10${isToday ? ' font-bold' : ''}`}>
                   {format(date, 'd')}
                 </span>
-                
-                {/* Indicador de revisões */}
-                {hasReviews && (
-                  <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500" />
-                )}
               </div>
             );
           })}

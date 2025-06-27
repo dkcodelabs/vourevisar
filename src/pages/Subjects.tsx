@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Edit2, BookOpen, GripVertical, Target, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Edit2, BookOpen, GripVertical, Target, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -73,6 +73,7 @@ const Subjects = () => {
   const [loading, setLoading] = useState(true);
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
 
   useEffect(() => {
     const checkProfile = async () => {
@@ -146,7 +147,7 @@ const Subjects = () => {
     }
   }, [user?.id, forceRefresh]); // Dependência mínima para evitar loops
 
-  const handleAddSubject = async () => {
+  const handleSaveSubject = async () => {
     if (!newSubjectName.trim()) {
       toast({
         variant: "destructive",
@@ -156,19 +157,29 @@ const Subjects = () => {
       return;
     }
     try {
-      // Calcular o próximo valor de priority
-      const maxPriority = localSubjects.length > 0 ? Math.max(...localSubjects.map(s => s.priority || 0)) : 0;
-      await addSubject({
-        name: newSubjectName.trim().toUpperCase(),
-        status: 'Nova',
-        color: '#3B82F6',
-        topics: [],
-        priority: maxPriority + 1,
-      });
-      toast({
-        title: "Sucesso",
-        description: "Matéria criada com sucesso!"
-      });
+      if (editingSubject) {
+        // Atualizar matéria existente
+        await updateSubject(editingSubject.id, { name: newSubjectName.trim().toUpperCase() });
+        toast({
+          title: "Sucesso",
+          description: "Matéria atualizada com sucesso!"
+        });
+        setEditingSubject(null);
+      } else {
+        // Adicionar nova matéria
+        const maxPriority = localSubjects.length > 0 ? Math.max(...localSubjects.map(s => s.priority || 0)) : 0;
+        await addSubject({
+          name: newSubjectName.trim().toUpperCase(),
+          status: 'Nova',
+          color: '#3B82F6',
+          topics: [],
+          priority: maxPriority + 1,
+        });
+        toast({
+          title: "Sucesso",
+          description: "Matéria criada com sucesso!"
+        });
+      }
       setNewSubjectName('');
       if (inputRef.current) {
         inputRef.current.focus();
@@ -278,6 +289,14 @@ const Subjects = () => {
     navigate(`/materias/${subject.id}/topicos`);
   };
 
+  const toggleExpand = (subjectId: string) => {
+    setExpandedSubjectIds(prev =>
+      prev.includes(subjectId)
+        ? prev.filter(id => id !== subjectId)
+        : [...prev, subjectId]
+    );
+  };
+
   if (loading) {
     return <div>Carregando...</div>;
   }
@@ -330,13 +349,13 @@ const Subjects = () => {
               placeholder="Nome da nova matéria"
               value={newSubjectName}
               onChange={e => setNewSubjectName(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' && handleAddSubject()}
+              onKeyPress={e => e.key === 'Enter' && handleSaveSubject()}
               className="flex-1"
               ref={inputRef}
             />
-            <Button onClick={handleAddSubject} disabled={!newSubjectName.trim()}>
+            <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()}>
               <Plus className="mr-2 h-4 w-4" />
-              Adicionar
+              {editingSubject ? 'Alterar' : 'Adicionar'}
             </Button>
           </div>
         </div>
@@ -383,6 +402,19 @@ const Subjects = () => {
                                     <div className="cursor-move p-1" {...listeners} {...attributes}>
                                       <GripVertical className="h-5 w-5 text-gray-400" />
                                     </div>
+                                    <button
+                                      onClick={() => toggleExpand(subject.id)}
+                                      className="mr-2 p-1 rounded hover:bg-gray-100 transition"
+                                      aria-label={expandedSubjectIds.includes(subject.id) ? 'Recolher tópicos' : 'Expandir tópicos'}
+                                      tabIndex={0}
+                                      type="button"
+                                    >
+                                      {expandedSubjectIds.includes(subject.id) ? (
+                                        <ChevronDown className="h-5 w-5" />
+                                      ) : (
+                                        <ChevronRight className="h-5 w-5" />
+                                      )}
+                                    </button>
                                     <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center space-x-2">
@@ -458,6 +490,20 @@ const Subjects = () => {
                                     </AlertDialog>
                                   </div>
                                 </div>
+                                {expandedSubjectIds.includes(subject.id) && (
+                                  <ul className="ml-12 mt-2">
+                                    {subject.topics.length === 0 ? (
+                                      <li className="text-gray-400 text-sm">Nenhum tópico cadastrado.</li>
+                                    ) : (
+                                      subject.topics.map(topic => (
+                                        <li key={topic.id} className="flex items-center gap-2 text-sm">
+                                          <BookOpen className="h-4 w-4 text-blue-400" />
+                                          <span>{topic.name}</span>
+                                        </li>
+                                      ))
+                                    )}
+                                  </ul>
+                                )}
                               </CardContent>
                             </Card>
                           </motion.div>
