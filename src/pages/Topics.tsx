@@ -7,8 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Topic } from '@/types';
 import { toast } from "react-hot-toast";
 import { format, isToday, isPast, startOfDay } from 'date-fns';
-import TopicsSummaryCards from '@/components/topics/TopicsSummaryCards';
-import TopicsFilters from '@/components/topics/TopicsFilters';
+import CompactTopicsSummaryCards from '@/components/topics/CompactTopicsSummaryCards';
+import CompactTopicsFilters from '@/components/topics/CompactTopicsFilters';
+import AddTopicForm from '@/components/topics/AddTopicForm';
 import TopicListItem from '@/components/topics/TopicListItem';
 import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
 import NotesModal from '@/components/reviews/NotesModal';
@@ -189,18 +190,20 @@ const Topics = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">Tópicos</h1>
-        <p className="text-gray-600">Gerencie todos os seus tópicos de estudo</p>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-1">Tópicos</h1>
+        <p className="text-gray-600 text-sm">Gerencie todos os seus tópicos de estudo</p>
       </div>
 
-      <TopicsSummaryCards
+      <CompactTopicsSummaryCards
         totalTopics={stats.total}
         delayedTopics={stats.delayed}
         futureTopics={stats.upcoming}
       />
 
-      <TopicsFilters
+      <AddTopicForm />
+
+      <CompactTopicsFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         statusFilter={statusFilter}
@@ -211,8 +214,8 @@ const Topics = () => {
 
       {filteredAndSortedTopics.length === 0 ? (
         <Card className="bg-white/80 backdrop-blur-md border-white/20 shadow-lg">
-          <CardContent className="text-center py-12">
-            <p className="text-gray-500 mb-4 text-lg">
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500 mb-4">
               {searchTerm || statusFilter !== 'all' 
                 ? 'Nenhum tópico encontrado para os filtros aplicados.' 
                 : 'Nenhum tópico cadastrado ainda.'
@@ -227,7 +230,7 @@ const Topics = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <AnimatePresence>
             {filteredAndSortedTopics.map(topic => (
               <TopicListItem
