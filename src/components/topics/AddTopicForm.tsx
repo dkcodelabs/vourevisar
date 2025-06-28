@@ -23,7 +23,19 @@ const AddTopicForm: React.FC = () => {
 
     setIsAdding(true);
     try {
-      await addTopic(selectedSubjectId, topicName.trim());
+      // Criar o objeto Topic com as propriedades necessárias
+      const topicData = {
+        name: topicName.trim(),
+        completed: false,
+        reviewCount: 0,
+        reviewStage: null,
+        nextReview: null,
+        firstStudiedAt: null,
+        lastReviewedAt: null,
+        notes: null
+      };
+      
+      await addTopic(selectedSubjectId, topicData);
       toast.success('Tópico adicionado com sucesso!');
       setTopicName('');
       setSelectedSubjectId('');
