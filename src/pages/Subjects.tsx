@@ -21,6 +21,7 @@ import { ProfileSelector } from '@/components/ProfileSelector';
 import { useAuth } from '@/contexts/AuthContext';
 import { ReviewProfile } from '@/types/study';
 import { useToast } from '@/components/ui/use-toast';
+import TopicsModal from '@/components/topics/TopicsModal';
 
 // Função corrigida para calcular o status automaticamente baseado nos tópicos
 const calculateSubjectStatus = (subject: Subject): Status => {
@@ -77,6 +78,12 @@ const Subjects = () => {
   // Estados para edição inline
   const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+
+  // Estado para o modal de tópicos
+  const [topicsModal, setTopicsModal] = useState<{
+    isOpen: boolean;
+    subject: Subject | null;
+  }>({ isOpen: false, subject: null });
 
   useEffect(() => {
     const checkProfile = async () => {
@@ -326,6 +333,14 @@ const Subjects = () => {
     );
   };
 
+  const handleOpenTopicsModal = (subject: Subject) => {
+    setTopicsModal({ isOpen: true, subject });
+  };
+
+  const handleCloseTopicsModal = () => {
+    setTopicsModal({ isOpen: false, subject: null });
+  };
+
   if (loading) {
     return <div>Carregando...</div>;
   }
@@ -514,7 +529,7 @@ const Subjects = () => {
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleViewTopics(subject); }}
+                                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleOpenTopicsModal(subject); }}
                                         >
                                           <BookOpen className="h-4 w-4 mr-1" />
                                           Tópicos
@@ -583,6 +598,15 @@ const Subjects = () => {
               </div>
             </SortableContext>
           </DndContext>
+        )}
+
+        {/* Modal de Tópicos */}
+        {topicsModal.subject && (
+          <TopicsModal
+            isOpen={topicsModal.isOpen}
+            onClose={handleCloseTopicsModal}
+            subject={topicsModal.subject}
+          />
         )}
       </motion.div>
     </UserProfileProvider>
