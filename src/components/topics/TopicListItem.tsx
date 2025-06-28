@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Edit2, Trash2, Check, X } from 'lucide-react';
+import { Edit2, Trash2, Check, X, FileText, Bookmark } from 'lucide-react';
 import { format, isToday, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -17,15 +17,20 @@ interface TopicListItemProps {
     nextReview: string | null;
     reviewCount: number;
     completed: boolean;
+    reviewStage?: string;
+    notes?: any;
+    isMarkedForReview?: boolean;
   };
   onEdit: (topicId: string, newName: string) => void;
   onDelete: (topicId: string) => void;
+  onOpenNotes?: (topicId: string, topicName: string, subjectName: string) => void;
 }
 
 const TopicListItem: React.FC<TopicListItemProps> = ({
   topic,
   onEdit,
-  onDelete
+  onDelete,
+  onOpenNotes
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(topic.name);
@@ -64,6 +69,26 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
     };
   };
 
+  const getReviewStageInfo = () => {
+    if (!topic.reviewStage) return null;
+    
+    const stageColors = {
+      '24h': 'bg-orange-100 text-orange-800',
+      '7d': 'bg-purple-100 text-purple-800', 
+      '7 dias': 'bg-purple-100 text-purple-800',
+      '15d': 'bg-indigo-100 text-indigo-800',
+      '15 dias': 'bg-indigo-100 text-indigo-800',
+      '30d': 'bg-green-100 text-green-800',
+      '30 dias': 'bg-green-100 text-green-800',
+      'Concluído': 'bg-blue-100 text-blue-800'
+    };
+
+    return {
+      stage: topic.reviewStage,
+      color: stageColors[topic.reviewStage as keyof typeof stageColors] || 'bg-gray-100 text-gray-800'
+    };
+  };
+
   const handleSaveEdit = () => {
     if (editName.trim() && editName !== topic.name) {
       onEdit(topic.id, editName.trim());
@@ -77,7 +102,15 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
     setEditName(topic.name);
   };
 
+  const handleNotesClick = () => {
+    if (onOpenNotes) {
+      onOpenNotes(topic.id, topic.name, topic.subjectName);
+    }
+  };
+
   const statusInfo = getStatusInfo();
+  const reviewStageInfo = getReviewStageInfo();
+  const hasNotes = topic.notes && topic.notes.content && topic.notes.content.trim().length > 0;
 
   return (
     <motion.div
@@ -126,9 +159,14 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
                   </Button>
                 </div>
               ) : (
-                <h3 className="font-semibold text-gray-900 text-lg truncate">
-                  {topic.name}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-900 text-lg truncate">
+                    {topic.name}
+                  </h3>
+                  {topic.isMarkedForReview && (
+                    <Bookmark className="h-4 w-4 text-yellow-600" title="Marcado para revisão" />
+                  )}
+                </div>
               )}
               <p className="text-sm text-gray-600 truncate">{topic.subjectName}</p>
             </div>
@@ -136,6 +174,11 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
           
           <div className="flex items-center gap-3 text-sm text-gray-600">
             <span>Revisões: {topic.reviewCount}</span>
+            {reviewStageInfo && (
+              <Badge className={reviewStageInfo.color} variant="outline">
+                {reviewStageInfo.stage}
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -146,6 +189,17 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
           
           {!isEditing && (
             <>
+              {/* Botão de Anotações */}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleNotesClick}
+                className={`h-8 w-8 p-0 ${hasNotes ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 hover:text-gray-600'}`}
+                title={hasNotes ? 'Tem anotações - Clique para editar' : 'Adicionar anotações'}
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+
               <Button
                 size="sm"
                 variant="ghost"

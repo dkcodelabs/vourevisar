@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
@@ -12,6 +11,7 @@ import TopicsSummaryCards from '@/components/topics/TopicsSummaryCards';
 import TopicsFilters from '@/components/topics/TopicsFilters';
 import TopicListItem from '@/components/topics/TopicListItem';
 import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
+import NotesModal from '@/components/reviews/NotesModal';
 
 const Topics = () => {
   const { subjects, deleteTopic, updateTopic, isLoading } = useApp();
@@ -22,6 +22,12 @@ const Topics = () => {
     isOpen: boolean;
     topic: (Topic & { subjectName: string }) | null;
   }>({ isOpen: false, topic: null });
+  const [notesModal, setNotesModal] = useState<{
+    isOpen: boolean;
+    topicId: string;
+    topicName: string;
+    subjectName: string;
+  }>({ isOpen: false, topicId: '', topicName: '', subjectName: '' });
 
   const allTopics = subjects.flatMap(subject => 
     subject.topics.map(topic => ({
@@ -131,6 +137,24 @@ const Topics = () => {
     setDeleteModal({ isOpen: true, topic });
   };
 
+  const handleOpenNotes = (topicId: string, topicName: string, subjectName: string) => {
+    setNotesModal({
+      isOpen: true,
+      topicId,
+      topicName,
+      subjectName
+    });
+  };
+
+  const handleCloseNotes = () => {
+    setNotesModal({
+      isOpen: false,
+      topicId: '',
+      topicName: '',
+      subjectName: ''
+    });
+  };
+
   const confirmDelete = async () => {
     if (!deleteModal.topic) return;
 
@@ -214,10 +238,14 @@ const Topics = () => {
                   subjectColor: topic.subjectColor,
                   nextReview: topic.nextReview ? topic.nextReview.toISOString() : null,
                   reviewCount: topic.reviewCount,
-                  completed: topic.completed
+                  completed: topic.completed,
+                  reviewStage: topic.reviewStage,
+                  notes: topic.notes,
+                  isMarkedForReview: topic.is_marked_for_review || false
                 }}
                 onEdit={handleEditTopic}
                 onDelete={handleDeleteTopic}
+                onOpenNotes={handleOpenNotes}
               />
             ))}
           </AnimatePresence>
@@ -230,6 +258,14 @@ const Topics = () => {
         onConfirm={confirmDelete}
         topicName={deleteModal.topic?.name || ''}
         subjectName={deleteModal.topic?.subjectName || ''}
+      />
+
+      <NotesModal
+        isOpen={notesModal.isOpen}
+        onClose={handleCloseNotes}
+        topicId={notesModal.topicId}
+        topicName={notesModal.topicName}
+        subjectName={notesModal.subjectName}
       />
     </motion.div>
   );
