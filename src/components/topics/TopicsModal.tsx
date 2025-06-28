@@ -9,6 +9,7 @@ import { useApp } from '@/contexts/AppContext';
 import { Subject, Topic } from '@/types';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useOptimisticTopics } from '@/hooks/useOptimisticTopics';
 
 interface TopicsModalProps {
   isOpen: boolean;
@@ -17,43 +18,36 @@ interface TopicsModalProps {
 }
 
 const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) => {
-  const { addTopic, updateTopic, deleteTopic } = useApp();
+  const { setSubjects } = useApp();
   const [newTopicName, setNewTopicName] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
-  const handleAddTopic = async () => {
-    if (!newTopicName.trim()) {
-      toast.error('Digite o nome do tópico');
-      return;
-    }
+  // Callback para atualizar os tópicos no contexto global
+  const handleTopicsUpdate = (updatedTopics: Topic[]) => {
+    setSubjects(prevSubjects => 
+      prevSubjects.map(s => 
+        s.id === subject.id 
+          ? { ...s, topics: updatedTopics }
+          : s
+      )
+    );
+  };
 
-    setIsAdding(true);
+  const {
+    topics: localTopics,
+    isLoading: isAdding,
+    addTopic,
+    updateTopic,
+    deleteTopic
+  } = useOptimisticTopics(subject.topics || [], subject.id, handleTopicsUpdate);
+
+  const handleAddTopic = async () => {
     try {
-      const topicData = {
-        name: newTopicName.trim(),
-        completed: false,
-        reviewCount: 0,
-        review_count: 0,
-        reviewStage: undefined,
-        nextReview: undefined,
-        firstStudiedAt: undefined,
-        lastReviewedAt: undefined,
-        first_studied_at: undefined,
-        last_reviewed_at: undefined,
-        is_completed: false,
-        notes: undefined
-      };
-      
-      await addTopic(subject.id, topicData);
-      toast.success('Tópico adicionado com sucesso!');
+      await addTopic(newTopicName);
       setNewTopicName('');
     } catch (error) {
-      console.error('Erro ao adicionar tópico:', error);
-      toast.error('Erro ao adicionar tópico');
-    } finally {
-      setIsAdding(false);
+      // Erro já tratado no hook
     }
   };
 
@@ -70,13 +64,11 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
 
     if (editingTopicId) {
       try {
-        await updateTopic(subject.id, editingTopicId, { name: editingName.trim() });
-        toast.success('Tópico atualizado com sucesso!');
+        await updateTopic(editingTopicId, { name: editingName.trim() });
         setEditingTopicId(null);
         setEditingName('');
       } catch (error) {
-        console.error('Erro ao atualizar tópico:', error);
-        toast.error('Erro ao atualizar tópico');
+        // Erro já tratado no hook
       }
     }
   };
@@ -89,11 +81,9 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
   const handleDeleteTopic = async (topicId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este tópico?')) {
       try {
-        await deleteTopic(subject.id, topicId);
-        toast.success('Tópico excluído com sucesso!');
+        await deleteTopic(topicId);
       } catch (error) {
-        console.error('Erro ao deletar tópico:', error);
-        toast.error('Erro ao excluir tópico');
+        // Erro já tratado no hook
       }
     }
   };
@@ -156,7 +146,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
 
           {/* Lista de tópicos */}
           <div className="space-y-2">
-            {subject.topics.length === 0 ? (
+            {localTopics.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                 <p>Nenhum tópico cadastrado ainda.</p>
@@ -164,7 +154,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
               </div>
             ) : (
               <AnimatePresence>
-                {subject.topics.map((topic) => (
+                {localTopics.map((topic) => (
                   <motion.div
                     key={topic.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -250,12 +240,12 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
           </div>
 
           {/* Footer com estatísticas */}
-          {subject.topics.length > 0 && (
+          {localTopics.length > 0 && (
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex justify-between text-sm text-gray-600">
-                <span>Total de tópicos: {subject.topics.length}</span>
+                <span>Total de tópicos: {localTopics.length}</span>
                 <span>
-                  Concluídos: {subject.topics.filter(t => t.completed || t.reviewStage === 'Concluído').length}
+                  Concluídos: {localTopics.filter(t => t.completed || t.reviewStage === 'Concluído').length}
                 </span>
               </div>
             </div>

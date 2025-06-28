@@ -1,0 +1,147 @@
+
+import { useState, useCallback } from 'react';
+import { Topic } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+export const useOptimisticTopics = (
+  initialTopics: Topic[],
+  subjectId: string,
+  onTopicsUpdate: (topics: Topic[]) => void
+) => {
+  const [localTopics, setLocalTopics] = useState<Topic[]>(initialTopics);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const addTopic = useCallback(async (name: string) => {
+    if (!name.trim()) {
+      toast.error('Digite o nome do tópico');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    // Criar tópico temporário para atualização otimista
+    const tempTopic: Topic = {
+      id: `temp-${Date.now()}`,
+      name: name.trim(),
+      completed: false,
+      reviewCount: 0,
+      review_count: 0,
+      reviewStage: undefined,
+      nextReview: undefined,
+      firstStudiedAt: undefined,
+      lastReviewedAt: undefined,
+      first_studied_at: undefined,
+      last_reviewed_at: undefined,
+      is_completed: false,
+      notes: undefined
+    };
+
+    // Atualização otimista
+    const updatedTopics = [...localTopics, tempTopic];
+    setLocalTopics(updatedTopics);
+    onTopicsUpdate(updatedTopics);
+
+    try {
+      const { data, error } = await supabase
+        .from('topics')
+        .insert({
+          subject_id: subjectId,
+          name: name.trim(),
+          completed: false,
+          review_count: 0,
+          review_stage: null,
+          next_review: null,
+          first_studied_at: null,
+          last_reviewed_at: null,
+          notes: null
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Substituir tópico temporário pelo real
+      const finalTopics = updatedTopics.map(t => 
+        t.id === tempTopic.id ? data as Topic : t
+      );
+      
+      setLocalTopics(finalTopics);
+      onTopicsUpdate(finalTopics);
+      
+      toast.success('Tópico adicionado com sucesso!');
+      return data;
+    } catch (error) {
+      console.error('Erro ao adicionar tópico:', error);
+      // Reverter atualização otimista
+      setLocalTopics(localTopics);
+      onTopicsUpdate(localTopics);
+      toast.error('Erro ao adicionar tópico');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [localTopics, subjectId, onTopicsUpdate]);
+
+  const updateTopic = useCallback(async (topicId: string, updates: Partial<Topic>) => {
+    // Atualização otimista
+    const updatedTopics = localTopics.map(t => 
+      t.id === topicId ? { ...t, ...updates } : t
+    );
+    
+    setLocalTopics(updatedTopics);
+    onTopicsUpdate(updatedTopics);
+
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .update(updates)
+        .eq('id', topicId);
+
+      if (error) throw error;
+      
+      toast.success('Tópico atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar tópico:', error);
+      // Reverter atualização otimista
+      setLocalTopics(localTopics);
+      onTopicsUpdate(localTopics);
+      toast.error('Erro ao atualizar tópico');
+      throw error;
+    }
+  }, [localTopics, onTopicsUpdate]);
+
+  const deleteTopic = useCallback(async (topicId: string) => {
+    // Atualização otimista
+    const updatedTopics = localTopics.filter(t => t.id !== topicId);
+    setLocalTopics(updatedTopics);
+    onTopicsUpdate(updatedTopics);
+
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .delete()
+        .eq('id', topicId);
+
+      if (error) throw error;
+      
+      toast.success('Tópico excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao deletar tópico:', error);
+      // Reverter atualização otimista
+      setLocalTopics(localTopics);
+      onTopicsUpdate(localTopics);
+      toast.error('Erro ao excluir tópico');
+      throw error;
+    }
+  }, [localTopics, onTopicsUpdate]);
+
+  return {
+    topics: localTopics,
+    isLoading,
+    addTopic,
+    updateTopic,
+    deleteTopic,
+    setTopics: setLocalTopics
+  };
+};
