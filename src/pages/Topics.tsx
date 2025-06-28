@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
@@ -34,7 +33,8 @@ const Topics = () => {
     subject.topics.map(topic => ({
       ...topic,
       subjectName: subject.name,
-      subjectColor: subject.color
+      subjectColor: subject.color,
+      isMarkedForReview: false
     }))
   );
 
@@ -242,7 +242,7 @@ const Topics = () => {
                   completed: topic.completed,
                   reviewStage: topic.reviewStage,
                   notes: topic.notes,
-                  isMarkedForReview: topic.isMarkedForReview || false
+                  isMarkedForReview: topic.isMarkedForReview
                 }}
                 onEdit={handleEditTopic}
                 onDelete={handleDeleteTopic}
