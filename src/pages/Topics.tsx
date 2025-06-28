@@ -63,8 +63,10 @@ const Topics = () => {
         
         if (statusFilter === 'delayed') {
           return reviewDate < today;
+        } else if (statusFilter === 'today') {
+          return reviewDate.getTime() === today.getTime();
         } else if (statusFilter === 'upcoming') {
-          return reviewDate >= today;
+          return reviewDate > today;
         }
         
         return true;
@@ -92,7 +94,7 @@ const Topics = () => {
     return filtered;
   }, [allTopics, searchTerm, statusFilter, sortBy]);
 
-  // Calcular estatísticas
+  // Calcular estatísticas atualizadas
   const stats = useMemo(() => {
     const today = startOfDay(new Date());
     
@@ -102,16 +104,23 @@ const Topics = () => {
       return reviewDate < today;
     }).length;
 
+    const todayTopics = allTopics.filter(topic => {
+      if (topic.completed || !topic.nextReview) return false;
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      return reviewDate.getTime() === today.getTime();
+    }).length;
+
     const upcoming = allTopics.filter(topic => {
       if (topic.completed) return true;
       if (!topic.nextReview) return true;
       const reviewDate = startOfDay(new Date(topic.nextReview));
-      return reviewDate >= today;
+      return reviewDate > today;
     }).length;
 
     return {
       total: allTopics.length,
       delayed,
+      today: todayTopics,
       upcoming
     };
   }, [allTopics]);
