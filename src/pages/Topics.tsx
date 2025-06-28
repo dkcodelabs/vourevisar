@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
@@ -241,7 +242,7 @@ const Topics = () => {
                   completed: topic.completed,
                   reviewStage: topic.reviewStage,
                   notes: topic.notes,
-                  isMarkedForReview: topic.is_marked_for_review || false
+                  isMarkedForReview: topic.isMarkedForReview || false
                 }}
                 onEdit={handleEditTopic}
                 onDelete={handleDeleteTopic}

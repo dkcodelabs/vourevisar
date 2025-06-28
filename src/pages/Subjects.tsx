@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Edit2, BookOpen, GripVertical, Target, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, BookOpen, GripVertical, Target, CheckCircle, ChevronDown, ChevronRight, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -65,7 +65,6 @@ const Subjects = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { subjects, isLoading, error, addSubject, deleteSubject, updateSubject, forceRefresh } = useApp();
-  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
   const { profile, setProfile } = useUserProfile();
@@ -74,6 +73,10 @@ const Subjects = () => {
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
+  
+  // Estados para edição inline
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   useEffect(() => {
     const checkProfile = async () => {
@@ -157,29 +160,19 @@ const Subjects = () => {
       return;
     }
     try {
-      if (editingSubject) {
-        // Atualizar matéria existente
-        await updateSubject(editingSubject.id, { name: newSubjectName.trim().toUpperCase() });
-        toast({
-          title: "Sucesso",
-          description: "Matéria atualizada com sucesso!"
-        });
-        setEditingSubject(null);
-      } else {
-        // Adicionar nova matéria
-        const maxPriority = localSubjects.length > 0 ? Math.max(...localSubjects.map(s => s.priority || 0)) : 0;
-        await addSubject({
-          name: newSubjectName.trim().toUpperCase(),
-          status: 'Nova',
-          color: '#3B82F6',
-          topics: [],
-          priority: maxPriority + 1,
-        });
-        toast({
-          title: "Sucesso",
-          description: "Matéria criada com sucesso!"
-        });
-      }
+      // Adicionar nova matéria
+      const maxPriority = localSubjects.length > 0 ? Math.max(...localSubjects.map(s => s.priority || 0)) : 0;
+      await addSubject({
+        name: newSubjectName.trim().toUpperCase(),
+        status: 'Nova',
+        color: '#3B82F6',
+        topics: [],
+        priority: maxPriority + 1,
+      });
+      toast({
+        title: "Sucesso",
+        description: "Matéria criada com sucesso!"
+      });
       setNewSubjectName('');
       if (inputRef.current) {
         inputRef.current.focus();
@@ -194,9 +187,45 @@ const Subjects = () => {
     }
   };
 
-  const handleEdit = (subject: Subject) => {
-    setEditingSubject(subject);
-    setNewSubjectName(subject.name);
+  // Funções para edição inline
+  const handleStartEdit = (subject: Subject) => {
+    setEditingSubjectId(subject.id);
+    setEditingName(subject.name);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Atenção",
+        description: "Por favor, insira o nome da matéria"
+      });
+      return;
+    }
+
+    if (editingSubjectId && editingName.trim() !== '') {
+      try {
+        await updateSubject(editingSubjectId, { name: editingName.trim().toUpperCase() });
+        toast({
+          title: "Sucesso",
+          description: "Matéria atualizada com sucesso!"
+        });
+        setEditingSubjectId(null);
+        setEditingName('');
+      } catch (error) {
+        console.error('Erro ao atualizar matéria:', error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao atualizar matéria. Tente novamente."
+        });
+      }
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSubjectId(null);
+    setEditingName('');
   };
 
   const handleDelete = async (id: string) => {
@@ -355,7 +384,7 @@ const Subjects = () => {
             />
             <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()}>
               <Plus className="mr-2 h-4 w-4" />
-              {editingSubject ? 'Alterar' : 'Adicionar'}
+              Adicionar
             </Button>
           </div>
         </div>
@@ -385,6 +414,8 @@ const Subjects = () => {
                   {localSubjects.map((subject) => {
                     const progress = getSubjectProgress(subject);
                     const calculatedStatus = calculateSubjectStatus(subject);
+                    const isEditing = editingSubjectId === subject.id;
+                    
                     return (
                       <SortableItem key={subject.id} id={subject.id}>
                         {({ listeners, attributes }) => (
@@ -418,10 +449,43 @@ const Subjects = () => {
                                     <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center space-x-2">
-                                        <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
-                                        <Badge className={getStatusColor(calculatedStatus)}>
-                                          {calculatedStatus}
-                                        </Badge>
+                                        {isEditing ? (
+                                          <div className="flex items-center gap-2 flex-1">
+                                            <Input
+                                              value={editingName}
+                                              onChange={(e) => setEditingName(e.target.value)}
+                                              className="h-8 text-sm flex-1"
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveEdit();
+                                                if (e.key === 'Escape') handleCancelEdit();
+                                              }}
+                                              autoFocus
+                                            />
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              onClick={handleSaveEdit}
+                                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                                            >
+                                              <Check className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              onClick={handleCancelEdit}
+                                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                            >
+                                              <X className="h-4 w-4" />
+                                            </Button>
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
+                                            <Badge className={getStatusColor(calculatedStatus)}>
+                                              {calculatedStatus}
+                                            </Badge>
+                                          </>
+                                        )}
                                       </div>
                                       <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
                                         <div className="flex items-center space-x-1">
@@ -445,49 +509,53 @@ const Subjects = () => {
                                     onClick={(e) => e.stopPropagation()}
                                     onMouseDown={(e) => e.stopPropagation()}
                                   >
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={e => { e.preventDefault(); e.stopPropagation(); handleViewTopics(subject); }}
-                                    >
-                                      <BookOpen className="h-4 w-4 mr-1" />
-                                      Tópicos
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={e => { e.preventDefault(); e.stopPropagation(); handleEdit(subject); }}
-                                    >
-                                      <Edit2 className="h-4 w-4" />
-                                    </Button>
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <Button 
-                                          variant="outline" 
+                                    {!isEditing && (
+                                      <>
+                                        <Button
+                                          variant="outline"
                                           size="sm"
+                                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleViewTopics(subject); }}
                                         >
-                                          <Trash2 className="h-4 w-4 text-red-500" />
+                                          <BookOpen className="h-4 w-4 mr-1" />
+                                          Tópicos
                                         </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            Tem certeza que deseja excluir a matéria "{subject.name}"? 
-                                            Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                          <AlertDialogAction
-                                            onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
-                                            className="bg-red-600 hover:bg-red-700"
-                                          >
-                                            Excluir
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
+                                        >
+                                          <Edit2 className="h-4 w-4" />
+                                        </Button>
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm"
+                                            >
+                                              <Trash2 className="h-4 w-4 text-red-500" />
+                                            </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                              <AlertDialogDescription>
+                                                Tem certeza que deseja excluir a matéria "{subject.name}"? 
+                                                Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
+                                              </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                              <AlertDialogAction
+                                                onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
+                                                className="bg-red-600 hover:bg-red-700"
+                                              >
+                                                Excluir
+                                              </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                                 {expandedSubjectIds.includes(subject.id) && (

@@ -164,7 +164,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
                     {topic.name}
                   </h3>
                   {topic.isMarkedForReview && (
-                    <Bookmark className="h-4 w-4 text-yellow-600" title="Marcado para revisão" />
+                    <Bookmark className="h-4 w-4 text-yellow-600" />
                   )}
                 </div>
               )}
@@ -195,7 +195,6 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
                 variant="ghost"
                 onClick={handleNotesClick}
                 className={`h-8 w-8 p-0 ${hasNotes ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 hover:text-gray-600'}`}
-                title={hasNotes ? 'Tem anotações - Clique para editar' : 'Adicionar anotações'}
               >
                 <FileText className="h-4 w-4" />
               </Button>
