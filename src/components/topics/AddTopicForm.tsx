@@ -28,11 +28,15 @@ const AddTopicForm: React.FC = () => {
         name: topicName.trim(),
         completed: false,
         reviewCount: 0,
-        reviewStage: null,
-        nextReview: null,
-        firstStudiedAt: null,
-        lastReviewedAt: null,
-        notes: null
+        review_count: 0,
+        reviewStage: undefined,
+        nextReview: undefined,
+        firstStudiedAt: undefined,
+        lastReviewedAt: undefined,
+        first_studied_at: undefined,
+        last_reviewed_at: undefined,
+        is_completed: false,
+        notes: undefined
       };
       
       await addTopic(selectedSubjectId, topicData);
