@@ -61,16 +61,33 @@ export const useOptimisticTopics = (
 
       if (error) throw error;
 
+      // Mapear dados do Supabase para o tipo Topic
+      const mappedTopic: Topic = {
+        id: data.id,
+        name: data.name,
+        completed: data.completed,
+        reviewCount: data.review_count || 0,
+        review_count: data.review_count || 0,
+        reviewStage: data.review_stage || undefined,
+        nextReview: data.next_review ? new Date(data.next_review) : undefined,
+        firstStudiedAt: data.first_studied_at ? new Date(data.first_studied_at) : undefined,
+        lastReviewedAt: data.last_reviewed_at ? new Date(data.last_reviewed_at) : undefined,
+        first_studied_at: data.first_studied_at ? new Date(data.first_studied_at) : undefined,
+        last_reviewed_at: data.last_reviewed_at ? new Date(data.last_reviewed_at) : undefined,
+        is_completed: data.completed,
+        notes: data.notes || undefined
+      };
+
       // Substituir tópico temporário pelo real
       const finalTopics = updatedTopics.map(t => 
-        t.id === tempTopic.id ? data as Topic : t
+        t.id === tempTopic.id ? mappedTopic : t
       );
       
       setLocalTopics(finalTopics);
       onTopicsUpdate(finalTopics);
       
       toast.success('Tópico adicionado com sucesso!');
-      return data;
+      return mappedTopic;
     } catch (error) {
       console.error('Erro ao adicionar tópico:', error);
       // Reverter atualização otimista
@@ -93,9 +110,42 @@ export const useOptimisticTopics = (
     onTopicsUpdate(updatedTopics);
 
     try {
+      // Converter campos de Date para string para o Supabase
+      const supabaseUpdates: any = { ...updates };
+      
+      if (updates.firstStudiedAt) {
+        supabaseUpdates.first_studied_at = updates.firstStudiedAt.toISOString();
+        delete supabaseUpdates.firstStudiedAt;
+      }
+      
+      if (updates.lastReviewedAt) {
+        supabaseUpdates.last_reviewed_at = updates.lastReviewedAt.toISOString();
+        delete supabaseUpdates.lastReviewedAt;
+      }
+      
+      if (updates.nextReview) {
+        supabaseUpdates.next_review = updates.nextReview.toISOString();
+        delete supabaseUpdates.nextReview;
+      }
+
+      if (updates.reviewCount !== undefined) {
+        supabaseUpdates.review_count = updates.reviewCount;
+        delete supabaseUpdates.reviewCount;
+      }
+
+      if (updates.completed !== undefined) {
+        supabaseUpdates.is_completed = updates.completed;
+      }
+
+      // Remover campos que não existem no banco
+      delete supabaseUpdates.review_count;
+      delete supabaseUpdates.first_studied_at;
+      delete supabaseUpdates.last_reviewed_at;
+      delete supabaseUpdates.is_completed;
+
       const { error } = await supabase
         .from('topics')
-        .update(updates)
+        .update(supabaseUpdates)
         .eq('id', topicId);
 
       if (error) throw error;
