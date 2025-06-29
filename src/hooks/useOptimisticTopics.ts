@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from 'react';
-import { Topic } from '@/types';
+import { Topic, TopicNotes } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -75,7 +75,7 @@ export const useOptimisticTopics = (
         first_studied_at: data.first_studied_at ? new Date(data.first_studied_at) : undefined,
         last_reviewed_at: data.last_reviewed_at ? new Date(data.last_reviewed_at) : undefined,
         is_completed: data.completed,
-        notes: data.notes || undefined
+        notes: data.notes ? (data.notes as TopicNotes) : undefined
       };
 
       // Substituir tópico temporário pelo real
