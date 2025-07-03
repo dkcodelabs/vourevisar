@@ -84,13 +84,23 @@ export const useNextSubjects = (subjects: Subject[], userCycle: UserCycle | null
               item.status !== 'in-review' // Nova condição: excluir matérias em revisão
     );
     
-    // Agrupar por status (incluindo TODAS as matérias para visualização)
+    // Agrupar por status (excluindo matérias que estão nas disciplinas do dia)
     const subjectsByStatus = {
-      available: allSubjectsWithStatus.filter(item => item.status === 'available'),
-      'in-review': allSubjectsWithStatus.filter(item => item.status === 'in-review'),
-      completed: allSubjectsWithStatus.filter(item => item.status === 'completed'),
-      'no-topics': allSubjectsWithStatus.filter(item => item.status === 'no-topics'),
-      unavailable: allSubjectsWithStatus.filter(item => item.status === 'unavailable')
+      available: allSubjectsWithStatus.filter(item => 
+        item.status === 'available' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+      ),
+      'in-review': allSubjectsWithStatus.filter(item => 
+        item.status === 'in-review' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+      ),
+      completed: allSubjectsWithStatus.filter(item => 
+        item.status === 'completed' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+      ),
+      'no-topics': allSubjectsWithStatus.filter(item => 
+        item.status === 'no-topics' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+      ),
+      unavailable: allSubjectsWithStatus.filter(item => 
+        item.status === 'unavailable' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+      )
     };
     
     console.log('🔄 useNextSubjects - Classificação por status:', {
