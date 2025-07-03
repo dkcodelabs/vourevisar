@@ -76,24 +76,20 @@ export const useSessionCompletion = () => {
       console.log('🔵 Limpando tópicos marcados temporariamente...');
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
-      // LÓGICA SIMPLIFICADA: 
+      // LÓGICA CORRIGIDA: 
       // 1. SEMPRE remover da lista do dia (matéria foi concluída)
       // 2. Se não marcou tópicos para revisão -> mover para final da fila
-      // 3. Se marcou tópicos para revisão -> manter posição no ciclo
+      // 3. Se marcou tópicos para revisão -> mover também para final da fila (para não ficar travada)
       let updatedCicloAtual = [...userCycle.ciclo_atual];
       
-      if (topicsToReview.length === 0) {
-        // Não marcou nenhum tópico para revisão -> mover para final da fila
-        const currentIndex = updatedCicloAtual.indexOf(subjectId);
-        if (currentIndex !== -1) {
-          updatedCicloAtual.splice(currentIndex, 1);
-          updatedCicloAtual.push(subjectId);
-        }
-        console.log('🔵 Matéria movida para final da fila (sem revisão)');
-      } else {
-        // Marcou tópicos para revisão -> matéria permanece na posição atual do ciclo
-        console.log('🔵 Matéria permanece na posição atual (com revisão)');
+      // SEMPRE mover para final da fila, independente de ter ou não revisão
+      const currentIndex = updatedCicloAtual.indexOf(subjectId);
+      if (currentIndex !== -1) {
+        updatedCicloAtual.splice(currentIndex, 1);
+        updatedCicloAtual.push(subjectId);
       }
+      
+      console.log('🔵 Matéria movida para final da fila');
 
       // SEMPRE remover da lista de disciplinas do dia
       const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
@@ -106,7 +102,7 @@ export const useSessionCompletion = () => {
         cicloAtual_depois: updatedCicloAtual.length,
         disciplinasDoDia_antes: userCycle.disciplinas_do_dia.length,
         disciplinasDoDia_depois: newDisciplinasDoDia.length,
-        action: topicsToReview.length === 0 ? 'movida_para_final' : 'removida_apenas_do_dia'
+        action: 'movida_para_final_e_removida_do_dia'
       });
       
       console.log('🔵 Atualizando banco de dados (LÓGICA SIMPLIFICADA)...');
@@ -134,6 +130,7 @@ export const useSessionCompletion = () => {
       console.log('🔵 Ciclo carregado:', freshCycle);
       setUserCycle(freshCycle);
 
+      // Refresh final para garantir consistência dos dados
       console.log('🔵 Atualizando dados da aplicação...');
       await refreshData();
       

@@ -123,8 +123,9 @@ export const useTopicReview = () => {
         }
       }
 
-      // Forçar refresh completo dos dados
-      await refreshData();
+      // Não chamar refreshData aqui se usado dentro de uma sessão
+      // O refresh será feito pelo componente que gerencia a sessão
+      console.log('🔵 Revisão processada sem refresh automático');
       toast.success('Revisão registrada com sucesso!');
       
     } catch (error) {
