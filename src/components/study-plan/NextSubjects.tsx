@@ -142,6 +142,7 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ subjectsByStatus }) => {
   const isMobile = useIsMobile();
   
   const totalSubjects = Object.values(subjectsByStatus).reduce((acc, curr) => acc + curr.length, 0);
+  const hasAvailableSubjects = subjectsByStatus.available.length > 0;
   
   if (totalSubjects === 0) return null;
 
@@ -153,6 +154,18 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ subjectsByStatus }) => {
       </h2>
       
       <div className="space-y-4">
+        {/* Mensagem quando não há matérias disponíveis para estudo */}
+        {!hasAvailableSubjects && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+            <p className={`${isMobile ? 'text-sm' : 'text-base'} text-blue-700 font-medium`}>
+              ✅ Não há mais matérias disponíveis para estudo no momento
+            </p>
+            <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-blue-600 mt-1`}>
+              Continue revisando os tópicos em andamento ou aguarde novas revisões
+            </p>
+          </div>
+        )}
+
         <StatusSection
           title="Disponíveis para Estudo"
           items={subjectsByStatus.available}
