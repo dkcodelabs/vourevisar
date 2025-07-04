@@ -15,7 +15,7 @@ export const useDailySubjects = (subjects: Subject[], userCycle: UserCycle | nul
       const isInDailyList = userCycle.disciplinas_do_dia.includes(subject.id);
       const isNotCompleted = subject.status !== 'Concluída';
       const hasTopics = subject.topics && subject.topics.length > 0;
-      const hasUnreviewedTopics = subject.topics && subject.topics.some(t => (t.reviewCount || t.review_count) === 0);
+      const hasUnreviewedTopics = subject.topics && subject.topics.some(t => t.review_count === 0);
       
       const isValid = isInDailyList && isNotCompleted && hasTopics && hasUnreviewedTopics;
       

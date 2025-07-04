@@ -32,13 +32,13 @@ export const useNextSubjects = (subjects: Subject[], userCycle: UserCycle | null
       }
       
       // Verificar se todos os tópicos estão em revisão (review_count > 0)
-      const allTopicsInReview = subject.topics.every(t => (t.reviewCount || t.review_count) > 0);
+      const allTopicsInReview = subject.topics.every(t => t.review_count > 0);
       if (allTopicsInReview) {
         return 'in-review';
       }
       
       // Verificar se tem tópicos disponíveis para estudo inicial
-      const hasUnreviewedTopics = subject.topics.some(t => (t.reviewCount || t.review_count) === 0);
+      const hasUnreviewedTopics = subject.topics.some(t => t.review_count === 0);
       if (hasUnreviewedTopics) {
         return 'available';
       }
