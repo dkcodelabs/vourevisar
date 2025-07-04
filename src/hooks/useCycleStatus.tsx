@@ -79,7 +79,7 @@ export const useCycleStatus = (
     // SIMPLES: Dia está completo quando não há mais matérias nas disciplinas_do_dia
     const noDailySubjects = userCycle.disciplinas_do_dia.length === 0;
     
-    // Verificar se há matérias disponíveis no ciclo atual (para não confundir com fim de estudos)
+    // Verificar se há matérias disponíveis no ciclo atual OU fora do ciclo (para não confundir com fim de estudos)
     const availableSubjectsInCycle = userCycle.ciclo_atual?.filter(id => {
       const subject = subjects.find(s => s.id === id);
       if (!subject || subject.status === 'Concluída') return false;
@@ -87,26 +87,35 @@ export const useCycleStatus = (
       return subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
     }) || [];
 
-    const hasAvailableSubjectsInCycle = availableSubjectsInCycle.length > 0;
+    // Verificar matérias fora do ciclo atual também
+    const availableSubjectsOutsideCycle = subjects.filter(subject => {
+      if (subject.status === 'Concluída') return false;
+      if (!subject.topics || subject.topics.length === 0) return false;
+      if (userCycle.ciclo_atual?.includes(subject.id)) return false;
+      return subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
+    });
+
+    const hasAvailableSubjects = availableSubjectsInCycle.length > 0 || availableSubjectsOutsideCycle.length > 0;
     
     console.log('🔍 Verificando allDaySubjectsCompleted - LÓGICA CORRIGIDA:', {
       noDailySubjects,
-      hasAvailableSubjectsInCycle,
+      hasAvailableSubjects,
+      availableInCycle: availableSubjectsInCycle.length,
+      availableOutsideCycle: availableSubjectsOutsideCycle.length,
       isCycleCompleted,
       allStudiesCompleted,
       allTopicsInReview,
       userCycle_disciplinas_do_dia_length: userCycle.disciplinas_do_dia.length,
-      result: noDailySubjects && hasAvailableSubjectsInCycle && !isCycleCompleted && !allStudiesCompleted && !allTopicsInReview
+      result: noDailySubjects && hasAvailableSubjects && !allStudiesCompleted && !allTopicsInReview
     });
     
     // Dia está completo se:
     // 1. Não há matérias do dia (lista vazia) E
-    // 2. Há matérias disponíveis no ciclo (não é fim de ciclo/estudos) E  
+    // 2. Há matérias disponíveis (não é fim de todos os estudos) E  
     // 3. Não é fim de todos os estudos E
     // 4. Não é situação de todos os tópicos em revisão
     return noDailySubjects && 
-           hasAvailableSubjectsInCycle && 
-           !isCycleCompleted && 
+           hasAvailableSubjects && 
            !allStudiesCompleted && 
            !allTopicsInReview;
   }, [userCycle, subjects, isCycleCompleted, allStudiesCompleted, allTopicsInReview]);

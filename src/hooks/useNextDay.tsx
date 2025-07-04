@@ -62,7 +62,15 @@ export const useNextDay = () => {
         const allAvailableSubjects = subjects.filter(subject => {
           if (subject.status === 'Concluída') return false;
           if (!subject.topics || subject.topics.length === 0) return false;
-          return subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
+          
+          // Excluir matérias que não têm tópicos realmente disponíveis para estudo inicial
+          // (matérias que já foram estudadas mas não dominadas completamente)
+          const hasUnreviewedTopics = subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
+          const hasTopicsInReview = subject.topics.some(topic => (topic.reviewCount || topic.review_count) > 0);
+          
+          // Só incluir se tem tópicos não revisados E não tem tópicos em revisão
+          // (ou seja, matérias que nunca foram estudadas)
+          return hasUnreviewedTopics && !hasTopicsInReview;
         });
 
         console.log('🔄 Matérias disponíveis GLOBALMENTE:', {

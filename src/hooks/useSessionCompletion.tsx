@@ -89,12 +89,30 @@ export const useSessionCompletion = () => {
       // Remover a matéria das disciplinas do dia
       const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
       
-      // Mover a matéria para o final da fila no ciclo atual
+      // Mover a matéria para o final da fila - pode estar no ciclo atual ou nas pendentes
       let updatedCicloAtual = [...userCycle.ciclo_atual];
+      let updatedMateriasPendentes = [...(userCycle.materias_pendentes || [])];
+      
+      // Verificar se está no ciclo atual
       const currentIndex = updatedCicloAtual.indexOf(subjectId);
       if (currentIndex !== -1) {
+        // Está no ciclo atual - mover para o final
         updatedCicloAtual.splice(currentIndex, 1);
         updatedCicloAtual.push(subjectId);
+        console.log('🔵 Matéria movida para o final do ciclo atual');
+      } else {
+        // Verificar se está nas pendentes
+        const pendingIndex = updatedMateriasPendentes.indexOf(subjectId);
+        if (pendingIndex !== -1) {
+          // Está nas pendentes - mover para o final das pendentes
+          updatedMateriasPendentes.splice(pendingIndex, 1);
+          updatedMateriasPendentes.push(subjectId);
+          console.log('🔵 Matéria movida para o final das pendentes');
+        } else {
+          // Não está em lugar nenhum - adicionar às pendentes
+          updatedMateriasPendentes.push(subjectId);
+          console.log('🔵 Matéria adicionada às pendentes');
+        }
       }
 
       // Buscar próximas matérias disponíveis no ciclo atual para completar as disciplinas do dia
@@ -155,6 +173,8 @@ export const useSessionCompletion = () => {
         cicloAtual_depois: updatedCicloAtual.length,
         disciplinasDoDia_antes: userCycle.disciplinas_do_dia.length,
         disciplinasDoDia_depois: newDisciplinasDoDia.length,
+        materiasPendentes_antes: (userCycle.materias_pendentes || []).length,
+        materiasPendentes_depois: updatedMateriasPendentes.length,
         action: 'materia_movida_para_final_e_proximas_subiram'
       });
       
@@ -164,6 +184,7 @@ export const useSessionCompletion = () => {
         .update({
           ciclo_atual: updatedCicloAtual,
           disciplinas_do_dia: newDisciplinasDoDia,
+          materias_pendentes: updatedMateriasPendentes,
           atualizado_em: new Date().toISOString()
         })
         .eq('user_id', user.id);
