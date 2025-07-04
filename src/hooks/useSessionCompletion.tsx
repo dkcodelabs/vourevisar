@@ -127,7 +127,7 @@ export const useSessionCompletion = () => {
           if (!cycleSubject.topics || cycleSubject.topics.length === 0) return false;
           
           // Verificar se tem tópicos não revisados
-          return cycleSubject.topics.some(topic => topic.review_count === 0);
+          return cycleSubject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
         });
 
         console.log('🔵 Matérias disponíveis no ciclo para subir:', {

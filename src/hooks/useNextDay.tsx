@@ -45,7 +45,7 @@ export const useNextDay = () => {
           return subject && 
                  subject.status !== 'Concluída' &&
                  subject.topics && subject.topics.length > 0 &&
-                 subject.topics.some(t => t.review_count === 0);
+                 subject.topics.some(t => (t.reviewCount || t.review_count) === 0);
         });
       }
 
@@ -62,7 +62,7 @@ export const useNextDay = () => {
         const allAvailableSubjects = subjects.filter(subject => {
           if (subject.status === 'Concluída') return false;
           if (!subject.topics || subject.topics.length === 0) return false;
-          return subject.topics.some(topic => topic.review_count === 0);
+          return subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
         });
 
         console.log('🔄 Matérias disponíveis GLOBALMENTE:', {

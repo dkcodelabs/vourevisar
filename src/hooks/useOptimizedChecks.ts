@@ -35,8 +35,8 @@ export const useOptimizedChecks = (subjects: Subject[]) => {
         let dominatedTopics = 0;
         
         for (const topic of subject.topics) {
-          const isDominated = topic.reviewCount >= 5;
-          console.log(`🔍 Tópico "${topic.name}": reviewStage=${topic.reviewStage}, reviewCount=${topic.reviewCount}, isDominated=${isDominated}`);
+          const isDominated = (topic.reviewCount || topic.review_count) >= 5;
+          console.log(`🔍 Tópico "${topic.name}": reviewStage=${topic.reviewStage}, reviewCount=${topic.reviewCount || topic.review_count}, isDominated=${isDominated}`);
           
           if (isDominated) {
             dominatedTopics++;
@@ -96,7 +96,7 @@ export const useOptimizedChecks = (subjects: Subject[]) => {
 
     // Verificar se há matérias com tópicos não revisados
     const subjectsWithUnreviewedTopics = subjectsWithTopics.filter(subject => 
-      subject.topics!.some(topic => topic.reviewCount === 0)
+      subject.topics!.some(topic => (topic.reviewCount || topic.review_count) === 0)
     );
 
     console.log('🔍 Matérias com tópicos NÃO REVISADOS:', {
