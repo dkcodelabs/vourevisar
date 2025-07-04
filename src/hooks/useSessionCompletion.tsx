@@ -116,6 +116,7 @@ export const useSessionCompletion = () => {
       if (slotsNeeded > 0) {
         // Buscar matérias disponíveis no ciclo atual (que não estão no dia atual)
         const availableSubjectsInCycle = updatedCicloAtual.filter(id => {
+          if (id === subjectId) return false; // Excluir a matéria que acabou de ser concluída
           if (newDisciplinasDoDia.includes(id)) return false; // Já está no dia
           
           const cycleSubject = subjects.find(s => s.id === id);
