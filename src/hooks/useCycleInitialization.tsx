@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject } from '@/types';
@@ -12,14 +12,31 @@ export const useCycleInitialization = (
 ) => {
   const { user } = useAuth();
   const [isCycleLoading, setIsCycleLoading] = useState(true);
+  const initializationRef = useRef<boolean>(false);
+
+  // Reset da inicialização quando o usuário muda
+  useEffect(() => {
+    initializationRef.current = false;
+  }, [user?.id]);
 
   useEffect(() => {
     const initializeCycle = async () => {
+      // Evitar múltiplas inicializações
+      if (initializationRef.current) {
+        console.log('🔄 Ciclo já foi inicializado, pulando...');
+        return;
+      }
+
+      console.log('🔄 Iniciando inicialização do ciclo...');
       setIsCycleLoading(true);
+      
       if (!user || !subjects.length) {
+        console.log('🔄 Sem user ou subjects, finalizando loading...');
         setIsCycleLoading(false);
         return;
       }
+
+      initializationRef.current = true;
 
       const subjectsPerDay = userSettings?.subjects_per_day || 3;
 
@@ -86,6 +103,7 @@ export const useCycleInitialization = (
       } catch (error) {
         console.error('Erro ao inicializar ciclo:', error);
       } finally {
+        console.log('🔄 Finalizando inicialização do ciclo, definindo loading=false');
         setIsCycleLoading(false);
       }
     };
