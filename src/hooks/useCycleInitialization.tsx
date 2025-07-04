@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject } from '@/types';
@@ -13,14 +13,14 @@ export const useCycleInitialization = (
   const { user } = useAuth();
   const [isCycleLoading, setIsCycleLoading] = useState(true);
   const initializationRef = useRef<boolean>(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reset da inicialização quando o usuário muda
   useEffect(() => {
     initializationRef.current = false;
   }, [user?.id]);
 
-  useEffect(() => {
-    const initializeCycle = async () => {
+  const initializeCycle = useCallback(async () => {
       // Evitar múltiplas inicializações
       if (initializationRef.current) {
         console.log('🔄 Ciclo já foi inicializado, pulando...');
@@ -106,10 +106,24 @@ export const useCycleInitialization = (
         console.log('🔄 Finalizando inicialização do ciclo, definindo loading=false');
         setIsCycleLoading(false);
       }
-    };
+    }, [user, subjects, userSettings, setUserCycle]);
 
-    initializeCycle();
-  }, [user, subjects, userSettings, setUserCycle]);
+  useEffect(() => {
+    // Debounce para evitar múltiplas inicializações
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      initializeCycle();
+    }, 100);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [initializeCycle]);
 
   return { isCycleLoading };
 };

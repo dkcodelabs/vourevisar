@@ -2,8 +2,10 @@
 import { useMemo } from 'react';
 import { Subject, UserCycle } from '@/types';
 import { hasStudyableSubjects } from '@/utils/studiesCompletionChecker';
+import { useOptimizedChecks } from './useOptimizedChecks';
 
 export const useCycleSubjectStats = (subjects: Subject[], userCycle: UserCycle | null) => {
+  const { allStudiesCompleted, allTopicsInReview } = useOptimizedChecks(subjects);
   const disciplinasIniciadas = subjects.filter(s => s.status === 'Em Estudo');
   const disciplinasNaoIniciadas = subjects.filter(s => s.status === 'Nova');
   const hasAvailableSubjects = hasStudyableSubjects(subjects);
@@ -30,6 +32,8 @@ export const useCycleSubjectStats = (subjects: Subject[], userCycle: UserCycle |
     totalDisciplinasCiclo,
     disciplinasConcluidas,
     disciplinasIniciadasCiclo,
-    isNewCycleStarted
+    isNewCycleStarted,
+    allStudiesCompleted,
+    allTopicsInReview
   };
 };

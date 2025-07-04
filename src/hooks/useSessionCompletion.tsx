@@ -183,9 +183,8 @@ export const useSessionCompletion = () => {
       console.log('🔵 Ciclo carregado:', freshCycle);
       setUserCycle(freshCycle);
 
-      // Refresh final para garantir consistência dos dados
-      console.log('🔵 Atualizando dados da aplicação...');
-      await refreshData();
+      // Não precisa mais do refresh final - updateTopic já faz isso
+      console.log('✅ Sessão concluída - dados já atualizados pelo updateTopic');
       
       console.log('✅ handleCompleteSession FINALIZADO COM SUCESSO');
       toast.success('Sessão concluída com sucesso!');
