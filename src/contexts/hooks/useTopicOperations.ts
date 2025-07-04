@@ -32,11 +32,8 @@ export const useTopicOperations = (
 
       console.log('✅ addTopic - Success, refreshing data...');
       
-      // Forçar atualização completa dos dados
-      await Promise.all([
-        loadSubjects(),
-        refreshData()
-      ]);
+      // refreshData já chama loadSubjects internamente
+      await refreshData();
       
       toast.success('Tópico adicionado com sucesso!');
     } catch (error: any) {
@@ -80,11 +77,8 @@ export const useTopicOperations = (
 
       console.log('✅ updateTopic - Success, refreshing data...');
       
-      // Forçar atualização completa dos dados
-      await Promise.all([
-        loadSubjects(),
-        refreshData()
-      ]);
+      // refreshData já chama loadSubjects internamente
+      await refreshData();
       
     } catch (error: any) {
       console.error('❌ Error updating topic:', error);
@@ -106,11 +100,8 @@ export const useTopicOperations = (
 
       console.log('✅ deleteTopic - Success, refreshing data...');
       
-      // Forçar atualização completa dos dados
-      await Promise.all([
-        loadSubjects(),
-        refreshData()
-      ]);
+      // refreshData já chama loadSubjects internamente
+      await refreshData();
       
       toast.success('Tópico removido com sucesso!');
     } catch (error: any) {
