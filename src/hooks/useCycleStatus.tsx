@@ -19,12 +19,28 @@ export const useCycleStatus = (
       totalSubjects: subjects.length
     });
     
-    // Verificar se existem matérias com tópicos não revisados (review_count === 0)
-    const subjectsWithUnreviewedTopics = subjects.filter(subject => {
-      if (subject.status === 'Concluída') return false;
-      if (!subject.topics || subject.topics.length === 0) return false;
-      return subject.topics.some(topic => topic.review_count === 0);
+    // Filtrar apenas matérias que TÊM tópicos (ignorar matérias sem tópicos)
+    const subjectsWithTopics = subjects.filter(subject => 
+      subject.status !== 'Concluída' && 
+      subject.topics && 
+      subject.topics.length > 0
+    );
+
+    console.log('🔍 Matérias COM tópicos (não concluídas):', {
+      count: subjectsWithTopics.length,
+      subjects: subjectsWithTopics.map(s => s.name)
     });
+
+    // Se não há matérias com tópicos, não pode estar em estado "allTopicsInReview"
+    if (subjectsWithTopics.length === 0) {
+      console.log('🔍 Nenhuma matéria com tópicos encontrada');
+      return false;
+    }
+    
+    // Verificar se existem matérias com tópicos não revisados (review_count === 0)
+    const subjectsWithUnreviewedTopics = subjectsWithTopics.filter(subject => 
+      subject.topics.some(topic => topic.review_count === 0)
+    );
 
     console.log('🔍 Matérias com tópicos NÃO REVISADOS:', {
       count: subjectsWithUnreviewedTopics.length,
@@ -35,8 +51,8 @@ export const useCycleStatus = (
     const allTopicsStartedReview = subjectsWithUnreviewedTopics.length === 0;
     
     // Verificar se há pelo menos um tópico em revisão
-    const hasTopicsInReview = subjects.some(s => 
-      s.topics && s.topics.some(t => t.review_count > 0 && !t.completed)
+    const hasTopicsInReview = subjectsWithTopics.some(subject => 
+      subject.topics.some(topic => topic.review_count > 0 && !topic.completed)
     );
     
     console.log('🔍 Estado final allTopicsInReview:', {
