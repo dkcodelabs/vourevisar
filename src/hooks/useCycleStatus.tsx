@@ -55,15 +55,26 @@ export const useCycleStatus = (
       subject.topics.some(topic => topic.review_count > 0 && !topic.completed)
     );
     
+    // NOVA LÓGICA: Considerar matérias sem tópicos separadamente
+    const subjectsWithoutTopics = subjects.filter(subject => 
+      subject.status !== 'Concluída' && 
+      (!subject.topics || subject.topics.length === 0)
+    );
+    
     console.log('🔍 Estado final allTopicsInReview:', {
       allTopicsStartedReview,
       hasTopicsInReview,
+      subjectsWithTopicsCount: subjectsWithTopics.length,
+      subjectsWithoutTopicsCount: subjectsWithoutTopics.length,
       dailySubjectsLength,
-      nextSubjectsLength,
-      result: allTopicsStartedReview && hasTopicsInReview && dailySubjectsLength === 0 && nextSubjectsLength === 0
+      nextSubjectsLength
     });
     
-    return allTopicsStartedReview && hasTopicsInReview && dailySubjectsLength === 0 && nextSubjectsLength === 0;
+    // CORRIGIDO: Todos os tópicos estão em revisão se:
+    // 1. Há matérias com tópicos E todos os seus tópicos estão em revisão E
+    // 2. Há pelo menos um tópico em revisão E  
+    // 3. Não há matérias nas disciplinas do dia
+    return allTopicsStartedReview && hasTopicsInReview && dailySubjectsLength === 0;
   }, [subjects, dailySubjectsLength, nextSubjectsLength]);
 
   // CORRIGIDO: Detectar quando o ciclo foi completamente concluído
