@@ -129,7 +129,9 @@ export const useSessionCompletion = () => {
 
         console.log('🔵 Matérias disponíveis no ciclo para subir:', {
           available: availableSubjectsInCycle.length,
-          subjects: availableSubjectsInCycle.map(id => subjects.find(s => s.id === id)?.name)
+          subjects: availableSubjectsInCycle.map(id => subjects.find(s => s.id === id)?.name),
+          cicloAtualAtualizado: updatedCicloAtual.map(id => subjects.find(s => s.id === id)?.name),
+          subjectIdConcluido: subjects.find(s => s.id === subjectId)?.name
         });
 
         // Adicionar as próximas matérias disponíveis às disciplinas do dia
