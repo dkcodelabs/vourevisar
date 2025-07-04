@@ -110,10 +110,13 @@ export const useSessionCompletion = () => {
       console.log('🔵 Buscando próximas matérias para completar o dia:', {
         subjectsPerDay,
         currentDailySubjects: newDisciplinasDoDia.length,
-        slotsNeeded
+        slotsNeeded,
+        isOnlyOneSubjectPerDay: subjectsPerDay === 1
       });
 
-      if (slotsNeeded > 0) {
+      // NOVA LÓGICA: Se há apenas 1 matéria por dia, não buscar próximas automaticamente
+      // Deixar o dia vazio para mostrar mensagem de "dia concluído"
+      if (slotsNeeded > 0 && subjectsPerDay > 1) {
         // Buscar matérias disponíveis no ciclo atual (que não estão no dia atual)
         const availableSubjectsInCycle = updatedCicloAtual.filter(id => {
           if (id === subjectId) return false; // Excluir a matéria que acabou de ser concluída
