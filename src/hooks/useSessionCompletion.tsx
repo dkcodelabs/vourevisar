@@ -77,24 +77,71 @@ export const useSessionCompletion = () => {
       setTempMarkedTopics(prev => ({ ...prev, [subjectId]: [] }));
 
       // LÓGICA CORRIGIDA: 
-      // 1. SEMPRE remover da lista do dia (matéria foi concluída)
-      // 2. Se não marcou tópicos para revisão -> mover para final da fila
-      // 3. Se marcou tópicos para revisão -> mover também para final da fila (para não ficar travada)
-      let updatedCicloAtual = [...userCycle.ciclo_atual];
+      // 1. SEMPRE remover da lista do dia
+      // 2. Mover para final da fila do ciclo atual (independente de ter marcado tópicos ou não)
+      // 3. Buscar próximas matérias disponíveis no ciclo atual para subir para as disciplinas do dia
       
-      // SEMPRE mover para final da fila, independente de ter ou não revisão
+      console.log('🔵 Estado atual do ciclo:', {
+        ciclo_atual: userCycle.ciclo_atual,
+        disciplinas_do_dia: userCycle.disciplinas_do_dia
+      });
+
+      // Remover a matéria das disciplinas do dia
+      const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+      
+      // Mover a matéria para o final da fila no ciclo atual
+      let updatedCicloAtual = [...userCycle.ciclo_atual];
       const currentIndex = updatedCicloAtual.indexOf(subjectId);
       if (currentIndex !== -1) {
         updatedCicloAtual.splice(currentIndex, 1);
         updatedCicloAtual.push(subjectId);
       }
-      
-      console.log('🔵 Matéria movida para final da fila');
 
-      // SEMPRE remover da lista de disciplinas do dia
-      const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+      // Buscar próximas matérias disponíveis no ciclo atual para completar as disciplinas do dia
+      const { data: userSettings } = await supabase
+        .from('user_settings')
+        .select('subjects_per_day')
+        .eq('user_id', user.id)
+        .single();
 
-      console.log('🔵 Atualizando ciclo (CONCLUSÃO SIMPLIFICADA):', {
+      const subjectsPerDay = userSettings?.subjects_per_day || 3;
+      const slotsNeeded = subjectsPerDay - newDisciplinasDoDia.length;
+
+      console.log('🔵 Buscando próximas matérias para completar o dia:', {
+        subjectsPerDay,
+        currentDailySubjects: newDisciplinasDoDia.length,
+        slotsNeeded
+      });
+
+      if (slotsNeeded > 0) {
+        // Buscar matérias disponíveis no ciclo atual (que não estão no dia atual)
+        const availableSubjectsInCycle = updatedCicloAtual.filter(id => {
+          if (newDisciplinasDoDia.includes(id)) return false; // Já está no dia
+          
+          const cycleSubject = subjects.find(s => s.id === id);
+          if (!cycleSubject || cycleSubject.status === 'Concluída') return false;
+          if (!cycleSubject.topics || cycleSubject.topics.length === 0) return false;
+          
+          // Verificar se tem tópicos não revisados
+          return cycleSubject.topics.some(topic => topic.review_count === 0);
+        });
+
+        console.log('🔵 Matérias disponíveis no ciclo para subir:', {
+          available: availableSubjectsInCycle.length,
+          subjects: availableSubjectsInCycle.map(id => subjects.find(s => s.id === id)?.name)
+        });
+
+        // Adicionar as próximas matérias disponíveis às disciplinas do dia
+        const nextSubjectsForDay = availableSubjectsInCycle.slice(0, slotsNeeded);
+        newDisciplinasDoDia.push(...nextSubjectsForDay);
+
+        console.log('🔵 Próximas matérias adicionadas ao dia:', {
+          added: nextSubjectsForDay.map(id => subjects.find(s => s.id === id)?.name),
+          newDailyList: newDisciplinasDoDia.map(id => subjects.find(s => s.id === id)?.name)
+        });
+      }
+
+      console.log('🔵 Atualizando ciclo:', {
         subjectId,
         subject: subject.name,
         topicsMarkedForReview: topicsToReview.length,
@@ -102,10 +149,10 @@ export const useSessionCompletion = () => {
         cicloAtual_depois: updatedCicloAtual.length,
         disciplinasDoDia_antes: userCycle.disciplinas_do_dia.length,
         disciplinasDoDia_depois: newDisciplinasDoDia.length,
-        action: 'movida_para_final_e_removida_do_dia'
+        action: 'materia_movida_para_final_e_proximas_subiram'
       });
       
-      console.log('🔵 Atualizando banco de dados (LÓGICA SIMPLIFICADA)...');
+      console.log('🔵 Atualizando banco de dados...');
       const { error: updateError } = await supabase
         .from('user_cycles')
         .update({
@@ -120,7 +167,7 @@ export const useSessionCompletion = () => {
         throw updateError;
       }
 
-      console.log('✅ Banco de dados atualizado (LÓGICA SIMPLIFICADA)');
+      console.log('✅ Banco de dados atualizado');
       console.log('🔵 Carregando ciclo atualizado...');
       const freshCycle = await loadUserCycle(user.id);
       if (!freshCycle) {
