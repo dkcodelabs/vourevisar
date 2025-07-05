@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { Subject, UserCycle } from '@/types';
 
@@ -15,15 +14,17 @@ export const useDailySubjects = (subjects: Subject[], userCycle: UserCycle | nul
       const isInDailyList = userCycle.disciplinas_do_dia.includes(subject.id);
       const isNotCompleted = subject.status !== 'Concluída';
       const hasTopics = subject.topics && subject.topics.length > 0;
-      const hasUnreviewedTopics = subject.topics && subject.topics.some(t => (t.reviewCount || t.review_count) === 0);
-      
-      const isValid = isInDailyList && isNotCompleted && hasTopics && hasUnreviewedTopics;
-      
+      // Todos os tópicos já estão em revisão?
+      const allTopicsInReview = subject.topics && subject.topics.length > 0
+        ? subject.topics.every(t => (t.reviewCount || t.review_count) > 0)
+        : false;
+
+      // Só aparece no dia se NÃO estiver tudo em revisão
+      const isValid = isInDailyList && isNotCompleted && hasTopics && !allTopicsInReview;
+
       console.log(`📋 Matéria "${subject.name}":`, {
         isInDailyList,
         isNotCompleted,
-        hasTopics,
-        hasUnreviewedTopics,
         isValid,
         status: subject.status,
         topicsCount: subject.topics?.length || 0

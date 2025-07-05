@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -8,12 +7,14 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface DayCompletedMessageProps {
   onNextDay: () => void;
+  onStartNewCycle: () => void;
   isLoading?: boolean;
   hasMoreSubjectsInCycle?: boolean;
 }
 
 const DayCompletedMessage: React.FC<DayCompletedMessageProps> = ({ 
   onNextDay, 
+  onStartNewCycle,
   isLoading = false,
   hasMoreSubjectsInCycle = true
 }) => {
@@ -69,9 +70,17 @@ const DayCompletedMessage: React.FC<DayCompletedMessageProps> = ({
               </Button>
             </>
           ) : (
-            <p className="text-yellow-700 text-sm">
-              Todas as matérias do ciclo foram processadas. Inicie um novo ciclo para continuar estudando.
-            </p>
+            <>
+              <p className="text-yellow-700 text-sm">
+                Parabéns! Você concluiu todas as matérias deste ciclo.
+              </p>
+              <Button
+                onClick={onStartNewCycle}
+                className="bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 text-white transition-all duration-300 mt-4"
+              >
+                Iniciar novo ciclo
+              </Button>
+            </>
           )}
         </CardContent>
       </Card>

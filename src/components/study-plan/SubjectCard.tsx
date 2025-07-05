@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,7 +84,7 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
                     onClick={() => onCompleteSession(subject.id)}
                   >
                     <CheckCircle className="h-3 w-3 mr-2" />
-                    Concluir Sessão
+                    { (tempMarkedTopics[subject.id]?.length ?? 0) > 0 ? "Concluir Sessão" : "Pular Matéria" }
                   </Button>
                 </motion.div>
               ) : (
