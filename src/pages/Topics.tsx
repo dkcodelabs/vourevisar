@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Calendar, ListChecks, AlertTriangle, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Topic } from '@/types';
 import { toast } from "react-hot-toast";
@@ -204,14 +204,43 @@ const Topics = () => {
         <p className="text-gray-600 text-sm">Gerencie todos os seus tópicos de estudo</p>
       </div>
 
-      <CompactTopicsSummaryCards
-        totalTopics={stats.total}
-        delayedTopics={stats.delayed}
-        futureTopics={stats.upcoming}
-      />
+      {/* Cards de estatísticas bonitos e alinhados */}
+      <div className="flex flex-wrap gap-4 mb-4">
+        {/* Card Total */}
+        <Card className="flex-1 min-w-[120px] max-w-[180px] shadow-md">
+          <CardContent className="flex flex-col items-center justify-center py-4">
+            <ListChecks className="h-6 w-6 text-blue-600 mb-1" />
+            <div className="text-2xl font-bold text-blue-900">{stats.total}</div>
+            <div className="text-xs text-gray-500 mt-1">Total</div>
+          </CardContent>
+        </Card>
+        {/* Card Hoje */}
+        <Card className="flex-1 min-w-[120px] max-w-[180px] shadow-md">
+          <CardContent className="flex flex-col items-center justify-center py-4">
+            <Calendar className="h-6 w-6 text-indigo-500 mb-1" />
+            <div className="text-2xl font-bold text-indigo-900">{stats.today}</div>
+            <div className="text-xs text-gray-500 mt-1">Hoje</div>
+          </CardContent>
+        </Card>
+        {/* Card Atrasados */}
+        <Card className="flex-1 min-w-[120px] max-w-[180px] shadow-md">
+          <CardContent className="flex flex-col items-center justify-center py-4">
+            <AlertTriangle className="h-6 w-6 text-red-500 mb-1" />
+            <div className="text-2xl font-bold text-red-700">{stats.delayed}</div>
+            <div className="text-xs text-gray-500 mt-1">Atrasados</div>
+          </CardContent>
+        </Card>
+        {/* Card Próximos */}
+        <Card className="flex-1 min-w-[120px] max-w-[180px] shadow-md">
+          <CardContent className="flex flex-col items-center justify-center py-4">
+            <Clock className="h-6 w-6 text-green-500 mb-1" />
+            <div className="text-2xl font-bold text-green-700">{stats.upcoming}</div>
+            <div className="text-xs text-gray-500 mt-1">Próximos</div>
+          </CardContent>
+        </Card>
+      </div>
 
-      <AddTopicForm />
-
+      {/* Campos de pesquisa/filtro */}
       <CompactTopicsFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
