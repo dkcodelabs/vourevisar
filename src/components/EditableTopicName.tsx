@@ -1,8 +1,7 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, X, Edit2 } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -10,16 +9,32 @@ interface EditableTopicNameProps {
   topicId: string;
   initialName: string;
   onUpdate: () => void;
+  isEditing?: boolean;
+  onEditChange?: (isEditing: boolean) => void;
 }
 
 export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
   topicId,
   initialName,
-  onUpdate
+  onUpdate,
+  isEditing = false,
+  onEditChange
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const [internalEditing, setInternalEditing] = useState(false);
   const [name, setName] = useState(initialName);
   const [isSaving, setIsSaving] = useState(false);
+
+  const isEditingState = isEditing || internalEditing;
+
+  useEffect(() => {
+    setName(initialName);
+  }, [initialName]);
+
+  useEffect(() => {
+    if (isEditing) {
+      setInternalEditing(true);
+    }
+  }, [isEditing]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -36,7 +51,8 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
 
       if (error) throw error;
 
-      setIsEditing(false);
+      setInternalEditing(false);
+      onEditChange?.(false);
       onUpdate();
       toast.success("Nome do tópico atualizado com sucesso");
     } catch (error) {
@@ -49,16 +65,17 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
 
   const handleCancel = () => {
     setName(initialName);
-    setIsEditing(false);
+    setInternalEditing(false);
+    onEditChange?.(false);
   };
 
-  if (isEditing) {
+  if (isEditingState) {
     return (
       <div className="flex items-center gap-2 flex-1">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="text-sm"
+          className="text-base font-semibold"
           autoFocus
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSave();
@@ -88,16 +105,8 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
   }
 
   return (
-    <div className="flex items-center gap-2 flex-1 group">
-      <span className="text-sm font-medium text-gray-800 flex-1">{name}</span>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => setIsEditing(true)}
-        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <Edit2 className="h-3 w-3" />
-      </Button>
-    </div>
+    <h3 className="text-base font-semibold text-slate-800 truncate">
+      {name}
+    </h3>
   );
 };

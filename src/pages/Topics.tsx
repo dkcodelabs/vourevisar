@@ -21,6 +21,7 @@ const Topics = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     topic: (Topic & { subjectName: string }) | null;
@@ -313,6 +314,10 @@ const Topics = () => {
                                  topicId={topic.id}
                                  initialName={topic.name}
                                  onUpdate={() => {}}
+                                 isEditing={editingTopicId === topic.id}
+                                 onEditChange={(isEditing) => {
+                                   setEditingTopicId(isEditing ? topic.id : null);
+                                 }}
                                />
                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                                  {topic.subjectName}
@@ -356,26 +361,21 @@ const Topics = () => {
                                    </TooltipContent>
                                  </Tooltip>
                                  
-                                 <Tooltip>
-                                   <TooltipTrigger asChild>
-                                     <Button
-                                       variant="ghost"
-                                       size="sm"
-                                       onClick={() => {
-                                         const newName = prompt('Digite o novo nome do tópico:', topic.name);
-                                         if (newName && newName.trim() && newName.trim() !== topic.name) {
-                                           handleEditTopic(topic.id, newName.trim());
-                                         }
-                                       }}
-                                       className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                     >
-                                       <Edit className="h-4 w-4" />
-                                     </Button>
-                                   </TooltipTrigger>
-                                   <TooltipContent>
-                                     <p>Alterar nome</p>
-                                   </TooltipContent>
-                                 </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setEditingTopicId(topic.id)}
+                                        className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Alterar nome</p>
+                                    </TooltipContent>
+                                  </Tooltip>
                                  
                                  <Tooltip>
                                    <TooltipTrigger asChild>
