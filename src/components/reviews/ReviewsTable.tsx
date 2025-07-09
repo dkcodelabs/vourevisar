@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
-import { FileText, CheckCircle2 } from 'lucide-react';
+import { FileText, CheckCircle2, Edit, RotateCcw } from 'lucide-react';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'react-hot-toast';
@@ -98,16 +98,16 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
 
   return (
     <TooltipProvider>
-      <div className="overflow-hidden">
+      <div className="w-full">
         <Table>
           <TableHeader>
-            <TableRow className="bg-slate-50 border-b border-slate-200">
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">DISCIPLINA</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">TÓPICO</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">ESTÁGIO</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">PRÓXIMA REVISÃO</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">STATUS</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">AÇÕES</TableHead>
+            <TableRow className="bg-slate-50 border-b border-slate-200 hover:bg-slate-50">
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[200px]">DISCIPLINA</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[250px]">TÓPICO</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[120px]">ESTÁGIO</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[150px]">PRÓXIMA REVISÃO</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[150px]">STATUS</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[120px]">AÇÕES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -115,51 +115,42 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               sortedTopics.map((topic) => {
                 const proxima = topic.next_review ? startOfDay(new Date(topic.next_review)) : null;
                 let status = 'Futura';
-                let statusVariant: 'default' | 'destructive' | 'secondary' | 'outline' = 'secondary';
+                let statusColor = 'bg-blue-100 text-blue-700';
                 
                 if (topic.completed) {
                   status = 'Concluído';
-                  statusVariant = 'default';
+                  statusColor = 'bg-green-100 text-green-700';
                 } else if (proxima) {
                   if (isBefore(proxima, hoje)) {
                     const diasVencidos = differenceInDays(hoje, proxima);
-                    status = `Atrasado (${diasVencidos} dias)`;
-                    statusVariant = 'destructive';
+                    status = `Atrasado (${diasVencidos} dia${diasVencidos > 1 ? 's' : ''})`;
+                    statusColor = 'bg-red-100 text-red-700';
                   } else if (proxima.getTime() === hoje.getTime()) {
                     status = 'Hoje';
-                    statusVariant = 'default';
+                    statusColor = 'bg-orange-100 text-orange-700';
                   }
                 }
                 
                 return (
-                  <TableRow key={topic.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                    <TableCell className="px-6 py-4 text-sm font-medium text-slate-800">{topic.subject_name}</TableCell>
-                    <TableCell className="px-6 py-4 text-sm text-slate-600">{topic.name}</TableCell>
-                    <TableCell className="px-6 py-4 text-sm text-slate-500">
+                  <TableRow key={topic.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                    <TableCell className="px-6 py-3 text-sm font-medium text-slate-800">{topic.subject_name}</TableCell>
+                    <TableCell className="px-6 py-3 text-sm text-slate-600">{topic.name}</TableCell>
+                    <TableCell className="px-6 py-3 text-sm text-slate-500">
                       {topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' 
                         ? topic.review_stage 
                         : (topic.review_count > 0 ? '24h' : 'Não iniciado')
                       }
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-sm text-slate-500">
+                    <TableCell className="px-6 py-3 text-sm text-slate-500">
                       {proxima ? format(proxima, 'dd/MM/yyyy') : '-'}
                     </TableCell>
-                    <TableCell className="px-6 py-4">
-                      <Badge 
-                        variant="outline"
-                        className={`
-                          text-xs font-semibold border-0 rounded-md px-3 py-1
-                          ${statusVariant === 'destructive' ? 'bg-red-100 text-red-700' : ''}
-                          ${statusVariant === 'default' && status === 'Hoje' ? 'bg-orange-100 text-orange-700' : ''}
-                          ${statusVariant === 'default' && status === 'Concluído' ? 'bg-green-100 text-green-700' : ''}
-                          ${statusVariant === 'secondary' ? 'bg-blue-100 text-blue-700' : ''}
-                        `}
-                      >
+                    <TableCell className="px-6 py-3">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
                         {status}
-                      </Badge>
+                      </span>
                     </TableCell>
-                    <TableCell className="px-6 py-4">
-                      <div className="flex items-center gap-2">
+                    <TableCell className="px-6 py-3">
+                      <div className="flex items-center gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
@@ -178,65 +169,75 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                           </TooltipContent>
                         </Tooltip>
 
-                        <RegisterQuestionsButton
-                          subject={topic.subject_name}
-                          topic={topic.name}
-                        />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-slate-100"
+                            >
+                              <Edit className="h-4 w-4 text-slate-400" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Editar</p>
+                          </TooltipContent>
+                        </Tooltip>
 
                         {!topic.completed && (
-                          <>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setConfirmTopicId(topic.id)}
-                                  disabled={isLogicLoading}
-                                  className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
-                                >
-                                  <CheckCircle2 className="w-5 h-5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Marcar como revisado</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Confirmar Revisão</DialogTitle>
-                                  <DialogDescription>
-                                    Tem certeza que deseja marcar este tópico como revisado?
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <DialogFooter>
-                                  <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
-                                  <Button
-                                    variant="default"
-                                    onClick={async () => {
-                                      try {
-                                        await markTopicAsReviewed(topic.id);
-                                        setConfirmTopicId(null);
-                                        setTimeout(async () => {
-                                          await Promise.all([
-                                            refreshData(),
-                                            refetch()
-                                          ]);
-                                        }, 500);
-                                      } catch (error) {
-                                        console.error('Erro ao marcar revisão:', error);
-                                        toast.error('Erro ao marcar revisão');
-                                      }
-                                    }}
-                                  >
-                                    Confirmar
-                                  </Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-                          </>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmTopicId(topic.id)}
+                                disabled={isLogicLoading}
+                                className="h-8 w-8 p-0 hover:bg-green-50 text-green-600"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Marcar como revisado</p>
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
+
+                      {/* Dialog de confirmação */}
+                      <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Confirmar Revisão</DialogTitle>
+                            <DialogDescription>
+                              Tem certeza que deseja marcar este tópico como revisado?
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
+                            <Button
+                              variant="default"
+                              onClick={async () => {
+                                try {
+                                  await markTopicAsReviewed(topic.id);
+                                  setConfirmTopicId(null);
+                                  setTimeout(async () => {
+                                    await Promise.all([
+                                      refreshData(),
+                                      refetch()
+                                    ]);
+                                  }, 500);
+                                } catch (error) {
+                                  console.error('Erro ao marcar revisão:', error);
+                                  toast.error('Erro ao marcar revisão');
+                                }
+                              }}
+                            >
+                              Confirmar
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </TableCell>
                   </TableRow>
                 );
