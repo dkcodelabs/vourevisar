@@ -167,6 +167,24 @@ export const useSessionCompletion = () => {
         return;
       }
 
+      console.log('🔵 Sessão concluída - movendo matéria para o final da fila');
+      
+      // Mover matéria para o final da fila (ciclo_atual ou materias_pendentes)
+      let updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
+      let updatedMateriasPendentes = userCycle.materias_pendentes || [];
+      
+      // Se a matéria estava no ciclo_atual, move para o final
+      if (userCycle.ciclo_atual.includes(subjectId)) {
+        updatedCicloAtual = [...updatedCicloAtual, subjectId];
+      } else if (updatedMateriasPendentes.includes(subjectId)) {
+        // Se estava em materias_pendentes, move para o final
+        updatedMateriasPendentes = updatedMateriasPendentes.filter(id => id !== subjectId);
+        updatedMateriasPendentes.push(subjectId);
+      }
+      
+      // Limpar disciplinas_do_dia para sinalizar que o dia foi concluído
+      const newDisciplinasDoDia: string[] = [];
+
       console.log('🔵 Atualizando ciclo:', {
         subjectId,
         subject: subject.name,

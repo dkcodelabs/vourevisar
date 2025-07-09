@@ -133,6 +133,7 @@ const StudyPlanContent = () => {
           <motion.div variants={itemVariants}>
             <DayCompletedMessage 
               onNextDay={handleNextDay} 
+              onStartNewCycle={() => {}} 
               isLoading={isNextDayLoading}
               hasMoreSubjectsInCycle={nextSubjects.length > 0}
             />
