@@ -81,6 +81,9 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
       ['link'],
       ['clean']
     ],
+    clipboard: {
+      matchVisual: false
+    }
   };
 
   const formats = [

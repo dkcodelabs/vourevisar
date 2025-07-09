@@ -346,6 +346,12 @@ const Topics = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  onClick={() => {
+                                    const newName = prompt('Digite o novo nome do tópico:', topic.name);
+                                    if (newName && newName.trim() && newName.trim() !== topic.name) {
+                                      handleEditTopic(topic.id, newName.trim());
+                                    }
+                                  }}
                                   className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
                                 >
                                   <Edit className="h-4 w-4" />
