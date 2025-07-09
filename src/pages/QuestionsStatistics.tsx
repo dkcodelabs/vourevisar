@@ -212,34 +212,6 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Desempenho por Matéria */}
-        <Card className="bg-white/70 backdrop-blur-lg border-white/20">
-          <CardHeader>
-            <CardTitle>Desempenho por Matéria</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={getSubjectStats()}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="subject" 
-                  angle={-45} 
-                  textAnchor="end" 
-                  height={80}
-                />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value: number, name: string) => [
-                    `${value.toFixed(1)}%`, 
-                    name === 'accuracy' ? 'Taxa de Acerto' : name
-                  ]}
-                />
-                <Bar dataKey="accuracy" fill="#10B981" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
         {/* Desempenho por Banca */}
         <Card className="bg-white/70 backdrop-blur-lg border-white/20">
           <CardHeader>
@@ -300,35 +272,31 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
         </CardContent>
       </Card>
 
-      {/* Lista de Matérias Detalhada */}
+      {/* Desempenho por Matéria (agora no final) */}
       <Card className="bg-white/70 backdrop-blur-lg border-white/20">
         <CardHeader>
-          <CardTitle>Detalhamento por Matéria</CardTitle>
+          <CardTitle>Desempenho por Matéria</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {getSubjectStats().map((subject) => (
-              <div key={subject.subject} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h3 className="font-medium text-gray-800">{subject.subject}</h3>
-                  <p className="text-sm text-gray-600">
-                    {subject.correct}/{subject.total} questões corretas
-                  </p>
-                </div>
-                <Badge 
-                  className={`${
-                    subject.accuracy >= 70 
-                      ? 'bg-green-500' 
-                      : subject.accuracy >= 50 
-                        ? 'bg-yellow-500' 
-                        : 'bg-red-500'
-                  }`}
-                >
-                  {subject.accuracy.toFixed(1)}%
-                </Badge>
-              </div>
-            ))}
-          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={getSubjectStats()}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="subject" 
+                angle={-45} 
+                textAnchor="end" 
+                height={80}
+              />
+              <YAxis />
+              <Tooltip 
+                formatter={(value: number, name: string) => [
+                  `${value.toFixed(1)}%`, 
+                  name === 'accuracy' ? 'Taxa de Acerto' : name
+                ]}
+              />
+              <Bar dataKey="accuracy" fill="#10B981" />
+            </BarChart>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
     </>

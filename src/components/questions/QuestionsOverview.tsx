@@ -161,32 +161,6 @@ const QuestionsOverview: React.FC = () => {
           />
         ))}
       </div>
-
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="p-4">
-          <h4 className="font-medium text-blue-800 mb-2">💡 Destaque Automático: Tópicos Negligenciados</h4>
-          <p className="text-sm text-blue-700 mb-2">
-            Se houver tópicos com <strong>0 ou poucas questões</strong> (ex: &lt;3), aparece um bloco assim:
-          </p>
-          <div className="bg-red-50 border-l-4 border-red-400 p-2 rounded-r">
-            <p className="text-sm text-red-800 font-medium">⚠️ Tópicos com pouca prática:</p>
-            <p className="text-sm text-red-700">- Acentuação (0 questões)</p>
-            <p className="text-sm text-red-700">- Concordância verbal (2 questões)</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-purple-50 border-purple-200">
-        <CardContent className="p-4">
-          <h4 className="font-medium text-purple-800 mb-2">🎨 Estilo visual sugerido (componentes):</h4>
-          <ul className="text-sm text-purple-700 space-y-1">
-            <li>• Use <strong>cards</strong> com leve sombra e bordas arredondadas</li>
-            <li>• Dentro do card da matéria, os tópicos são listados como uma <strong>tabela flexível responsiva</strong></li>
-            <li>• As <strong>barras de progresso</strong> podem ser feitas com divs coloridas com width proporcional à % de acerto</li>
-            <li>• Ícones ou alertas <strong>em vermelho</strong> para chamar atenção nos tópicos não praticados</li>
-          </ul>
-        </CardContent>
-      </Card>
     </div>
   );
 };

@@ -114,11 +114,6 @@ const Questoes = () => {
         <p className="text-gray-600">Registre suas questões resolvidas e acompanhe seu desempenho</p>
       </div>
 
-      {/* Novo Layout: Detalhamento por Matéria e Tópico */}
-      <div className="mb-8">
-        <QuestionsOverview />
-      </div>
-
       {/* Layout responsivo: ajustado para dar mais espaço às estatísticas */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Coluna principal - Formulário de registro (3/5 em telas grandes) */}
@@ -169,6 +164,11 @@ const Questoes = () => {
           selectedPeriod={selectedPeriod}
           onPeriodChange={setSelectedPeriod}
         />
+      </div>
+
+      {/* Novo Layout: Detalhamento por Matéria e Tópico */}
+      <div className="mb-8">
+        <QuestionsOverview />
       </div>
     </motion.div>
   );
