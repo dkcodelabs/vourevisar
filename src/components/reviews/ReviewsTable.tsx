@@ -98,16 +98,16 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
 
   return (
     <TooltipProvider>
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50">
-              <TableHead className="font-semibold text-gray-700">DISCIPLINA</TableHead>
-              <TableHead className="font-semibold text-gray-700">TÓPICO</TableHead>
-              <TableHead className="font-semibold text-gray-700">ESTÁGIO</TableHead>
-              <TableHead className="font-semibold text-gray-700">PRÓXIMA REVISÃO</TableHead>
-              <TableHead className="font-semibold text-gray-700">STATUS</TableHead>
-              <TableHead className="font-semibold text-gray-700">AÇÕES</TableHead>
+            <TableRow className="bg-slate-50 border-b border-slate-200">
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">DISCIPLINA</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">TÓPICO</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">ESTÁGIO</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">PRÓXIMA REVISÃO</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">STATUS</TableHead>
+              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-4">AÇÕES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -132,32 +132,33 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                 }
                 
                 return (
-                  <TableRow key={topic.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium text-gray-900">{topic.subject_name}</TableCell>
-                    <TableCell className="text-gray-700">{topic.name}</TableCell>
-                    <TableCell className="text-gray-600">
+                  <TableRow key={topic.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                    <TableCell className="px-6 py-4 text-sm font-medium text-slate-800">{topic.subject_name}</TableCell>
+                    <TableCell className="px-6 py-4 text-sm text-slate-600">{topic.name}</TableCell>
+                    <TableCell className="px-6 py-4 text-sm text-slate-500">
                       {topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' 
                         ? topic.review_stage 
                         : (topic.review_count > 0 ? '24h' : 'Não iniciado')
                       }
                     </TableCell>
-                    <TableCell className="text-gray-600">
+                    <TableCell className="px-6 py-4 text-sm text-slate-500">
                       {proxima ? format(proxima, 'dd/MM/yyyy') : '-'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-6 py-4">
                       <Badge 
-                        variant={statusVariant}
+                        variant="outline"
                         className={`
-                          ${statusVariant === 'destructive' ? 'bg-red-100 text-red-800 hover:bg-red-100' : ''}
-                          ${statusVariant === 'default' && status === 'Hoje' ? 'bg-orange-100 text-orange-800 hover:bg-orange-100' : ''}
-                          ${statusVariant === 'default' && status === 'Concluído' ? 'bg-green-100 text-green-800 hover:bg-green-100' : ''}
-                          ${statusVariant === 'secondary' ? 'bg-blue-100 text-blue-800 hover:bg-blue-100' : ''}
+                          text-xs font-semibold border-0 rounded-md px-3 py-1
+                          ${statusVariant === 'destructive' ? 'bg-red-100 text-red-700' : ''}
+                          ${statusVariant === 'default' && status === 'Hoje' ? 'bg-orange-100 text-orange-700' : ''}
+                          ${statusVariant === 'default' && status === 'Concluído' ? 'bg-green-100 text-green-700' : ''}
+                          ${statusVariant === 'secondary' ? 'bg-blue-100 text-blue-700' : ''}
                         `}
                       >
                         {status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -165,10 +166,10 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                               variant="ghost"
                               size="sm"
                               onClick={() => handleNotesClick(topic)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 hover:bg-slate-100"
                             >
                               <FileText 
-                                className={`h-4 w-4 ${hasNotes(topic) ? 'text-blue-600' : 'text-gray-400'}`} 
+                                className={`h-4 w-4 ${hasNotes(topic) ? 'text-blue-600' : 'text-slate-400'}`} 
                               />
                             </Button>
                           </TooltipTrigger>
@@ -193,7 +194,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                                   disabled={isLogicLoading}
                                   className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
                                 >
-                                  <CheckCircle2 className="h-4 w-4" />
+                                  <CheckCircle2 className="w-5 h-5" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -242,7 +243,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-12">
+                <TableCell colSpan={6} className="text-center text-slate-500 py-12 px-6">
                   Nenhuma revisão encontrada para este filtro.
                 </TableCell>
               </TableRow>
