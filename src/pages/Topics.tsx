@@ -1,16 +1,16 @@
+
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, ListChecks, AlertTriangle, Clock } from 'lucide-react';
+import { Plus, Search, Edit, FileText, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Topic } from '@/types';
 import { toast } from "react-hot-toast";
 import { format, isToday, isPast, startOfDay } from 'date-fns';
-import CompactTopicsSummaryCards from '@/components/topics/CompactTopicsSummaryCards';
-import CompactTopicsFilters from '@/components/topics/CompactTopicsFilters';
-import AddTopicForm from '@/components/topics/AddTopicForm';
-import TopicListItem from '@/components/topics/TopicListItem';
+import { ptBR } from 'date-fns/locale';
 import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
 import NotesModal from '@/components/reviews/NotesModal';
 
@@ -56,7 +56,7 @@ const Topics = () => {
       const today = startOfDay(new Date());
       
       filtered = filtered.filter(topic => {
-        if (topic.completed) return statusFilter === 'upcoming'; // Concluídos vão para "próximos"
+        if (topic.completed) return statusFilter === 'upcoming';
         if (!topic.nextReview) return statusFilter === 'upcoming';
         
         const reviewDate = startOfDay(new Date(topic.nextReview));
@@ -82,7 +82,6 @@ const Topics = () => {
           return a.name.localeCompare(b.name);
         case 'date':
         default:
-          // Se não tem data de revisão, coloca no final
           if (!a.nextReview && !b.nextReview) return 0;
           if (!a.nextReview) return 1;
           if (!b.nextReview) return -1;
@@ -94,7 +93,6 @@ const Topics = () => {
     return filtered;
   }, [allTopics, searchTerm, statusFilter, sortBy]);
 
-  // Calcular estatísticas atualizadas
   const stats = useMemo(() => {
     const today = startOfDay(new Date());
     
@@ -124,6 +122,37 @@ const Topics = () => {
       upcoming
     };
   }, [allTopics]);
+
+  const getTopicStatus = (topic: any) => {
+    if (topic.completed) return { status: 'Concluído', color: 'green', border: 'border-l-green-400' };
+    if (!topic.nextReview) return { status: 'Não agendado', color: 'gray', border: 'border-l-gray-400' };
+
+    const today = startOfDay(new Date());
+    const reviewDate = startOfDay(new Date(topic.nextReview));
+
+    if (reviewDate < today) {
+      const daysLate = Math.floor((today.getTime() - reviewDate.getTime()) / (1000 * 60 * 60 * 24));
+      return { 
+        status: `Atrasado (${String(daysLate).padStart(2, '0')}/${String(reviewDate.getDate()).padStart(2, '0')})`, 
+        color: 'red', 
+        border: 'border-l-red-400' 
+      };
+    } else if (reviewDate.getTime() === today.getTime()) {
+      return { status: 'Hoje', color: 'blue', border: 'border-l-blue-400' };
+    } else {
+      return { 
+        status: `Futuro (${String(reviewDate.getDate()).padStart(2, '0')}/${String(reviewDate.getMonth() + 1).padStart(2, '0')})`, 
+        color: 'green', 
+        border: 'border-l-green-400' 
+      };
+    }
+  };
+
+  const getStageDisplay = (topic: any) => {
+    if (topic.completed) return 'Concluído';
+    if (!topic.reviewStage && topic.reviewCount === 0) return 'Novo';
+    return topic.reviewStage || `${topic.reviewCount}º revisão`;
+  };
 
   const handleEditTopic = async (topicId: string, newName: string) => {
     const topic = allTopics.find(t => t.id === topicId);
@@ -157,15 +186,6 @@ const Topics = () => {
     });
   };
 
-  const handleCloseNotes = () => {
-    setNotesModal({
-      isOpen: false,
-      topicId: '',
-      topicName: '',
-      subjectName: ''
-    });
-  };
-
   const confirmDelete = async () => {
     if (!deleteModal.topic) return;
 
@@ -184,115 +204,173 @@ const Topics = () => {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">
-          <p>Carregando tópicos...</p>
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-full mx-auto px-8 py-8">
+          <div className="text-center">
+            <p className="text-slate-600">Carregando tópicos...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <motion.div 
-      className="container mx-auto p-6 min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 mb-1">Tópicos</h1>
-        <p className="text-gray-600 text-sm">Gerencie todos os seus tópicos de estudo</p>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-full mx-auto">
+        {/* Header */}
+        <div className="px-8 py-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Tópicos</h1>
+            <p className="text-slate-500">Gerencie todos os seus tópicos de estudo</p>
+          </div>
 
-      {/* Cards de estatísticas bonitos e alinhados */}
-      <div className="flex flex-wrap gap-4 mb-4">
-        {/* Card Total */}
-        <Card className="flex-1 min-w-[120px] max-w-[180px] shadow-md">
-          <CardContent className="flex flex-col items-center justify-center py-4">
-            <ListChecks className="h-6 w-6 text-blue-600 mb-1" />
-            <div className="text-2xl font-bold text-blue-900">{stats.total}</div>
-            <div className="text-xs text-gray-500 mt-1">Total</div>
-          </CardContent>
-        </Card>
-        {/* Card Hoje */}
-        <Card className="flex-1 min-w-[120px] max-w-[180px] shadow-md">
-          <CardContent className="flex flex-col items-center justify-center py-4">
-            <Calendar className="h-6 w-6 text-indigo-500 mb-1" />
-            <div className="text-2xl font-bold text-indigo-900">{stats.today}</div>
-            <div className="text-xs text-gray-500 mt-1">Hoje</div>
-          </CardContent>
-        </Card>
-        {/* Card Atrasados */}
-        <Card className="flex-1 min-w-[120px] max-w-[180px] shadow-md">
-          <CardContent className="flex flex-col items-center justify-center py-4">
-            <AlertTriangle className="h-6 w-6 text-red-500 mb-1" />
-            <div className="text-2xl font-bold text-red-700">{stats.delayed}</div>
-            <div className="text-xs text-gray-500 mt-1">Atrasados</div>
-          </CardContent>
-        </Card>
-        {/* Card Próximos */}
-        <Card className="flex-1 min-w-[120px] max-w-[180px] shadow-md">
-          <CardContent className="flex flex-col items-center justify-center py-4">
-            <Clock className="h-6 w-6 text-green-500 mb-1" />
-            <div className="text-2xl font-bold text-green-700">{stats.upcoming}</div>
-            <div className="text-xs text-gray-500 mt-1">Próximos</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Campos de pesquisa/filtro */}
-      <CompactTopicsFilters
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
-      />
-
-      {filteredAndSortedTopics.length === 0 ? (
-        <Card className="bg-white/80 backdrop-blur-md border-white/20 shadow-lg">
-          <CardContent className="text-center py-8">
-            <p className="text-gray-500 mb-4">
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Nenhum tópico encontrado para os filtros aplicados.' 
-                : 'Nenhum tópico cadastrado ainda.'
-              }
-            </p>
-            {!searchTerm && statusFilter === 'all' && (
-              <Button onClick={() => window.location.href = '/materias'} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Primeira Matéria
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          <AnimatePresence>
-            {filteredAndSortedTopics.map(topic => (
-              <TopicListItem
-                key={topic.id}
-                topic={{
-                  id: topic.id,
-                  name: topic.name,
-                  subjectName: topic.subjectName,
-                  subjectColor: topic.subjectColor,
-                  nextReview: topic.nextReview ? topic.nextReview.toISOString() : null,
-                  reviewCount: topic.reviewCount,
-                  completed: topic.completed,
-                  reviewStage: topic.reviewStage,
-                  notes: topic.notes,
-                  isMarkedForReview: topic.isMarkedForReview
-                }}
-                onEdit={handleEditTopic}
-                onDelete={handleDeleteTopic}
-                onOpenNotes={handleOpenNotes}
+          {/* Filters */}
+          <div className="mb-6 flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
+              <Input
+                placeholder="Pesquisar ou selecionar tópico..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-11 pr-4 py-2 bg-slate-800 text-white placeholder-slate-400 border-slate-700 focus:border-slate-600 focus:ring-slate-600 rounded-lg"
               />
-            ))}
-          </AnimatePresence>
+            </div>
+
+            {/* Status Filter */}
+            <div className="w-full lg:w-48">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                  <SelectValue placeholder="Todos (10)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos ({stats.total})</SelectItem>
+                  <SelectItem value="delayed">Atrasados ({stats.delayed})</SelectItem>
+                  <SelectItem value="today">Hoje ({stats.today})</SelectItem>
+                  <SelectItem value="upcoming">Próximos ({stats.upcoming})</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sort */}
+            <div className="w-full lg:w-48">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                  <SelectValue placeholder="Data de Revisão" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Data de Revisão</SelectItem>
+                  <SelectItem value="subject">Matéria</SelectItem>
+                  <SelectItem value="name">Nome do Tópico</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Topics List */}
+        <div className="px-8 pb-8">
+          {filteredAndSortedTopics.length === 0 ? (
+            <Card className="bg-white shadow-sm border border-slate-200">
+              <CardContent className="text-center py-12">
+                <p className="text-slate-500 mb-4">
+                  {searchTerm || statusFilter !== 'all' 
+                    ? 'Nenhum tópico encontrado para os filtros aplicados.' 
+                    : 'Nenhum tópico cadastrado ainda.'
+                  }
+                </p>
+                {!searchTerm && statusFilter === 'all' && (
+                  <Button onClick={() => window.location.href = '/materias'} className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Primeira Matéria
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
+              <AnimatePresence>
+                {filteredAndSortedTopics.map((topic) => {
+                  const topicStatus = getTopicStatus(topic);
+                  const stageDisplay = getStageDisplay(topic);
+                  
+                  return (
+                    <motion.div
+                      key={topic.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className={`${topicStatus.border} border-l-4 border-b border-slate-200 last:border-b-0 hover:bg-slate-50 transition-colors`}
+                    >
+                      <div className="px-6 py-3 flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base font-semibold text-slate-800 truncate">
+                                {topic.name}
+                              </h3>
+                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                                {topic.subjectName}
+                              </p>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {/* Stage Badge */}
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                                ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
+                                  topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
+                                  topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
+                                  'bg-gray-100 text-gray-700'}`}>
+                                {stageDisplay}
+                              </span>
+                              
+                              {/* Status Badge */}
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                                ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
+                                  topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
+                                  topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
+                                  'bg-gray-100 text-gray-700'}`}>
+                                {topicStatus.status}
+                              </span>
+                              
+                              {/* Action Icons */}
+                              <div className="flex items-center gap-1 ml-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
+                                  className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteTopic(topic.id)}
+                                  className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+      </div>
 
       <ConfirmDeleteModal
         isOpen={deleteModal.isOpen}
@@ -304,12 +382,12 @@ const Topics = () => {
 
       <NotesModal
         isOpen={notesModal.isOpen}
-        onClose={handleCloseNotes}
+        onClose={() => setNotesModal({ isOpen: false, topicId: '', topicName: '', subjectName: '' })}
         topicId={notesModal.topicId}
         topicName={notesModal.topicName}
         subjectName={notesModal.subjectName}
       />
-    </motion.div>
+    </div>
   );
 };
 
