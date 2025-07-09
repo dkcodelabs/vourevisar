@@ -3,16 +3,18 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Edit, FileText, Trash2 } from 'lucide-react';
+import { Plus, Search, FileText, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Topic } from '@/types';
 import { toast } from "react-hot-toast";
 import { format, isToday, isPast, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
 import NotesModal from '@/components/reviews/NotesModal';
+import { EditableTopicName } from '@/components/EditableTopicName';
 
 const Topics = () => {
   const { subjects, deleteTopic, updateTopic, isLoading } = useApp();
@@ -215,8 +217,9 @@ const Topics = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-full mx-auto">
+    <TooltipProvider>
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-full mx-auto">
         {/* Header */}
         <div className="px-8 py-8">
           <div className="mb-8">
@@ -230,7 +233,7 @@ const Topics = () => {
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
               <Input
-                placeholder="Pesquisar ou selecionar tópico..."
+                placeholder="Pesquisar ou selecionar tópico ou disciplina"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-11 pr-4 py-2 bg-slate-800 text-white placeholder-slate-400 border-slate-700 focus:border-slate-600 focus:ring-slate-600 rounded-lg"
@@ -305,14 +308,16 @@ const Topics = () => {
                       <div className="px-6 py-3 flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-base font-semibold text-slate-800 truncate">
-                                {topic.name}
-                              </h3>
-                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                                {topic.subjectName}
-                              </p>
-                            </div>
+                             <div className="flex-1 min-w-0">
+                               <EditableTopicName
+                                 topicId={topic.id}
+                                 initialName={topic.name}
+                                 onUpdate={() => {}}
+                               />
+                               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                                 {topic.subjectName}
+                               </p>
+                             </div>
                             
                             <div className="flex items-center gap-2 flex-shrink-0">
                               {/* Stage Badge */}
@@ -333,38 +338,40 @@ const Topics = () => {
                                 {topicStatus.status}
                               </span>
                               
-                              {/* Action Icons */}
-                              <div className="flex items-center gap-1 ml-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
-                                  className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    const newName = prompt('Digite o novo nome do tópico:', topic.name);
-                                    if (newName && newName.trim() && newName.trim() !== topic.name) {
-                                      handleEditTopic(topic.id, newName.trim());
-                                    }
-                                  }}
-                                  className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteTopic(topic.id)}
-                                  className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                               {/* Action Icons */}
+                               <div className="flex items-center gap-1 ml-2">
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <Button
+                                       variant="ghost"
+                                       size="sm"
+                                       onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
+                                       className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                     >
+                                       <FileText className="h-4 w-4" />
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Anotações</p>
+                                   </TooltipContent>
+                                 </Tooltip>
+                                 
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <Button
+                                       variant="ghost"
+                                       size="sm"
+                                       onClick={() => handleDeleteTopic(topic.id)}
+                                       className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                     >
+                                       <Trash2 className="h-4 w-4" />
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Excluir tópico</p>
+                                   </TooltipContent>
+                                 </Tooltip>
+                               </div>
                             </div>
                           </div>
                         </div>
@@ -393,7 +400,8 @@ const Topics = () => {
         topicName={notesModal.topicName}
         subjectName={notesModal.subjectName}
       />
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 
