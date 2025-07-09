@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, FileText, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, FileText, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -353,6 +353,27 @@ const Topics = () => {
                                    </TooltipTrigger>
                                    <TooltipContent>
                                      <p>Anotações</p>
+                                   </TooltipContent>
+                                 </Tooltip>
+                                 
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <Button
+                                       variant="ghost"
+                                       size="sm"
+                                       onClick={() => {
+                                         const newName = prompt('Digite o novo nome do tópico:', topic.name);
+                                         if (newName && newName.trim() && newName.trim() !== topic.name) {
+                                           handleEditTopic(topic.id, newName.trim());
+                                         }
+                                       }}
+                                       className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                     >
+                                       <Edit className="h-4 w-4" />
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Alterar nome</p>
                                    </TooltipContent>
                                  </Tooltip>
                                  
