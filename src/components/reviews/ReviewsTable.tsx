@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
@@ -97,26 +98,16 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
 
   return (
     <TooltipProvider>
-      <div className="rounded-lg overflow-hidden border border-white/20 bg-white/60 backdrop-blur-md">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Disciplina</TableHead>
-              <TableHead>Tópico</TableHead>
-              <TableHead>{tab === 'concluido' ? 'Status' : 'Estágio'}</TableHead>
-              {tab === 'concluido' ? (
-                <>
-                  <TableHead>Data de Início</TableHead>
-                  <TableHead>Data de Conclusão</TableHead>
-                  <TableHead>Ações</TableHead>
-                </>
-              ) : (
-                <>
-                  <TableHead>Próxima Revisão</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
-                </>
-              )}
+            <TableRow className="bg-gray-50">
+              <TableHead className="font-semibold text-gray-700">DISCIPLINA</TableHead>
+              <TableHead className="font-semibold text-gray-700">TÓPICO</TableHead>
+              <TableHead className="font-semibold text-gray-700">ESTÁGIO</TableHead>
+              <TableHead className="font-semibold text-gray-700">PRÓXIMA REVISÃO</TableHead>
+              <TableHead className="font-semibold text-gray-700">STATUS</TableHead>
+              <TableHead className="font-semibold text-gray-700">AÇÕES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -124,170 +115,134 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               sortedTopics.map((topic) => {
                 const proxima = topic.next_review ? startOfDay(new Date(topic.next_review)) : null;
                 let status = 'Futura';
-                let statusClass = 'text-blue-600';
+                let statusVariant: 'default' | 'destructive' | 'secondary' | 'outline' = 'secondary';
                 
                 if (topic.completed) {
                   status = 'Concluído';
-                  statusClass = 'text-green-600 font-bold';
+                  statusVariant = 'default';
                 } else if (proxima) {
                   if (isBefore(proxima, hoje)) {
                     const diasVencidos = differenceInDays(hoje, proxima);
                     status = `Atrasado (${diasVencidos} dias)`;
-                    statusClass = 'text-red-600 font-bold';
+                    statusVariant = 'destructive';
                   } else if (proxima.getTime() === hoje.getTime()) {
                     status = 'Hoje';
-                    statusClass = 'text-orange-600 font-bold';
+                    statusVariant = 'default';
                   }
                 }
                 
                 return (
-                  <TableRow key={topic.id} className="text-xs">
-                    <TableCell>{topic.subject_name}</TableCell>
-                    <TableCell>{topic.name}</TableCell>
-                    <TableCell>
+                  <TableRow key={topic.id} className="hover:bg-gray-50">
+                    <TableCell className="font-medium text-gray-900">{topic.subject_name}</TableCell>
+                    <TableCell className="text-gray-700">{topic.name}</TableCell>
+                    <TableCell className="text-gray-600">
                       {topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' 
                         ? topic.review_stage 
                         : (topic.review_count > 0 ? '24h' : 'Não iniciado')
                       }
                     </TableCell>
-                    {tab === 'concluido' ? (
-                      <>
-                        <TableCell>
-                          {topic.first_studied_at ? format(new Date(topic.first_studied_at), 'dd/MM/yyyy') : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {topic.last_reviewed_at ? format(new Date(topic.last_reviewed_at), 'dd/MM/yyyy') : '-'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                    <TableCell className="text-gray-600">
+                      {proxima ? format(proxima, 'dd/MM/yyyy') : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={statusVariant}
+                        className={`
+                          ${statusVariant === 'destructive' ? 'bg-red-100 text-red-800 hover:bg-red-100' : ''}
+                          ${statusVariant === 'default' && status === 'Hoje' ? 'bg-orange-100 text-orange-800 hover:bg-orange-100' : ''}
+                          ${statusVariant === 'default' && status === 'Concluído' ? 'bg-green-100 text-green-800 hover:bg-green-100' : ''}
+                          ${statusVariant === 'secondary' ? 'bg-blue-100 text-blue-800 hover:bg-blue-100' : ''}
+                        `}
+                      >
+                        {status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleNotesClick(topic)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <FileText 
+                                className={`h-4 w-4 ${hasNotes(topic) ? 'text-blue-600' : 'text-gray-400'}`} 
+                              />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{hasNotes(topic) ? 'Ver anotações' : 'Adicionar anotações'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        <RegisterQuestionsButton
+                          subject={topic.subject_name}
+                          topic={topic.name}
+                        />
+
+                        {!topic.completed && (
+                          <>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleNotesClick(topic)}
-                                  className="h-8 w-8 p-0"
+                                  onClick={() => setConfirmTopicId(topic.id)}
+                                  disabled={isLogicLoading}
+                                  className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
                                 >
-                                  <FileText 
-                                    className={`h-4 w-4 ${hasNotes(topic) ? 'text-blue-600 fill-current' : 'text-gray-400'}`} 
-                                  />
+                                  <CheckCircle2 className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>{hasNotes(topic) ? 'Ver anotações' : 'Adicionar anotações'}</p>
+                                <p>Marcar como revisado</p>
                               </TooltipContent>
                             </Tooltip>
-
-                            <RegisterQuestionsButton
-                              subject={topic.subject_name}
-                              topic={topic.name}
-                            />
-                          </div>
-                        </TableCell>
-                      </>
-                    ) : (
-                      <>
-                        <TableCell>{proxima ? format(proxima, 'dd/MM/yyyy') : '-'}</TableCell>
-                        <TableCell className={statusClass}>{status}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleNotesClick(topic)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <FileText 
-                                    className={`h-4 w-4 ${hasNotes(topic) ? 'text-blue-600 fill-current' : 'text-gray-400'}`} 
-                                  />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{hasNotes(topic) ? 'Ver anotações' : 'Adicionar anotações'}</p>
-                              </TooltipContent>
-                            </Tooltip>
-
-                            <RegisterQuestionsButton
-                              subject={topic.subject_name}
-                              topic={topic.name}
-                            />
-
-                            {topic.completed ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="sm" disabled className="h-8 w-8 p-0 text-gray-400 cursor-not-allowed">
-                                    <CheckCircle2 className="h-4 w-4" />
+                            <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Confirmar Revisão</DialogTitle>
+                                  <DialogDescription>
+                                    Tem certeza que deseja marcar este tópico como revisado?
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <DialogFooter>
+                                  <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
+                                  <Button
+                                    variant="default"
+                                    onClick={async () => {
+                                      try {
+                                        await markTopicAsReviewed(topic.id);
+                                        setConfirmTopicId(null);
+                                        setTimeout(async () => {
+                                          await Promise.all([
+                                            refreshData(),
+                                            refetch()
+                                          ]);
+                                        }, 500);
+                                      } catch (error) {
+                                        console.error('Erro ao marcar revisão:', error);
+                                        toast.error('Erro ao marcar revisão');
+                                      }
+                                    }}
+                                  >
+                                    Confirmar
                                   </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Tópico concluído</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            ) : (
-                              <>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setConfirmTopicId(topic.id)}
-                                      disabled={isLogicLoading}
-                                      className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
-                                    >
-                                      <CheckCircle2 className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Marcar como revisado</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                                <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Confirmar Revisão</DialogTitle>
-                                      <DialogDescription>
-                                        Tem certeza que deseja marcar este tópico como revisado?
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <DialogFooter>
-                                      <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
-                                      <Button
-                                        variant="default"
-                                        onClick={async () => {
-                                          try {
-                                            await markTopicAsReviewed(topic.id);
-                                            setConfirmTopicId(null);
-                                            setTimeout(async () => {
-                                              await Promise.all([
-                                                refreshData(),
-                                                refetch()
-                                              ]);
-                                            }, 500);
-                                          } catch (error) {
-                                            console.error('Erro ao marcar revisão:', error);
-                                            toast.error('Erro ao marcar revisão');
-                                          }
-                                        }}
-                                      >
-                                        Confirmar
-                                      </Button>
-                                    </DialogFooter>
-                                  </DialogContent>
-                                </Dialog>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </>
-                    )}
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={tab === 'concluido' ? 6 : 6} className="text-center text-gray-400 py-8">
+                <TableCell colSpan={6} className="text-center text-gray-500 py-12">
                   Nenhuma revisão encontrada para este filtro.
                 </TableCell>
               </TableRow>

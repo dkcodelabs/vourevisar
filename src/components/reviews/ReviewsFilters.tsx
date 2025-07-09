@@ -26,15 +26,15 @@ export const ReviewsFilters: React.FC<ReviewsFiltersProps> = ({
   resetFilters
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 mb-4">
-      <div className="relative flex-1">
+    <div className="flex items-center gap-4">
+      <div className="relative w-80">
         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
           <Search className="h-4 w-4 text-gray-400" />
         </div>
         <Input
           type="text"
           placeholder="Pesquisar tópicos ou disciplinas..."
-          className="pl-9 text-sm"
+          className="pl-9 text-sm h-9"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -43,7 +43,7 @@ export const ReviewsFilters: React.FC<ReviewsFiltersProps> = ({
       <div className="flex gap-2">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="text-sm">
+            <Button variant="outline" className="text-sm h-9">
               <Calendar className="h-4 w-4 mr-2" />
               {selectedDate ? format(selectedDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Filtrar por data'}
             </Button>
@@ -63,7 +63,7 @@ export const ReviewsFilters: React.FC<ReviewsFiltersProps> = ({
         </Popover>
         
         {(selectedDate || searchTerm) && (
-          <Button variant="outline" onClick={resetFilters} className="text-sm">
+          <Button variant="outline" onClick={resetFilters} className="text-sm h-9">
             Limpar Filtros
           </Button>
         )}
