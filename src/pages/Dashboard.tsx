@@ -2,24 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Plus, BarChart3, Check, X, HelpCircle, Eye } from 'lucide-react';
+import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Plus, BarChart3, Check, X, HelpCircle, Eye, Timer, Brain, Users, Activity } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfDay, isBefore, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { useSwipeable } from 'react-swipeable';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { CalendarView } from '@/components/calendar/CalendarView';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Loader2 } from "lucide-react";
-import { motion } from 'framer-motion';
+import { CircularProgress } from '@/components/dashboard/CircularProgress';
+import { StatCard } from '@/components/dashboard/StatCard';
+import { PomodoroCard } from '@/components/dashboard/PomodoroCard';
 
 const Dashboard = () => {
   const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();
@@ -187,253 +183,199 @@ const Dashboard = () => {
 
   const displayedReviews = getDisplayedReviews();
 
+  // Calculate progress data
+  const totalTopics = subjects.reduce((total, subject) => total + subject.topics.length, 0);
+  const completedTopics = subjects.reduce((total, subject) => total + subject.topics.filter(t => t.completed).length, 0);
+  const totalSubjects = subjects.length;
+  const completedSubjects = subjects.filter(s => s.status === 'Concluída').length;
+  
+  const overallProgress = totalTopics > 0 ? (completedTopics / totalTopics) * 100 : 0;
+  const subjectProgress = totalSubjects > 0 ? (completedSubjects / totalSubjects) * 100 : 0;
+
   return (
-    <div className="space-y-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header Simplificado */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground mb-1">
-              {greeting}! Aqui está seu progresso.
-            </h1>
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {greeting}! Aqui está seu progresso.
+          </h1>
+          <p className="text-gray-600">
+            Acompanhe seu desempenho e organize seus estudos
+          </p>
         </div>
 
         {/* Se não há matérias, mostrar estado vazio */}
         {subjects.length === 0 ? (
-          <Card className="bg-white">
-            <CardHeader className="text-center">
-              <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <CardTitle>Bem-vindo ao Sistema de Estudos!</CardTitle>
-              <CardDescription>
-                Comece adicionando suas primeiras matérias para organizar seus estudos.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center">
-              <Button onClick={() => navigate('/materias')} className="bg-blue-500 hover:bg-blue-600 text-white">
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Primeira Matéria
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 text-center">
+            <BookOpen className="h-16 w-16 mx-auto text-gray-400 mb-6" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Bem-vindo ao Sistema de Estudos!</h2>
+            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+              Comece adicionando suas primeiras matérias para organizar seus estudos e acompanhar seu progresso.
+            </p>
+            <Button 
+              onClick={() => navigate('/materias')} 
+              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Adicionar Primeira Matéria
+            </Button>
+          </div>
         ) : (
-          <>
-            {/* Cards de Estatísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card Matérias */}
-              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <BookOpen className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-foreground mb-3">Matérias</h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Concluídas</span>
-                          <span className="text-sm font-semibold text-foreground">
-                            {subjects.filter(s => s.status === 'Concluída').length} de {subjects.length}
-                          </span>
-                        </div>
-                        <Progress 
-                          value={subjects.length > 0 ? (subjects.filter(s => s.status === 'Concluída').length / subjects.length) * 100 : 0} 
-                          className="h-2"
-                        />
-                        <div className="flex justify-between items-center text-xs text-muted-foreground">
-                          <span>Não iniciadas: {subjects.filter(s => s.status === 'Nova').length}</span>
-                          <span>{subjects.length > 0 ? Math.round((subjects.filter(s => s.status === 'Concluída').length / subjects.length) * 100) : 0}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            {/* Left Section - Progress Overview */}
+            <div className="xl:col-span-3">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 h-fit">
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Progresso Geral</h3>
+                  <p className="text-sm text-gray-600">Quanto falta para revisar todo o conteúdo</p>
+                </div>
+                
+                <div className="flex justify-center mb-6">
+                  <CircularProgress 
+                    percentage={overallProgress}
+                    size={140}
+                    strokeWidth={10}
+                    color="#5B79E7"
+                  />
+                </div>
 
-              {/* Card Tópicos */}
-              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                      <Target className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-foreground mb-3">Tópicos</h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Concluídos</span>
-                          <span className="text-sm font-semibold text-foreground">
-                            {subjects.reduce((total, subject) => total + subject.topics.filter(t => t.completed).length, 0)} de {subjects.reduce((total, subject) => total + subject.topics.length, 0)}
-                          </span>
-                        </div>
-                        <Progress 
-                          value={subjects.reduce((total, subject) => total + subject.topics.length, 0) > 0 ? 
-                            (subjects.reduce((total, subject) => total + subject.topics.filter(t => t.completed).length, 0) / 
-                             subjects.reduce((total, subject) => total + subject.topics.length, 0)) * 100 : 0} 
-                          className="h-2"
-                        />
-                        <div className="flex justify-between items-center text-xs text-muted-foreground">
-                          <span>Não iniciados: {subjects.reduce((total, subject) => total + subject.topics.filter(t => !t.completed).length, 0)}</span>
-                          <span>{subjects.reduce((total, subject) => total + subject.topics.length, 0) > 0 ? 
-                            Math.round((subjects.reduce((total, subject) => total + subject.topics.filter(t => t.completed).length, 0) / 
-                                       subjects.reduce((total, subject) => total + subject.topics.length, 0)) * 100) : 0}%</span>
-                        </div>
-                      </div>
-                    </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Tópicos concluídos</span>
+                    <span className="font-semibold text-gray-900">{completedTopics}/{totalTopics}</span>
                   </div>
-                </CardContent>
-              </Card>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Matérias concluídas</span>
+                    <span className="font-semibold text-gray-900">{completedSubjects}/{totalSubjects}</span>
+                  </div>
 
-              {/* Card Revisões */}
-              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                      <CheckCircle2 className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-foreground mb-3">Revisões</h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                            <span className="text-sm text-muted-foreground">Hoje</span>
-                          </div>
-                          <span className="text-sm font-semibold text-foreground">
-                            {reviewData ? reviewData.filter(topic => {
-                              if (!topic.next_review) return false;
-                              const reviewDate = startOfDay(new Date(topic.next_review));
-                              const today = startOfDay(new Date());
-                              return reviewDate.getTime() === today.getTime();
-                            }).length : 0}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                            <span className="text-sm text-muted-foreground">Atrasadas</span>
-                          </div>
-                          <span className="text-sm font-semibold text-foreground">
-                            {reviewData ? reviewData.filter(topic => {
-                              if (!topic.next_review) return false;
-                              const reviewDate = startOfDay(new Date(topic.next_review));
-                              const today = startOfDay(new Date());
-                              return reviewDate.getTime() < today.getTime();
-                            }).length : 0}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                            <span className="text-sm text-muted-foreground">Futuras</span>
-                          </div>
-                          <span className="text-sm font-semibold text-foreground">
-                            {reviewData ? reviewData.filter(topic => {
-                              if (!topic.next_review) return false;
-                              const reviewDate = startOfDay(new Date(topic.next_review));
-                              const today = startOfDay(new Date());
-                              return reviewDate.getTime() > today.getTime();
-                            }).length : 0}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${subjectProgress}%` }}
+                    />
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                <Button 
+                  onClick={() => navigate('/plano-estudos')}
+                  className="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold"
+                >
+                  Ver Plano de Estudos
+                </Button>
+              </div>
             </div>
 
-            {/* Cards Calendário e Revisão - Invertidos para mobile-first */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Card Calendário de Revisões - Primeiro no mobile */}
-              <CalendarView
-                reviewData={reviewData || []}
-                isLoading={reviewLoading}
-                onDateSelect={handleCalendarDateSelect}
-                selectedDate={selectedCalendarDate || undefined}
-                currentMonth={calendarMonth}
-                onMonthChange={setCalendarMonth}
-                className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 rounded-lg bg-card lg:order-2"
-              />
+            {/* Center Section - Stats Cards */}
+            <div className="xl:col-span-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <StatCard
+                  title="Tempo Total"
+                  value="127h 32m"
+                  subtitle="Esta semana"
+                  icon={Timer}
+                  iconBgColor="#E6F3FF"
+                  iconColor="#5B79E7"
+                  trend={{
+                    value: 12,
+                    label: "vs semana passada",
+                    isPositive: true
+                  }}
+                />
 
-              {/* Card Revisão (dinâmico baseado na data selecionada) - Segundo no mobile */}
-              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 relative lg:order-1">
-                {/* Ícone de "Ver revisões de hoje" no canto superior direito */}
-                {selectedCalendarDate && (
-                  <button
-                    onClick={handleGoToToday}
-                    title="Ver revisões de hoje"
-                    className="absolute top-4 right-4 bg-blue-50 hover:bg-blue-100 rounded-full p-2 shadow transition-colors"
-                    style={{ lineHeight: 0 }}
-                  >
-                    <Eye className="h-5 w-5 text-blue-600" />
-                  </button>
-                )}
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                      <Clock className="h-4 w-4 text-orange-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-bold text-foreground">
-                        {getReviewSectionTitle()}
-                      </CardTitle>
-                      <CardDescription className="text-sm text-muted-foreground">
-                        {selectedCalendarDate ? 'Data selecionada' : 'Tópicos agendados'}
-                      </CardDescription>
-                    </div>
+                <StatCard
+                  title="Matérias Concluídas"
+                  value={completedSubjects}
+                  subtitle={`de ${totalSubjects} matérias`}
+                  icon={BookOpen}
+                  iconBgColor="#E8F5E8"
+                  iconColor="#10B981"
+                />
+
+                <StatCard
+                  title="Tópicos Pendentes"
+                  value={totalTopics - completedTopics}
+                  subtitle="Para revisar"
+                  icon={AlertCircle}
+                  iconBgColor="#FFF4E6"
+                  iconColor="#F59E0B"
+                />
+
+                <PomodoroCard />
+              </div>
+            </div>
+
+            {/* Right Section - Calendar & Reviews */}
+            <div className="xl:col-span-3">
+              <div className="space-y-6">
+                {/* Calendar */}
+                <CalendarView
+                  reviewData={reviewData || []}
+                  isLoading={reviewLoading}
+                  onDateSelect={handleCalendarDateSelect}
+                  selectedDate={selectedCalendarDate || undefined}
+                  currentMonth={calendarMonth}
+                  onMonthChange={setCalendarMonth}
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100"
+                />
+
+                {/* Review Topics */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {getReviewSectionTitle()}
+                    </h3>
+                    {selectedCalendarDate && (
+                      <button
+                        onClick={handleGoToToday}
+                        title="Ver revisões de hoje"
+                        className="text-blue-500 hover:text-blue-600"
+                      >
+                        <Eye className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {reviewLoading ? (
-                    <div className="flex justify-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600" />
-                    </div>
-                  ) : displayedReviews.length > 0 ? (
-                    <div className="space-y-4">
-                      {/* Agrupar revisões por matéria */}
+
+                  {displayedReviews.length > 0 ? (
+                    <div className="space-y-3 max-h-80 overflow-y-auto">
                       {(() => {
-                        const groupedReviews = displayedReviews.reduce((groups, topic) => {
+                        const reviewsBySubject = displayedReviews.reduce((acc, topic) => {
                           const subjectName = topic.subject_name;
-                          if (!groups[subjectName]) {
-                            groups[subjectName] = [];
+                          if (!acc[subjectName]) {
+                            acc[subjectName] = [];
                           }
-                          groups[subjectName].push(topic);
-                          return groups;
+                          acc[subjectName].push(topic);
+                          return acc;
                         }, {} as Record<string, typeof displayedReviews>);
 
-                        return Object.entries(groupedReviews).map(([subjectName, topics]) => (
-                          <div key={subjectName} className="space-y-2">
-                            {/* Subtítulo da disciplina */}
-                            <h4 className="text-sm font-bold text-foreground border-b border-border pb-1">
-                              {subjectName}
-                            </h4>
-                            {/* Lista de tópicos */}
+                        return Object.entries(reviewsBySubject).map(([subjectName, topics]) => (
+                          <div key={subjectName} className="border-l-4 border-blue-500 pl-4">
+                            <h4 className="font-semibold text-gray-900 text-sm mb-2">{subjectName}</h4>
                             <div className="space-y-2">
-                              {topics.map((topic, idx) => {
-                                // Determina o status da revisão
-                                const reviewDate = startOfDay(new Date(topic.next_review));
-                                const today = startOfDay(new Date());
-                                let status: 'pendente' | 'hoje' | 'futura' = 'futura';
-                                if (reviewDate.getTime() === today.getTime()) {
-                                  status = 'hoje';
-                                } else if (reviewDate.getTime() < today.getTime()) {
-                                  status = 'pendente';
-                                }
+                              {topics.map((topic) => {
+                                const isOverdue = topic.next_review && 
+                                  startOfDay(new Date(topic.next_review)).getTime() < startOfDay(new Date()).getTime();
+                                const isToday = topic.next_review && 
+                                  startOfDay(new Date(topic.next_review)).getTime() === startOfDay(new Date()).getTime();
 
                                 return (
-                                  <div key={idx} className="flex items-center justify-between py-2 px-3 hover:bg-muted/50 rounded-md transition-colors">
-                                    <span className="text-sm text-foreground font-medium">
-                                      {topic.name}
-                                    </span>
-                                    <Badge 
-                                      variant={
-                                        status === 'pendente' ? 'destructive' :
-                                        status === 'hoje' ? 'default' : 'secondary'
-                                      }
-                                      className="text-xs px-2 py-1"
+                                  <div
+                                    key={topic.id}
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                  >
+                                    <div className="flex-1">
+                                      <h5 className="font-medium text-gray-900 text-sm">{topic.name}</h5>
+                                      <p className="text-xs text-gray-600 mt-1">
+                                        {topic.next_review ? format(new Date(topic.next_review), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data'}
+                                      </p>
+                                    </div>
+                                    <Badge
+                                      variant={isOverdue ? "destructive" : isToday ? "default" : "secondary"}
+                                      className="text-xs"
                                     >
-                                      {topic.review_stage}
+                                      {topic.review_stage || 'Novo'}
                                     </Badge>
                                   </div>
                                 );
@@ -445,18 +387,19 @@ const Dashboard = () => {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <h2 className="text-muted-foreground text-base font-medium mb-2">
-                        Nenhuma revisão agendada para este dia
-                      </h2>
-                      <p className="text-muted-foreground text-sm">
-                        Aproveite para revisar outros conteúdos ou descansar.
+                      <Clock className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                      <h4 className="font-medium text-gray-900 mb-2">
+                        Nenhuma revisão agendada
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {selectedCalendarDate ? 'Nenhuma revisão para esta data.' : 'Você está em dia com suas revisões!'}
                       </p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
