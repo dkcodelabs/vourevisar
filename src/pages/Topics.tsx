@@ -156,7 +156,7 @@ const Topics = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Header */}
       <div className="flex items-center mb-4">
         <Button
