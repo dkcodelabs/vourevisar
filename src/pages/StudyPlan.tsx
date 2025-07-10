@@ -1,14 +1,13 @@
 
 import React from 'react';
-import StudyPlanMainView from '@/components/study-plan/StudyPlanMainView';
 import { PageTitle } from '@/components/PageTitle';
+import StudyPlanContent from '@/components/study-plan/StudyPlanContent';
 
 const StudyPlan = () => {
-
   return (
-    <div className="p-6">
+    <div className="p-4">
       <PageTitle title="Plano de Estudos" subtitle="Organize seus estudos diários" />
-      <StudyPlanMainView />
+      <StudyPlanContent />
     </div>
   );
 };
