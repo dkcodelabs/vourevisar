@@ -16,7 +16,7 @@ export function AppLayout() {
             <SidebarTrigger />
           </header>
           
-          <div className="p-4">
+          <div className="p-8">
             <Outlet />
             <style>
               {`

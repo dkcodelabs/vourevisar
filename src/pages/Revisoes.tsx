@@ -1,204 +1,120 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Calendar } from 'lucide-react';
-import { Calendar as CalendarIcon } from "@/components/ui/calendar"
+
+import React, { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
-import { DateRange } from "react-day-picker"
-import { addDays } from 'date-fns';
-import { useApp } from '@/contexts/AppContext';
-import { toast } from 'sonner';
-import { Progress } from "@/components/ui/progress";
-import { CheckCircle, Target } from 'lucide-react';
-import { Badge } from "@/components/ui/badge";
-import { useNavigate } from 'react-router-dom';
-import { PageTitle } from '@/components/PageTitle';
-
-interface Filter {
-  label: string;
-  value: string;
-}
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useReviewsData } from '@/hooks/useReviewsData';
+import { ReviewsFilters } from '@/components/reviews/ReviewsFilters';
+import { ReviewsTable } from '@/components/reviews/ReviewsTable';
 
 const Revisoes = () => {
-  const navigate = useNavigate();
-  const [date, setDate] = useState<DateRange>({
-    from: new Date(),
-    to: addDays(new Date(), 7),
-  })
-  const [filter, setFilter] = useState<Filter | null>(null);
-  const { reviews, isLoading, error, forceRefresh } = useApp();
-  const [filteredReviews, setFilteredReviews] = useState(reviews);
-
-  useEffect(() => {
-    console.log('📄 Revisões - Página acessada, forçando refresh dos dados...');
-    forceRefresh();
-  }, [forceRefresh]);
-
-  useEffect(() => {
-    let newFilteredReviews = reviews;
-
-    if (date?.from && date?.to) {
-      newFilteredReviews = newFilteredReviews.filter(review => {
-        const reviewDate = new Date(review.date);
-        return reviewDate >= date.from && reviewDate <= date.to;
-      });
-    }
-
-    if (filter) {
-      newFilteredReviews = newFilteredReviews.filter(review => review.subject === filter.value);
-    }
-
-    setFilteredReviews(newFilteredReviews);
-  }, [reviews, date, filter]);
-
-  const totalReviews = useMemo(() => reviews.length, [reviews]);
-  const completedReviews = useMemo(() => reviews.filter(review => review.completed).length, [reviews]);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="text-center">
-        <CardHeader>
-          <CardTitle className="text-red-600">Erro ao carregar revisões</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>
-            Tentar Novamente
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
+  const [tab, setTab] = useState<'hoje' | 'futuras' | 'concluido'>('hoje');
+  const {
+    topics,
+    isLoading,
+    refetch,
+    searchTerm,
+    setSearchTerm,
+    selectedDate,
+    setSelectedDate,
+    viewMode,
+    setViewMode,
+    resetFilters,
+    delayedTopics,
+    todayTopics,
+    futureTopics,
+    completedTopics
+  } = useReviewsData();
 
   return (
-    <div>
-      <PageTitle title="Revisões" subtitle="Acompanhe suas revisões programadas" />
-      
-      <div className="mb-4 flex items-center space-x-4">
-        {/* Date Range Picker */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={"outline"}
-              className={cn(
-                "w-[300px] justify-start text-left font-normal",
-                !date ? "text-muted-foreground" : undefined
-              )}
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              {date?.from ? (
-                date.to ? (
-                  `${format(date.from, "dd/MM/yyyy", { locale: ptBR })} - ${format(date.to, "dd/MM/yyyy", { locale: ptBR })}`
-                ) : (
-                  format(date.from, "dd/MM/yyyy", { locale: ptBR })
-                )
-              ) : (
-                <span>Escolha um período</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="center">
-            <CalendarIcon
-              mode="range"
-              defaultMonth={date?.from}
-              selected={date}
-              onSelect={setDate}
-              numberOfMonths={2}
-              pagedNavigation
-            />
-          </PopoverContent>
-        </Popover>
-
-        {/* Filter Dropdown (Placeholder) */}
-        <Input type="text" placeholder="Filtrar por matéria (em breve)" disabled />
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Revisões</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalReviews}</div>
-            <p className="text-sm text-muted-foreground">Revisões agendadas</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revisões Concluídas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{completedReviews}</div>
-            <p className="text-sm text-muted-foreground">Revisões finalizadas</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Progresso</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {totalReviews > 0 ? Math.round((completedReviews / totalReviews) * 100) : 0}%
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-full mx-auto">
+        <div className="bg-white border-b border-slate-200">
+          {/* Header */}
+          <div className="px-4 sm:px-6 lg:px-8 py-6">
+            <h1 className="text-3xl font-bold text-slate-800 mb-6">
+              Revisões
+            </h1>
+            
+            {/* Tabs e Filtros */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras' | 'concluido')}>
+                <TabsList className="bg-slate-100 p-1 h-auto w-fit">
+                  <TabsTrigger 
+                    value="hoje" 
+                    className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
+                  >
+                    Hoje & Atrasadas
+                    {(delayedTopics.length + todayTopics.length) > 0 && (
+                      <span className="ml-2 bg-slate-600 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                        {delayedTopics.length + todayTopics.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="futuras" 
+                    className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
+                  >
+                    Futuras
+                    {futureTopics.length > 0 && (
+                      <span className="ml-2 bg-slate-600 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                        {futureTopics.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="concluido" 
+                    className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
+                  >
+                    Concluído
+                    {completedTopics.length > 0 && (
+                      <span className="ml-2 bg-slate-600 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                        {completedTopics.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              
+              <div className="flex-shrink-0">
+                <ReviewsFilters
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                  setViewMode={setViewMode}
+                  resetFilters={resetFilters}
+                />
+              </div>
             </div>
-            <Progress value={totalReviews > 0 ? (completedReviews / totalReviews) * 100 : 0} className="mb-2" />
-            <p className="text-sm text-muted-foreground">Progresso geral</p>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Reviews List */}
-      {filteredReviews.length === 0 ? (
-        <Card>
-          <CardContent className="text-center p-6">
-            <p className="text-gray-600">Nenhuma revisão encontrada para o período selecionado.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {filteredReviews.map(review => (
-            <Card key={review.id} className="shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-lg">{review.subject}</h3>
-                    <p className="text-sm text-gray-600">
-                      {format(new Date(review.date), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
-                    </p>
-                  </div>
-                  <Badge className={review.completed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                    {review.completed ? "Concluída" : "Pendente"}
-                  </Badge>
-                </div>
-                <div className="mt-2 flex items-center space-x-4">
-                  <div className="flex items-center space-x-1 text-sm text-gray-600">
-                    <Target className="h-4 w-4" />
-                    <span>{review.topicCount} Tópicos</span>
-                  </div>
-                  <div className="flex items-center space-x-1 text-sm text-gray-600">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>{review.completed ? 'Completa' : 'Pendente'}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+            {/* Filtro de Data Ativo */}
+            {viewMode === 'date' && selectedDate && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-700">
+                  Mostrando revisões para: <strong>{format(selectedDate, 'dd/MM/yyyy', { locale: ptBR })}</strong>
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Conteúdo da Tabela */}
+        <div className="bg-white">
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
+            </div>
+          ) : (
+            <ReviewsTable
+              topics={topics}
+              tab={tab}
+              refetch={refetch}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 };

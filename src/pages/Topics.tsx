@@ -1,266 +1,428 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, ArrowLeft, BookOpen, Filter, X } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
-import { toast } from 'sonner';
-import { AddTopicForm } from '@/components/topics/AddTopicForm';
-import { TopicCard } from '@/components/topics/TopicCard';
-import { TopicsSummaryCards } from '@/components/topics/TopicsSummaryCards';
-import { TopicsFilters } from '@/components/topics/TopicsFilters';
-import { Subject, Topic } from '@/types';
-import { PageTitle } from '@/components/PageTitle';
 
-interface TopicFilter {
-  status?: 'Nova' | 'Em Estudo' | 'Concluída' | '';
-  searchTerm?: string;
-}
+import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useApp } from '@/contexts/AppContext';
+import { Button } from '@/components/ui/button';
+import { Plus, Search, Edit, FileText, Trash2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Topic } from '@/types';
+import { toast } from "react-hot-toast";
+import { format, isToday, isPast, startOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
+import NotesModal from '@/components/reviews/NotesModal';
+import { EditableTopicName } from '@/components/EditableTopicName';
 
 const Topics = () => {
-  const { subjectId } = useParams<{ subjectId: string }>();
-  const navigate = useNavigate();
-  const { subjects, isLoading, error, addTopic, updateTopic, deleteTopic } = useApp();
-  
-  const [subject, setSubject] = useState<Subject | undefined>(undefined);
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [isAddingTopic, setIsAddingTopic] = useState(false);
-  const [topicFilter, setTopicFilter] = useState<TopicFilter>({ status: '', searchTerm: '' });
-  const [showFilters, setShowFilters] = useState(false);
+  const { subjects, deleteTopic, updateTopic, isLoading } = useApp();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    topic: (Topic & { subjectName: string }) | null;
+  }>({ isOpen: false, topic: null });
+  const [notesModal, setNotesModal] = useState<{
+    isOpen: boolean;
+    topicId: string;
+    topicName: string;
+    subjectName: string;
+  }>({ isOpen: false, topicId: '', topicName: '', subjectName: '' });
 
-  useEffect(() => {
-    if (subjects && subjectId) {
-      const foundSubject = subjects.find(s => s.id === subjectId);
-      setSubject(foundSubject);
-      setTopics(foundSubject?.topics || []);
-    }
-  }, [subjects, subjectId]);
+  const allTopics = subjects.flatMap(subject => 
+    subject.topics.map(topic => ({
+      ...topic,
+      subjectName: subject.name,
+      subjectColor: subject.color,
+      isMarkedForReview: false
+    }))
+  );
 
-  const handleAddTopic = async (topicName: string) => {
-    if (!subjectId) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "ID da matéria não encontrado."
-      });
-      return;
-    }
-    try {
-      await addTopic(subjectId, { name: topicName, reviewStage: 'Nova', reviewCount: 0 });
-      toast({
-        title: "Sucesso",
-        description: "Tópico adicionado com sucesso!"
-      });
-      setIsAddingTopic(false);
-    } catch (error) {
-      console.error('Erro ao adicionar tópico:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao adicionar tópico. Tente novamente."
-      });
-    }
-  };
+  const filteredAndSortedTopics = useMemo(() => {
+    let filtered = allTopics;
 
-  const handleUpdateTopic = async (topicId: string, updates: Partial<Topic>) => {
-    if (!subjectId) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "ID da matéria não encontrado."
-      });
-      return;
-    }
-    try {
-      await updateTopic(subjectId, topicId, updates);
-      toast({
-        title: "Sucesso",
-        description: "Tópico atualizado com sucesso!"
-      });
-    } catch (error) {
-      console.error('Erro ao atualizar tópico:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao atualizar tópico. Tente novamente."
-      });
-    }
-  };
-
-  const handleDeleteTopic = async (topicId: string) => {
-    if (!subjectId) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "ID da matéria não encontrado."
-      });
-      return;
-    }
-    try {
-      await deleteTopic(subjectId, topicId);
-      toast({
-        title: "Sucesso",
-        description: "Tópico excluído com sucesso!"
-      });
-    } catch (error) {
-      console.error('Erro ao excluir tópico:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao excluir tópico. Tente novamente."
-      });
-    }
-  };
-
-  const filteredTopics = useMemo(() => {
-    let result = topics;
-
-    if (topicFilter.status) {
-      result = result.filter(topic => topic.reviewStage === topicFilter.status);
-    }
-
-    if (topicFilter.searchTerm) {
-      const searchTermLower = topicFilter.searchTerm.toLowerCase();
-      result = result.filter(topic =>
-        topic.name.toLowerCase().includes(searchTermLower)
+    // Aplicar filtro de pesquisa
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(topic => 
+        topic.name.toLowerCase().includes(searchLower) ||
+        topic.subjectName.toLowerCase().includes(searchLower)
       );
     }
 
-    return result;
-  }, [topics, topicFilter]);
+    // Aplicar filtro de status
+    if (statusFilter !== 'all') {
+      const today = startOfDay(new Date());
+      
+      filtered = filtered.filter(topic => {
+        if (topic.completed) return statusFilter === 'upcoming';
+        if (!topic.nextReview) return statusFilter === 'upcoming';
+        
+        const reviewDate = startOfDay(new Date(topic.nextReview));
+        
+        if (statusFilter === 'delayed') {
+          return reviewDate < today;
+        } else if (statusFilter === 'today') {
+          return reviewDate.getTime() === today.getTime();
+        } else if (statusFilter === 'upcoming') {
+          return reviewDate > today;
+        }
+        
+        return true;
+      });
+    }
 
-  const handleFilterChange = (newFilter: Partial<TopicFilter>) => {
-    setTopicFilter(prev => ({ ...prev, ...newFilter }));
+    // Aplicar ordenação
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'subject':
+          return a.subjectName.localeCompare(b.subjectName);
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'date':
+        default:
+          if (!a.nextReview && !b.nextReview) return 0;
+          if (!a.nextReview) return 1;
+          if (!b.nextReview) return -1;
+          
+          return new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime();
+      }
+    });
+
+    return filtered;
+  }, [allTopics, searchTerm, statusFilter, sortBy]);
+
+  const stats = useMemo(() => {
+    const today = startOfDay(new Date());
+    
+    const delayed = allTopics.filter(topic => {
+      if (topic.completed || !topic.nextReview) return false;
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      return reviewDate < today;
+    }).length;
+
+    const todayTopics = allTopics.filter(topic => {
+      if (topic.completed || !topic.nextReview) return false;
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      return reviewDate.getTime() === today.getTime();
+    }).length;
+
+    const upcoming = allTopics.filter(topic => {
+      if (topic.completed) return true;
+      if (!topic.nextReview) return true;
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      return reviewDate > today;
+    }).length;
+
+    return {
+      total: allTopics.length,
+      delayed,
+      today: todayTopics,
+      upcoming
+    };
+  }, [allTopics]);
+
+  const getTopicStatus = (topic: any) => {
+    if (topic.completed) return { status: 'Concluído', color: 'green', border: 'border-l-green-400' };
+    if (!topic.nextReview) return { status: 'Não agendado', color: 'gray', border: 'border-l-gray-400' };
+
+    const today = startOfDay(new Date());
+    const reviewDate = startOfDay(new Date(topic.nextReview));
+
+    if (reviewDate < today) {
+      const daysLate = Math.floor((today.getTime() - reviewDate.getTime()) / (1000 * 60 * 60 * 24));
+      return { 
+        status: `Atrasado (${String(daysLate).padStart(2, '0')}/${String(reviewDate.getDate()).padStart(2, '0')})`, 
+        color: 'red', 
+        border: 'border-l-red-400' 
+      };
+    } else if (reviewDate.getTime() === today.getTime()) {
+      return { status: 'Hoje', color: 'blue', border: 'border-l-blue-400' };
+    } else {
+      return { 
+        status: `Futuro (${String(reviewDate.getDate()).padStart(2, '0')}/${String(reviewDate.getMonth() + 1).padStart(2, '0')})`, 
+        color: 'green', 
+        border: 'border-l-green-400' 
+      };
+    }
   };
 
-  const toggleFilters = () => {
-    setShowFilters(!showFilters);
+  const getStageDisplay = (topic: any) => {
+    if (topic.completed) return 'Concluído';
+    if (!topic.reviewStage && topic.reviewCount === 0) return 'Novo';
+    return topic.reviewStage || `${topic.reviewCount}º revisão`;
+  };
+
+  const handleEditTopic = async (topicId: string, newName: string) => {
+    const topic = allTopics.find(t => t.id === topicId);
+    if (!topic) return;
+
+    const subject = subjects.find(s => s.name === topic.subjectName);
+    if (!subject) return;
+
+    try {
+      await updateTopic(subject.id, topicId, { name: newName });
+      toast.success('Nome do tópico atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar tópico:', error);
+      toast.error('Erro ao atualizar nome do tópico');
+    }
+  };
+
+  const handleDeleteTopic = (topicId: string) => {
+    const topic = allTopics.find(t => t.id === topicId);
+    if (!topic) return;
+
+    setDeleteModal({ isOpen: true, topic });
+  };
+
+  const handleOpenNotes = (topicId: string, topicName: string, subjectName: string) => {
+    setNotesModal({
+      isOpen: true,
+      topicId,
+      topicName,
+      subjectName
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal.topic) return;
+
+    const subject = subjects.find(s => s.name === deleteModal.topic!.subjectName);
+    if (!subject) return;
+
+    try {
+      await deleteTopic(subject.id, deleteModal.topic.id);
+      toast.success('Tópico excluído com sucesso!');
+      setDeleteModal({ isOpen: false, topic: null });
+    } catch (error) {
+      console.error('Erro ao deletar tópico:', error);
+      toast.error('Erro ao excluir tópico');
+    }
   };
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-full mx-auto px-8 py-8">
+          <div className="text-center">
+            <p className="text-slate-600">Carregando tópicos...</p>
+          </div>
+        </div>
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="text-center">
-        <CardHeader>
-          <CardTitle className="text-red-600">Erro ao carregar tópicos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>
-            Tentar Novamente
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!subject) {
-    return (
-      <Card className="text-center">
-        <CardHeader>
-          <CardTitle>Matéria não encontrada</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600 mb-4">A matéria solicitada não foi encontrada.</p>
-          <Button onClick={() => navigate('/materias')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar para Matérias
-          </Button>
-        </CardContent>
-      </Card>
     );
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center mb-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/materias')}
-          className="mr-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <PageTitle title={`Tópicos - ${subject.name}`} subtitle="Gerencie os tópicos desta matéria" />
-      </div>
+    <TooltipProvider>
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-full mx-auto">
+        {/* Header */}
+        <div className="px-8 py-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Tópicos</h1>
+            <p className="text-slate-500">Gerencie todos os seus tópicos de estudo</p>
+          </div>
 
-      {/* Summary Cards */}
-      <TopicsSummaryCards subject={subject} topics={topics} />
+          {/* Filters */}
+          <div className="mb-6 flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
+              <Input
+                placeholder="Pesquisar ou selecionar tópico ou disciplina"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-11 pr-4 py-2 bg-slate-800 text-white placeholder-slate-400 border-slate-700 focus:border-slate-600 focus:ring-slate-600 rounded-lg"
+              />
+            </div>
 
-      {/* Filters */}
-      <div className="mb-4">
-        <Button variant="outline" size="sm" onClick={toggleFilters}>
-          <Filter className="mr-2 h-4 w-4" />
-          Filtros
-        </Button>
-        <AnimatePresence>
-          {showFilters && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="overflow-hidden mt-2"
-            >
-              <TopicsFilters filter={topicFilter} onFilterChange={handleFilterChange} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            {/* Status Filter */}
+            <div className="w-full lg:w-48">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                  <SelectValue placeholder="Todos (10)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos ({stats.total})</SelectItem>
+                  <SelectItem value="delayed">Atrasados ({stats.delayed})</SelectItem>
+                  <SelectItem value="today">Hoje ({stats.today})</SelectItem>
+                  <SelectItem value="upcoming">Próximos ({stats.upcoming})</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-      {/* Add Topic */}
-      {isAddingTopic ? (
-        <AddTopicForm onAdd={handleAddTopic} onCancel={() => setIsAddingTopic(false)} />
-      ) : (
-        <Button onClick={() => setIsAddingTopic(true)} className="mb-4">
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar Tópico
-        </Button>
-      )}
-
-      {/* Topics List */}
-      {filteredTopics.length === 0 ? (
-        <Card>
-          <CardContent className="text-center p-6">
-            <BookOpen className="h-10 w-10 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">Nenhum tópico encontrado.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AnimatePresence>
-            {filteredTopics.map(topic => (
-              <motion.div
-                key={topic.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <TopicCard
-                  topic={topic}
-                  onUpdate={handleUpdateTopic}
-                  onDelete={handleDeleteTopic}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+            {/* Sort */}
+            <div className="w-full lg:w-48">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                  <SelectValue placeholder="Data de Revisão" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Data de Revisão</SelectItem>
+                  <SelectItem value="subject">Matéria</SelectItem>
+                  <SelectItem value="name">Nome do Tópico</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* Topics List */}
+        <div className="px-8 pb-8">
+          {filteredAndSortedTopics.length === 0 ? (
+            <Card className="bg-white shadow-sm border border-slate-200">
+              <CardContent className="text-center py-12">
+                <p className="text-slate-500 mb-4">
+                  {searchTerm || statusFilter !== 'all' 
+                    ? 'Nenhum tópico encontrado para os filtros aplicados.' 
+                    : 'Nenhum tópico cadastrado ainda.'
+                  }
+                </p>
+                {!searchTerm && statusFilter === 'all' && (
+                  <Button onClick={() => window.location.href = '/materias'} className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Primeira Matéria
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
+              <AnimatePresence>
+                {filteredAndSortedTopics.map((topic) => {
+                  const topicStatus = getTopicStatus(topic);
+                  const stageDisplay = getStageDisplay(topic);
+                  
+                  return (
+                    <motion.div
+                      key={topic.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className={`${topicStatus.border} border-l-4 border-b border-slate-200 last:border-b-0 hover:bg-slate-50 transition-colors`}
+                    >
+                      <div className="px-6 py-3 flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                             <div className="flex-1 min-w-0">
+                               <EditableTopicName
+                                 topicId={topic.id}
+                                 initialName={topic.name}
+                                 onUpdate={() => {}}
+                                 isEditing={editingTopicId === topic.id}
+                                 onEditChange={(isEditing) => {
+                                   setEditingTopicId(isEditing ? topic.id : null);
+                                 }}
+                               />
+                               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                                 {topic.subjectName}
+                               </p>
+                             </div>
+                            
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {/* Stage Badge */}
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                                ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
+                                  topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
+                                  topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
+                                  'bg-gray-100 text-gray-700'}`}>
+                                {stageDisplay}
+                              </span>
+                              
+                              {/* Status Badge */}
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                                ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
+                                  topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
+                                  topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
+                                  'bg-gray-100 text-gray-700'}`}>
+                                {topicStatus.status}
+                              </span>
+                              
+                               {/* Action Icons */}
+                               <div className="flex items-center gap-1 ml-2">
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <Button
+                                       variant="ghost"
+                                       size="sm"
+                                       onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
+                                       className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                     >
+                                       <FileText className="h-4 w-4" />
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Anotações</p>
+                                   </TooltipContent>
+                                 </Tooltip>
+                                 
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setEditingTopicId(topic.id)}
+                                        className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Alterar nome</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                 
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <Button
+                                       variant="ghost"
+                                       size="sm"
+                                       onClick={() => handleDeleteTopic(topic.id)}
+                                       className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                     >
+                                       <Trash2 className="h-4 w-4" />
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Excluir tópico</p>
+                                   </TooltipContent>
+                                 </Tooltip>
+                               </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <ConfirmDeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, topic: null })}
+        onConfirm={confirmDelete}
+        topicName={deleteModal.topic?.name || ''}
+        subjectName={deleteModal.topic?.subjectName || ''}
+      />
+
+      <NotesModal
+        isOpen={notesModal.isOpen}
+        onClose={() => setNotesModal({ isOpen: false, topicId: '', topicName: '', subjectName: '' })}
+        topicId={notesModal.topicId}
+        topicName={notesModal.topicName}
+        subjectName={notesModal.subjectName}
+      />
+      </div>
+    </TooltipProvider>
   );
 };
 

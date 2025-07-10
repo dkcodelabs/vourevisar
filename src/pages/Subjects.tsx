@@ -22,7 +22,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ReviewProfile } from '@/types/study';
 import { useToast } from '@/components/ui/use-toast';
 import TopicsModal from '@/components/topics/TopicsModal';
-import { PageTitle } from '@/components/PageTitle';
 
 // Função corrigida para calcular o status automaticamente baseado nos tópicos
 const calculateSubjectStatus = (subject: Subject): Status => {
@@ -348,47 +347,61 @@ const Subjects = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+      <div className="container mx-auto p-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <Card className="text-center">
-        <CardHeader>
-          <CardTitle className="text-red-600">Erro ao carregar matérias</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>
-            Tentar Novamente
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="container mx-auto p-6">
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle className="text-red-600">Erro ao carregar matérias</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>
+              Tentar Novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
     <UserProfileProvider>
-      <div>
-        <PageTitle title="Minhas Matérias" subtitle="Gerencie suas matérias de estudo" />
-        
-        <div className="flex gap-2 mb-4">
-          <Input
-            type="text"
-            placeholder="Nome da nova matéria"
-            value={newSubjectName}
-            onChange={e => setNewSubjectName(e.target.value)}
-            onKeyPress={e => e.key === 'Enter' && handleSaveSubject()}
-            className="flex-1"
-            ref={inputRef}
-          />
-          <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar
-          </Button>
+      <motion.div 
+        className="container mx-auto p-6 space-y-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        {/* Header */}
+        <div className="flex flex-col gap-4 mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Minhas Matérias</h1>
+            <p className="text-gray-600 mt-1">Gerencie suas matérias de estudo</p>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              placeholder="Nome da nova matéria"
+              value={newSubjectName}
+              onChange={e => setNewSubjectName(e.target.value)}
+              onKeyPress={e => e.key === 'Enter' && handleSaveSubject()}
+              className="flex-1"
+              ref={inputRef}
+            />
+            <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar
+            </Button>
+          </div>
         </div>
 
         {/* Lista de Matérias */}
@@ -595,7 +608,7 @@ const Subjects = () => {
             subject={topicsModal.subject}
           />
         )}
-      </div>
+      </motion.div>
     </UserProfileProvider>
   );
 };
