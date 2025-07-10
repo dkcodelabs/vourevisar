@@ -84,7 +84,7 @@ const Revisoes = () => {
   }
 
   return (
-    <div className="p-4">
+    <div className="p-6">
       <PageTitle title="Revisões" subtitle="Acompanhe suas revisões programadas" />
       
       <div className="mb-4 flex items-center space-x-4">

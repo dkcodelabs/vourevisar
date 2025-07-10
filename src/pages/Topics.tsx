@@ -1,118 +1,76 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, ArrowLeft, BookOpen, Filter, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Search, Filter } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { toast } from 'sonner';
 import AddTopicForm from '@/components/topics/AddTopicForm';
 import TopicCard from '@/components/topics/TopicCard';
 import TopicsSummaryCards from '@/components/topics/TopicsSummaryCards';
 import TopicsFilters from '@/components/topics/TopicsFilters';
-import { Subject, Topic } from '@/types';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/hooks/use-toast';
 import { PageTitle } from '@/components/PageTitle';
 
-interface TopicFilter {
-  status?: 'Nova' | 'Em Estudo' | 'Concluída' | '';
-  searchTerm?: string;
+interface Topic {
+  id: string;
+  name: string;
+  subject_id: string;
+  review_stage: string | null;
+  review_count: number;
+  completed: boolean;
 }
 
 const Topics = () => {
-  const { subjectId } = useParams<{ subjectId: string }>();
-  const navigate = useNavigate();
-  const { subjects, isLoading, error, addTopic, updateTopic, deleteTopic } = useApp();
+  const { 
+    subjects, 
+    topics, 
+    isLoading, 
+    addTopic,
+    refreshData
+  } = useApp();
   
-  const [subject, setSubject] = useState<Subject | undefined>(undefined);
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [isAddingTopic, setIsAddingTopic] = useState(false);
-  const [topicFilter, setTopicFilter] = useState<TopicFilter>({ status: '', searchTerm: '' });
-  const [showFilters, setShowFilters] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterSubject, setFilterSubject] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  useEffect(() => {
-    if (subjects && subjectId) {
-      const foundSubject = subjects.find(s => s.id === subjectId);
-      setSubject(foundSubject);
-      setTopics(foundSubject?.topics || []);
-    }
-  }, [subjects, subjectId]);
-
-  const handleAddTopic = async (topicName: string) => {
-    if (!subjectId) {
-      toast.error("ID da matéria não encontrado.");
-      return;
-    }
+  const handleAddTopic = async (topicData: Omit<Topic, 'id'>) => {
     try {
-      await addTopic(subjectId, { 
-        name: topicName, 
-        reviewStage: 'Nova', 
-        reviewCount: 0,
-        completed: false,
-        review_count: 0
+      await addTopic({
+        name: topicData.name,
+        reviewStage: topicData.review_stage || 'Não iniciado',
+        reviewCount: topicData.review_count,
+        completed: topicData.completed,
+        review_count: topicData.review_count
       });
-      toast.success("Tópico adicionado com sucesso!");
-      setIsAddingTopic(false);
+      
+      toast({
+        title: "Tópico adicionado com sucesso!"
+      });
+      
+      setShowAddForm(false);
+      refreshData();
     } catch (error) {
-      console.error('Erro ao adicionar tópico:', error);
-      toast.error("Erro ao adicionar tópico. Tente novamente.");
+      toast({
+        title: "Erro ao adicionar tópico",
+        description: "Tente novamente em alguns instantes."
+      });
     }
   };
 
-  const handleUpdateTopic = async (topicId: string, updates: Partial<Topic>) => {
-    if (!subjectId) {
-      toast.error("ID da matéria não encontrado.");
-      return;
-    }
-    try {
-      await updateTopic(subjectId, topicId, updates);
-      toast.success("Tópico atualizado com sucesso!");
-    } catch (error) {
-      console.error('Erro ao atualizar tópico:', error);
-      toast.error("Erro ao atualizar tópico. Tente novamente.");
-    }
-  };
-
-  const handleDeleteTopic = async (topicId: string) => {
-    if (!subjectId) {
-      toast.error("ID da matéria não encontrado.");
-      return;
-    }
-    try {
-      await deleteTopic(subjectId, topicId);
-      toast.success("Tópico excluído com sucesso!");
-    } catch (error) {
-      console.error('Erro ao excluir tópico:', error);
-      toast.error("Erro ao excluir tópico. Tente novamente.");
-    }
-  };
-
-  const filteredTopics = useMemo(() => {
-    let result = topics;
-
-    if (topicFilter.status) {
-      result = result.filter(topic => topic.reviewStage === topicFilter.status);
-    }
-
-    if (topicFilter.searchTerm) {
-      const searchTermLower = topicFilter.searchTerm.toLowerCase();
-      result = result.filter(topic =>
-        topic.name.toLowerCase().includes(searchTermLower)
-      );
-    }
-
-    return result;
-  }, [topics, topicFilter]);
-
-  const handleFilterChange = (newFilter: Partial<TopicFilter>) => {
-    setTopicFilter(prev => ({ ...prev, ...newFilter }));
-  };
-
-  const toggleFilters = () => {
-    setShowFilters(!showFilters);
-  };
+  const filteredTopics = topics.filter(topic => {
+    const matchesSearch = topic.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSubject = filterSubject === 'all' || topic.subject_id === filterSubject;
+    const matchesStatus = filterStatus === 'all' || 
+      (filterStatus === 'nova' && !topic.completed && topic.review_count === 0) ||
+      (filterStatus === 'em-estudo' && !topic.completed && topic.review_count > 0) ||
+      (filterStatus === 'concluida' && topic.completed);
+    
+    return matchesSearch && matchesSubject && matchesStatus;
+  });
 
   if (isLoading) {
     return (
@@ -122,130 +80,112 @@ const Topics = () => {
     );
   }
 
-  if (error) {
-    return (
-      <Card className="text-center">
-        <CardHeader>
-          <CardTitle className="text-red-600">Erro ao carregar tópicos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>
-            Tentar Novamente
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!subject) {
-    return (
-      <Card className="text-center">
-        <CardHeader>
-          <CardTitle>Matéria não encontrada</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600 mb-4">A matéria solicitada não foi encontrada.</p>
-          <Button onClick={() => navigate('/materias')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar para Matérias
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="p-4">
+    <div className="p-6">
       {/* Header */}
       <div className="flex items-center mb-4">
         <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/materias')}
+          onClick={() => setShowAddForm(true)}
           className="mr-4"
         >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <PageTitle title={`Tópicos - ${subject.name}`} subtitle="Gerencie os tópicos desta matéria" />
-      </div>
-
-      {/* Summary Cards */}
-      <TopicsSummaryCards 
-        totalTopics={topics.length}
-        delayedTopics={topics.filter(t => !t.completed && t.nextReview && new Date(t.nextReview) < new Date()).length}
-        futureTopics={topics.filter(t => !t.completed && t.nextReview && new Date(t.nextReview) > new Date()).length}
-      />
-
-      {/* Filters */}
-      <div className="mb-4">
-        <Button variant="outline" size="sm" onClick={toggleFilters}>
-          <Filter className="mr-2 h-4 w-4" />
-          Filtros
-        </Button>
-        <AnimatePresence>
-          {showFilters && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="overflow-hidden mt-2"
-            >
-              <TopicsFilters 
-                searchTerm={topicFilter.searchTerm || ''}
-                onSearchChange={(value) => handleFilterChange({ searchTerm: value })}
-                statusFilter={topicFilter.status || ''}
-                onStatusFilterChange={(value) => handleFilterChange({ status: value as any })}
-                sortBy=""
-                onSortChange={() => {}}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Add Topic */}
-      {isAddingTopic ? (
-        <div className="mb-4">
-          <AddTopicForm />
-        </div>
-      ) : (
-        <Button onClick={() => setIsAddingTopic(true)} className="mb-4">
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Tópico
         </Button>
-      )}
+        
+        <PageTitle title="Tópicos" subtitle="Gerencie seus tópicos de estudo" />
+      </div>
 
-      {/* Topics List */}
-      {filteredTopics.length === 0 ? (
-        <Card>
-          <CardContent className="text-center p-6">
-            <BookOpen className="h-10 w-10 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">Nenhum tópico encontrado.</p>
+      {/* Add Topic Form */}
+      {showAddForm && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Adicionar Novo Tópico</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AddTopicForm
+              subjects={subjects}
+              onAddTopic={handleAddTopic}
+              onCancel={() => setShowAddForm(false)}
+            />
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AnimatePresence>
-            {filteredTopics.map(topic => (
-              <motion.div
-                key={topic.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <TopicCard
-                  topic={{ ...topic, subjectName: subject.name }}
-                  onDelete={handleDeleteTopic}
-                  onNotesClick={(topic) => console.log('Notes clicked', topic)}
+      )}
+
+      {/* Filters */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Buscar tópicos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
                 />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-400" />
+              <Select value={filterSubject} onValueChange={setFilterSubject}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filtrar por disciplina" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as disciplinas</SelectItem>
+                  {subjects.map(subject => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filtrar por status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="nova">Nova</SelectItem>
+                  <SelectItem value="em-estudo">Em estudo</SelectItem>
+                  <SelectItem value="concluida">Concluída</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Cards */}
+      <TopicsSummaryCards topics={topics} />
+
+      {/* Topics Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredTopics.map(topic => (
+          <TopicCard key={topic.id} topic={topic} />
+        ))}
+      </div>
+
+      {filteredTopics.length === 0 && (
+        <Card>
+          <CardContent className="text-center p-8">
+            <p className="text-gray-600 mb-4">
+              {searchTerm || filterSubject !== 'all' || filterStatus !== 'all'
+                ? 'Nenhum tópico encontrado com os filtros aplicados.'
+                : 'Nenhum tópico cadastrado ainda.'
+              }
+            </p>
+            {!showAddForm && (
+              <Button onClick={() => setShowAddForm(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar Primeiro Tópico
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
