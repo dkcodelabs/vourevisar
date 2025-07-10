@@ -28,8 +28,8 @@ const Revisoes = () => {
   } = useReviewsData();
 
   return (
-    <div className="space-y-6">
-      <div className="max-w-full mx-auto">
+    <div className="space-y-6 overflow-x-hidden">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
         <div className="border-b border-slate-200">
           {/* Header */}
           <div className="py-6">
@@ -38,9 +38,9 @@ const Revisoes = () => {
             </h1>
             
             {/* Tabs e Filtros */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 px-4 sm:px-0">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras' | 'concluido')}>
-                <TabsList className="bg-slate-100 p-1 h-auto w-fit">
+                <TabsList className="bg-slate-100 p-1 h-auto w-full sm:w-fit overflow-x-auto flex-nowrap">
                   <TabsTrigger 
                     value="hoje" 
                     className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"

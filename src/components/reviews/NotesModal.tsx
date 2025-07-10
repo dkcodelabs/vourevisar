@@ -118,10 +118,19 @@ const NotesModal: React.FC<NotesModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className={isMobile ? 
-          "fixed inset-0 w-full h-full max-w-none m-0 rounded-none p-0 bg-white" : 
+          "fixed inset-0 w-full h-full max-w-none m-0 rounded-none p-0 bg-white z-50" : 
           "max-w-4xl w-full max-h-[90vh] overflow-hidden"
         }
         hideCloseButton={isMobile}
+        style={isMobile ? { 
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          transform: 'none',
+          margin: 0
+        } : undefined}
       >
         <DialogHeader className={`${isMobile ? 'p-4 border-b' : 'p-6 pb-4'} bg-white`}>
           <div className="flex items-center justify-between">
