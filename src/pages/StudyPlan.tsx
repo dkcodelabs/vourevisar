@@ -67,10 +67,8 @@ const StudyPlan = () => {
   // Se não há matérias e os dados foram carregados, mostrar estado vazio
   if (subjects.length === 0 && isDataLoaded) {
     return (
-      <div className="container mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-2 sm:px-4 md:px-8">
-        <div className="py-8 space-y-6">
-          <StudyPlanEmptyState type="no-subjects" />
-        </div>
+      <div className="space-y-6">
+        <StudyPlanEmptyState type="no-subjects" />
       </div>
     );
   }

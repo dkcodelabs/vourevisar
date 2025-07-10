@@ -194,7 +194,7 @@ const QuestionsStatistics: React.FC<QuestionsStatisticsProps> = ({
               <ArrowLeft className="mr-2 h-4 w-4" />
               Voltar
             </Button>
-            <h1 className="text-2xl font-bold text-gray-800">Estatísticas de Questões</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Estatísticas de Questões</h1>
           </div>
 
           <Select value={selectedPeriod} onValueChange={onPeriodChange}>

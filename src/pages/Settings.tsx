@@ -408,7 +408,7 @@ const Settings = () => {
   
   return (
     <div className="space-y-6">
-      <AnimatedTitle>Configurações</AnimatedTitle>
+      <h1 className="text-2xl font-semibold text-foreground">Configurações</h1>
       
       {/* Perfil de Revisão */}
       <GlassCard className="p-6">

@@ -187,12 +187,12 @@ const Dashboard = () => {
   const displayedReviews = getDisplayedReviews();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
+    <div className="space-y-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header Simplificado */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-medium text-gray-900 mb-1">
+            <h1 className="text-2xl font-semibold text-foreground mb-1">
               {greeting}! Aqui está seu progresso.
             </h1>
           </div>

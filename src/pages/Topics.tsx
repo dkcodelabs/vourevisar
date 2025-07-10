@@ -219,13 +219,13 @@ const Topics = () => {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-slate-50">
+      <div className="space-y-6">
         <div className="max-w-full mx-auto">
         {/* Header */}
-        <div className="px-8 py-8">
+        <div>
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Tópicos</h1>
-            <p className="text-slate-500">Gerencie todos os seus tópicos de estudo</p>
+            <h1 className="text-2xl font-semibold text-foreground mb-2">Tópicos</h1>
+            <p className="text-muted-foreground">Gerencie todos os seus tópicos de estudo</p>
           </div>
 
           {/* Filters */}

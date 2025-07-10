@@ -216,7 +216,7 @@ const Profile = () => {
   
   return (
     <div className="space-y-6">
-      <AnimatedTitle>Perfil</AnimatedTitle>
+      <h1 className="text-2xl font-semibold text-foreground">Perfil</h1>
       
       {error && (
         <Alert variant="destructive">

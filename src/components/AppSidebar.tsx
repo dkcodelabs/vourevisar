@@ -62,7 +62,7 @@ export function AppSidebar() {
       
       <SidebarContent className="p-4">
         <SidebarGroup>
-          <SidebarMenu className="space-y-2">
+          <SidebarMenu className="space-y-1">
             {navItems.map((item) => {
               const isActive = isItemActive(item);
               
@@ -72,7 +72,7 @@ export function AppSidebar() {
                     <SidebarMenuButton 
                       isActive={isActive} 
                       asChild 
-                      className={`w-full justify-start h-12 px-4 text-base font-medium transition-colors rounded-lg ${
+                      className={`w-full justify-start h-10 px-4 text-sm font-medium transition-colors rounded-lg ${
                         isActive 
                           ? 'bg-app-blue text-white hover:bg-app-blue' 
                           : 'text-gray-700 hover:bg-gray-100'

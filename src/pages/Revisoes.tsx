@@ -28,12 +28,12 @@ const Revisoes = () => {
   } = useReviewsData();
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="space-y-6">
       <div className="max-w-full mx-auto">
-        <div className="bg-white border-b border-slate-200">
+        <div className="border-b border-slate-200">
           {/* Header */}
-          <div className="px-4 sm:px-6 lg:px-8 py-6">
-            <h1 className="text-3xl font-bold text-slate-800 mb-6">
+          <div className="py-6">
+            <h1 className="text-2xl font-semibold text-foreground mb-6">
               Revisões
             </h1>
             

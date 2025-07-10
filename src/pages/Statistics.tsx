@@ -139,7 +139,7 @@ const Statistics = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Estatísticas de Estudo</h1>
+      <h1 className="text-2xl font-semibold text-foreground">Estatísticas de Estudo</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
         <Card className="md:col-span-8">

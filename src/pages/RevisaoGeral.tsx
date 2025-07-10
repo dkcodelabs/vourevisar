@@ -196,7 +196,7 @@ const RevisaoGeral = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="space-y-8">
       <motion.div 
         className="space-y-8"
         initial="hidden"
@@ -204,11 +204,11 @@ const RevisaoGeral = () => {
         variants={containerVariants}
       >
         {/* Header */}
-        <motion.div variants={itemVariants} className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-            🎯 Revisão Geral dos Estudos
+        <motion.div variants={itemVariants} className="mb-8">
+          <h1 className="text-2xl font-semibold text-foreground mb-4">
+            Revisão Geral dos Estudos
           </h1>
-          <p className="text-lg text-gray-600">Acompanhe seu progresso e conquistas acadêmicas</p>
+          <p className="text-muted-foreground">Acompanhe seu progresso e conquistas acadêmicas</p>
         </motion.div>
 
         {/* Métricas Principais com Cards Destacados */}

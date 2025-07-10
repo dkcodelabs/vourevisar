@@ -376,7 +376,7 @@ const Subjects = () => {
   return (
     <UserProfileProvider>
       <motion.div 
-        className="container mx-auto p-6 space-y-6"
+        className="space-y-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -384,8 +384,8 @@ const Subjects = () => {
         {/* Header */}
         <div className="flex flex-col gap-4 mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Minhas Matérias</h1>
-            <p className="text-gray-600 mt-1">Gerencie suas matérias de estudo</p>
+            <h1 className="text-2xl font-semibold text-foreground">Minhas Matérias</h1>
+            <p className="text-muted-foreground mt-1">Gerencie suas matérias de estudo</p>
           </div>
           <div className="flex gap-2">
             <Input
