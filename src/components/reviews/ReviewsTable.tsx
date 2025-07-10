@@ -99,18 +99,20 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
   return (
     <TooltipProvider>
       <div className="w-full">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50 border-b border-slate-200 hover:bg-slate-50">
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[200px]">DISCIPLINA</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[250px]">TÓPICO</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[120px]">ESTÁGIO</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[150px]">PRÓXIMA REVISÃO</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[150px]">STATUS</TableHead>
-              <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3 w-[120px]">AÇÕES</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        {/* Desktop Table */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50 border-b border-slate-200 hover:bg-slate-50">
+                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">DISCIPLINA</TableHead>
+                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">TÓPICO</TableHead>
+                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">ESTÁGIO</TableHead>
+                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">PRÓXIMA REVISÃO</TableHead>
+                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">STATUS</TableHead>
+                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">AÇÕES</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
             {sortedTopics.length > 0 ? (
               sortedTopics.map((topic) => {
                 const proxima = topic.next_review ? startOfDay(new Date(topic.next_review)) : null;
@@ -251,6 +253,144 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
             )}
           </TableBody>
         </Table>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="md:hidden space-y-4 px-4">
+          {sortedTopics.length > 0 ? (
+            sortedTopics.map((topic) => {
+              const proxima = topic.next_review ? startOfDay(new Date(topic.next_review)) : null;
+              let status = 'Futura';
+              let statusColor = 'bg-blue-100 text-blue-700';
+              
+              if (topic.completed) {
+                status = 'Concluído';
+                statusColor = 'bg-green-100 text-green-700';
+              } else if (proxima) {
+                if (isBefore(proxima, hoje)) {
+                  const diasVencidos = differenceInDays(hoje, proxima);
+                  status = `Atrasado (${diasVencidos}d)`;
+                  statusColor = 'bg-red-100 text-red-700';
+                } else if (proxima.getTime() === hoje.getTime()) {
+                  status = 'Hoje';
+                  statusColor = 'bg-orange-100 text-orange-700';
+                }
+              }
+              
+              return (
+                <div key={topic.id} className="bg-white border border-slate-200 rounded-lg shadow-sm">
+                  <div className="p-4 space-y-3">
+                    {/* Subject and Topic */}
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                        {topic.subject_name}
+                      </p>
+                      <h3 className="text-sm font-medium text-slate-800">{topic.name}</h3>
+                    </div>
+                    
+                    {/* Status and Stage */}
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+                        {status}
+                      </span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        {topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' 
+                          ? topic.review_stage 
+                          : (topic.review_count > 0 ? '24h' : 'Não iniciado')
+                        }
+                      </span>
+                    </div>
+                    
+                    {/* Date and Actions */}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <p className="text-xs text-slate-500">
+                        {proxima ? format(proxima, 'dd/MM/yyyy') : 'Sem data'}
+                      </p>
+                      
+                      <div className="flex items-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleNotesClick(topic)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <FileText 
+                                className={`h-4 w-4 ${hasNotes(topic) ? 'text-blue-600' : 'text-slate-400'}`} 
+                              />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{hasNotes(topic) ? 'Ver anotações' : 'Adicionar anotações'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        {!topic.completed && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmTopicId(topic.id)}
+                                disabled={isLogicLoading}
+                                className="h-8 w-8 p-0 text-green-600"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Marcar como revisado</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Dialog de confirmação */}
+                  <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Confirmar Revisão</DialogTitle>
+                        <DialogDescription>
+                          Tem certeza que deseja marcar este tópico como revisado?
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmTopicId(null)}>Cancelar</Button>
+                        <Button
+                          variant="default"
+                          onClick={async () => {
+                            try {
+                              await markTopicAsReviewed(topic.id);
+                              setConfirmTopicId(null);
+                              setTimeout(async () => {
+                                await Promise.all([
+                                  refreshData(),
+                                  refetch()
+                                ]);
+                              }, 500);
+                            } catch (error) {
+                              console.error('Erro ao marcar revisão:', error);
+                              toast.error('Erro ao marcar revisão');
+                            }
+                          }}
+                        >
+                          Confirmar
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center text-slate-500 py-12">
+              Nenhuma revisão encontrada para este filtro.
+            </div>
+          )}
+        </div>
 
         {/* Modal de Anotações */}
         <NotesModal

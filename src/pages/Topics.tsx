@@ -229,45 +229,47 @@ const Topics = () => {
           </div>
 
           {/* Filters */}
-          <div className="mb-6 flex flex-col lg:flex-row gap-4">
+          <div className="mb-6 flex flex-col gap-4 px-4 sm:px-0">
             {/* Search */}
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
               <Input
-                placeholder="Pesquisar ou selecionar tópico ou disciplina"
+                placeholder="Pesquisar tópico ou disciplina"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-11 pr-4 py-2 bg-slate-800 text-white placeholder-slate-400 border-slate-700 focus:border-slate-600 focus:ring-slate-600 rounded-lg"
               />
             </div>
 
-            {/* Status Filter */}
-            <div className="w-full lg:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
-                  <SelectValue placeholder="Todos (10)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos ({stats.total})</SelectItem>
-                  <SelectItem value="delayed">Atrasados ({stats.delayed})</SelectItem>
-                  <SelectItem value="today">Hoje ({stats.today})</SelectItem>
-                  <SelectItem value="upcoming">Próximos ({stats.upcoming})</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              {/* Status Filter */}
+              <div className="flex-1 sm:w-48">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos ({stats.total})</SelectItem>
+                    <SelectItem value="delayed">Atrasados ({stats.delayed})</SelectItem>
+                    <SelectItem value="today">Hoje ({stats.today})</SelectItem>
+                    <SelectItem value="upcoming">Próximos ({stats.upcoming})</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Sort */}
-            <div className="w-full lg:w-48">
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
-                  <SelectValue placeholder="Data de Revisão" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">Data de Revisão</SelectItem>
-                  <SelectItem value="subject">Matéria</SelectItem>
-                  <SelectItem value="name">Nome do Tópico</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Sort */}
+              <div className="flex-1 sm:w-48">
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                    <SelectValue placeholder="Data de Revisão" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Data de Revisão</SelectItem>
+                    <SelectItem value="subject">Matéria</SelectItem>
+                    <SelectItem value="name">Nome do Tópico</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
@@ -306,25 +308,27 @@ const Topics = () => {
                       exit={{ opacity: 0 }}
                       className={`${topicStatus.border} border-l-4 border-b border-slate-200 last:border-b-0 hover:bg-slate-50 transition-colors`}
                     >
-                      <div className="px-6 py-3 flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                             <div className="flex-1 min-w-0">
-                               <EditableTopicName
-                                 topicId={topic.id}
-                                 initialName={topic.name}
-                                 onUpdate={() => {}}
-                                 isEditing={editingTopicId === topic.id}
-                                 onEditChange={(isEditing) => {
-                                   setEditingTopicId(isEditing ? topic.id : null);
-                                 }}
-                               />
-                               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                                 {topic.subjectName}
-                               </p>
-                             </div>
-                            
-                            <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="px-4 sm:px-6 py-3">
+                        <div className="flex flex-col gap-3">
+                          {/* Topic Name and Subject */}
+                          <div className="flex-1 min-w-0">
+                            <EditableTopicName
+                              topicId={topic.id}
+                              initialName={topic.name}
+                              onUpdate={() => {}}
+                              isEditing={editingTopicId === topic.id}
+                              onEditChange={(isEditing) => {
+                                setEditingTopicId(isEditing ? topic.id : null);
+                              }}
+                            />
+                            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mt-1">
+                              {topic.subjectName}
+                            </p>
+                          </div>
+                          
+                          {/* Badges and Actions */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
                               {/* Stage Badge */}
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
                                 ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
@@ -342,57 +346,57 @@ const Topics = () => {
                                   'bg-gray-100 text-gray-700'}`}>
                                 {topicStatus.status}
                               </span>
+                            </div>
+                            
+                            {/* Action Icons */}
+                            <div className="flex items-center gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
+                                    className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Anotações</p>
+                                </TooltipContent>
+                              </Tooltip>
                               
-                               {/* Action Icons */}
-                               <div className="flex items-center gap-1 ml-2">
-                                 <Tooltip>
-                                   <TooltipTrigger asChild>
-                                     <Button
-                                       variant="ghost"
-                                       size="sm"
-                                       onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
-                                       className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                     >
-                                       <FileText className="h-4 w-4" />
-                                     </Button>
-                                   </TooltipTrigger>
-                                   <TooltipContent>
-                                     <p>Anotações</p>
-                                   </TooltipContent>
-                                 </Tooltip>
-                                 
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setEditingTopicId(topic.id)}
-                                        className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Alterar nome</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                 
-                                 <Tooltip>
-                                   <TooltipTrigger asChild>
-                                     <Button
-                                       variant="ghost"
-                                       size="sm"
-                                       onClick={() => handleDeleteTopic(topic.id)}
-                                       className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                     >
-                                       <Trash2 className="h-4 w-4" />
-                                     </Button>
-                                   </TooltipTrigger>
-                                   <TooltipContent>
-                                     <p>Excluir tópico</p>
-                                   </TooltipContent>
-                                 </Tooltip>
-                               </div>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setEditingTopicId(topic.id)}
+                                    className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Alterar nome</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteTopic(topic.id)}
+                                    className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Excluir tópico</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </div>
                         </div>

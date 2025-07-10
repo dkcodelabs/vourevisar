@@ -382,12 +382,12 @@ const Subjects = () => {
         transition={{ duration: 0.3 }}
       >
         {/* Header */}
-        <div className="flex flex-col gap-4 mb-4">
+        <div className="flex flex-col gap-4 mb-4 px-4 sm:px-0">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Minhas Matérias</h1>
             <p className="text-muted-foreground mt-1">Gerencie suas matérias de estudo</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Input
               type="text"
               placeholder="Nome da nova matéria"
@@ -397,7 +397,7 @@ const Subjects = () => {
               className="flex-1"
               ref={inputRef}
             />
-            <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()}>
+            <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Adicionar
             </Button>
@@ -424,7 +424,7 @@ const Subjects = () => {
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="grid gap-4">
+              <div className="grid gap-4 px-4 sm:px-0">
                 <AnimatePresence>
                   {localSubjects.map((subject) => {
                     const progress = getSubjectProgress(subject);

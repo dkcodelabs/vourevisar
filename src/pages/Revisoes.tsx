@@ -38,7 +38,7 @@ const Revisoes = () => {
             </h1>
             
             {/* Tabs e Filtros */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 px-4 sm:px-0">
               <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras' | 'concluido')}>
                 <TabsList className="bg-slate-100 p-1 h-auto w-fit">
                   <TabsTrigger 

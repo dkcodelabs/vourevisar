@@ -31,7 +31,7 @@ const PageContainer: React.FC<PageContainerProps> = ({ children, className = '' 
 
   return (
     <motion.div 
-      className={`min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 ${className}`}
+      className={`min-h-screen ${className}`}
       initial="hidden"
       animate="visible"
       variants={containerVariants}
