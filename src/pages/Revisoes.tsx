@@ -28,8 +28,9 @@ const Revisoes = () => {
   } = useReviewsData();
 
   return (
-    <div className="space-y-6 overflow-x-hidden">
-      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="space-y-6 max-w-full">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
         <div className="border-b border-slate-200">
           {/* Header */}
           <div className="py-6">
@@ -113,6 +114,7 @@ const Revisoes = () => {
               refetch={refetch}
             />
           )}
+        </div>
         </div>
       </div>
     </div>

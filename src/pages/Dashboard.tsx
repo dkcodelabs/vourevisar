@@ -343,10 +343,21 @@ const Dashboard = () => {
               </Card>
             </div>
 
-            {/* Cards Revisão e Calendário */}
+            {/* Cards Calendário e Revisão - Invertidos para mobile-first */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Card Revisão (dinâmico baseado na data selecionada) */}
-              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 relative">
+              {/* Card Calendário de Revisões - Primeiro no mobile */}
+              <CalendarView
+                reviewData={reviewData || []}
+                isLoading={reviewLoading}
+                onDateSelect={handleCalendarDateSelect}
+                selectedDate={selectedCalendarDate || undefined}
+                currentMonth={calendarMonth}
+                onMonthChange={setCalendarMonth}
+                className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 rounded-lg bg-card lg:order-2"
+              />
+
+              {/* Card Revisão (dinâmico baseado na data selecionada) - Segundo no mobile */}
+              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 relative lg:order-1">
                 {/* Ícone de "Ver revisões de hoje" no canto superior direito */}
                 {selectedCalendarDate && (
                   <button
@@ -444,17 +455,6 @@ const Dashboard = () => {
                   )}
                 </CardContent>
               </Card>
-
-              {/* Card Calendário de Revisões */}
-              <CalendarView
-                reviewData={reviewData || []}
-                isLoading={reviewLoading}
-                onDateSelect={handleCalendarDateSelect}
-                selectedDate={selectedCalendarDate || undefined}
-                currentMonth={calendarMonth}
-                onMonthChange={setCalendarMonth}
-                className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 rounded-lg bg-card"
-              />
             </div>
           </>
         )}

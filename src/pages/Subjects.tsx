@@ -375,34 +375,35 @@ const Subjects = () => {
 
   return (
     <UserProfileProvider>
-      <motion.div 
-        className="space-y-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        {/* Header */}
-        <div className="flex flex-col gap-4 mb-4 px-4 sm:px-0">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Minhas Matérias</h1>
-            <p className="text-muted-foreground mt-1">Gerencie suas matérias de estudo</p>
+      <div className="w-full max-w-full overflow-x-hidden">
+        <motion.div 
+          className="space-y-6 max-w-full"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {/* Header */}
+          <div className="flex flex-col gap-4 mb-4 px-4 sm:px-6">
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">Minhas Matérias</h1>
+              <p className="text-muted-foreground mt-1">Gerencie suas matérias de estudo</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                type="text"
+                placeholder="Nome da nova matéria"
+                value={newSubjectName}
+                onChange={e => setNewSubjectName(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && handleSaveSubject()}
+                className="flex-1"
+                ref={inputRef}
+              />
+              <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()} className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Input
-              type="text"
-              placeholder="Nome da nova matéria"
-              value={newSubjectName}
-              onChange={e => setNewSubjectName(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' && handleSaveSubject()}
-              className="flex-1"
-              ref={inputRef}
-            />
-            <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()} className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar
-            </Button>
-          </div>
-        </div>
 
         {/* Lista de Matérias */}
         {localSubjects.length === 0 ? (
@@ -424,7 +425,7 @@ const Subjects = () => {
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="grid gap-4 px-4 sm:px-0">
+              <div className="grid gap-4 px-4 sm:px-6 max-w-full">
                 <AnimatePresence>
                   {localSubjects.map((subject) => {
                     const progress = getSubjectProgress(subject);
@@ -434,24 +435,25 @@ const Subjects = () => {
                     return (
                       <SortableItem key={subject.id} id={subject.id}>
                         {({ listeners, attributes }) => (
-                          <motion.div
+                           <motion.div
                             layout
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
                             transition={{ duration: 0.2 }}
+                            className="w-full max-w-full"
                           >
-                            <Card className="hover:shadow-lg transition-shadow relative">
-                               <CardContent className="p-4">
+                            <Card className="hover:shadow-lg transition-shadow relative max-w-full overflow-hidden">
+                               <CardContent className="p-4 max-w-full">
                                 {/* Layout Desktop */}
-                                <div className="hidden sm:flex items-center justify-between">
-                                  <div className="flex items-center space-x-4 flex-1">
-                                    <div className="cursor-move p-1" {...listeners} {...attributes}>
+                                <div className="hidden sm:flex items-center justify-between max-w-full">
+                                  <div className="flex items-center space-x-4 flex-1 min-w-0">
+                                    <div className="cursor-move p-1 flex-shrink-0" {...listeners} {...attributes}>
                                       <GripVertical className="h-5 w-5 text-gray-400" />
                                     </div>
                                     <button
                                       onClick={() => toggleExpand(subject.id)}
-                                      className="mr-2 p-1 rounded hover:bg-gray-100 transition"
+                                      className="mr-2 p-1 rounded hover:bg-gray-100 transition flex-shrink-0"
                                       aria-label={expandedSubjectIds.includes(subject.id) ? 'Recolher tópicos' : 'Expandir tópicos'}
                                       tabIndex={0}
                                       type="button"
@@ -466,11 +468,11 @@ const Subjects = () => {
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center space-x-2">
                                         {isEditing ? (
-                                          <div className="flex items-center gap-2 flex-1">
+                                          <div className="flex items-center gap-2 flex-1 min-w-0">
                                             <Input
                                               value={editingName}
                                               onChange={(e) => setEditingName(e.target.value)}
-                                              className="h-8 text-sm flex-1"
+                                              className="h-8 text-sm flex-1 min-w-0"
                                               onKeyDown={(e) => {
                                                 if (e.key === 'Enter') handleSaveEdit();
                                                 if (e.key === 'Escape') handleCancelEdit();
@@ -746,7 +748,8 @@ const Subjects = () => {
             subject={topicsModal.subject}
           />
         )}
-      </motion.div>
+        </motion.div>
+      </div>
     </UserProfileProvider>
   );
 };

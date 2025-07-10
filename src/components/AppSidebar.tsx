@@ -3,11 +3,12 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
-  SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton 
+  SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar 
 } from "@/components/ui/sidebar";
 import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, HelpCircle, TrendingUp, LucideIcon } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface NavItem {
   to: string;
@@ -32,6 +33,8 @@ const navItems: NavItem[] = [
 export function AppSidebar() {
   const { user } = useAuth();
   const location = useLocation();
+  const { setOpenMobile } = useSidebar();
+  const isMobile = useIsMobile();
 
   // Função para verificar se o item está ativo
   const isItemActive = (item: NavItem) => {
@@ -52,6 +55,13 @@ export function AppSidebar() {
     return location.pathname.startsWith(item.to);
   };
 
+  // Função para fechar o sidebar em mobile quando navegar
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
   return (
     <Sidebar className="border-r w-64">
       <SidebarHeader className="p-6 border-b">
@@ -68,7 +78,7 @@ export function AppSidebar() {
               
               return (
                 <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to} end={item.end ?? false}>
+                  <NavLink to={item.to} end={item.end ?? false} onClick={handleNavClick}>
                     <SidebarMenuButton 
                       isActive={isActive} 
                       asChild 
