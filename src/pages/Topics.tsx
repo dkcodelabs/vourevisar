@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,10 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, ArrowLeft, BookOpen, Filter, X } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
-import { AddTopicForm } from '@/components/topics/AddTopicForm';
-import { TopicCard } from '@/components/topics/TopicCard';
-import { TopicsSummaryCards } from '@/components/topics/TopicsSummaryCards';
-import { TopicsFilters } from '@/components/topics/TopicsFilters';
+import AddTopicForm from '@/components/topics/AddTopicForm';
+import TopicCard from '@/components/topics/TopicCard';
+import TopicsSummaryCards from '@/components/topics/TopicsSummaryCards';
+import TopicsFilters from '@/components/topics/TopicsFilters';
 import { Subject, Topic } from '@/types';
 import { PageTitle } from '@/components/PageTitle';
 
@@ -41,77 +42,50 @@ const Topics = () => {
 
   const handleAddTopic = async (topicName: string) => {
     if (!subjectId) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "ID da matéria não encontrado."
-      });
+      toast.error("ID da matéria não encontrado.");
       return;
     }
     try {
-      await addTopic(subjectId, { name: topicName, reviewStage: 'Nova', reviewCount: 0 });
-      toast({
-        title: "Sucesso",
-        description: "Tópico adicionado com sucesso!"
+      await addTopic(subjectId, { 
+        name: topicName, 
+        reviewStage: 'Nova', 
+        reviewCount: 0,
+        completed: false,
+        review_count: 0
       });
+      toast.success("Tópico adicionado com sucesso!");
       setIsAddingTopic(false);
     } catch (error) {
       console.error('Erro ao adicionar tópico:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao adicionar tópico. Tente novamente."
-      });
+      toast.error("Erro ao adicionar tópico. Tente novamente.");
     }
   };
 
   const handleUpdateTopic = async (topicId: string, updates: Partial<Topic>) => {
     if (!subjectId) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "ID da matéria não encontrado."
-      });
+      toast.error("ID da matéria não encontrado.");
       return;
     }
     try {
       await updateTopic(subjectId, topicId, updates);
-      toast({
-        title: "Sucesso",
-        description: "Tópico atualizado com sucesso!"
-      });
+      toast.success("Tópico atualizado com sucesso!");
     } catch (error) {
       console.error('Erro ao atualizar tópico:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao atualizar tópico. Tente novamente."
-      });
+      toast.error("Erro ao atualizar tópico. Tente novamente.");
     }
   };
 
   const handleDeleteTopic = async (topicId: string) => {
     if (!subjectId) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "ID da matéria não encontrado."
-      });
+      toast.error("ID da matéria não encontrado.");
       return;
     }
     try {
       await deleteTopic(subjectId, topicId);
-      toast({
-        title: "Sucesso",
-        description: "Tópico excluído com sucesso!"
-      });
+      toast.success("Tópico excluído com sucesso!");
     } catch (error) {
       console.error('Erro ao excluir tópico:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao excluir tópico. Tente novamente."
-      });
+      toast.error("Erro ao excluir tópico. Tente novamente.");
     }
   };
 
@@ -182,7 +156,7 @@ const Topics = () => {
   }
 
   return (
-    <div>
+    <div className="p-6">
       {/* Header */}
       <div className="flex items-center mb-4">
         <Button
@@ -197,7 +171,11 @@ const Topics = () => {
       </div>
 
       {/* Summary Cards */}
-      <TopicsSummaryCards subject={subject} topics={topics} />
+      <TopicsSummaryCards 
+        totalTopics={topics.length}
+        delayedTopics={topics.filter(t => !t.completed && t.nextReview && new Date(t.nextReview) < new Date()).length}
+        futureTopics={topics.filter(t => !t.completed && t.nextReview && new Date(t.nextReview) > new Date()).length}
+      />
 
       {/* Filters */}
       <div className="mb-4">
@@ -214,7 +192,14 @@ const Topics = () => {
               transition={{ duration: 0.2, ease: "easeInOut" }}
               className="overflow-hidden mt-2"
             >
-              <TopicsFilters filter={topicFilter} onFilterChange={handleFilterChange} />
+              <TopicsFilters 
+                searchTerm={topicFilter.searchTerm || ''}
+                onSearchChange={(value) => handleFilterChange({ searchTerm: value })}
+                statusFilter={topicFilter.status || ''}
+                onStatusFilterChange={(value) => handleFilterChange({ status: value as any })}
+                sortBy=""
+                onSortChange={() => {}}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -222,7 +207,9 @@ const Topics = () => {
 
       {/* Add Topic */}
       {isAddingTopic ? (
-        <AddTopicForm onAdd={handleAddTopic} onCancel={() => setIsAddingTopic(false)} />
+        <div className="mb-4">
+          <AddTopicForm />
+        </div>
       ) : (
         <Button onClick={() => setIsAddingTopic(true)} className="mb-4">
           <Plus className="mr-2 h-4 w-4" />
@@ -251,9 +238,9 @@ const Topics = () => {
                 transition={{ duration: 0.2 }}
               >
                 <TopicCard
-                  topic={topic}
-                  onUpdate={handleUpdateTopic}
+                  topic={{ ...topic, subjectName: subject.name }}
                   onDelete={handleDeleteTopic}
+                  onNotesClick={(topic) => console.log('Notes clicked', topic)}
                 />
               </motion.div>
             ))}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import { DateRange } from "react-day-picker"
 import { addDays } from 'date-fns';
-import { useApp } from '@/contexts/AppContext';
+import { useReviewsData } from '@/hooks/useReviewsData';
 import { toast } from 'sonner';
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, Target } from 'lucide-react';
@@ -30,7 +31,7 @@ const Revisoes = () => {
     to: addDays(new Date(), 7),
   })
   const [filter, setFilter] = useState<Filter | null>(null);
-  const { reviews, isLoading, error, forceRefresh } = useApp();
+  const { topics: reviews, isLoading, error, refetch: forceRefresh } = useReviewsData();
   const [filteredReviews, setFilteredReviews] = useState(reviews);
 
   useEffect(() => {
@@ -43,13 +44,13 @@ const Revisoes = () => {
 
     if (date?.from && date?.to) {
       newFilteredReviews = newFilteredReviews.filter(review => {
-        const reviewDate = new Date(review.date);
+        const reviewDate = new Date(review.next_review || new Date());
         return reviewDate >= date.from && reviewDate <= date.to;
       });
     }
 
     if (filter) {
-      newFilteredReviews = newFilteredReviews.filter(review => review.subject === filter.value);
+      newFilteredReviews = newFilteredReviews.filter(review => review.subject_name === filter.value);
     }
 
     setFilteredReviews(newFilteredReviews);
@@ -73,7 +74,7 @@ const Revisoes = () => {
           <CardTitle className="text-red-600">Erro ao carregar revisões</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-gray-600 mb-4">{error.message}</p>
           <Button onClick={() => window.location.reload()}>
             Tentar Novamente
           </Button>
@@ -83,7 +84,7 @@ const Revisoes = () => {
   }
 
   return (
-    <div>
+    <div className="p-6">
       <PageTitle title="Revisões" subtitle="Acompanhe suas revisões programadas" />
       
       <div className="mb-4 flex items-center space-x-4">
@@ -175,9 +176,9 @@ const Revisoes = () => {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-lg">{review.subject}</h3>
+                    <h3 className="font-semibold text-lg">{review.subject_name}</h3>
                     <p className="text-sm text-gray-600">
-                      {format(new Date(review.date), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                      {review.next_review ? format(new Date(review.next_review), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR }) : 'Sem data de revisão'}
                     </p>
                   </div>
                   <Badge className={review.completed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
@@ -187,7 +188,7 @@ const Revisoes = () => {
                 <div className="mt-2 flex items-center space-x-4">
                   <div className="flex items-center space-x-1 text-sm text-gray-600">
                     <Target className="h-4 w-4" />
-                    <span>{review.topicCount} Tópicos</span>
+                    <span>{review.name}</span>
                   </div>
                   <div className="flex items-center space-x-1 text-sm text-gray-600">
                     <CheckCircle className="h-4 w-4" />

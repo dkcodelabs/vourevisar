@@ -39,9 +39,10 @@ const TopicsFilters: React.FC<TopicsFiltersProps> = ({
             <SelectValue placeholder="Filtrar por status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="delayed">Atrasados</SelectItem>
-            <SelectItem value="upcoming">Próximos</SelectItem>
+            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value="Nova">Nova</SelectItem>
+            <SelectItem value="Em Estudo">Em Estudo</SelectItem>
+            <SelectItem value="Concluída">Concluída</SelectItem>
           </SelectContent>
         </Select>
 
