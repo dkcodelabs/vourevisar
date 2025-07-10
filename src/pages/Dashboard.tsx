@@ -169,9 +169,9 @@ const Dashboard = () => {
   // Obter texto para exibir na seção "Revisão"
   const getReviewSectionTitle = () => {
     if (selectedCalendarDate) {
-      return `Revisão - ${format(selectedCalendarDate, 'dd/MM/yyyy')}`;
+      return `Revisões de ${format(selectedCalendarDate, 'dd \'de\' MMMM', { locale: ptBR })}`;
     }
-    return 'Revisão - Hoje';
+    return 'Revisões de hoje';
   };
 
   const handleCalendarDateSelect = (date: Date) => {
@@ -379,48 +379,66 @@ const Dashboard = () => {
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600" />
                     </div>
                   ) : displayedReviews.length > 0 ? (
-                    <div className="space-y-2">
-                      {displayedReviews.map((topic, idx) => {
-                        // Determina o status da revisão
-                        const reviewDate = startOfDay(new Date(topic.next_review));
-                        const today = startOfDay(new Date());
-                        let status: 'pendente' | 'hoje' | 'futura' = 'futura';
-                        if (reviewDate.getTime() === today.getTime()) {
-                          status = 'hoje';
-                        } else if (reviewDate.getTime() < today.getTime()) {
-                          status = 'pendente';
-                        }
+                    <div className="space-y-4">
+                      {/* Agrupar revisões por matéria */}
+                      {(() => {
+                        const groupedReviews = displayedReviews.reduce((groups, topic) => {
+                          const subjectName = topic.subject_name;
+                          if (!groups[subjectName]) {
+                            groups[subjectName] = [];
+                          }
+                          groups[subjectName].push(topic);
+                          return groups;
+                        }, {} as Record<string, typeof displayedReviews>);
 
-                        // Define a cor de fundo de acordo com o status
-                        const bgColor =
-                          status === 'pendente'
-                            ? 'bg-red-50 border border-red-200'
-                            : status === 'hoje'
-                            ? 'bg-yellow-50 border border-yellow-200'
-                            : 'bg-green-50 border border-green-200';
+                        return Object.entries(groupedReviews).map(([subjectName, topics]) => (
+                          <div key={subjectName} className="space-y-2">
+                            {/* Subtítulo da disciplina */}
+                            <h4 className="text-sm font-bold text-foreground border-b border-border pb-1">
+                              {subjectName}
+                            </h4>
+                            {/* Lista de tópicos */}
+                            <div className="space-y-2">
+                              {topics.map((topic, idx) => {
+                                // Determina o status da revisão
+                                const reviewDate = startOfDay(new Date(topic.next_review));
+                                const today = startOfDay(new Date());
+                                let status: 'pendente' | 'hoje' | 'futura' = 'futura';
+                                if (reviewDate.getTime() === today.getTime()) {
+                                  status = 'hoje';
+                                } else if (reviewDate.getTime() < today.getTime()) {
+                                  status = 'pendente';
+                                }
 
-                        return (
-                          <div key={idx} className={`p-3 rounded-lg ${bgColor}`}>
-                            <div className="flex items-center gap-2">
-                              <BookOpen className="h-4 w-4 text-orange-600" />
-                              <span className="font-semibold text-gray-800">{topic.subject_name}</span>
-                              <span className="text-gray-600">:</span>
-                              <span className="text-gray-700">{topic.name}</span>
+                                return (
+                                  <div key={idx} className="flex items-center justify-between py-2 px-3 hover:bg-muted/50 rounded-md transition-colors">
+                                    <span className="text-sm text-foreground font-medium">
+                                      {topic.name}
+                                    </span>
+                                    <Badge 
+                                      variant={
+                                        status === 'pendente' ? 'destructive' :
+                                        status === 'hoje' ? 'default' : 'secondary'
+                                      }
+                                      className="text-xs px-2 py-1"
+                                    >
+                                      {topic.review_stage}
+                                    </Badge>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            <Badge variant="outline" className="mt-1 text-xs">
-                              {topic.review_stage}
-                            </Badge>
                           </div>
-                        );
-                      })}
+                        ));
+                      })()}
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <h2 className="text-gray-700 text-lg font-semibold mb-2">
+                      <h2 className="text-muted-foreground text-base font-medium mb-2">
                         Nenhuma revisão agendada para este dia
                       </h2>
-                      <p className="text-gray-500">
-                        Aproveite para revisar outros conteúdos, reforçar pontos importantes ou tirar um tempo para descansar.
+                      <p className="text-muted-foreground text-sm">
+                        Aproveite para revisar outros conteúdos ou descansar.
                       </p>
                     </div>
                   )}
