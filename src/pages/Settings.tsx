@@ -18,6 +18,8 @@ import { ProfileSelector } from '@/components/ProfileSelector';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Check } from "lucide-react";
+import { motion } from 'framer-motion';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 interface UserCycle {
   id: string;
@@ -407,285 +409,298 @@ const Settings = () => {
   }
   
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-foreground">Configurações</h1>
+    <TooltipProvider>
+      <div className="min-h-screen bg-slate-50">
+        <div className="container mx-auto p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+            className="mb-8"
+          >
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Configurações
+            </h1>
+          </motion.div>
       
-      {/* Perfil de Revisão */}
-      <GlassCard className="p-6">
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Perfil de Revisão</h2>
-          <p className="text-sm text-gray-600">
-            Escolha seu perfil de acordo com sua experiência e necessidade de revisão.
-          </p>
+          {/* Perfil de Revisão */}
+          <GlassCard className="p-6">
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">Perfil de Revisão</h2>
+              <p className="text-sm text-gray-600">
+                Escolha seu perfil de acordo com sua experiência e necessidade de revisão.
+              </p>
+              
+              <div className="max-w-2xl">
+                <ProfileSelector selected={settings?.review_profile} onSelect={handleProfileChange} onboarding={false} disabled={hasReviews} />
+                {hasReviews && (
+                  <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded">
+                    Você já possui revisões em andamento. O perfil de revisão não pode ser alterado para não comprometer seu progresso.<br />
+                    <span className="block mt-2 text-sm text-yellow-700">Assim que concluir todas as revisões dos seus tópicos, você poderá escolher outro perfil de revisão nas configurações.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </GlassCard>
           
-          <div className="max-w-2xl">
-            <ProfileSelector selected={settings?.review_profile} onSelect={handleProfileChange} onboarding={false} disabled={hasReviews} />
-            {hasReviews && (
-              <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded">
-                Você já possui revisões em andamento. O perfil de revisão não pode ser alterado para não comprometer seu progresso.<br />
-                <span className="block mt-2 text-sm text-yellow-700">Assim que concluir todas as revisões dos seus tópicos, você poderá escolher outro perfil de revisão nas configurações.</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </GlassCard>
-      
-      {/* Novo Card: Limpeza do Sistema */}
-      <GlassCard className="p-6">
-        <h2 className="text-lg font-bold mb-2">Limpar Sistema</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Use as opções abaixo para reiniciar seu ambiente de estudos. 
-          <br />
-          <span className="font-semibold text-red-600">Atenção:</span> esta ação não pode ser desfeita!
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Limpar tudo */}
-          <Button
-            variant="destructive"
-            onClick={handleClearAll}
-          >
-            Limpar tudo
-          </Button>
-          {/* Limpar apenas revisões */}
-          <Button
-            variant="outline"
-            className="border-blue-500 text-blue-700"
-            onClick={async () => {
-              if (!user) {
-                toast({
-                  variant: "destructive",
-                  title: "Erro",
-                  description: "Usuário não autenticado."
-                });
-                return;
-              }
-              if (window.confirm("Tem certeza que deseja limpar apenas as revisões? As matérias e tópicos serão mantidos, mas todo o progresso será zerado.")) {
-                try {
-                  console.log('🔄 Iniciando reset das revisões para usuário:', user.id);
-                  
-                  // Buscar todas as matérias do usuário
-                  const { data: subjectsData, error: subjectsError } = await supabase
-                    .from('subjects')
-                    .select('id')
-                    .eq('user_id', user.id);
-                  if (subjectsError) throw subjectsError;
-                  const subjectIds = (subjectsData || []).map(s => s.id);
-                  console.log('🔄 Matérias encontradas:', subjectIds.length);
-                  
-                  // Resetar tópicos do usuário
-                  if (subjectIds.length > 0) {
-                    await supabase
-                      .from('topics')
-                      .update({
-                        review_stage: null,
-                        review_count: 0,
-                        next_review: null,
-                        last_reviewed_at: null,
-                        completed: false
-                      })
-                      .in('subject_id', subjectIds);
-                    console.log('🔄 Tópicos resetados');
+          {/* Novo Card: Limpeza do Sistema */}
+          <GlassCard className="p-6">
+            <h2 className="text-lg font-bold mb-2">Limpar Sistema</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Use as opções abaixo para reiniciar seu ambiente de estudos. 
+              <br />
+              <span className="font-semibold text-red-600">Atenção:</span> esta ação não pode ser desfeita!
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Limpar tudo */}
+              <Button
+                variant="destructive"
+                onClick={handleClearAll}
+              >
+                Limpar tudo
+              </Button>
+              {/* Limpar apenas revisões */}
+              <Button
+                variant="outline"
+                className="border-blue-500 text-blue-700"
+                onClick={async () => {
+                  if (!user) {
+                    toast({
+                      variant: "destructive",
+                      title: "Erro",
+                      description: "Usuário não autenticado."
+                    });
+                    return;
                   }
-                  
-                  // Resetar matérias do usuário
-                  await supabase
-                    .from('subjects')
-                    .update({ status: 'Nova' })
-                    .eq('user_id', user.id);
-                  console.log('🔄 Matérias resetadas');
-                  
-                  // Resetar ciclos do usuário
-                  await supabase
-                    .from('user_cycles')
-                    .update({
-                      ciclo_atual: [],
-                      disciplinas_do_dia: [],
-                      ciclos_realizados: 0,
-                      data_inicio_ciclo: null,
-                      data_fim_ciclo: null
-                    })
-                    .eq('user_id', user.id);
-                  console.log('🔄 Ciclos resetados');
-                  
-                  toast({
-                    title: "Sucesso",
-                    description: "Revisões e progresso limpos!"
-                  });
-                  
-                  // Aguardar um pouco para garantir que a operação foi concluída
-                  setTimeout(() => {
-                    console.log('🔄 Recarregando página após reset');
-                    window.location.reload();
-                  }, 1000);
-                } catch (err) {
-                  console.error('Erro ao limpar revisões:', err);
-                  toast({
-                    variant: "destructive",
-                    title: "Erro",
-                    description: "Ocorreu um erro ao tentar zerar o progresso. Tente novamente."
-                  });
-                }
-              }
-            }}
-          >
-            Limpar apenas revisões
-          </Button>
-        </div>
-      </GlassCard>
-      
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Erro</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <GlassCard className="p-6">
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Planejamento de Estudos</h2>
-            <p className="text-sm text-gray-600">
-              Personalize como você organiza seus estudos diários.
-            </p>
-            
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium mb-2">Quantidade de Matérias por Dia: {settings.subjects_per_day}</h3>
-                <p className="text-xs text-gray-500 mb-2">
-                  Mudanças são aplicadas imediatamente ao seu plano de estudos.
-                </p>
-                <Slider 
-                  value={[settings.subjects_per_day]}
-                  max={10}
-                  min={1}
-                  step={1}
-                  onValueChange={handleSubjectsPerDayChange}
-                  className="w-full"
-                />
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium mb-3">Organização da Sequência de Matérias</h3>
-                <GradientButton 
-                  className="w-full"
-                  onClick={() => window.location.href = '/materias'}
-                >
-                  Ir para Gerenciar Matérias
-                </GradientButton>
-                <p className="text-xs text-gray-500 mt-2">
-                  A ordem das matérias é definida na seção "Gerenciamento de Matérias".
-                </p>
-              </div>
+                  if (window.confirm("Tem certeza que deseja limpar apenas as revisões? As matérias e tópicos serão mantidos, mas todo o progresso será zerado.")) {
+                    try {
+                      console.log('🔄 Iniciando reset das revisões para usuário:', user.id);
+                      
+                      // Buscar todas as matérias do usuário
+                      const { data: subjectsData, error: subjectsError } = await supabase
+                        .from('subjects')
+                        .select('id')
+                        .eq('user_id', user.id);
+                      if (subjectsError) throw subjectsError;
+                      const subjectIds = (subjectsData || []).map(s => s.id);
+                      console.log('🔄 Matérias encontradas:', subjectIds.length);
+                      
+                      // Resetar tópicos do usuário
+                      if (subjectIds.length > 0) {
+                        await supabase
+                          .from('topics')
+                          .update({
+                            review_stage: null,
+                            review_count: 0,
+                            next_review: null,
+                            last_reviewed_at: null,
+                            completed: false
+                          })
+                          .in('subject_id', subjectIds);
+                        console.log('🔄 Tópicos resetados');
+                      }
+                      
+                      // Resetar matérias do usuário
+                      await supabase
+                        .from('subjects')
+                        .update({ status: 'Nova' })
+                        .eq('user_id', user.id);
+                      console.log('🔄 Matérias resetadas');
+                      
+                      // Resetar ciclos do usuário
+                      await supabase
+                        .from('user_cycles')
+                        .update({
+                          ciclo_atual: [],
+                          disciplinas_do_dia: [],
+                          ciclos_realizados: 0,
+                          data_inicio_ciclo: null,
+                          data_fim_ciclo: null
+                        })
+                        .eq('user_id', user.id);
+                      console.log('🔄 Ciclos resetados');
+                      
+                      toast({
+                        title: "Sucesso",
+                        description: "Revisões e progresso limpos!"
+                      });
+                      
+                      // Aguardar um pouco para garantir que a operação foi concluída
+                      setTimeout(() => {
+                        console.log('🔄 Recarregando página após reset');
+                        window.location.reload();
+                      }, 1000);
+                    } catch (err) {
+                      console.error('Erro ao limpar revisões:', err);
+                      toast({
+                        variant: "destructive",
+                        title: "Erro",
+                        description: "Ocorreu um erro ao tentar zerar o progresso. Tente novamente."
+                      });
+                    }
+                  }
+                }}
+              >
+                Limpar apenas revisões
+              </Button>
             </div>
-          </div>
-        </GlassCard>
-
-        <GlassCard className="p-6">
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Informações do Ciclo</h2>
-            <p className="text-sm text-gray-600">
-              Acompanhe seu progresso e gerencie seus ciclos de estudo.
-            </p>
-            
-            {userCycle ? (
+          </GlassCard>
+          
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Erro</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <GlassCard className="p-6">
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-3 bg-blue-50/70 rounded-lg">
-                    <div className="text-2xl font-bold text-app-blue">{userCycle.ciclos_realizados}</div>
-                    <div className="text-xs text-gray-600">Ciclos Realizados</div>
-                  </div>
-                  <div className="text-center p-3 bg-green-50/70 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{disciplinasConcluidas}</div>
-                    <div className="text-xs text-gray-600">Disciplinas Concluídas</div>
-                  </div>
-                </div>
+                <h2 className="text-xl font-semibold">Planejamento de Estudos</h2>
+                <p className="text-sm text-gray-600">
+                  Personalize como você organiza seus estudos diários.
+                </p>
                 
-                <div className="space-y-2">
-                  <div className="text-sm">
-                    <span className="font-medium">Início do Ciclo Atual: </span>
-                    <span className="text-gray-600">
-                      {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
-                    </span>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Quantidade de Matérias por Dia: {settings.subjects_per_day}</h3>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Mudanças são aplicadas imediatamente ao seu plano de estudos.
+                    </p>
+                    <Slider 
+                      value={[settings.subjects_per_day]}
+                      max={10}
+                      min={1}
+                      step={1}
+                      onValueChange={handleSubjectsPerDayChange}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-sm font-medium mb-3">Organização da Sequência de Matérias</h3>
+                    <GradientButton 
+                      className="w-full"
+                      onClick={() => window.location.href = '/materias'}
+                    >
+                      Ir para Gerenciar Matérias
+                    </GradientButton>
+                    <p className="text-xs text-gray-500 mt-2">
+                      A ordem das matérias é definida na seção "Gerenciamento de Matérias".
+                    </p>
                   </div>
                 </div>
+              </div>
+            </GlassCard>
 
-                <div className="pt-2">
-                  <Button
-                    variant="destructive"
-                    onClick={handleResetCycle}
-                    disabled={isResettingCycle}
-                    className="w-full"
-                  >
-                    {isResettingCycle ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Resetando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Resetar Ciclo Completo
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Isso irá zerar todos os ciclos realizados e reiniciar o contador.
-                  </p>
-                </div>
+            <GlassCard className="p-6">
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold">Informações do Ciclo</h2>
+                <p className="text-sm text-gray-600">
+                  Acompanhe seu progresso e gerencie seus ciclos de estudo.
+                </p>
+                
+                {userCycle ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center p-3 bg-blue-50/70 rounded-lg">
+                        <div className="text-2xl font-bold text-app-blue">{userCycle.ciclos_realizados}</div>
+                        <div className="text-xs text-gray-600">Ciclos Realizados</div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50/70 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{disciplinasConcluidas}</div>
+                        <div className="text-xs text-gray-600">Disciplinas Concluídas</div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="text-sm">
+                        <span className="font-medium">Início do Ciclo Atual: </span>
+                        <span className="text-gray-600">
+                          {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <Button
+                        variant="destructive"
+                        onClick={handleResetCycle}
+                        disabled={isResettingCycle}
+                        className="w-full"
+                      >
+                        {isResettingCycle ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Resetando...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Resetar Ciclo Completo
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Isso irá zerar todos os ciclos realizados e reiniciar o contador.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">Nenhum ciclo encontrado</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-gray-500">Nenhum ciclo encontrado</p>
-              </div>
-            )}
-          </div>
-        </GlassCard>
-        
-        <GlassCard className="p-6">
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Notificações</h2>
-            <p className="text-sm text-gray-600">
-              Configure os lembretes de estudo e revisão.
-            </p>
+            </GlassCard>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium">Ativar notificações de estudo</h3>
-                  <p className="text-xs text-gray-500">
-                    Receba lembretes para suas sessões de estudo
-                  </p>
+            <GlassCard className="p-6">
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold">Notificações</h2>
+                <p className="text-sm text-gray-600">
+                  Configure os lembretes de estudo e revisão.
+                </p>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium">Ativar notificações de estudo</h3>
+                      <p className="text-xs text-gray-500">
+                        Receba lembretes para suas sessões de estudo
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={settings.notifications_enabled}
+                      onCheckedChange={handleNotificationsToggle}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="notification-time" className="text-sm">Horário da Notificação Principal</Label>
+                    <Input 
+                      id="notification-time"
+                      type="time"
+                      value={settings.notification_time}
+                      onChange={handleNotificationTimeChange}
+                      className="max-w-[200px]"
+                    />
+                  </div>
                 </div>
-                <Switch 
-                  checked={settings.notifications_enabled}
-                  onCheckedChange={handleNotificationsToggle}
-                />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="notification-time" className="text-sm">Horário da Notificação Principal</Label>
-                <Input 
-                  id="notification-time"
-                  type="time"
-                  value={settings.notification_time}
-                  onChange={handleNotificationTimeChange}
-                  className="max-w-[200px]"
-                />
-              </div>
-            </div>
+            </GlassCard>
           </div>
-        </GlassCard>
+          <div className="flex w-full mt-4">
+            <GradientButton 
+              className="w-full mx-auto max-w-2xl"
+              onClick={handleSaveSettings}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Salvando...' : 'Salvar Outras Configurações'}
+            </GradientButton>
+          </div>
+        </div>
       </div>
-      <div className="flex w-full mt-4">
-        <GradientButton 
-          className="w-full mx-auto max-w-2xl"
-          onClick={handleSaveSettings}
-          disabled={isSaving}
-        >
-          {isSaving ? 'Salvando...' : 'Salvar Outras Configurações'}
-        </GradientButton>
-      </div>
-    </div>
+    </TooltipProvider>
   );
 };
 

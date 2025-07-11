@@ -24,7 +24,6 @@ const navItems: NavItem[] = [
   { to: "/topicos", label: "Tópicos", icon: List },
   { to: "/revisoes", label: "Revisões", icon: Clock },
   { to: "/questoes", label: "Questões", icon: HelpCircle },
-  { to: "/revisao-geral", label: "Revisão Geral", icon: Trophy },
   { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
   { to: "/perfil", label: "Perfil", icon: User },
   { to: "/configuracoes", label: "Configurações", icon: Settings },

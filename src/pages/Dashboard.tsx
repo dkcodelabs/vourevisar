@@ -16,6 +16,7 @@ import { Loader2 } from "lucide-react";
 import { CircularProgress } from '@/components/dashboard/CircularProgress';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { PomodoroCard } from '@/components/dashboard/PomodoroCard';
+import { motion } from 'framer-motion';
 
 const Dashboard = () => {
   const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();
@@ -88,16 +89,7 @@ const Dashboard = () => {
     enabled: !!user
   });
 
-  useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) {
-      setGreeting('Bom dia');
-    } else if (hour < 18) {
-      setGreeting('Boa tarde');
-    } else {
-      setGreeting('Boa noite');
-    }
-  }, []);
+ 
 
   // Estados de loading e erro simplificados
   if (isLoading || cycleLoading) {
@@ -193,17 +185,19 @@ const Dashboard = () => {
   const subjectProgress = totalSubjects > 0 ? (completedSubjects / totalSubjects) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
+    <div className="min-h-screen bg-slate-50">
+      <div className="container mx-auto p-6">
+        {/* Header com animação */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+          className="mb-8"
+        >
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {greeting}! Aqui está seu progresso.
+            Painel
           </h1>
-          <p className="text-gray-600">
-            Acompanhe seu desempenho e organize seus estudos
-          </p>
-        </div>
+        </motion.div>
 
         {/* Se não há matérias, mostrar estado vazio */}
         {subjects.length === 0 ? (
@@ -218,55 +212,71 @@ const Dashboard = () => {
               className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold"
             >
               <Plus className="h-5 w-5 mr-2" />
-              Adicionar Primeira Matéria
-            </Button>
+                Adicionar Primeira Matéria
+              </Button>
           </div>
         ) : (
+          
+          
+
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
             {/* Left Section - Progress Overview */}
             <div className="xl:col-span-3">
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 h-fit">
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Progresso Geral</h3>
-                  <p className="text-sm text-gray-600">Quanto falta para revisar todo o conteúdo</p>
-                </div>
-                
-                <div className="flex justify-center mb-6">
-                  <CircularProgress 
-                    percentage={overallProgress}
-                    size={140}
-                    strokeWidth={10}
-                    color="#5B79E7"
-                  />
-                </div>
+              {/* NOVO LAYOUT INSPIRADO NA REFERÊNCIA */}
+              
 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Tópicos concluídos</span>
-                    <span className="font-semibold text-gray-900">{completedTopics}/{totalTopics}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Matérias concluídas</span>
-                    <span className="font-semibold text-gray-900">{completedSubjects}/{totalSubjects}</span>
-                  </div>
+              <div className="bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6">
 
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-green-500 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${subjectProgress}%` }}
-                    />
-                  </div>
-                </div>
+              <h1
+        className="text-2xl font-semibold text-gray-900"
+        style={{ fontFamily: 'Nunito, sans-serif' }}
+      >
+        Olá, {user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuário'}.
+      </h1>
 
-                <Button 
-                  onClick={() => navigate('/plano-estudos')}
-                  className="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold"
-                >
-                  Ver Plano de Estudos
-                </Button>
-              </div>
-            </div>
+      <p className="text-sm text-gray-600 mt-1">
+        Você tem 6 revisões para fazer esta semana.
+      </p>
+
+      <div className="flex items-center gap-4 mt-5">
+        
+        {/* Círculo de progresso */}
+        <div className="flex-shrink-0">
+                      <CircularProgress
+                        percentage={overallProgress}
+                        size={60}
+                        strokeWidth={4}
+                        color="#3B82F6"
+                        bgColor="#E5E7EB"
+                        showPercentage={true}
+                      />
+                        </div>
+        <div>
+          <p className="text-xs text-gray-500">Seu Progresso</p>
+          <p className="font-semibold text-gray-900">Incrível 🥳</p>
+        </div>
+      </div>
+
+   
+
+      {/* Botão */}
+                  <button
+                    className="mt-6 bg-indigo-600 text-white text-sm font-medium py-2 px-4 rounded-full hover:bg-indigo-700 transition"
+                    onClick={() => navigate('/plano-estudos')}
+                    style={{ fontFamily: 'Inter, Nunito, sans-serif' }}
+                  >
+                    Ver Plano de Estudos
+                  </button>
+
+                {/* Imagem de comemoração */}
+                <img
+                  src="/celebration.png"
+                  alt="Comemoração"
+                  className="w-40 mx-auto mt-2"
+                  style={{ minHeight: 100 }}
+                />
+                        </div>
+                      </div>
 
             {/* Center Section - Stats Cards */}
             <div className="xl:col-span-6">
@@ -304,8 +314,8 @@ const Dashboard = () => {
                 />
 
                 <PomodoroCard />
-              </div>
-            </div>
+                    </div>
+                  </div>
 
             {/* Right Section - Calendar & Reviews */}
             <div className="xl:col-span-3">
@@ -327,16 +337,16 @@ const Dashboard = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       {getReviewSectionTitle()}
                     </h3>
-                    {selectedCalendarDate && (
-                      <button
-                        onClick={handleGoToToday}
-                        title="Ver revisões de hoje"
+                {selectedCalendarDate && (
+                  <button
+                    onClick={handleGoToToday}
+                    title="Ver revisões de hoje"
                         className="text-blue-500 hover:text-blue-600"
-                      >
+                  >
                         <Eye className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
+                  </button>
+                )}
+                    </div>
 
                   {displayedReviews.length > 0 ? (
                     <div className="space-y-3 max-h-80 overflow-y-auto">
@@ -360,7 +370,7 @@ const Dashboard = () => {
                                 const isToday = topic.next_review && 
                                   startOfDay(new Date(topic.next_review)).getTime() === startOfDay(new Date()).getTime();
 
-                                return (
+                        return (
                                   <div
                                     key={topic.id}
                                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -370,16 +380,16 @@ const Dashboard = () => {
                                       <p className="text-xs text-gray-600 mt-1">
                                         {topic.next_review ? format(new Date(topic.next_review), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data'}
                                       </p>
-                                    </div>
+                            </div>
                                     <Badge
                                       variant={isOverdue ? "destructive" : isToday ? "default" : "secondary"}
                                       className="text-xs"
                                     >
                                       {topic.review_stage || 'Novo'}
-                                    </Badge>
-                                  </div>
-                                );
-                              })}
+                            </Badge>
+                          </div>
+                        );
+                      })}
                             </div>
                           </div>
                         ));
@@ -399,7 +409,7 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
         )}
       </div>
     </div>

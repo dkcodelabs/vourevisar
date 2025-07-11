@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import StudyPlanLoadingState from '@/components/study-plan/StudyPlanLoadingState';
 import StudyPlanContent from '@/components/study-plan/StudyPlanContent';
 import StudyPlanEmptyState from '@/components/study-plan/StudyPlanEmptyState';
+import { motion } from 'framer-motion';
 
 const StudyPlan = () => {
   const navigate = useNavigate();
@@ -67,13 +68,31 @@ const StudyPlan = () => {
   // Se não há matérias e os dados foram carregados, mostrar estado vazio
   if (subjects.length === 0 && isDataLoaded) {
     return (
-      <div className="space-y-6">
-        <StudyPlanEmptyState type="no-subjects" />
+      <div className="min-h-screen bg-slate-50">
+        <div className="container mx-auto p-6">
+          <StudyPlanEmptyState type="no-subjects" />
+        </div>
       </div>
     );
   }
 
-  return <StudyPlanContent />;
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="container mx-auto p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+          className="mb-8"
+        >
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Plano de Estudo
+          </h1>
+        </motion.div>
+        <StudyPlanContent />
+      </div>
+    </div>
+  );
 };
 
 export default StudyPlan;

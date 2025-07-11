@@ -219,14 +219,19 @@ const Topics = () => {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
-        <div className="max-w-full mx-auto">
-        {/* Header */}
-        <div>
-          <div className="mb-8">
-            <h1 className="text-2xl font-semibold text-foreground mb-2">Tópicos</h1>
-            <p className="text-muted-foreground">Gerencie todos os seus tópicos de estudo</p>
-          </div>
+      <div className="min-h-screen bg-slate-50">
+        <div className="container mx-auto p-6">
+          {/* Header com animação */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+            className="mb-8"
+          >
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Tópicos
+            </h1>
+          </motion.div>
 
           {/* Filters */}
           <div className="mb-6 flex flex-col gap-4 px-4 sm:px-0">
@@ -272,159 +277,158 @@ const Topics = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Topics List */}
-        <div className="px-8 pb-8">
-          {filteredAndSortedTopics.length === 0 ? (
-            <Card className="bg-white shadow-sm border border-slate-200">
-              <CardContent className="text-center py-12">
-                <p className="text-slate-500 mb-4">
-                  {searchTerm || statusFilter !== 'all' 
-                    ? 'Nenhum tópico encontrado para os filtros aplicados.' 
-                    : 'Nenhum tópico cadastrado ainda.'
-                  }
-                </p>
-                {!searchTerm && statusFilter === 'all' && (
-                  <Button onClick={() => window.location.href = '/materias'} className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Primeira Matéria
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
-              <AnimatePresence>
-                {filteredAndSortedTopics.map((topic) => {
-                  const topicStatus = getTopicStatus(topic);
-                  const stageDisplay = getStageDisplay(topic);
-                  
-                  return (
-                    <motion.div
-                      key={topic.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className={`${topicStatus.border} border-l-4 border-b border-slate-200 last:border-b-0 hover:bg-slate-50 transition-colors`}
-                    >
-                      <div className="px-4 sm:px-6 py-3">
-                        <div className="flex flex-col gap-3">
-                          {/* Topic Name and Subject */}
-                          <div className="flex-1 min-w-0">
-                            <EditableTopicName
-                              topicId={topic.id}
-                              initialName={topic.name}
-                              onUpdate={() => {}}
-                              isEditing={editingTopicId === topic.id}
-                              onEditChange={(isEditing) => {
-                                setEditingTopicId(isEditing ? topic.id : null);
-                              }}
-                            />
-                            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mt-1">
-                              {topic.subjectName}
-                            </p>
-                          </div>
-                          
-                          {/* Badges and Actions */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                              {/* Stage Badge */}
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
-                                ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
-                                  topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
-                                  topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
-                                  'bg-gray-100 text-gray-700'}`}>
-                                {stageDisplay}
-                              </span>
-                              
-                              {/* Status Badge */}
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
-                                ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
-                                  topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
-                                  topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
-                                  'bg-gray-100 text-gray-700'}`}>
-                                {topicStatus.status}
-                              </span>
+          {/* Topics List */}
+          <div className="px-8 pb-8">
+            {filteredAndSortedTopics.length === 0 ? (
+              <Card className="bg-white shadow-sm border border-slate-200">
+                <CardContent className="text-center py-12">
+                  <p className="text-slate-500 mb-4">
+                    {searchTerm || statusFilter !== 'all' 
+                      ? 'Nenhum tópico encontrado para os filtros aplicados.' 
+                      : 'Nenhum tópico cadastrado ainda.'
+                    }
+                  </p>
+                  {!searchTerm && statusFilter === 'all' && (
+                    <Button onClick={() => window.location.href = '/materias'} className="bg-blue-600 hover:bg-blue-700">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Primeira Matéria
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
+                <AnimatePresence>
+                  {filteredAndSortedTopics.map((topic) => {
+                    const topicStatus = getTopicStatus(topic);
+                    const stageDisplay = getStageDisplay(topic);
+                    
+                    return (
+                      <motion.div
+                        key={topic.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className={`${topicStatus.border} border-l-4 border-b border-slate-200 last:border-b-0 hover:bg-slate-50 transition-colors`}
+                      >
+                        <div className="px-4 sm:px-6 py-3">
+                          <div className="flex flex-col gap-3">
+                            {/* Topic Name and Subject */}
+                            <div className="flex-1 min-w-0">
+                              <EditableTopicName
+                                topicId={topic.id}
+                                initialName={topic.name}
+                                onUpdate={() => {}}
+                                isEditing={editingTopicId === topic.id}
+                                onEditChange={(isEditing) => {
+                                  setEditingTopicId(isEditing ? topic.id : null);
+                                }}
+                              />
+                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mt-1">
+                                {topic.subjectName}
+                              </p>
                             </div>
                             
-                            {/* Action Icons */}
-                            <div className="flex items-center gap-1">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
-                                    className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                  >
-                                    <FileText className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Anotações</p>
-                                </TooltipContent>
-                              </Tooltip>
+                            {/* Badges and Actions */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {/* Stage Badge */}
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                                  ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
+                                    topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
+                                    topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
+                                    'bg-gray-100 text-gray-700'}`}>
+                                  {stageDisplay}
+                                </span>
+                                
+                                {/* Status Badge */}
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                                  ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
+                                    topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
+                                    topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
+                                    'bg-gray-100 text-gray-700'}`}>
+                                  {topicStatus.status}
+                                </span>
+                              </div>
                               
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setEditingTopicId(topic.id)}
-                                    className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Alterar nome</p>
-                                </TooltipContent>
-                              </Tooltip>
-                              
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteTopic(topic.id)}
-                                    className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Excluir tópico</p>
-                                </TooltipContent>
-                              </Tooltip>
+                              {/* Action Icons */}
+                              <div className="flex items-center gap-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
+                                      className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                    >
+                                      <FileText className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Anotações</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setEditingTopicId(topic.id)}
+                                      className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Alterar nome</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteTopic(topic.id)}
+                                      className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Excluir tópico</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+        {/* Modals */}
+        <ConfirmDeleteModal
+          isOpen={deleteModal.isOpen}
+          onClose={() => setDeleteModal({ isOpen: false, topic: null })}
+          onConfirm={confirmDelete}
+          topicName={deleteModal.topic?.name || ''}
+          subjectName={deleteModal.topic?.subjectName || ''}
+        />
 
-      <ConfirmDeleteModal
-        isOpen={deleteModal.isOpen}
-        onClose={() => setDeleteModal({ isOpen: false, topic: null })}
-        onConfirm={confirmDelete}
-        topicName={deleteModal.topic?.name || ''}
-        subjectName={deleteModal.topic?.subjectName || ''}
-      />
-
-      <NotesModal
-        isOpen={notesModal.isOpen}
-        onClose={() => setNotesModal({ isOpen: false, topicId: '', topicName: '', subjectName: '' })}
-        topicId={notesModal.topicId}
-        topicName={notesModal.topicName}
-        subjectName={notesModal.subjectName}
-      />
+        <NotesModal
+          isOpen={notesModal.isOpen}
+          onClose={() => setNotesModal({ isOpen: false, topicId: '', topicName: '', subjectName: '' })}
+          topicId={notesModal.topicId}
+          topicName={notesModal.topicName}
+          subjectName={notesModal.subjectName}
+        />
       </div>
     </TooltipProvider>
   );

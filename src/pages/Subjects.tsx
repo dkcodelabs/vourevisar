@@ -384,10 +384,11 @@ const Subjects = () => {
         >
           {/* Header */}
           <div className="flex flex-col gap-4 mb-4 px-4 sm:px-6">
-            <div>
-              <h1 className="text-2xl font-semibold text-foreground">Minhas Matérias</h1>
-              <p className="text-muted-foreground mt-1">Gerencie suas matérias de estudo</p>
-            </div>
+          <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Disciplinas
+          </h1>
+        </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 type="text"

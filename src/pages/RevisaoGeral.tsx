@@ -196,21 +196,18 @@ const RevisaoGeral = () => {
   }
 
   return (
-    <div className="space-y-8">
-      <motion.div 
-        className="space-y-8"
-        initial="hidden"
-        animate="visible"
-        variants={containerVariants}
-      >
-        {/* Header */}
-        <motion.div variants={itemVariants} className="mb-8">
-          <h1 className="text-2xl font-semibold text-foreground mb-4">
+    <div className="min-h-screen bg-slate-50">
+      <div className="container mx-auto p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+          className="mb-8"
+        >
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Revisão Geral dos Estudos
           </h1>
-          <p className="text-muted-foreground">Acompanhe seu progresso e conquistas acadêmicas</p>
         </motion.div>
-
         {/* Métricas Principais com Cards Destacados */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-gradient-to-br from-green-100 to-emerald-100 p-6 rounded-xl border border-green-200 text-center">
@@ -274,7 +271,7 @@ const RevisaoGeral = () => {
 
         {/* Dicas para Estudos */}
         <TipsSection />
-      </motion.div>
+      </div>
     </div>
   );
 };

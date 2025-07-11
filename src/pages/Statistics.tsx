@@ -9,6 +9,8 @@ import {
 } from 'recharts';
 import { isAfter, isBefore, isToday, startOfWeek, endOfWeek, eachDayOfInterval, format } from 'date-fns';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -138,130 +140,143 @@ const Statistics = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-foreground">Estatísticas de Estudo</h1>
+    <TooltipProvider>
+      <div className="min-h-screen bg-slate-50">
+        <div className="container mx-auto p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+            className="mb-8"
+          >
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Estatísticas
+            </h1>
+          </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
-        <Card className="md:col-span-8">
-          <CardHeader>
-            <CardTitle>Progresso Semanal</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={weeklyProgressData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="concluidos" 
-                    stroke="#8884d8" 
-                    name="Tópicos Concluídos" 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revisados" 
-                    stroke="#82ca9d" 
-                    name="Tópicos Revisados" 
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
+            <Card className="md:col-span-8">
+              <CardHeader>
+                <CardTitle>Progresso Semanal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={weeklyProgressData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="day" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="concluidos" 
+                        stroke="#8884d8" 
+                        name="Tópicos Concluídos" 
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="revisados" 
+                        stroke="#82ca9d" 
+                        name="Tópicos Revisados" 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="md:col-span-4">
-          <CardHeader>
-            <CardTitle>Distribuição de Tópicos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 flex flex-col items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={topicStatusData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {topicStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Progresso por Matéria</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-96">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={subjectTopicsData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="concluidos" stackId="a" fill="#00C49F" name="Concluídos" />
-                <Bar dataKey="hoje" stackId="a" fill="#FFBB28" name="Para Hoje" />
-                <Bar dataKey="atrasados" stackId="a" fill="#FF8042" name="Atrasados" />
-                <Bar dataKey="futuros" stackId="a" fill="#0088FE" name="Futuros" />
-              </BarChart>
-            </ResponsiveContainer>
+            <Card className="md:col-span-4">
+              <CardHeader>
+                <CardTitle>Distribuição de Tópicos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80 flex flex-col items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={topicStatusData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {topicStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold">{studyProgress?.completedTopics || 0}</h3>
-              <p className="text-sm text-gray-500">Tópicos Concluídos</p>
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Progresso por Matéria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-96">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={subjectTopicsData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="concluidos" stackId="a" fill="#00C49F" name="Concluídos" />
+                    <Bar dataKey="hoje" stackId="a" fill="#FFBB28" name="Para Hoje" />
+                    <Bar dataKey="atrasados" stackId="a" fill="#FF8042" name="Atrasados" />
+                    <Bar dataKey="futuros" stackId="a" fill="#0088FE" name="Futuros" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold">{studyProgress?.todayTopics || 0}</h3>
-              <p className="text-sm text-gray-500">Revisões para Hoje</p>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold">{studyProgress?.completedTopics || 0}</h3>
+                  <p className="text-sm text-gray-500">Tópicos Concluídos</p>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold">
-                {studyProgress?.totalTopics > 0 
-                  ? Math.round((studyProgress?.completedTopics / studyProgress?.totalTopics) * 100) 
-                  : 0}%
-              </h3>
-              <p className="text-sm text-gray-500">Progresso Total</p>
-            </div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold">{studyProgress?.todayTopics || 0}</h3>
+                  <p className="text-sm text-gray-500">Revisões para Hoje</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold">
+                    {studyProgress?.totalTopics > 0 
+                      ? Math.round((studyProgress?.completedTopics / studyProgress?.totalTopics) * 100) 
+                      : 0}%
+                  </h3>
+                  <p className="text-sm text-gray-500">Progresso Total</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 };
 

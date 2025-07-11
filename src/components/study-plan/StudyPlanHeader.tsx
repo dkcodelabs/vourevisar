@@ -22,17 +22,10 @@ const StudyPlanHeader: React.FC<StudyPlanHeaderProps> = ({ onNextDay }) => {
           Plano de Estudo Diário
         </h1>
       </div>
-      <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-        <Button 
-          variant="outline" 
-          onClick={onNextDay}
-          className="flex items-center gap-2 hover:bg-blue-50 transition-colors text-sm px-2 py-1 w-full sm:w-auto"
-        >
-          Próximo Dia
-          <ArrowRight className="h-4 w-4" />
-        </Button>
-      </div>
+      
+      
     </motion.div>
+    
   );
 };
 

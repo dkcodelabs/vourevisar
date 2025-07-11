@@ -13,6 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
+import { motion } from 'framer-motion';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const passwordSchema = z.object({
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
@@ -215,160 +217,172 @@ const Profile = () => {
   }
   
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-foreground">Perfil</h1>
-      
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Erro</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      
-      <GlassCard className="max-w-xl p-6">
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Informações Pessoais</h2>
+    <TooltipProvider>
+      <div className="min-h-screen bg-slate-50">
+        <div className="container mx-auto p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+            className="mb-8"
+          >
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Perfil
+            </h1>
+          </motion.div>
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Erro</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           
-          <Form {...profileForm}>
-            <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-4">
-              <FormField
-                control={profileForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center text-sm">
-                      <User className="h-4 w-4 mr-2" />
-                      Nome
-                    </FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Seu nome" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <GlassCard className="max-w-xl p-6">
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">Informações Pessoais</h2>
               
-              <div className="grid gap-2">
-                <Label htmlFor="email" className="flex items-center text-sm">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  value={user?.email || ''}
-                  readOnly
-                  type="email"
-                />
-              </div>
-              
-              <FormField
-                control={profileForm.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center text-sm">
-                      <Phone className="h-4 w-4 mr-2" />
-                      Telefone
-                    </FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Seu telefone" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="grid gap-2">
-                <Label htmlFor="joined" className="flex items-center text-sm">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Data de Cadastro
-                </Label>
-                <Input
-                  id="joined"
-                  value={createdAt}
-                  readOnly
-                />
-              </div>
-              
-              <div className="flex gap-4 pt-4">
-                <GradientButton 
-                  type="submit"
-                  className="flex-1"
-                  disabled={isSaving}
-                >
-                  {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                </GradientButton>
-                
-                {!isGoogleUser && (
-                  <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-                    <DialogTrigger asChild>
-                      <GradientButton 
-                        type="button"
-                        variant="outline"
-                        className="flex-1"
-                      >
-                        <Lock className="h-4 w-4 mr-2" />
-                        Alterar Senha
-                      </GradientButton>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Alterar Senha</DialogTitle>
-                      </DialogHeader>
-                      <Form {...passwordForm}>
-                        <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4 pt-2">
-                          <FormField
-                            control={passwordForm.control}
-                            name="password"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-sm">Nova Senha</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="password"
-                                    {...field} 
-                                    placeholder="Digite sua nova senha" 
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={passwordForm.control}
-                            name="confirmPassword"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-sm">Confirme a Senha</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="password"
-                                    {...field} 
-                                    placeholder="Confirme sua nova senha" 
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <DialogFooter>
-                            <GradientButton type="submit">
-                              Alterar Senha
-                            </GradientButton>
-                          </DialogFooter>
-                        </form>
-                      </Form>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
-            </form>
-          </Form>
+              <Form {...profileForm}>
+                <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center text-sm">
+                          <User className="h-4 w-4 mr-2" />
+                          Nome
+                        </FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Seu nome" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="email" className="flex items-center text-sm">
+                      <Mail className="h-4 w-4 mr-2" />
+                      Email
+                    </Label>
+                    <Input
+                      id="email"
+                      value={user?.email || ''}
+                      readOnly
+                      type="email"
+                    />
+                  </div>
+                  
+                  <FormField
+                    control={profileForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center text-sm">
+                          <Phone className="h-4 w-4 mr-2" />
+                          Telefone
+                        </FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Seu telefone" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="joined" className="flex items-center text-sm">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Data de Cadastro
+                    </Label>
+                    <Input
+                      id="joined"
+                      value={createdAt}
+                      readOnly
+                    />
+                  </div>
+                  
+                  <div className="flex gap-4 pt-4">
+                    <GradientButton 
+                      type="submit"
+                      className="flex-1"
+                      disabled={isSaving}
+                    >
+                      {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                    </GradientButton>
+                    
+                    {!isGoogleUser && (
+                      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                        <DialogTrigger asChild>
+                          <GradientButton 
+                            type="button"
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            <Lock className="h-4 w-4 mr-2" />
+                            Alterar Senha
+                          </GradientButton>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Alterar Senha</DialogTitle>
+                          </DialogHeader>
+                          <Form {...passwordForm}>
+                            <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4 pt-2">
+                              <FormField
+                                control={passwordForm.control}
+                                name="password"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-sm">Nova Senha</FormLabel>
+                                    <FormControl>
+                                      <Input 
+                                        type="password"
+                                        {...field} 
+                                        placeholder="Digite sua nova senha" 
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={passwordForm.control}
+                                name="confirmPassword"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-sm">Confirme a Senha</FormLabel>
+                                    <FormControl>
+                                      <Input 
+                                        type="password"
+                                        {...field} 
+                                        placeholder="Confirme sua nova senha" 
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <DialogFooter>
+                                <GradientButton type="submit">
+                                  Alterar Senha
+                                </GradientButton>
+                              </DialogFooter>
+                            </form>
+                          </Form>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </div>
+                </form>
+              </Form>
+            </div>
+          </GlassCard>
         </div>
-      </GlassCard>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 

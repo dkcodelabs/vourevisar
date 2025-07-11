@@ -18,7 +18,6 @@ import Login from "@/pages/Login";
 import { AuthCallback } from "@/components/AuthCallback";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
-import RevisaoGeral from "@/pages/RevisaoGeral";
 import Questoes from "@/pages/Questoes";
 import QuestionsStatistics from "@/pages/QuestionsStatistics";
 import { Toaster as ReactHotToastToaster } from 'react-hot-toast';
@@ -56,7 +55,6 @@ const App = () => {
                     <Route path="materias/:subjectId/topicos" element={<Topics />} />
                     <Route path="topicos" element={<Topics />} />
                     <Route path="revisoes" element={<Revisoes />} />
-                    <Route path="revisao-geral" element={<RevisaoGeral />} />
                     <Route path="questoes" element={<Questoes />} />
                     <Route path="questoes/estatisticas" element={<QuestionsStatistics />} />
                     <Route path="perfil" element={<Profile />} />

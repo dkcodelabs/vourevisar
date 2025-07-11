@@ -103,16 +103,18 @@ const Questoes = () => {
   }
 
   return (
-    <motion.div 
-      className="container mx-auto p-6 space-y-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Sistema de Questões</h1>
-        <p className="text-gray-600">Registre suas questões resolvidas e acompanhe seu desempenho</p>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="container mx-auto p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+          className="mb-8"
+        >
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Sistema de Questões
+          </h1>
+        </motion.div>
 
       {/* Layout responsivo: ajustado para dar mais espaço às estatísticas */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -170,7 +172,8 @@ const Questoes = () => {
       <div className="mb-8">
         <QuestionsOverview />
       </div>
-    </motion.div>
+      </div>
+    </div>
   );
 };
 
