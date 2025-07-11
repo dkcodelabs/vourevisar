@@ -55,7 +55,6 @@ export function UserProfileNav() {
         >
           <div className="hidden sm:flex flex-col items-end">
             <span className="text-sm font-medium text-gray-900">{firstName || 'Usuário'}</span>
-            <span className="text-xs text-gray-500">vouRevisar</span>
           </div>
           
           <Avatar className="h-8 w-8">

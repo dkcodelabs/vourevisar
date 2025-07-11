@@ -31,24 +31,21 @@ const Revisoes = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="container mx-auto p-6">
-        <motion.div
+        {/* Removido o título principal */}
+        {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Revisões
-          </h1>
-        </motion.div>
+
+        </motion.div> */}
         <div className="space-y-6 max-w-full">
           <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
             <div className="border-b border-slate-200">
               {/* Header */}
               <div className="py-6">
-                <h1 className="text-2xl font-semibold text-foreground mb-6">
-                  Revisões
-                </h1>
+                
                 
                 {/* Tabs e Filtros */}
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">

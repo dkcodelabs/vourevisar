@@ -105,7 +105,8 @@ const Questoes = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="container mx-auto p-6">
-        <motion.div
+        {/* Removido o título principal */}
+        {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
@@ -114,7 +115,7 @@ const Questoes = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Sistema de Questões
           </h1>
-        </motion.div>
+        </motion.div> */}
 
       {/* Layout responsivo: ajustado para dar mais espaço às estatísticas */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

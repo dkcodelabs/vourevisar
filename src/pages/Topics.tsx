@@ -221,8 +221,8 @@ const Topics = () => {
     <TooltipProvider>
       <div className="min-h-screen bg-slate-50">
         <div className="container mx-auto p-6">
-          {/* Header com animação */}
-          <motion.div
+          {/* Removido o título principal */}
+          {/* <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
@@ -231,7 +231,7 @@ const Topics = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Tópicos
             </h1>
-          </motion.div>
+          </motion.div> */}
 
           {/* Filters */}
           <div className="mb-6 flex flex-col gap-4 px-4 sm:px-0">

@@ -32,7 +32,7 @@ const Dashboard = () => {
     queryKey: ['dashboard-reviews', user?.id],
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
-      
+
       // Buscar tópicos com next_review
       const { data: topicsData, error: topicsError } = await supabase
         .from('topics')
@@ -67,7 +67,7 @@ const Dashboard = () => {
 
       // Filtrar apenas tópicos que pertencem aos subjects do usuário
       const userSubjectIds = (subjectsData || []).map(s => s.id);
-      const filteredTopics = topicsData.filter(topic => 
+      const filteredTopics = topicsData.filter(topic =>
         userSubjectIds.includes(topic.subject_id)
       );
 
@@ -89,7 +89,7 @@ const Dashboard = () => {
     enabled: !!user
   });
 
- 
+
 
   // Estados de loading e erro simplificados
   if (isLoading || cycleLoading) {
@@ -135,7 +135,7 @@ const Dashboard = () => {
   // Função para obter revisões para uma data específica
   const getReviewsForDate = (date: Date) => {
     if (!reviewData) return [];
-    
+
     return reviewData.filter(topic => {
       if (!topic.next_review) return false;
       const reviewDate = startOfDay(new Date(topic.next_review));
@@ -148,7 +148,7 @@ const Dashboard = () => {
     if (selectedCalendarDate) {
       return getReviewsForDate(selectedCalendarDate);
     }
-    
+
     // Se nenhuma data selecionada, mostrar revisões de hoje
     const today = new Date();
     return getReviewsForDate(today);
@@ -180,7 +180,7 @@ const Dashboard = () => {
   const completedTopics = subjects.reduce((total, subject) => total + subject.topics.filter(t => t.completed).length, 0);
   const totalSubjects = subjects.length;
   const completedSubjects = subjects.filter(s => s.status === 'Concluída').length;
-  
+
   const overallProgress = totalTopics > 0 ? (completedTopics / totalTopics) * 100 : 0;
   const subjectProgress = totalSubjects > 0 ? (completedSubjects / totalSubjects) * 100 : 0;
 
@@ -188,7 +188,8 @@ const Dashboard = () => {
     <div className="min-h-screen bg-slate-50">
       <div className="container mx-auto p-6">
         {/* Header com animação */}
-        <motion.div
+        {/* Removido o título principal */}
+        {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
@@ -197,7 +198,7 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Painel
           </h1>
-        </motion.div>
+        </motion.div> */}
 
         {/* Se não há matérias, mostrar estado vazio */}
         {subjects.length === 0 ? (
@@ -207,66 +208,59 @@ const Dashboard = () => {
             <p className="text-gray-600 mb-8 max-w-md mx-auto">
               Comece adicionando suas primeiras matérias para organizar seus estudos e acompanhar seu progresso.
             </p>
-            <Button 
-              onClick={() => navigate('/materias')} 
+            <Button
+              onClick={() => navigate('/materias')}
               className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold"
             >
               <Plus className="h-5 w-5 mr-2" />
-                Adicionar Primeira Matéria
-              </Button>
+              Adicionar Primeira Matéria
+            </Button>
           </div>
         ) : (
-          
-          
 
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-            {/* Left Section - Progress Overview */}
+
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
+            {/* Coluna 1 - Overview */}
             <div className="xl:col-span-3">
-              {/* NOVO LAYOUT INSPIRADO NA REFERÊNCIA */}
-              
+              <div className="bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6 h-[420px]">
 
-              <div className="bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6">
+                <h1
+                  className="text-2xl font-semibold text-gray-900"
+                  style={{ fontFamily: 'Nunito, sans-serif' }}
+                >
+                  Olá, {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}
+                </h1>
 
-              <h1
-        className="text-2xl font-semibold text-gray-900"
-        style={{ fontFamily: 'Nunito, sans-serif' }}
-      >
-        Olá, {user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuário'}.
-      </h1>
+                <div className="flex items-center gap-4 mt-5">
 
-      <p className="text-sm text-gray-600 mt-1">
-        Você tem 6 revisões para fazer esta semana.
-      </p>
+                  {/* Círculo de progresso */}
+                  <div className="flex-shrink-0">
+                    <CircularProgress
+                      percentage={overallProgress}
+                      size={60}
+                      strokeWidth={4}
+                      color="#3B82F6"
+                      bgColor="#E5E7EB"
+                      showPercentage={true}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Seu Progresso</p>
+                    <p className="font-semibold text-gray-900">Incrível 🥳</p>
+                  </div>
+                </div>
 
-      <div className="flex items-center gap-4 mt-5">
-        
-        {/* Círculo de progresso */}
-        <div className="flex-shrink-0">
-                      <CircularProgress
-                        percentage={overallProgress}
-                        size={60}
-                        strokeWidth={4}
-                        color="#3B82F6"
-                        bgColor="#E5E7EB"
-                        showPercentage={true}
-                      />
-                        </div>
-        <div>
-          <p className="text-xs text-gray-500">Seu Progresso</p>
-          <p className="font-semibold text-gray-900">Incrível 🥳</p>
-        </div>
-      </div>
 
-   
 
-      {/* Botão */}
-                  <button
-                    className="mt-6 bg-indigo-600 text-white text-sm font-medium py-2 px-4 rounded-full hover:bg-indigo-700 transition"
-                    onClick={() => navigate('/plano-estudos')}
-                    style={{ fontFamily: 'Inter, Nunito, sans-serif' }}
-                  >
-                    Ver Plano de Estudos
-                  </button>
+                {/* Botão */}
+                <button
+                  className="mt-6 bg-indigo-600 text-white text-sm font-medium py-2 px-4 rounded-full hover:bg-indigo-700 transition"
+                  onClick={() => navigate('/plano-estudos')}
+                  style={{ fontFamily: 'Inter, Nunito, sans-serif' }}
+                >
+                  Ver Plano de Estudos
+                </button>
 
                 {/* Imagem de comemoração */}
                 <img
@@ -275,81 +269,51 @@ const Dashboard = () => {
                   className="w-40 mx-auto mt-2"
                   style={{ minHeight: 100 }}
                 />
-                        </div>
-                      </div>
+              </div>
+            </div>
 
-            {/* Center Section - Stats Cards */}
+            {/* Coluna 2 - 4 cards dividindo igualmente a altura */}
+            <div className="xl:col-span-3 h-[420px]">
+              <div className="flex flex-col h-full gap-4">
+                <StatCard className="flex-1 min-h-0" title="Matérias Concluídas" value={completedSubjects} subtitle={`de ${totalSubjects} matérias`} icon={BookOpen} iconBgColor="#E8F5E8" iconColor="#10B981" />
+                <StatCard className="flex-1 min-h-0" title="Tópicos Pendentes" value={totalTopics - completedTopics} subtitle="Para revisar" icon={AlertCircle} iconBgColor="#FFF4E6" iconColor="#F59E0B" />
+                <PomodoroCard className="flex-1 min-h-0" />
+              </div>
+            </div>
+
+            {/* Coluna 3 - Calendário e Revisões lado a lado, ambos com altura igual */}
             <div className="xl:col-span-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <StatCard
-                  title="Tempo Total"
-                  value="127h 32m"
-                  subtitle="Esta semana"
-                  icon={Timer}
-                  iconBgColor="#E6F3FF"
-                  iconColor="#5B79E7"
-                  trend={{
-                    value: 12,
-                    label: "vs semana passada",
-                    isPositive: true
-                  }}
-                />
-
-                <StatCard
-                  title="Matérias Concluídas"
-                  value={completedSubjects}
-                  subtitle={`de ${totalSubjects} matérias`}
-                  icon={BookOpen}
-                  iconBgColor="#E8F5E8"
-                  iconColor="#10B981"
-                />
-
-                <StatCard
-                  title="Tópicos Pendentes"
-                  value={totalTopics - completedTopics}
-                  subtitle="Para revisar"
-                  icon={AlertCircle}
-                  iconBgColor="#FFF4E6"
-                  iconColor="#F59E0B"
-                />
-
-                <PomodoroCard />
-                    </div>
-                  </div>
-
-            {/* Right Section - Calendar & Reviews */}
-            <div className="xl:col-span-3">
-              <div className="space-y-6">
-                {/* Calendar */}
-                <CalendarView
-                  reviewData={reviewData || []}
-                  isLoading={reviewLoading}
-                  onDateSelect={handleCalendarDateSelect}
-                  selectedDate={selectedCalendarDate || undefined}
-                  currentMonth={calendarMonth}
-                  onMonthChange={setCalendarMonth}
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100"
-                />
-
-                {/* Review Topics */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[420px]">
+                {/* Calendário */}
+                <div className="h-full">
+                  <CalendarView
+                    reviewData={reviewData || []}
+                    isLoading={reviewLoading}
+                    onDateSelect={handleCalendarDateSelect}
+                    selectedDate={selectedCalendarDate || undefined}
+                    currentMonth={calendarMonth}
+                    onMonthChange={setCalendarMonth}
+                    className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full"
+                  />
+                </div>
+                {/* Card Revisões de hoje */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 h-full overflow-y-auto">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                       {getReviewSectionTitle()}
                     </h3>
-                {selectedCalendarDate && (
-                  <button
-                    onClick={handleGoToToday}
-                    title="Ver revisões de hoje"
+                    {selectedCalendarDate && (
+                      <button
+                        onClick={handleGoToToday}
+                        title="Ver revisões de hoje"
                         className="text-blue-500 hover:text-blue-600"
-                  >
+                      >
                         <Eye className="h-5 w-5" />
-                  </button>
-                )}
-                    </div>
-
+                      </button>
+                    )}
+                  </div>
                   {displayedReviews.length > 0 ? (
-                    <div className="space-y-3 max-h-80 overflow-y-auto">
+                    <div className="space-y-3">
                       {(() => {
                         const reviewsBySubject = displayedReviews.reduce((acc, topic) => {
                           const subjectName = topic.subject_name;
@@ -365,12 +329,12 @@ const Dashboard = () => {
                             <h4 className="font-semibold text-gray-900 text-sm mb-2">{subjectName}</h4>
                             <div className="space-y-2">
                               {topics.map((topic) => {
-                                const isOverdue = topic.next_review && 
+                                const isOverdue = topic.next_review &&
                                   startOfDay(new Date(topic.next_review)).getTime() < startOfDay(new Date()).getTime();
-                                const isToday = topic.next_review && 
+                                const isToday = topic.next_review &&
                                   startOfDay(new Date(topic.next_review)).getTime() === startOfDay(new Date()).getTime();
 
-                        return (
+                                return (
                                   <div
                                     key={topic.id}
                                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -380,36 +344,28 @@ const Dashboard = () => {
                                       <p className="text-xs text-gray-600 mt-1">
                                         {topic.next_review ? format(new Date(topic.next_review), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data'}
                                       </p>
-                            </div>
+                                    </div>
                                     <Badge
                                       variant={isOverdue ? "destructive" : isToday ? "default" : "secondary"}
                                       className="text-xs"
                                     >
                                       {topic.review_stage || 'Novo'}
-                            </Badge>
-                          </div>
-                        );
-                      })}
+                                    </Badge>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         ));
                       })()}
                     </div>
                   ) : (
-                    <div className="text-center py-8">
-                      <Clock className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                      <h4 className="font-medium text-gray-900 mb-2">
-                        Nenhuma revisão agendada
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {selectedCalendarDate ? 'Nenhuma revisão para esta data.' : 'Você está em dia com suas revisões!'}
-                      </p>
-                    </div>
+                    <p className="text-gray-500">Nenhuma revisão para esta data.</p>
                   )}
                 </div>
               </div>
             </div>
-            </div>
+          </div>
         )}
       </div>
     </div>
