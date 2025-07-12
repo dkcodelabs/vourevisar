@@ -53,15 +53,15 @@ export function TopHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="container mx-auto px-4">
+      <div className="responsive-container">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center">
-            <span className="text-app-blue font-bold text-2xl">vouRevisar</span>
+          <div className="flex items-center min-w-0">
+            <span className="text-app-blue font-bold text-xl lg:text-2xl truncate">vouRevisar</span>
           </div>
 
           {/* Navigation - Hidden on mobile, properly responsive */}
-          <nav className="desktop-nav hidden md:flex items-center space-x-1">
+          <nav className="desktop-nav hidden lg:flex items-center space-x-1">
             {navItems.map((item) => {
               const isActive = isItemActive(item);
               
@@ -70,29 +70,29 @@ export function TopHeader() {
                   key={item.to}
                   to={item.to}
                   end={item.end ?? false}
-                  className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                     isActive 
                       ? 'bg-app-blue text-white' 
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
-                  <item.icon size={16} className="mr-2" />
-                  <span>{item.label}</span>
+                  <item.icon size={16} className="mr-2 flex-shrink-0" />
+                  <span className="hidden xl:inline">{item.label}</span>
                 </NavLink>
               );
             })}
           </nav>
 
           {/* Pomodoro & Mobile Menu Button & User Profile */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
             {/* Pomodoro Timer Icon */}
             {user && (
               <button
                 onClick={() => setPomodoroOpen(true)}
-                className="relative flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 hover:scale-105"
+                className="relative flex items-center justify-center w-10 h-10 lg:w-12 lg:h-12 rounded-full transition-all duration-200 hover:scale-105"
               >
                 {/* Progress circle */}
-                <svg className="absolute w-12 h-12 transform -rotate-90" viewBox="0 0 48 48">
+                <svg className="absolute w-10 h-10 lg:w-12 lg:h-12 transform -rotate-90" viewBox="0 0 48 48">
                   <circle
                     cx="24"
                     cy="24"
@@ -122,7 +122,7 @@ export function TopHeader() {
                 
                 {/* Timer icon in center */}
                 <Timer 
-                  size={16} 
+                  size={14} 
                   className={`${
                     state === 'running' 
                       ? 'text-green-600 animate-pulse' 
@@ -144,7 +144,7 @@ export function TopHeader() {
             )}
 
             {/* Mobile Menu Button */}
-            <div className="mobile-nav md:hidden">
+            <div className="mobile-nav lg:hidden">
               <MobileMenu navItems={navItems} />
             </div>
 
@@ -209,7 +209,10 @@ function MobileMenu({ navItems }: { navItems: NavItem[] }) {
           />
           
           {/* Menu */}
-          <div className="absolute right-0 top-12 w-64 bg-white rounded-lg shadow-lg border z-50 p-2">
+          <div className="absolute right-0 top-12 w-72 sm:w-64 bg-white rounded-lg shadow-lg border z-50 p-2 max-h-[80vh] overflow-y-auto">
+            <div className="p-2 border-b border-gray-100 mb-2">
+              <h3 className="text-sm font-semibold text-gray-900">Menu de Navegação</h3>
+            </div>
             {navItems.map((item) => {
               const isActive = isItemActive(item);
               
@@ -220,13 +223,13 @@ function MobileMenu({ navItems }: { navItems: NavItem[] }) {
                   end={item.end ?? false}
                   className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors w-full ${
                     isActive 
-                      ? 'bg-app-blue text-white' 
+                      ? 'bg-app-blue text-white border-l-2 border-blue-600' 
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                   onClick={() => setIsOpen(false)}
                 >
-                  <item.icon size={18} className="mr-3" />
-                  <span>{item.label}</span>
+                  <item.icon size={18} className="mr-3 flex-shrink-0" />
+                  <span className="text-base">{item.label}</span>
                 </NavLink>
               );
             })}

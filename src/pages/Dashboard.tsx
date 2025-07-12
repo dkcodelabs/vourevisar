@@ -186,7 +186,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-4 md:p-6">
+      <div className="responsive-container py-4 lg:py-6">
 
         {/* Se não há matérias, mostrar estado vazio */}
         {subjects.length === 0 ? (
@@ -205,61 +205,51 @@ const Dashboard = () => {
             </Button>
           </div>
         ) : (
-          // Layout Responsivo: Móvel = Coluna única, Desktop = Grid
-          <div className="responsive-grid grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-6 items-stretch">
-            {/* Coluna 1 - Overview - Responsivo */}
-            <div className="xl:col-span-3 w-full">
-              <div className="bg-white rounded-2xl shadow-lg p-4 md:p-8 flex flex-col items-center gap-4 md:gap-6 h-auto md:h-[420px] mobile-card">
+          <div className="responsive-grid">
+            {/* Overview - Grid Area */}
+            <div className="grid-overview bg-white rounded-2xl shadow-lg p-4 lg:p-8 flex flex-col items-center gap-4 lg:gap-6 mobile-card">
+              <h1
+                className="text-lg lg:text-2xl font-semibold text-gray-900 text-center"
+                style={{ fontFamily: 'Nunito, sans-serif' }}
+              >
+                Olá, {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}
+              </h1>
 
-                <h1
-                  className="text-2xl font-semibold text-gray-900"
-                  style={{ fontFamily: 'Nunito, sans-serif' }}
-                >
-                  Olá, {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}
-                </h1>
-
-                <div className="flex items-center gap-4 mt-5">
-
-                  {/* Círculo de progresso */}
-                  <div className="flex-shrink-0">
-                    <CircularProgress
-                      percentage={overallProgress}
-                      size={60}
-                      strokeWidth={4}
-                      color="#3B82F6"
-                      bgColor="#E5E7EB"
-                      showPercentage={true}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Seu Progresso</p>
-                    <p className="font-semibold text-gray-900">Incrível 🥳</p>
-                  </div>
+              <div className="flex items-center gap-4 mt-2 lg:mt-5">
+                <div className="flex-shrink-0">
+                  <CircularProgress
+                    percentage={overallProgress}
+                    size={50}
+                    strokeWidth={4}
+                    color="#3B82F6"
+                    bgColor="#E5E7EB"
+                    showPercentage={true}
+                  />
                 </div>
-
-
-
-                {/* Botão */}
-                <button
-                  className="mt-6 bg-indigo-600 text-white text-sm font-medium py-2 px-4 rounded-full hover:bg-indigo-700 transition"
-                  onClick={() => navigate('/plano-estudos')}
-                  style={{ fontFamily: 'Inter, Nunito, sans-serif' }}
-                >
-                  Ver Plano de Estudos
-                </button>
-
-                {/* Imagem de comemoração */}
-                <img
-                  src="/celebration.png"
-                  alt="Comemoração"
-                  className="w-40 mx-auto mt-2"
-                  style={{ minHeight: 100 }}
-                />
+                <div>
+                  <p className="text-xs text-gray-500">Seu Progresso</p>
+                  <p className="font-semibold text-gray-900 text-sm lg:text-base">Incrível 🥳</p>
+                </div>
               </div>
+
+              <button
+                className="mt-4 lg:mt-6 bg-indigo-600 text-white text-sm font-medium py-2 px-4 rounded-full hover:bg-indigo-700 transition"
+                onClick={() => navigate('/plano-estudos')}
+                style={{ fontFamily: 'Inter, Nunito, sans-serif' }}
+              >
+                Ver Plano de Estudos
+              </button>
+
+              <img
+                src="/celebration.png"
+                alt="Comemoração"
+                className="w-32 lg:w-40 mx-auto mt-2"
+                style={{ minHeight: 80 }}
+              />
             </div>
 
-            {/* Coluna 2 - 3 cards verticais - Responsivo */}
-            <div className="xl:col-span-3 h-auto md:h-[420px] w-full">
+            {/* Stats Cards - Grid Area */}
+            <div className="grid-stats">
               <div className="flex flex-col h-full gap-3">
                 <StatCard 
                   className="flex-1" 
@@ -297,89 +287,85 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Coluna 3 - Calendário e Revisões - Responsivo */}
-            <div className="xl:col-span-6 w-full">
-              <div className="responsive-grid grid grid-cols-1 md:grid-cols-2 gap-4 h-auto md:h-[420px]">
-                {/* Calendário */}
-                <div className="h-auto md:h-full min-h-[300px]">
-                  <CalendarView
-                    reviewData={reviewData || []}
-                    isLoading={reviewLoading}
-                    onDateSelect={handleCalendarDateSelect}
-                    selectedDate={selectedCalendarDate || undefined}
-                    currentMonth={calendarMonth}
-                    onMonthChange={setCalendarMonth}
-                    className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full mobile-card"
-                  />
-                </div>
-                {/* Card Revisões de hoje */}
-                <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100 h-auto md:h-full min-h-[300px] overflow-y-auto mobile-card">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {getReviewSectionTitle()}
-                    </h3>
-                    {selectedCalendarDate && (
-                      <button
-                        onClick={handleGoToToday}
-                        title="Ver revisões de hoje"
-                        className="text-blue-500 hover:text-blue-600"
-                      >
-                        <Eye className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
-                  {displayedReviews.length > 0 ? (
-                    <div className="space-y-3">
-                      {(() => {
-                        const reviewsBySubject = displayedReviews.reduce((acc, topic) => {
-                          const subjectName = topic.subject_name;
-                          if (!acc[subjectName]) {
-                            acc[subjectName] = [];
-                          }
-                          acc[subjectName].push(topic);
-                          return acc;
-                        }, {} as Record<string, typeof displayedReviews>);
+            {/* Calendar - Grid Area */}
+            <div className="grid-calendar min-h-[300px]">
+              <CalendarView
+                reviewData={reviewData || []}
+                isLoading={reviewLoading}
+                onDateSelect={handleCalendarDateSelect}
+                selectedDate={selectedCalendarDate || undefined}
+                currentMonth={calendarMonth}
+                onMonthChange={setCalendarMonth}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full mobile-card"
+              />
+            </div>
 
-                        return Object.entries(reviewsBySubject).map(([subjectName, topics]) => (
-                          <div key={subjectName} className="border-l-4 border-blue-500 pl-4">
-                            <h4 className="font-semibold text-gray-900 text-sm mb-2">{subjectName}</h4>
-                            <div className="space-y-2">
-                              {topics.map((topic) => {
-                                const isOverdue = topic.next_review &&
-                                  startOfDay(new Date(topic.next_review)).getTime() < startOfDay(new Date()).getTime();
-                                const isToday = topic.next_review &&
-                                  startOfDay(new Date(topic.next_review)).getTime() === startOfDay(new Date()).getTime();
-
-                                return (
-                                  <div
-                                    key={topic.id}
-                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                  >
-                                    <div className="flex-1">
-                                      <h5 className="font-medium text-gray-900 text-sm">{topic.name}</h5>
-                                      <p className="text-xs text-gray-600 mt-1">
-                                        {topic.next_review ? format(new Date(topic.next_review), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data'}
-                                      </p>
-                                    </div>
-                                    <Badge
-                                      variant={isOverdue ? "destructive" : isToday ? "default" : "secondary"}
-                                      className="text-xs"
-                                    >
-                                      {topic.review_stage || 'Novo'}
-                                    </Badge>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">Nenhuma revisão para esta data.</p>
-                  )}
-                </div>
+            {/* Reviews - Grid Area */}
+            <div className="grid-reviews bg-white rounded-2xl p-4 lg:p-6 shadow-sm border border-gray-100 min-h-[300px] overflow-y-auto mobile-card">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {getReviewSectionTitle()}
+                </h3>
+                {selectedCalendarDate && (
+                  <button
+                    onClick={handleGoToToday}
+                    title="Ver revisões de hoje"
+                    className="text-blue-500 hover:text-blue-600"
+                  >
+                    <Eye className="h-5 w-5" />
+                  </button>
+                )}
               </div>
+              {displayedReviews.length > 0 ? (
+                <div className="space-y-3">
+                  {(() => {
+                    const reviewsBySubject = displayedReviews.reduce((acc, topic) => {
+                      const subjectName = topic.subject_name;
+                      if (!acc[subjectName]) {
+                        acc[subjectName] = [];
+                      }
+                      acc[subjectName].push(topic);
+                      return acc;
+                    }, {} as Record<string, typeof displayedReviews>);
+
+                    return Object.entries(reviewsBySubject).map(([subjectName, topics]) => (
+                      <div key={subjectName} className="border-l-4 border-blue-500 pl-4">
+                        <h4 className="font-semibold text-gray-900 text-sm mb-2">{subjectName}</h4>
+                        <div className="space-y-2">
+                          {topics.map((topic) => {
+                            const isOverdue = topic.next_review &&
+                              startOfDay(new Date(topic.next_review)).getTime() < startOfDay(new Date()).getTime();
+                            const isToday = topic.next_review &&
+                              startOfDay(new Date(topic.next_review)).getTime() === startOfDay(new Date()).getTime();
+
+                            return (
+                              <div
+                                key={topic.id}
+                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="font-medium text-gray-900 text-sm truncate">{topic.name}</h5>
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {topic.next_review ? format(new Date(topic.next_review), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data'}
+                                  </p>
+                                </div>
+                                <Badge
+                                  variant={isOverdue ? "destructive" : isToday ? "default" : "secondary"}
+                                  className="text-xs flex-shrink-0 ml-2"
+                                >
+                                  {topic.review_stage || 'Novo'}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">Nenhuma revisão para esta data.</p>
+              )}
             </div>
           </div>
         )}

@@ -395,7 +395,100 @@ img, video {
   box-sizing: border-box;
 }
 
-/* Mobile-first container */
+/* Enhanced responsive system with multiple breakpoints */
+.responsive-container {
+  width: 100%;
+  max-width: 100vw;
+  margin: 0 auto;
+  padding: 0 1rem;
+  overflow-x: hidden;
+}
+
+/* Responsive grid system */
+.responsive-grid {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+}
+
+/* Mobile: Single column for everything */
+@media (max-width: 639px) {
+  .responsive-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: 
+      "overview"
+      "stats"
+      "calendar"
+      "reviews";
+  }
+  
+  .grid-overview { grid-area: overview; }
+  .grid-stats { grid-area: stats; }
+  .grid-calendar { grid-area: calendar; }
+  .grid-reviews { grid-area: reviews; }
+}
+
+/* Small tablets: 2 columns with intelligent grouping */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .responsive-container {
+    padding: 0 1.5rem;
+  }
+  
+  .responsive-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: 
+      "overview stats"
+      "calendar reviews";
+    gap: 1.5rem;
+  }
+  
+  .grid-overview { grid-area: overview; }
+  .grid-stats { grid-area: stats; }
+  .grid-calendar { grid-area: calendar; }
+  .grid-reviews { grid-area: reviews; }
+}
+
+/* Large tablets and desktop: 3 columns balanced */
+@media (min-width: 1024px) {
+  .responsive-container {
+    padding: 0 2rem;
+    max-width: 1200px;
+  }
+  
+  .responsive-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-areas: 
+      "overview stats calendar"
+      "overview stats reviews";
+    gap: 2rem;
+  }
+  
+  .grid-overview { 
+    grid-area: overview;
+    align-self: start;
+  }
+  .grid-stats { 
+    grid-area: stats;
+    align-self: start;
+  }
+  .grid-calendar { 
+    grid-area: calendar;
+    align-self: start;
+  }
+  .grid-reviews { 
+    grid-area: reviews;
+    align-self: start;
+  }
+}
+
+/* Extra large screens */
+@media (min-width: 1280px) {
+  .responsive-container {
+    max-width: 1400px;
+  }
+}
+
+/* Mobile-first container fallback */
 @media (max-width: 768px) {
   .container {
     padding-left: 1rem;
