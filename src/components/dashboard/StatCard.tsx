@@ -28,39 +28,34 @@ export const StatCard: React.FC<StatCardProps> = ({
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
   
   return (
-    <div className={`bg-card rounded-xl p-6 shadow-sm border ${className || ''}`}>
-      <div className="flex flex-col space-y-4">
-        {/* Header with icon, title and subtitle */}
-        <div className="flex items-start justify-between">
+    <div className={`bg-white rounded-xl p-4 shadow-sm border border-gray-100 ${className || ''}`}>
+      <div className="flex flex-col h-full justify-between">
+        {/* Header with icon and title */}
+        <div className="flex items-center justify-between mb-3">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
+            <h3 className="text-sm font-medium text-gray-900">{title}</h3>
+            <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
           </div>
           <div 
-            className="w-12 h-12 rounded-lg flex items-center justify-center ml-4"
+            className="w-8 h-8 rounded-lg flex items-center justify-center ml-3 flex-shrink-0"
             style={{ backgroundColor: iconBgColor }}
           >
-            <Icon className="w-6 h-6" style={{ color: progressColor }} />
+            <Icon className="w-4 h-4" style={{ color: progressColor }} />
           </div>
         </div>
 
         {/* Main value */}
         <div className="space-y-2">
-          <div className="text-2xl font-bold text-foreground">
-            {completed}/{total} {unit}
+          <div className="text-lg font-semibold text-gray-900">
+            {completed}/{total}
           </div>
           
           {/* Progress bar */}
-          <div className="space-y-2">
-            <Progress 
-              value={percentage} 
-              className="h-2"
-              progressColor={progressColor}
-            />
-            <p className="text-sm text-muted-foreground">
-              Você já concluiu {completed} de {total} {unit} cadastradas
-            </p>
-          </div>
+          <Progress 
+            value={percentage} 
+            className="h-1.5"
+            progressColor={progressColor}
+          />
         </div>
       </div>
     </div>

@@ -274,36 +274,36 @@ const Dashboard = () => {
 
             {/* Coluna 2 - 3 cards verticais com altura igual ao calendário */}
             <div className="xl:col-span-3 h-[420px]">
-              <div className="flex flex-col h-full gap-4">
+              <div className="flex flex-col h-full gap-3">
                 <StatCard 
-                  className="flex-1 min-h-0" 
-                  title="Matérias Cadastradas" 
-                  subtitle="Progresso geral"
+                  className="flex-1" 
+                  title="Matérias" 
+                  subtitle="Total"
                   completed={completedSubjects}
                   total={totalSubjects}
-                  unit="matérias"
+                  unit=""
                   icon={BookOpen} 
                   iconBgColor="#DBEAFE"
                   progressColor="#3B82F6"
                 />
                 <StatCard 
-                  className="flex-1 min-h-0" 
-                  title="Tópicos Cadastrados"
-                  subtitle="Progresso geral"
+                  className="flex-1" 
+                  title="Tópicos"
+                  subtitle="Total"
                   completed={completedTopics}
                   total={totalTopics}
-                  unit="tópicos"
+                  unit=""
                   icon={Target} 
                   iconBgColor="#D1FAE5"
                   progressColor="#10B981"
                 />
                 <StatCard 
-                  className="flex-1 min-h-0" 
-                  title="Revisões Programadas"
-                  subtitle="Status atual"
+                  className="flex-1" 
+                  title="Revisões"
+                  subtitle="Status"
                   completed={reviewData?.filter(r => r.next_review && new Date(r.next_review) <= new Date()).length || 0}
                   total={reviewData?.length || 0}
-                  unit="revisões"
+                  unit=""
                   icon={Clock} 
                   iconBgColor="#EDE9FE"
                   progressColor="#8B5CF6"
