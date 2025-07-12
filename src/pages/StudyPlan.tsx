@@ -68,8 +68,8 @@ const StudyPlan = () => {
   // Se não há matérias e os dados foram carregados, mostrar estado vazio
   if (subjects.length === 0 && isDataLoaded) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="container mx-auto p-6">
+      <div className="min-h-screen bg-white">
+        <div className="container mx-auto p-4 md:p-6">
           <StudyPlanEmptyState type="no-subjects" />
         </div>
       </div>
@@ -77,19 +77,8 @@ const StudyPlan = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-6">
-        {/* Removido o título principal */}
-        {/* <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Plano de Estudo
-          </h1>
-        </motion.div> */}
+    <div className="min-h-screen bg-white">
+      <div className="container mx-auto p-4 md:p-6">
         <StudyPlanContent />
       </div>
     </div>

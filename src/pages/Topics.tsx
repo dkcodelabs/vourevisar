@@ -220,7 +220,7 @@ const Topics = () => {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-slate-50">
-        <div className="container mx-auto p-6">
+        <div className="container mx-auto p-4 md:p-6">
           {/* Removido o título principal */}
           {/* <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -242,11 +242,11 @@ const Topics = () => {
                 placeholder="Pesquisar tópico ou disciplina"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-11 pr-4 py-2 bg-slate-800 text-white placeholder-slate-400 border-slate-700 focus:border-slate-600 focus:ring-slate-600 rounded-lg"
+                className="pl-11 pr-4 py-3 md:py-2 bg-slate-800 text-white placeholder-slate-400 border-slate-700 focus:border-slate-600 focus:ring-slate-600 rounded-lg mobile-button"
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="responsive-grid flex flex-col sm:flex-row gap-2">
               {/* Status Filter */}
               <div className="flex-1 sm:w-48">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -279,7 +279,7 @@ const Topics = () => {
           </div>
 
           {/* Topics List */}
-          <div className="px-8 pb-8">
+          <div className="px-4 md:px-8 pb-8">
             {filteredAndSortedTopics.length === 0 ? (
               <Card className="bg-white shadow-sm border border-slate-200">
                 <CardContent className="text-center py-12">
@@ -312,7 +312,7 @@ const Topics = () => {
                         exit={{ opacity: 0 }}
                         className={`${topicStatus.border} border-l-4 border-b border-slate-200 last:border-b-0 hover:bg-slate-50 transition-colors`}
                       >
-                        <div className="px-4 sm:px-6 py-3">
+                        <div className="px-4 sm:px-6 py-3 mobile-card">
                           <div className="flex flex-col gap-3">
                             {/* Topic Name and Subject */}
                             <div className="flex-1 min-w-0">
@@ -331,7 +331,7 @@ const Topics = () => {
                             </div>
                             
                             {/* Badges and Actions */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="responsive-grid flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                               <div className="flex flex-wrap items-center gap-2">
                                 {/* Stage Badge */}
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
@@ -353,7 +353,7 @@ const Topics = () => {
                               </div>
                               
                               {/* Action Icons */}
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 touch-target">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button

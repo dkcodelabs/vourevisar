@@ -100,7 +100,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
     <TooltipProvider>
       <div className="w-full">
         {/* Desktop Table */}
-        <div className="hidden md:block">
+        <div className="hidden md:block overflow-x-auto bg-white rounded-lg shadow-sm border border-slate-200 responsive-table">
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50 border-b border-slate-200 hover:bg-slate-50">
@@ -256,7 +256,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
         </div>
 
         {/* Mobile Cards */}
-        <div className="md:hidden space-y-4 px-4">
+        <div className="md:hidden space-y-4 px-2 mobile-card">
           {sortedTopics.length > 0 ? (
             sortedTopics.map((topic) => {
               const proxima = topic.next_review ? startOfDay(new Date(topic.next_review)) : null;
@@ -278,7 +278,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               }
               
               return (
-                <div key={topic.id} className="bg-white border border-slate-200 rounded-lg shadow-sm">
+                <div key={topic.id} className="bg-white border border-slate-200 rounded-lg shadow-sm mobile-card">
                   <div className="p-4 space-y-3">
                     {/* Subject and Topic */}
                     <div>
@@ -314,7 +314,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                               variant="ghost"
                               size="sm"
                               onClick={() => handleNotesClick(topic)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 touch-target"
                             >
                               <FileText 
                                 className={`h-4 w-4 ${hasNotes(topic) ? 'text-blue-600' : 'text-slate-400'}`} 
@@ -334,7 +334,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                                 size="sm"
                                 onClick={() => setConfirmTopicId(topic.id)}
                                 disabled={isLogicLoading}
-                                className="h-8 w-8 p-0 text-green-600"
+                                className="h-8 w-8 p-0 text-green-600 touch-target"
                               >
                                 <RotateCcw className="w-4 h-4" />
                               </Button>

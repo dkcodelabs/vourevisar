@@ -186,44 +186,30 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-6">
-        {/* Header com animação */}
-        {/* Removido o título principal */}
-        {/* <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Painel
-          </h1>
-        </motion.div> */}
+      <div className="container mx-auto p-4 md:p-6">
 
         {/* Se não há matérias, mostrar estado vazio */}
         {subjects.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 text-center">
-            <BookOpen className="h-16 w-16 mx-auto text-gray-400 mb-6" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Bem-vindo ao Sistema de Estudos!</h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+          <div className="bg-white rounded-2xl p-6 md:p-12 shadow-sm border border-gray-100 text-center mobile-card">
+            <BookOpen className="h-12 w-12 md:h-16 md:w-16 mx-auto text-gray-400 mb-4 md:mb-6" />
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-3 responsive-title">Bem-vindo ao Sistema de Estudos!</h2>
+            <p className="text-gray-600 mb-6 md:mb-8 max-w-md mx-auto text-sm md:text-base">
               Comece adicionando suas primeiras matérias para organizar seus estudos e acompanhar seu progresso.
             </p>
             <Button
               onClick={() => navigate('/materias')}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 md:px-8 py-3 rounded-xl font-semibold mobile-button"
             >
               <Plus className="h-5 w-5 mr-2" />
               Adicionar Primeira Matéria
             </Button>
           </div>
         ) : (
-
-
-
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
-            {/* Coluna 1 - Overview */}
-            <div className="xl:col-span-3">
-              <div className="bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6 h-[420px]">
+          // Layout Responsivo: Móvel = Coluna única, Desktop = Grid
+          <div className="responsive-grid grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-6 items-stretch">
+            {/* Coluna 1 - Overview - Responsivo */}
+            <div className="xl:col-span-3 w-full">
+              <div className="bg-white rounded-2xl shadow-lg p-4 md:p-8 flex flex-col items-center gap-4 md:gap-6 h-auto md:h-[420px] mobile-card">
 
                 <h1
                   className="text-2xl font-semibold text-gray-900"
@@ -272,8 +258,8 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Coluna 2 - 3 cards verticais com altura igual ao calendário */}
-            <div className="xl:col-span-3 h-[420px]">
+            {/* Coluna 2 - 3 cards verticais - Responsivo */}
+            <div className="xl:col-span-3 h-auto md:h-[420px] w-full">
               <div className="flex flex-col h-full gap-3">
                 <StatCard 
                   className="flex-1" 
@@ -311,11 +297,11 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Coluna 3 - Calendário e Revisões lado a lado, ambos com altura igual */}
-            <div className="xl:col-span-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[420px]">
+            {/* Coluna 3 - Calendário e Revisões - Responsivo */}
+            <div className="xl:col-span-6 w-full">
+              <div className="responsive-grid grid grid-cols-1 md:grid-cols-2 gap-4 h-auto md:h-[420px]">
                 {/* Calendário */}
-                <div className="h-full">
+                <div className="h-auto md:h-full min-h-[300px]">
                   <CalendarView
                     reviewData={reviewData || []}
                     isLoading={reviewLoading}
@@ -323,11 +309,11 @@ const Dashboard = () => {
                     selectedDate={selectedCalendarDate || undefined}
                     currentMonth={calendarMonth}
                     onMonthChange={setCalendarMonth}
-                    className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full"
+                    className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full mobile-card"
                   />
                 </div>
                 {/* Card Revisões de hoje */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 h-full overflow-y-auto">
+                <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100 h-auto md:h-full min-h-[300px] overflow-y-auto mobile-card">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                       {getReviewSectionTitle()}

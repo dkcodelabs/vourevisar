@@ -30,7 +30,7 @@ const Revisoes = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 md:p-6">
         {/* Removido o título principal */}
         {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -41,7 +41,7 @@ const Revisoes = () => {
 
         </motion.div> */}
         <div className="space-y-6 max-w-full">
-          <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
+          <div className="max-w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 overflow-x-hidden">
             <div className="border-b border-slate-200">
               {/* Header */}
               <div className="py-6">

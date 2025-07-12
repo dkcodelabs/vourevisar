@@ -394,10 +394,10 @@ const Subjects = () => {
                 value={newSubjectName}
                 onChange={e => setNewSubjectName(e.target.value)}
                 onKeyPress={e => e.key === 'Enter' && handleSaveSubject()}
-                className="flex-1"
+                className="flex-1 mobile-button"
                 ref={inputRef}
               />
-              <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()} className="w-full sm:w-auto">
+              <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()} className="w-full sm:w-auto mobile-button touch-target">
                 <Plus className="mr-2 h-4 w-4" />
                 Adicionar
               </Button>
@@ -424,7 +424,7 @@ const Subjects = () => {
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="grid gap-4 px-4 sm:px-6 max-w-full">
+              <div className="responsive-grid grid gap-4 px-4 sm:px-6 max-w-full">
                 <AnimatePresence>
                   {localSubjects.map((subject) => {
                     const progress = getSubjectProgress(subject);

@@ -104,7 +104,7 @@ const Questoes = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 md:p-6">
         {/* Removido o título principal */}
         {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -117,10 +117,10 @@ const Questoes = () => {
           </h1>
         </motion.div> */}
 
-      {/* Layout responsivo: ajustado para dar mais espaço às estatísticas */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {/* Layout responsivo: Móvel empilhado, Desktop em grid */}
+      <div className="responsive-grid grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
         {/* Coluna principal - Formulário de registro (3/5 em telas grandes) */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 w-full">
           <QuestionEntryForm 
             key={formKey}
             onEntryAdded={handleEntryAdded}
@@ -130,8 +130,8 @@ const Questoes = () => {
         </div>
 
         {/* Coluna lateral - Estatísticas resumidas (2/5 em telas grandes) */}
-        <div className="lg:col-span-2">
-          <div className="lg:sticky lg:top-6 space-y-4">
+        <div className="lg:col-span-2 w-full">
+          <div className="lg:sticky lg:top-6 space-y-4 mobile-card">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-800">Estatísticas</h3>
             </div>

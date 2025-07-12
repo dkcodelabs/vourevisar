@@ -60,8 +60,8 @@ export function TopHeader() {
             <span className="text-app-blue font-bold text-2xl">vouRevisar</span>
           </div>
 
-          {/* Navigation - Hidden on mobile */}
-          <nav className="hidden md:flex items-center space-x-1">
+          {/* Navigation - Hidden on mobile, properly responsive */}
+          <nav className="desktop-nav hidden md:flex items-center space-x-1">
             {navItems.map((item) => {
               const isActive = isItemActive(item);
               
@@ -144,7 +144,7 @@ export function TopHeader() {
             )}
 
             {/* Mobile Menu Button */}
-            <div className="md:hidden">
+            <div className="mobile-nav md:hidden">
               <MobileMenu navItems={navItems} />
             </div>
 
