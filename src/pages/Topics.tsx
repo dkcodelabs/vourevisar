@@ -13,17 +13,21 @@ import { Topic } from '@/types';
 import PageContainer from '@/components/layout/PageContainer';
 import CompactTopicsSummaryCards from '@/components/topics/CompactTopicsSummaryCards';
 import CompactTopicsFilters from '@/components/topics/CompactTopicsFilters';
-import { NotesModal } from '@/components/reviews/NotesModal';
+import NotesModal from '@/components/reviews/NotesModal';
 
 const Topics = () => {
   const { subjectId } = useParams<{ subjectId: string }>();
   const navigate = useNavigate();
-  const { subjects, createTopic, updateTopic, deleteTopic } = useApp();
+  const { subjects, addTopic, updateTopic, deleteTopic } = useApp();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedTopic, setSelectedTopic] = useState<Topic & { subjectName: string } | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<{
+    id: string;
+    name: string;
+    subjectName: string;
+  } | null>(null);
 
   // Find current subject
   const currentSubject = subjectId 
@@ -69,7 +73,14 @@ const Topics = () => {
     if (!currentSubject) return;
     
     try {
-      await createTopic(currentSubject.id, data.name, data.notes);
+      const topicData = {
+        name: data.name,
+        completed: false,
+        reviewCount: 0,
+        review_count: 0,
+        notes: data.notes ? { content: data.notes } : undefined
+      };
+      await addTopic(currentSubject.id, topicData);
       setIsAddModalOpen(false);
     } catch (error) {
       console.error('Erro ao criar tópico:', error);
@@ -77,15 +88,21 @@ const Topics = () => {
   };
 
   const handleDeleteTopic = async (topicId: string) => {
+    if (!currentSubject) return;
+    
     try {
-      await deleteTopic(topicId);
+      await deleteTopic(currentSubject.id, topicId);
     } catch (error) {
       console.error('Erro ao deletar tópico:', error);
     }
   };
 
   const handleNotesClick = (topic: Topic & { subjectName: string }) => {
-    setSelectedTopic(topic);
+    setSelectedTopic({
+      id: topic.id,
+      name: topic.name,
+      subjectName: topic.subjectName
+    });
   };
 
   const handleNotesClose = () => {
@@ -99,7 +116,7 @@ const Topics = () => {
 
   return (
     <PageContainer>
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Header */}
         <div className="flex flex-col space-y-4">
           <div className="flex items-center gap-3">
@@ -180,7 +197,7 @@ const Topics = () => {
             <p className="text-gray-600">Tente ajustar os filtros de busca.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTopics.map((topic, index) => (
               <motion.div
                 key={topic.id}
@@ -212,7 +229,8 @@ const Topics = () => {
           <NotesModal
             isOpen={!!selectedTopic}
             onClose={handleNotesClose}
-            topic={selectedTopic}
+            topicId={selectedTopic.id}
+            topicName={selectedTopic.name}
             subjectName={selectedTopic.subjectName}
           />
         )}

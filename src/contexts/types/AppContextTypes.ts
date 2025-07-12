@@ -16,6 +16,7 @@ export type AppContextType = {
   addTopic: (subjectId: string, topicData: Omit<Topic, 'id'>) => Promise<void>;
   deleteTopic: (subjectId: string, topicId: string) => Promise<void>;
   createSubject: (subjectData: Omit<Subject, 'id'>) => Promise<void>;
+  createTopic: (subjectId: string, name: string, notes?: string) => Promise<void>;
   fetchSubjects: () => Promise<void>;
   fetchUserSettings: () => Promise<void>;
   forceRefresh: () => Promise<void>;

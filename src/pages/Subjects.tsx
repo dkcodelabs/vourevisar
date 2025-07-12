@@ -61,14 +61,14 @@ const Subjects = () => {
   // Calculate statistics
   const totalSubjects = subjects.length;
   const completedSubjects = subjects.filter(s => s.status === 'Concluída').length;
-  const inProgressSubjects = subjects.filter(s => s.status === 'Em andamento').length;
-  const notStartedSubjects = subjects.filter(s => s.status === 'Não iniciada').length;
+  const inProgressSubjects = subjects.filter(s => s.status === 'Em Estudo').length;
+  const notStartedSubjects = subjects.filter(s => s.status === 'Nova').length;
   const totalTopics = subjects.reduce((total, subject) => total + subject.topics.length, 0);
   const completedTopics = subjects.reduce((total, subject) => total + subject.topics.filter(t => t.completed).length, 0);
 
   const handleCreateSubject = async (data: { name: string; color?: string }) => {
     try {
-      await createSubject(data.name, data.color);
+      await createSubject({ name: data.name, topics: [], status: 'Nova', color: data.color });
       setIsAddModalOpen(false);
     } catch (error) {
       console.error('Erro ao criar matéria:', error);
@@ -101,10 +101,10 @@ const Subjects = () => {
     switch (status) {
       case 'Concluída':
         return <Badge variant="default" className="bg-green-100 text-green-800">Concluída</Badge>;
-      case 'Em andamento':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">Em andamento</Badge>;
-      case 'Não iniciada':
-        return <Badge variant="secondary">Não iniciada</Badge>;
+      case 'Em Estudo':
+        return <Badge variant="default" className="bg-blue-100 text-blue-800">Em Estudo</Badge>;
+      case 'Nova':
+        return <Badge variant="secondary">Nova</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -127,20 +127,22 @@ const Subjects = () => {
 
   return (
     <PageContainer>
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Matérias</h1>
-            <p className="text-gray-600 mt-1">Gerencie suas matérias de estudo</p>
+        <div className="flex flex-col space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Matérias</h1>
+              <p className="text-gray-600 mt-1">Gerencie suas matérias de estudo</p>
+            </div>
+            <Button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white self-start sm:self-auto"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Matéria
+            </Button>
           </div>
-          <Button 
-            onClick={() => setIsAddModalOpen(true)}
-            className="bg-blue-500 hover:bg-blue-600 text-white self-start sm:self-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Matéria
-          </Button>
         </div>
 
         {/* Statistics */}
@@ -167,7 +169,7 @@ const Subjects = () => {
               progressColor="#10B981"
             />
             <StatCard
-              title="Em Andamento"
+              title="Em Estudo"
               subtitle="Matérias"
               completed={inProgressSubjects}
               total={totalSubjects}
@@ -207,8 +209,8 @@ const Subjects = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os status</SelectItem>
-                  <SelectItem value="Não iniciada">Não iniciada</SelectItem>
-                  <SelectItem value="Em andamento">Em andamento</SelectItem>
+                  <SelectItem value="Nova">Nova</SelectItem>
+                  <SelectItem value="Em Estudo">Em Estudo</SelectItem>
                   <SelectItem value="Concluída">Concluída</SelectItem>
                 </SelectContent>
               </Select>
@@ -239,7 +241,7 @@ const Subjects = () => {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredSubjects.map((subject, index) => (
               <motion.div
                 key={subject.id}
