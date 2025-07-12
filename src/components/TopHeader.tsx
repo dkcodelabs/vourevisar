@@ -53,7 +53,7 @@ export function TopHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="responsive-container">
+      <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <div className="flex items-center min-w-0">
@@ -61,7 +61,7 @@ export function TopHeader() {
           </div>
 
           {/* Navigation - Hidden on mobile, properly responsive */}
-          <nav className="desktop-nav hidden lg:flex items-center space-x-1">
+          <nav className="hidden lg:flex items-center space-x-1">
             {navItems.map((item) => {
               const isActive = isItemActive(item);
               
@@ -144,7 +144,7 @@ export function TopHeader() {
             )}
 
             {/* Mobile Menu Button */}
-            <div className="mobile-nav lg:hidden">
+            <div className="lg:hidden">
               <MobileMenu navItems={navItems} />
             </div>
 
@@ -209,7 +209,7 @@ function MobileMenu({ navItems }: { navItems: NavItem[] }) {
           />
           
           {/* Menu */}
-          <div className="absolute right-0 top-12 w-72 sm:w-64 bg-white rounded-lg shadow-lg border z-50 p-2 max-h-[80vh] overflow-y-auto">
+          <div className="absolute right-0 top-12 w-64 bg-white rounded-lg shadow-lg border z-50 p-2 max-h-[80vh] overflow-y-auto">
             <div className="p-2 border-b border-gray-100 mb-2">
               <h3 className="text-sm font-semibold text-gray-900">Menu de Navegação</h3>
             </div>
@@ -223,13 +223,13 @@ function MobileMenu({ navItems }: { navItems: NavItem[] }) {
                   end={item.end ?? false}
                   className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors w-full ${
                     isActive 
-                      ? 'bg-app-blue text-white border-l-2 border-blue-600' 
+                      ? 'bg-app-blue text-white' 
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                   onClick={() => setIsOpen(false)}
                 >
                   <item.icon size={18} className="mr-3 flex-shrink-0" />
-                  <span className="text-base">{item.label}</span>
+                  <span>{item.label}</span>
                 </NavLink>
               );
             })}

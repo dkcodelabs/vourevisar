@@ -424,7 +424,7 @@ const Subjects = () => {
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="responsive-grid grid gap-4 px-4 sm:px-6 max-w-full">
+              <div className="space-y-4 px-4 sm:px-6 max-w-full">
                 <AnimatePresence>
                   {localSubjects.map((subject) => {
                     const progress = getSubjectProgress(subject);
