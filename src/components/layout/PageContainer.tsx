@@ -1,18 +1,12 @@
-
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 
 interface PageContainerProps {
   children: React.ReactNode;
   className?: string;
-  resetScroll?: boolean;
 }
 
-const PageContainer: React.FC<PageContainerProps> = ({ 
-  children, 
-  className = '',
-  resetScroll = true 
-}) => {
+const PageContainer: React.FC<PageContainerProps> = ({ children, className = '' }) => {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -35,30 +29,21 @@ const PageContainer: React.FC<PageContainerProps> = ({
     }
   };
 
-  // Reset scroll to top when component mounts
-  useEffect(() => {
-    if (resetScroll) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [resetScroll]);
-
   return (
-    <div className="min-h-screen bg-white">
+    <motion.div 
+      className={`min-h-screen ${className}`}
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
       <motion.div 
-        className={`w-full ${className}`}
-        initial="hidden"
-        animate="visible"
-        variants={containerVariants}
+        className="container mx-auto p-4 safe-top safe-bottom"
+        variants={itemVariants}
       >
-        <motion.div 
-          className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 safe-top safe-bottom"
-          variants={itemVariants}
-        >
-          {children}
-        </motion.div>
+        {children}
       </motion.div>
-    </div>
+    </motion.div>
   );
 };
 
-export default PageContainer;
+export default PageContainer; 

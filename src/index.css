@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -179,21 +178,13 @@
   animation: float 3s ease-in-out infinite;
 }
 
-/* Safe Areas for Mobile */
+/* Safe Areas */
 .safe-top {
-  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
 }
 
 .safe-bottom {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom));
-}
-
-.safe-left {
-  padding-left: max(1rem, env(safe-area-inset-left));
-}
-
-.safe-right {
-  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Mobile Optimizations */
@@ -205,48 +196,16 @@
   .glass {
     @apply bg-white/90;
   }
-
-  /* Ensure proper touch targets */
-  button, .touch-target {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* Better text sizing on mobile */
-  h1 {
-    @apply text-xl;
-  }
-  
-  h2 {
-    @apply text-lg;
-  }
-  
-  /* Improve spacing on small screens */
-  .space-y-6 > * + * {
-    @apply mt-4;
-  }
-}
-
-/* Tablet Optimizations */
-@media (min-width: 641px) and (max-width: 1024px) {
-  .container {
-    @apply px-6;
-  }
 }
 
 /* Touch Feedback */
 @media (hover: none) {
   .touch-feedback {
-    @apply active:scale-95 transition-transform duration-150;
-  }
-  
-  /* Better touch targets */
-  button, a, [role="button"] {
-    @apply touch-manipulation;
+    @apply active:scale-95 transition-transform;
   }
 }
 
-/* Scrollbar Styling */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -260,46 +219,19 @@
   @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors;
 }
 
-/* Firefox scrollbar */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: theme('colors.gray.300') transparent;
-}
-
 /* Selection */
 ::selection {
   @apply bg-app-blue/20 text-app-blue;
 }
 
-/* Focus Improvements */
+/* Focus */
 *:focus-visible {
   @apply outline-none ring-2 ring-app-blue ring-offset-2;
 }
 
-/* Ensure focus is visible on mobile */
-@media (hover: none) {
-  *:focus {
-    @apply outline-none ring-2 ring-app-blue ring-offset-2;
-  }
-}
-
 /* Loading States */
 .loading-skeleton {
-  @apply animate-pulse bg-gray-200 rounded;
-}
-
-/* Responsive Grid Improvements */
-.responsive-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-}
-
-@media (max-width: 640px) {
-  .responsive-grid {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
+  @apply animate-pulse bg-gray-200;
 }
 
 /* Transitions */
@@ -321,43 +253,6 @@
   transition: opacity 200ms ease-in;
 }
 
-/* Responsive Typography */
-@media (max-width: 640px) {
-  .text-responsive-lg {
-    @apply text-lg;
-  }
-  
-  .text-responsive-xl {
-    @apply text-xl;
-  }
-  
-  .text-responsive-2xl {
-    @apply text-xl;
-  }
-  
-  .text-responsive-3xl {
-    @apply text-2xl;
-  }
-}
-
-@media (min-width: 641px) {
-  .text-responsive-lg {
-    @apply text-xl;
-  }
-  
-  .text-responsive-xl {
-    @apply text-2xl;
-  }
-  
-  .text-responsive-2xl {
-    @apply text-3xl;
-  }
-  
-  .text-responsive-3xl {
-    @apply text-4xl;
-  }
-}
-
 /* Gradients */
 .gradient-primary {
   @apply bg-gradient-to-r from-app-blue to-blue-600;
@@ -374,41 +269,4 @@
 
 .shadow-soft-hover {
   box-shadow: 0 4px 20px -3px rgba(0, 0, 0, 0.1), 0 12px 25px -2px rgba(0, 0, 0, 0.06);
-}
-
-/* Responsive Utilities */
-.stack-mobile {
-  @apply flex flex-col;
-}
-
-@media (min-width: 768px) {
-  .stack-mobile {
-    @apply flex-row;
-  }
-}
-
-/* Prevent horizontal scroll */
-.prevent-horizontal-scroll {
-  overflow-x: hidden;
-  max-width: 100vw;
-}
-
-/* Container max width */
-.container {
-  max-width: 1200px;
-}
-
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Hide scrollbar but keep functionality */
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
 }
