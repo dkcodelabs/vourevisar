@@ -277,24 +277,36 @@ const Dashboard = () => {
               <div className="flex flex-col h-full gap-4">
                 <StatCard 
                   className="flex-1 min-h-0" 
-                  title="Matérias Concluídas" 
-                  value={completedSubjects} 
-                  subtitle={`de ${totalSubjects} matérias`} 
+                  title="Matérias Cadastradas" 
+                  subtitle="Progresso geral"
+                  completed={completedSubjects}
+                  total={totalSubjects}
+                  unit="matérias"
                   icon={BookOpen} 
+                  iconBgColor="#DBEAFE"
+                  progressColor="#3B82F6"
                 />
                 <StatCard 
                   className="flex-1 min-h-0" 
-                  title="Tópicos Concluídos" 
-                  value={completedTopics} 
-                  subtitle={`de ${totalTopics} tópicos`} 
+                  title="Tópicos Cadastrados"
+                  subtitle="Progresso geral"
+                  completed={completedTopics}
+                  total={totalTopics}
+                  unit="tópicos"
                   icon={Target} 
+                  iconBgColor="#D1FAE5"
+                  progressColor="#10B981"
                 />
                 <StatCard 
                   className="flex-1 min-h-0" 
-                  title="Revisões Pendentes" 
-                  value={reviewData?.filter(r => r.next_review && new Date(r.next_review) <= new Date()).length || 0} 
-                  subtitle={`de ${reviewData?.length || 0} revisões`} 
+                  title="Revisões Programadas"
+                  subtitle="Status atual"
+                  completed={reviewData?.filter(r => r.next_review && new Date(r.next_review) <= new Date()).length || 0}
+                  total={reviewData?.length || 0}
+                  unit="revisões"
                   icon={Clock} 
+                  iconBgColor="#EDE9FE"
+                  progressColor="#8B5CF6"
                 />
               </div>
             </div>
