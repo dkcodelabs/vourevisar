@@ -448,7 +448,7 @@ img, video {
   .grid-reviews { grid-area: reviews; }
 }
 
-/* Large tablets and desktop: original layout */
+/* Large tablets and desktop: 3 columns balanced */
 @media (min-width: 1024px) {
   .responsive-container {
     padding: 0 2rem;
@@ -456,7 +456,7 @@ img, video {
   }
   
   .responsive-grid {
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     grid-template-areas: 
       "overview stats calendar"
       "overview stats reviews";
