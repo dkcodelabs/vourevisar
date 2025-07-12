@@ -275,9 +275,36 @@ const Dashboard = () => {
             {/* Coluna 2 - 3 cards verticais com altura igual ao calendário */}
             <div className="xl:col-span-3 h-[420px]">
               <div className="flex flex-col h-full gap-4">
-                <StatCard className="flex-1 min-h-0" title="Matérias" value={totalSubjects} subtitle={`${completedSubjects} Concluídas`} icon={BookOpen} iconBgColor="#E8F5E8" iconColor="#10B981" />
-                <StatCard className="flex-1 min-h-0" title="Tópicos" value={totalTopics} subtitle={`${completedTopics} Concluídos`} icon={Target} iconBgColor="#FFF4E6" iconColor="#F59E0B" />
-                <StatCard className="flex-1 min-h-0" title="Revisões" value={reviewData?.length || 0} subtitle={`${reviewData?.filter(r => r.next_review && new Date(r.next_review) <= new Date()).length || 0} Pendentes`} icon={Clock} iconBgColor="#F3E8FF" iconColor="#8B5CF6" />
+                <StatCard 
+                  className="flex-1 min-h-0" 
+                  title="Matérias" 
+                  value={totalSubjects} 
+                  subtitle={`${completedSubjects} Concluídas`} 
+                  icon={BookOpen} 
+                  iconBgColor="#E8F5E8" 
+                  iconColor="#10B981" 
+                  navigateTo="/materias"
+                />
+                <StatCard 
+                  className="flex-1 min-h-0" 
+                  title="Tópicos" 
+                  value={totalTopics} 
+                  subtitle={`${completedTopics} Concluídos`} 
+                  icon={Target} 
+                  iconBgColor="#FFF4E6" 
+                  iconColor="#F59E0B" 
+                  navigateTo="/topicos"
+                />
+                <StatCard 
+                  className="flex-1 min-h-0" 
+                  title="Revisões" 
+                  value={reviewData?.length || 0} 
+                  subtitle={`${reviewData?.filter(r => r.next_review && new Date(r.next_review) <= new Date()).length || 0} Pendentes`} 
+                  icon={Clock} 
+                  iconBgColor="#F3E8FF" 
+                  iconColor="#8B5CF6" 
+                  navigateTo="/revisoes"
+                />
               </div>
             </div>
 

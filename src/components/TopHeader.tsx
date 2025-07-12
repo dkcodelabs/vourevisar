@@ -2,10 +2,12 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, BookOpen, Calendar, List, Clock, HelpCircle, TrendingUp, LucideIcon 
+  LayoutDashboard, BookOpen, Calendar, List, Clock, HelpCircle, TrendingUp, Timer, LucideIcon 
 } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
+import { PomodoroModal } from '@/components/dashboard/PomodoroModal';
+import { Button } from '@/components/ui/button';
 
 interface NavItem {
   to: string;
@@ -27,6 +29,7 @@ const navItems: NavItem[] = [
 export function TopHeader() {
   const { user } = useAuth();
   const location = useLocation();
+  const [pomodoroOpen, setPomodoroOpen] = React.useState(false);
 
   // Função para verificar se o item está ativo
   const isItemActive = (item: NavItem) => {
@@ -79,8 +82,21 @@ export function TopHeader() {
             })}
           </nav>
 
-          {/* Mobile Menu Button & User Profile */}
+          {/* Pomodoro & Mobile Menu Button & User Profile */}
           <div className="flex items-center gap-3">
+            {/* Pomodoro Timer Button */}
+            {user && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPomodoroOpen(true)}
+                className="flex items-center gap-2 text-gray-700 hover:bg-gray-100"
+              >
+                <Timer size={18} />
+                <span className="hidden sm:inline">Pomodoro</span>
+              </Button>
+            )}
+
             {/* Mobile Menu Button */}
             <div className="md:hidden">
               <MobileMenu navItems={navItems} />
@@ -95,6 +111,12 @@ export function TopHeader() {
           </div>
         </div>
       </div>
+
+      {/* Pomodoro Modal */}
+      <PomodoroModal 
+        open={pomodoroOpen} 
+        onOpenChange={setPomodoroOpen} 
+      />
     </header>
   );
 }
