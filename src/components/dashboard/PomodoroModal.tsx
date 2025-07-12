@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Play, Pause, RotateCcw, Timer } from 'lucide-react';
+import { usePomodoroTimer } from '@/hooks/usePomodoroTimer';
 
 interface PomodoroModalProps {
   open: boolean;
@@ -11,54 +12,37 @@ interface PomodoroModalProps {
 }
 
 export const PomodoroModal: React.FC<PomodoroModalProps> = ({ open, onOpenChange }) => {
-  const [minutes, setMinutes] = useState(25);
-  const [seconds, setSeconds] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // em segundos
+  const { 
+    minutes, 
+    timeLeft, 
+    state, 
+    progress, 
+    setMinutes, 
+    startTimer, 
+    pauseTimer, 
+    resetTimer, 
+    formatTime 
+  } = usePomodoroTimer();
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (isRunning && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(time => time - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsRunning(false);
-      // Aqui você pode adicionar notificação ou som
-      alert('Pomodoro concluído!');
+  const handleStartPause = () => {
+    if (state === 'running') {
+      pauseTimer();
+    } else {
+      startTimer();
     }
+  };
 
-    return () => clearInterval(interval);
-  }, [isRunning, timeLeft]);
-
-  const handleStart = () => {
-    if (!isRunning) {
-      setTimeLeft(minutes * 60 + seconds);
+  const getStateColor = () => {
+    switch (state) {
+      case 'running': return '#10B981'; // green
+      case 'paused': return '#EF4444';  // red
+      default: return '#6B7280';        // gray
     }
-    setIsRunning(!isRunning);
   };
-
-  const handleReset = () => {
-    setIsRunning(false);
-    setTimeLeft(minutes * 60 + seconds);
-  };
-
-  const handleTimeChange = () => {
-    setTimeLeft(minutes * 60 + seconds);
-  };
-
-  const formatTime = (totalSeconds: number) => {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const progressPercentage = ((minutes * 60 + seconds - timeLeft) / (minutes * 60 + seconds)) * 100;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Timer className="w-5 h-5" />
@@ -66,86 +50,74 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({ open, onOpenChange
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Configuração de Tempo */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="minutes">Minutos</Label>
-              <Input
-                id="minutes"
-                type="number"
-                value={minutes}
-                onChange={(e) => {
-                  setMinutes(Math.max(1, parseInt(e.target.value) || 1));
-                  if (!isRunning) handleTimeChange();
-                }}
-                min="1"
-                max="60"
-                disabled={isRunning}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="seconds">Segundos</Label>
-              <Input
-                id="seconds"
-                type="number"
-                value={seconds}
-                onChange={(e) => {
-                  setSeconds(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)));
-                  if (!isRunning) handleTimeChange();
-                }}
-                min="0"
-                max="59"
-                disabled={isRunning}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="minutes">Minutos</Label>
+            <Input
+              id="minutes"
+              type="number"
+              value={minutes}
+              onChange={(e) => setMinutes(parseInt(e.target.value) || 1)}
+              min="1"
+              max="60"
+              disabled={state !== 'stopped'}
+              className="text-center"
+            />
           </div>
 
           {/* Display do Timer */}
-          <div className="text-center space-y-4">
-            <div className="relative w-32 h-32 mx-auto">
+          <div className="text-center space-y-3">
+            <div className="relative w-24 h-24 mx-auto">
               {/* Círculo de progresso */}
-              <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
+              <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 96 96">
                 <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
+                  cx="48"
+                  cy="48"
+                  r="40"
                   stroke="#E5E7EB"
-                  strokeWidth="8"
+                  strokeWidth="6"
                   fill="none"
                 />
                 <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  stroke="#3B82F6"
-                  strokeWidth="8"
+                  cx="48"
+                  cy="48"
+                  r="40"
+                  stroke={getStateColor()}
+                  strokeWidth="6"
                   fill="none"
                   strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 50}
-                  strokeDashoffset={2 * Math.PI * 50 * (1 - progressPercentage / 100)}
+                  strokeDasharray={2 * Math.PI * 40}
+                  strokeDashoffset={2 * Math.PI * 40 * (1 - progress / 100)}
                   className="transition-all duration-1000 ease-linear"
                 />
               </svg>
               
               {/* Tempo no centro */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-2xl font-bold text-gray-800">
+                <span className="text-lg font-bold" style={{ color: getStateColor() }}>
                   {formatTime(timeLeft)}
                 </span>
               </div>
             </div>
+            
+            {/* Status */}
+            <div className="text-sm text-gray-600">
+              {state === 'running' && 'Timer rodando'}
+              {state === 'paused' && 'Timer pausado'}
+              {state === 'stopped' && 'Timer parado'}
+            </div>
           </div>
 
           {/* Controles */}
-          <div className="flex justify-center gap-3">
+          <div className="flex justify-center gap-2">
             <Button
-              onClick={handleStart}
-              variant={isRunning ? "secondary" : "default"}
-              size="lg"
+              onClick={handleStartPause}
+              variant={state === 'running' ? "secondary" : "default"}
+              size="sm"
               className="flex items-center gap-2"
             >
-              {isRunning ? (
+              {state === 'running' ? (
                 <>
                   <Pause className="w-4 h-4" />
                   Pausar
@@ -153,15 +125,15 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({ open, onOpenChange
               ) : (
                 <>
                   <Play className="w-4 h-4" />
-                  Iniciar
+                  {state === 'paused' ? 'Continuar' : 'Iniciar'}
                 </>
               )}
             </Button>
             
             <Button
-              onClick={handleReset}
+              onClick={resetTimer}
               variant="outline"
-              size="lg"
+              size="sm"
               className="flex items-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />

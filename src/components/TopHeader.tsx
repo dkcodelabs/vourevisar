@@ -7,7 +7,7 @@ import {
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { PomodoroModal } from '@/components/dashboard/PomodoroModal';
-import { Button } from '@/components/ui/button';
+import { usePomodoroTimer } from '@/hooks/usePomodoroTimer';
 
 interface NavItem {
   to: string;
@@ -30,6 +30,7 @@ export function TopHeader() {
   const { user } = useAuth();
   const location = useLocation();
   const [pomodoroOpen, setPomodoroOpen] = React.useState(false);
+  const { state, timeLeft, progress, formatTime } = usePomodoroTimer();
 
   // Função para verificar se o item está ativo
   const isItemActive = (item: NavItem) => {
@@ -84,17 +85,62 @@ export function TopHeader() {
 
           {/* Pomodoro & Mobile Menu Button & User Profile */}
           <div className="flex items-center gap-3">
-            {/* Pomodoro Timer Button */}
+            {/* Pomodoro Timer Icon */}
             {user && (
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={() => setPomodoroOpen(true)}
-                className="flex items-center gap-2 text-gray-700 hover:bg-gray-100"
+                className="relative flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 hover:scale-105"
               >
-                <Timer size={18} />
-                <span className="hidden sm:inline">Pomodoro</span>
-              </Button>
+                {/* Progress circle */}
+                <svg className="absolute w-12 h-12 transform -rotate-90" viewBox="0 0 48 48">
+                  <circle
+                    cx="24"
+                    cy="24"
+                    r="20"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                    className="text-gray-200"
+                  />
+                  {state !== 'stopped' && (
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="20"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 20}
+                      strokeDashoffset={2 * Math.PI * 20 * (1 - progress / 100)}
+                      className={`transition-all duration-1000 ease-linear ${
+                        state === 'running' ? 'text-green-500' : state === 'paused' ? 'text-red-500' : 'text-gray-400'
+                      }`}
+                    />
+                  )}
+                </svg>
+                
+                {/* Timer icon in center */}
+                <Timer 
+                  size={16} 
+                  className={`${
+                    state === 'running' 
+                      ? 'text-green-600 animate-pulse' 
+                      : state === 'paused' 
+                        ? 'text-red-600' 
+                        : 'text-gray-600'
+                  }`}
+                />
+                
+                {/* Time display when active */}
+                {state !== 'stopped' && (
+                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
+                    <span className="text-xs font-mono bg-white px-1 py-0.5 rounded border shadow-sm whitespace-nowrap">
+                      {formatTime(timeLeft)}
+                    </span>
+                  </div>
+                )}
+              </button>
             )}
 
             {/* Mobile Menu Button */}
