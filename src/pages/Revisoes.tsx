@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useReviewsData } from '@/hooks/useReviewsData';
 import { ReviewsFilters } from '@/components/reviews/ReviewsFilters';
 import { ReviewsTable } from '@/components/reviews/ReviewsTable';
-import { motion } from 'framer-motion';
+import PageContainer from '@/components/layout/PageContainer';
 
 const Revisoes = () => {
   const [tab, setTab] = useState<'hoje' | 'futuras' | 'concluido'>('hoje');
@@ -29,105 +29,92 @@ const Revisoes = () => {
   } = useReviewsData();
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-6">
-        {/* Removido o título principal */}
-        {/* <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-          className="mb-8"
-        >
-
-        </motion.div> */}
-        <div className="space-y-6 max-w-full">
-          <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
-            <div className="border-b border-slate-200">
-              {/* Header */}
-              <div className="py-6">
+    <PageContainer>
+      <div className="space-y-6">
+        <div className="max-w-full overflow-x-hidden">
+          <div className="border-b border-slate-200">
+            {/* Header */}
+            <div className="py-6">
+              {/* Tabs e Filtros */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras' | 'concluido')}>
+                  <TabsList className="bg-slate-100 p-1 h-auto w-full sm:w-fit overflow-x-auto flex-nowrap">
+                    <TabsTrigger 
+                      value="hoje" 
+                      className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
+                    >
+                      Hoje & Atrasadas
+                      {(delayedTopics.length + todayTopics.length) > 0 && (
+                        <span className="ml-2 bg-slate-600 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                          {delayedTopics.length + todayTopics.length}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="futuras" 
+                      className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
+                    >
+                      Futuras
+                      {futureTopics.length > 0 && (
+                        <span className="ml-2 bg-slate-600 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                          {futureTopics.length}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="concluido" 
+                      className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
+                    >
+                      Concluído
+                      {completedTopics.length > 0 && (
+                        <span className="ml-2 bg-slate-600 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                          {completedTopics.length}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
                 
-                
-                {/* Tabs e Filtros */}
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <Tabs value={tab} onValueChange={(value) => setTab(value as 'hoje' | 'futuras' | 'concluido')}>
-                    <TabsList className="bg-slate-100 p-1 h-auto w-full sm:w-fit overflow-x-auto flex-nowrap">
-                      <TabsTrigger 
-                        value="hoje" 
-                        className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
-                      >
-                        Hoje & Atrasadas
-                        {(delayedTopics.length + todayTopics.length) > 0 && (
-                          <span className="ml-2 bg-slate-600 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
-                            {delayedTopics.length + todayTopics.length}
-                          </span>
-                        )}
-                      </TabsTrigger>
-                      <TabsTrigger 
-                        value="futuras" 
-                        className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
-                      >
-                        Futuras
-                        {futureTopics.length > 0 && (
-                          <span className="ml-2 bg-slate-600 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
-                            {futureTopics.length}
-                          </span>
-                        )}
-                      </TabsTrigger>
-                      <TabsTrigger 
-                        value="concluido" 
-                        className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
-                      >
-                        Concluído
-                        {completedTopics.length > 0 && (
-                          <span className="ml-2 bg-slate-600 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
-                            {completedTopics.length}
-                          </span>
-                        )}
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  
-                  <div className="flex-shrink-0">
-                    <ReviewsFilters
-                      searchTerm={searchTerm}
-                      setSearchTerm={setSearchTerm}
-                      selectedDate={selectedDate}
-                      setSelectedDate={setSelectedDate}
-                      setViewMode={setViewMode}
-                      resetFilters={resetFilters}
-                    />
-                  </div>
+                <div className="flex-shrink-0">
+                  <ReviewsFilters
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                    setViewMode={setViewMode}
+                    resetFilters={resetFilters}
+                  />
                 </div>
-
-                {/* Filtro de Data Ativo */}
-                {viewMode === 'date' && selectedDate && (
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-blue-700">
-                      Mostrando revisões para: <strong>{format(selectedDate, 'dd/MM/yyyy', { locale: ptBR })}</strong>
-                    </p>
-                  </div>
-                )}
               </div>
-            </div>
 
-            {/* Conteúdo da Tabela */}
-            <div className="bg-white">
-              {isLoading ? (
-                <div className="flex justify-center p-8">
-                  <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
+              {/* Filtro de Data Ativo */}
+              {viewMode === 'date' && selectedDate && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-700">
+                    Mostrando revisões para: <strong>{format(selectedDate, 'dd/MM/yyyy', { locale: ptBR })}</strong>
+                  </p>
                 </div>
-              ) : (
-                <ReviewsTable
-                  topics={topics}
-                  tab={tab}
-                  refetch={refetch}
-                />
               )}
             </div>
           </div>
+
+          {/* Conteúdo da Tabela */}
+          <div className="bg-white">
+            {isLoading ? (
+              <div className="flex justify-center p-8">
+                <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
+              </div>
+            ) : (
+              <ReviewsTable
+                topics={topics}
+                tab={tab}
+                refetch={refetch}
+              />
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 

@@ -104,12 +104,12 @@ const StudyPlanContent = () => {
   const hasTopics = subjects.some(s => s.topics && s.topics.length > 0);
 
   return (
-    <div className="container mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-2 sm:px-4 md:px-8">
+    <div className="w-full">
       <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="py-8 space-y-6"
+        className="space-y-6"
       >
         <StudyPlanHeader onNextDay={handleNextDay} />
         

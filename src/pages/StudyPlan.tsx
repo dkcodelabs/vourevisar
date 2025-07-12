@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import StudyPlanLoadingState from '@/components/study-plan/StudyPlanLoadingState';
 import StudyPlanContent from '@/components/study-plan/StudyPlanContent';
 import StudyPlanEmptyState from '@/components/study-plan/StudyPlanEmptyState';
-import { motion } from 'framer-motion';
+import PageContainer from '@/components/layout/PageContainer';
 
 const StudyPlan = () => {
   const navigate = useNavigate();
@@ -62,37 +61,26 @@ const StudyPlan = () => {
 
   // Mostrar loading enquanto dados estão carregando
   if (isAppLoading || !isDataLoaded) {
-    return <StudyPlanLoadingState />;
+    return (
+      <PageContainer>
+        <StudyPlanLoadingState />
+      </PageContainer>
+    );
   }
 
   // Se não há matérias e os dados foram carregados, mostrar estado vazio
   if (subjects.length === 0 && isDataLoaded) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="container mx-auto p-6">
-          <StudyPlanEmptyState type="no-subjects" />
-        </div>
-      </div>
+      <PageContainer>
+        <StudyPlanEmptyState type="no-subjects" />
+      </PageContainer>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-6">
-        {/* Removido o título principal */}
-        {/* <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Plano de Estudo
-          </h1>
-        </motion.div> */}
-        <StudyPlanContent />
-      </div>
-    </div>
+    <PageContainer>
+      <StudyPlanContent />
+    </PageContainer>
   );
 };
 

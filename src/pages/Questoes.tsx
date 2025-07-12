@@ -1,7 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -12,6 +10,7 @@ import QuestionsStatistics from './QuestionsStatistics';
 import QuestionsOverview from '@/components/questions/QuestionsOverview';
 import { format, subDays, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import PageContainer from '@/components/layout/PageContainer';
 
 const Questoes = () => {
   const [searchParams] = useSearchParams();
@@ -93,88 +92,76 @@ const Questoes = () => {
 
   if (!user) {
     return (
-      <div className="container mx-auto p-6">
+      <PageContainer>
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-800">Acesso Negado</h1>
           <p className="text-gray-600">Você precisa estar logado para acessar esta página.</p>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-6">
-        {/* Removido o título principal */}
-        {/* <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Sistema de Questões
-          </h1>
-        </motion.div> */}
+    <PageContainer>
+      <div className="space-y-6">
+        {/* Layout responsivo: ajustado para dar mais espaço às estatísticas */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Coluna principal - Formulário de registro (3/5 em telas grandes) */}
+          <div className="lg:col-span-3">
+            <QuestionEntryForm 
+              key={formKey}
+              onEntryAdded={handleEntryAdded}
+              initialSubject={urlSubject}
+              initialTopic={urlTopic}
+            />
+          </div>
 
-      {/* Layout responsivo: ajustado para dar mais espaço às estatísticas */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Coluna principal - Formulário de registro (3/5 em telas grandes) */}
-        <div className="lg:col-span-3">
-          <QuestionEntryForm 
-            key={formKey}
-            onEntryAdded={handleEntryAdded}
-            initialSubject={urlSubject}
-            initialTopic={urlTopic}
+          {/* Coluna lateral - Estatísticas resumidas (2/5 em telas grandes) */}
+          <div className="lg:col-span-2">
+            <div className="lg:sticky lg:top-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-800">Estatísticas</h3>
+              </div>
+              <div className="mb-4">
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">7 dias</SelectItem>
+                    <SelectItem value="30">30 dias</SelectItem>
+                    <SelectItem value="90">90 dias</SelectItem>
+                    <SelectItem value="365">1 ano</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <StatsSummaryCards stats={summaryStats} isLoading={statsLoading} />
+            </div>
+          </div>
+        </div>
+
+        {/* Separador para estatísticas detalhadas */}
+        <div className="flex items-center gap-4 mt-8">
+          <Separator className="flex-1" />
+          <span className="text-gray-500 font-medium">Estatísticas Detalhadas</span>
+          <Separator className="flex-1" />
+        </div>
+
+        {/* Estatísticas detalhadas */}
+        <div className="mt-6">
+          <QuestionsStatistics 
+            hideHeader={true} 
+            selectedPeriod={selectedPeriod}
+            onPeriodChange={setSelectedPeriod}
           />
         </div>
 
-        {/* Coluna lateral - Estatísticas resumidas (2/5 em telas grandes) */}
-        <div className="lg:col-span-2">
-          <div className="lg:sticky lg:top-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-800">Estatísticas</h3>
-            </div>
-            <div className="mb-4">
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">7 dias</SelectItem>
-                  <SelectItem value="30">30 dias</SelectItem>
-                  <SelectItem value="90">90 dias</SelectItem>
-                  <SelectItem value="365">1 ano</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <StatsSummaryCards stats={summaryStats} isLoading={statsLoading} />
-          </div>
+        {/* Novo Layout: Detalhamento por Matéria e Tópico */}
+        <div className="mb-8">
+          <QuestionsOverview />
         </div>
       </div>
-
-      {/* Separador para estatísticas detalhadas */}
-      <div className="flex items-center gap-4 mt-8">
-        <Separator className="flex-1" />
-        <span className="text-gray-500 font-medium">Estatísticas Detalhadas</span>
-        <Separator className="flex-1" />
-      </div>
-
-      {/* Estatísticas detalhadas */}
-      <div className="mt-6">
-        <QuestionsStatistics 
-          hideHeader={true} 
-          selectedPeriod={selectedPeriod}
-          onPeriodChange={setSelectedPeriod}
-        />
-      </div>
-
-      {/* Novo Layout: Detalhamento por Matéria e Tópico */}
-      <div className="mb-8">
-        <QuestionsOverview />
-      </div>
-      </div>
-    </div>
+    </PageContainer>
   );
 };
 
