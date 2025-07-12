@@ -15,7 +15,7 @@ import { CalendarView } from '@/components/calendar/CalendarView';
 import { Loader2 } from "lucide-react";
 import { CircularProgress } from '@/components/dashboard/CircularProgress';
 import { StatCard } from '@/components/dashboard/StatCard';
-import { PomodoroCard } from '@/components/dashboard/PomodoroCard';
+
 import { motion } from 'framer-motion';
 
 const Dashboard = () => {
@@ -272,12 +272,12 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Coluna 2 - 4 cards dividindo igualmente a altura */}
+            {/* Coluna 2 - 3 cards verticais com altura igual ao calendário */}
             <div className="xl:col-span-3 h-[420px]">
               <div className="flex flex-col h-full gap-4">
-                <StatCard className="flex-1 min-h-0" title="Matérias Concluídas" value={completedSubjects} subtitle={`de ${totalSubjects} matérias`} icon={BookOpen} iconBgColor="#E8F5E8" iconColor="#10B981" />
-                <StatCard className="flex-1 min-h-0" title="Tópicos Pendentes" value={totalTopics - completedTopics} subtitle="Para revisar" icon={AlertCircle} iconBgColor="#FFF4E6" iconColor="#F59E0B" />
-                <PomodoroCard className="flex-1 min-h-0" />
+                <StatCard className="flex-1 min-h-0" title="Matérias" value={totalSubjects} subtitle={`${completedSubjects} Concluídas`} icon={BookOpen} iconBgColor="#E8F5E8" iconColor="#10B981" />
+                <StatCard className="flex-1 min-h-0" title="Tópicos" value={totalTopics} subtitle={`${completedTopics} Concluídos`} icon={Target} iconBgColor="#FFF4E6" iconColor="#F59E0B" />
+                <StatCard className="flex-1 min-h-0" title="Revisões" value={reviewData?.length || 0} subtitle={`${reviewData?.filter(r => r.next_review && new Date(r.next_review) <= new Date()).length || 0} Pendentes`} icon={Clock} iconBgColor="#F3E8FF" iconColor="#8B5CF6" />
               </div>
             </div>
 

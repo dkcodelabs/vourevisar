@@ -8,6 +8,7 @@ interface StatCardProps {
   icon: LucideIcon;
   iconBgColor: string;
   iconColor: string;
+  className?: string;
   trend?: {
     value: number;
     label: string;
@@ -22,10 +23,11 @@ export const StatCard: React.FC<StatCardProps> = ({
   icon: Icon,
   iconBgColor,
   iconColor,
+  className,
   trend
 }) => {
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+    <div className={`bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow ${className || ''}`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
