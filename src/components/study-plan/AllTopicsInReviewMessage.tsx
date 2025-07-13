@@ -22,9 +22,9 @@ const AllTopicsInReviewMessage = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="flex justify-center"
+      className="flex justify-center w-full"
     >
-      <Card className="text-center max-w-xl bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200 shadow-lg">
+      <Card className="text-center mx-auto max-w-2xl w-full bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200 shadow-lg">
         <CardHeader className="pb-4">
           <motion.div 
             className="flex justify-center mb-4"

@@ -78,9 +78,8 @@ const StudyPlan = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="container mx-auto p-4 md:p-6">
-        <StudyPlanContent />
-      </div>
+      {/* Removido o container com largura fixa para responsividade total do card */}
+      <StudyPlanContent />
     </div>
   );
 };
