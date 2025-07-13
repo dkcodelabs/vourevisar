@@ -89,8 +89,6 @@ const Dashboard = () => {
     enabled: !!user
   });
 
-
-
   // Estados de loading e erro simplificados
   if (isLoading || cycleLoading) {
     console.log('Dashboard - Showing loading state');
@@ -204,8 +202,8 @@ const Dashboard = () => {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Overview Card */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Overview Card - Primeira coluna */}
             <div className="bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6">
               <h1
                 className="text-2xl font-semibold text-gray-900 text-center"
@@ -247,7 +245,7 @@ const Dashboard = () => {
               />
             </div>
 
-            {/* Stats Cards */}
+            {/* Stats Cards - Segunda coluna */}
             <div className="flex flex-col gap-3">
               <StatCard 
                 className="flex-1" 
@@ -284,88 +282,85 @@ const Dashboard = () => {
               />
             </div>
 
-            {/* Calendar and Reviews Row */}
-            <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Calendar */}
-              <div className="min-h-[300px]">
-                <CalendarView
-                  reviewData={reviewData || []}
-                  isLoading={reviewLoading}
-                  onDateSelect={handleCalendarDateSelect}
-                  selectedDate={selectedCalendarDate || undefined}
-                  currentMonth={calendarMonth}
-                  onMonthChange={setCalendarMonth}
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full"
-                />
-              </div>
+            {/* Calendar - Terceira coluna */}
+            <div className="min-h-[300px]">
+              <CalendarView
+                reviewData={reviewData || []}
+                isLoading={reviewLoading}
+                onDateSelect={handleCalendarDateSelect}
+                selectedDate={selectedCalendarDate || undefined}
+                currentMonth={calendarMonth}
+                onMonthChange={setCalendarMonth}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full"
+              />
+            </div>
 
-              {/* Reviews */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 min-h-[300px] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {getReviewSectionTitle()}
-                  </h3>
-                  {selectedCalendarDate && (
-                    <button
-                      onClick={handleGoToToday}
-                      title="Ver revisões de hoje"
-                      className="text-blue-500 hover:text-blue-600"
-                    >
-                      <Eye className="h-5 w-5" />
-                    </button>
-                  )}
-                </div>
-                {displayedReviews.length > 0 ? (
-                  <div className="space-y-3">
-                    {(() => {
-                      const reviewsBySubject = displayedReviews.reduce((acc, topic) => {
-                        const subjectName = topic.subject_name;
-                        if (!acc[subjectName]) {
-                          acc[subjectName] = [];
-                        }
-                        acc[subjectName].push(topic);
-                        return acc;
-                      }, {} as Record<string, typeof displayedReviews>);
-
-                      return Object.entries(reviewsBySubject).map(([subjectName, topics]) => (
-                        <div key={subjectName} className="border-l-4 border-blue-500 pl-4">
-                          <h4 className="font-semibold text-gray-900 text-sm mb-2">{subjectName}</h4>
-                          <div className="space-y-2">
-                            {topics.map((topic) => {
-                              const isOverdue = topic.next_review &&
-                                startOfDay(new Date(topic.next_review)).getTime() < startOfDay(new Date()).getTime();
-                              const isToday = topic.next_review &&
-                                startOfDay(new Date(topic.next_review)).getTime() === startOfDay(new Date()).getTime();
-
-                              return (
-                                <div
-                                  key={topic.id}
-                                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                >
-                                  <div className="flex-1 min-w-0">
-                                    <h5 className="font-medium text-gray-900 text-sm truncate">{topic.name}</h5>
-                                    <p className="text-xs text-gray-600 mt-1">
-                                      {topic.next_review ? format(new Date(topic.next_review), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data'}
-                                    </p>
-                                  </div>
-                                  <Badge
-                                    variant={isOverdue ? "destructive" : isToday ? "default" : "secondary"}
-                                    className="text-xs flex-shrink-0 ml-2"
-                                  >
-                                    {topic.review_stage || 'Novo'}
-                                  </Badge>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">Nenhuma revisão para esta data.</p>
+            {/* Reviews - Quarta coluna */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 min-h-[300px] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {getReviewSectionTitle()}
+                </h3>
+                {selectedCalendarDate && (
+                  <button
+                    onClick={handleGoToToday}
+                    title="Ver revisões de hoje"
+                    className="text-blue-500 hover:text-blue-600"
+                  >
+                    <Eye className="h-5 w-5" />
+                  </button>
                 )}
               </div>
+              {displayedReviews.length > 0 ? (
+                <div className="space-y-3">
+                  {(() => {
+                    const reviewsBySubject = displayedReviews.reduce((acc, topic) => {
+                      const subjectName = topic.subject_name;
+                      if (!acc[subjectName]) {
+                        acc[subjectName] = [];
+                      }
+                      acc[subjectName].push(topic);
+                      return acc;
+                    }, {} as Record<string, typeof displayedReviews>);
+
+                    return Object.entries(reviewsBySubject).map(([subjectName, topics]) => (
+                      <div key={subjectName} className="border-l-4 border-blue-500 pl-4">
+                        <h4 className="font-semibold text-gray-900 text-sm mb-2">{subjectName}</h4>
+                        <div className="space-y-2">
+                          {topics.map((topic) => {
+                            const isOverdue = topic.next_review &&
+                              startOfDay(new Date(topic.next_review)).getTime() < startOfDay(new Date()).getTime();
+                            const isToday = topic.next_review &&
+                              startOfDay(new Date(topic.next_review)).getTime() === startOfDay(new Date()).getTime();
+
+                            return (
+                              <div
+                                key={topic.id}
+                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="font-medium text-gray-900 text-sm truncate">{topic.name}</h5>
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {topic.next_review ? format(new Date(topic.next_review), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data'}
+                                  </p>
+                                </div>
+                                <Badge
+                                  variant={isOverdue ? "destructive" : isToday ? "default" : "secondary"}
+                                  className="text-xs flex-shrink-0 ml-2"
+                                >
+                                  {topic.review_stage || 'Novo'}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">Nenhuma revisão para esta data.</p>
+              )}
             </div>
           </div>
         )}
