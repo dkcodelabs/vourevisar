@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { 
@@ -31,7 +32,6 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -101,22 +101,24 @@ const Login = () => {
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!resetEmail.trim()) {
-      toast.error('Por favor, insira seu email');
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast.error('Por favor, insira seu email no campo acima');
       return;
     }
 
     setIsLoading(true);
     try {
-      const result = await resetPassword(resetEmail);
-      if (result.success) {
-        setShowForgotPassword(false);
-        setResetEmail('');
-      }
+      // Primeiro verifica se o email existe no sistema
+      const { data } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+      
+      toast.success('Se este email estiver cadastrado, você receberá um link para redefinir sua senha');
+      setShowForgotPassword(false);
     } catch (error: any) {
       console.error('Forgot password error:', error);
+      toast.error('Erro ao enviar email de recuperação');
     } finally {
       setIsLoading(false);
     }
@@ -284,55 +286,39 @@ const Login = () => {
                </>
              )}
 
-             {showForgotPassword ? (
-               <div className="space-y-4">
-                 <div className="space-y-2">
-                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                     Email para recuperação
-                   </label>
-                   <div className="relative">
-                     <Envelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                     <input
-                       type="email"
-                       value={resetEmail}
-                       onChange={(e) => setResetEmail(e.target.value)}
-                       className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
-                       placeholder="seu@email.com"
-                       required
-                     />
-                   </div>
-                 </div>
+              {showForgotPassword ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                    Clique no botão abaixo para receber um email de recuperação no endereço: <strong>{email}</strong>
+                  </p>
 
-                 <GradientButton
-                   onClick={handleForgotPassword}
-                   className="w-full py-3"
-                   disabled={isLoading}
-                 >
-                   {isLoading ? (
-                     <motion.div
-                       animate={{ rotate: 360 }}
-                       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                       className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                     />
-                   ) : (
-                     'Enviar email de recuperação'
-                   )}
-                 </GradientButton>
+                  <GradientButton
+                    onClick={handleForgotPassword}
+                    className="w-full py-3"
+                    disabled={isLoading || !email}
+                  >
+                    {isLoading ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                      />
+                    ) : (
+                      'Enviar email de recuperação'
+                    )}
+                  </GradientButton>
 
-                 <div className="text-center">
-                   <button
-                     type="button"
-                     onClick={() => {
-                       setShowForgotPassword(false);
-                       setResetEmail('');
-                     }}
-                     className="text-sm text-app-blue hover:text-blue-700 transition-colors"
-                   >
-                     Voltar ao login
-                   </button>
-                 </div>
-               </div>
-             ) : (
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(false)}
+                      className="text-sm text-app-blue hover:text-blue-700 transition-colors"
+                    >
+                      Voltar ao login
+                    </button>
+                  </div>
+                </div>
+              ) : (
                <div className="text-center">
                  <button
                    type="button"
