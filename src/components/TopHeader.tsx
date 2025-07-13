@@ -55,8 +55,13 @@ export function TopHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center min-w-0">
+          {/* Mobile Menu Button & Logo */}
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Mobile Menu Button - moved to left */}
+            <div className="lg:hidden">
+              <MobileMenu navItems={navItems} />
+            </div>
+            
             <span className="text-app-blue font-bold text-xl lg:text-2xl truncate">vouRevisar</span>
           </div>
 
@@ -83,7 +88,7 @@ export function TopHeader() {
             })}
           </nav>
 
-          {/* Pomodoro & Mobile Menu Button & User Profile */}
+          {/* Pomodoro & User Profile */}
           <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
             {/* Pomodoro Timer Icon */}
             {user && (
@@ -142,11 +147,6 @@ export function TopHeader() {
                 )}
               </button>
             )}
-
-            {/* Mobile Menu Button */}
-            <div className="lg:hidden">
-              <MobileMenu navItems={navItems} />
-            </div>
 
             {/* User Profile */}
             {user && (
@@ -208,8 +208,8 @@ function MobileMenu({ navItems }: { navItems: NavItem[] }) {
             onClick={() => setIsOpen(false)}
           />
           
-          {/* Menu */}
-          <div className="absolute right-0 top-12 w-64 bg-white rounded-lg shadow-lg border z-50 p-2 max-h-[80vh] overflow-y-auto">
+          {/* Menu - positioned to the left */}
+          <div className="absolute left-0 top-12 w-64 bg-white rounded-lg shadow-lg border z-50 p-2 max-h-[80vh] overflow-y-auto">
             <div className="p-2 border-b border-gray-100 mb-2">
               <h3 className="text-sm font-semibold text-gray-900">Menu de Navegação</h3>
             </div>
