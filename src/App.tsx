@@ -15,6 +15,7 @@ import Settings from "@/pages/Settings";
 import Statistics from "@/pages/Statistics";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
+import ResetPassword from "@/pages/ResetPassword";
 import { AuthCallback } from "@/components/AuthCallback";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
@@ -45,6 +46,7 @@ const App = () => {
               <ProfileOnboardingGate />
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/*" element={<ProtectedRoute />}>
                   <Route path="" element={<AppLayout />}>

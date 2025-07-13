@@ -107,12 +107,24 @@ const Login = () => {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error('Por favor, insira um email válido');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Primeiro verifica se o email existe no sistema
-      const { data } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       });
+      
+      if (error) {
+        console.error('Forgot password error:', error);
+        toast.error('Erro ao enviar email de recuperação');
+        return;
+      }
       
       toast.success('Se este email estiver cadastrado, você receberá um link para redefinir sua senha');
       setShowForgotPassword(false);

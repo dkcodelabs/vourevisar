@@ -24,6 +24,15 @@ const passwordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const resetPasswordSchema = z.object({
+  email: z.string().email('Email inválido'),
+  newPassword: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  confirmPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
 const profileSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   phone: z.string().optional(),
@@ -37,8 +46,9 @@ interface StatsData {
 }
 
 const Profile = () => {
-  const { profile, user, updateProfile, updatePassword } = useAuth();
+  const { profile, user, updateProfile, updatePassword, resetPassword } = useAuth();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +172,15 @@ const Profile = () => {
       confirmPassword: '',
     },
   });
+
+  const resetPasswordForm = useForm({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      email: user?.email || '',
+      newPassword: '',
+      confirmPassword: '',
+    },
+  });
   
   const handleSaveProfile = async (values) => {
     if (!user) return;
@@ -191,6 +210,32 @@ const Profile = () => {
     } catch (error: any) {
       setError('Erro ao alterar senha: ' + error.message);
       console.error('Erro ao alterar senha:', error);
+    }
+  };
+
+  const handleResetPassword = async (values) => {
+    setError(null);
+    
+    // Verificar se o email é o mesmo do usuário logado
+    if (values.email !== user?.email) {
+      setError('O email deve ser o mesmo da sua conta atual');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await resetPassword(values.email);
+      setIsResetPasswordDialogOpen(false);
+      resetPasswordForm.reset();
+      toast({
+        title: "Email enviado!",
+        description: "Verifique sua caixa de entrada para redefinir sua senha.",
+      });
+    } catch (error: any) {
+      setError('Erro ao enviar email de redefinição: ' + error.message);
+      console.error('Erro ao enviar email de redefinição:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
   
@@ -378,6 +423,69 @@ const Profile = () => {
                   </div>
                 </form>
               </Form>
+            </div>
+          </GlassCard>
+
+          {/* Card de Redefinição de Senha */}
+          <GlassCard className="max-w-xl p-6 mt-6">
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">Redefinir Senha</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Receba um email com link para redefinir sua senha
+              </p>
+              
+              <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
+                <DialogTrigger asChild>
+                  <GradientButton 
+                    type="button"
+                    className="w-full"
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    Redefinir Senha por Email
+                  </GradientButton>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Redefinir Senha</DialogTitle>
+                  </DialogHeader>
+                  <Form {...resetPasswordForm}>
+                    <form onSubmit={resetPasswordForm.handleSubmit(handleResetPassword)} className="space-y-4 pt-2">
+                      <FormField
+                        control={resetPasswordForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center text-sm">
+                              <Mail className="h-4 w-4 mr-2" />
+                              Confirme seu email
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="email"
+                                {...field} 
+                                placeholder="Digite seu email atual" 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                            <p className="text-xs text-gray-500">
+                              Deve ser o mesmo email da sua conta atual
+                            </p>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <DialogFooter>
+                        <GradientButton 
+                          type="submit"
+                          disabled={isSaving}
+                        >
+                          {isSaving ? 'Enviando...' : 'Enviar Email de Redefinição'}
+                        </GradientButton>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
             </div>
           </GlassCard>
         </div>
