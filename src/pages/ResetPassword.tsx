@@ -43,10 +43,25 @@ const ResetPassword = () => {
 
         // Scenario 2: Code parameter from redirect (current format)
         if (code) {
-          console.log('Recovery code found in URL, allowing password reset');
-          setIsValidToken(true);
-          setIsCheckingToken(false);
-          return;
+          console.log('Recovery code found in URL, exchanging for session');
+          try {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) {
+              console.error('Error exchanging code for session:', error);
+              toast.error('Link inválido ou expirado');
+              navigate('/login');
+              return;
+            }
+            console.log('Successfully exchanged code for session');
+            setIsValidToken(true);
+            setIsCheckingToken(false);
+            return;
+          } catch (error) {
+            console.error('Error exchanging code:', error);
+            toast.error('Link inválido ou expirado');
+            navigate('/login');
+            return;
+          }
         }
 
         // Scenario 3: Check if user has an active session
