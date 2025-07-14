@@ -117,7 +117,7 @@ const Login = () => {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: 'https://revisao-inteligente-concursos-16.lovable.app/reset-password'
       });
       
       if (error) {

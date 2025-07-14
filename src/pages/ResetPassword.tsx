@@ -21,7 +21,24 @@ const ResetPassword = () => {
   useEffect(() => {
     const handleAuthRedirect = async () => {
       try {
-        // Check if this is a redirect from password reset email
+        // Check URL params first
+        const token = searchParams.get('token');
+        const type = searchParams.get('type');
+        
+        console.log('Reset password check:', { 
+          hasToken: !!token, 
+          type, 
+          url: window.location.href 
+        });
+
+        if (token && type === 'recovery') {
+          console.log('Recovery token found in URL, allowing password reset');
+          setIsValidToken(true);
+          setIsCheckingToken(false);
+          return;
+        }
+
+        // Check if user has a session (already authenticated through the email link)
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -31,23 +48,13 @@ const ResetPassword = () => {
           return;
         }
 
-        // If we have a session from the redirect, the user is authenticated for password reset
         if (data.session) {
-          console.log('User authenticated for password reset');
+          console.log('User authenticated for password reset via session');
           setIsValidToken(true);
         } else {
-          // Check if we have recovery params in URL
-          const token = searchParams.get('token');
-          const type = searchParams.get('type');
-          
-          if (token && type === 'recovery') {
-            console.log('Recovery token found, allowing password reset');
-            setIsValidToken(true);
-          } else {
-            console.log('No session or recovery token found');
-            toast.error('Link inválido ou expirado');
-            navigate('/login');
-          }
+          console.log('No session or recovery token found');
+          toast.error('Link inválido ou expirado');
+          navigate('/login');
         }
       } catch (error) {
         console.error('Error handling auth redirect:', error);
