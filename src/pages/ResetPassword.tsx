@@ -52,10 +52,18 @@ const ResetPassword = () => {
               navigate('/login');
               return;
             }
-            console.log('Successfully exchanged code for session');
-            setIsValidToken(true);
-            setIsCheckingToken(false);
-            return;
+            
+            if (data.session) {
+              console.log('Successfully exchanged code for session', data.session.user?.email);
+              setIsValidToken(true);
+              setIsCheckingToken(false);
+              return;
+            } else {
+              console.error('No session returned from code exchange');
+              toast.error('Link inválido ou expirado');
+              navigate('/login');
+              return;
+            }
           } catch (error) {
             console.error('Error exchanging code:', error);
             toast.error('Link inválido ou expirado');
