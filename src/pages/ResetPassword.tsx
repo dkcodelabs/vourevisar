@@ -35,10 +35,27 @@ const ResetPassword = () => {
 
         // Scenario 1: Direct token from email link (older format)
         if (token && type === 'recovery') {
-          console.log('Recovery token found in URL, allowing password reset');
-          setIsValidToken(true);
-          setIsCheckingToken(false);
-          return;
+          console.log('Recovery token found in URL, verifying session');
+          try {
+            // Check if the token automatically created a session
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (sessionData.session) {
+              console.log('Session found for recovery token');
+              setIsValidToken(true);
+              setIsCheckingToken(false);
+              return;
+            } else {
+              console.error('No session found for recovery token');
+              toast.error('Link inválido ou expirado');
+              navigate('/login');
+              return;
+            }
+          } catch (error) {
+            console.error('Error verifying recovery token session:', error);
+            toast.error('Link inválido ou expirado');
+            navigate('/login');
+            return;
+          }
         }
 
         // Scenario 2: Code parameter from redirect (current format)
@@ -117,6 +134,16 @@ const ResetPassword = () => {
 
     setIsLoading(true);
     try {
+      // Check if we have a valid session before updating password
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (!sessionData.session) {
+        console.error('No valid session found for password update');
+        toast.error('Sessão expirada. Tente novamente com um novo link');
+        navigate('/login');
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: password
       });
