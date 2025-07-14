@@ -19,44 +19,30 @@ const ResetPassword = () => {
   const [isCheckingToken, setIsCheckingToken] = useState(true);
 
   useEffect(() => {
-    const checkToken = async () => {
-      // Get token and type from URL parameters
-      const token = searchParams.get('token');
-      const type = searchParams.get('type');
-      
-      console.log('Reset password - checking token:', { token: !!token, type });
-      
-      if (!token || type !== 'recovery') {
-        console.log('Invalid token or type:', { token: !!token, type });
-        toast.error('Link inválido ou expirado');
-        navigate('/login');
-        return;
-      }
-
+    const handleAuthRedirect = async () => {
       try {
-        // Verify the recovery token
-        const { data, error } = await supabase.auth.verifyOtp({
-          token_hash: token,
-          type: 'recovery'
-        });
-
+        // Check if this is a redirect from password reset email
+        const { data, error } = await supabase.auth.getSession();
+        
         if (error) {
-          console.error('Error verifying recovery token:', error);
+          console.error('Error getting session:', error);
           toast.error('Link inválido ou expirado');
           navigate('/login');
           return;
         }
 
+        // If we have a session from the redirect, the user is authenticated for password reset
         if (data.session) {
+          console.log('User authenticated for password reset');
           setIsValidToken(true);
-          console.log('Token válido, usuário autenticado para reset');
         } else {
-          console.log('No session returned from token verification');
+          // No session means the token was invalid or expired
+          console.log('No session found - invalid or expired token');
           toast.error('Link inválido ou expirado');
           navigate('/login');
         }
       } catch (error) {
-        console.error('Error validating reset token:', error);
+        console.error('Error handling auth redirect:', error);
         toast.error('Link inválido ou expirado');
         navigate('/login');
       } finally {
@@ -64,8 +50,8 @@ const ResetPassword = () => {
       }
     };
 
-    checkToken();
-  }, [searchParams, navigate]);
+    handleAuthRedirect();
+  }, [navigate]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
