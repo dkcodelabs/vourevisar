@@ -20,31 +20,41 @@ const ResetPassword = () => {
 
   useEffect(() => {
     const checkToken = async () => {
-      const accessToken = searchParams.get('access_token');
-      const refreshToken = searchParams.get('refresh_token');
+      // Get token and type from URL parameters
+      const token = searchParams.get('token');
+      const type = searchParams.get('type');
       
-      if (!accessToken || !refreshToken) {
+      console.log('Reset password - checking token:', { token: !!token, type });
+      
+      if (!token || type !== 'recovery') {
+        console.log('Invalid token or type:', { token: !!token, type });
         toast.error('Link inválido ou expirado');
         navigate('/login');
         return;
       }
 
       try {
-        // Set the session using the tokens from URL
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
+        // Verify the recovery token
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: token,
+          type: 'recovery'
         });
 
         if (error) {
-          console.error('Error setting session:', error);
+          console.error('Error verifying recovery token:', error);
           toast.error('Link inválido ou expirado');
           navigate('/login');
           return;
         }
 
-        setIsValidToken(true);
-        console.log('Token válido, usuário autenticado para reset');
+        if (data.session) {
+          setIsValidToken(true);
+          console.log('Token válido, usuário autenticado para reset');
+        } else {
+          console.log('No session returned from token verification');
+          toast.error('Link inválido ou expirado');
+          navigate('/login');
+        }
       } catch (error) {
         console.error('Error validating reset token:', error);
         toast.error('Link inválido ou expirado');
