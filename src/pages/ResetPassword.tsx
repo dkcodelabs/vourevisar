@@ -36,10 +36,18 @@ const ResetPassword = () => {
           console.log('User authenticated for password reset');
           setIsValidToken(true);
         } else {
-          // No session means the token was invalid or expired
-          console.log('No session found - invalid or expired token');
-          toast.error('Link inválido ou expirado');
-          navigate('/login');
+          // Check if we have recovery params in URL
+          const token = searchParams.get('token');
+          const type = searchParams.get('type');
+          
+          if (token && type === 'recovery') {
+            console.log('Recovery token found, allowing password reset');
+            setIsValidToken(true);
+          } else {
+            console.log('No session or recovery token found');
+            toast.error('Link inválido ou expirado');
+            navigate('/login');
+          }
         }
       } catch (error) {
         console.error('Error handling auth redirect:', error);
@@ -51,7 +59,7 @@ const ResetPassword = () => {
     };
 
     handleAuthRedirect();
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
