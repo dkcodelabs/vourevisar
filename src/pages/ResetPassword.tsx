@@ -21,16 +21,19 @@ const ResetPassword = () => {
   useEffect(() => {
     const handleAuthRedirect = async () => {
       try {
-        // Check URL params first
+        // Check URL params for different scenarios
         const token = searchParams.get('token');
         const type = searchParams.get('type');
+        const code = searchParams.get('code');
         
         console.log('Reset password check:', { 
           hasToken: !!token, 
           type, 
+          hasCode: !!code,
           url: window.location.href 
         });
 
+        // Scenario 1: Direct token from email link (older format)
         if (token && type === 'recovery') {
           console.log('Recovery token found in URL, allowing password reset');
           setIsValidToken(true);
@@ -38,7 +41,15 @@ const ResetPassword = () => {
           return;
         }
 
-        // Check if user has a session (already authenticated through the email link)
+        // Scenario 2: Code parameter from redirect (current format)
+        if (code) {
+          console.log('Recovery code found in URL, allowing password reset');
+          setIsValidToken(true);
+          setIsCheckingToken(false);
+          return;
+        }
+
+        // Scenario 3: Check if user has an active session
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -52,7 +63,7 @@ const ResetPassword = () => {
           console.log('User authenticated for password reset via session');
           setIsValidToken(true);
         } else {
-          console.log('No session or recovery token found');
+          console.log('No session, recovery token, or code found');
           toast.error('Link inválido ou expirado');
           navigate('/login');
         }
