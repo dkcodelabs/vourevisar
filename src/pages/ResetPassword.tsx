@@ -21,60 +21,61 @@ const ResetPassword = () => {
   useEffect(() => {
     const handleAuthRedirect = async () => {
       try {
-        // Check URL params for different scenarios
-        const token = searchParams.get('token');
-        const type = searchParams.get('type');
-        const code = searchParams.get('code');
+        // Get URL params from current location
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const type = urlParams.get('type');
+        const code = urlParams.get('code');
         
         console.log('Reset password check:', { 
           hasToken: !!token, 
           type, 
           hasCode: !!code,
-          url: window.location.href 
+          url: window.location.href,
+          search: window.location.search
         });
 
-        // Scenario 1: Direct token from email link (older format)
+        // Handle direct email link with token
         if (token && type === 'recovery') {
-          console.log('Recovery token found in URL, verifying session');
-          try {
-            // Check if the token automatically created a session
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (sessionData.session) {
-              console.log('Session found for recovery token');
-              setIsValidToken(true);
-              setIsCheckingToken(false);
-              return;
-            } else {
-              console.error('No session found for recovery token');
-              toast.error('Link inválido ou expirado');
-              navigate('/login');
-              return;
-            }
-          } catch (error) {
-            console.error('Error verifying recovery token session:', error);
+          console.log('Recovery token found, attempting to verify session');
+          // Give some time for Supabase to process the token
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            console.error('Session error:', sessionError);
+            toast.error('Link inválido ou expirado');
+            navigate('/login');
+            return;
+          }
+          
+          if (sessionData.session) {
+            console.log('Valid session found for recovery');
+            setIsValidToken(true);
+          } else {
+            console.log('No session found, token may be invalid');
             toast.error('Link inválido ou expirado');
             navigate('/login');
             return;
           }
         }
-
-        // Scenario 2: Code parameter from redirect (current format)
-        if (code) {
-          console.log('Recovery code found in URL, exchanging for session');
+        // Handle code-based redirect
+        else if (code) {
+          console.log('Recovery code found, exchanging for session');
           try {
             const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            
             if (error) {
-              console.error('Error exchanging code for session:', error);
+              console.error('Error exchanging code:', error);
               toast.error('Link inválido ou expirado');
               navigate('/login');
               return;
             }
             
             if (data.session) {
-              console.log('Successfully exchanged code for session', data.session.user?.email);
+              console.log('Successfully exchanged code for session');
               setIsValidToken(true);
-              setIsCheckingToken(false);
-              return;
             } else {
               console.error('No session returned from code exchange');
               toast.error('Link inválido ou expirado');
@@ -82,42 +83,46 @@ const ResetPassword = () => {
               return;
             }
           } catch (error) {
-            console.error('Error exchanging code:', error);
+            console.error('Error in code exchange:', error);
+            toast.error('Erro no processamento do link');
+            navigate('/login');
+            return;
+          }
+        }
+        // Check for existing session
+        else {
+          const { data, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error('Error getting session:', error);
+            toast.error('Erro ao verificar sessão');
+            navigate('/login');
+            return;
+          }
+
+          if (data.session) {
+            console.log('Existing session found');
+            setIsValidToken(true);
+          } else {
+            console.log('No session or recovery parameters found');
             toast.error('Link inválido ou expirado');
             navigate('/login');
             return;
           }
         }
-
-        // Scenario 3: Check if user has an active session
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting session:', error);
-          toast.error('Link inválido ou expirado');
-          navigate('/login');
-          return;
-        }
-
-        if (data.session) {
-          console.log('User authenticated for password reset via session');
-          setIsValidToken(true);
-        } else {
-          console.log('No session, recovery token, or code found');
-          toast.error('Link inválido ou expirado');
-          navigate('/login');
-        }
       } catch (error) {
-        console.error('Error handling auth redirect:', error);
-        toast.error('Link inválido ou expirado');
+        console.error('Error in auth redirect handler:', error);
+        toast.error('Erro ao processar link de recuperação');
         navigate('/login');
       } finally {
         setIsCheckingToken(false);
       }
     };
 
-    handleAuthRedirect();
-  }, [navigate, searchParams]);
+    // Add a small delay to ensure the page has loaded
+    const timer = setTimeout(handleAuthRedirect, 100);
+    return () => clearTimeout(timer);
+  }, [navigate]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
