@@ -66,7 +66,11 @@ export function TopHeader() {
               <MobileMenu navItems={navItems} />
             </div>
             
-            <span className="text-app-blue font-bold text-xl lg:text-2xl truncate">vouRevisar</span>
+            <img 
+              src="/lovable-uploads/c7e19ddd-6ca7-4be9-938f-ec4d2e307476.png" 
+              alt="vouRevisar" 
+              className="h-8 lg:h-10 w-auto"
+            />
           </div>
 
           {/* Navigation - Hidden on mobile, properly responsive */}
