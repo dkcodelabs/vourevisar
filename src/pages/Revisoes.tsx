@@ -280,14 +280,13 @@ const Revisoes = () => {
       {/* Modal de Notas */}
       <NotesModal
         isOpen={notesModalData.isOpen}
-        onClose={() => setNotesModalData(prev => ({ ...prev, isOpen: false }))}
-        topicId={notesModalData.topicId}
-        topicName={notesModalData.topicName}
-        subjectName={notesModalData.subjectName}
-        onSave={() => {
+        onClose={() => {
           setNotesModalData(prev => ({ ...prev, isOpen: false }));
           refetch();
         }}
+        topicId={notesModalData.topicId}
+        topicName={notesModalData.topicName}
+        subjectName={notesModalData.subjectName}
       />
     </div>
   );

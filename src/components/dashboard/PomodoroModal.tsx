@@ -39,7 +39,6 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({ open, onOpenChange
   const getStateColor = () => {
     switch (state) {
       case 'running': return '#10B981'; // green
-      case 'paused': return '#EF4444';  // red
       default: return '#6B7280';        // gray
     }
   };
@@ -124,7 +123,6 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({ open, onOpenChange
             {/* Status */}
             <div className="text-sm text-gray-600">
               {state === 'running' && 'Timer rodando'}
-              {state === 'paused' && 'Timer pausado'}
               {state === 'stopped' && 'Timer parado'}
             </div>
           </div>
@@ -145,7 +143,7 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({ open, onOpenChange
               ) : (
                 <>
                   <Play className="w-4 h-4" />
-                  {state === 'paused' ? 'Continuar' : 'Iniciar'}
+                  Iniciar
                 </>
               )}
             </Button>

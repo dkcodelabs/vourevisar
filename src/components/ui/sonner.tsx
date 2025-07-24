@@ -39,7 +39,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
         invert={false}
         toastOptions={{
           duration: 4000,
-          dismissible: true,
           style: {
             pointerEvents: 'auto'
           },
