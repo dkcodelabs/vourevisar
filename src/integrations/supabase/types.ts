@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      pomodoro_sessions: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          sessions_completed: number | null
+          total_minutes_studied: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          sessions_completed?: number | null
+          total_minutes_studied?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          sessions_completed?: number | null
+          total_minutes_studied?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -275,36 +305,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      pomodoro_sessions: {
-        Row: {
-          id: string
-          user_id: string
-          date: string
-          sessions_completed: number
-          total_minutes_studied: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          date: string
-          sessions_completed?: number
-          total_minutes_studied?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          date?: string
-          sessions_completed?: number
-          total_minutes_studied?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       user_settings: {
         Row: {
