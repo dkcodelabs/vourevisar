@@ -236,10 +236,7 @@ const Revisoes = () => {
                   onMarkReviewed={async (subjectId, topicId) => {
                     try {
                       await markTopicAsReviewed(topicId);
-                      toast.success('Revisão registrada com sucesso!', {
-                        id: `review-success-${topicId}`,
-                        duration: 3000,
-                      });
+                      // Toast já é chamado dentro do markTopicAsReviewed, não duplicar aqui
                       setTimeout(async () => {
                         await refreshData();
                         refetch();

@@ -98,12 +98,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
             --width: calc(100vw - 32px);
             left: 16px !important;
             right: 16px !important;
-            top: 16px !important;
-            bottom: auto !important;
+            bottom: 16px !important;
+            top: auto !important;
             position: fixed !important;
           }
-          [data-sonner-toaster][data-position="top-right"] {
-            top: 16px !important;
+          [data-sonner-toaster][data-position="bottom-right"] {
+            bottom: 16px !important;
             left: 16px !important;
             right: 16px !important;
           }
@@ -112,7 +112,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       <Sonner
         theme={theme as ToasterProps["theme"]}
         className="toaster group"
-        position="top-right"
+        position="bottom-right"
         closeButton
         richColors
         duration={4000}

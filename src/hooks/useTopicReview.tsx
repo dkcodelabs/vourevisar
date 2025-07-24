@@ -126,7 +126,7 @@ export const useTopicReview = () => {
       // Não chamar refreshData aqui se usado dentro de uma sessão
       // O refresh será feito pelo componente que gerencia a sessão
       console.log('🔵 Revisão processada sem refresh automático');
-      toast.success('Revisão registrada com sucesso!');
+      // Toast removido daqui para evitar duplicação - será mostrado pelo componente pai
       
     } catch (error) {
       console.error('❌ Erro ao marcar tópico como revisado:', error);

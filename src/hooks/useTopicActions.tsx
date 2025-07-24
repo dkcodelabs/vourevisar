@@ -120,7 +120,9 @@ export const useTopicActions = () => {
         }
       }
 
-      toast.success('Revisão registrada com sucesso!');
+      toast.success('Revisão registrada com sucesso!', {
+        duration: 3000,
+      });
     } catch (error) {
       console.error('Erro ao marcar tópico como revisado:', error);
       toast.error('Erro ao registrar revisão');
