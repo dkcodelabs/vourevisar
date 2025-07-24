@@ -30,7 +30,11 @@ export function TopHeader() {
   const { user } = useAuth();
   const location = useLocation();
   const [pomodoroOpen, setPomodoroOpen] = React.useState(false);
-  const { state, timeLeft, progress, formatTime } = usePomodoroTimer();
+  const { isActive, timeLeft, getProgress, formatTime } = usePomodoroTimer();
+  
+  // Calcular estado e progresso com fallbacks seguros
+  const state = isActive ? 'running' : timeLeft < 25 * 60 ? 'paused' : 'stopped';
+  const progress = Math.max(0, Math.min(100, getProgress() || 0)); // Garantir valor entre 0-100
 
   // Função para verificar se o item está ativo
   const isItemActive = (item: NavItem) => {
@@ -117,7 +121,7 @@ export function TopHeader() {
                       fill="none"
                       strokeLinecap="round"
                       strokeDasharray={2 * Math.PI * 20}
-                      strokeDashoffset={2 * Math.PI * 20 * (1 - progress / 100)}
+                      strokeDashoffset={2 * Math.PI * 20 * (1 - (progress || 0) / 100)}
                       className={`transition-all duration-1000 ease-linear ${
                         state === 'running' ? 'text-green-500' : state === 'paused' ? 'text-red-500' : 'text-gray-400'
                       }`}

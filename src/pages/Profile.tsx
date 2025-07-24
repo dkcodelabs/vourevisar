@@ -368,10 +368,13 @@ const Profile = () => {
                             Alterar Senha
                           </GradientButton>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent aria-describedby="change-password-description">
                           <DialogHeader>
                             <DialogTitle>Alterar Senha</DialogTitle>
                           </DialogHeader>
+                          <div id="change-password-description" className="sr-only">
+                            Formulário para alterar sua senha atual. Digite uma nova senha e confirme-a.
+                          </div>
                           <Form {...passwordForm}>
                             <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4 pt-2">
                               <FormField
@@ -444,10 +447,13 @@ const Profile = () => {
                     Redefinir Senha por Email
                   </GradientButton>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent aria-describedby="reset-password-description">
                   <DialogHeader>
                     <DialogTitle>Redefinir Senha</DialogTitle>
                   </DialogHeader>
+                  <div id="reset-password-description" className="sr-only">
+                    Formulário para redefinir sua senha por email. Digite seu email atual para receber um link de redefinição.
+                  </div>
                   <Form {...resetPasswordForm}>
                     <form onSubmit={resetPasswordForm.handleSubmit(handleResetPassword)} className="space-y-4 pt-2">
                       <FormField

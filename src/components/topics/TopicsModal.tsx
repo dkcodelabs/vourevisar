@@ -111,13 +111,16 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby="topics-modal-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-blue-600" />
             Tópicos de {subject.name}
           </DialogTitle>
         </DialogHeader>
+        <div id="topics-modal-description" className="sr-only">
+          Gerencie os tópicos desta matéria. Adicione novos tópicos, edite ou exclua os existentes.
+        </div>
 
         <div className="space-y-4">
           {/* Formulário para adicionar novo tópico */}

@@ -208,10 +208,10 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
 
                       {/* Dialog de confirmação */}
                       <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
-                        <DialogContent>
+                        <DialogContent aria-describedby="confirm-review-description">
                           <DialogHeader>
                             <DialogTitle>Confirmar Revisão</DialogTitle>
-                            <DialogDescription>
+                            <DialogDescription id="confirm-review-description">
                               Tem certeza que deseja marcar este tópico como revisado?
                             </DialogDescription>
                           </DialogHeader>
@@ -350,10 +350,10 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                   
                   {/* Dialog de confirmação */}
                   <Dialog open={confirmTopicId === topic.id} onOpenChange={(open) => !open && setConfirmTopicId(null)}>
-                    <DialogContent>
+                    <DialogContent aria-describedby="confirm-review-mobile-description">
                       <DialogHeader>
                         <DialogTitle>Confirmar Revisão</DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription id="confirm-review-mobile-description">
                           Tem certeza que deseja marcar este tópico como revisado?
                         </DialogDescription>
                       </DialogHeader>

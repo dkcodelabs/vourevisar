@@ -122,6 +122,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
           "max-w-4xl w-full max-h-[90vh] overflow-hidden"
         }
         hideCloseButton={isMobile}
+        aria-describedby="notes-modal-description"
         style={isMobile ? { 
           position: 'fixed',
           top: 0,
@@ -155,6 +156,10 @@ const NotesModal: React.FC<NotesModalProps> = ({
             )}
           </div>
         </DialogHeader>
+        
+        <div id="notes-modal-description" className="sr-only">
+          Editor de anotações para o tópico. Use o editor de texto rico para criar e editar suas anotações de estudo.
+        </div>
 
         {/* Content */}
         <div className={`${isMobile ? 'flex-1 overflow-auto p-4' : 'p-6 pt-2 overflow-auto'} bg-gray-50`}>

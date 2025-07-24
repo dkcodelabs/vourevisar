@@ -13,16 +13,20 @@ interface PomodoroModalProps {
 
 export const PomodoroModal: React.FC<PomodoroModalProps> = ({ open, onOpenChange }) => {
   const { 
-    minutes, 
     timeLeft, 
-    state, 
-    progress, 
-    setMinutes, 
+    initialTime,
+    isActive,
     startTimer, 
     pauseTimer, 
     resetTimer, 
-    formatTime 
+    formatTime,
+    adjustTime,
+    getProgress
   } = usePomodoroTimer();
+  
+  const state = isActive ? 'running' : 'stopped';
+  const progress = getProgress() || 0;
+  const minutes = Math.round(initialTime / 60);
 
   const handleStartPause = () => {
     if (state === 'running') {
@@ -42,28 +46,44 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({ open, onOpenChange
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-sm" aria-describedby="pomodoro-modal-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Timer className="w-5 h-5" />
             Pomodoro Timer
           </DialogTitle>
         </DialogHeader>
+        <div id="pomodoro-modal-description" className="sr-only">
+          Configure e controle seu timer Pomodoro. Ajuste o tempo, inicie, pause ou reinicie suas sessões de estudo.
+        </div>
         
         <div className="space-y-4">
           {/* Configuração de Tempo */}
           <div className="space-y-2">
             <Label htmlFor="minutes">Minutos</Label>
-            <Input
-              id="minutes"
-              type="number"
-              value={minutes}
-              onChange={(e) => setMinutes(parseInt(e.target.value) || 1)}
-              min="1"
-              max="60"
-              disabled={state !== 'stopped'}
-              className="text-center"
-            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => adjustTime(-5)}
+                disabled={state !== 'stopped'}
+                className="px-2"
+              >
+                -5
+              </Button>
+              <div className="flex-1 text-center font-mono text-lg font-semibold">
+                {minutes} min
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => adjustTime(5)}
+                disabled={state !== 'stopped'}
+                className="px-2"
+              >
+                +5
+              </Button>
+            </div>
           </div>
 
           {/* Display do Timer */}

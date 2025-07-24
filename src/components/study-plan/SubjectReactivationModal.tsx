@@ -148,13 +148,16 @@ const SubjectReactivationModal: React.FC<SubjectReactivationModalProps> = ({ isO
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby="reactivation-modal-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <RefreshCw className="h-6 w-6 text-blue-500" />
             Reativar Matérias Concluídas
           </DialogTitle>
         </DialogHeader>
+        <div id="reactivation-modal-description" className="sr-only">
+          Selecione as matérias concluídas que deseja reativar para continuar estudando. Você pode escolher múltiplas matérias.
+        </div>
 
         <div className="space-y-6">
           {completedSubjects.length === 0 ? (

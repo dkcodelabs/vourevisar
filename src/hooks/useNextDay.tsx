@@ -41,10 +41,30 @@ export const useNextDay = () => {
       if (userCycle.ciclo_atual && userCycle.ciclo_atual.length > 0) {
         availableSubjectsInCycle = userCycle.ciclo_atual.filter(id => {
           const subject = subjects.find(s => s.id === id);
-          return subject && 
-                 subject.status !== 'Concluída' &&
-                 subject.topics && subject.topics.length > 0 &&
-                 subject.topics.some(t => (t.reviewCount || t.review_count) === 0);
+          if (!subject || subject.status === 'Concluída') return false;
+          if (!subject.topics || subject.topics.length === 0) return false;
+          
+          // Verificar se há tópicos não revisados (reviewCount/review_count === 0 OU undefined/null)
+          const hasUnreviewedTopics = subject.topics.some(t => {
+            const reviewCount = t.reviewCount || t.review_count || 0;
+            return reviewCount === 0;
+          });
+          
+          console.log(`🔍 Verificando matéria ${subject.name}:`, {
+            id: subject.id,
+            status: subject.status,
+            topicsCount: subject.topics.length,
+            hasUnreviewedTopics,
+            topics: subject.topics.map(t => ({
+              name: t.name,
+              reviewCount: t.reviewCount,
+              review_count: t.review_count,
+              reviewStage: t.reviewStage,
+              isUnreviewed: (t.reviewCount || t.review_count || 0) === 0
+            }))
+          });
+          
+          return hasUnreviewedTopics;
         });
       }
 
@@ -61,9 +81,28 @@ export const useNextDay = () => {
         const allAvailableSubjects = subjects.filter(subject => {
           if (subject.status === 'Concluída') return false;
           if (!subject.topics || subject.topics.length === 0) return false;
-          const hasUnreviewedTopics = subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
-          const hasTopicsInReview = subject.topics.some(topic => (topic.reviewCount || topic.review_count) > 0);
-          return hasUnreviewedTopics && !hasTopicsInReview;
+          
+          // Verificar se há tópicos não revisados
+          const hasUnreviewedTopics = subject.topics.some(topic => {
+            const reviewCount = topic.reviewCount || topic.review_count || 0;
+            return reviewCount === 0;
+          });
+          
+          console.log(`🔍 Verificando matéria GLOBAL ${subject.name}:`, {
+            id: subject.id,
+            status: subject.status,
+            topicsCount: subject.topics.length,
+            hasUnreviewedTopics,
+            topics: subject.topics.map(t => ({
+              name: t.name,
+              reviewCount: t.reviewCount,
+              review_count: t.review_count,
+              reviewStage: t.reviewStage,
+              isUnreviewed: (t.reviewCount || t.review_count || 0) === 0
+            }))
+          });
+          
+          return hasUnreviewedTopics;
         });
 
         console.log('🔄 Matérias disponíveis GLOBALMENTE:', {

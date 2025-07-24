@@ -75,66 +75,27 @@ export const useSessionCompletion = () => {
       if (topicsToReview.length === 0) {
         console.log('🔵 PULANDO MATÉRIA - Iniciando lógica de pulo...');
         
-        const { data: settings } = await supabase
-          .from('user_settings')
-          .select('subjects_per_day')
-          .eq('user_id', user.id)
-          .single();
-        const subjectsPerDay = settings?.subjects_per_day || 2;
-
-        // 1. Remover matéria pulada das disciplinas do dia
-        let newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+        // CORREÇÃO: Quando pular matéria, ela deve sair das disciplinas_do_dia
+        // e ir para o final do ciclo, mas NÃO deve ser recolocada no dia atual
         
-        // 2. Mover matéria pulada para o final do ciclo atual
+        // 1. Remover matéria pulada das disciplinas do dia (ela sai definitivamente do dia)
+        const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+        
+        // 2. Mover matéria pulada para o final do ciclo atual (para ser estudada em outro dia)
         let updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
         updatedCicloAtual.push(subjectId);
 
-        // 3. Preencher disciplinas do dia com matérias do ciclo atual
-        while (newDisciplinasDoDia.length < subjectsPerDay && updatedCicloAtual.length > 0) {
-          const nextId = updatedCicloAtual.shift();
-          if (nextId && !newDisciplinasDoDia.includes(nextId)) {
-            newDisciplinasDoDia.push(nextId);
-          }
-        }
-
-        // 4. Se ainda não preencheu o limite, buscar matérias disponíveis fora do ciclo
-        if (newDisciplinasDoDia.length < subjectsPerDay) {
-          console.log('🔵 Reabastecendo ciclo com matérias disponíveis...');
-          
-          const availableSubjectsOutsideCycle = subjects.filter(subject => {
-            if (subject.status === 'Concluída') return false;
-            if (!subject.topics || subject.topics.length === 0) return false;
-            if (updatedCicloAtual.includes(subject.id)) return false; // Já está no ciclo
-            if (newDisciplinasDoDia.includes(subject.id)) return false; // Já está no dia
-            return subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
-          });
-
-          // Adicionar matérias disponíveis ao ciclo atual
-          for (const subject of availableSubjectsOutsideCycle) {
-            if (updatedCicloAtual.length >= subjects.length) break; // Evitar loop infinito
-            if (!updatedCicloAtual.includes(subject.id)) {
-              updatedCicloAtual.push(subject.id);
-            }
-          }
-
-          // Tentar preencher novamente as disciplinas do dia
-          while (newDisciplinasDoDia.length < subjectsPerDay && updatedCicloAtual.length > 0) {
-            const nextId = updatedCicloAtual.shift();
-            if (nextId && !newDisciplinasDoDia.includes(nextId)) {
-              newDisciplinasDoDia.push(nextId);
-            }
-          }
-        }
-
-        console.log('🔵 Atualizando ciclo após pular matéria:', {
+        console.log('🔵 PULAR MATÉRIA - Lógica corrigida:', {
           subjectId,
           subjectName: subject.name,
-          subjectsPerDay,
-          newDisciplinasDoDia,
-          updatedCicloAtual
+          disciplinas_do_dia_antes: userCycle.disciplinas_do_dia.length,
+          disciplinas_do_dia_depois: newDisciplinasDoDia.length,
+          ciclo_atual_antes: userCycle.ciclo_atual.length,
+          ciclo_atual_depois: updatedCicloAtual.length,
+          acao: 'materia_removida_do_dia_e_movida_para_final_do_ciclo'
         });
 
-        // 5. Atualizar banco de dados
+        // 3. Atualizar banco de dados
         const { error: updateError } = await supabase
           .from('user_cycles')
           .update({
@@ -149,27 +110,36 @@ export const useSessionCompletion = () => {
           throw updateError;
         }
 
-        // 6. CRÍTICO: Recarregar o ciclo atualizado no frontend
+        // 4. Recarregar o ciclo atualizado no frontend
         console.log('🔵 Recarregando ciclo atualizado...');
         const freshCycle = await loadUserCycle(user.id);
         if (!freshCycle) {
           throw new Error('Erro ao carregar ciclo atualizado');
         }
         
-        console.log('🔵 Ciclo recarregado:', freshCycle);
+        console.log('🔵 Ciclo recarregado após pular:', {
+          disciplinas_do_dia: freshCycle.disciplinas_do_dia,
+          ciclo_atual: freshCycle.ciclo_atual
+        });
         setUserCycle(freshCycle);
         
-        // 7. Limpar tópicos marcados e mostrar feedback
+        // 5. Limpar tópicos marcados e mostrar feedback
         setTempMarkedTopics({});
-        toast.success('Matéria pulada com sucesso!');
+        toast.success('Matéria pulada! Ela será estudada em outro dia.');
         
-        console.log('✅ Matéria pulada com sucesso');
+        console.log('✅ Matéria pulada com sucesso - removida do dia atual');
         return;
       }
 
       console.log('🔵 Sessão concluída - movendo matéria para o final da fila');
       
-      // Mover matéria para o final da fila (ciclo_atual ou materias_pendentes)
+      // CORREÇÃO: Quando concluir sessão, apenas remover a matéria atual das disciplinas_do_dia
+      // NÃO limpar todas as disciplinas do dia
+      
+      // 1. Remover apenas a matéria concluída das disciplinas do dia
+      const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+      
+      // 2. Mover matéria para o final da fila (ciclo_atual ou materias_pendentes)
       let updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
       let updatedMateriasPendentes = userCycle.materias_pendentes || [];
       
@@ -181,9 +151,6 @@ export const useSessionCompletion = () => {
         updatedMateriasPendentes = updatedMateriasPendentes.filter(id => id !== subjectId);
         updatedMateriasPendentes.push(subjectId);
       }
-      
-      // Limpar disciplinas_do_dia para sinalizar que o dia foi concluído
-      const newDisciplinasDoDia: string[] = [];
 
       console.log('🔵 Atualizando ciclo:', {
         subjectId,

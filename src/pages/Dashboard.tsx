@@ -1,34 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, BookOpen, Target, TrendingUp, Clock, CheckCircle2, AlertCircle, Plus, BarChart3, Check, X, HelpCircle, Eye, Timer, Brain, Users, Activity } from 'lucide-react';
+import { BookOpen, TrendingUp, Plus, Flame } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfDay, isBefore, isToday } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { startOfDay } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { CalendarView } from '@/components/calendar/CalendarView';
-import { Loader2 } from "lucide-react";
-import { CircularProgress } from '@/components/dashboard/CircularProgress';
-import { StatCard } from '@/components/dashboard/StatCard';
-
-import { motion } from 'framer-motion';
+import { CompactOverview } from '@/components/dashboard/CompactOverview';
+import { SubjectOverview } from '@/components/dashboard/SubjectOverview';
+import { CalendarAndStats } from '@/components/dashboard/CalendarAndStats';
+import { StreakVisualBar } from '@/components/dashboard/StreakVisualBar';
+import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
 
 const Dashboard = () => {
-  const { subjects, studyProgress, isDataLoaded, isLoading, error } = useApp();
-  const { userCycle, isLoading: cycleLoading } = useCycleState();
+  const { subjects, isDataLoaded, isLoading, error } = useApp();
+  const { isLoading: cycleLoading } = useCycleState();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [greeting, setGreeting] = useState('');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
   // Buscar dados de revisões para o calendário
-  const { data: reviewData, isLoading: reviewLoading } = useQuery({
+  const { data: reviewData } = useQuery({
     queryKey: ['dashboard-reviews', user?.id],
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
@@ -46,7 +41,6 @@ const Dashboard = () => {
         .not('next_review', 'is', null);
 
       if (topicsError) {
-        console.error('Error fetching review data:', topicsError);
         throw topicsError;
       }
 
@@ -61,7 +55,6 @@ const Dashboard = () => {
         .eq('user_id', user.id);
 
       if (subjectsError) {
-        console.error('Error fetching subjects:', subjectsError);
         throw subjectsError;
       }
 
@@ -83,7 +76,7 @@ const Dashboard = () => {
         };
       });
 
-      console.log('Dashboard review data loaded:', topicsWithSubjects);
+
       return topicsWithSubjects;
     },
     enabled: !!user
@@ -91,7 +84,6 @@ const Dashboard = () => {
 
   // Estados de loading e erro simplificados
   if (isLoading || cycleLoading) {
-    console.log('Dashboard - Showing loading state');
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-300" />
@@ -100,7 +92,6 @@ const Dashboard = () => {
   }
 
   if (error) {
-    console.log('Dashboard - Showing error state:', error);
     return (
       <div className="container mx-auto p-6">
         <Card className="text-center">
@@ -120,7 +111,6 @@ const Dashboard = () => {
 
   // Mostrar estado vazio mesmo se não há matérias
   if (!isDataLoaded) {
-    console.log('Dashboard - Data not loaded yet');
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-300" />
@@ -128,63 +118,126 @@ const Dashboard = () => {
     );
   }
 
-  console.log('Dashboard - Rendering main content with', subjects.length, 'subjects');
+  // Calcular dados para os novos componentes
+  const today = startOfDay(new Date());
+  
+  // Contar tópicos atrasados
+  const overdueCount = subjects.reduce((count, subject) => {
+    return count + subject.topics.filter(topic => {
+      if (!topic.nextReview) return false;
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      return reviewDate < today;
+    }).length;
+  }, 0);
 
-  // Função para obter revisões para uma data específica
-  const getReviewsForDate = (date: Date) => {
-    if (!reviewData) return [];
+  // Contar tópicos de hoje
+  const todayCount = subjects.reduce((count, subject) => {
+    return count + subject.topics.filter(topic => {
+      if (!topic.nextReview) return false;
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      return reviewDate.getTime() === today.getTime();
+    }).length;
+  }, 0);
 
-    return reviewData.filter(topic => {
-      if (!topic.next_review) return false;
-      const reviewDate = startOfDay(new Date(topic.next_review));
-      return reviewDate.getTime() === startOfDay(date).getTime();
-    });
-  };
-
-  // Determinar quais revisões mostrar na seção "Revisão"
-  const getDisplayedReviews = () => {
-    if (selectedCalendarDate) {
-      return getReviewsForDate(selectedCalendarDate);
-    }
-
-    // Se nenhuma data selecionada, mostrar revisões de hoje
-    const today = new Date();
-    return getReviewsForDate(today);
-  };
-
-  // Obter texto para exibir na seção "Revisão"
-  const getReviewSectionTitle = () => {
-    if (selectedCalendarDate) {
-      return `Revisões de ${format(selectedCalendarDate, 'dd \'de\' MMMM', { locale: ptBR })}`;
-    }
-    return 'Revisões de hoje';
-  };
-
-  const handleCalendarDateSelect = (date: Date) => {
-    setSelectedCalendarDate(date);
-    setCalendarMonth(date);
-  };
-
-  const handleGoToToday = () => {
-    const today = new Date();
-    setSelectedCalendarDate(today);
-    setCalendarMonth(today);
-  };
-
-  const displayedReviews = getDisplayedReviews();
-
-  // Calculate progress data
+  // Calcular progresso geral
   const totalTopics = subjects.reduce((total, subject) => total + subject.topics.length, 0);
-  const completedTopics = subjects.reduce((total, subject) => total + subject.topics.filter(t => t.completed).length, 0);
-  const totalSubjects = subjects.length;
-  const completedSubjects = subjects.filter(s => s.status === 'Concluída').length;
+  const completedTopics = subjects.reduce((total, subject) => 
+    total + subject.topics.filter(topic => topic.reviewStage === 'Concluído').length, 0
+  );
+  const progressPercentage = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
-  const overallProgress = totalTopics > 0 ? (completedTopics / totalTopics) * 100 : 0;
-  const subjectProgress = totalSubjects > 0 ? (completedSubjects / totalSubjects) * 100 : 0;
+  // Calcular streak real baseado nas revisões
+  const calculateStreak = () => {
+    // Coletar todas as datas de revisão
+    const reviewDates: Date[] = [];
+    
+    subjects.forEach(subject => {
+      subject.topics.forEach(topic => {
+        if (topic.lastReviewedAt || topic.last_reviewed_at) {
+          const reviewDate = startOfDay(new Date(topic.lastReviewedAt || topic.last_reviewed_at!));
+          reviewDates.push(reviewDate);
+        }
+      });
+    });
+
+    if (reviewDates.length === 0) return 0;
+
+    // Ordenar datas (mais recente primeiro)
+    reviewDates.sort((a, b) => b.getTime() - a.getTime());
+    
+    // Remover duplicatas (mesmo dia)
+    const uniqueDates = reviewDates.filter((date, index) => {
+      if (index === 0) return true;
+      return date.getTime() !== reviewDates[index - 1].getTime();
+    });
+
+    if (uniqueDates.length === 0) return 0;
+
+    // Verificar se há revisão hoje ou ontem para começar o streak
+    const mostRecentDate = uniqueDates[0];
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Se a revisão mais recente não foi hoje nem ontem, streak = 0
+    if (mostRecentDate.getTime() !== today.getTime() && 
+        mostRecentDate.getTime() !== yesterday.getTime()) {
+      return 0;
+    }
+
+    // Contar dias consecutivos
+    let streak = 1;
+    let currentDate = mostRecentDate;
+
+    for (let i = 1; i < uniqueDates.length; i++) {
+      const previousDay = new Date(currentDate);
+      previousDay.setDate(previousDay.getDate() - 1);
+      
+      if (uniqueDates[i].getTime() === previousDay.getTime()) {
+        streak++;
+        currentDate = uniqueDates[i];
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  };
+
+  const currentStreak = calculateStreak();
 
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="container mx-auto p-6">
+        {/* Header com saudação e streak */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                Olá, {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}! 👋
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Aqui está um resumo dos seus estudos
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                currentStreak > 0 
+                  ? 'bg-orange-100 text-orange-700' 
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                <Flame className="h-4 w-4" />
+                <span className="font-medium">
+                  Streak: {currentStreak} {currentStreak === 1 ? 'dia' : 'dias'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg">
+                <TrendingUp className="h-4 w-4" />
+                <span className="font-medium">Progresso: {progressPercentage}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Se não há matérias, mostrar estado vazio */}
         {subjects.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 text-center">
@@ -202,166 +255,33 @@ const Dashboard = () => {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Overview Card - Primeira coluna */}
-            <div className="bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6">
-              <h1
-                className="text-2xl font-semibold text-gray-900 text-center"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
-              >
-                Olá, {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}
-              </h1>
+          <div className="space-y-6">
+            {/* Visão Compacta */}
+            <CompactOverview
+              subjects={subjects}
+              overdueCount={overdueCount}
+              todayCount={todayCount}
+            />
 
-              <div className="flex items-center gap-4 mt-5">
-                <div className="flex-shrink-0">
-                  <CircularProgress
-                    percentage={overallProgress}
-                    size={50}
-                    strokeWidth={4}
-                    color="#3B82F6"
-                    bgColor="#E5E7EB"
-                    showPercentage={true}
-                  />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Seu Progresso</p>
-                  <p className="font-semibold text-gray-900">Incrível 🥳</p>
-                </div>
-              </div>
+            {/* Barra Visual de Streak */}
+            <StreakVisualBar
+              subjects={subjects}
+              onDayClick={(date) => setSelectedCalendarDate(date)}
+            />
 
-              <button
-                className="mt-6 bg-indigo-600 text-white text-sm font-medium py-2 px-4 rounded-full hover:bg-indigo-700 transition"
-                onClick={() => navigate('/plano-estudos')}
-                style={{ fontFamily: 'Inter, Nunito, sans-serif' }}
-              >
-                Ver Plano de Estudos
-              </button>
+            {/* Visão por Matéria */}
+            <SubjectOverview subjects={subjects} />
 
-              <img
-                src="/celebration.png"
-                alt="Comemoração"
-                className="w-40 mx-auto mt-2"
-                style={{ minHeight: 80 }}
-              />
-            </div>
+            {/* Calendário e Estatísticas */}
+            <CalendarAndStats subjects={subjects} reviewData={reviewData} />
 
-            {/* Stats Cards - Segunda coluna */}
-            <div className="flex flex-col gap-3">
-              <StatCard 
-                className="flex-1" 
-                title="Matérias" 
-                subtitle="Total"
-                completed={completedSubjects}
-                total={totalSubjects}
-                unit=""
-                icon={BookOpen} 
-                iconBgColor="#DBEAFE"
-                progressColor="#3B82F6"
-              />
-              <StatCard 
-                className="flex-1" 
-                title="Tópicos"
-                subtitle="Total"
-                completed={completedTopics}
-                total={totalTopics}
-                unit=""
-                icon={Target} 
-                iconBgColor="#D1FAE5"
-                progressColor="#10B981"
-              />
-              <StatCard 
-                className="flex-1" 
-                title="Revisões"
-                subtitle="Status"
-                completed={reviewData?.filter(r => r.next_review && new Date(r.next_review) <= new Date()).length || 0}
-                total={reviewData?.length || 0}
-                unit=""
-                icon={Clock} 
-                iconBgColor="#EDE9FE"
-                progressColor="#8B5CF6"
-              />
-            </div>
-
-            {/* Calendar - Terceira coluna */}
-            <div className="min-h-[300px]">
-              <CalendarView
-                reviewData={reviewData || []}
-                isLoading={reviewLoading}
-                onDateSelect={handleCalendarDateSelect}
-                selectedDate={selectedCalendarDate || undefined}
-                currentMonth={calendarMonth}
-                onMonthChange={setCalendarMonth}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full"
-              />
-            </div>
-
-            {/* Reviews - Quarta coluna */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 min-h-[300px] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {getReviewSectionTitle()}
-                </h3>
-                {selectedCalendarDate && (
-                  <button
-                    onClick={handleGoToToday}
-                    title="Ver revisões de hoje"
-                    className="text-blue-500 hover:text-blue-600"
-                  >
-                    <Eye className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
-              {displayedReviews.length > 0 ? (
-                <div className="space-y-3">
-                  {(() => {
-                    const reviewsBySubject = displayedReviews.reduce((acc, topic) => {
-                      const subjectName = topic.subject_name;
-                      if (!acc[subjectName]) {
-                        acc[subjectName] = [];
-                      }
-                      acc[subjectName].push(topic);
-                      return acc;
-                    }, {} as Record<string, typeof displayedReviews>);
-
-                    return Object.entries(reviewsBySubject).map(([subjectName, topics]) => (
-                      <div key={subjectName} className="border-l-4 border-blue-500 pl-4">
-                        <h4 className="font-semibold text-gray-900 text-sm mb-2">{subjectName}</h4>
-                        <div className="space-y-2">
-                          {topics.map((topic) => {
-                            const isOverdue = topic.next_review &&
-                              startOfDay(new Date(topic.next_review)).getTime() < startOfDay(new Date()).getTime();
-                            const isToday = topic.next_review &&
-                              startOfDay(new Date(topic.next_review)).getTime() === startOfDay(new Date()).getTime();
-
-                            return (
-                              <div
-                                key={topic.id}
-                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <h5 className="font-medium text-gray-900 text-sm truncate">{topic.name}</h5>
-                                  <p className="text-xs text-gray-600 mt-1">
-                                    {topic.next_review ? format(new Date(topic.next_review), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data'}
-                                  </p>
-                                </div>
-                                <Badge
-                                  variant={isOverdue ? "destructive" : isToday ? "default" : "secondary"}
-                                  className="text-xs flex-shrink-0 ml-2"
-                                >
-                                  {topic.review_stage || 'Novo'}
-                                </Badge>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">Nenhuma revisão para esta data.</p>
-              )}
-            </div>
+            {/* Modal do Calendário de Streak */}
+            <StreakCalendarModal
+              isOpen={!!selectedCalendarDate}
+              onClose={() => setSelectedCalendarDate(null)}
+              subjects={subjects}
+              selectedDate={selectedCalendarDate || undefined}
+            />
           </div>
         )}
       </div>

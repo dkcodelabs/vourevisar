@@ -96,7 +96,10 @@ export const useOptimizedChecks = (subjects: Subject[]) => {
 
     // Verificar se há matérias com tópicos não revisados
     const subjectsWithUnreviewedTopics = subjectsWithTopics.filter(subject => 
-      subject.topics!.some(topic => (topic.reviewCount || topic.review_count) === 0)
+      subject.topics!.some(topic => {
+        const reviewCount = topic.reviewCount || topic.review_count || 0;
+        return reviewCount === 0;
+      })
     );
 
     console.log('🔍 Matérias com tópicos NÃO REVISADOS:', {

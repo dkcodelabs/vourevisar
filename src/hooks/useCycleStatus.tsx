@@ -28,7 +28,13 @@ export const useCycleStatus = (
       const subject = subjects.find(s => s.id === id);
       if (!subject || subject.status === 'Concluída') return false;
       if (!subject.topics || subject.topics.length === 0) return false;
-      return subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
+      
+      const hasUnreviewedTopics = subject.topics.some(topic => {
+        const reviewCount = topic.reviewCount || topic.review_count || 0;
+        return reviewCount === 0;
+      });
+      
+      return hasUnreviewedTopics;
     }) || [];
 
     console.log('🔍 Matérias disponíveis no ciclo atual:', {
@@ -44,7 +50,13 @@ export const useCycleStatus = (
       if (subject.status === 'Concluída') return false;
       if (!subject.topics || subject.topics.length === 0) return false;
       if (userCycle.ciclo_atual?.includes(subject.id)) return false; // Não está no ciclo atual
-      return subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
+      
+      const hasUnreviewedTopics = subject.topics.some(topic => {
+        const reviewCount = topic.reviewCount || topic.review_count || 0;
+        return reviewCount === 0;
+      });
+      
+      return hasUnreviewedTopics;
     });
 
     console.log('🔍 Matérias disponíveis FORA do ciclo atual:', {
@@ -84,7 +96,13 @@ export const useCycleStatus = (
       const subject = subjects.find(s => s.id === id);
       if (!subject || subject.status === 'Concluída') return false;
       if (!subject.topics || subject.topics.length === 0) return false;
-      return subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
+      
+      const hasUnreviewedTopics = subject.topics.some(topic => {
+        const reviewCount = topic.reviewCount || topic.review_count || 0;
+        return reviewCount === 0;
+      });
+      
+      return hasUnreviewedTopics;
     }) || [];
 
     // Verificar matérias fora do ciclo atual também
@@ -92,7 +110,13 @@ export const useCycleStatus = (
       if (subject.status === 'Concluída') return false;
       if (!subject.topics || subject.topics.length === 0) return false;
       if (userCycle.ciclo_atual?.includes(subject.id)) return false;
-      return subject.topics.some(topic => (topic.reviewCount || topic.review_count) === 0);
+      
+      const hasUnreviewedTopics = subject.topics.some(topic => {
+        const reviewCount = topic.reviewCount || topic.review_count || 0;
+        return reviewCount === 0;
+      });
+      
+      return hasUnreviewedTopics;
     });
 
     const hasAvailableSubjects = availableSubjectsInCycle.length > 0 || availableSubjectsOutsideCycle.length > 0;

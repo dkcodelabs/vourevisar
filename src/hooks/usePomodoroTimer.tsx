@@ -1,144 +1,204 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import type { Tables } from '@/integrations/supabase/types';
 
-export type PomodoroState = 'stopped' | 'running' | 'paused';
+type PomodoroSession = Tables<'pomodoro_sessions'>;
 
-interface PomodoroTimer {
-  minutes: number;
-  timeLeft: number; // em segundos
-  state: PomodoroState;
-  progress: number; // 0-100
-  setMinutes: (minutes: number) => void;
-  startTimer: () => void;
-  pauseTimer: () => void;
-  resetTimer: () => void;
-  formatTime: (seconds: number) => string;
-}
-
-export const usePomodoroTimer = (): PomodoroTimer => {
-  const [minutes, setMinutesState] = useState(25);
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [state, setState] = useState<PomodoroState>('stopped');
+export const usePomodoroTimer = () => {
+  const { user } = useAuth();
+  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutos em segundos
   const [initialTime, setInitialTime] = useState(25 * 60);
+  const [isActive, setIsActive] = useState(false);
+  const [sessionsToday, setSessionsToday] = useState(0);
+  const [totalMinutesToday, setTotalMinutesToday] = useState(0);
+  const [wasReset, setWasReset] = useState(false); // Controla se foi resetado durante a sessão
 
-  // Timer effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (state === 'running' && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(time => {
-          if (time <= 1) {
-            // Timer finished
-            setState('stopped');
-            playAlarmSound();
-            showNotification();
-            return initialTime; // Reset to initial time
-          }
-          return time - 1;
-        });
-      }, 1000);
-    }
+  // Buscar sessões do dia atual
+  const fetchTodaySessions = useCallback(async () => {
+    if (!user) return;
 
-    return () => clearInterval(interval);
-  }, [state, timeLeft, initialTime]);
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
-  // Play alarm sound when timer finishes
-  const playAlarmSound = useCallback(() => {
     try {
-      // Create a simple beep sound using Web Audio API
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Play 3 beeps
-      for (let i = 0; i < 3; i++) {
-        setTimeout(() => {
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-          
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-          
-          oscillator.frequency.value = 800; // Frequency in Hz
-          oscillator.type = 'sine';
-          
-          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-          
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.3);
-        }, i * 400);
+      const { data, error } = await supabase
+        .from('pomodoro_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', today)
+        .lte('date', today)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao buscar sessões:', error);
+        setSessionsToday(0);
+        setTotalMinutesToday(0);
+        return;
+      }
+
+      if (data) {
+        setSessionsToday(data.sessions_completed || 0);
+        setTotalMinutesToday(data.total_minutes_studied || 0);
+      } else {
+        setSessionsToday(0);
+        setTotalMinutesToday(0);
       }
     } catch (error) {
-      // Fallback to browser alert if Web Audio API fails
-      alert('⏰ Pomodoro concluído!');
+      console.error('Erro ao buscar sessões:', error);
+      setSessionsToday(0);
+      setTotalMinutesToday(0);
     }
-  }, []);
+  }, [user]);
 
-  // Show visual notification
-  const showNotification = useCallback(() => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('🍅 Pomodoro concluído!', {
-        body: 'Tempo para uma pausa!',
-        icon: '/favicon.ico'
+  // Salvar/atualizar sessão no banco
+  const updateSessionInDB = useCallback(async (completedSessions: number, totalMinutes: number) => {
+    if (!user) return;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    try {
+      const { data: existingSession } = await supabase
+        .from('pomodoro_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', today)
+        .lte('date', today)
+        .maybeSingle();
+
+      if (existingSession) {
+        // Atualizar sessão existente
+        const { error } = await supabase
+          .from('pomodoro_sessions')
+          .update({
+            sessions_completed: completedSessions,
+            total_minutes_studied: totalMinutes,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingSession.id);
+
+        if (error) throw error;
+      } else {
+        // Criar nova sessão
+        const { error } = await supabase
+          .from('pomodoro_sessions')
+          .insert({
+            user_id: user.id,
+            date: today,
+            sessions_completed: completedSessions,
+            total_minutes_studied: totalMinutes
+          });
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Erro ao salvar sessão do Pomodoro:', error);
+      toast.error('Erro ao salvar sessão do Pomodoro');
+    }
+  }, [user]);
+
+  // Timer countdown
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
+    if (isActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(timeLeft => timeLeft - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && isActive && !wasReset) {
+      // Timer acabou SEM ter sido resetado - sessão válida (pausar e continuar é OK)
+      setIsActive(false);
+      const newSessions = sessionsToday + 1;
+      const studiedMinutes = Math.round(initialTime / 60);
+      const newTotalMinutes = totalMinutesToday + studiedMinutes;
+
+      setSessionsToday(newSessions);
+      setTotalMinutesToday(newTotalMinutes);
+
+      // Salvar no banco
+      updateSessionInDB(newSessions, newTotalMinutes);
+
+      // Reset timer para próxima sessão
+      setTimeLeft(initialTime);
+      setWasReset(false); // Reset flag
+
+      // Notificação de sessão completa
+      toast.success(`🎉 Sessão Pomodoro completa! ${studiedMinutes} minutos estudados.`, {
+        duration: 4000,
+      });
+    } else if (timeLeft === 0 && isActive && wasReset) {
+      // Timer acabou MAS foi resetado - não conta como sessão válida
+      setIsActive(false);
+      setTimeLeft(initialTime);
+      setWasReset(false); // Reset flag
+
+      // Notificação informando que não contou
+      toast.info('🔄 Timer finalizado, mas não contou como sessão (foi resetado)', {
+        duration: 3000,
       });
     }
-  }, []);
 
-  // Request notification permission on first load
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isActive, timeLeft, initialTime, sessionsToday, totalMinutesToday, updateSessionInDB, wasReset]);
+
+  // Carregar dados ao inicializar
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    fetchTodaySessions();
+  }, [fetchTodaySessions]);
+
+  // Funções de controle
+  const startTimer = () => setIsActive(true);
+  const pauseTimer = () => {
+    setIsActive(false);
+    // Pausar não afeta a contagem - pode pausar e continuar normalmente
+  };
+  const resetTimer = () => {
+    setIsActive(false);
+    setTimeLeft(initialTime);
+    setWasReset(true); // Marca que foi resetado - não conta sessão
+  };
+
+  const adjustTime = (minutes: number) => {
+    if (!isActive) {
+      const newTime = Math.max(5 * 60, initialTime + (minutes * 60)); // Mínimo 5 minutos
+      const maxTime = 60 * 60; // Máximo 60 minutos
+      const finalTime = Math.min(newTime, maxTime);
+
+      setInitialTime(finalTime);
+      setTimeLeft(finalTime);
     }
-  }, []);
+  };
 
-  const setMinutes = useCallback((newMinutes: number) => {
-    const clampedMinutes = Math.max(1, Math.min(60, newMinutes));
-    setMinutesState(clampedMinutes);
-    
-    if (state === 'stopped') {
-      const newTime = clampedMinutes * 60;
-      setTimeLeft(newTime);
-      setInitialTime(newTime);
-    }
-  }, [state]);
-
-  const startTimer = useCallback(() => {
-    if (state === 'stopped') {
-      const newTime = minutes * 60;
-      setTimeLeft(newTime);
-      setInitialTime(newTime);
-    }
-    setState('running');
-  }, [state, minutes]);
-
-  const pauseTimer = useCallback(() => {
-    setState('paused');
-  }, []);
-
-  const resetTimer = useCallback(() => {
-    setState('stopped');
-    const newTime = minutes * 60;
-    setTimeLeft(newTime);
-    setInitialTime(newTime);
-  }, [minutes]);
-
-  const formatTime = useCallback((totalSeconds: number): string => {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }, []);
+  };
 
-  // Calculate progress percentage
-  const progress = initialTime > 0 ? Math.round(((initialTime - timeLeft) / initialTime) * 100) : 0;
+  const getProgress = () => {
+    return ((initialTime - timeLeft) / initialTime) * 100;
+  };
+
+  const getSessionsProgress = () => {
+    const maxSessions = 8; // Meta diária
+    return (sessionsToday / maxSessions) * 100;
+  };
 
   return {
-    minutes,
     timeLeft,
-    state,
-    progress,
-    setMinutes,
+    initialTime,
+    isActive,
+    sessionsToday,
+    totalMinutesToday,
     startTimer,
     pauseTimer,
     resetTimer,
-    formatTime
+    adjustTime,
+    formatTime,
+    getProgress,
+    getSessionsProgress,
+    maxSessions: 8
   };
 };

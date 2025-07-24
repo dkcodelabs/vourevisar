@@ -28,28 +28,28 @@ const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) {
     return 'Nova';
   }
-  
+
   // Verificar se todos os tópicos estão concluídos (reviewStage === 'Concluído')
-  const allTopicsCompleted = subject.topics.every(topic => 
+  const allTopicsCompleted = subject.topics.every(topic =>
     topic.reviewStage === 'Concluído'
   );
-  
+
   if (allTopicsCompleted) {
     return 'Concluída';
   }
-  
+
   // Verificar se algum tópico foi iniciado (tem reviewCount > 0 ou reviewStage definido)
-  const hasStartedTopics = subject.topics.some(topic => 
-    topic.reviewCount > 0 || 
+  const hasStartedTopics = subject.topics.some(topic =>
+    topic.reviewCount > 0 ||
     (topic.reviewStage && topic.reviewStage !== '') ||
     topic.nextReview !== undefined ||
     topic.completed === true
   );
-  
+
   if (hasStartedTopics) {
     return 'Em Estudo';
   }
-  
+
   return 'Nova';
 };
 
@@ -74,7 +74,7 @@ const Subjects = () => {
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
-  
+
   // Estados para edição inline
   const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -312,12 +312,12 @@ const Subjects = () => {
   // Função corrigida para calcular o progresso baseado em tópicos concluídos
   const getSubjectProgress = (subject: Subject) => {
     if (subject.topics.length === 0) return 0;
-    
+
     // Contar tópicos que estão realmente concluídos (reviewStage === 'Concluído')
-    const completedTopics = subject.topics.filter(topic => 
+    const completedTopics = subject.topics.filter(topic =>
       topic.reviewStage === 'Concluído'
     ).length;
-    
+
     return Math.round((completedTopics / subject.topics.length) * 100);
   };
 
@@ -376,7 +376,7 @@ const Subjects = () => {
   return (
     <UserProfileProvider>
       <div className="w-full max-w-full overflow-x-hidden">
-        <motion.div 
+        <motion.div
           className="space-y-6 max-w-full"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -384,9 +384,9 @@ const Subjects = () => {
         >
           {/* Header */}
           <div className="flex flex-col gap-4 mb-4 px-4 sm:px-6">
-          <div className="mb-8">
-          
-        </div>
+            <div className="mb-8">
+
+            </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 type="text"
@@ -404,74 +404,205 @@ const Subjects = () => {
             </div>
           </div>
 
-        {/* Lista de Matérias */}
-        {localSubjects.length === 0 ? (
-          <Card>
-            <CardHeader className="text-center">
-              <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <CardTitle>Nenhuma matéria encontrada</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <p className="text-gray-600 mb-4">
-                Comece adicionando sua primeira matéria de estudo.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <DndContext 
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-4 px-4 sm:px-6 max-w-full">
-                <AnimatePresence>
-                  {localSubjects.map((subject) => {
-                    const progress = getSubjectProgress(subject);
-                    const calculatedStatus = calculateSubjectStatus(subject);
-                    const isEditing = editingSubjectId === subject.id;
-                    
-                    return (
-                      <SortableItem key={subject.id} id={subject.id}>
-                        {({ listeners, attributes }) => (
-                           <motion.div
-                            layout
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.2 }}
-                            className="w-full max-w-full"
-                          >
-                            <Card className="hover:shadow-lg transition-shadow relative max-w-full overflow-hidden">
-                               <CardContent className="p-4 max-w-full">
-                                {/* Layout Desktop */}
-                                <div className="hidden sm:flex items-center justify-between max-w-full">
-                                  <div className="flex items-center space-x-4 flex-1 min-w-0">
-                                    <div className="cursor-move p-1 flex-shrink-0" {...listeners} {...attributes}>
-                                      <GripVertical className="h-5 w-5 text-gray-400" />
+          {/* Lista de Matérias */}
+          {localSubjects.length === 0 ? (
+            <Card>
+              <CardHeader className="text-center">
+                <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <CardTitle>Nenhuma matéria encontrada</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-gray-600 mb-4">
+                  Comece adicionando sua primeira matéria de estudo.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-4 px-4 sm:px-6 max-w-full">
+                  <AnimatePresence>
+                    {localSubjects.map((subject) => {
+                      const progress = getSubjectProgress(subject);
+                      const calculatedStatus = calculateSubjectStatus(subject);
+                      const isEditing = editingSubjectId === subject.id;
+
+                      return (
+                        <SortableItem key={subject.id} id={subject.id}>
+                          {({ listeners, attributes }) => (
+                            <motion.div
+                              layout
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -20 }}
+                              transition={{ duration: 0.2 }}
+                              className="w-full max-w-full"
+                            >
+                              <Card className="hover:shadow-lg transition-shadow relative max-w-full overflow-hidden">
+                                <CardContent className="p-4 max-w-full">
+                                  {/* Layout Desktop */}
+                                  <div className="hidden sm:flex items-center justify-between max-w-full">
+                                    <div className="flex items-center space-x-4 flex-1 min-w-0">
+                                      <div className="cursor-move p-1 flex-shrink-0" {...listeners} {...attributes}>
+                                        <GripVertical className="h-5 w-5 text-gray-400" />
+                                      </div>
+                                      <button
+                                        onClick={() => toggleExpand(subject.id)}
+                                        className="mr-2 p-1 rounded hover:bg-gray-100 transition flex-shrink-0"
+                                        aria-label={expandedSubjectIds.includes(subject.id) ? 'Recolher tópicos' : 'Expandir tópicos'}
+                                        tabIndex={0}
+                                        type="button"
+                                      >
+                                        {expandedSubjectIds.includes(subject.id) ? (
+                                          <ChevronDown className="h-5 w-5" />
+                                        ) : (
+                                          <ChevronRight className="h-5 w-5" />
+                                        )}
+                                      </button>
+                                      <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center space-x-2">
+                                          {isEditing ? (
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                              <Input
+                                                value={editingName}
+                                                onChange={(e) => setEditingName(e.target.value)}
+                                                className="h-8 text-sm flex-1 min-w-0"
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') handleSaveEdit();
+                                                  if (e.key === 'Escape') handleCancelEdit();
+                                                }}
+                                                autoFocus
+                                              />
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={handleSaveEdit}
+                                                className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                                              >
+                                                <Check className="h-4 w-4" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={handleCancelEdit}
+                                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                              >
+                                                <X className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
+                                              <Badge className={getStatusColor(calculatedStatus)}>
+                                                {calculatedStatus}
+                                              </Badge>
+                                            </>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                                          <div className="flex items-center space-x-1">
+                                            <Target className="h-4 w-4" />
+                                            <span>{subject.topics.length} tópicos</span>
+                                          </div>
+                                          <div className="flex items-center space-x-1">
+                                            <CheckCircle className="h-4 w-4" />
+                                            <span>{progress}% concluído</span>
+                                          </div>
+                                        </div>
+                                        {subject.topics.length > 0 && (
+                                          <div className="mt-2">
+                                            <Progress value={progress} className="h-2" />
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
-                                    <button
-                                      onClick={() => toggleExpand(subject.id)}
-                                      className="mr-2 p-1 rounded hover:bg-gray-100 transition flex-shrink-0"
-                                      aria-label={expandedSubjectIds.includes(subject.id) ? 'Recolher tópicos' : 'Expandir tópicos'}
-                                      tabIndex={0}
-                                      type="button"
+                                    <div
+                                      className="flex items-center space-x-2"
+                                      onClick={(e) => e.stopPropagation()}
+                                      onMouseDown={(e) => e.stopPropagation()}
                                     >
-                                      {expandedSubjectIds.includes(subject.id) ? (
-                                        <ChevronDown className="h-5 w-5" />
-                                      ) : (
-                                        <ChevronRight className="h-5 w-5" />
+                                      {!isEditing && (
+                                        <>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={e => { e.preventDefault(); e.stopPropagation(); handleOpenTopicsModal(subject); }}
+                                          >
+                                            <BookOpen className="h-4 w-4 mr-1" />
+                                            Tópicos
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
+                                          >
+                                            <Edit2 className="h-4 w-4" />
+                                          </Button>
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                              >
+                                                <Trash2 className="h-4 w-4 text-red-500" />
+                                              </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent aria-describedby="confirm-subject-delete-1-description">
+                                              <AlertDialogHeader>
+                                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                                <AlertDialogDescription id="confirm-subject-delete-1-description">
+                                                  Tem certeza que deseja excluir a matéria "{subject.name}"?
+                                                  Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
+                                                </AlertDialogDescription>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                  onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
+                                                  className="bg-red-600 hover:bg-red-700"
+                                                >
+                                                  Excluir
+                                                </AlertDialogAction>
+                                              </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
+                                        </>
                                       )}
-                                    </button>
-                                    <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center space-x-2">
+                                    </div>
+                                  </div>
+
+                                  {/* Layout Mobile */}
+                                  <div className="sm:hidden space-y-4">
+                                    <div className="flex items-center space-x-3">
+                                      <div className="cursor-move p-1" {...listeners} {...attributes}>
+                                        <GripVertical className="h-5 w-5 text-gray-400" />
+                                      </div>
+                                      <button
+                                        onClick={() => toggleExpand(subject.id)}
+                                        className="p-1 rounded hover:bg-gray-100 transition"
+                                        aria-label={expandedSubjectIds.includes(subject.id) ? 'Recolher tópicos' : 'Expandir tópicos'}
+                                        tabIndex={0}
+                                        type="button"
+                                      >
+                                        {expandedSubjectIds.includes(subject.id) ? (
+                                          <ChevronDown className="h-5 w-5" />
+                                        ) : (
+                                          <ChevronRight className="h-5 w-5" />
+                                        )}
+                                      </button>
+                                      <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
+                                      <div className="flex-1 min-w-0">
                                         {isEditing ? (
-                                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          <div className="flex items-center gap-2">
                                             <Input
                                               value={editingName}
                                               onChange={(e) => setEditingName(e.target.value)}
-                                              className="h-8 text-sm flex-1 min-w-0"
+                                              className="h-8 text-sm flex-1"
                                               onKeyDown={(e) => {
                                                 if (e.key === 'Enter') handleSaveEdit();
                                                 if (e.key === 'Escape') handleCancelEdit();
@@ -496,257 +627,126 @@ const Subjects = () => {
                                             </Button>
                                           </div>
                                         ) : (
-                                          <>
-                                            <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
-                                            <Badge className={getStatusColor(calculatedStatus)}>
-                                              {calculatedStatus}
-                                            </Badge>
-                                          </>
+                                          <div className="space-y-2">
+                                            <div className="flex items-center space-x-2">
+                                              <h3 className="font-semibold text-lg truncate flex-1">{subject.name}</h3>
+                                              <Badge className={getStatusColor(calculatedStatus)}>
+                                                {calculatedStatus}
+                                              </Badge>
+                                            </div>
+                                            <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                              <div className="flex items-center space-x-1">
+                                                <Target className="h-4 w-4" />
+                                                <span>{subject.topics.length} tópicos</span>
+                                              </div>
+                                              <div className="flex items-center space-x-1">
+                                                <CheckCircle className="h-4 w-4" />
+                                                <span>{progress}% concluído</span>
+                                              </div>
+                                            </div>
+                                          </div>
                                         )}
                                       </div>
-                                      <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
-                                        <div className="flex items-center space-x-1">
-                                          <Target className="h-4 w-4" />
-                                          <span>{subject.topics.length} tópicos</span>
-                                        </div>
-                                        <div className="flex items-center space-x-1">
-                                          <CheckCircle className="h-4 w-4" />
-                                          <span>{progress}% concluído</span>
-                                        </div>
-                                      </div>
-                                      {subject.topics.length > 0 && (
-                                        <div className="mt-2">
-                                          <Progress value={progress} className="h-2" />
-                                        </div>
-                                      )}
                                     </div>
-                                  </div>
-                                  <div 
-                                    className="flex items-center space-x-2"
-                                    onClick={(e) => e.stopPropagation()}
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                  >
+
+                                    {/* Progress Bar Mobile */}
+                                    {subject.topics.length > 0 && (
+                                      <div className="px-12">
+                                        <Progress value={progress} className="h-2" />
+                                      </div>
+                                    )}
+
+                                    {/* Botões Mobile - Empilhados */}
                                     {!isEditing && (
-                                      <>
+                                      <div className="flex flex-col space-y-2 px-12">
                                         <Button
                                           variant="outline"
                                           size="sm"
                                           onClick={e => { e.preventDefault(); e.stopPropagation(); handleOpenTopicsModal(subject); }}
+                                          className="w-full justify-start"
                                         >
-                                          <BookOpen className="h-4 w-4 mr-1" />
-                                          Tópicos
+                                          <BookOpen className="h-4 w-4 mr-2" />
+                                          Ver Tópicos
                                         </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
-                                        >
-                                          <Edit2 className="h-4 w-4" />
-                                        </Button>
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm"
-                                            >
-                                              <Trash2 className="h-4 w-4 text-red-500" />
-                                            </Button>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                Tem certeza que deseja excluir a matéria "{subject.name}"? 
-                                                Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                              <AlertDialogAction
-                                                onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
-                                                className="bg-red-600 hover:bg-red-700"
-                                              >
-                                                Excluir
-                                              </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Layout Mobile */} 
-                                <div className="sm:hidden space-y-4">
-                                  <div className="flex items-center space-x-3">
-                                    <div className="cursor-move p-1" {...listeners} {...attributes}>
-                                      <GripVertical className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <button
-                                      onClick={() => toggleExpand(subject.id)}
-                                      className="p-1 rounded hover:bg-gray-100 transition"
-                                      aria-label={expandedSubjectIds.includes(subject.id) ? 'Recolher tópicos' : 'Expandir tópicos'}
-                                      tabIndex={0}
-                                      type="button"
-                                    >
-                                      {expandedSubjectIds.includes(subject.id) ? (
-                                        <ChevronDown className="h-5 w-5" />
-                                      ) : (
-                                        <ChevronRight className="h-5 w-5" />
-                                      )}
-                                    </button>
-                                    <BookOpen className="w-6 h-6 text-blue-600 flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      {isEditing ? (
-                                        <div className="flex items-center gap-2">
-                                          <Input
-                                            value={editingName}
-                                            onChange={(e) => setEditingName(e.target.value)}
-                                            className="h-8 text-sm flex-1"
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter') handleSaveEdit();
-                                              if (e.key === 'Escape') handleCancelEdit();
-                                            }}
-                                            autoFocus
-                                          />
+                                        <div className="flex space-x-2">
                                           <Button
+                                            variant="outline"
                                             size="sm"
-                                            variant="ghost"
-                                            onClick={handleSaveEdit}
-                                            className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                                            onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
+                                            className="flex-1"
                                           >
-                                            <Check className="h-4 w-4" />
+                                            <Edit2 className="h-4 w-4 mr-1" />
+                                            Editar
                                           </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={handleCancelEdit}
-                                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                                          >
-                                            <X className="h-4 w-4" />
-                                          </Button>
-                                        </div>
-                                      ) : (
-                                        <div className="space-y-2">
-                                          <div className="flex items-center space-x-2">
-                                            <h3 className="font-semibold text-lg truncate flex-1">{subject.name}</h3>
-                                            <Badge className={getStatusColor(calculatedStatus)}>
-                                              {calculatedStatus}
-                                            </Badge>
-                                          </div>
-                                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                                            <div className="flex items-center space-x-1">
-                                              <Target className="h-4 w-4" />
-                                              <span>{subject.topics.length} tópicos</span>
-                                            </div>
-                                            <div className="flex items-center space-x-1">
-                                              <CheckCircle className="h-4 w-4" />
-                                              <span>{progress}% concluído</span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Progress Bar Mobile */}
-                                  {subject.topics.length > 0 && (
-                                    <div className="px-12">
-                                      <Progress value={progress} className="h-2" />
-                                    </div>
-                                  )}
-                                  
-                                  {/* Botões Mobile - Empilhados */}
-                                  {!isEditing && (
-                                    <div className="flex flex-col space-y-2 px-12">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={e => { e.preventDefault(); e.stopPropagation(); handleOpenTopicsModal(subject); }}
-                                        className="w-full justify-start"
-                                      >
-                                        <BookOpen className="h-4 w-4 mr-2" />
-                                        Ver Tópicos
-                                      </Button>
-                                      <div className="flex space-x-2">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
-                                          className="flex-1"
-                                        >
-                                          <Edit2 className="h-4 w-4 mr-1" />
-                                          Editar
-                                        </Button>
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm"
-                                              className="flex-1"
-                                            >
-                                              <Trash2 className="h-4 w-4 text-red-500 mr-1" />
-                                              Excluir
-                                            </Button>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                Tem certeza que deseja excluir a matéria "{subject.name}"? 
-                                                Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                              <AlertDialogAction
-                                                onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
-                                                className="bg-red-600 hover:bg-red-700"
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1"
                                               >
+                                                <Trash2 className="h-4 w-4 text-red-500 mr-1" />
                                                 Excluir
-                                              </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
+                                              </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent aria-describedby="confirm-subject-delete-2-description">
+                                              <AlertDialogHeader>
+                                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                                <AlertDialogDescription id="confirm-subject-delete-2-description">
+                                                  Tem certeza que deseja excluir a matéria "{subject.name}"?
+                                                  Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
+                                                </AlertDialogDescription>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                  onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
+                                                  className="bg-red-600 hover:bg-red-700"
+                                                >
+                                                  Excluir
+                                                </AlertDialogAction>
+                                              </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
-                                </div>
-                                {expandedSubjectIds.includes(subject.id) && (
-                                  <ul className="ml-12 mt-2">
-                                    {subject.topics.length === 0 ? (
-                                      <li className="text-gray-400 text-sm">Nenhum tópico cadastrado.</li>
-                                    ) : (
-                                      subject.topics.map(topic => (
-                                        <li key={topic.id} className="flex items-center gap-2 text-sm">
-                                          <BookOpen className="h-4 w-4 text-blue-400" />
-                                          <span>{topic.name}</span>
-                                        </li>
-                                      ))
                                     )}
-                                  </ul>
-                                )}
-                              </CardContent>
-                            </Card>
-                          </motion.div>
-                        )}
-                      </SortableItem>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
+                                  </div>
+                                  {expandedSubjectIds.includes(subject.id) && (
+                                    <ul className="ml-12 mt-2">
+                                      {subject.topics.length === 0 ? (
+                                        <li className="text-gray-400 text-sm">Nenhum tópico cadastrado.</li>
+                                      ) : (
+                                        subject.topics.map(topic => (
+                                          <li key={topic.id} className="flex items-center gap-2 text-sm">
+                                            <BookOpen className="h-4 w-4 text-blue-400" />
+                                            <span>{topic.name}</span>
+                                          </li>
+                                        ))
+                                      )}
+                                    </ul>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </motion.div>
+                          )}
+                        </SortableItem>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
 
-        {/* Modal de Tópicos */}
-        {topicsModal.subject && (
-          <TopicsModal
-            isOpen={topicsModal.isOpen}
-            onClose={handleCloseTopicsModal}
-            subject={topicsModal.subject}
-          />
-        )}
+          {/* Modal de Tópicos */}
+          {topicsModal.subject && (
+            <TopicsModal
+              isOpen={topicsModal.isOpen}
+              onClose={handleCloseTopicsModal}
+              subject={topicsModal.subject}
+            />
+          )}
         </motion.div>
       </div>
     </UserProfileProvider>

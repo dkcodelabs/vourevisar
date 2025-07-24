@@ -28,10 +28,10 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
 }) => {
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
-      <AlertDialogContent>
+      <AlertDialogContent aria-describedby="confirm-delete-description">
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription id="confirm-delete-description">
             Tem certeza que deseja excluir o tópico <strong>"{topicName}"</strong> da matéria <strong>"{subjectName}"</strong>?
             <br />
             <br />

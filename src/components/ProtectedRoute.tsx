@@ -7,10 +7,6 @@ export const ProtectedRoute = () => {
   const { user, loading } = useAuth();
   const location = useLocation();
   
-  console.log('ProtectedRoute - User:', user ? 'authenticated' : 'not authenticated');
-  console.log('ProtectedRoute - Loading:', loading);
-  console.log('ProtectedRoute - Current path:', location.pathname);
-  
   // Show loading spinner while checking authentication
   if (loading) {
     return (
@@ -25,11 +21,9 @@ export const ProtectedRoute = () => {
   
   // If no user authenticated, redirect to login preserving the intended path
   if (!user) {
-    console.log('No user found, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
   // If user is authenticated, render protected content
-  console.log('User authenticated, rendering protected content');
   return <Outlet />;
 };

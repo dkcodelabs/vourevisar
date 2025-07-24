@@ -33,15 +33,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const authOps = useAuthOperations();
 
   useEffect(() => {
-    console.log('Setting up auth state listener...');
-    
     let isMounted = true;
 
     // Configurar listener para mudanças de estado primeiro
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session ? 'with session' : 'no session');
-        
         if (!isMounted) return;
 
         if (session?.user) {
@@ -67,14 +63,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Verificar se há sessão existente
     const checkSession = async () => {
-      console.log('Checking for existing session...');
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error('Error getting session:', error);
-        } else if (session?.user) {
-          console.log('Found existing session for user:', session.user.email);
+        if (!error && session?.user) {
           if (isMounted) {
             setUser(session.user);
             setTimeout(() => {
@@ -83,11 +75,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
             }, 100);
           }
-        } else {
-          console.log('No existing session found');
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        // Silenciar erros para não poluir o console
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -98,7 +88,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     checkSession();
 
     return () => {
-      console.log('Cleaning up auth subscription');
       isMounted = false;
       subscription.unsubscribe();
     };
@@ -109,7 +98,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     try {
       setProfileLoading(true);
-      console.log('Fetching profile for user:', userId);
       
       const { data, error } = await supabase
         .from('profiles')
@@ -118,10 +106,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
         // Se não encontrar perfil, criar um
         if (error.code === 'PGRST116') {
-          console.log('Profile not found, creating one...');
           const { data: userData } = await supabase.auth.getUser();
           if (userData.user) {
             const { error: insertError } = await supabase
@@ -144,7 +130,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               
               if (newProfile) {
                 setProfile(newProfile);
-                console.log('Profile created and fetched successfully:', newProfile);
               }
             }
           }
@@ -152,10 +137,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      console.log('Profile fetched successfully:', data);
       setProfile(data);
     } catch (error) {
-      console.error('Exception fetching profile:', error);
+      // Silenciar erros para não poluir o console
     } finally {
       setProfileLoading(false);
     }

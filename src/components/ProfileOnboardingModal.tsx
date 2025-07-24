@@ -45,7 +45,7 @@ export const ProfileOnboardingModal: React.FC<ProfileOnboardingModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v && disabled && onClose) onClose(); }}>
-      <DialogContent hideCloseButton={!disabled} className="sm:max-w-[600px]">
+      <DialogContent hideCloseButton={!disabled} className="sm:max-w-[600px]" aria-describedby="onboarding-modal-description">
         {disabled && (
           <Alert variant="default" className="mb-6 bg-yellow-50 border-yellow-400">
             <AlertCircle className="h-4 w-4 text-yellow-600" />
@@ -70,6 +70,10 @@ export const ProfileOnboardingModal: React.FC<ProfileOnboardingModalProps> = ({
             </span>
           </DialogDescription>
         </DialogHeader>
+        
+        <div id="onboarding-modal-description" className="sr-only">
+          Modal de configuração inicial do perfil de revisão. Escolha um perfil que se adeque ao seu ritmo de estudos para começar a usar o sistema.
+        </div>
 
         <div className="my-6">
           <ProfileSelector 

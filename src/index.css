@@ -498,3 +498,18 @@ img, video {
     max-width: 100%;
   }
 }
+/* Animação para destacar tópicos */
+@keyframes highlight-blink {
+  0%, 100% {
+    background-color: transparent;
+    border-color: transparent;
+  }
+  50% {
+    background-color: rgb(254 240 138); /* yellow-200 */
+    border-color: rgb(253 224 71); /* yellow-300 */
+  }
+}
+
+.highlight-blink {
+  animation: highlight-blink 2s ease-in-out 3;
+}
