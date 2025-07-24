@@ -9,31 +9,117 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <>
       <style>{`
-        [data-sonner-toaster] [data-sonner-toast] {
-          transform: none !important;
-          scale: 1 !important;
+        [data-sonner-toaster] {
+          --width: 360px;
+          --front-layer: 1000;
         }
-        [data-sonner-toaster] [data-sonner-toast]:hover {
-          transform: none !important;
-          scale: 1 !important;
+        
+        [data-sonner-toast] {
+          border-radius: 12px !important;
+          border: 1px solid hsl(var(--border)) !important;
+          box-shadow: 0 4px 12px hsl(var(--shadow) / 0.15) !important;
+          backdrop-filter: blur(12px) !important;
         }
-        [data-sonner-toaster] button[data-close-button] {
+        
+        [data-sonner-toast][data-type="success"] {
+          background: hsl(var(--background)) !important;
+          border-color: hsl(142 76% 36%) !important;
+          color: hsl(var(--foreground)) !important;
+        }
+        
+        [data-sonner-toast][data-type="success"] [data-icon] {
+          color: hsl(142 76% 36%) !important;
+        }
+        
+        [data-sonner-toast][data-type="error"] {
+          background: hsl(var(--background)) !important;
+          border-color: hsl(0 84% 60%) !important;
+          color: hsl(var(--foreground)) !important;
+        }
+        
+        [data-sonner-toast][data-type="error"] [data-icon] {
+          color: hsl(0 84% 60%) !important;
+        }
+        
+        [data-sonner-toast][data-type="warning"] {
+          background: hsl(var(--background)) !important;
+          border-color: hsl(38 92% 50%) !important;
+          color: hsl(var(--foreground)) !important;
+        }
+        
+        [data-sonner-toast][data-type="warning"] [data-icon] {
+          color: hsl(38 92% 50%) !important;
+        }
+        
+        [data-sonner-toast][data-type="info"] {
+          background: hsl(var(--background)) !important;
+          border-color: hsl(221 83% 53%) !important;
+          color: hsl(var(--foreground)) !important;
+        }
+        
+        [data-sonner-toast][data-type="info"] [data-icon] {
+          color: hsl(221 83% 53%) !important;
+        }
+        
+        [data-sonner-toast] [data-close-button] {
+          background: hsl(var(--muted)) !important;
+          border: 1px solid hsl(var(--border)) !important;
+          color: hsl(var(--muted-foreground)) !important;
+          border-radius: 8px !important;
+          width: 20px !important;
+          height: 20px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          transition: all 0.2s ease !important;
+          cursor: pointer !important;
           pointer-events: auto !important;
           z-index: 1001 !important;
-          position: relative !important;
+        }
+        
+        [data-sonner-toast] [data-close-button]:hover {
+          background: hsl(0 84% 60%) !important;
+          color: white !important;
+          border-color: hsl(0 84% 60%) !important;
+        }
+        
+        [data-sonner-toast] [data-title] {
+          font-weight: 600 !important;
+          font-size: 14px !important;
+        }
+        
+        [data-sonner-toast] [data-description] {
+          font-size: 13px !important;
+          opacity: 0.8 !important;
+        }
+        
+        @media (max-width: 640px) {
+          [data-sonner-toaster] {
+            --width: calc(100vw - 32px);
+            left: 16px !important;
+            right: 16px !important;
+            top: 16px !important;
+            bottom: auto !important;
+            position: fixed !important;
+          }
+          [data-sonner-toaster][data-position="top-right"] {
+            top: 16px !important;
+            left: 16px !important;
+            right: 16px !important;
+          }
         }
       `}</style>
       <Sonner
         theme={theme as ToasterProps["theme"]}
         className="toaster group"
-        position="bottom-right"
+        position="top-right"
         closeButton
         richColors
         duration={4000}
-        visibleToasts={3}
+        visibleToasts={4}
         pauseWhenPageIsHidden={false}
-        expand={false}
-        gap={8}
+        expand={true}
+        gap={12}
         offset={16}
         hotkey={[]}
         invert={false}
@@ -41,16 +127,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
           duration: 4000,
           style: {
             pointerEvents: 'auto'
-          },
-          classNames: {
-            toast:
-              "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-            description: "group-[.toast]:text-muted-foreground",
-            actionButton:
-              "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-            cancelButton:
-              "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
-            closeButton: "group-[.toast]:bg-gray-100 group-[.toast]:text-gray-600 group-[.toast]:border group-[.toast]:border-gray-200 hover:group-[.toast]:bg-red-500 hover:group-[.toast]:text-white hover:group-[.toast]:border-red-500 transition-colors duration-200 cursor-pointer",
           },
         }}
         {...props}

@@ -6,7 +6,7 @@ import { X, Save } from 'lucide-react';
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
 import { TopicNotes } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useApp } from '@/contexts/AppContext';
 

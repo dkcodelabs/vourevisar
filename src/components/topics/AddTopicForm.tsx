@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 const AddTopicForm: React.FC = () => {
   const { subjects, addTopic } = useApp();

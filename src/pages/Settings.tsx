@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, RefreshCw } from 'lucide-react';
@@ -35,7 +35,7 @@ interface UserCycle {
 
 const Settings = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
+  
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,11 +113,7 @@ const Settings = () => {
     } catch (err: any) {
       console.error('Erro ao buscar configurações:', err);
       setError('Não foi possível carregar suas configurações. Por favor, tente novamente mais tarde.');
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao carregar configurações"
-      });
+      toast.error("Erro ao carregar configurações");
     } finally {
       setIsLoading(false);
     }
@@ -143,17 +139,10 @@ const Settings = () => {
     setIsResettingCycle(true);
     try {
       await resetCycle();
-      toast({
-        title: "Sucesso",
-        description: "Ciclo resetado com sucesso"
-      });
+      toast.success("Ciclo resetado com sucesso");
     } catch (err: any) {
       console.error('Erro ao resetar ciclo:', err);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível resetar o ciclo"
-      });
+      toast.error("Não foi possível resetar o ciclo");
     } finally {
       setIsResettingCycle(false);
     }
@@ -193,17 +182,10 @@ const Settings = () => {
         // Atualizar o contexto global imediatamente
         await fetchUserSettingsContext();
         
-        toast({
-          title: "Configuração atualizada",
-          description: `Agora você estudará ${newValue} matéria${newValue > 1 ? 's' : ''} por dia`
-        });
+        toast.success(`Agora você estudará ${newValue} matéria${newValue > 1 ? 's' : ''} por dia`);
       } catch (err) {
         console.error('Erro ao salvar subjects_per_day:', err);
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Não foi possível atualizar a configuração"
-        });
+        toast.error("Não foi possível atualizar a configuração");
         // Reverter o valor local se houve erro
         setSettings(prev => ({
           ...prev,
@@ -234,17 +216,10 @@ const Settings = () => {
         ...prev,
         review_profile: newProfile
       }));
-      toast({
-        title: "Sucesso",
-        description: "Perfil de revisão atualizado com sucesso!"
-      });
+      toast.success("Perfil de revisão atualizado com sucesso!");
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao atualizar perfil de revisão"
-      });
+      toast.error("Erro ao atualizar perfil de revisão");
     }
   };
   
@@ -270,18 +245,11 @@ const Settings = () => {
       
       // Atualizar o contexto global imediatamente
       await fetchUserSettingsContext();
-      toast({
-        title: "Sucesso",
-        description: "Configurações salvas com sucesso"
-      });
+      toast.success("Configurações salvas com sucesso");
     } catch (err: any) {
       console.error('Erro ao salvar configurações:', err);
       setError('Não foi possível salvar suas configurações. Por favor, tente novamente mais tarde.');
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível salvar suas configurações"
-      });
+      toast.error("Não foi possível salvar suas configurações");
     } finally {
       setIsSaving(false);
     }
@@ -292,11 +260,7 @@ const Settings = () => {
   
   const handleClearAll = async () => {
     if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Usuário não autenticado."
-      });
+      toast.error("Usuário não autenticado.");
       return;
     }
     
@@ -361,10 +325,7 @@ const Settings = () => {
           checkHasReviews() // Atualiza o estado de revisões
         ]);
         
-        toast({
-          title: "Sucesso",
-          description: "Sistema limpo com sucesso!"
-        });
+        toast.success("Sistema limpo com sucesso!");
         
         // Recarregar a página após um pequeno delay para garantir que todos os estados foram atualizados
         setTimeout(() => {
@@ -372,11 +333,7 @@ const Settings = () => {
         }, 1000);
       } catch (err) {
         console.error('Erro ao limpar sistema:', err);
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Ocorreu um erro ao tentar limpar o sistema. Tente novamente."
-        });
+        toast.error("Ocorreu um erro ao tentar limpar o sistema. Tente novamente.");
       }
     }
   };
@@ -465,11 +422,7 @@ const Settings = () => {
                 className="border-blue-500 text-blue-700"
                 onClick={async () => {
                   if (!user) {
-                    toast({
-                      variant: "destructive",
-                      title: "Erro",
-                      description: "Usuário não autenticado."
-                    });
+                    toast.error("Usuário não autenticado.");
                     return;
                   }
                   if (window.confirm("Tem certeza que deseja limpar apenas as revisões? As matérias e tópicos serão mantidos, mas todo o progresso será zerado.")) {
@@ -520,10 +473,7 @@ const Settings = () => {
                         .eq('user_id', user.id);
                       console.log('🔄 Ciclos resetados');
                       
-                      toast({
-                        title: "Sucesso",
-                        description: "Revisões e progresso limpos!"
-                      });
+                       toast.success("Revisões e progresso limpos!");
                       
                       // Aguardar um pouco para garantir que a operação foi concluída
                       setTimeout(() => {
@@ -532,11 +482,7 @@ const Settings = () => {
                       }, 1000);
                     } catch (err) {
                       console.error('Erro ao limpar revisões:', err);
-                      toast({
-                        variant: "destructive",
-                        title: "Erro",
-                        description: "Ocorreu um erro ao tentar zerar o progresso. Tente novamente."
-                      });
+                       toast.error("Ocorreu um erro ao tentar zerar o progresso. Tente novamente.");
                     }
                   }
                 }}

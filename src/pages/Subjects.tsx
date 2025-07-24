@@ -20,7 +20,6 @@ import { UserProfileProvider, useUserProfile } from '@/contexts/UserProfileConte
 import { ProfileSelector } from '@/components/ProfileSelector';
 import { useAuth } from '@/contexts/AuthContext';
 import { ReviewProfile } from '@/types/study';
-import { useToast } from '@/components/ui/use-toast';
 import TopicsModal from '@/components/topics/TopicsModal';
 
 // Função corrigida para calcular o status automaticamente baseado nos tópicos
@@ -69,7 +68,7 @@ const Subjects = () => {
   const [newSubjectName, setNewSubjectName] = useState('');
   const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
   const { profile, setProfile } = useUserProfile();
-  const { toast } = useToast();
+  
   const [loading, setLoading] = useState(true);
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -100,11 +99,7 @@ const Subjects = () => {
         ![ReviewProfile.BEGINNER, ReviewProfile.INTERMEDIATE, ReviewProfile.ADVANCED].includes(data.review_profile as ReviewProfile)
       ) {
         if (!toastShown) {
-          toast({
-            variant: "destructive",
-            title: "Perfil de revisão obrigatório",
-            description: "Você precisa escolher um perfil de revisão antes de adicionar matérias."
-          });
+          toast.warning("Você precisa escolher um perfil de revisão antes de adicionar matérias.");
           setToastShown(true);
         }
         navigate('/configuracoes');
@@ -159,11 +154,7 @@ const Subjects = () => {
 
   const handleSaveSubject = async () => {
     if (!newSubjectName.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Atenção",
-        description: "Por favor, insira o nome da matéria"
-      });
+      toast.warning("Por favor, insira o nome da matéria");
       return;
     }
     try {
@@ -176,21 +167,14 @@ const Subjects = () => {
         topics: [],
         priority: maxPriority + 1,
       });
-      toast({
-        title: "Sucesso",
-        description: "Matéria criada com sucesso!"
-      });
+      toast.success("Matéria criada com sucesso!");
       setNewSubjectName('');
       if (inputRef.current) {
         inputRef.current.focus();
       }
     } catch (error) {
       console.error('Erro ao salvar matéria:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao salvar matéria. Tente novamente."
-      });
+      toast.error("Erro ao salvar matéria. Tente novamente.");
     }
   };
 
@@ -202,30 +186,19 @@ const Subjects = () => {
 
   const handleSaveEdit = async () => {
     if (!editingName.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Atenção",
-        description: "Por favor, insira o nome da matéria"
-      });
+      toast.warning("Por favor, insira o nome da matéria");
       return;
     }
 
     if (editingSubjectId && editingName.trim() !== '') {
       try {
         await updateSubject(editingSubjectId, { name: editingName.trim().toUpperCase() });
-        toast({
-          title: "Sucesso",
-          description: "Matéria atualizada com sucesso!"
-        });
+        toast.success("Matéria atualizada com sucesso!");
         setEditingSubjectId(null);
         setEditingName('');
       } catch (error) {
         console.error('Erro ao atualizar matéria:', error);
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Erro ao atualizar matéria. Tente novamente."
-        });
+        toast.error("Erro ao atualizar matéria. Tente novamente.");
       }
     }
   };
@@ -238,17 +211,10 @@ const Subjects = () => {
   const handleDelete = async (id: string) => {
     try {
       await deleteSubject(id);
-      toast({
-        title: "Sucesso",
-        description: "Matéria excluída com sucesso!"
-      });
+      toast.success("Matéria excluída com sucesso!");
     } catch (error) {
       console.error('Erro ao excluir matéria:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao excluir matéria. Tente novamente."
-      });
+      toast.error("Erro ao excluir matéria. Tente novamente.");
     }
   };
 
@@ -286,26 +252,15 @@ const Subjects = () => {
       const hasError = results.some(r => r.error);
       if (hasError) {
         console.error('Erro ao atualizar prioridades:', results);
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Erro ao atualizar ordem das matérias"
-        });
+        toast.error("Erro ao atualizar ordem das matérias");
       } else {
-        toast({
-          title: "Sucesso",
-          description: "Ordem das matérias atualizada!"
-        });
+        toast.success("Ordem das matérias atualizada!");
       }
       // Recarregar a lista após todos os updates
       window.location.reload();
     } catch (error) {
       console.error('Erro ao reordenar matérias:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao atualizar ordem das matérias"
-      });
+      toast.error("Erro ao atualizar ordem das matérias");
     }
   };
 

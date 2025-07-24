@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Topic } from '@/types';
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 import { format, isToday, isPast, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';

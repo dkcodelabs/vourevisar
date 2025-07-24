@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Mail, Calendar, Phone, Lock, Loader2 } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { z } from 'zod';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -227,10 +227,7 @@ const Profile = () => {
       await resetPassword(values.email);
       setIsResetPasswordDialogOpen(false);
       resetPasswordForm.reset();
-      toast({
-        title: "Email enviado!",
-        description: "Verifique sua caixa de entrada para redefinir sua senha.",
-      });
+      toast.success("Email enviado! Verifique sua caixa de entrada para redefinir sua senha.");
     } catch (error: any) {
       setError('Erro ao enviar email de redefinição: ' + error.message);
       console.error('Erro ao enviar email de redefinição:', error);

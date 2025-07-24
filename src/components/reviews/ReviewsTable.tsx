@@ -9,7 +9,7 @@ import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
 import { FileText, CheckCircle2, Edit, RotateCcw } from 'lucide-react';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import { useApp } from '@/contexts/AppContext';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import NotesModal from './NotesModal';
 import RegisterQuestionsButton from './RegisterQuestionsButton';
 
