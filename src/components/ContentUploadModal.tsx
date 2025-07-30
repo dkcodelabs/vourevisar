@@ -22,9 +22,9 @@ interface ParsedData {
 
 const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenChange, onSuccess }) => {
   const { user } = useAuth();
-  const [step, setStep] = useState<'content' | 'csv' | 'preview'>('content');
+  const [step, setStep] = useState<'content' | 'preview'>('content');
   const [content, setContent] = useState('');
-  const [csvContent, setCsvContent] = useState('');
+  const [chatGptResult, setChatGptResult] = useState('');
   const [parsedData, setParsedData] = useState<ParsedData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
@@ -33,11 +33,8 @@ const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenCha
     return `Crie o conteúdo de um arquivo CSV com as colunas 'Matéria' e 'Tópico' a partir do conteúdo abaixo. Por favor, forneça o resultado como texto para que eu possa copiar e colar, e não envie um arquivo para download.
 
 Formato esperado:
-Matéria,Tópico
-MATEMÁTICA,Álgebra Linear
-MATEMÁTICA,Cálculo Diferencial
-PORTUGUÊS,Gramática
-PORTUGUÊS,Literatura
+Matéria1: Tópico1; topico2; topico3
+Matéria2: Tópico1; topico2; topico3
 
 Conteúdo para processar:
 ${content}`;
@@ -63,38 +60,39 @@ ${content}`;
 
   const handleOpenChatGPT = () => {
     window.open('https://chat.openai.com/', '_blank');
-    setStep('csv');
   };
 
-  const handleProcessCSV = () => {
-    if (!csvContent.trim()) {
-      toast.error('Por favor, cole o conteúdo CSV primeiro');
+  const handleProcessResult = () => {
+    if (!chatGptResult.trim()) {
+      toast.error('Por favor, cole o resultado do ChatGPT primeiro');
       return;
     }
 
-    const lines = csvContent.split('\n').filter(line => line.trim());
+    const lines = chatGptResult.split('\n').filter(line => line.trim());
     
-    if (lines.length < 2) {
-      toast.error('CSV deve ter pelo menos uma linha de dados');
-      return;
-    }
-
-    const header = lines[0].toLowerCase();
-    if (!header.includes('matéria') || !header.includes('tópico')) {
-      toast.error('CSV deve ter as colunas "Matéria" e "Tópico"');
+    if (lines.length === 0) {
+      toast.error('Resultado deve ter pelo menos uma linha de dados');
       return;
     }
 
     const data: ParsedData[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const [materia, topico] = lines[i].split(',').map(item => item.trim().replace(/"/g, ''));
-      if (materia && topico) {
-        data.push({ materia: materia.toUpperCase(), topico });
+    
+    for (const line of lines) {
+      if (line.includes(':')) {
+        const [materia, topicsStr] = line.split(':').map(part => part.trim());
+        
+        if (materia && topicsStr) {
+          const topics = topicsStr.split(';').map(topic => topic.trim()).filter(topic => topic);
+          
+          for (const topic of topics) {
+            data.push({ materia: materia.toUpperCase(), topico: topic });
+          }
+        }
       }
     }
 
     if (data.length === 0) {
-      toast.error('Nenhum dado válido encontrado no CSV');
+      toast.error('Nenhum dado válido encontrado no resultado');
       return;
     }
 
@@ -196,7 +194,7 @@ ${content}`;
   const resetModal = () => {
     setStep('content');
     setContent('');
-    setCsvContent('');
+    setChatGptResult('');
     setParsedData([]);
     setIsProcessing(false);
     setPromptCopied(false);
@@ -230,10 +228,9 @@ ${content}`;
                       <p className="font-medium mb-2">Como funciona:</p>
                       <ol className="list-decimal list-inside space-y-1 ml-4">
                         <li>Cole o conteúdo programático completo na caixa abaixo</li>
-                        <li>Clique em "Copiar Prompt" para copiar as instruções</li>
-                        <li>Clique em "Abrir ChatGPT" e cole o prompt lá</li>
-                        <li>Copie o resultado CSV gerado pelo ChatGPT e cole aqui</li>
-                        <li>Clique em "Processar CSV" para importar os dados</li>
+                        <li>Clique em "Copiar Prompt" e cole no ChatGPT</li>
+                        <li>Copie o resultado e cole na caixa que aparecerá</li>
+                        <li>Clique em "Importar Dados" para salvar no banco</li>
                       </ol>
                     </div>
                   </div>
@@ -253,90 +250,69 @@ ${content}`;
                 />
               </div>
 
-              <div className="flex gap-2">
-                <Button 
-                  onClick={handleCopyPrompt}
-                  disabled={!content.trim()}
-                  className="flex-1"
-                  variant={promptCopied ? "default" : "default"}
-                >
-                  {promptCopied ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Prompt Copiado!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copiar Prompt
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  onClick={handleOpenChatGPT}
-                  disabled={!content.trim()}
-                  variant="outline"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Abrir ChatGPT
-                </Button>
-                <Button variant="outline" onClick={handleClose}>
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          )}
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleCopyPrompt}
+                    disabled={!content.trim()}
+                    className="flex-1"
+                    variant={promptCopied ? "default" : "default"}
+                  >
+                    {promptCopied ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Prompt Copiado!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copiar Prompt
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    onClick={handleOpenChatGPT}
+                    disabled={!content.trim()}
+                    variant="outline"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Abrir ChatGPT
+                  </Button>
+                </div>
 
-          {step === 'csv' && (
-            <div className="space-y-4">
-              <Card className="bg-green-50 border-green-200">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-green-800">
-                      <p className="font-medium mb-2">Próximo passo:</p>
-                      <p>Agora copie o resultado CSV gerado pelo ChatGPT e cole na caixa abaixo.</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Conteúdo CSV gerado pelo ChatGPT:
-                </label>
-                <Textarea
-                  placeholder="Cole aqui o CSV gerado pelo ChatGPT...
+                {promptCopied && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Resultado do ChatGPT:
+                    </label>
+                    <Textarea
+                      placeholder="Cole aqui o resultado do ChatGPT...
 Exemplo:
-Matéria,Tópico
-MATEMÁTICA,Álgebra Linear
-MATEMÁTICA,Cálculo Diferencial
-PORTUGUÊS,Gramática"
-                  value={csvContent}
-                  onChange={(e) => setCsvContent(e.target.value)}
-                  rows={8}
-                  className="resize-none font-mono text-sm"
-                />
-              </div>
+MATEMÁTICA: Álgebra Linear; Cálculo Diferencial; Geometria
+PORTUGUÊS: Gramática; Literatura; Interpretação de Texto"
+                      value={chatGptResult}
+                      onChange={(e) => setChatGptResult(e.target.value)}
+                      rows={8}
+                      className="resize-none font-mono text-sm"
+                    />
+                    <Button 
+                      onClick={handleProcessResult}
+                      disabled={!chatGptResult.trim()}
+                      className="w-full"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Processar Resultado
+                    </Button>
+                  </div>
+                )}
 
-              <div className="flex gap-2">
-                <Button 
-                  onClick={handleProcessCSV}
-                  disabled={!csvContent.trim()}
-                  className="flex-1"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Processar CSV
-                </Button>
-                <Button variant="outline" onClick={() => setStep('content')}>
-                  Voltar
-                </Button>
-                <Button variant="outline" onClick={handleClose}>
+                <Button variant="outline" onClick={handleClose} className="w-full">
                   Cancelar
                 </Button>
               </div>
             </div>
           )}
+
 
           {step === 'preview' && (
             <div className="space-y-4">
@@ -391,7 +367,7 @@ PORTUGUÊS,Gramática"
                     </>
                   )}
                 </Button>
-                <Button variant="outline" onClick={() => setStep('csv')}>
+                <Button variant="outline" onClick={() => setStep('content')}>
                   Voltar
                 </Button>
                 <Button variant="outline" onClick={handleClose}>
