@@ -30,7 +30,7 @@ const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenCha
   const [promptCopied, setPromptCopied] = useState(false);
 
   const generatePrompt = () => {
-    return `Crie um arquivo CSV com as colunas "Matéria" e "Tópico" a partir do conteúdo abaixo.
+    return `Crie um arquivo CSV com as colunas 'Matéria' e 'Tópico' a partir do conteúdo abaixo e me envie o arquivo para download.
 
 Formato esperado:
 Matéria,Tópico
@@ -40,9 +40,7 @@ PORTUGUÊS,Gramática
 PORTUGUÊS,Literatura
 
 Conteúdo para processar:
-${content}
-
-Gere apenas o CSV, sem explicações adicionais.`;
+${content}`;
   };
 
   const handleCopyPrompt = async () => {
