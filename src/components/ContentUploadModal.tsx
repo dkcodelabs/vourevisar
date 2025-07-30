@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { ExternalLink, Upload, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ExternalLink, Upload, FileText, CheckCircle2, AlertCircle, Copy, Check } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 
 interface ContentUploadModalProps {
@@ -27,14 +27,10 @@ const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenCha
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
 
-  const handleOpenChatGPT = () => {
-    if (!content.trim()) {
-      toast.error('Por favor, cole o conteúdo programático primeiro');
-      return;
-    }
-
-    const prompt = `Crie um arquivo CSV com as colunas "Matéria" e "Tópico" a partir do conteúdo abaixo.
+  const generatePrompt = () => {
+    return `Crie um arquivo CSV com as colunas "Matéria" e "Tópico" a partir do conteúdo abaixo.
 
 Formato esperado:
 Matéria,Tópico
@@ -47,11 +43,28 @@ Conteúdo para processar:
 ${content}
 
 Gere apenas o CSV, sem explicações adicionais.`;
+  };
 
-    const encodedPrompt = encodeURIComponent(prompt);
-    const chatGPTUrl = `https://chat.openai.com/?q=${encodedPrompt}`;
-    
-    window.open(chatGPTUrl, '_blank');
+  const handleCopyPrompt = async () => {
+    if (!content.trim()) {
+      toast.error('Por favor, cole o conteúdo programático primeiro');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(generatePrompt());
+      setPromptCopied(true);
+      toast.success('Prompt copiado para a área de transferência!');
+      
+      // Reset the copied state after 3 seconds
+      setTimeout(() => setPromptCopied(false), 3000);
+    } catch (error) {
+      toast.error('Erro ao copiar prompt. Tente novamente.');
+    }
+  };
+
+  const handleOpenChatGPT = () => {
+    window.open('https://chat.openai.com/', '_blank');
     setStep('upload');
   };
 
@@ -202,6 +215,7 @@ Gere apenas o CSV, sem explicações adicionais.`;
     setCsvFile(null);
     setParsedData([]);
     setIsProcessing(false);
+    setPromptCopied(false);
   };
 
   const handleClose = () => {
@@ -232,9 +246,9 @@ Gere apenas o CSV, sem explicações adicionais.`;
                       <p className="font-medium mb-2">Como funciona:</p>
                       <ol className="list-decimal list-inside space-y-1 ml-4">
                         <li>Cole o conteúdo programático completo na caixa abaixo</li>
-                        <li>Clique em "Processar no ChatGPT" para gerar o arquivo CSV</li>
-                        <li>Faça o download do arquivo CSV gerado pelo ChatGPT</li>
-                        <li>Faça o upload do arquivo para importar as matérias e tópicos</li>
+                        <li>Clique em "Copiar Prompt" para copiar as instruções</li>
+                        <li>Clique em "Abrir ChatGPT" e cole o prompt lá</li>
+                        <li>Faça o download do CSV gerado e faça o upload aqui</li>
                       </ol>
                     </div>
                   </div>
@@ -256,12 +270,30 @@ Gere apenas o CSV, sem explicações adicionais.`;
 
               <div className="flex gap-2">
                 <Button 
-                  onClick={handleOpenChatGPT}
+                  onClick={handleCopyPrompt}
                   disabled={!content.trim()}
                   className="flex-1"
+                  variant={promptCopied ? "default" : "default"}
+                >
+                  {promptCopied ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Prompt Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copiar Prompt
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={handleOpenChatGPT}
+                  disabled={!content.trim()}
+                  variant="outline"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  Processar no ChatGPT
+                  Abrir ChatGPT
                 </Button>
                 <Button variant="outline" onClick={handleClose}>
                   Cancelar
