@@ -21,6 +21,7 @@ import { ProfileSelector } from '@/components/ProfileSelector';
 import { useAuth } from '@/contexts/AuthContext';
 import { ReviewProfile } from '@/types/study';
 import TopicsModal from '@/components/topics/TopicsModal';
+import ContentUploadModal from '@/components/ContentUploadModal';
 
 // Função corrigida para calcular o status automaticamente baseado nos tópicos
 const calculateSubjectStatus = (subject: Subject): Status => {
@@ -83,6 +84,9 @@ const Subjects = () => {
     isOpen: boolean;
     subject: Subject | null;
   }>({ isOpen: false, subject: null });
+
+  // Estado para o modal de upload de conteúdo
+  const [contentUploadModal, setContentUploadModal] = useState(false);
 
   useEffect(() => {
     const checkProfile = async () => {
@@ -342,19 +346,29 @@ const Subjects = () => {
             <div className="mb-8">
 
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Input
-                type="text"
-                placeholder="Nome da nova matéria"
-                value={newSubjectName}
-                onChange={e => setNewSubjectName(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && handleSaveSubject()}
-                className="flex-1 mobile-button"
-                ref={inputRef}
-              />
-              <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()} className="w-full sm:w-auto mobile-button touch-target">
-                <Plus className="mr-2 h-4 w-4" />
-                Adicionar
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  type="text"
+                  placeholder="Nome da nova matéria"
+                  value={newSubjectName}
+                  onChange={e => setNewSubjectName(e.target.value)}
+                  onKeyPress={e => e.key === 'Enter' && handleSaveSubject()}
+                  className="flex-1 mobile-button"
+                  ref={inputRef}
+                />
+                <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()} className="w-full sm:w-auto mobile-button touch-target">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar
+                </Button>
+              </div>
+              <Button 
+                onClick={() => setContentUploadModal(true)}
+                variant="outline" 
+                className="w-full sm:w-auto mobile-button"
+              >
+                <BookOpen className="mr-2 h-4 w-4" />
+                Carregar Conteúdo Programático
               </Button>
             </div>
           </div>
@@ -702,6 +716,12 @@ const Subjects = () => {
               subject={topicsModal.subject}
             />
           )}
+
+          <ContentUploadModal
+            open={contentUploadModal}
+            onOpenChange={setContentUploadModal}
+            onSuccess={forceRefresh}
+          />
         </motion.div>
       </div>
     </UserProfileProvider>
