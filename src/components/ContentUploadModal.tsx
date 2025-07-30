@@ -22,15 +22,15 @@ interface ParsedData {
 
 const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenChange, onSuccess }) => {
   const { user } = useAuth();
-  const [step, setStep] = useState<'content' | 'upload' | 'preview'>('content');
+  const [step, setStep] = useState<'content' | 'csv' | 'preview'>('content');
   const [content, setContent] = useState('');
-  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvContent, setCsvContent] = useState('');
   const [parsedData, setParsedData] = useState<ParsedData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
 
   const generatePrompt = () => {
-    return `Crie um arquivo CSV com as colunas 'Matéria' e 'Tópico' a partir do conteúdo abaixo e me envie o arquivo para download.
+    return `Crie o conteúdo de um arquivo CSV com as colunas 'Matéria' e 'Tópico' a partir do conteúdo abaixo. Por favor, forneça o resultado como texto para que eu possa copiar e colar, e não envie um arquivo para download.
 
 Formato esperado:
 Matéria,Tópico
@@ -63,57 +63,43 @@ ${content}`;
 
   const handleOpenChatGPT = () => {
     window.open('https://chat.openai.com/', '_blank');
-    setStep('upload');
+    setStep('csv');
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      toast.error('Por favor, selecione um arquivo CSV');
+  const handleProcessCSV = () => {
+    if (!csvContent.trim()) {
+      toast.error('Por favor, cole o conteúdo CSV primeiro');
       return;
     }
 
-    setCsvFile(file);
-    parseCSV(file);
-  };
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 2) {
+      toast.error('CSV deve ter pelo menos uma linha de dados');
+      return;
+    }
 
-  const parseCSV = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split('\n').filter(line => line.trim());
-      
-      if (lines.length < 2) {
-        toast.error('Arquivo CSV deve ter pelo menos uma linha de dados');
-        return;
+    const header = lines[0].toLowerCase();
+    if (!header.includes('matéria') || !header.includes('tópico')) {
+      toast.error('CSV deve ter as colunas "Matéria" e "Tópico"');
+      return;
+    }
+
+    const data: ParsedData[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const [materia, topico] = lines[i].split(',').map(item => item.trim().replace(/"/g, ''));
+      if (materia && topico) {
+        data.push({ materia: materia.toUpperCase(), topico });
       }
+    }
 
-      const header = lines[0].toLowerCase();
-      if (!header.includes('matéria') || !header.includes('tópico')) {
-        toast.error('Arquivo CSV deve ter as colunas "Matéria" e "Tópico"');
-        return;
-      }
+    if (data.length === 0) {
+      toast.error('Nenhum dado válido encontrado no CSV');
+      return;
+    }
 
-      const data: ParsedData[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const [materia, topico] = lines[i].split(',').map(item => item.trim().replace(/"/g, ''));
-        if (materia && topico) {
-          data.push({ materia: materia.toUpperCase(), topico });
-        }
-      }
-
-      if (data.length === 0) {
-        toast.error('Nenhum dado válido encontrado no arquivo CSV');
-        return;
-      }
-
-      setParsedData(data);
-      setStep('preview');
-    };
-
-    reader.readAsText(file);
+    setParsedData(data);
+    setStep('preview');
   };
 
   const handleImport = async () => {
@@ -210,7 +196,7 @@ ${content}`;
   const resetModal = () => {
     setStep('content');
     setContent('');
-    setCsvFile(null);
+    setCsvContent('');
     setParsedData([]);
     setIsProcessing(false);
     setPromptCopied(false);
@@ -246,7 +232,8 @@ ${content}`;
                         <li>Cole o conteúdo programático completo na caixa abaixo</li>
                         <li>Clique em "Copiar Prompt" para copiar as instruções</li>
                         <li>Clique em "Abrir ChatGPT" e cole o prompt lá</li>
-                        <li>Faça o download do CSV gerado e faça o upload aqui</li>
+                        <li>Copie o resultado CSV gerado pelo ChatGPT e cole aqui</li>
+                        <li>Clique em "Processar CSV" para importar os dados</li>
                       </ol>
                     </div>
                   </div>
@@ -300,7 +287,7 @@ ${content}`;
             </div>
           )}
 
-          {step === 'upload' && (
+          {step === 'csv' && (
             <div className="space-y-4">
               <Card className="bg-green-50 border-green-200">
                 <CardContent className="p-4">
@@ -308,7 +295,7 @@ ${content}`;
                     <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                     <div className="text-sm text-green-800">
                       <p className="font-medium mb-2">Próximo passo:</p>
-                      <p>Agora faça o download do arquivo CSV gerado pelo ChatGPT e faça o upload abaixo.</p>
+                      <p>Agora copie o resultado CSV gerado pelo ChatGPT e cole na caixa abaixo.</p>
                     </div>
                   </div>
                 </CardContent>
@@ -316,17 +303,31 @@ ${content}`;
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  Arquivo CSV gerado pelo ChatGPT:
+                  Conteúdo CSV gerado pelo ChatGPT:
                 </label>
-                <Input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileUpload}
-                  className="cursor-pointer"
+                <Textarea
+                  placeholder="Cole aqui o CSV gerado pelo ChatGPT...
+Exemplo:
+Matéria,Tópico
+MATEMÁTICA,Álgebra Linear
+MATEMÁTICA,Cálculo Diferencial
+PORTUGUÊS,Gramática"
+                  value={csvContent}
+                  onChange={(e) => setCsvContent(e.target.value)}
+                  rows={8}
+                  className="resize-none font-mono text-sm"
                 />
               </div>
 
               <div className="flex gap-2">
+                <Button 
+                  onClick={handleProcessCSV}
+                  disabled={!csvContent.trim()}
+                  className="flex-1"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Processar CSV
+                </Button>
                 <Button variant="outline" onClick={() => setStep('content')}>
                   Voltar
                 </Button>
@@ -390,7 +391,7 @@ ${content}`;
                     </>
                   )}
                 </Button>
-                <Button variant="outline" onClick={() => setStep('upload')}>
+                <Button variant="outline" onClick={() => setStep('csv')}>
                   Voltar
                 </Button>
                 <Button variant="outline" onClick={handleClose}>
