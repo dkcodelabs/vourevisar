@@ -58,7 +58,7 @@ Conteúdo para processar:
 ${content}`;
   };
 
-  const handleCopyPrompt = async () => {
+  const handleCopyPromptAndOpenChatGPT = async () => {
     if (!content.trim()) {
       toast.error('Por favor, cole o conteúdo programático primeiro');
       return;
@@ -67,17 +67,16 @@ ${content}`;
     try {
       await navigator.clipboard.writeText(generatePrompt());
       setPromptCopied(true);
-      toast.success('Prompt copiado para a área de transferência!');
+      toast.success('Prompt copiado! Abrindo ChatGPT...');
+      
+      // Open ChatGPT in new tab
+      window.open('https://chat.openai.com/', '_blank', 'noopener,noreferrer');
       
       // Reset the copied state after 3 seconds
       setTimeout(() => setPromptCopied(false), 3000);
     } catch (error) {
       toast.error('Erro ao copiar prompt. Tente novamente.');
     }
-  };
-
-  const handleOpenChatGPT = () => {
-    window.open('https://chat.openai.com/', '_blank', 'noopener,noreferrer');
   };
 
   const handleProcessResult = () => {
@@ -116,6 +115,14 @@ ${content}`;
 
     setParsedData(data);
     toast.success(`${data.length} tópicos processados e prontos para importar!`);
+    
+    // Auto scroll to processed data section
+    setTimeout(() => {
+      const element = document.querySelector('[data-scroll-target="processed-data"]');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   };
 
   const handleImport = async () => {
@@ -268,34 +275,25 @@ ${content}`;
               />
             </div>
 
-            <div className="flex gap-2">
-              <Button 
-                onClick={handleCopyPrompt}
-                disabled={!content.trim()}
-                className="flex-1"
-                variant={promptCopied ? "default" : "default"}
-              >
-                {promptCopied ? (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Prompt Copiado!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copiar Prompt
-                  </>
-                )}
-              </Button>
-              <Button 
-                onClick={handleOpenChatGPT}
-                disabled={!content.trim()}
-                variant="outline"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Abrir ChatGPT
-              </Button>
-            </div>
+            <Button 
+              onClick={handleCopyPromptAndOpenChatGPT}
+              disabled={!content.trim()}
+              className="w-full"
+              variant={promptCopied ? "default" : "default"}
+            >
+              {promptCopied ? (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Prompt Copiado! ChatGPT Aberto
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Copiar Prompt e Abrir ChatGPT
+                </>
+              )}
+            </Button>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
@@ -326,7 +324,7 @@ PORTUGUÊS: Gramática; Literatura; Interpretação de Texto"
             )}
 
             {parsedData.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-4" data-scroll-target="processed-data">
                 <Card className="bg-green-50 border-green-200">
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
