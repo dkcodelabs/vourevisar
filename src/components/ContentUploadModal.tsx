@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,12 +22,30 @@ interface ParsedData {
 
 const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenChange, onSuccess }) => {
   const { user } = useAuth();
-  const [step, setStep] = useState<'content' | 'preview'>('content');
   const [content, setContent] = useState('');
   const [chatGptResult, setChatGptResult] = useState('');
   const [parsedData, setParsedData] = useState<ParsedData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
+
+  // Persistir dados no localStorage
+  useEffect(() => {
+    if (open) {
+      const savedContent = localStorage.getItem('contentUpload_content');
+      const savedChatGptResult = localStorage.getItem('contentUpload_chatGptResult');
+      
+      if (savedContent) setContent(savedContent);
+      if (savedChatGptResult) setChatGptResult(savedChatGptResult);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    localStorage.setItem('contentUpload_content', content);
+  }, [content]);
+
+  useEffect(() => {
+    localStorage.setItem('contentUpload_chatGptResult', chatGptResult);
+  }, [chatGptResult]);
 
   const generatePrompt = () => {
     return `Crie o conteúdo de um arquivo CSV com as colunas 'Matéria' e 'Tópico' a partir do conteúdo abaixo. Por favor, forneça o resultado como texto para que eu possa copiar e colar, e não envie um arquivo para download.
@@ -59,7 +77,7 @@ ${content}`;
   };
 
   const handleOpenChatGPT = () => {
-    window.open('https://chat.openai.com/', '_blank');
+    window.open('https://chat.openai.com/', '_blank', 'noopener,noreferrer');
   };
 
   const handleProcessResult = () => {
@@ -97,7 +115,7 @@ ${content}`;
     }
 
     setParsedData(data);
-    setStep('preview');
+    toast.success(`${data.length} tópicos processados e prontos para importar!`);
   };
 
   const handleImport = async () => {
@@ -192,12 +210,13 @@ ${content}`;
   };
 
   const resetModal = () => {
-    setStep('content');
     setContent('');
     setChatGptResult('');
     setParsedData([]);
     setIsProcessing(false);
     setPromptCopied(false);
+    localStorage.removeItem('contentUpload_content');
+    localStorage.removeItem('contentUpload_chatGptResult');
   };
 
   const handleClose = () => {
@@ -218,147 +237,139 @@ ${content}`;
         </DialogHeader>
 
         <div className="space-y-6">
-          {step === 'content' && (
-            <div className="space-y-4">
-              <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-blue-800">
-                      <p className="font-medium mb-2">Como funciona:</p>
-                      <ol className="list-decimal list-inside space-y-1 ml-4">
-                        <li>Cole o conteúdo programático completo na caixa abaixo</li>
-                        <li>Clique em "Copiar Prompt" e cole no ChatGPT</li>
-                        <li>Copie o resultado e cole na caixa que aparecerá</li>
-                        <li>Clique em "Importar Dados" para salvar no banco</li>
-                      </ol>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Conteúdo Programático:
-                </label>
-                <Textarea
-                  placeholder="Cole aqui todo o conteúdo programático que você deseja organizar..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  rows={10}
-                  className="resize-none"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={handleCopyPrompt}
-                    disabled={!content.trim()}
-                    className="flex-1"
-                    variant={promptCopied ? "default" : "default"}
-                  >
-                    {promptCopied ? (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        Prompt Copiado!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copiar Prompt
-                      </>
-                    )}
-                  </Button>
-                  <Button 
-                    onClick={handleOpenChatGPT}
-                    disabled={!content.trim()}
-                    variant="outline"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Abrir ChatGPT
-                  </Button>
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium mb-2">Como funciona:</p>
+                  <ol className="list-decimal list-inside space-y-1 ml-4">
+                    <li>Cole o conteúdo programático completo</li>
+                    <li>Clique em "Copiar Prompt" e cole no ChatGPT</li>
+                    <li>Cole o resultado do ChatGPT na segunda caixa</li>
+                    <li>Clique em "Importar Dados" para salvar</li>
+                  </ol>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                {promptCopied && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      Resultado do ChatGPT:
-                    </label>
-                    <Textarea
-                      placeholder="Cole aqui o resultado do ChatGPT...
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                1. Conteúdo Programático:
+              </label>
+              <Textarea
+                placeholder="Cole aqui todo o conteúdo programático que você deseja organizar..."
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={8}
+                className="resize-none"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleCopyPrompt}
+                disabled={!content.trim()}
+                className="flex-1"
+                variant={promptCopied ? "default" : "default"}
+              >
+                {promptCopied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Prompt Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar Prompt
+                  </>
+                )}
+              </Button>
+              <Button 
+                onClick={handleOpenChatGPT}
+                disabled={!content.trim()}
+                variant="outline"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Abrir ChatGPT
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                2. Resultado do ChatGPT:
+              </label>
+              <Textarea
+                placeholder="Cole aqui o resultado do ChatGPT...
 Exemplo:
 MATEMÁTICA: Álgebra Linear; Cálculo Diferencial; Geometria
 PORTUGUÊS: Gramática; Literatura; Interpretação de Texto"
-                      value={chatGptResult}
-                      onChange={(e) => setChatGptResult(e.target.value)}
-                      rows={8}
-                      className="resize-none font-mono text-sm"
-                    />
-                    <Button 
-                      onClick={handleProcessResult}
-                      disabled={!chatGptResult.trim()}
-                      className="w-full"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Processar Resultado
-                    </Button>
-                  </div>
-                )}
-
-                <Button variant="outline" onClick={handleClose} className="w-full">
-                  Cancelar
-                </Button>
-              </div>
+                value={chatGptResult}
+                onChange={(e) => setChatGptResult(e.target.value)}
+                rows={6}
+                className="resize-none font-mono text-sm"
+              />
             </div>
-          )}
 
+            {chatGptResult.trim() && (
+              <Button 
+                onClick={handleProcessResult}
+                disabled={!chatGptResult.trim()}
+                className="w-full"
+                variant="secondary"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Processar Resultado
+              </Button>
+            )}
 
-          {step === 'preview' && (
-            <div className="space-y-4">
-              <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <FileText className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-blue-800">
-                      <p className="font-medium mb-2">Preview dos dados:</p>
-                      <p>
-                        Serão importadas <strong>{uniqueSubjects.length} matérias</strong> com <strong>{parsedData.length} tópicos</strong> no total.
-                      </p>
+            {parsedData.length > 0 && (
+              <div className="space-y-4">
+                <Card className="bg-green-50 border-green-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-green-800">
+                        <p className="font-medium mb-1">Dados processados com sucesso!</p>
+                        <p>
+                          Prontas para importar: <strong>{uniqueSubjects.length} matérias</strong> com <strong>{parsedData.length} tópicos</strong>
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              <div className="max-h-80 overflow-y-auto border rounded-lg">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="text-left p-3 border-b">Matéria</th>
-                      <th className="text-left p-3 border-b">Tópico</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parsedData.map((item, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium">{item.materia}</td>
-                        <td className="p-3">{item.topico}</td>
+                <div className="max-h-60 overflow-y-auto border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="text-left p-3 border-b">Matéria</th>
+                        <th className="text-left p-3 border-b">Tópico</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {parsedData.map((item, index) => (
+                        <tr key={index} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-medium">{item.materia}</td>
+                          <td className="p-3">{item.topico}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-              <div className="flex gap-2">
                 <Button 
                   onClick={handleImport}
                   disabled={isProcessing}
-                  className="flex-1"
+                  className="w-full"
+                  size="lg"
                 >
                   {isProcessing ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Importando...
+                      Importando Dados...
                     </>
                   ) : (
                     <>
@@ -367,15 +378,13 @@ PORTUGUÊS: Gramática; Literatura; Interpretação de Texto"
                     </>
                   )}
                 </Button>
-                <Button variant="outline" onClick={() => setStep('content')}>
-                  Voltar
-                </Button>
-                <Button variant="outline" onClick={handleClose}>
-                  Cancelar
-                </Button>
               </div>
-            </div>
-          )}
+            )}
+
+            <Button variant="outline" onClick={handleClose} className="w-full">
+              Cancelar
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
