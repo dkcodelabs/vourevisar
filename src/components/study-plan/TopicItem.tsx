@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
 import { Topic } from '@/types';
+import ReviewModal from './ReviewModal';
 
 interface TopicItemProps {
   topic: Topic;
@@ -20,6 +21,7 @@ const TopicItem: React.FC<TopicItemProps> = ({
   onMarkTopicForReview,
   onCancelTopicReview
 }) => {
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const getTopicReviewStage = (topic: Topic) => {
     // Log para debug
     console.log(`🔍 Tópico "${topic.name}":`, {
@@ -48,7 +50,11 @@ const TopicItem: React.FC<TopicItemProps> = ({
   const handleMarkForReview = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Marking topic for review:', topic.id, subjectId);
+    setIsReviewModalOpen(true);
+  };
+
+  const handleReviewSave = () => {
+    // Trigger refresh of data
     onMarkTopicForReview(subjectId, topic.id);
   };
 
@@ -60,40 +66,50 @@ const TopicItem: React.FC<TopicItemProps> = ({
   };
 
   return (
-    <motion.div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 rounded bg-white/60">
-      <div className="flex flex-col gap-1 w-full">
-        <span className="text-sm font-medium text-gray-800">{topic.name}</span>
-      </div>
-      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
-        <span className="text-xs px-2 py-1 rounded-lg bg-blue-100/80 text-blue-800 font-medium whitespace-nowrap">
-          {reviewStage}
-        </span>
-        {isMarkedForReview ? (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
-            onClick={handleCancelReview}
-            type="button"
-          >
-            <X className="h-3 w-3 mr-1" />
-            Cancelar
-          </Button>
-        ) : (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-green-600 hover:text-green-800 border border-green-200 hover:bg-green-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
-            onClick={handleMarkForReview}
-            type="button"
-            disabled={topic.reviewCount > 0}
-          >
-            <Check className="h-3 w-3 mr-1" />
-            {topic.reviewCount > 0 ? 'Em Revisão' : 'Marcar Revisão'}
-          </Button>
-        )}
-      </div>
-    </motion.div>
+    <>
+      <motion.div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 rounded bg-white/60">
+        <div className="flex flex-col gap-1 w-full">
+          <span className="text-sm font-medium text-gray-800">{topic.name}</span>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
+          <span className="text-xs px-2 py-1 rounded-lg bg-blue-100/80 text-blue-800 font-medium whitespace-nowrap">
+            {reviewStage}
+          </span>
+          {isMarkedForReview ? (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
+              onClick={handleCancelReview}
+              type="button"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Cancelar
+            </Button>
+          ) : (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-green-600 hover:text-green-800 border border-green-200 hover:bg-green-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
+              onClick={handleMarkForReview}
+              type="button"
+              disabled={topic.reviewCount > 0}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              {topic.reviewCount > 0 ? 'Em Revisão' : 'Marcar Revisão'}
+            </Button>
+          )}
+        </div>
+      </motion.div>
+
+      <ReviewModal
+        topic={topic}
+        subjectId={subjectId}
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        onSave={handleReviewSave}
+      />
+    </>
   );
 };
 

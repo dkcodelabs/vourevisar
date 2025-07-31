@@ -201,6 +201,8 @@ export type Database = {
         Row: {
           completed: boolean
           created_at: string
+          difficulty_level: string | null
+          difficulty_set_at: string | null
           first_studied_at: string | null
           id: string
           is_marked_for_review: boolean | null
@@ -210,14 +212,18 @@ export type Database = {
           next_review: string | null
           notes: Json | null
           review_count: number
+          review_notes: Json | null
           review_stage: string | null
           subject_id: string
+          subtopics: Json | null
           total_reviews: number | null
           updated_at: string
         }
         Insert: {
           completed?: boolean
           created_at?: string
+          difficulty_level?: string | null
+          difficulty_set_at?: string | null
           first_studied_at?: string | null
           id?: string
           is_marked_for_review?: boolean | null
@@ -227,14 +233,18 @@ export type Database = {
           next_review?: string | null
           notes?: Json | null
           review_count?: number
+          review_notes?: Json | null
           review_stage?: string | null
           subject_id: string
+          subtopics?: Json | null
           total_reviews?: number | null
           updated_at?: string
         }
         Update: {
           completed?: boolean
           created_at?: string
+          difficulty_level?: string | null
+          difficulty_set_at?: string | null
           first_studied_at?: string | null
           id?: string
           is_marked_for_review?: boolean | null
@@ -244,8 +254,10 @@ export type Database = {
           next_review?: string | null
           notes?: Json | null
           review_count?: number
+          review_notes?: Json | null
           review_stage?: string | null
           subject_id?: string
+          subtopics?: Json | null
           total_reviews?: number | null
           updated_at?: string
         }

@@ -1,6 +1,20 @@
 export type Status = 'Nova' | 'Em Estudo' | 'Concluída';
 export type RevisionStatus = 'Atrasado' | 'Hoje' | 'Futura';
 export type RevisionStage = '24h' | '7 dias' | '30 dias' | 'Concluído' | string;
+export type DifficultyLevel = 'easy' | 'medium' | 'hard';
+
+export interface TopicSubtopic {
+  id: string;
+  name: string;
+  addedAt: string;
+}
+
+export interface ReviewData {
+  notes?: string;
+  difficulty?: DifficultyLevel;
+  subtopics: TopicSubtopic[];
+  reviewedAt: string;
+}
 
 export interface TopicNotes {
   content?: string; // Agora é só conteúdo rico (HTML do Quill)
@@ -23,6 +37,10 @@ export interface Topic {
   last_reviewed_at?: Date;
   is_completed?: boolean;
   notes?: TopicNotes;
+  difficulty_level?: DifficultyLevel;
+  subtopics?: TopicSubtopic[];
+  review_notes?: TopicNotes;
+  difficulty_set_at?: Date;
 }
 
 export interface Subject {
