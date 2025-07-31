@@ -48,11 +48,15 @@ const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenCha
   }, [chatGptResult]);
 
   const generatePrompt = () => {
-    return `Crie o conteúdo de um arquivo CSV com as colunas 'Matéria' e 'Tópico' a partir do conteúdo abaixo. Por favor, forneça o resultado como texto para que eu possa copiar e colar, e não envie um arquivo para download.
+    return `Crie o conteúdo de um arquivo CSV com as colunas 'Matéria' e 'Tópico' a partir do conteúdo abaixo. Forneça o resultado como texto para que eu possa copiar e colar, e não envie um arquivo para download.
 
 Formato esperado:
-Matéria1: Tópico1; topico2; topico3
-Matéria2: Tópico1; topico2; topico3
+
+Matéria1: 
+Tópico1; topico2; topico3
+
+Matéria2: 
+Tópico1; topico2; topico3
 
 Conteúdo para processar:
 ${content}`;
@@ -85,7 +89,15 @@ ${content}`;
       return;
     }
 
-    const lines = chatGptResult.split('\n').filter(line => line.trim());
+    console.log('Raw ChatGPT Result:', chatGptResult);
+
+    // Split by lines and clean up
+    const lines = chatGptResult
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+    
+    console.log('Cleaned lines:', lines);
     
     if (lines.length === 0) {
       toast.error('Resultado deve ter pelo menos uma linha de dados');
@@ -93,28 +105,78 @@ ${content}`;
     }
 
     const data: ParsedData[] = [];
+    let currentMateria = '';
     
     for (const line of lines) {
+      // Check if line contains a subject (has colon)
       if (line.includes(':')) {
-        const [materia, topicsStr] = line.split(':').map(part => part.trim());
+        const colonIndex = line.indexOf(':');
+        const materia = line.substring(0, colonIndex).trim();
+        const topicsStr = line.substring(colonIndex + 1).trim();
         
-        if (materia && topicsStr) {
-          const topics = topicsStr.split(';').map(topic => topic.trim()).filter(topic => topic);
+        if (materia) {
+          currentMateria = materia.toUpperCase();
           
-          for (const topic of topics) {
-            data.push({ materia: materia.toUpperCase(), topico: topic });
+          // Process topics if they exist on the same line
+          if (topicsStr) {
+            const topics = topicsStr
+              .split(';')
+              .map(topic => topic.trim())
+              .filter(topic => topic.length > 0);
+            
+            console.log(`Topics for ${currentMateria}:`, topics);
+            
+            for (const topic of topics) {
+              data.push({ 
+                materia: currentMateria, 
+                topico: topic 
+              });
+            }
           }
         }
+      } 
+      // Check if line is continuation of topics (no colon, has semicolons)
+      else if (currentMateria && line.includes(';')) {
+        const topics = line
+          .split(';')
+          .map(topic => topic.trim())
+          .filter(topic => topic.length > 0);
+        
+        console.log(`Additional topics for ${currentMateria}:`, topics);
+        
+        for (const topic of topics) {
+          data.push({ 
+            materia: currentMateria, 
+            topico: topic 
+          });
+        }
+      }
+      // Single topic line (no semicolon)
+      else if (currentMateria && line.length > 0 && !line.includes(':')) {
+        console.log(`Single topic for ${currentMateria}:`, line);
+        data.push({ 
+          materia: currentMateria, 
+          topico: line 
+        });
       }
     }
 
+    console.log('Final parsed data:', data);
+
     if (data.length === 0) {
-      toast.error('Nenhum dado válido encontrado no resultado');
+      toast.error('Nenhum dado válido encontrado no resultado. Verifique o formato.');
       return;
     }
 
-    setParsedData(data);
-    toast.success(`${data.length} tópicos processados e prontos para importar!`);
+    // Remove duplicates
+    const uniqueData = data.filter((item, index, self) => 
+      index === self.findIndex(t => t.materia === item.materia && t.topico === item.topico)
+    );
+
+    setParsedData(uniqueData);
+    
+    const uniqueSubjectsCount = [...new Set(uniqueData.map(item => item.materia))].length;
+    toast.success(`${uniqueData.length} tópicos de ${uniqueSubjectsCount} matérias processados e prontos para importar!`);
     
     // Auto scroll to processed data section
     setTimeout(() => {
