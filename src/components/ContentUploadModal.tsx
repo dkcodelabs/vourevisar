@@ -108,6 +108,10 @@ ${content}`;
 
     const data: ParsedData[] = [];
     let currentMateria = '';
+    let materiaCount = 0;
+    let topicCount = 0;
+    
+    console.log('Starting to process lines:', lines.length);
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -118,35 +122,57 @@ ${content}`;
         
         if (materia) {
           currentMateria = materia.toUpperCase();
-          console.log(`Found subject: ${currentMateria}`);
+          materiaCount++;
+          console.log(`Found subject ${materiaCount}: ${currentMateria}`);
           
-          // Check if the next line contains topics
-          if (i + 1 < lines.length) {
-            const nextLine = lines[i + 1];
+          // Process all following lines until next subject or end
+          let j = i + 1;
+          let subjectTopicsCount = 0;
+          
+          while (j < lines.length && !lines[j].startsWith('[')) {
+            const topicLine = lines[j].trim();
             
-            // Process topics from the next line
-            if (nextLine && nextLine.includes(';')) {
-              const topics = nextLine
-                .split(';')
-                .map(topic => topic.trim())
-                .filter(topic => topic.length > 0);
-              
-              console.log(`Topics for ${currentMateria}:`, topics);
-              
-              for (const topic of topics) {
+            if (topicLine) {
+              // If line contains semicolons, split it
+              if (topicLine.includes(';')) {
+                const topics = topicLine
+                  .split(';')
+                  .map(topic => topic.trim())
+                  .filter(topic => topic.length > 0);
+                
+                console.log(`Topics with semicolons for ${currentMateria}:`, topics);
+                
+                for (const topic of topics) {
+                  data.push({ 
+                    materia: currentMateria, 
+                    topico: topic 
+                  });
+                  topicCount++;
+                  subjectTopicsCount++;
+                }
+              } else {
+                // Single topic line
+                console.log(`Single topic for ${currentMateria}:`, topicLine);
                 data.push({ 
                   materia: currentMateria, 
-                  topico: topic 
+                  topico: topicLine 
                 });
+                topicCount++;
+                subjectTopicsCount++;
               }
-              
-              // Skip the next line since we already processed it
-              i++;
             }
+            j++;
           }
+          
+          console.log(`Finished ${currentMateria}: ${subjectTopicsCount} topics`);
+          
+          // Skip to the last processed line
+          i = j - 1;
         }
       }
     }
+    
+    console.log(`Final count: ${materiaCount} subjects, ${topicCount} topics`);
 
     console.log('Final parsed data:', data);
 
