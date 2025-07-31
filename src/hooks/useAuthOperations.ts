@@ -30,19 +30,32 @@ export function useAuthOperations() {
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
     setLoading(true);
     try {
+      console.log('Checking if email already exists:', email);
+      
       // Check if email already exists in profiles table
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('email')
+        .select('email, id')
         .eq('email', email)
         .maybeSingle();
       
-      if (profileData && !profileError) {
+      console.log('Profile check result:', { profileData, profileError });
+      
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error("Error checking existing email:", profileError);
+        // Continue with signup if there's an unexpected error
+      }
+      
+      // If email already exists in profiles, it means the user already has an account
+      if (profileData && profileData.email) {
+        console.log('Email already exists in profiles table:', profileData);
         throw new Error('Este email já está cadastrado. Por favor, tente fazer login ou usar outro email.');
       }
       
       // Set proper redirect URL for email confirmation
       const redirectUrl = `${window.location.origin}/`;
+      
+      console.log('Proceeding with signup for:', email);
       
       // Proceed with signup
       const { error, data } = await supabase.auth.signUp({
@@ -59,11 +72,14 @@ export function useAuthOperations() {
       });
       
       if (error) {
+        console.log('Supabase signup error:', error);
+        
         // Handle specific Supabase auth errors for duplicate users
         if (error.message.includes('already registered') || 
             error.message.includes('user_repeated_signup') ||
             error.message.includes('User already registered') ||
-            error.message.includes('signup_disabled')) {
+            error.message.includes('signup_disabled') ||
+            error.message.includes('duplicate')) {
           throw new Error('Este email já está cadastrado. Por favor, tente fazer login ou usar outro email.');
         }
         
