@@ -31,21 +31,33 @@ export function useAuthOperations() {
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
     setLoading(true);
     try {
-      // Check if email already exists by attempting to get a user with that email
-      const { data: existingUserData, error: emailCheckError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('email', email)
-        .maybeSingle();
+      console.log('Attempting to sign up user:', email);
       
-      if (emailCheckError && emailCheckError.code !== 'PGRST116') {
+      // Check if email already exists using secure function
+      const { data: emailCheckResult, error: emailCheckError } = await supabase
+        .rpc('check_email_exists', { email_to_check: email });
+      
+      console.log('Email check result:', emailCheckResult);
+      
+      if (emailCheckError) {
         console.error("Error checking existing email:", emailCheckError);
+        throw new Error('Erro ao verificar email. Tente novamente.');
       }
-
-      // If email already exists
-      if (existingUserData) {
-        throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
+      
+      // If email exists, handle based on provider type
+      if (emailCheckResult && emailCheckResult.length > 0) {
+        const { email_exists, provider_type } = emailCheckResult[0];
+        
+        if (email_exists) {
+          if (provider_type === 'Google' || provider_type === 'google') {
+            throw new Error('Este e-mail já está cadastrado com sua conta Google. Por favor, faça login com o Google ou use outro e-mail.');
+          } else {
+            throw new Error('Este e-mail já está cadastrado. Por favor, faça login com sua senha ou recupere sua senha.');
+          }
+        }
       }
+      
+      console.log('Email available, proceeding with signup for:', email);
       
       // Proceed with signup
       const { error, data } = await supabase.auth.signUp({
