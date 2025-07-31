@@ -48,15 +48,17 @@ const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenCha
   }, [chatGptResult]);
 
   const generatePrompt = () => {
-    return `Crie o conteúdo de um arquivo CSV com as colunas 'Matéria' e 'Tópico' a partir do conteúdo abaixo. Forneça o resultado como texto para que eu possa copiar e colar, e não envie um arquivo para download.
+    return `Crie o conteúdo de um arquivo .CSV com as colunas "Matéria" e "Tópico" a partir do conteúdo abaixo. Forneça o resultado como texto para que eu possa copiar e colar, e não envie um arquivo para download.
 
 Formato esperado:
 
-Matéria1: 
-Tópico1; topico2; topico3
+[Matéria1]
+Tópico1; tópico2; tópico3
 
-Matéria2: 
-Tópico1; topico2; topico3
+[Matéria2]
+Tópico1; tópico2; tópico3
+
+Atenção: mantenha o nome da matéria entre colchetes [], sem dois-pontos, e liste todos os tópicos dela separados apenas por ponto e vírgula ;, tudo em uma linha. Não pule linhas entre tópicos. Não coloque numeração nem subitens. Apenas um bloco por matéria.
 
 Conteúdo para processar:
 ${content}`;
@@ -107,57 +109,42 @@ ${content}`;
     const data: ParsedData[] = [];
     let currentMateria = '';
     
-    for (const line of lines) {
-      // Check if line contains a subject (has colon)
-      if (line.includes(':')) {
-        const colonIndex = line.indexOf(':');
-        const materia = line.substring(0, colonIndex).trim();
-        const topicsStr = line.substring(colonIndex + 1).trim();
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Check if line contains a subject in brackets [Subject]
+      if (line.startsWith('[') && line.endsWith(']')) {
+        const materia = line.slice(1, -1).trim();
         
         if (materia) {
           currentMateria = materia.toUpperCase();
+          console.log(`Found subject: ${currentMateria}`);
           
-          // Process topics if they exist on the same line
-          if (topicsStr) {
-            const topics = topicsStr
-              .split(';')
-              .map(topic => topic.trim())
-              .filter(topic => topic.length > 0);
+          // Check if the next line contains topics
+          if (i + 1 < lines.length) {
+            const nextLine = lines[i + 1];
             
-            console.log(`Topics for ${currentMateria}:`, topics);
-            
-            for (const topic of topics) {
-              data.push({ 
-                materia: currentMateria, 
-                topico: topic 
-              });
+            // Process topics from the next line
+            if (nextLine && nextLine.includes(';')) {
+              const topics = nextLine
+                .split(';')
+                .map(topic => topic.trim())
+                .filter(topic => topic.length > 0);
+              
+              console.log(`Topics for ${currentMateria}:`, topics);
+              
+              for (const topic of topics) {
+                data.push({ 
+                  materia: currentMateria, 
+                  topico: topic 
+                });
+              }
+              
+              // Skip the next line since we already processed it
+              i++;
             }
           }
         }
-      } 
-      // Check if line is continuation of topics (no colon, has semicolons)
-      else if (currentMateria && line.includes(';')) {
-        const topics = line
-          .split(';')
-          .map(topic => topic.trim())
-          .filter(topic => topic.length > 0);
-        
-        console.log(`Additional topics for ${currentMateria}:`, topics);
-        
-        for (const topic of topics) {
-          data.push({ 
-            materia: currentMateria, 
-            topico: topic 
-          });
-        }
-      }
-      // Single topic line (no semicolon)
-      else if (currentMateria && line.length > 0 && !line.includes(':')) {
-        console.log(`Single topic for ${currentMateria}:`, line);
-        data.push({ 
-          materia: currentMateria, 
-          topico: line 
-        });
       }
     }
 
