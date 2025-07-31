@@ -30,27 +30,26 @@ export function useAuthOperations() {
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
     setLoading(true);
     try {
-      // Check if email already exists by attempting to get a user with that email
-      const { data: existingUserData, error: emailCheckError } = await supabase
+      // Check if email already exists in profiles table
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('email')
         .eq('email', email)
         .maybeSingle();
       
-      if (emailCheckError && emailCheckError.code !== 'PGRST116') {
-        console.error("Error checking existing email:", emailCheckError);
+      if (profileData && !profileError) {
+        throw new Error('Este email já está cadastrado. Por favor, tente fazer login ou usar outro email.');
       }
-
-      // If email already exists
-      if (existingUserData) {
-        throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
-      }
+      
+      // Set proper redirect URL for email confirmation
+      const redirectUrl = `${window.location.origin}/`;
       
       // Proceed with signup
       const { error, data } = await supabase.auth.signUp({
         email,
         password,
         options: {
+          emailRedirectTo: redirectUrl,
           data: {
             name,
             phone,
@@ -60,18 +59,54 @@ export function useAuthOperations() {
       });
       
       if (error) {
-        if (error.message.includes('already registered')) {
-          throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
+        // Handle specific Supabase auth errors for duplicate users
+        if (error.message.includes('already registered') || 
+            error.message.includes('user_repeated_signup') ||
+            error.message.includes('User already registered') ||
+            error.message.includes('signup_disabled')) {
+          throw new Error('Este email já está cadastrado. Por favor, tente fazer login ou usar outro email.');
         }
+        
+        // Handle email validation errors
+        if (error.message.includes('Invalid email')) {
+          throw new Error('Email inválido. Verifique o formato do email.');
+        }
+        
+        // Handle password errors
+        if (error.message.includes('Password')) {
+          throw new Error('A senha deve ter pelo menos 6 caracteres.');
+        }
+        
         throw error;
       }
       
       console.log('Sign up successful:', data.user?.email);
-      toast.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
+      
+      // Check if user was created but needs email confirmation
+      if (data.user && !data.user.email_confirmed_at) {
+        toast.success('Cadastro realizado! Verifique seu e-mail para confirmar a conta antes de fazer login.');
+      } else if (data.user) {
+        toast.success('Cadastro realizado com sucesso!');
+      }
+      
       return data;
     } catch (error: any) {
       console.error('Sign up error:', error);
-      toast.error(error.message || 'Erro ao criar conta');
+      
+      // Better error handling for different scenarios
+      let errorMessage = 'Erro ao criar conta. Tente novamente.';
+      
+      if (error.message.includes('cadastrado') || error.message.includes('registered')) {
+        errorMessage = error.message;
+      } else if (error.message.includes('Invalid email')) {
+        errorMessage = 'Email inválido. Verifique o formato do email.';
+      } else if (error.message.includes('Password') || error.message.includes('senha')) {
+        errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
+      } else if (error.message.includes('network') || error.message.includes('connection')) {
+        errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      }
+      
+      toast.error(errorMessage);
       throw error;
     } finally {
       setLoading(false);
