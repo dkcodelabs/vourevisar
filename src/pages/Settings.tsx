@@ -390,22 +390,21 @@ const Settings = () => {
             </Alert>
           )}
 
-          <Tabs defaultValue="perfil" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="perfil">Perfil</TabsTrigger>
+          <Tabs defaultValue="estudos" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="estudos">Estudos</TabsTrigger>
               <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
               <TabsTrigger value="sistema">Sistema</TabsTrigger>
             </TabsList>
 
-            {/* Aba Perfil */}
-            <TabsContent value="perfil" className="space-y-4">
+            {/* Aba Estudos */}
+            <TabsContent value="estudos" className="space-y-4">
               <GlassCard className="p-6">
                 <div className="space-y-4">
                   <div>
                     <h2 className="text-lg font-semibold">Perfil de Revisão</h2>
                     <p className="text-sm text-muted-foreground">
-                      Escolha seu perfil de acordo com sua experiência.
+                      Escolha o perfil que melhor se adapta ao seu ritmo de estudos e experiência.
                     </p>
                   </div>
                   
@@ -425,10 +424,6 @@ const Settings = () => {
                   </div>
                 </div>
               </GlassCard>
-            </TabsContent>
-
-            {/* Aba Estudos */}
-            <TabsContent value="estudos" className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <GlassCard className="p-6">
                   <div className="space-y-4">
