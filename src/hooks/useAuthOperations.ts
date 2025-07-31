@@ -35,11 +35,16 @@ export function useAuthOperations() {
       // Check if email already exists in profiles table
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('email, id')
+        .select('email, id, name')
         .eq('email', email)
         .maybeSingle();
       
-      console.log('Profile check result:', { profileData, profileError });
+      console.log('Profile check result:', { 
+        profileData, 
+        profileError, 
+        hasData: !!profileData,
+        emailExists: profileData?.email === email 
+      });
       
       if (profileError && profileError.code !== 'PGRST116') {
         console.error("Error checking existing email:", profileError);
@@ -47,7 +52,7 @@ export function useAuthOperations() {
       }
       
       // If email already exists in profiles, it means the user already has an account
-      if (profileData && profileData.email) {
+      if (profileData) {
         console.log('Email already exists in profiles table:', profileData);
         throw new Error('Este email já está cadastrado. Por favor, tente fazer login ou usar outro email.');
       }
