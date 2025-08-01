@@ -13,13 +13,15 @@ interface RichTextNotesEditorProps {
   onSave: (notes: TopicNotes) => Promise<void>;
   isLoading?: boolean;
   onChange?: () => void;
+  hideHeader?: boolean;
 }
 
 const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   notes,
   onSave,
   isLoading = false,
-  onChange
+  onChange,
+  hideHeader = false
 }) => {
   const [content, setContent] = useState(notes?.content || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -97,7 +99,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   // Estilo customizado para o highlight amarelo
   const customStyles = `
     .ql-editor {
-      min-height: 200px;
+      min-height: 120px;
       font-size: 14px;
       line-height: 1.6;
     }
@@ -124,7 +126,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
 
   return (
     <motion.div 
-      className="space-y-4 p-4 bg-white/50 rounded-lg border border-gray-200"
+      className={hideHeader ? "space-y-2" : "space-y-4 p-4 bg-white/50 rounded-lg border border-gray-200"}
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: "auto" }}
       exit={{ opacity: 0, height: 0 }}
@@ -132,45 +134,47 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
     >
       <style>{customStyles}</style>
       
-      {/* Header com controles */}
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-gray-700">Anotações</h4>
-        <div className="flex items-center gap-3">
-          {/* Status das mudanças */}
-          {hasChanges && !isSaving && (
-            <span className="text-xs text-orange-600 flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              Não salvo
-            </span>
-          )}
-          {!hasChanges && lastSaved && (
-            <span className="text-xs text-green-600 flex items-center gap-1">
-              <Check className="h-3 w-3" />
-              Salvo
-            </span>
-          )}
-          
-          {/* Botão salvar */}
-          <Button
-            onClick={handleSave}
-            disabled={!hasChanges || isSaving || isLoading}
-            size="sm"
-            className="h-8"
-          >
-            {isSaving ? (
-              <>
-                <Save className="h-3 w-3 mr-1 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Save className="h-3 w-3 mr-1" />
-                Salvar
-              </>
+      {/* Header com controles - apenas se não estiver oculto */}
+      {!hideHeader && (
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-gray-700">Anotações</h4>
+          <div className="flex items-center gap-3">
+            {/* Status das mudanças */}
+            {hasChanges && !isSaving && (
+              <span className="text-xs text-orange-600 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Não salvo
+              </span>
             )}
-          </Button>
+            {!hasChanges && lastSaved && (
+              <span className="text-xs text-green-600 flex items-center gap-1">
+                <Check className="h-3 w-3" />
+                Salvo
+              </span>
+            )}
+            
+            {/* Botão salvar */}
+            <Button
+              onClick={handleSave}
+              disabled={!hasChanges || isSaving || isLoading}
+              size="sm"
+              className="h-8"
+            >
+              {isSaving ? (
+                <>
+                  <Save className="h-3 w-3 mr-1 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="h-3 w-3 mr-1" />
+                  Salvar
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Editor de texto rico */}
       <div className="relative">
@@ -186,8 +190,8 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
         />
       </div>
 
-      {/* Informações adicionais */}
-      {lastSaved && (
+      {/* Informações adicionais - apenas se não estiver oculto */}
+      {!hideHeader && lastSaved && (
         <div className="text-xs text-gray-500 text-right">
           Última modificação: {lastSaved.toLocaleString('pt-BR')}
         </div>

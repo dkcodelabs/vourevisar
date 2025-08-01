@@ -186,7 +186,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       >
         <DialogHeader className={`${isMobile ? 'p-4 border-b' : 'p-6 pb-4'} bg-white`}>
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <DialogTitle className="text-lg font-semibold text-gray-900">
                 Anotações - {topicName}
               </DialogTitle>
@@ -194,17 +194,28 @@ const NotesModal: React.FC<NotesModalProps> = ({
                 {subjectName}
               </DialogDescription>
             </div>
-            {isMobile && (
+            <div className="flex items-center gap-2">
               <Button
-                variant="ghost"
+                variant="default"
                 size="sm"
                 onClick={handleSaveAndClose}
-                className="h-8 w-8 p-0"
+                className="flex items-center gap-2"
                 disabled={isSaving}
               >
-                <X className="h-4 w-4" />
+                <Save className="h-4 w-4" />
+                {isSaving ? 'Salvando...' : 'Salvar'}
               </Button>
-            )}
+              {isMobile && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </DialogHeader>
         
@@ -222,7 +233,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
             <div className="space-y-6">
               {/* Anotações */}
               <div>
-                <Label className="text-sm font-medium mb-2 block">
+                <Label className="text-sm font-medium mb-3 block">
                   📝 Anotações
                 </Label>
                 <RichTextNotesEditor
@@ -230,6 +241,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
                   onSave={saveNotes}
                   isLoading={isLoading || isSaving}
                   onChange={handleNotesChange}
+                  hideHeader={true}
                 />
               </div>
 
@@ -302,7 +314,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
                 </div>
 
                 {subtopics.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="max-h-48 overflow-y-auto space-y-2 border rounded-lg p-2 bg-white">
                     {subtopics.map((subtopic) => (
                       <div
                         key={subtopic.id}
@@ -326,20 +338,6 @@ const NotesModal: React.FC<NotesModalProps> = ({
           )}
         </div>
 
-        {/* Footer */}
-        {!isMobile && (
-          <div className="p-6 pt-4 border-t bg-white flex justify-end">
-            <Button
-              variant="default"
-              onClick={handleSaveAndClose}
-              className="flex items-center gap-2"
-              disabled={isSaving}
-            >
-              <Save className="h-4 w-4" />
-              {isSaving ? 'Salvando...' : 'Salvar e Fechar'}
-            </Button>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
