@@ -130,14 +130,22 @@ const Topics = () => {
     const medium = allTopics.filter(topic => topic.difficulty_level === 'medium').length;
     const hard = allTopics.filter(topic => topic.difficulty_level === 'hard').length;
 
-    // Debug log para verificar se os dados estão sendo carregados corretamente
-    console.log('Stats debug:', {
+    // Debug log detalhado para entender o problema
+    console.log('🔍 Debug completo de dificuldades:', {
       totalTopics: allTopics.length,
-      samplesWithDifficulty: allTopics.filter(t => t.difficulty_level).slice(0, 3).map(t => ({
+      topicsWithDifficulty: allTopics.filter(t => t.difficulty_level).length,
+      allDifficulties: allTopics.map(t => ({
         name: t.name,
-        difficulty: t.difficulty_level
+        subject: t.subjectName,
+        difficulty_level: t.difficulty_level,
+        hasValue: !!t.difficulty_level
       })),
-      counts: { easy, medium, hard }
+      counts: { easy, medium, hard },
+      sampleTopics: allTopics.slice(0, 3).map(t => ({
+        name: t.name,
+        difficulty: t.difficulty_level,
+        id: t.id
+      }))
     });
 
     return {

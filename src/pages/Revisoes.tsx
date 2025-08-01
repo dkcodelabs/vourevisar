@@ -141,18 +141,14 @@ const Revisoes = () => {
                       >
                         <div className="flex items-center gap-2">
                           <span>Hoje</span>
-                          {todayTopics.length > 0 && (
-                            <span className="bg-orange-500 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
-                              {todayTopics.length}
-                            </span>
-                          )}
+                          <span className="bg-orange-500 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                            {todayTopics.length || 0}
+                          </span>
                           <span>&</span>
                           <span>Atrasadas</span>
-                          {delayedTopics.length > 0 && (
-                            <span className="bg-red-500 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
-                              {delayedTopics.length}
-                            </span>
-                          )}
+                          <span className="bg-red-500 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                            {delayedTopics.length || 0}
+                          </span>
                         </div>
                       </TabsTrigger>
                       <TabsTrigger
@@ -160,22 +156,18 @@ const Revisoes = () => {
                         className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
                       >
                         Futuras
-                        {futureTopics.length > 0 && (
-                          <span className="ml-2 bg-blue-500 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
-                            {futureTopics.length}
-                          </span>
-                        )}
+                        <span className="ml-2 bg-blue-500 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                          {futureTopics.length || 0}
+                        </span>
                       </TabsTrigger>
                       <TabsTrigger
                         value="concluido"
                         className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-800 px-4 py-2 rounded transition-all relative"
                       >
                         Concluído
-                        {completedTopics.length > 0 && (
-                          <span className="ml-2 bg-green-500 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
-                            {completedTopics.length}
-                          </span>
-                        )}
+                        <span className="ml-2 bg-green-500 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                          {completedTopics.length || 0}
+                        </span>
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
@@ -279,7 +271,11 @@ const Revisoes = () => {
         isOpen={notesModalData.isOpen}
         onClose={() => {
           setNotesModalData(prev => ({ ...prev, isOpen: false }));
-          refetch();
+          // Refresh both the reviews data and the main app context data
+          setTimeout(async () => {
+            await refreshData();
+            refetch();
+          }, 200);
         }}
         topicId={notesModalData.topicId}
         topicName={notesModalData.topicName}
