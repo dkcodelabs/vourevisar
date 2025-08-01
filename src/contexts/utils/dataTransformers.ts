@@ -33,7 +33,8 @@ export const transformTopicData = (topic: any): Topic => {
     last_reviewed_at: topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : undefined,
     is_completed: topic.completed || false,
     difficulty_level: topic.difficulty_level,
-    notes: notes
+    notes: notes,
+    subtopics: topic.subtopics || []
   };
 };
 

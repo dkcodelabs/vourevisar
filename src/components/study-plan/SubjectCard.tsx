@@ -28,15 +28,7 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
   isDaySubject = false
 }) => {
   return (
-    <AnimatePresence mode="wait">
-      <motion.div 
-        className="w-full"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: -20, opacity: 0 }}
-        transition={{ type: "tween", duration: 0.3 }}
-        layout
-      >
+      <div className="w-full">
         <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
           <CardHeader className="p-3 pb-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -60,15 +52,8 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <AnimatePresence>
               {isExpanded ? (
-                <motion.div 
-                  className="space-y-2"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ type: "tween", duration: 0.3 }}
-                >
+                <div className="space-y-2">
                   {subject.topics.map(topic => (
                     <TopicItem
                       key={topic.id}
@@ -86,7 +71,7 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
                     <CheckCircle className="h-3 w-3 mr-2" />
                     { (tempMarkedTopics[subject.id]?.length ?? 0) > 0 ? "Concluir Sessão" : "Pular Matéria" }
                   </Button>
-                </motion.div>
+                </div>
               ) : (
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                   <span className="text-xs text-gray-500">
@@ -103,11 +88,9 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
                   </div>
                 </div>
               )}
-            </AnimatePresence>
           </CardContent>
         </Card>
-      </motion.div>
-    </AnimatePresence>
+      </div>
   );
 };
 

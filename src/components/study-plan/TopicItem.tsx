@@ -56,7 +56,12 @@ const TopicItem: React.FC<TopicItemProps> = ({
 
   const handleNotesClose = () => {
     setIsNotesModalOpen(false);
-    // Trigger refresh by calling mark for review after saving
+    // Apenas fecha o modal - não salva nem marca para revisão
+  };
+
+  const handleNotesSaved = () => {
+    setIsNotesModalOpen(false);
+    // Marca o tópico para revisão após salvar e fechar o modal
     onMarkTopicForReview(subjectId, topic.id);
   };
 
@@ -108,6 +113,7 @@ const TopicItem: React.FC<TopicItemProps> = ({
       <NotesModal
         isOpen={isNotesModalOpen}
         onClose={handleNotesClose}
+        onSave={handleNotesSaved}
         topicId={topic.id}
         topicName={topic.name}
         subjectName="Matéria" 

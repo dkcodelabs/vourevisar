@@ -15,6 +15,7 @@ import { useApp } from '@/contexts/AppContext';
 interface NotesModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSave?: () => void;
   topicId: string;
   topicName: string;
   subjectName: string;
@@ -23,6 +24,7 @@ interface NotesModalProps {
 const NotesModal: React.FC<NotesModalProps> = ({
   isOpen,
   onClose,
+  onSave,
   topicId,
   topicName,
   subjectName
@@ -93,8 +95,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       setHasUnsavedChanges(false);
       toast.success('Dados salvos com sucesso!');
       
-      // Atualizar dados localmente em background
-      refreshData();
+      // Não atualizar dados - evitar refresh da página
     } catch (error) {
       console.error('Erro ao salvar anotações:', error);
       toast.error('Erro ao salvar anotações');
@@ -104,9 +105,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
     }
   };
 
-  const handleSaveOnly = async () => {
+  const handleSaveAndClose = async () => {
     try {
-      // Forçar salvamento sem fechar
+      // Forçar salvamento e fechar modal
       const editorComponent = document.querySelector('.ql-editor');
       if (editorComponent) {
         const content = editorComponent.innerHTML;
@@ -116,9 +117,16 @@ const NotesModal: React.FC<NotesModalProps> = ({
           createdAt: notes?.createdAt || new Date().toISOString()
         };
         await saveNotes(notesToSave);
+        // Fechar modal apenas após sucesso no salvamento
+        if (onSave) {
+          onSave(); // Chama onSave se fornecido (caso do study plan)
+        } else {
+          onClose(); // Caso contrário, apenas fecha (caso das revisões)
+        }
       }
     } catch (error) {
       console.error('Erro ao salvar:', error);
+      // Modal não fecha em caso de erro
     }
   };
 
@@ -195,12 +203,12 @@ const NotesModal: React.FC<NotesModalProps> = ({
               <Button
                 variant="default"
                 size="sm"
-                onClick={handleSaveOnly}
+                onClick={handleSaveAndClose}
                 className="flex items-center gap-2"
                 disabled={isSaving}
               >
                 <Save className="h-4 w-4" />
-                {isSaving ? 'Salvando...' : 'Salvar'}
+                {isSaving ? 'Salvando...' : 'Salvar e Fechar'}
               </Button>
               {isMobile && (
                 <Button
