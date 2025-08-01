@@ -73,16 +73,20 @@ export const useSessionCompletion = () => {
 
       // Se não houver tópicos marcados para revisão, pular matéria
       if (topicsToReview.length === 0) {
-        console.log('🔵 PULANDO MATÉRIA - Nova lógica de pulo...');
+        console.log('🔵 PULANDO MATÉRIA - Lógica corrigida...');
         
         // PULAR MATÉRIA: manter no ciclo, incrementar índice, remover do dia
         const newDisciplinasDodia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
         const currentIndex = userCycle.indice_atual || 0;
-        const newIndex = currentIndex + 1;
+        
+        // CORREÇÃO: Encontrar posição da matéria no ciclo e calcular próximo índice corretamente
+        const subjectIndexInCycle = userCycle.ciclo_atual.indexOf(subjectId);
+        const newIndex = subjectIndexInCycle !== -1 ? subjectIndexInCycle + 1 : currentIndex + 1;
 
-        console.log('🔵 PULAR MATÉRIA - Nova lógica:', {
+        console.log('🔵 PULAR MATÉRIA - Lógica corrigida:', {
           subjectId,
           subjectName: subject.name,
+          subjectIndexInCycle,
           disciplinas_do_dia_antes: userCycle.disciplinas_do_dia.length,
           disciplinas_do_dia_depois: newDisciplinasDodia.length,
           indice_atual_antes: currentIndex,
@@ -90,11 +94,10 @@ export const useSessionCompletion = () => {
           ciclo_atual: userCycle.ciclo_atual.length
         });
 
-        console.log('📍 Matéria pulada - incrementando índice:', {
-          indice_atual_antes: currentIndex,
-          indice_atual_depois: newIndex,
+        console.log('📍 Matéria pulada - mantendo no ciclo e removendo do dia:', {
+          indice_atual: newIndex,
           materia_pulada: subject.name,
-          acao: 'incrementar_indice_manter_no_ciclo'
+          acao: 'manter_indice_mover_para_final_do_ciclo'
         });
 
         const { error: updateError } = await supabase
@@ -111,7 +114,6 @@ export const useSessionCompletion = () => {
           throw updateError;
         }
 
-        // 4. Recarregar o ciclo atualizado no frontend
         console.log('🔵 Recarregando ciclo atualizado...');
         const freshCycle = await loadUserCycle(user.id);
         if (!freshCycle) {
@@ -124,7 +126,6 @@ export const useSessionCompletion = () => {
         });
         setUserCycle(freshCycle);
         
-        // 5. Limpar tópicos marcados e mostrar feedback
         setTempMarkedTopics({});
         toast.success('Matéria pulada! Ela será estudada em outro dia.');
         
@@ -144,7 +145,17 @@ export const useSessionCompletion = () => {
         ? materiasPendentes 
         : [...materiasPendentes, subjectId];
 
-      // NÃO alterar indice_atual - próxima matéria assume a posição
+      // CORREÇÃO: Ajustar índice quando matéria é removida do ciclo
+      const currentIndex = userCycle.indice_atual || 0;
+      const subjectIndexInCycle = userCycle.ciclo_atual.indexOf(subjectId);
+      let newIndex = currentIndex;
+      
+      // Se a matéria removida estava antes ou na posição do índice atual, não precisa ajustar
+      // Se estava depois, o índice se mantém (próxima matéria assume a posição)
+      if (subjectIndexInCycle !== -1 && subjectIndexInCycle < currentIndex) {
+        newIndex = Math.max(0, currentIndex - 1);
+      }
+
       console.log('🔵 CONCLUIR SESSÃO - Atualizando ciclo:', {
         subjectId,
         subject: subject.name,
@@ -153,7 +164,9 @@ export const useSessionCompletion = () => {
         cicloAtual_depois: newCicloAtual.length,
         materiasPendentes_antes: materiasPendentes.length,
         materiasPendentes_depois: newMateriasPendentes.length,
-        indice_atual: userCycle.indice_atual,
+        indice_atual_antes: currentIndex,
+        indice_atual_depois: newIndex,
+        subjectIndexInCycle,
         acao: 'mover_para_materias_pendentes'
       });
       
@@ -164,6 +177,7 @@ export const useSessionCompletion = () => {
           ciclo_atual: newCicloAtual,
           disciplinas_do_dia: newDisciplinasDodia,
           materias_pendentes: newMateriasPendentes,
+          indice_atual: newIndex,
           atualizado_em: new Date().toISOString()
         })
         .eq('user_id', user.id);

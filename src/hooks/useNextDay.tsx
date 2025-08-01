@@ -146,17 +146,19 @@ export const useNextDay = () => {
         return;
       }
 
-      // Usar indice_atual para determinar próximas matérias do ciclo
+      // CORREÇÃO: Usar indice_atual para determinar próximas matérias do ciclo
       const currentIndex = userCycle.indice_atual || 0;
       console.log('🔄 Selecionando próximas matérias baseado no índice:', {
         indice_atual: currentIndex,
         ciclo_atual_length: userCycle.ciclo_atual.length,
-        subjects_per_day: subjectsPerDay
+        subjects_per_day: subjectsPerDay,
+        available_subjects_in_cycle: availableSubjectsInCycle.length
       });
 
       const nextBatchIds = [];
       
-      // Selecionar matérias sequencialmente a partir do índice atual do ciclo
+      // CORREÇÃO: Selecionar matérias sequencialmente a partir do índice atual do ciclo
+      // mas apenas matérias que estão disponíveis (têm tópicos não revisados)
       for (let i = 0; i < subjectsPerDay && nextBatchIds.length < subjectsPerDay; i++) {
         const targetIndex = currentIndex + i;
         
@@ -165,10 +167,20 @@ export const useNextDay = () => {
           const subjectId = userCycle.ciclo_atual[targetIndex];
           const subject = subjects.find(s => s.id === subjectId);
           
-          if (subject && subject.status !== 'Concluída' && subject.topics && subject.topics.length > 0) {
-            console.log(`🔍 Matéria do ciclo [${targetIndex}]: ${subject.name}`);
+          // Verificar se a matéria está disponível (tem tópicos não revisados)
+          const isAvailable = availableSubjectsInCycle.includes(subjectId);
+          
+          console.log(`🔍 Verificando matéria [${targetIndex}]: ${subject?.name || 'NOT_FOUND'}`, {
+            subjectId,
+            isAvailable,
+            hasSubject: !!subject,
+            status: subject?.status,
+            topicsCount: subject?.topics?.length || 0
+          });
+          
+          if (subject && isAvailable && subject.status !== 'Concluída' && subject.topics && subject.topics.length > 0) {
+            console.log(`✅ Matéria ${subject.name} adicionada ao próximo lote (${nextBatchIds.length + 1}/${subjectsPerDay})`);
             nextBatchIds.push(subjectId);
-            console.log(`✅ Matéria ${subjectId} adicionada ao próximo lote (${nextBatchIds.length}/${subjectsPerDay})`);
           }
         }
       }
