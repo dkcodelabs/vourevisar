@@ -71,6 +71,28 @@ const NotesModal: React.FC<NotesModalProps> = ({
     }
   };
 
+  const saveDifficultyOnly = async (newDifficulty: DifficultyLevel | null) => {
+    if (!topicId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .update({
+          difficulty_level: newDifficulty,
+          difficulty_set_at: newDifficulty ? new Date().toISOString() : null
+        })
+        .eq('id', topicId);
+
+      if (error) throw error;
+      
+      toast.success('Dificuldade salva!');
+      await refreshData(); // Atualizar dados do contexto
+    } catch (error) {
+      console.error('Error saving difficulty:', error);
+      toast.error('Erro ao salvar dificuldade');
+    }
+  };
+
   const saveNotes = async (updatedNotes: TopicNotes) => {
     setIsSaving(true);
     try {
@@ -256,8 +278,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
                     size="sm"
                     className={getDifficultyButtonStyle('easy')}
                     onClick={() => {
-                      setDifficulty(difficulty === 'easy' ? null : 'easy');
-                      setHasUnsavedChanges(true);
+                      const newDifficulty = difficulty === 'easy' ? null : 'easy';
+                      setDifficulty(newDifficulty);
+                      saveDifficultyOnly(newDifficulty);
                     }}
                   >
                     <ThumbsUp className="h-4 w-4 mr-2" />
@@ -268,8 +291,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
                     size="sm"
                     className={getDifficultyButtonStyle('medium')}
                     onClick={() => {
-                      setDifficulty(difficulty === 'medium' ? null : 'medium');
-                      setHasUnsavedChanges(true);
+                      const newDifficulty = difficulty === 'medium' ? null : 'medium';
+                      setDifficulty(newDifficulty);
+                      saveDifficultyOnly(newDifficulty);
                     }}
                   >
                     <Minus className="h-4 w-4 mr-2" />
@@ -280,8 +304,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
                     size="sm"
                     className={getDifficultyButtonStyle('hard')}
                     onClick={() => {
-                      setDifficulty(difficulty === 'hard' ? null : 'hard');
-                      setHasUnsavedChanges(true);
+                      const newDifficulty = difficulty === 'hard' ? null : 'hard';
+                      setDifficulty(newDifficulty);
+                      saveDifficultyOnly(newDifficulty);
                     }}
                   >
                     <ThumbsDown className="h-4 w-4 mr-2" />
