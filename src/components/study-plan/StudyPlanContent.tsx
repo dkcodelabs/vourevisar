@@ -24,6 +24,7 @@ const StudyPlanContent = () => {
     userCycle,
     dailySubjects,
     nextSubjects,
+    nextCycleSubjects,
     subjectsByStatus,
     allDaySubjectsCompleted,
     hasAvailableSubjects,
@@ -115,6 +116,7 @@ const StudyPlanContent = () => {
             userCycle={userCycle!}
             dailySubjects={dailySubjects}
             nextSubjects={nextSubjects}
+            nextCycleSubjects={nextCycleSubjects}
             subjectsByStatus={subjectsByStatus}
             expandedSubject={expandedSubject}
             tempMarkedTopics={tempMarkedTopics}

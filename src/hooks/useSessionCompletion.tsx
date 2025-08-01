@@ -95,13 +95,13 @@ export const useSessionCompletion = () => {
           acao: 'materia_removida_do_dia_e_movida_para_final_do_ciclo'
         });
 
-        // 3. CORREÇÃO: Avançar o indice_atual quando pular uma matéria
-        const newIndiceAtual = (userCycle.indice_atual + 1) % userCycle.ciclo_atual.length;
+        // 3. CORREÇÃO: Não avançar o índice quando pular - manter a matéria no ciclo
+        // A matéria vai para o final do ciclo e o índice permanece o mesmo
         
-        console.log('📍 Atualizando índice após pular matéria:', {
-          indice_antigo: userCycle.indice_atual,
-          indice_novo: newIndiceAtual,
-          materia_pulada: subject.name
+        console.log('📍 Matéria pulada - mantendo no ciclo e removendo do dia:', {
+          indice_atual: userCycle.indice_atual,
+          materia_pulada: subject.name,
+          acao: 'manter_indice_mover_para_final_do_ciclo'
         });
 
         const { error: updateError } = await supabase
@@ -109,7 +109,6 @@ export const useSessionCompletion = () => {
           .update({
             ciclo_atual: updatedCicloAtual,
             disciplinas_do_dia: newDisciplinasDoDia,
-            indice_atual: newIndiceAtual,
             atualizado_em: new Date().toISOString()
           })
           .eq('user_id', user.id);
@@ -140,24 +139,19 @@ export const useSessionCompletion = () => {
         return;
       }
 
-      console.log('🔵 Sessão concluída - movendo matéria para o final da fila');
+      console.log('🔵 Sessão concluída - movendo matéria para próximo ciclo');
       
-      // CORREÇÃO: Quando concluir sessão, apenas remover a matéria atual das disciplinas_do_dia
-      // NÃO limpar todas as disciplinas do dia
+      // CORREÇÃO: Quando concluir sessão, mover para materias_pendentes (próximo ciclo)
       
-      // 1. Remover apenas a matéria concluída das disciplinas do dia
+      // 1. Remover a matéria concluída das disciplinas do dia
       const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
       
-      // 2. Mover matéria para o final da fila (ciclo_atual ou materias_pendentes)
+      // 2. Remover do ciclo atual
       let updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
-      let updatedMateriasPendentes = userCycle.materias_pendentes || [];
       
-      // Se a matéria estava no ciclo_atual, move para o final
-      if (userCycle.ciclo_atual.includes(subjectId)) {
-        updatedCicloAtual = [...updatedCicloAtual, subjectId];
-      } else if (updatedMateriasPendentes.includes(subjectId)) {
-        // Se estava em materias_pendentes, move para o final
-        updatedMateriasPendentes = updatedMateriasPendentes.filter(id => id !== subjectId);
+      // 3. Adicionar às matérias pendentes (próximo ciclo)
+      let updatedMateriasPendentes = userCycle.materias_pendentes || [];
+      if (!updatedMateriasPendentes.includes(subjectId)) {
         updatedMateriasPendentes.push(subjectId);
       }
 

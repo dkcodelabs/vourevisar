@@ -10,6 +10,7 @@ interface StudyPlanMainViewProps {
   userCycle: UserCycle;
   dailySubjects: Subject[];
   nextSubjects: SubjectWithStatus[];
+  nextCycleSubjects: Subject[];
   subjectsByStatus: {
     available: SubjectWithStatus[];
     'in-review': SubjectWithStatus[];
@@ -38,6 +39,7 @@ const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
   userCycle,
   dailySubjects,
   nextSubjects,
+  nextCycleSubjects,
   subjectsByStatus,
   expandedSubject,
   tempMarkedTopics,
@@ -83,7 +85,7 @@ const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
       </div>
 
       {Object.values(subjectsByStatus).some(arr => arr.length > 0) && !allDaySubjectsCompleted && !isCycleCompleted && !allTopicsInReview && dailySubjects.length > 0 && (
-        <NextSubjects subjectsByStatus={subjectsByStatus} />
+        <NextSubjects subjectsByStatus={subjectsByStatus} nextCycleSubjects={nextCycleSubjects} />
       )}
     </>
   );

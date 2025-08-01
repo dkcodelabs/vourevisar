@@ -146,23 +146,42 @@ export const useNextDay = () => {
         return;
       }
 
-      // Selecionar próximas matérias respeitando a ORDEM do ciclo_atual
+      // CORREÇÃO: Usar indice_atual para selecionar próximas matérias
       let nextBatchIds = [];
-      
-      // Começar do início do ciclo e pegar as próximas disponíveis
-      for (const subjectId of userCycle.ciclo_atual) {
-        if (nextBatchIds.length >= subjectsPerDay) break;
-        
+      const startIndex = userCycle.indice_atual || 0;
+      let currentIndex = startIndex;
+      let subjectsFound = 0;
+
+      console.log('📍 Seleção baseada no índice atual:', {
+        indice_atual: userCycle.indice_atual,
+        startIndex,
+        cycleLength: userCycle.ciclo_atual.length,
+        availableInCycle: availableSubjectsInCycle.length
+      });
+
+      // Selecionar matérias sequencialmente a partir do índice atual
+      while (subjectsFound < subjectsPerDay && subjectsFound < availableSubjectsInCycle.length) {
+        const subjectId = userCycle.ciclo_atual[currentIndex];
         const isAvailable = availableSubjectsInCycle.includes(subjectId);
         
-        console.log(`🔍 Verificando matéria ${subjectId}:`, {
+        console.log(`🔍 Verificando matéria ${subjectId} (índice ${currentIndex}):`, {
           isAvailable,
           subjectName: subjects.find(s => s.id === subjectId)?.name || 'NOT_FOUND'
         });
         
         if (isAvailable) {
           nextBatchIds.push(subjectId);
-          console.log(`✅ Matéria ${subjectId} adicionada ao próximo lote (${nextBatchIds.length}/${subjectsPerDay})`);
+          subjectsFound++;
+          console.log(`✅ Matéria ${subjectId} selecionada (${subjectsFound}/${subjectsPerDay})`);
+        }
+        
+        // Avançar para o próximo índice (circular)
+        currentIndex = (currentIndex + 1) % userCycle.ciclo_atual.length;
+        
+        // Evitar loop infinito
+        if (currentIndex === startIndex && subjectsFound === 0) {
+          console.log('⚠️ Nenhuma matéria disponível encontrada em todo o ciclo');
+          break;
         }
       }
 
@@ -173,11 +192,31 @@ export const useNextDay = () => {
         materias: nextBatchIds.map(id => subjects.find(s => s.id === id)?.name || 'NOT_FOUND')
       });
 
-      // Atualizar disciplinas_do_dia com as próximas matérias
+      // CORREÇÃO: Calcular novo índice baseado na progressão natural
+      let newIndex;
+      
+      if (nextBatchIds.length === 0) {
+        // Se nenhuma matéria foi selecionada, manter o índice atual
+        newIndex = startIndex;
+      } else {
+        // Avançar o índice baseado na última matéria selecionada
+        const lastSelectedSubjectId = nextBatchIds[nextBatchIds.length - 1];
+        const lastSelectedIndex = userCycle.ciclo_atual.indexOf(lastSelectedSubjectId);
+        newIndex = (lastSelectedIndex + 1) % userCycle.ciclo_atual.length;
+      }
+
+      console.log('📍 Novo índice calculado:', {
+        startIndex,
+        newIndex,
+        selectedCount: nextBatchIds.length
+      });
+
+      // Atualizar disciplinas_do_dia com as próximas matérias E o novo índice
       const { error } = await supabase
         .from('user_cycles')
         .update({
           disciplinas_do_dia: nextBatchIds,
+          indice_atual: newIndex,
           atualizado_em: new Date().toISOString()
         })
         .eq('user_id', user.id);

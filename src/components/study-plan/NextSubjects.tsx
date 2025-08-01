@@ -27,6 +27,7 @@ interface NextSubjectsProps {
     'no-topics': SubjectWithStatus[];
     unavailable: SubjectWithStatus[];
   };
+  nextCycleSubjects: any[];
 }
 
 const getStatusIcon = (status: SubjectWithStatus['status'], size = 16) => {
@@ -138,7 +139,7 @@ const StatusSection: React.FC<{
   );
 };
 
-const NextSubjects: React.FC<NextSubjectsProps> = ({ subjectsByStatus }) => {
+const NextSubjects: React.FC<NextSubjectsProps> = ({ subjectsByStatus, nextCycleSubjects }) => {
   const isMobile = useIsMobile();
   
   const totalSubjects = Object.values(subjectsByStatus).reduce((acc, curr) => acc + curr.length, 0);
@@ -172,6 +173,42 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ subjectsByStatus }) => {
           isMobile={isMobile}
           icon={getStatusIcon('available', isMobile ? 14 : 16)}
         />
+
+        {/* Nova seção: Disponíveis para Próximo Ciclo */}
+        {nextCycleSubjects.length > 0 && (
+          <div className="space-y-2">
+            <h3 className={`${isMobile ? 'text-sm' : 'text-base'} font-semibold flex items-center gap-2 text-purple-700`}>
+              <ArrowRight className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-purple-500`} />
+              Disponíveis para Próximo Ciclo ({nextCycleSubjects.length})
+            </h3>
+            <div className={`grid gap-2 ${
+              isMobile 
+                ? 'grid-cols-1' 
+                : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+            }`}>
+              {nextCycleSubjects.map(subject => (
+                <Card key={subject.id} className="border-purple-200 bg-purple-50 border backdrop-blur-lg shadow-sm hover:shadow-md transition-all w-full">
+                  <CardContent className={`${isMobile ? 'p-2' : 'p-3'} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2`}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <ArrowRight size={isMobile ? 14 : 16} className="text-purple-500" />
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'} truncate`}>
+                          {subject.name}
+                        </h3>
+                        <p className={`${isMobile ? 'text-xs' : 'text-xs'} text-gray-500 truncate`}>
+                          {subject.topics?.length || 0} tópicos
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-purple-600 whitespace-nowrap`}>
+                      Próximo ciclo
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
         
         <StatusSection
           title="Em Revisão"
