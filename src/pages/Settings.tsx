@@ -476,43 +476,27 @@ const Settings = () => {
                     
                     {userCycle ? (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="text-center p-3 bg-primary/10 rounded-lg">
-                            <div className="text-xl font-bold text-primary">{userCycle.ciclos_realizados}</div>
-                            <div className="text-xs text-muted-foreground">Ciclos</div>
-                          </div>
-                          <div className="text-center p-3 bg-green-500/10 rounded-lg">
-                            <div className="text-xl font-bold text-green-600">{disciplinasConcluidas}</div>
-                            <div className="text-xs text-muted-foreground">Concluídas</div>
-                          </div>
+                        <div className="text-center p-3 bg-primary/10 rounded-lg">
+                          <div className="text-2xl font-bold text-primary">{userCycle.ciclos_realizados || 0}</div>
+                          <div className="text-sm text-muted-foreground">Total de ciclos</div>
                         </div>
                         
-                        <div className="text-sm">
-                          <span className="font-medium">Início: </span>
-                          <span className="text-muted-foreground">
-                            {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy')}
-                          </span>
-                        </div>
-
-                        <Button
-                          variant="destructive"
-                          onClick={handleResetCycle}
-                          disabled={isResettingCycle}
-                          className="w-full"
-                          size="sm"
-                        >
-                          {isResettingCycle ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Resetando...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Resetar Ciclo
-                            </>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="font-medium">Data Início: </span>
+                            <span className="text-muted-foreground">
+                              {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy')}
+                            </span>
+                          </div>
+                          {userCycle.data_fim_ciclo && (
+                            <div>
+                              <span className="font-medium">Data Último Ciclo: </span>
+                              <span className="text-muted-foreground">
+                                {format(new Date(userCycle.data_fim_ciclo), 'dd/MM/yyyy')}
+                              </span>
+                            </div>
                           )}
-                        </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-center py-4">

@@ -44,6 +44,18 @@ export const generateNextDay = async (
 
   if (availableSubjects.length === 0) {
     console.log('🏁 Nenhuma matéria disponível - fim do ciclo');
+    
+    // Incrementar ciclos_realizados quando ciclo é concluído
+    await supabase
+      .from('user_cycles')
+      .update({
+        ciclos_realizados: (userCycle.ciclos_realizados || 0) + 1,
+        data_fim_ciclo: new Date().toISOString(),
+        atualizado_em: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+    
+    console.log('🎉 Ciclo concluído! ciclos_realizados incrementado');
     return { shouldShowNewCycleMessage: true };
   }
 
@@ -115,13 +127,15 @@ export const generateNextDay = async (
     newIndex
   });
 
+  let updateData: any = {
+    disciplinas_do_dia: nextBatchIds,
+    indice_atual: newIndex,
+    atualizado_em: new Date().toISOString()
+  };
+
   const { error } = await supabase
     .from('user_cycles')
-    .update({
-      disciplinas_do_dia: nextBatchIds,
-      indice_atual: newIndex,
-      atualizado_em: new Date().toISOString()
-    })
+    .update(updateData)
     .eq('user_id', userId);
 
   if (error) {

@@ -95,13 +95,12 @@ export const useSessionCompletion = () => {
           acao: 'materia_removida_do_dia_e_movida_para_final_do_ciclo'
         });
 
-        // 3. Atualizar banco de dados (resetar índice quando pular matéria)
+        // 3. Atualizar banco de dados (manter índice intacto)
         const { error: updateError } = await supabase
           .from('user_cycles')
           .update({
             ciclo_atual: updatedCicloAtual,
             disciplinas_do_dia: newDisciplinasDoDia,
-            indice_atual: 0, // Reset index when skipping
             atualizado_em: new Date().toISOString()
           })
           .eq('user_id', user.id);
@@ -173,7 +172,6 @@ export const useSessionCompletion = () => {
           ciclo_atual: updatedCicloAtual,
           disciplinas_do_dia: newDisciplinasDoDia,
           materias_pendentes: updatedMateriasPendentes,
-          indice_atual: 0, // Reset index when completing session
           atualizado_em: new Date().toISOString()
         })
         .eq('user_id', user.id);
