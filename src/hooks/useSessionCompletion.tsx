@@ -71,44 +71,37 @@ export const useSessionCompletion = () => {
         console.log('✅ Todos os tópicos atualizados');
       }
 
-      // Se não houver tópicos marcados para revisão, pular matéria (adiar para o final do ciclo)
+      // Se não houver tópicos marcados para revisão, pular matéria
       if (topicsToReview.length === 0) {
-        console.log('🔵 PULANDO MATÉRIA - Iniciando lógica de pulo...');
+        console.log('🔵 PULANDO MATÉRIA - Nova lógica de pulo...');
         
-        // CORREÇÃO: Quando pular matéria, ela deve sair das disciplinas_do_dia
-        // e ir para o final do ciclo, mas NÃO deve ser recolocada no dia atual
-        
-        // 1. Remover matéria pulada das disciplinas do dia (ela sai definitivamente do dia)
-        const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
-        
-        // 2. Mover matéria pulada para o final do ciclo atual (para ser estudada em outro dia)
-        let updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
-        updatedCicloAtual.push(subjectId);
+        // PULAR MATÉRIA: manter no ciclo, incrementar índice, remover do dia
+        const newDisciplinasDodia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+        const currentIndex = userCycle.indice_atual || 0;
+        const newIndex = currentIndex + 1;
 
-        console.log('🔵 PULAR MATÉRIA - Lógica corrigida:', {
+        console.log('🔵 PULAR MATÉRIA - Nova lógica:', {
           subjectId,
           subjectName: subject.name,
           disciplinas_do_dia_antes: userCycle.disciplinas_do_dia.length,
-          disciplinas_do_dia_depois: newDisciplinasDoDia.length,
-          ciclo_atual_antes: userCycle.ciclo_atual.length,
-          ciclo_atual_depois: updatedCicloAtual.length,
-          acao: 'materia_removida_do_dia_e_movida_para_final_do_ciclo'
+          disciplinas_do_dia_depois: newDisciplinasDodia.length,
+          indice_atual_antes: currentIndex,
+          indice_atual_depois: newIndex,
+          ciclo_atual: userCycle.ciclo_atual.length
         });
 
-        // 3. CORREÇÃO: Não avançar o índice quando pular - manter a matéria no ciclo
-        // A matéria vai para o final do ciclo e o índice permanece o mesmo
-        
-        console.log('📍 Matéria pulada - mantendo no ciclo e removendo do dia:', {
-          indice_atual: userCycle.indice_atual,
+        console.log('📍 Matéria pulada - incrementando índice:', {
+          indice_atual_antes: currentIndex,
+          indice_atual_depois: newIndex,
           materia_pulada: subject.name,
-          acao: 'manter_indice_mover_para_final_do_ciclo'
+          acao: 'incrementar_indice_manter_no_ciclo'
         });
 
         const { error: updateError } = await supabase
           .from('user_cycles')
           .update({
-            ciclo_atual: updatedCicloAtual,
-            disciplinas_do_dia: newDisciplinasDoDia,
+            disciplinas_do_dia: newDisciplinasDodia,
+            indice_atual: newIndex,
             atualizado_em: new Date().toISOString()
           })
           .eq('user_id', user.id);
@@ -141,40 +134,36 @@ export const useSessionCompletion = () => {
 
       console.log('🔵 Sessão concluída - movendo matéria para próximo ciclo');
       
-      // CORREÇÃO: Quando concluir sessão, mover para materias_pendentes (próximo ciclo)
+      // CONCLUIR SESSÃO: remover do ciclo atual e do dia, adicionar a pendentes
+      const newCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
+      const newDisciplinasDodia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
       
-      // 1. Remover a matéria concluída das disciplinas do dia
-      const newDisciplinasDoDia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
-      
-      // 2. Remover do ciclo atual
-      let updatedCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
-      
-      // 3. Adicionar às matérias pendentes (próximo ciclo)
-      let updatedMateriasPendentes = userCycle.materias_pendentes || [];
-      if (!updatedMateriasPendentes.includes(subjectId)) {
-        updatedMateriasPendentes.push(subjectId);
-      }
+      // Adicionar à lista de matérias pendentes para próximo ciclo
+      const materiasPendentes = userCycle.materias_pendentes || [];
+      const newMateriasPendentes = materiasPendentes.includes(subjectId) 
+        ? materiasPendentes 
+        : [...materiasPendentes, subjectId];
 
-      console.log('🔵 Atualizando ciclo:', {
+      // NÃO alterar indice_atual - próxima matéria assume a posição
+      console.log('🔵 CONCLUIR SESSÃO - Atualizando ciclo:', {
         subjectId,
         subject: subject.name,
         topicsMarkedForReview: topicsToReview.length,
         cicloAtual_antes: userCycle.ciclo_atual.length,
-        cicloAtual_depois: updatedCicloAtual.length,
-        disciplinasDoDia_antes: userCycle.disciplinas_do_dia.length,
-        disciplinasDoDia_depois: newDisciplinasDoDia.length,
-        materiasPendentes_antes: (userCycle.materias_pendentes || []).length,
-        materiasPendentes_depois: updatedMateriasPendentes.length,
-        action: 'materia_movida_para_final_e_proximas_subiram'
+        cicloAtual_depois: newCicloAtual.length,
+        materiasPendentes_antes: materiasPendentes.length,
+        materiasPendentes_depois: newMateriasPendentes.length,
+        indice_atual: userCycle.indice_atual,
+        acao: 'mover_para_materias_pendentes'
       });
       
       console.log('🔵 Atualizando banco de dados...');
       const { error: updateError } = await supabase
         .from('user_cycles')
         .update({
-          ciclo_atual: updatedCicloAtual,
-          disciplinas_do_dia: newDisciplinasDoDia,
-          materias_pendentes: updatedMateriasPendentes,
+          ciclo_atual: newCicloAtual,
+          disciplinas_do_dia: newDisciplinasDodia,
+          materias_pendentes: newMateriasPendentes,
           atualizado_em: new Date().toISOString()
         })
         .eq('user_id', user.id);

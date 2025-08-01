@@ -146,42 +146,30 @@ export const useNextDay = () => {
         return;
       }
 
-      // CORREÇÃO: Usar indice_atual para selecionar próximas matérias
-      let nextBatchIds = [];
-      const startIndex = userCycle.indice_atual || 0;
-      let currentIndex = startIndex;
-      let subjectsFound = 0;
-
-      console.log('📍 Seleção baseada no índice atual:', {
-        indice_atual: userCycle.indice_atual,
-        startIndex,
-        cycleLength: userCycle.ciclo_atual.length,
-        availableInCycle: availableSubjectsInCycle.length
+      // Usar indice_atual para determinar próximas matérias do ciclo
+      const currentIndex = userCycle.indice_atual || 0;
+      console.log('🔄 Selecionando próximas matérias baseado no índice:', {
+        indice_atual: currentIndex,
+        ciclo_atual_length: userCycle.ciclo_atual.length,
+        subjects_per_day: subjectsPerDay
       });
 
-      // Selecionar matérias sequencialmente a partir do índice atual
-      while (subjectsFound < subjectsPerDay && subjectsFound < availableSubjectsInCycle.length) {
-        const subjectId = userCycle.ciclo_atual[currentIndex];
-        const isAvailable = availableSubjectsInCycle.includes(subjectId);
+      const nextBatchIds = [];
+      
+      // Selecionar matérias sequencialmente a partir do índice atual do ciclo
+      for (let i = 0; i < subjectsPerDay && nextBatchIds.length < subjectsPerDay; i++) {
+        const targetIndex = currentIndex + i;
         
-        console.log(`🔍 Verificando matéria ${subjectId} (índice ${currentIndex}):`, {
-          isAvailable,
-          subjectName: subjects.find(s => s.id === subjectId)?.name || 'NOT_FOUND'
-        });
-        
-        if (isAvailable) {
-          nextBatchIds.push(subjectId);
-          subjectsFound++;
-          console.log(`✅ Matéria ${subjectId} selecionada (${subjectsFound}/${subjectsPerDay})`);
-        }
-        
-        // Avançar para o próximo índice (circular)
-        currentIndex = (currentIndex + 1) % userCycle.ciclo_atual.length;
-        
-        // Evitar loop infinito
-        if (currentIndex === startIndex && subjectsFound === 0) {
-          console.log('⚠️ Nenhuma matéria disponível encontrada em todo o ciclo');
-          break;
+        // Se ainda há matérias no ciclo atual
+        if (targetIndex < userCycle.ciclo_atual.length) {
+          const subjectId = userCycle.ciclo_atual[targetIndex];
+          const subject = subjects.find(s => s.id === subjectId);
+          
+          if (subject && subject.status !== 'Concluída' && subject.topics && subject.topics.length > 0) {
+            console.log(`🔍 Matéria do ciclo [${targetIndex}]: ${subject.name}`);
+            nextBatchIds.push(subjectId);
+            console.log(`✅ Matéria ${subjectId} adicionada ao próximo lote (${nextBatchIds.length}/${subjectsPerDay})`);
+          }
         }
       }
 
@@ -192,23 +180,14 @@ export const useNextDay = () => {
         materias: nextBatchIds.map(id => subjects.find(s => s.id === id)?.name || 'NOT_FOUND')
       });
 
-      // CORREÇÃO: Calcular novo índice baseado na progressão natural
-      let newIndex;
-      
-      if (nextBatchIds.length === 0) {
-        // Se nenhuma matéria foi selecionada, manter o índice atual
-        newIndex = startIndex;
-      } else {
-        // Avançar o índice baseado na última matéria selecionada
-        const lastSelectedSubjectId = nextBatchIds[nextBatchIds.length - 1];
-        const lastSelectedIndex = userCycle.ciclo_atual.indexOf(lastSelectedSubjectId);
-        newIndex = (lastSelectedIndex + 1) % userCycle.ciclo_atual.length;
-      }
+      // Atualizar índice - avançar baseado nas matérias selecionadas
+      const newIndex = Math.min(currentIndex + nextBatchIds.length, userCycle.ciclo_atual.length);
 
-      console.log('📍 Novo índice calculado:', {
-        startIndex,
-        newIndex,
-        selectedCount: nextBatchIds.length
+      console.log('📊 Atualizando índice do ciclo:', {
+        indice_atual_antes: currentIndex,
+        indice_atual_depois: newIndex,
+        materias_selecionadas: nextBatchIds.length,
+        ciclo_length: userCycle.ciclo_atual.length
       });
 
       // Atualizar disciplinas_do_dia com as próximas matérias E o novo índice
