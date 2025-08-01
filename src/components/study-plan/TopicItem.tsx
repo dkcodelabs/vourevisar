@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { SubtopicsList } from '@/components/ui/subtopics-list';
 import { Check, X } from 'lucide-react';
@@ -74,7 +73,7 @@ const TopicItem: React.FC<TopicItemProps> = ({
 
   return (
     <>
-      <motion.div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 rounded bg-white/60">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 rounded bg-white/60">
         <div className="flex flex-col gap-1 w-full">
           <span className="text-sm font-medium text-gray-800">{topic.name}</span>
           <SubtopicsList subtopics={topic.subtopics || []} style="badges" />
@@ -108,7 +107,7 @@ const TopicItem: React.FC<TopicItemProps> = ({
             </Button>
           )}
         </div>
-      </motion.div>
+      </div>
 
       <NotesModal
         isOpen={isNotesModalOpen}

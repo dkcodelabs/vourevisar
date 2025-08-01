@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import StudyPlanHeader from './StudyPlanHeader';
 import NewCycleMessage from './NewCycleMessage';
@@ -13,28 +12,6 @@ import StudyPlanMainView from './StudyPlanMainView';
 import StudyPlanLoadingState from './StudyPlanLoadingState';
 import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import { useApp } from '@/contexts/AppContext';
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
-
-const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      stiffness: 100
-    }
-  }
-};
 
 const StudyPlanContent = () => {
   const navigate = useNavigate();
@@ -105,39 +82,26 @@ const StudyPlanContent = () => {
 
   return (
     <div className="container mx-auto min-h-screen bg-slate-50 px-2 sm:px-4 md:px-8">
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="py-8 space-y-6"
-      >
+      <div className="py-8 space-y-6">
         {/* <StudyPlanHeader onNextDay={handleNextDay} /> */}
         
         <NewCycleMessage isVisible={showNewCycleStarted} onHide={() => {}} />
         
         {allStudiesCompleted ? (
-          <motion.div variants={itemVariants}>
-            <AllStudiesCompletedMessage />
-          </motion.div>
+          <AllStudiesCompletedMessage />
         ) : allTopicsInReview ? (
-          <motion.div variants={itemVariants}>
-            <AllTopicsInReviewMessage />
-          </motion.div>
+          <AllTopicsInReviewMessage />
         ) : isCycleCompleted ? (
-          <motion.div variants={itemVariants}>
-            <CycleCompletedMessage onStartNewCycle={handleStartNewCycle} />
-          </motion.div>
+          <CycleCompletedMessage onStartNewCycle={handleStartNewCycle} />
         ) : !hasAvailableSubjects ? (
           <StudyPlanEmptyState type="no-subjects" />
         ) : allDaySubjectsCompleted ? (
-          <motion.div variants={itemVariants}>
-            <DayCompletedMessage 
-              onNextDay={handleNextDay} 
-              onStartNewCycle={() => {}} 
-              isLoading={isNextDayLoading}
-              hasMoreSubjectsInCycle={nextSubjects.length > 0}
-            />
-          </motion.div>
+          <DayCompletedMessage 
+            onNextDay={handleNextDay} 
+            onStartNewCycle={() => {}} 
+            isLoading={isNextDayLoading}
+            hasMoreSubjectsInCycle={nextSubjects.length > 0}
+          />
         ) : dailySubjects.length === 0 && nextSubjects.length > 0 ? (
           <StudyPlanEmptyState 
             type="no-subjects-but-pending" 
@@ -172,7 +136,7 @@ const StudyPlanContent = () => {
         {!hasTopics && hasSubjects && (
           <StudyPlanEmptyState type="no-topics" />
         )}
-      </motion.div>
+      </div>
     </div>
   );
 };

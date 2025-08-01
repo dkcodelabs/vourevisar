@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, FileText, Edit3, CheckCircle } from 'lucide-react';
 import { differenceInDays, startOfDay } from 'date-fns';
 import { Subject } from '@/types';
+import { SubtopicsList } from '@/components/ui/subtopics-list';
 import { ReviewConfirmDialog } from './ReviewConfirmDialog';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
@@ -268,13 +269,18 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                             : undefined
                                                     }}
                                                 >
-                                                    <div className="flex-1 min-w-0 ml-7">
-                                                        <div className={`font-medium truncate ${
-                                                            isHighlighted ? 'text-yellow-900' : 'text-gray-800'
-                                                        }`}>
-                                                            {topic.name}
-                                                        </div>
-                                                    </div>
+                                    <div className="flex-1 min-w-0 ml-7">
+                                        <div className={`font-medium truncate ${
+                                            isHighlighted ? 'text-yellow-900' : 'text-gray-800'
+                                        }`}>
+                                            {topic.name}
+                                        </div>
+                                        {topic.subtopics && topic.subtopics.length > 0 && (
+                                            <div className="mt-1">
+                                                <SubtopicsList subtopics={topic.subtopics} style="badges" />
+                                            </div>
+                                        )}
+                                    </div>
 
                                                     <div className="flex flex-col items-end min-w-[60px] text-xs font-medium">
                                                         <span className="text-gray-600">Revisões</span>

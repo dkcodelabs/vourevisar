@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import CycleInfo from './CycleInfo';
 import SubjectCard from './SubjectCard';
 import NextSubjects from './NextSubjects';
@@ -34,17 +33,6 @@ interface StudyPlanMainViewProps {
   onCompleteSession: (subjectId: string) => void;
 }
 
-const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      stiffness: 100
-    }
-  }
-};
 
 const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
   userCycle,
@@ -68,20 +56,18 @@ const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
 }) => {
   return (
     <>
-      <motion.div variants={itemVariants}>
-        <CycleInfo 
-          userCycle={userCycle}
-          disciplinasConcluidas={disciplinasConcluidas}
-          totalDisciplinasCiclo={totalDisciplinasCiclo}
-          isNewCycleStarted={showNewCycleStarted}
-          disciplinasIniciadasCiclo={disciplinasIniciadasCiclo}
-          disciplinasNaoIniciadas={disciplinasNaoIniciadas}
-        />
-      </motion.div>
+      <CycleInfo 
+        userCycle={userCycle}
+        disciplinasConcluidas={disciplinasConcluidas}
+        totalDisciplinasCiclo={totalDisciplinasCiclo}
+        isNewCycleStarted={showNewCycleStarted}
+        disciplinasIniciadasCiclo={disciplinasIniciadasCiclo}
+        disciplinasNaoIniciadas={disciplinasNaoIniciadas}
+      />
       
       <div className="space-y-4">
         {dailySubjects.map((subject) => (
-          <motion.div key={subject.id} variants={itemVariants}>
+          <div key={subject.id}>
             <SubjectCard
               subject={subject}
               isExpanded={expandedSubject === subject.id}
@@ -92,14 +78,12 @@ const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
               onCompleteSession={onCompleteSession}
               isDaySubject={true}
             />
-          </motion.div>
+          </div>
         ))}
       </div>
 
       {Object.values(subjectsByStatus).some(arr => arr.length > 0) && !allDaySubjectsCompleted && !isCycleCompleted && !allTopicsInReview && dailySubjects.length > 0 && (
-        <motion.div variants={itemVariants}>
-          <NextSubjects subjectsByStatus={subjectsByStatus} />
-        </motion.div>
+        <NextSubjects subjectsByStatus={subjectsByStatus} />
       )}
     </>
   );

@@ -277,6 +277,14 @@ const Revisoes = () => {
             refetch();
           }, 200);
         }}
+        onSave={() => {
+          setNotesModalData(prev => ({ ...prev, isOpen: false }));
+          // Refresh both the reviews data and the main app context data
+          setTimeout(async () => {
+            await refreshData();
+            refetch();
+          }, 200);
+        }}
         topicId={notesModalData.topicId}
         topicName={notesModalData.topicName}
         subjectName={notesModalData.subjectName}
