@@ -485,18 +485,36 @@ const Settings = () => {
                           <div>
                             <span className="font-medium">Data Início: </span>
                             <span className="text-muted-foreground">
-                              {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy')}
+                              {userCycle.data_inicio_ciclo ? format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy') : 'Não iniciado'}
                             </span>
                           </div>
-                          {userCycle.data_fim_ciclo && (
-                            <div>
-                              <span className="font-medium">Data Último Ciclo: </span>
-                              <span className="text-muted-foreground">
-                                {format(new Date(userCycle.data_fim_ciclo), 'dd/MM/yyyy')}
-                              </span>
-                            </div>
-                          )}
+                          <div>
+                            <span className="font-medium">Data Último Ciclo: </span>
+                            <span className="text-muted-foreground">
+                              {userCycle.data_fim_ciclo ? format(new Date(userCycle.data_fim_ciclo), 'dd/MM/yyyy') : 'Nenhum ciclo concluído'}
+                            </span>
+                          </div>
                         </div>
+
+                        <Button
+                          variant="destructive"
+                          onClick={handleResetCycle}
+                          disabled={isResettingCycle}
+                          className="w-full"
+                          size="sm"
+                        >
+                          {isResettingCycle ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Resetando...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Resetar Ciclo
+                            </>
+                          )}
+                        </Button>
                       </div>
                     ) : (
                       <div className="text-center py-4">
