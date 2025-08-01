@@ -59,24 +59,22 @@ export const generateNextDay = async (
     return { shouldShowNewCycleMessage: true };
   }
 
-  // CORREÇÃO PRINCIPAL: Usar o índice_atual para continuar do ponto correto
+  // CORREÇÃO PRINCIPAL: Seleção sequencial a partir do índice atual
   let nextBatchIds = [];
   const startIndex = userCycle.indice_atual || 0;
+  let currentIndex = startIndex;
+  let subjectsFound = 0;
 
-  console.log('📍 Usando índice atual do ciclo:', {
+  console.log('📍 Iniciando seleção sequencial:', {
     indice_atual: userCycle.indice_atual,
     startIndex,
-    cycleLength: userCycle.ciclo_atual.length
+    cycleLength: userCycle.ciclo_atual.length,
+    availableSubjects: availableSubjects.length
   });
 
-  console.log('📍 Índice de início no ciclo:', startIndex);
-
-  // Iterar pelo ciclo a partir do índice de início
-  for (let i = 0; i < userCycle.ciclo_atual.length && nextBatchIds.length < subjectsPerDay; i++) {
-    const currentIndex = (startIndex + i) % userCycle.ciclo_atual.length;
+  // Selecionar matérias sequencialmente a partir do índice atual
+  while (subjectsFound < subjectsPerDay && subjectsFound < availableSubjects.length) {
     const subjectId = userCycle.ciclo_atual[currentIndex];
-    
-    // Verificar se a matéria está disponível
     const isAvailable = availableSubjects.some(s => s.id === subjectId);
     
     console.log(`🔍 Verificando matéria ${subjectId} (índice ${currentIndex}):`, {
@@ -86,24 +84,17 @@ export const generateNextDay = async (
     
     if (isAvailable) {
       nextBatchIds.push(subjectId);
-      console.log(`✅ Matéria ${subjectId} adicionada ao próximo lote (${nextBatchIds.length}/${subjectsPerDay})`);
+      subjectsFound++;
+      console.log(`✅ Matéria ${subjectId} selecionada (${subjectsFound}/${subjectsPerDay})`);
     }
-  }
-
-  // Se não conseguiu preencher o lote completo, tentar pegar matérias do início do ciclo
-  if (nextBatchIds.length < subjectsPerDay && availableSubjects.length > nextBatchIds.length) {
-    console.log('🔄 Tentando completar lote com matérias do início do ciclo...');
     
-    for (const subjectId of userCycle.ciclo_atual) {
-      if (nextBatchIds.length >= subjectsPerDay) break;
-      
-      const isAvailable = availableSubjects.some(s => s.id === subjectId);
-      const notInBatch = !nextBatchIds.includes(subjectId);
-      
-      if (isAvailable && notInBatch) {
-        nextBatchIds.push(subjectId);
-        console.log(`✅ Matéria ${subjectId} adicionada para completar lote (${nextBatchIds.length}/${subjectsPerDay})`);
-      }
+    // Avançar para o próximo índice (circular)
+    currentIndex = (currentIndex + 1) % userCycle.ciclo_atual.length;
+    
+    // Evitar loop infinito se der uma volta completa
+    if (currentIndex === startIndex && subjectsFound === 0) {
+      console.log('⚠️ Nenhuma matéria disponível encontrada em todo o ciclo');
+      break;
     }
   }
 
@@ -116,14 +107,24 @@ export const generateNextDay = async (
     quantidadeConfigurada: subjectsPerDay
   });
 
-  // Calcular novo índice para a próxima seleção
-  const newIndex = nextBatchIds.length > 0 
-    ? (startIndex + nextBatchIds.length) % userCycle.ciclo_atual.length 
-    : startIndex;
+  // CORREÇÃO: Calcular novo índice baseado na progressão natural
+  let newIndex;
+  
+  if (nextBatchIds.length === 0) {
+    // Se nenhuma matéria foi selecionada, manter o índice atual
+    newIndex = startIndex;
+  } else {
+    // Avançar o índice baseado no número de matérias PROCESSADAS (incluindo indisponíveis)
+    // Encontrar a posição da última matéria selecionada no ciclo
+    const lastSelectedSubjectId = nextBatchIds[nextBatchIds.length - 1];
+    const lastSelectedIndex = userCycle.ciclo_atual.indexOf(lastSelectedSubjectId);
+    newIndex = (lastSelectedIndex + 1) % userCycle.ciclo_atual.length;
+  }
 
-  console.log('📍 Atualizando índice atual:', {
+  console.log('📍 Calculando novo índice:', {
     startIndex,
     selectedSubjects: nextBatchIds.length,
+    lastSelectedSubject: nextBatchIds[nextBatchIds.length - 1],
     newIndex
   });
 

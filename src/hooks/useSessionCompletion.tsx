@@ -95,12 +95,21 @@ export const useSessionCompletion = () => {
           acao: 'materia_removida_do_dia_e_movida_para_final_do_ciclo'
         });
 
-        // 3. Atualizar banco de dados (manter índice intacto)
+        // 3. CORREÇÃO: Avançar o indice_atual quando pular uma matéria
+        const newIndiceAtual = (userCycle.indice_atual + 1) % userCycle.ciclo_atual.length;
+        
+        console.log('📍 Atualizando índice após pular matéria:', {
+          indice_antigo: userCycle.indice_atual,
+          indice_novo: newIndiceAtual,
+          materia_pulada: subject.name
+        });
+
         const { error: updateError } = await supabase
           .from('user_cycles')
           .update({
             ciclo_atual: updatedCicloAtual,
             disciplinas_do_dia: newDisciplinasDoDia,
+            indice_atual: newIndiceAtual,
             atualizado_em: new Date().toISOString()
           })
           .eq('user_id', user.id);
