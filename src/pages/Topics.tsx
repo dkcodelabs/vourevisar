@@ -130,6 +130,16 @@ const Topics = () => {
     const medium = allTopics.filter(topic => topic.difficulty_level === 'medium').length;
     const hard = allTopics.filter(topic => topic.difficulty_level === 'hard').length;
 
+    // Debug log para verificar se os dados estão sendo carregados corretamente
+    console.log('Stats debug:', {
+      totalTopics: allTopics.length,
+      samplesWithDifficulty: allTopics.filter(t => t.difficulty_level).slice(0, 3).map(t => ({
+        name: t.name,
+        difficulty: t.difficulty_level
+      })),
+      counts: { easy, medium, hard }
+    });
+
     return {
       total: allTopics.length,
       delayed,
@@ -301,7 +311,7 @@ const Topics = () => {
                       : 'Nenhum tópico cadastrado ainda.'
                     }
                   </p>
-                  {!searchTerm && statusFilter === 'all' && (
+                  {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && (
                     <Button onClick={() => window.location.href = '/materias'} className="bg-blue-600 hover:bg-blue-700">
                       <Plus className="h-4 w-4 mr-2" />
                       Adicionar Primeira Matéria

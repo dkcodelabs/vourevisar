@@ -71,27 +71,6 @@ const NotesModal: React.FC<NotesModalProps> = ({
     }
   };
 
-  const saveDifficultyOnly = async (newDifficulty: DifficultyLevel | null) => {
-    if (!topicId) return;
-    
-    try {
-      const { error } = await supabase
-        .from('topics')
-        .update({
-          difficulty_level: newDifficulty,
-          difficulty_set_at: newDifficulty ? new Date().toISOString() : null
-        })
-        .eq('id', topicId);
-
-      if (error) throw error;
-      
-      toast.success('Dificuldade salva!');
-      await refreshData(); // Atualizar dados do contexto
-    } catch (error) {
-      console.error('Error saving difficulty:', error);
-      toast.error('Erro ao salvar dificuldade');
-    }
-  };
 
   const saveNotes = async (updatedNotes: TopicNotes) => {
     setIsSaving(true);
@@ -112,7 +91,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
       setNotes(updatedNotes);
       setHasUnsavedChanges(false);
-      toast.success('Anotações salvas com sucesso!');
+      toast.success('Dados salvos com sucesso!');
       
       // Refresh dos dados do AppContext para atualizar a página de tópicos
       await refreshData();
@@ -125,26 +104,22 @@ const NotesModal: React.FC<NotesModalProps> = ({
     }
   };
 
-  const handleSaveAndClose = async () => {
-    if (hasUnsavedChanges) {
-      try {
-        // Forçar salvamento antes de fechar
-        const editorComponent = document.querySelector('.ql-editor');
-        if (editorComponent) {
-          const content = editorComponent.innerHTML;
-          const notesToSave: TopicNotes = {
-            content: content.trim(),
-            updatedAt: new Date().toISOString(),
-            createdAt: notes?.createdAt || new Date().toISOString()
-          };
-          await saveNotes(notesToSave);
-        }
-      } catch (error) {
-        console.error('Erro ao salvar antes de fechar:', error);
-        return; // Não fechar se houve erro ao salvar
+  const handleSaveOnly = async () => {
+    try {
+      // Forçar salvamento sem fechar
+      const editorComponent = document.querySelector('.ql-editor');
+      if (editorComponent) {
+        const content = editorComponent.innerHTML;
+        const notesToSave: TopicNotes = {
+          content: content.trim(),
+          updatedAt: new Date().toISOString(),
+          createdAt: notes?.createdAt || new Date().toISOString()
+        };
+        await saveNotes(notesToSave);
       }
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
     }
-    onClose();
   };
 
   const handleNotesChange = () => {
@@ -220,7 +195,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
               <Button
                 variant="default"
                 size="sm"
-                onClick={handleSaveAndClose}
+                onClick={handleSaveOnly}
                 className="flex items-center gap-2"
                 disabled={isSaving}
               >
@@ -280,7 +255,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
                     onClick={() => {
                       const newDifficulty = difficulty === 'easy' ? null : 'easy';
                       setDifficulty(newDifficulty);
-                      saveDifficultyOnly(newDifficulty);
+                      setHasUnsavedChanges(true);
                     }}
                   >
                     <ThumbsUp className="h-4 w-4 mr-2" />
@@ -293,7 +268,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
                     onClick={() => {
                       const newDifficulty = difficulty === 'medium' ? null : 'medium';
                       setDifficulty(newDifficulty);
-                      saveDifficultyOnly(newDifficulty);
+                      setHasUnsavedChanges(true);
                     }}
                   >
                     <Minus className="h-4 w-4 mr-2" />
@@ -306,7 +281,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
                     onClick={() => {
                       const newDifficulty = difficulty === 'hard' ? null : 'hard';
                       setDifficulty(newDifficulty);
-                      saveDifficultyOnly(newDifficulty);
+                      setHasUnsavedChanges(true);
                     }}
                   >
                     <ThumbsDown className="h-4 w-4 mr-2" />
