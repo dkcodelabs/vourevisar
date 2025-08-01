@@ -224,7 +224,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className={`${isMobile ? 'flex-1 overflow-auto p-4' : 'p-6 pt-2 overflow-auto'} bg-gray-50`}>
+        <div className={`${isMobile ? 'flex-1 overflow-y-auto p-4' : 'p-6 pt-2 overflow-y-auto max-h-[calc(90vh-8rem)]'} bg-gray-50`}>
           {isLoading ? (
             <div className="flex justify-center items-center h-32">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -314,7 +314,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
                 </div>
 
                 {subtopics.length > 0 && (
-                  <div className="max-h-48 overflow-y-auto space-y-2 border rounded-lg p-2 bg-white">
+                  <div className="space-y-2 border rounded-lg p-2 bg-white">
                     {subtopics.map((subtopic) => (
                       <div
                         key={subtopic.id}

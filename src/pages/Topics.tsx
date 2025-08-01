@@ -79,9 +79,13 @@ const Topics = () => {
 
     // Aplicar filtro de dificuldade
     if (difficultyFilter !== 'all') {
+      console.log('Filtro de dificuldade ativo:', difficultyFilter);
+      console.log('Tópicos antes do filtro:', filtered.map(t => ({ name: t.name, difficulty: t.difficulty_level })));
       filtered = filtered.filter(topic => {
+        console.log(`Comparando: ${topic.difficulty_level} === ${difficultyFilter}`, topic.difficulty_level === difficultyFilter);
         return topic.difficulty_level === difficultyFilter;
       });
+      console.log('Tópicos após filtro:', filtered.length);
     }
 
     // Aplicar ordenação
