@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
 import { Topic } from '@/types';
-import ReviewModal from './ReviewModal';
+import NotesModal from '@/components/reviews/NotesModal';
 
 interface TopicItemProps {
   topic: Topic;
@@ -21,7 +21,7 @@ const TopicItem: React.FC<TopicItemProps> = ({
   onMarkTopicForReview,
   onCancelTopicReview
 }) => {
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const getTopicReviewStage = (topic: Topic) => {
     // Log para debug
     console.log(`🔍 Tópico "${topic.name}":`, {
@@ -50,11 +50,12 @@ const TopicItem: React.FC<TopicItemProps> = ({
   const handleMarkForReview = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsReviewModalOpen(true);
+    setIsNotesModalOpen(true);
   };
 
-  const handleReviewSave = () => {
-    // Trigger refresh of data
+  const handleNotesClose = () => {
+    setIsNotesModalOpen(false);
+    // Trigger refresh by calling mark for review after saving
     onMarkTopicForReview(subjectId, topic.id);
   };
 
@@ -102,12 +103,12 @@ const TopicItem: React.FC<TopicItemProps> = ({
         </div>
       </motion.div>
 
-      <ReviewModal
-        topic={topic}
-        subjectId={subjectId}
-        isOpen={isReviewModalOpen}
-        onClose={() => setIsReviewModalOpen(false)}
-        onSave={handleReviewSave}
+      <NotesModal
+        isOpen={isNotesModalOpen}
+        onClose={handleNotesClose}
+        topicId={topic.id}
+        topicName={topic.name}
+        subjectName="Matéria" 
       />
     </>
   );

@@ -2,9 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { X, Save } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { X, Save, ThumbsUp, Minus, ThumbsDown, Plus } from 'lucide-react';
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
-import { TopicNotes } from '@/types';
+import { TopicNotes, DifficultyLevel, TopicSubtopic } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -26,6 +28,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
   subjectName
 }) => {
   const [notes, setNotes] = useState<TopicNotes | undefined>(undefined);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel | null>(null);
+  const [subtopics, setSubtopics] = useState<TopicSubtopic[]>([]);
+  const [newSubtopic, setNewSubtopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -44,7 +49,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
     try {
       const { data, error } = await supabase
         .from('topics')
-        .select('notes')
+        .select('notes, difficulty_level, subtopics, difficulty_set_at')
         .eq('id', topicId)
         .single();
 
@@ -55,6 +60,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
       } else {
         setNotes(undefined);
       }
+      
+      setDifficulty((data?.difficulty_level as DifficultyLevel) || null);
+      setSubtopics((data?.subtopics as unknown as TopicSubtopic[]) || []);
     } catch (error) {
       console.error('Erro ao carregar anotações:', error);
       toast.error('Erro ao carregar anotações');
@@ -66,9 +74,16 @@ const NotesModal: React.FC<NotesModalProps> = ({
   const saveNotes = async (updatedNotes: TopicNotes) => {
     setIsSaving(true);
     try {
+      const updates: any = {
+        notes: updatedNotes as any,
+        difficulty_level: difficulty,
+        subtopics: subtopics,
+        difficulty_set_at: difficulty ? new Date().toISOString() : null
+      };
+
       const { error } = await supabase
         .from('topics')
-        .update({ notes: updatedNotes as any })
+        .update(updates)
         .eq('id', topicId);
 
       if (error) throw error;
@@ -112,6 +127,42 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
   const handleNotesChange = () => {
     setHasUnsavedChanges(true);
+  };
+
+  const handleAddSubtopic = () => {
+    if (newSubtopic.trim()) {
+      const subtopic: TopicSubtopic = {
+        id: crypto.randomUUID(),
+        name: newSubtopic.trim(),
+        addedAt: new Date().toISOString()
+      };
+      setSubtopics([...subtopics, subtopic]);
+      setNewSubtopic('');
+      setHasUnsavedChanges(true);
+    }
+  };
+
+  const handleRemoveSubtopic = (id: string) => {
+    setSubtopics(subtopics.filter(s => s.id !== id));
+    setHasUnsavedChanges(true);
+  };
+
+  const getDifficultyButtonStyle = (level: DifficultyLevel) => {
+    const isSelected = difficulty === level;
+    switch (level) {
+      case 'easy':
+        return isSelected 
+          ? 'bg-green-500 text-white border-green-500' 
+          : 'border-green-200 text-green-600 hover:bg-green-50';
+      case 'medium':
+        return isSelected 
+          ? 'bg-yellow-500 text-white border-yellow-500' 
+          : 'border-yellow-200 text-yellow-600 hover:bg-yellow-50';
+      case 'hard':
+        return isSelected 
+          ? 'bg-red-500 text-white border-red-500' 
+          : 'border-red-200 text-red-600 hover:bg-red-50';
+    }
   };
 
   return (
@@ -168,12 +219,110 @@ const NotesModal: React.FC<NotesModalProps> = ({
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           ) : (
-            <RichTextNotesEditor
-              notes={notes}
-              onSave={saveNotes}
-              isLoading={isLoading || isSaving}
-              onChange={handleNotesChange}
-            />
+            <div className="space-y-6">
+              {/* Anotações */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">
+                  📝 Anotações
+                </Label>
+                <RichTextNotesEditor
+                  notes={notes}
+                  onSave={saveNotes}
+                  isLoading={isLoading || isSaving}
+                  onChange={handleNotesChange}
+                />
+              </div>
+
+              {/* Nível de Dificuldade */}
+              <div>
+                <Label className="text-sm font-medium mb-3 block">
+                  📊 Nível de Dificuldade
+                </Label>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={getDifficultyButtonStyle('easy')}
+                    onClick={() => {
+                      setDifficulty(difficulty === 'easy' ? null : 'easy');
+                      setHasUnsavedChanges(true);
+                    }}
+                  >
+                    <ThumbsUp className="h-4 w-4 mr-2" />
+                    Fácil
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={getDifficultyButtonStyle('medium')}
+                    onClick={() => {
+                      setDifficulty(difficulty === 'medium' ? null : 'medium');
+                      setHasUnsavedChanges(true);
+                    }}
+                  >
+                    <Minus className="h-4 w-4 mr-2" />
+                    Médio
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={getDifficultyButtonStyle('hard')}
+                    onClick={() => {
+                      setDifficulty(difficulty === 'hard' ? null : 'hard');
+                      setHasUnsavedChanges(true);
+                    }}
+                  >
+                    <ThumbsDown className="h-4 w-4 mr-2" />
+                    Difícil
+                  </Button>
+                </div>
+              </div>
+
+              {/* Subtópicos */}
+              <div>
+                <Label className="text-sm font-medium mb-3 block">
+                  📋 Subtópicos Estudados
+                </Label>
+                
+                <div className="flex gap-2 mb-3">
+                  <Input
+                    value={newSubtopic}
+                    onChange={(e) => setNewSubtopic(e.target.value)}
+                    placeholder="Adicionar subtópico..."
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddSubtopic()}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleAddSubtopic}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {subtopics.length > 0 && (
+                  <div className="space-y-2">
+                    {subtopics.map((subtopic) => (
+                      <div
+                        key={subtopic.id}
+                        className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                      >
+                        <span className="text-sm">{subtopic.name}</span>
+                        <Button
+                          onClick={() => handleRemoveSubtopic(subtopic.id)}
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
 

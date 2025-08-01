@@ -9,15 +9,8 @@ export interface TopicSubtopic {
   addedAt: string;
 }
 
-export interface ReviewData {
-  notes?: string;
-  difficulty?: DifficultyLevel;
-  subtopics: TopicSubtopic[];
-  reviewedAt: string;
-}
-
 export interface TopicNotes {
-  content?: string; // Agora é só conteúdo rico (HTML do Quill)
+  content?: string; // Conteúdo rico (HTML do Quill)
   createdAt?: string;
   updatedAt?: string;
 }
@@ -39,7 +32,6 @@ export interface Topic {
   notes?: TopicNotes;
   difficulty_level?: DifficultyLevel;
   subtopics?: TopicSubtopic[];
-  review_notes?: TopicNotes;
   difficulty_set_at?: Date;
 }
 

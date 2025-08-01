@@ -20,6 +20,7 @@ const Topics = () => {
   const { subjects, deleteTopic, updateTopic, isLoading } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<{
@@ -76,6 +77,13 @@ const Topics = () => {
       });
     }
 
+    // Aplicar filtro de dificuldade
+    if (difficultyFilter !== 'all') {
+      filtered = filtered.filter(topic => {
+        return topic.difficulty_level === difficultyFilter;
+      });
+    }
+
     // Aplicar ordenação
     filtered.sort((a, b) => {
       switch (sortBy) {
@@ -94,7 +102,7 @@ const Topics = () => {
     });
 
     return filtered;
-  }, [allTopics, searchTerm, statusFilter, sortBy]);
+  }, [allTopics, searchTerm, statusFilter, difficultyFilter, sortBy]);
 
   const stats = useMemo(() => {
     const today = startOfDay(new Date());
@@ -118,11 +126,18 @@ const Topics = () => {
       return reviewDate > today;
     }).length;
 
+    const easy = allTopics.filter(topic => topic.difficulty_level === 'easy').length;
+    const medium = allTopics.filter(topic => topic.difficulty_level === 'medium').length;
+    const hard = allTopics.filter(topic => topic.difficulty_level === 'hard').length;
+
     return {
       total: allTopics.length,
       delayed,
       today: todayTopics,
-      upcoming
+      upcoming,
+      easy,
+      medium,
+      hard
     };
   }, [allTopics]);
 
@@ -245,6 +260,19 @@ const Topics = () => {
                   <SelectItem value="delayed">Atrasados ({stats.delayed})</SelectItem>
                   <SelectItem value="today">Hoje ({stats.today})</SelectItem>
                   <SelectItem value="upcoming">Próximos ({stats.upcoming})</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Difficulty Filter */}
+              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                  <SelectValue placeholder="Dificuldade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas Dificuldades</SelectItem>
+                  <SelectItem value="easy">🟢 Fácil ({stats.easy})</SelectItem>
+                  <SelectItem value="medium">🟡 Médio ({stats.medium})</SelectItem>
+                  <SelectItem value="hard">🔴 Difícil ({stats.hard})</SelectItem>
                 </SelectContent>
               </Select>
 

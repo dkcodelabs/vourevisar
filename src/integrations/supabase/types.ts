@@ -212,7 +212,6 @@ export type Database = {
           next_review: string | null
           notes: Json | null
           review_count: number
-          review_notes: Json | null
           review_stage: string | null
           subject_id: string
           subtopics: Json | null
@@ -233,7 +232,6 @@ export type Database = {
           next_review?: string | null
           notes?: Json | null
           review_count?: number
-          review_notes?: Json | null
           review_stage?: string | null
           subject_id: string
           subtopics?: Json | null
@@ -254,7 +252,6 @@ export type Database = {
           next_review?: string | null
           notes?: Json | null
           review_count?: number
-          review_notes?: Json | null
           review_stage?: string | null
           subject_id?: string
           subtopics?: Json | null
