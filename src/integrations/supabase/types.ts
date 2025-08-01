@@ -278,6 +278,7 @@ export type Database = {
           data_inicio_ciclo: string | null
           disciplinas_do_dia: string[] | null
           id: string
+          indice_atual: number | null
           materias_pendentes: string[] | null
           skipped_subjects: string[] | null
           user_id: string
@@ -291,6 +292,7 @@ export type Database = {
           data_inicio_ciclo?: string | null
           disciplinas_do_dia?: string[] | null
           id?: string
+          indice_atual?: number | null
           materias_pendentes?: string[] | null
           skipped_subjects?: string[] | null
           user_id: string
@@ -304,6 +306,7 @@ export type Database = {
           data_inicio_ciclo?: string | null
           disciplinas_do_dia?: string[] | null
           id?: string
+          indice_atual?: number | null
           materias_pendentes?: string[] | null
           skipped_subjects?: string[] | null
           user_id?: string

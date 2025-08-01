@@ -47,19 +47,15 @@ export const generateNextDay = async (
     return { shouldShowNewCycleMessage: true };
   }
 
-  // CORREÇÃO PRINCIPAL: Selecionar próximas matérias respeitando a ORDEM do ciclo_atual
-  // Começar do índice atual no ciclo e pegar as próximas disponíveis
+  // CORREÇÃO PRINCIPAL: Usar o índice_atual para continuar do ponto correto
   let nextBatchIds = [];
-  let startIndex = 0;
+  const startIndex = userCycle.indice_atual || 0;
 
-  // Se há disciplinas do dia atual, encontrar onde parar no ciclo
-  if (userCycle.disciplinas_do_dia && userCycle.disciplinas_do_dia.length > 0) {
-    const lastSubjectInDay = userCycle.disciplinas_do_dia[userCycle.disciplinas_do_dia.length - 1];
-    const lastIndex = userCycle.ciclo_atual.indexOf(lastSubjectInDay);
-    if (lastIndex !== -1) {
-      startIndex = lastIndex + 1; // Começar depois da última matéria do dia atual
-    }
-  }
+  console.log('📍 Usando índice atual do ciclo:', {
+    indice_atual: userCycle.indice_atual,
+    startIndex,
+    cycleLength: userCycle.ciclo_atual.length
+  });
 
   console.log('📍 Índice de início no ciclo:', startIndex);
 
@@ -108,10 +104,22 @@ export const generateNextDay = async (
     quantidadeConfigurada: subjectsPerDay
   });
 
+  // Calcular novo índice para a próxima seleção
+  const newIndex = nextBatchIds.length > 0 
+    ? (startIndex + nextBatchIds.length) % userCycle.ciclo_atual.length 
+    : startIndex;
+
+  console.log('📍 Atualizando índice atual:', {
+    startIndex,
+    selectedSubjects: nextBatchIds.length,
+    newIndex
+  });
+
   const { error } = await supabase
     .from('user_cycles')
     .update({
       disciplinas_do_dia: nextBatchIds,
+      indice_atual: newIndex,
       atualizado_em: new Date().toISOString()
     })
     .eq('user_id', userId);
@@ -147,6 +155,7 @@ export const loadUserCycle = async (userId: string) => {
       disciplinas_do_dia: [],
       materias_pendentes: [],
       ciclos_realizados: 0,
+      indice_atual: 0,
       data_inicio_ciclo: new Date().toISOString(),
       data_fim_ciclo: null,
       atualizado_em: new Date().toISOString(),
@@ -162,6 +171,7 @@ export const loadUserCycle = async (userId: string) => {
       disciplinas_do_dia: [],
       materias_pendentes: [],
       ciclos_realizados: 0,
+      indice_atual: 0,
       data_inicio_ciclo: new Date().toISOString(),
       data_fim_ciclo: null,
       atualizado_em: new Date().toISOString(),

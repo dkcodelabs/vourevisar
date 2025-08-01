@@ -80,6 +80,7 @@ export interface UserCycle {
   disciplinas_do_dia: string[];
   materias_pendentes: string[];
   ciclos_realizados: number;
+  indice_atual?: number;
   data_inicio_ciclo: string;
   data_fim_ciclo: string | null;
   atualizado_em: string;
