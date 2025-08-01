@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SubtopicsList } from "@/components/ui/subtopics-list";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, FileText, Edit3, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { format, differenceInDays, startOfDay } from 'date-fns';
@@ -225,12 +226,13 @@ export const ReviewsGrouped: React.FC<ReviewsGroupedProps> = ({
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-2 mb-2">
                                                                 <span className="text-lg">{getStatusIcon(status)}</span>
-                                                                <h4 className="font-medium text-gray-900 truncate">
-                                                                    {topic.name}
-                                                                </h4>
-                                                            </div>
+                                                <h4 className="font-medium text-gray-900 truncate">
+                                                    {topic.name}
+                                                </h4>
+                                            </div>
+                                            <SubtopicsList subtopics={topic.subtopics || []} style="badges" className="ml-6" />
 
-                                                            <div className="flex items-center gap-4 text-xs text-gray-600">
+                                            <div className="flex items-center gap-4 text-xs text-gray-600">
                                                                 <div className="flex items-center gap-1">
                                                                     <AlertTriangle className="h-3 w-3" />
                                                                     <span>{statusText}</span>

@@ -34,7 +34,7 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: -20, opacity: 0 }}
-        transition={{ type: "spring", stiffness: 100 }}
+        transition={{ type: "tween", duration: 0.3 }}
         layout
       >
         <Card className="bg-white/70 backdrop-blur-lg border-white/20 shadow-lg hover:shadow-xl transition-shadow w-full">
@@ -48,7 +48,7 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
                 {subject.name} {isDaySubject && "(Hoje)"}
                 <motion.div
                   animate={{ rotate: isExpanded ? 180 : 0 }}
-                  transition={{ type: "spring", stiffness: 200 }}
+                  transition={{ type: "tween", duration: 0.2 }}
                 >
                   {isExpanded ? (
                     <ChevronUp className="ml-2 h-4 w-4" />
@@ -67,7 +67,7 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ type: "tween", duration: 0.3 }}
                 >
                   {subject.topics.map(topic => (
                     <TopicItem

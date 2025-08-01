@@ -93,10 +93,8 @@ const NotesModal: React.FC<NotesModalProps> = ({
       setHasUnsavedChanges(false);
       toast.success('Dados salvos com sucesso!');
       
-      // Atualizar dados localmente sem recarregar a página
-      setTimeout(() => {
-        refreshData();
-      }, 100);
+      // Atualizar dados localmente em background
+      refreshData();
     } catch (error) {
       console.error('Erro ao salvar anotações:', error);
       toast.error('Erro ao salvar anotações');
