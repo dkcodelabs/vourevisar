@@ -1,0 +1,243 @@
+
+import { useState } from 'react';
+import { User } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { Database } from '@/integrations/supabase/types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
+
+export function useAuthOperations() {
+  const [loading, setLoading] = useState(false);
+
+  const signIn = async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      
+      console.log('Sign in successful:', data.user?.email);
+      toast.success('Login realizado com sucesso!');
+      return data;
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      toast.error(error.message || 'Erro ao fazer login');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signUp = async (email: string, password: string, name: string, phone?: string) => {
+    setLoading(true);
+    try {
+      console.log('Attempting to sign up user:', email);
+      
+      // Check if email already exists using secure function
+      const { data: emailCheckResult, error: emailCheckError } = await supabase
+        .rpc('check_email_exists', { email_to_check: email });
+      
+      console.log('Email check result:', emailCheckResult);
+      
+      if (emailCheckError) {
+        console.error("Error checking existing email:", emailCheckError);
+        throw new Error('Erro ao verificar email. Tente novamente.');
+      }
+      
+      // If email exists, handle based on provider type
+      if (emailCheckResult && emailCheckResult.length > 0) {
+        const { email_exists, provider_type } = emailCheckResult[0];
+        
+        if (email_exists) {
+          if (provider_type === 'Google' || provider_type === 'google') {
+            throw new Error('Este e-mail já está cadastrado com sua conta Google. Por favor, faça login com o Google ou use outro e-mail.');
+          } else {
+            throw new Error('Este e-mail já está cadastrado. Por favor, faça login com sua senha ou recupere sua senha.');
+          }
+        }
+      }
+      
+      console.log('Email available, proceeding with signup for:', email);
+      
+      // Proceed with signup
+      const { error, data } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            phone,
+            provider_type: 'Cadastro'
+          }
+        }
+      });
+      
+      if (error) {
+        if (error.message.includes('already registered')) {
+          throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
+        }
+        throw error;
+      }
+      
+      console.log('Sign up successful:', data.user?.email);
+      toast.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
+      return data;
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      toast.error(error.message || 'Erro ao criar conta');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    try {
+      console.log("Iniciando login com Google...");
+      
+      // Usar o domínio atual para callback
+      const currentOrigin = window.location.origin;
+      const redirectUrl = `${currentOrigin}/auth/callback`;
+      
+      console.log("Redirect URL:", redirectUrl);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      });
+      
+      if (error) {
+        console.error("Erro no login com Google:", error);
+        throw error;
+      }
+      
+      console.log("Login com Google iniciado com sucesso");
+      return data;
+    } catch (error: any) {
+      console.error("Erro no login com Google:", error);
+      toast.error('Erro ao fazer login com Google. Verifique as configurações OAuth.');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    setLoading(true);
+    try {
+      // Get current session first
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log('No active session found');
+        toast.success('Logout realizado com sucesso!');
+        return;
+      }
+
+      console.log('Signing out user:', session.user?.email);
+      
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Logout error:', error);
+        throw error;
+      }
+      
+      console.log('Logout successful');
+      toast.success('Logout realizado com sucesso!');
+    } catch (error: any) {
+      console.error('Error during logout:', error);
+      // Even if there's an error, we should clear local state
+      toast.error('Erro ao sair, mas você foi desconectado localmente');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://revisao-inteligente-concursos-16.lovable.app/reset-password'
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Email de recuperação enviado!');
+      return true;
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      toast.error('Erro ao enviar email de recuperação');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password
+      });
+
+      if (error) throw error;
+
+      toast.success('Senha atualizada com sucesso!');
+    } catch (error: any) {
+      console.error('Update password error:', error);
+      toast.error('Erro ao atualizar senha');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = async (user: User, profileData: Partial<Profile>, currentProfile: Profile | null) => {
+    setLoading(true);
+    try {
+      if (!profileData) {
+        throw new Error("No profile data provided");
+      }
+      
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ 
+          id: user.id,
+          ...profileData,
+          updated_at: new Date().toISOString() 
+        });
+        
+      if (error) throw error;
+      
+      const updatedProfile = currentProfile ? { ...currentProfile, ...profileData } : null;
+      
+      toast.success('Perfil atualizado com sucesso!');
+      return updatedProfile;
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast.error('Erro ao atualizar perfil');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    loading,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signOut,
+    resetPassword,
+    updatePassword,
+    updateProfile
+  };
+}
