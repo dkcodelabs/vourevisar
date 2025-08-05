@@ -1,11 +1,9 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { SubtopicsList } from '@/components/ui/subtopics-list';
-import { X } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { Topic } from '@/types';
 import NotesModal from '@/components/reviews/NotesModal';
-import { CheckIcon } from './icons';
 
 interface TopicItemProps {
   topic: Topic;
@@ -115,7 +113,7 @@ const TopicItem: React.FC<TopicItemProps> = ({
                 className="flex items-center gap-1 text-sm font-medium text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md border border-green-200"
                 disabled={topic.reviewCount > 0}
               >
-                <CheckIcon className="w-4 h-4" /> 
+                <Check className="w-4 h-4" /> 
                 Marcar Revisão
               </button>
             </>

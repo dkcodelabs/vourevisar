@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SubjectWithStatus } from '@/hooks/useNextSubjects';
-import { BookOpenIcon, CheckCircleIcon, ClockIcon, ChevronDownIcon } from './icons';
+import { BookOpen, CheckCircle, Clock, ChevronDown } from 'lucide-react';
 import SubjectCardView from './SubjectCardView';
 
 interface NextSubjectsProps {
@@ -31,17 +31,17 @@ const getStatusIcon = (status: SubjectWithStatus['status'], size = 16) => {
   
   switch (status) {
     case 'available':
-      return <BookOpenIcon className={className} />;
+      return <BookOpen className={className} />;
     case 'in-review':
-      return <ClockIcon className={className} />;
+      return <Clock className={className} />;
     case 'completed':
-      return <CheckCircleIcon className={className} />;
+      return <CheckCircle className={className} />;
     case 'no-topics':
       return <AlertCircle size={size} className="text-gray-400" />;
     case 'unavailable':
       return <X size={size} className="text-red-500" />;
     default:
-      return <BookOpenIcon className={className} />;
+      return <BookOpen className={className} />;
   }
 };
 
@@ -148,7 +148,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, count, i
             {count}
           </span>
         </div>
-        <ChevronDownIcon className={`w-5 h-5 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       {isOpen && (
         <div id={`section-${title.replace(/\s+/g, '-').toLowerCase()}`} className="mt-4 pl-2 pr-1">
