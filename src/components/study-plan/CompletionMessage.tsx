@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Sparkle } from '@phosphor-icons/react';
+import { Sparkles } from 'lucide-react';
 
 interface CompletionMessageProps {
   allDaySubjectsCompleted: boolean;
@@ -24,7 +24,7 @@ const CompletionMessage: React.FC<CompletionMessageProps> = ({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
         >
-          <Sparkle size={32} className="mx-auto text-yellow-500 mb-2" weight="fill" />
+          <Sparkles size={32} className="mx-auto text-yellow-500 mb-2" />
           <h3 className="text-lg font-bold text-green-800">Parabéns! 🎉</h3>
           <p className="mt-1 text-gray-700 text-sm">Você concluiu todas as matérias do dia!</p>
           {isNewCycleStarted && (

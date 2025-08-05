@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sparkle } from '@phosphor-icons/react';
+import { Sparkles } from 'lucide-react';
 
 interface NewCycleMessageProps {
   isVisible: boolean;
@@ -37,7 +37,7 @@ const NewCycleMessage: React.FC<NewCycleMessageProps> = ({ isVisible, onHide }) 
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
               >
-                <Sparkle className="mx-auto mb-3 h-8 w-8 text-purple-600" weight="fill" />
+                <Sparkles className="mx-auto mb-3 h-8 w-8 text-purple-600" />
               </motion.div>
               
               <h3 className="text-lg font-bold text-purple-800 mb-1">

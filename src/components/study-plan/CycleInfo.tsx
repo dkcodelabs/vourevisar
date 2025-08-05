@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { Sparkle, CheckCircle, Calendar } from '@phosphor-icons/react';
+import { Sparkles, CheckCircle, Calendar } from 'lucide-react';
 
 interface UserCycle {
   id: string;
@@ -39,7 +39,7 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Sparkle size={16} className="text-yellow-500" weight="fill" />
+              <Sparkles size={16} className="text-yellow-500" />
               <p className="text-xs text-gray-600">
                 Ciclos realizados: <span className="font-semibold text-app-blue">{userCycle.ciclos_realizados}</span>
               </p>
