@@ -1,15 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  ArrowRight, 
-  BookOpen, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  X 
-} from 'lucide-react';
+import { ArrowRight, AlertCircle, X } from 'lucide-react';
 import { 
   Tooltip, 
   TooltipContent, 
@@ -18,6 +11,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SubjectWithStatus } from '@/hooks/useNextSubjects';
+import { BookOpenIcon, CheckCircleIcon, ClockIcon, ChevronDownIcon } from './icons';
+import SubjectCardView from './SubjectCardView';
 
 interface NextSubjectsProps {
   subjectsByStatus: {
@@ -28,22 +23,25 @@ interface NextSubjectsProps {
     unavailable: SubjectWithStatus[];
   };
   nextCycleSubjects: any[];
+  viewMode: 'list' | 'card';
 }
 
 const getStatusIcon = (status: SubjectWithStatus['status'], size = 16) => {
+  const className = size === 20 ? "w-5 h-5" : "w-4 h-4";
+  
   switch (status) {
     case 'available':
-      return <BookOpen size={size} className="text-app-blue" />;
+      return <BookOpenIcon className={className} />;
     case 'in-review':
-      return <Clock size={size} className="text-yellow-500" />;
+      return <ClockIcon className={className} />;
     case 'completed':
-      return <CheckCircle size={size} className="text-green-500" />;
+      return <CheckCircleIcon className={className} />;
     case 'no-topics':
       return <AlertCircle size={size} className="text-gray-400" />;
     case 'unavailable':
       return <X size={size} className="text-red-500" />;
     default:
-      return <BookOpen size={size} className="text-gray-400" />;
+      return <BookOpenIcon className={className} />;
   }
 };
 
@@ -65,46 +63,99 @@ const getStatusColor = (status: SubjectWithStatus['status']) => {
 };
 
 const SubjectStatusCard: React.FC<{ item: SubjectWithStatus; isMobile: boolean }> = ({ item, isMobile }) => {
-  const iconSize = isMobile ? 14 : 16;
-  
+  // Calcular progresso
+  const progress = item.subject.topics && item.subject.topics.length > 0 
+    ? (item.subject.topics.filter((topic: any) => topic.status === 'completed').length / item.subject.topics.length) * 100 
+    : 0;
+
+  // Obter estilos baseados no status
+  const getBorderColor = (status: string) => {
+    switch (status) {
+      case 'available': return 'border-sky-500';
+      case 'completed': return 'border-green-500';
+      case 'in-review': return 'border-yellow-500';
+      default: return 'border-gray-500';
+    }
+  };
+
+  const getProgressColor = (status: string) => {
+    switch (status) {
+      case 'available': return 'bg-sky-500';
+      case 'completed': return 'bg-green-500';
+      case 'in-review': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getIconColor = (status: string) => {
+    switch (status) {
+      case 'available': return 'text-sky-600';
+      case 'completed': return 'text-green-600';
+      case 'in-review': return 'text-yellow-600';
+      default: return 'text-gray-600';
+    }
+  };
+
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full"
-          >
-            <Card className={`${getStatusColor(item.status)} border backdrop-blur-lg shadow-sm hover:shadow-md transition-all w-full`}>
-              <CardContent className={`${isMobile ? 'p-2' : 'p-3'} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2`}>
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {getStatusIcon(item.status, iconSize)}
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'} truncate`}>
-                      {item.subject.name}
-                    </h3>
-                    <p className={`${isMobile ? 'text-xs' : 'text-xs'} text-gray-500 truncate`}>
-                      {item.subject.topics?.length || 0} tópicos
-                    </p>
-                  </div>
-                </div>
-                <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-gray-400 whitespace-nowrap`}>
-                  {item.statusLabel}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <div className="text-sm">
-            <p className="font-medium">{item.subject.name}</p>
-            <p className="text-gray-600">{item.statusLabel}</p>
-            <p className="text-gray-500">{item.subject.topics?.length || 0} tópicos total</p>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className={`bg-white border-l-4 ${getBorderColor(item.status)} p-4 rounded-lg shadow-sm flex items-center justify-between mb-3 transition-all`}>
+      <div className="flex items-center gap-4 flex-grow">
+        <div className="flex-shrink-0">
+          {React.cloneElement(getStatusIcon(item.status, 20), { 
+            className: `w-5 h-5 ${getIconColor(item.status)}` 
+          })}
+        </div>
+        <div className="flex-grow">
+          <h4 className="text-base font-semibold text-gray-800">{item.subject.name}</h4>
+          <p className="text-sm font-medium text-gray-500">{item.subject.topics?.length || 0} tópicos</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-4 w-1/3 max-w-sm ml-4 flex-shrink-0">
+        <p className="text-sm font-medium text-gray-600 w-16 text-right">{Math.round(progress)}%</p>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div 
+            className={`${getProgressColor(item.status)} h-2 rounded-full transition-all duration-500`} 
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Componente CollapsibleSection para NextSubjects
+interface CollapsibleSectionProps {
+  title: string;
+  count: number;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}
+
+const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, count, icon, children }) => {
+  const [isOpen, setIsOpen] = useState(true);
+
+  return (
+    <section className="mb-6">
+      <button 
+        className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-gray-100 transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-controls={`section-${title.replace(/\s+/g, '-').toLowerCase()}`}
+      >
+        <div className="flex items-center gap-3">
+          {icon}
+          <h2 className="text-lg font-semibold text-gray-700">{title}</h2>
+          <span className="bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-full">
+            {count}
+          </span>
+        </div>
+        <ChevronDownIcon className={`w-5 h-5 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div id={`section-${title.replace(/\s+/g, '-').toLowerCase()}`} className="mt-4 pl-2 pr-1">
+          {children}
+        </div>
+      )}
+    </section>
   );
 };
 
@@ -113,34 +164,54 @@ const StatusSection: React.FC<{
   items: SubjectWithStatus[]; 
   isMobile: boolean;
   icon: React.ReactNode;
-}> = ({ title, items, isMobile, icon }) => {
+  viewMode: 'list' | 'card';
+}> = ({ title, items, isMobile, icon, viewMode }) => {
   if (items.length === 0) return null;
 
+  // Função para mapear status para categoria do card
+  const getCardCategory = (status: string): 'available' | 'completed' | 'review' => {
+    switch (status) {
+      case 'completed': return 'completed';
+      case 'in-review': return 'review';
+      default: return 'available';
+    }
+  };
+
   return (
-    <div className="space-y-2">
-      <h3 className={`${isMobile ? 'text-sm' : 'text-base'} font-semibold flex items-center gap-2 text-gray-700`}>
-        {icon}
-        {title} ({items.length})
-      </h3>
-      <div className={`grid gap-2 ${
-        isMobile 
-          ? 'grid-cols-1' 
-          : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-      }`}>
-        {items.map(item => (
-          <SubjectStatusCard 
-            key={item.subject.id} 
-            item={item} 
-            isMobile={isMobile}
-          />
-        ))}
-      </div>
-    </div>
+    <CollapsibleSection
+      title={title}
+      count={items.length}
+      icon={icon}
+    >
+      {viewMode === 'list' ? (
+        <div className="space-y-0">
+          {items.map(item => (
+            <SubjectStatusCard 
+              key={item.subject.id} 
+              item={item} 
+              isMobile={isMobile}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map(item => (
+            <SubjectCardView
+              key={item.subject.id}
+              subject={item.subject}
+              category={getCardCategory(item.status)}
+            />
+          ))}
+        </div>
+      )}
+    </CollapsibleSection>
   );
 };
 
-const NextSubjects: React.FC<NextSubjectsProps> = ({ subjectsByStatus, nextCycleSubjects }) => {
+const NextSubjects: React.FC<NextSubjectsProps> = ({ subjectsByStatus, nextCycleSubjects, viewMode }) => {
   const isMobile = useIsMobile();
+  
+  console.log('NextSubjects renderizado com viewMode:', viewMode);
   
   const totalSubjects = Object.values(subjectsByStatus).reduce((acc, curr) => acc + curr.length, 0);
   const hasAvailableSubjects = subjectsByStatus.available.length > 0;
@@ -149,72 +220,34 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ subjectsByStatus, nextCycle
 
   return (
     <div className="space-y-4">
-      <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold flex items-center`}>
-        <ArrowRight className={`mr-2 ${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
-        Próximas Disciplinas ({totalSubjects})
-      </h2>
       
       <div className="space-y-4">
-        {/* Mensagem quando não há matérias disponíveis para estudo */}
+        {/* Mensagem quando não há próximas disciplinas do ciclo */}
         {!hasAvailableSubjects && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <p className={`${isMobile ? 'text-sm' : 'text-base'} text-blue-700 font-medium`}>
-              ✅ Não há mais matérias disponíveis para estudo no momento
+            <p className="text-base text-blue-700 font-medium">
+              ✅ Não há mais disciplinas disponíveis no ciclo atual
             </p>
-            <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-blue-600 mt-1`}>
+            <p className="text-sm text-blue-600 mt-1">
               Continue revisando os tópicos em andamento ou aguarde novas revisões
             </p>
           </div>
         )}
 
         <StatusSection
-          title="Disponíveis para Estudo"
+          title="Próximas Disciplinas do Ciclo"
           items={subjectsByStatus.available}
           isMobile={isMobile}
           icon={getStatusIcon('available', isMobile ? 14 : 16)}
+          viewMode={viewMode}
         />
-
-        {/* Nova seção: Disponíveis para Próximo Ciclo */}
-        {nextCycleSubjects.length > 0 && (
-          <div className="space-y-2">
-            <h3 className={`${isMobile ? 'text-sm' : 'text-base'} font-semibold flex items-center gap-2 text-purple-700`}>
-              <ArrowRight className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-purple-500`} />
-              Disponíveis para Próximo Ciclo ({nextCycleSubjects.length})
-            </h3>
-            <div className={`grid gap-2 ${
-              isMobile 
-                ? 'grid-cols-1' 
-                : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-            }`}>
-              {nextCycleSubjects.map(subject => (
-                <Card key={subject.id} className="border-purple-200 bg-purple-50 border backdrop-blur-lg shadow-sm hover:shadow-md transition-all w-full">
-                  <CardContent className={`${isMobile ? 'p-2' : 'p-3'} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2`}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <ArrowRight size={isMobile ? 14 : 16} className="text-purple-500" />
-                      <div className="flex-1 min-w-0">
-                        <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'} truncate`}>
-                          {subject.name}
-                        </h3>
-                        <p className={`${isMobile ? 'text-xs' : 'text-xs'} text-gray-500 truncate`}>
-                          {subject.topics?.length || 0} tópicos
-                        </p>
-                      </div>
-                    </div>
-                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-purple-600 whitespace-nowrap`}>
-                      Próximo ciclo
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
         
         <StatusSection
           title="Em Revisão"
           items={subjectsByStatus['in-review']}
           isMobile={isMobile}
           icon={getStatusIcon('in-review', isMobile ? 14 : 16)}
+          viewMode={viewMode}
         />
         
         <StatusSection
@@ -222,21 +255,10 @@ const NextSubjects: React.FC<NextSubjectsProps> = ({ subjectsByStatus, nextCycle
           items={subjectsByStatus.completed}
           isMobile={isMobile}
           icon={getStatusIcon('completed', isMobile ? 14 : 16)}
+          viewMode={viewMode}
         />
         
-        <StatusSection
-          title="Sem Tópicos"
-          items={subjectsByStatus['no-topics']}
-          isMobile={isMobile}
-          icon={getStatusIcon('no-topics', isMobile ? 14 : 16)}
-        />
-        
-        <StatusSection
-          title="Indisponíveis"
-          items={subjectsByStatus.unavailable}
-          isMobile={isMobile}
-          icon={getStatusIcon('unavailable', isMobile ? 14 : 16)}
-        />
+
       </div>
     </div>
   );

@@ -2,9 +2,10 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SubtopicsList } from '@/components/ui/subtopics-list';
-import { Check, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Topic } from '@/types';
 import NotesModal from '@/components/reviews/NotesModal';
+import { CheckIcon } from './icons';
 
 interface TopicItemProps {
   topic: Topic;
@@ -71,40 +72,53 @@ const TopicItem: React.FC<TopicItemProps> = ({
     onCancelTopicReview(subjectId, topic.id);
   };
 
+  // Função para obter classes de status baseadas no estilo fornecido
+  const getStatusClasses = (status: string) => {
+    switch (status) {
+      case 'Concluído':
+        return 'bg-gray-100 text-gray-600';
+      case 'Em Revisão':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default:
+        return 'bg-sky-100 text-sky-800 border-sky-200';
+    }
+  };
+
   return (
     <>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 rounded bg-white/60">
-        <div className="flex flex-col gap-1 w-full">
-          <span className="text-sm font-medium text-gray-800">{topic.name}</span>
-          <SubtopicsList subtopics={topic.subtopics || []} style="badges" />
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
-          <span className="text-xs px-2 py-1 rounded-lg bg-blue-100/80 text-blue-800 font-medium whitespace-nowrap">
-            {reviewStage}
-          </span>
-          {isMarkedForReview ? (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
-              onClick={handleCancelReview}
-              type="button"
-            >
-              <X className="h-3 w-3 mr-1" />
-              Cancelar
-            </Button>
+      <div className="flex items-center justify-between py-3 px-4 transition-colors hover:bg-gray-50">
+        <p className="text-sm font-medium text-gray-600 flex-1 min-w-0 pr-4 truncate">{topic.name}</p>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isTopicCompleted ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+              Concluído
+            </span>
+          ) : reviewStage === 'Em Revisão' || isMarkedForReview ? (
+            <>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusClasses('Em Revisão')}`}>
+                Em Revisão
+              </span>
+              <button 
+                onClick={handleCancelReview}
+                className="text-xs font-medium px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
+              >
+                Cancelar
+              </button>
+            </>
           ) : (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-green-600 hover:text-green-800 border border-green-200 hover:bg-green-50 transition-colors text-xs px-2 py-1 h-7 min-w-[110px] w-full sm:w-auto"
-              onClick={handleMarkForReview}
-              type="button"
-              disabled={topic.reviewCount > 0}
-            >
-              <Check className="h-3 w-3 mr-1" />
-              {topic.reviewCount > 0 ? 'Em Revisão' : 'Marcar Revisão'}
-            </Button>
+            <>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(reviewStage)}`}>
+                {reviewStage}
+              </span>
+              <button 
+                onClick={handleMarkForReview}
+                className="flex items-center gap-1 text-sm font-medium text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md border border-green-200"
+                disabled={topic.reviewCount > 0}
+              >
+                <CheckIcon className="w-4 h-4" /> 
+                Marcar Revisão
+              </button>
+            </>
           )}
         </div>
       </div>
