@@ -8,13 +8,13 @@ import { motion } from 'framer-motion';
 import { 
   User, 
   Lock, 
-  Envelope, 
+  Mail, 
   Eye, 
-  EyeSlash,
-  SignIn,
+  EyeOff,
+  LogIn,
   UserPlus,
   Phone
-} from '@phosphor-icons/react';
+} from 'lucide-react';
 import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
 
@@ -184,7 +184,7 @@ const Login = () => {
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
               <div className="relative">
-                <Envelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="email"
                   value={email}
@@ -213,7 +213,7 @@ const Login = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
@@ -236,7 +236,7 @@ const Login = () => {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                   >
-                    {showConfirmPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
               </div>

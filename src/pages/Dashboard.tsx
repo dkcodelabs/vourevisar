@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, Plus, Flame } from 'lucide-react';
+import { BookOpen, TrendingUp, Plus, Flame, Notebook } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,7 @@ import { SubjectOverview } from '@/components/dashboard/SubjectOverview';
 import { CalendarAndStats } from '@/components/dashboard/CalendarAndStats';
 import { StreakVisualBar } from '@/components/dashboard/StreakVisualBar';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
+import GeneralNotesModal from '@/components/GeneralNotesModal';
 
 const Dashboard = () => {
   const { subjects, isDataLoaded, isLoading, error } = useApp();
@@ -21,6 +22,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
+  const [isGeneralNotesModalOpen, setIsGeneralNotesModalOpen] = useState(false);
 
   // Buscar dados de revisões para o calendário
   const { data: reviewData } = useQuery({
@@ -234,6 +236,13 @@ const Dashboard = () => {
                 <TrendingUp className="h-4 w-4" />
                 <span className="font-medium">Progresso: {progressPercentage}%</span>
               </div>
+              <button 
+                onClick={() => setIsGeneralNotesModalOpen(true)}
+                className="flex items-center gap-2 bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 transition-colors"
+              >
+                <Notebook className="h-4 w-4" />
+                <span className="font-medium">Anotações</span>
+              </button>
             </div>
           </div>
         </div>
@@ -281,6 +290,12 @@ const Dashboard = () => {
               onClose={() => setSelectedCalendarDate(null)}
               subjects={subjects}
               selectedDate={selectedCalendarDate || undefined}
+            />
+
+            {/* Modal de Anotações Gerais */}
+            <GeneralNotesModal
+              isOpen={isGeneralNotesModalOpen}
+              onClose={() => setIsGeneralNotesModalOpen(false)}
             />
           </div>
         )}

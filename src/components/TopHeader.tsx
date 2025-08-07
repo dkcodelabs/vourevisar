@@ -2,12 +2,12 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, BookOpen, Calendar, List, Clock, HelpCircle, TrendingUp, Timer, LucideIcon 
+  LayoutDashboard, BookOpen, Calendar, List, Clock, HelpCircle, TrendingUp, Timer, Menu, LucideIcon 
 } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
-import { PomodoroModal } from '@/components/dashboard/PomodoroModal';
-import { usePomodoroTimer } from '@/hooks/usePomodoroTimer';
+import { PomodoroPopover } from '@/components/PomodoroPopover';
+import { useSharedPomodoroTimer } from '@/hooks/useSharedPomodoroTimer';
 
 interface NavItem {
   to: string;
@@ -16,6 +16,7 @@ interface NavItem {
   end?: boolean;
 }
 
+// Mover navItems para fora do componente para evitar recriação
 const navItems: NavItem[] = [
   { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
   { to: "/materias", label: "Matérias", icon: BookOpen },
@@ -26,18 +27,11 @@ const navItems: NavItem[] = [
   { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
 ];
 
-export function TopHeader() {
-  const { user } = useAuth();
+// Hook personalizado para lógica de navegação
+const useNavigation = () => {
   const location = useLocation();
-  const [pomodoroOpen, setPomodoroOpen] = React.useState(false);
-  const { isActive, timeLeft, getProgress, formatTime } = usePomodoroTimer();
   
-  // Calcular estado e progresso com fallbacks seguros
-  const state = isActive ? 'running' : timeLeft < 25 * 60 ? 'paused' : 'stopped';
-  const progress = Math.max(0, Math.min(100, getProgress() || 0)); // Garantir valor entre 0-100
-
-  // Função para verificar se o item está ativo
-  const isItemActive = (item: NavItem) => {
+  const isItemActive = React.useCallback((item: NavItem) => {
     if (item.end) {
       return location.pathname === item.to;
     }
@@ -53,10 +47,23 @@ export function TopHeader() {
     }
     
     return location.pathname.startsWith(item.to);
-  };
+  }, [location.pathname]);
+  
+  return { isItemActive, location };
+};
+
+export const TopHeader = React.memo(() => {
+  const { user } = useAuth();
+  const { isItemActive } = useNavigation();
+  const { timeLeft, isRunning, getProgress, formatTime, getState, isBlinking } = useSharedPomodoroTimer();
+  
+  // Memoizar cálculos para evitar re-renders desnecessários
+  const state = React.useMemo(() => getState(), [getState]);
+  const progress = React.useMemo(() => Math.max(0, Math.min(100, getProgress() || 0)), [getProgress]);
+  const formattedTime = React.useMemo(() => formatTime(timeLeft), [formatTime, timeLeft]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header className="w-full">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Mobile Menu Button & Logo */}
@@ -100,60 +107,86 @@ export function TopHeader() {
           <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
             {/* Pomodoro Timer Icon */}
             {user && (
-              <button
-                onClick={() => setPomodoroOpen(true)}
-                className="relative flex items-center justify-center w-10 h-10 lg:w-12 lg:h-12 rounded-full transition-all duration-200 hover:scale-105"
-              >
-                {/* Progress circle */}
-                <svg className="absolute w-10 h-10 lg:w-12 lg:h-12 transform -rotate-90" viewBox="0 0 48 48">
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="20"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    fill="none"
-                    className="text-gray-200"
-                  />
-                  {state !== 'stopped' && (
-                    <circle
-                      cx="24"
-                      cy="24"
-                      r="20"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeDasharray={2 * Math.PI * 20}
-                      strokeDashoffset={2 * Math.PI * 20 * (1 - (progress || 0) / 100)}
-                      className={`transition-all duration-1000 ease-linear ${
-                        state === 'running' ? 'text-green-500' : state === 'paused' ? 'text-red-500' : 'text-gray-400'
-                      }`}
-                    />
-                  )}
-                </svg>
-                
-                {/* Timer icon in center */}
-                <Timer 
-                  size={14} 
-                  className={`${
-                    state === 'running' 
-                      ? 'text-green-600 animate-pulse' 
-                      : state === 'paused' 
-                        ? 'text-red-600' 
-                        : 'text-gray-600'
-                  }`}
-                />
-                
-                {/* Time display when active */}
-                {state !== 'stopped' && (
-                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
-                    <span className="text-xs font-mono bg-white px-1 py-0.5 rounded border shadow-sm whitespace-nowrap">
-                      {formatTime(timeLeft)}
+              <PomodoroPopover>
+                <div className="flex items-center gap-2">
+                  {/* Tempo visível quando rodando ou pausado */}
+                  {timeLeft < 25 * 60 && (
+                    <span className={`text-sm font-mono font-semibold hidden sm:block transition-all duration-300 ${
+                      isBlinking 
+                        ? 'text-red-500 animate-pulse' 
+                        : 'text-gray-700'
+                    }`}>
+                      {timeLeft === 0 && isBlinking ? '00:00' : formattedTime}
                     </span>
-                  </div>
-                )}
-              </button>
+                  )}
+                  
+                  <button className="relative flex items-center justify-center w-10 h-10 lg:w-12 lg:h-12 rounded-full transition-all duration-200 hover:scale-105">
+                    {/* Progress circle */}
+                    <svg className="absolute w-10 h-10 lg:w-12 lg:h-12 transform -rotate-90" viewBox="0 0 48 48">
+                      <circle
+                        cx="24"
+                        cy="24"
+                        r="20"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        fill="none"
+                        className="text-gray-200"
+                      />
+                      {state !== 'stopped' && (
+                        <circle
+                          cx="24"
+                          cy="24"
+                          r="20"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeDasharray={2 * Math.PI * 20}
+                          strokeDashoffset={2 * Math.PI * 20 * (1 - (progress || 0) / 100)}
+                          className={`transition-all duration-1000 ease-linear ${
+                            state === 'running' ? 'text-green-500' : state === 'paused' ? 'text-red-500' : 'text-gray-400'
+                          }`}
+                        />
+                      )}
+                    </svg>
+                    
+                    {/* Timer icon ou tempo no mobile */}
+                    {state === 'stopped' ? (
+                      <Timer 
+                        size={14} 
+                        className="text-gray-600"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className={`text-xs font-mono font-bold sm:hidden transition-all duration-300 ${
+                          isBlinking 
+                            ? 'text-red-500 animate-pulse' 
+                            : 'text-gray-700'
+                        }`}>
+                          {timeLeft === 0 && isBlinking ? '00' : formattedTime.split(':')[0]}
+                        </span>
+                        <span className={`text-xs font-mono font-bold sm:hidden transition-all duration-300 ${
+                          isBlinking 
+                            ? 'text-red-500 animate-pulse' 
+                            : 'text-gray-700'
+                        }`}>
+                          {timeLeft === 0 && isBlinking ? '00' : formattedTime.split(':')[1]}
+                        </span>
+                        <Timer 
+                          size={14} 
+                          className={`hidden sm:block transition-all duration-300 ${
+                            isBlinking 
+                              ? 'text-red-500 animate-pulse' 
+                              : state === 'running' 
+                                ? 'text-green-600 animate-pulse' 
+                                : 'text-red-600'
+                          }`}
+                        />
+                      </div>
+                    )}
+                  </button>
+                </div>
+              </PomodoroPopover>
             )}
 
             {/* User Profile */}
@@ -166,35 +199,20 @@ export function TopHeader() {
         </div>
       </div>
 
-      {/* Pomodoro Modal */}
-      <PomodoroModal 
-        open={pomodoroOpen} 
-        onOpenChange={setPomodoroOpen} 
-      />
+
     </header>
   );
-}
+});
 
 // Mobile Menu Component
-function MobileMenu({ navItems }: { navItems: NavItem[] }) {
+const MobileMenu = React.memo(({ navItems }: { navItems: NavItem[] }) => {
   const [isOpen, setIsOpen] = React.useState(false);
-  const location = useLocation();
+  const { isItemActive, location } = useNavigation();
 
-  const isItemActive = (item: NavItem) => {
-    if (item.end) {
-      return location.pathname === item.to;
-    }
-    
-    if (item.to === '/topicos') {
-      return location.pathname === '/topicos' || location.pathname.includes('/topicos');
-    }
-    
-    if (item.to === '/materias') {
-      return location.pathname === '/materias';
-    }
-    
-    return location.pathname.startsWith(item.to);
-  };
+  // Fechar menu quando a rota mudar
+  React.useEffect(() => {
+    setIsOpen(false);
+  }, [location.pathname]);
 
   return (
     <div className="relative">
@@ -203,9 +221,7 @@ function MobileMenu({ navItems }: { navItems: NavItem[] }) {
         className="flex items-center justify-center w-10 h-10 rounded-lg text-gray-700 hover:bg-gray-100"
         aria-label="Menu"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <Menu className="w-6 h-6" />
       </button>
 
       {isOpen && (
@@ -246,4 +262,4 @@ function MobileMenu({ navItems }: { navItems: NavItem[] }) {
       )}
     </div>
   );
-}
+});

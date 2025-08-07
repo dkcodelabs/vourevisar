@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useUserProfile } from '../contexts/UserProfileContext';
 import { ReviewProfile, REVIEW_PROFILES } from '../types/study';
-import { FaStar, FaRocket, FaMedal, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { Star, Rocket, Medal, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ProfileSelectorProps {
   selected?: ReviewProfile | null;
@@ -11,9 +11,9 @@ interface ProfileSelectorProps {
 }
 
 const profileIcons = {
-  [ReviewProfile.BEGINNER]: <FaStar className="text-yellow-400 w-8 h-8" />,
-  [ReviewProfile.INTERMEDIATE]: <FaRocket className="text-blue-500 w-8 h-8" />,
-  [ReviewProfile.ADVANCED]: <FaMedal className="text-green-500 w-8 h-8" />,
+  [ReviewProfile.BEGINNER]: <Star className="text-yellow-400 w-8 h-8" />,
+  [ReviewProfile.INTERMEDIATE]: <Rocket className="text-blue-500 w-8 h-8" />,
+  [ReviewProfile.ADVANCED]: <Medal className="text-green-500 w-8 h-8" />,
 };
 
 export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ selected, onSelect, onboarding, disabled }) => {
@@ -81,7 +81,7 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ selected, onSe
                     className="flex items-center gap-1 text-xs text-blue-600 font-medium focus:outline-none"
                     onClick={e => { e.stopPropagation(); handleToggleExpand(profileType); }}
                   >
-                    {expanded[profileType] ? <FaChevronUp /> : <FaChevronDown />}
+                    {expanded[profileType] ? <ChevronUp /> : <ChevronDown />}
                     {expanded[profileType] ? 'Ocultar' : 'Ver'}
                   </button>
                 )}
