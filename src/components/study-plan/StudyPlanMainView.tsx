@@ -85,7 +85,7 @@ const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
       </div>
 
       {Object.values(subjectsByStatus).some(arr => arr.length > 0) && !allDaySubjectsCompleted && !isCycleCompleted && !allTopicsInReview && dailySubjects.length > 0 && (
-        <NextSubjects subjectsByStatus={subjectsByStatus} nextCycleSubjects={nextCycleSubjects} />
+        <NextSubjects subjectsByStatus={subjectsByStatus} nextCycleSubjects={nextCycleSubjects} viewMode="list" />
       )}
     </>
   );

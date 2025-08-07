@@ -196,7 +196,7 @@ const ResetPassword = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <GlassCard className="w-full max-w-md p-8">
           <AnimatedTitle 
-            icon={<Lock size={32} weight="duotone" />}
+            icon={<Lock size={32} />}
             className="mb-8 text-center"
           >
             Redefinir Senha

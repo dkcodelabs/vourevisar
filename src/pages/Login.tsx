@@ -141,7 +141,7 @@ const Login = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <GlassCard className="w-full max-w-md p-8">
           <AnimatedTitle 
-            icon={isRegistering ? <UserPlus size={32} weight="duotone" /> : <SignIn size={32} weight="duotone" />}
+            icon={isRegistering ? <UserPlus size={32} /> : <LogIn size={32} />}
             className="mb-8 text-center"
           >
             {isRegistering ? 'Criar Conta' : 'Entrar'}
