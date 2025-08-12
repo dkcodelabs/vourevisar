@@ -23,7 +23,18 @@ const TopicsFilters: React.FC<TopicsFiltersProps> = ({
 }) => {
   return (
     <div className="bg-white/80 backdrop-blur-md border border-white/20 rounded-xl p-6 mb-8 shadow-lg">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Subject Filter - New */}
+        <Select /* value={subjectFilter} onValueChange={onSubjectFilterChange} */>
+          <SelectTrigger className="bg-white/70 border-white/30">
+            <SelectValue placeholder="Todas as disciplinas" />
+          </SelectTrigger>
+          <SelectContent className="z-50 bg-white">
+            <SelectItem value="all">Todas as disciplinas</SelectItem>
+            {/* Mapear disciplinas aqui quando integrarmos com a página */}
+          </SelectContent>
+        </Select>
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -38,7 +49,7 @@ const TopicsFilters: React.FC<TopicsFiltersProps> = ({
           <SelectTrigger className="bg-white/70 border-white/30">
             <SelectValue placeholder="Filtrar por status" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-50 bg-white">
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="delayed">Atrasados</SelectItem>
             <SelectItem value="upcoming">Próximos</SelectItem>
@@ -49,7 +60,7 @@ const TopicsFilters: React.FC<TopicsFiltersProps> = ({
           <SelectTrigger className="bg-white/70 border-white/30">
             <SelectValue placeholder="Ordenar por" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-50 bg-white">
             <SelectItem value="date">Data de Revisão</SelectItem>
             <SelectItem value="subject">Matéria</SelectItem>
             <SelectItem value="name">Nome do Tópico</SelectItem>
