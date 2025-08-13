@@ -19,6 +19,7 @@ import { EditableTopicName } from '@/components/EditableTopicName';
 const Topics = () => {
   const { subjects, deleteTopic, updateTopic, isLoading } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
+  const [subjectFilter, setSubjectFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
@@ -37,6 +38,7 @@ const Topics = () => {
   const allTopics = subjects.flatMap(subject => 
     subject.topics.map(topic => ({
       ...topic,
+      subjectId: subject.id,
       subjectName: subject.name,
       subjectColor: subject.color,
       isMarkedForReview: false
@@ -45,6 +47,11 @@ const Topics = () => {
 
   const filteredAndSortedTopics = useMemo(() => {
     let filtered = allTopics;
+
+    // Aplicar filtro por disciplina
+    if (subjectFilter !== 'all') {
+      filtered = filtered.filter(topic => topic.subjectId === subjectFilter);
+    }
 
     // Aplicar filtro de pesquisa
     if (searchTerm.trim()) {
@@ -102,7 +109,7 @@ const Topics = () => {
     });
 
     return filtered;
-  }, [allTopics, searchTerm, statusFilter, difficultyFilter, sortBy]);
+  }, [allTopics, subjectFilter, searchTerm, statusFilter, difficultyFilter, sortBy]);
 
   const stats = useMemo(() => {
     const today = startOfDay(new Date());
@@ -256,15 +263,30 @@ const Topics = () => {
         <div className="container mx-auto p-4 md:p-6">
           {/* Filters */}
           <div className="mb-6 space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
-              <Input
-                placeholder="Pesquisar tópico ou disciplina"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white border-slate-300"
-              />
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Subject Filter */}
+              <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                  <SelectValue placeholder="Todas as disciplinas" />
+                </SelectTrigger>
+                <SelectContent className="z-50 bg-white">
+                  <SelectItem value="all">Todas as disciplinas</SelectItem>
+                  {subjects.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Input
+                  placeholder="Pesquisar tópico ou disciplina"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-white border-slate-300"
+                />
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
@@ -314,12 +336,12 @@ const Topics = () => {
               <Card className="bg-white shadow-sm border border-slate-200">
                 <CardContent className="text-center py-12">
                   <p className="text-slate-500 mb-4">
-                    {searchTerm || statusFilter !== 'all' 
+                    {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
                       ? 'Nenhum tópico encontrado para os filtros aplicados.' 
                       : 'Nenhum tópico cadastrado ainda.'
                     }
                   </p>
-                  {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && (
+                  {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && subjectFilter === 'all' && (
                     <Button onClick={() => window.location.href = '/materias'} className="bg-blue-600 hover:bg-blue-700">
                       <Plus className="h-4 w-4 mr-2" />
                       Adicionar Primeira Matéria

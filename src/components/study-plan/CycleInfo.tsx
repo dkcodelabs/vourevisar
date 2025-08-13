@@ -45,20 +45,20 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle size={16} className="text-green-500" weight="fill" />
+              <CheckCircle size={16} className="text-green-500" />
               <p className="text-xs text-gray-600">
                 Disciplinas do ciclo: <span className="font-semibold text-app-blue">{disciplinasConcluidas}/{totalDisciplinasCiclo}</span>
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle size={16} className="text-blue-500" weight="fill" />
+              <CheckCircle size={16} className="text-blue-500" />
               <p className="text-xs text-gray-600">
                 Disciplinas Iniciadas: <span className="font-semibold text-app-blue">{disciplinasIniciadasCiclo}/{totalDisciplinasCiclo}</span>
               </p>
             </div>
             {isNewCycleStarted && (
               <div className="flex items-center gap-2">
-                <Calendar size={16} className="text-purple-500" weight="fill" />
+                <Calendar size={16} className="text-purple-500" />
                 <p className="text-xs text-purple-600 font-medium">
                   🔄 Novo ciclo iniciado!
                 </p>
@@ -66,7 +66,7 @@ const CycleInfo: React.FC<CycleInfoProps> = ({
             )}
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-600">
-            <Calendar size={16} className="text-purple-500" weight="fill" />
+            <Calendar size={16} className="text-purple-500" />
             Início: {format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy HH:mm')}
           </div>
         </div>
