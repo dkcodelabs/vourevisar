@@ -5,8 +5,8 @@ import { TopHeader } from './TopHeader';
 
 export const AppLayout = React.memo(() => {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-200">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-800/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-800/60 border-b border-gray-200 dark:border-slate-700 transition-colors duration-200">
         <TopHeader />
       </div>
       

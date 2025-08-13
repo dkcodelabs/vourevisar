@@ -87,7 +87,7 @@ export const useNextSubjects = (subjects: Subject[], userCycle: UserCycle | null
     // E também excluindo matérias que estão "in-review" (todos tópicos em revisão)
     const nextSubjects = allSubjectsWithStatus.filter(
       item => !userCycle.disciplinas_do_dia?.includes(item.subject.id) &&
-        item.status !== 'in-review' // Nova condição: excluir matérias em revisão
+        item.status === 'available' // Apenas matérias disponíveis (com tópicos não estudados)
     );
 
     // Agrupar por status (excluindo matérias que estão nas disciplinas do dia)

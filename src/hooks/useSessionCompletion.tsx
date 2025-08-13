@@ -61,14 +61,137 @@ export const useSessionCompletion = () => {
 
         for (const topicId of topicsToReview) {
           console.log('🔵 Atualizando tópico:', topicId);
+          
+          // Buscar o tópico atual para incrementar o reviewCount corretamente
+          const { data: currentTopic } = await supabase
+            .from('topics')
+            .select('review_count')
+            .eq('id', topicId)
+            .single();
+          
+          const currentReviewCount = currentTopic?.review_count || 0;
+          const newReviewCount = currentReviewCount + 1;
+          
+          // Determinar o novo estágio baseado no reviewCount
+          let newReviewStage: string;
+          let nextReviewDate: Date | null = null;
+          let completed = false;
+          
+          if (newReviewCount <= intervals.length) {
+            const intervalDays = intervals[newReviewCount - 1];
+            newReviewStage = intervalDays === 1 ? '24h' : `${intervalDays}d`;
+            nextReviewDate = new Date();
+            nextReviewDate.setDate(nextReviewDate.getDate() + intervalDays);
+          } else {
+            newReviewStage = 'Concluído';
+            nextReviewDate = null;
+            completed = true;
+          }
+          
+          console.log('🔵 Atualizando tópico com dados:', {
+            topicId,
+            reviewCount: newReviewCount,
+            reviewStage: newReviewStage,
+            nextReview: nextReviewDate,
+            completed: completed
+          });
+          
           await updateTopic(subjectId, topicId, {
-            reviewCount: 1,
-            reviewStage,
-            nextReview,
-            completed: false
+            reviewCount: newReviewCount,
+            reviewStage: newReviewStage,
+            nextReview: nextReviewDate,
+            completed: completed
           });
         }
         console.log('✅ Todos os tópicos atualizados');
+
+        // Se a matéria está como 'Nova' e tem tópicos marcados, atualizar para 'Em Estudo'
+        if (subject.status === 'Nova' && topicsToReview.length > 0) {
+          console.log('🔵 Atualizando status da matéria de "Nova" para "Em Estudo"');
+          await supabase
+            .from('subjects')
+            .update({
+              status: 'Em Estudo',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', subjectId);
+        }
+
+        // VERIFICAR SE TODOS OS TÓPICOS DA MATÉRIA FORAM CONCLUÍDOS
+        const { data: allTopics, error: topicsError } = await supabase
+          .from('topics')
+          .select('id, completed, review_stage, review_count')
+          .eq('subject_id', subjectId);
+          
+        if (topicsError) {
+          console.error('❌ Erro ao buscar tópicos:', topicsError);
+          throw topicsError;
+        }
+        
+        console.log('🔍 Todos os tópicos da matéria após atualização:', allTopics);
+
+        if (allTopics) {
+          const allTopicsCompleted = allTopics.every(t => t.review_stage === 'Concluído' || t.completed === true);
+          console.log('🔍 Verificação de conclusão da matéria:', {
+            subjectId,
+            subjectName: subject.name,
+            totalTopics: allTopics.length,
+            completedTopics: allTopics.filter(t => t.review_stage === 'Concluído' || t.completed === true).length,
+            allTopicsCompleted
+          });
+
+          if (allTopicsCompleted) {
+            console.log('🏆 MATÉRIA COMPLETAMENTE CONCLUÍDA - Movendo para Concluídas Gerais');
+            
+            // Marcar matéria como concluída
+            await supabase
+              .from('subjects')
+              .update({ status: 'Concluída' })
+              .eq('id', subjectId);
+
+            // Remover do ciclo completamente (não vai para matérias pendentes)
+            const newCicloAtual = userCycle.ciclo_atual.filter(id => id !== subjectId);
+            const newDisciplinasDodia = userCycle.disciplinas_do_dia.filter(id => id !== subjectId);
+            
+            const currentIndex = userCycle.indice_atual || 0;
+            const subjectIndexInCycle = userCycle.ciclo_atual.indexOf(subjectId);
+            let newIndex = currentIndex;
+            
+            if (subjectIndexInCycle !== -1 && subjectIndexInCycle < currentIndex) {
+              newIndex = Math.max(0, currentIndex - 1);
+            }
+
+            console.log('🏆 Removendo matéria concluída do ciclo:', {
+              subjectName: subject.name,
+              cicloAtual_antes: userCycle.ciclo_atual.length,
+              cicloAtual_depois: newCicloAtual.length,
+              indice_atual_antes: currentIndex,
+              indice_atual_depois: newIndex
+            });
+
+            const { error: updateError } = await supabase
+              .from('user_cycles')
+              .update({
+                ciclo_atual: newCicloAtual,
+                disciplinas_do_dia: newDisciplinasDodia,
+                indice_atual: newIndex,
+                atualizado_em: new Date().toISOString()
+              })
+              .eq('user_id', user.id);
+
+            if (updateError) throw updateError;
+
+            const freshCycle = await loadUserCycle(user.id);
+            if (!freshCycle) {
+              throw new Error('Erro ao carregar ciclo atualizado');
+            }
+            
+            setUserCycle(freshCycle);
+            setTempMarkedTopics({});
+            toast.success('🎉 Matéria completamente concluída! Movida para Concluídas Gerais.');
+            return;
+          }
+        }
       }
 
       // Se não houver tópicos marcados para revisão, pular matéria
@@ -197,8 +320,11 @@ export const useSessionCompletion = () => {
       console.log('🔵 Ciclo carregado:', freshCycle);
       setUserCycle(freshCycle);
 
-      // Não precisa mais do refresh final - updateTopic já faz isso
-      console.log('✅ Sessão concluída - dados já atualizados pelo updateTopic');
+      // Refresh dos dados para garantir que as mudanças sejam refletidas na interface
+      console.log('🔵 Fazendo refresh final dos dados...');
+      await refreshData();
+      
+      console.log('✅ Sessão concluída - dados atualizados');
       
       console.log('✅ handleCompleteSession FINALIZADO COM SUCESSO');
       toast.success('Sessão concluída com sucesso!');

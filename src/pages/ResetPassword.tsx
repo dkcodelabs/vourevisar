@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Lock, Eye, EyeSlash } from '@phosphor-icons/react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
 
@@ -196,7 +196,7 @@ const ResetPassword = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <GlassCard className="w-full max-w-md p-8">
           <AnimatedTitle 
-            icon={<Lock size={32} weight="duotone" />}
+            icon={<Lock size={32} />}
             className="mb-8 text-center"
           >
             Redefinir Senha
@@ -220,7 +220,7 @@ const ResetPassword = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
@@ -242,7 +242,7 @@ const ResetPassword = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  {showConfirmPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>

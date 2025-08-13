@@ -1,0 +1,6 @@
+{
+  "name": "Gerenciador de Revisões",
+  "description": "Uma aplicação para ajudar a controlar a revisão de tópicos de estudo, utilizando um sistema de ciclo diário para destacar matérias e acompanhar o progresso.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

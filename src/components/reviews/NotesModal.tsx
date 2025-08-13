@@ -42,7 +42,16 @@ const NotesModal: React.FC<NotesModalProps> = ({
   // Buscar notas do tópico
   useEffect(() => {
     if (isOpen && topicId) {
-      loadTopicNotes();
+      // Verificar se é um ID temporário (não é UUID válido)
+      if (topicId.startsWith('temp-')) {
+        // Para IDs temporários, apenas inicializar com valores vazios
+        setNotes(undefined);
+        setDifficulty(null);
+        setSubtopics([]);
+        setIsLoading(false);
+      } else {
+        loadTopicNotes();
+      }
     }
   }, [isOpen, topicId]);
 
@@ -77,6 +86,21 @@ const NotesModal: React.FC<NotesModalProps> = ({
   const saveNotes = async (updatedNotes: TopicNotes) => {
     setIsSaving(true);
     try {
+      // Verificar se é um ID temporário
+      if (topicId.startsWith('temp-')) {
+        // Para IDs temporários, apenas simular o salvamento
+        console.log('Salvando anotações temporárias:', {
+          topicId,
+          notes: updatedNotes,
+          difficulty,
+          subtopics
+        });
+        setNotes(updatedNotes);
+        setHasUnsavedChanges(false);
+        toast.success('Anotações salvas!');
+        return;
+      }
+
       const updates: any = {
         notes: updatedNotes as any,
         difficulty_level: difficulty,

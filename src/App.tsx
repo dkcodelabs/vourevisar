@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "@/pages/Dashboard";
@@ -21,6 +22,7 @@ import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
 import Questoes from "@/pages/Questoes";
 import QuestionsStatistics from "@/pages/QuestionsStatistics";
+import StudyCycle from "@/pages/StudyCycle";
 
 import { ProfileOnboardingGate } from "@/components/ProfileOnboardingGate";
 
@@ -37,9 +39,10 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <AppProvider>
+        <ThemeProvider>
+          <BrowserRouter>
+            <AuthProvider>
+              <AppProvider>
               <Sonner />
               <ProfileOnboardingGate />
               <Routes>
@@ -57,15 +60,17 @@ const App = () => {
                     <Route path="revisoes" element={<Revisoes />} />
                     <Route path="questoes" element={<Questoes />} />
                     <Route path="questoes/estatisticas" element={<QuestionsStatistics />} />
+                    <Route path="ciclo-estudos" element={<StudyCycle />} />
                     <Route path="perfil" element={<Profile />} />
                     <Route path="configuracoes" element={<Settings />} />
                   </Route>
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </AppProvider>
-          </AuthProvider>
-        </BrowserRouter>
+              </AppProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </ThemeProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

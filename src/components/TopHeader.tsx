@@ -2,12 +2,13 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, BookOpen, Calendar, List, Clock, HelpCircle, TrendingUp, Timer, Menu, LucideIcon 
+  LayoutDashboard, BookOpen, Calendar, List, Clock, HelpCircle, TrendingUp, Timer, Menu, Target, LucideIcon 
 } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { PomodoroPopover } from '@/components/PomodoroPopover';
 import { useSharedPomodoroTimer } from '@/hooks/useSharedPomodoroTimer';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface NavItem {
   to: string;
@@ -20,6 +21,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
   { to: "/materias", label: "Matérias", icon: BookOpen },
+  { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: Target },
   { to: "/plano-estudos", label: "Plano de Estudos", icon: Calendar },
   { to: "/topicos", label: "Tópicos", icon: List },
   { to: "/revisoes", label: "Revisões", icon: Clock },
@@ -93,7 +95,7 @@ export const TopHeader = React.memo(() => {
                   className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                     isActive 
                       ? 'bg-app-blue text-white' 
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700'
                   }`}
                 >
                   <item.icon size={16} className="mr-2 flex-shrink-0" />
@@ -103,8 +105,10 @@ export const TopHeader = React.memo(() => {
             })}
           </nav>
 
-          {/* Pomodoro & User Profile */}
+          {/* Theme Toggle, Pomodoro & User Profile */}
           <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
+            {/* Theme Toggle */}
+            <ThemeToggle />
             {/* Pomodoro Timer Icon */}
             {user && (
               <PomodoroPopover>
@@ -114,7 +118,7 @@ export const TopHeader = React.memo(() => {
                     <span className={`text-sm font-mono font-semibold hidden sm:block transition-all duration-300 ${
                       isBlinking 
                         ? 'text-red-500 animate-pulse' 
-                        : 'text-gray-700'
+                        : 'text-gray-700 dark:text-slate-200'
                     }`}>
                       {timeLeft === 0 && isBlinking ? '00:00' : formattedTime}
                     </span>
@@ -130,7 +134,7 @@ export const TopHeader = React.memo(() => {
                         stroke="currentColor"
                         strokeWidth="2"
                         fill="none"
-                        className="text-gray-200"
+                        className="text-gray-200 dark:text-slate-600"
                       />
                       {state !== 'stopped' && (
                         <circle
@@ -154,21 +158,21 @@ export const TopHeader = React.memo(() => {
                     {state === 'stopped' ? (
                       <Timer 
                         size={14} 
-                        className="text-gray-600"
+                        className="text-gray-600 dark:text-slate-300"
                       />
                     ) : (
                       <div className="flex flex-col items-center">
                         <span className={`text-xs font-mono font-bold sm:hidden transition-all duration-300 ${
                           isBlinking 
                             ? 'text-red-500 animate-pulse' 
-                            : 'text-gray-700'
+                            : 'text-gray-700 dark:text-slate-200'
                         }`}>
                           {timeLeft === 0 && isBlinking ? '00' : formattedTime.split(':')[0]}
                         </span>
                         <span className={`text-xs font-mono font-bold sm:hidden transition-all duration-300 ${
                           isBlinking 
                             ? 'text-red-500 animate-pulse' 
-                            : 'text-gray-700'
+                            : 'text-gray-700 dark:text-slate-200'
                         }`}>
                           {timeLeft === 0 && isBlinking ? '00' : formattedTime.split(':')[1]}
                         </span>
@@ -218,7 +222,7 @@ const MobileMenu = React.memo(({ navItems }: { navItems: NavItem[] }) => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center w-10 h-10 rounded-lg text-gray-700 hover:bg-gray-100"
+        className="flex items-center justify-center w-10 h-10 rounded-lg text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200"
         aria-label="Menu"
       >
         <Menu className="w-6 h-6" />
@@ -233,9 +237,9 @@ const MobileMenu = React.memo(({ navItems }: { navItems: NavItem[] }) => {
           />
           
           {/* Menu - positioned to the left */}
-          <div className="absolute left-0 top-12 w-64 bg-white rounded-lg shadow-lg border z-50 p-2 max-h-[80vh] overflow-y-auto">
-            <div className="p-2 border-b border-gray-100 mb-2">
-              <h3 className="text-sm font-semibold text-gray-900">Menu de Navegação</h3>
+          <div className="absolute left-0 top-12 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50 p-2 max-h-[80vh] overflow-y-auto transition-colors duration-200">
+            <div className="p-2 border-b border-gray-100 dark:border-slate-700 mb-2">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-slate-100">Menu de Navegação</h3>
             </div>
             {navItems.map((item) => {
               const isActive = isItemActive(item);
@@ -248,7 +252,7 @@ const MobileMenu = React.memo(({ navItems }: { navItems: NavItem[] }) => {
                   className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors w-full ${
                     isActive 
                       ? 'bg-app-blue text-white' 
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700'
                   }`}
                   onClick={() => setIsOpen(false)}
                 >
