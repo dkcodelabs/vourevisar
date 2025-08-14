@@ -22,6 +22,15 @@ export default {
 			fontFamily: {
 				sans: ['ui-sans-serif', 'system-ui', 'sans-serif'],
 			},
+			fontSize: {
+				// Custom semantic typography sizes
+				'title-page': ['2rem', { lineHeight: '2.5rem', fontWeight: '700' }],
+				'title-section': ['1.5rem', { lineHeight: '2rem', fontWeight: '600' }], 
+				'title-card': ['1.125rem', { lineHeight: '1.75rem', fontWeight: '700' }],
+				'subtitle': ['1rem', { lineHeight: '1.5rem', fontWeight: '500' }],
+				'body': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '400' }],
+				'caption': ['0.75rem', { lineHeight: '1rem', fontWeight: '400' }],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',

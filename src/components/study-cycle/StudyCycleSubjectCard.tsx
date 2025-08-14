@@ -64,7 +64,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     return (
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-md overflow-hidden flex flex-col">
         <div className="p-6">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">{subject.name}</h3>
+          <h3 className="title-card text-gray-900 dark:text-slate-100">{subject.name}</h3>
           <div className="flex items-center gap-4 mt-4">
             <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5">
               <div
@@ -106,7 +106,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         >
           <div className="flex-grow">
             <div className="flex items-center gap-3">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">{subject.name}</h3>
+              <h3 className="title-card text-gray-900 dark:text-slate-100">{subject.name}</h3>
             </div>
             <div className="flex items-center gap-4 mt-2">
               <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
@@ -158,7 +158,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     <div className={`${cardBaseClasses} flex flex-col ${focusClasses}`}>
       <div className="p-6">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">{subject.name}</h3>
+          <h3 className="title-card text-gray-900 dark:text-slate-100">{subject.name}</h3>
         </div>
         <div className="flex items-center gap-4 mt-4">
             <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5">
