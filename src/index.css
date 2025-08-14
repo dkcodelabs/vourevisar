@@ -378,7 +378,9 @@ img, video {
 
 /* Card titles - Titles in cards, components, etc */
 .title-card {
-  @apply text-lg font-bold;
+  font-size: 1.125rem !important;
+  line-height: 1.75rem !important;
+  font-weight: 700 !important;
 }
 
 /* Subtitle text */
