@@ -94,6 +94,15 @@
     transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
   }
   
+  /* Reset browser default h3 styles */
+  h3 {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    margin: 0;
+    padding: 0;
+  }
+  
   /* Smooth theme transitions */
   *, *::before, *::after {
     transition-property: background-color, border-color, color, fill, stroke;
@@ -381,18 +390,28 @@ img, video {
   font-size: 1.125rem !important;
   line-height: 1.75rem !important;
   font-weight: 700 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-/* Override any other conflicting styles */
+/* Override any other conflicting styles with maximum specificity */
 h1.title-card,
 h2.title-card, 
 h3.title-card,
 h4.title-card,
 h5.title-card,
-h6.title-card {
+h6.title-card,
+.title-card h1,
+.title-card h2,
+.title-card h3,
+.title-card h4,
+.title-card h5,
+.title-card h6 {
   font-size: 1.125rem !important;
   line-height: 1.75rem !important;
   font-weight: 700 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* Subtitle text */
