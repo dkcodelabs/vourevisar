@@ -383,6 +383,18 @@ img, video {
   font-weight: 700 !important;
 }
 
+/* Override any other conflicting styles */
+h1.title-card,
+h2.title-card, 
+h3.title-card,
+h4.title-card,
+h5.title-card,
+h6.title-card {
+  font-size: 1.125rem !important;
+  line-height: 1.75rem !important;
+  font-weight: 700 !important;
+}
+
 /* Subtitle text */
 .subtitle {
   @apply text-base md:text-lg font-medium;

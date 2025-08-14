@@ -60,7 +60,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     ? 'relative transform scale-[1.03] shadow-[0_0_20px_rgba(14,165,233,0.2)] dark:shadow-[0_0_20px_rgba(56,189,248,0.15)] z-10'
     : '';
 
-  if (isFullyCompleted) {
+  if (isFullyCompleted && viewMode === 'grid') {
     return (
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-md overflow-hidden flex flex-col">
         <div className="p-6">
