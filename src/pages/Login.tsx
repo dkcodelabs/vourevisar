@@ -138,8 +138,8 @@ const Login = () => {
 
   return (
     <PageContainer>
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <GlassCard className="w-full max-w-md p-8">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-900">
+        <GlassCard className="w-full max-w-md p-8 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-lg">
           <AnimatedTitle 
             icon={isRegistering ? <UserPlus size={32} /> : <LogIn size={32} />}
             className="mb-8 text-center"
@@ -151,14 +151,14 @@ const Login = () => {
             {isRegistering && (
               <>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Nome</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                     <input
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
+                      className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900 dark:text-slate-100"
                       placeholder="Seu nome completo"
                       required
                     />
@@ -166,14 +166,14 @@ const Login = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Telefone (opcional)</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Telefone (opcional)</label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                     <input
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
+                      className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900 dark:text-slate-100"
                       placeholder="(11) 99999-9999"
                     />
                   </div>
@@ -182,14 +182,14 @@ const Login = () => {
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900 dark:text-slate-100"
                   placeholder="seu@email.com"
                   required
                 />
@@ -197,14 +197,14 @@ const Login = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Senha</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Senha</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
+                  className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900 dark:text-slate-100"
                   placeholder="••••••••"
                   required
                 />
@@ -220,14 +220,14 @@ const Login = () => {
 
             {isRegistering && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirmar Senha</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Confirmar Senha</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
+                    className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900 dark:text-slate-100"
                     placeholder="••••••••"
                     required
                   />
@@ -263,9 +263,9 @@ const Login = () => {
                  <button
                    type="button"
                    onClick={() => setShowForgotPassword(true)}
-                   className="text-sm text-app-blue hover:text-blue-700 transition-colors"
-                 >
-                   Esqueci minha senha
+                    className="text-sm text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Esqueci minha senha
                  </button>
                </div>
              )}
@@ -274,18 +274,18 @@ const Login = () => {
                <>
                  <div className="relative">
                    <div className="absolute inset-0 flex items-center">
-                     <span className="w-full border-t border-gray-300 dark:border-gray-600" />
-                   </div>
-                   <div className="relative flex justify-center text-xs uppercase">
-                     <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">Ou</span>
-                   </div>
+                      <span className="w-full border-t border-gray-300 dark:border-slate-600" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white dark:bg-slate-800 px-2 text-gray-500 dark:text-slate-400">Ou</span>
+                    </div>
                  </div>
 
                  <button
                    type="button"
                    onClick={handleGoogleLogin}
                    disabled={isLoading}
-                   className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm hover:bg-gray-50/70 dark:hover:bg-gray-700/70 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-app-blue transition-all"
+                   className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-slate-300 bg-white/70 dark:bg-slate-700/70 backdrop-blur-sm hover:bg-gray-50/70 dark:hover:bg-slate-600/70 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all"
                  >
                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -300,7 +300,7 @@ const Login = () => {
 
               {showForgotPassword ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                  <p className="text-sm text-gray-600 dark:text-slate-400 text-center">
                     Clique no botão abaixo para receber um email de recuperação no endereço: <strong>{email}</strong>
                   </p>
 
@@ -324,7 +324,7 @@ const Login = () => {
                     <button
                       type="button"
                       onClick={() => setShowForgotPassword(false)}
-                      className="text-sm text-app-blue hover:text-blue-700 transition-colors"
+                      className="text-sm text-primary hover:text-primary/80 transition-colors"
                     >
                       Voltar ao login
                     </button>
@@ -343,9 +343,9 @@ const Login = () => {
                      setPassword('');
                      setConfirmPassword('');
                    }}
-                   className="text-sm text-app-blue hover:text-blue-700 transition-colors"
-                 >
-                   {isRegistering ? 'Já tem uma conta? Entre aqui' : 'Não tem uma conta? Registre-se'}
+                    className="text-sm text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {isRegistering ? 'Já tem uma conta? Entre aqui' : 'Não tem uma conta? Registre-se'}
                  </button>
                </div>
              )}
