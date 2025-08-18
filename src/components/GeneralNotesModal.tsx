@@ -29,6 +29,7 @@ interface GeneralNotesModalProps {
 }
 
 const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }) => {
+    console.log('GeneralNotesModal renderizado com isOpen:', isOpen);
     const { user } = useAuth();
     const [notes, setNotes] = useState<TopicNotes | undefined>();
     const [currentContent, setCurrentContent] = useState('');

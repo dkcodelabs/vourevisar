@@ -50,10 +50,20 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   useEffect(() => {
     const root = window.document.documentElement;
     
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
+    // Verificar se estamos na página de login
+    const isLoginPage = window.location.pathname === '/login' || 
+                       window.location.pathname === '/reset-password';
+    
+    if (isLoginPage) {
+      // Forçar modo claro na página de login
       root.classList.remove('dark');
+    } else {
+      // Aplicar tema normal nas outras páginas
+      if (theme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
     }
   }, [theme]);
 
