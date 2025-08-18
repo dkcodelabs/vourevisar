@@ -23,6 +23,9 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [isGeneralNotesModalOpen, setIsGeneralNotesModalOpen] = useState(false);
+  
+  // Debug do estado do modal
+  console.log('Estado do modal de anotações:', isGeneralNotesModalOpen);
 
   // Buscar dados de revisões para o calendário
   const { data: reviewData } = useQuery({

@@ -41,7 +41,9 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
 
     // Carregar dados ao abrir o modal
     useEffect(() => {
+        console.log('useEffect do modal executado - isOpen:', isOpen, 'user:', !!user);
         if (isOpen && user) {
+            console.log('Carregando dados do modal...');
             loadGeneralNotes();
             loadReminders();
         }
@@ -76,7 +78,12 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             }
         } catch (error) {
             console.error('Erro ao carregar anotações gerais:', error);
-            toast.error('Erro ao carregar anotações');
+            // Não mostrar erro se for apenas porque não há dados
+            if (error.message && !error.message.includes('No rows found')) {
+                toast.error('Erro ao carregar anotações');
+            }
+            // Mesmo com erro, inicializar com conteúdo vazio
+            setCurrentContent('');
         } finally {
             setIsLoading(false);
         }
@@ -104,7 +111,12 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             }
         } catch (error) {
             console.error('Erro ao carregar lembretes:', error);
-            toast.error('Erro ao carregar lembretes');
+            // Não mostrar erro se for apenas porque não há dados
+            if (error.message && !error.message.includes('No rows found')) {
+                toast.error('Erro ao carregar lembretes');
+            }
+            // Mesmo com erro, inicializar com array vazio
+            setReminders([]);
         }
     };
 
@@ -249,7 +261,10 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
                     font-style: normal;
                 }
             `}</style>
-            <Dialog open={isOpen} onOpenChange={onClose}>
+            <Dialog open={isOpen} onOpenChange={(open) => {
+                console.log('Dialog onOpenChange chamado com:', open);
+                if (!open) onClose();
+            }}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
                     <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="text-xl font-semibold">Anotações Gerais</DialogTitle>
