@@ -20,7 +20,20 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['ui-sans-serif', 'system-ui', 'sans-serif'],
+				sans: [
+					'Inter', 
+					'-apple-system', 
+					'BlinkMacSystemFont', 
+					'Segoe UI', 
+					'Roboto', 
+					'Oxygen', 
+					'Ubuntu', 
+					'Cantarell', 
+					'Fira Sans', 
+					'Droid Sans', 
+					'Helvetica Neue', 
+					'sans-serif'
+				],
 			},
 			fontSize: {
 				// Custom semantic typography sizes

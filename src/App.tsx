@@ -25,6 +25,7 @@ import QuestionsStatistics from "@/pages/QuestionsStatistics";
 import StudyCycle from "@/pages/StudyCycle";
 
 import { ProfileOnboardingGate } from "@/components/ProfileOnboardingGate";
+import { useBrowserCompatibility } from "@/hooks/useBrowserCompatibility";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +37,9 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  // Apply browser compatibility fixes
+  useBrowserCompatibility();
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

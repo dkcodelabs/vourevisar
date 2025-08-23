@@ -85,29 +85,97 @@
 }
 
 @layer base {
-  * {
+  /* CSS Reset for cross-browser consistency */
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
     @apply border-border;
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 200ms;
   }
+
+  html {
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
+    /* Better text rendering */
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+    /* Font smoothing */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
   body {
     @apply bg-background text-foreground;
+    /* Explicit font family for cross-browser consistency */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-variant-ligatures: common-ligatures;
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
+    /* Better line height for readability */
+    line-height: 1.6;
+    /* Consistent font rendering */
+    text-rendering: optimizeLegibility;
+    /* Smooth transitions */
     transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
   }
   
-  /* Reset browser default h3 styles */
-  h3 {
+  /* Reset all heading styles for consistent cross-browser rendering */
+  h1, h2, h3, h4, h5, h6 {
     font-size: inherit;
     font-weight: inherit;
     line-height: inherit;
     margin: 0;
     padding: 0;
+    font-family: inherit;
   }
   
-  /* Smooth theme transitions */
-  *, *::before, *::after {
-    transition-property: background-color, border-color, color, fill, stroke;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    transition-duration: 200ms;
+  /* Reset other elements */
+  p, ul, ol, li, blockquote, pre {
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Button reset */
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+  
+  /* Input reset */
+  input, textarea, select {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+  }
+  
+  /* Link reset */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  
+  /* Image reset */
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
   }
 }
 
@@ -372,26 +440,62 @@ img, video {
 
 /* Additional Responsive Utilities */
 
-/* Typography Design System */
-/* Use these semantic classes instead of global h1-h4 overrides */
+/* Typography Design System - Cross-browser consistent */
+/* Use these semantic classes for consistent typography across all browsers */
 
 /* Page titles - Main page headings */
 .title-page {
-  @apply text-2xl md:text-3xl lg:text-4xl font-bold;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 1.5rem !important;
+  line-height: 2rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+@media (min-width: 768px) {
+  .title-page {
+    font-size: 1.875rem !important;
+    line-height: 2.25rem !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .title-page {
+    font-size: 2.25rem !important;
+    line-height: 2.5rem !important;
+  }
 }
 
 /* Section titles - Section headings within pages */
 .title-section {
-  @apply text-xl md:text-2xl font-semibold;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 1.25rem !important;
+  line-height: 1.75rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+@media (min-width: 768px) {
+  .title-section {
+    font-size: 1.5rem !important;
+    line-height: 2rem !important;
+  }
 }
 
 /* Card titles - Titles in cards, components, etc */
 .title-card {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
   font-size: 1.125rem !important;
   line-height: 1.75rem !important;
   font-weight: 700 !important;
+  letter-spacing: -0.025em !important;
   margin: 0 !important;
   padding: 0 !important;
+  color: inherit !important;
 }
 
 /* Override any other conflicting styles with maximum specificity */
@@ -406,27 +510,68 @@ h6.title-card,
 .title-card h3,
 .title-card h4,
 .title-card h5,
-.title-card h6 {
+.title-card h6,
+div.title-card,
+span.title-card {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
   font-size: 1.125rem !important;
   line-height: 1.75rem !important;
   font-weight: 700 !important;
+  letter-spacing: -0.025em !important;
   margin: 0 !important;
   padding: 0 !important;
+  color: inherit !important;
 }
 
 /* Subtitle text */
 .subtitle {
-  @apply text-base md:text-lg font-medium;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 1rem !important;
+  line-height: 1.5rem !important;
+  font-weight: 500 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+@media (min-width: 768px) {
+  .subtitle {
+    font-size: 1.125rem !important;
+    line-height: 1.75rem !important;
+  }
 }
 
 /* Body text variations */
 .text-body {
-  @apply text-sm md:text-base;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 400 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+@media (min-width: 768px) {
+  .text-body {
+    font-size: 1rem !important;
+    line-height: 1.5rem !important;
+  }
 }
 
 /* Caption/small text */
 .text-caption {
-  @apply text-xs md:text-sm;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 400 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+@media (min-width: 768px) {
+  .text-caption {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
 }
 
 /* Safe scrolling */
@@ -562,6 +707,160 @@ h6.title-card,
     max-width: 100%;
   }
 }
+/* Cross-browser compatibility fixes */
+
+/* Firefox specific fixes */
+@-moz-document url-prefix() {
+  * {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  }
+  
+  button, input, select, textarea {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  }
+}
+
+/* Edge/IE specific fixes */
+@supports (-ms-ime-align: auto) {
+  * {
+    font-family: 'Inter', 'Segoe UI', sans-serif !important;
+  }
+}
+
+/* Safari specific fixes */
+@supports (-webkit-appearance: none) {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Chrome/Chromium specific fixes */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  * {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  }
+}
+
+/* Force consistent font rendering across all browsers */
+.font-consistent {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+  font-variant-ligatures: common-ligatures !important;
+}
+
+/* Apply consistent font to all text elements */
+body, 
+h1, h2, h3, h4, h5, h6,
+p, span, div, a, button, input, textarea, select,
+.title-card, .title-section, .title-page,
+.subtitle, .text-body, .text-caption {
+  @apply font-consistent;
+}
+
+/* Ensure buttons have consistent styling */
+button {
+  font-synthesis: none !important;
+  -webkit-font-feature-settings: "kern" 1 !important;
+  font-feature-settings: "kern" 1 !important;
+}
+
+/* Input consistency */
+input, textarea, select {
+  font-synthesis: none !important;
+  -webkit-font-feature-settings: "kern" 1 !important;
+  font-feature-settings: "kern" 1 !important;
+}
+
+/* Prevent font size inflation on mobile */
+@media screen and (max-width: 768px) {
+  html {
+    -webkit-text-size-adjust: 100% !important;
+    -moz-text-size-adjust: 100% !important;
+    -ms-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
+  }
+}
+
+/* Enhanced responsive breakpoints */
+.responsive-text {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .responsive-text {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .responsive-text {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-text {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+/* Consistent card styling */
+.card-consistent {
+  background: white;
+  border: 1px solid rgb(229 231 235);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  padding: 1.5rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.card-consistent:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Consistent button styling */
+.button-consistent {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-weight: 500 !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.375rem !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease-in-out !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+/* Consistent form elements */
+.input-consistent {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  padding: 0.75rem !important;
+  border: 1px solid rgb(209 213 219) !important;
+  border-radius: 0.375rem !important;
+  background: white !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.input-consistent:focus {
+  outline: none !important;
+  border-color: rgb(59 130 246) !important;
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1) !important;
+}
+
 /* Animação para destacar tópicos */
 @keyframes highlight-blink {
   0%, 100% {
@@ -576,4 +875,13 @@ h6.title-card,
 
 .highlight-blink {
   animation: highlight-blink 2s ease-in-out 3;
+}
+
+/* Print styles */
+@media print {
+  * {
+    font-family: 'Inter', serif !important;
+    color: black !important;
+    background: white !important;
+  }
 }

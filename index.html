@@ -7,6 +7,34 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Preload Inter font for better performance -->
+    <link rel="preload" href="https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- Fallback font styles for immediate rendering -->
+    <style>
+      /* Critical CSS for immediate font rendering */
+      * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+      }
+      
+      body {
+        font-synthesis: none;
+        font-variant-ligatures: common-ligatures;
+      }
+      
+      /* Prevent FOUT (Flash of Unstyled Text) */
+      .font-loading {
+        visibility: hidden;
+      }
+      
+      .font-loaded {
+        visibility: visible;
+      }
+    </style>
     <title>vouRevisar | Plataforma de Estudos</title>
     <meta name="description" content="Plataforma inteligente de revisão para concursos, permitindo que os usuários organizem seus estudos e revisem conteúdos de forma otimizada." />
     <meta name="author" content="vouRevisar" />
