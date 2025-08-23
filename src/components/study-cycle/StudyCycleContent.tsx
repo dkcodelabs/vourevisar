@@ -1,31 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
 import { SubjectStatus, ReviewInterval } from '@/types/study-cycle';
-import { mockStudyCycleSubjects } from '@/data/study-cycle-mock';
+import { useStudyCycleData } from '@/hooks/useStudyCycleData';
 import { STATUS_CONFIG } from '@/constants/study-cycle';
 import { StudyCycleSubjectCard } from './StudyCycleSubjectCard';
 import { GridIcon, ListIcon, ChevronsDownIcon, ChevronsUpIcon, CheckCircleIcon } from './Icons';
 import { StudyCycleNotesModal } from './StudyCycleNotesModal';
 
-const LOCAL_STORAGE_KEY = 'studyCycleSubjects_v1';
 const LOCAL_STORAGE_VIEW_KEY = 'studyCycleViewMode';
-const STUDY_FOCUS_COUNT = 2;
-
-const reviewProgression = [
-  ReviewInterval.NOT_STARTED,
-  ReviewInterval.REVISED_7D,
-  ReviewInterval.REVISED_15D,
-  ReviewInterval.REVISED_30D,
-  ReviewInterval.COMPLETED,
-];
-
-const getNextReviewInterval = (currentStatus: ReviewInterval): ReviewInterval => {
-  const currentIndex = reviewProgression.indexOf(currentStatus);
-  if (currentIndex === -1 || currentIndex === reviewProgression.length - 1) {
-    return currentStatus;
-  }
-  return reviewProgression[currentIndex + 1];
-};
 
 const CompletionMessage: React.FC<{ onStartNewCycle: () => void }> = ({ onStartNewCycle }) => {
   return (
@@ -52,15 +34,20 @@ const CompletionMessage: React.FC<{ onStartNewCycle: () => void }> = ({ onStartN
 };
 
 export const StudyCycleContent: React.FC = () => {
-  const [subjects, setSubjects] = useState<StudyCycleSubject[]>(() => {
-    try {
-      const savedSubjects = localStorage.getItem(LOCAL_STORAGE_KEY);
-      return savedSubjects ? JSON.parse(savedSubjects) : mockStudyCycleSubjects;
-    } catch (error) {
-      console.error("Failed to load subjects from localStorage:", error);
-      return mockStudyCycleSubjects;
-    }
-  });
+  // Use the new hook for real database data
+  const {
+    studyCycleSubjects: subjects,
+    groupedSubjects,
+    activeSubjects,
+    completedCycleSubjects,
+    isDayCompleted,
+    studyFocusSubjectIds,
+    sessionMarks,
+    handleStartNewCycle: handleStartNewCycleData,
+    handleToggleMark,
+    handleCompleteSession: handleCompleteSessionData,
+    handleSaveNotes
+  } = useStudyCycleData();
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     const savedViewMode = localStorage.getItem(LOCAL_STORAGE_VIEW_KEY);
@@ -69,76 +56,11 @@ export const StudyCycleContent: React.FC = () => {
 
   const [editingTopic, setEditingTopic] = useState<{ subjectId: string; topicId: string } | null>(null);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
-  const [sessionMarks, setSessionMarks] = useState<Record<string, Set<string>>>({});
-  const [studyFocusSubjectIds, setStudyFocusSubjectIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    // Determine the focus subjects only once when the component loads.
-    const activeSubjectsOnLoad = subjects.filter(s => s.status === SubjectStatus.ACTIVE);
-    const initialFocusIds = new Set(activeSubjectsOnLoad.slice(0, STUDY_FOCUS_COUNT).map(s => s.id));
-    setStudyFocusSubjectIds(initialFocusIds);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // This effect runs only once on mount to "freeze" the focus for the session.
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(subjects));
-    } catch (error) {
-      console.error("Failed to save subjects to localStorage:", error);
-    }
-  }, [subjects]);
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_VIEW_KEY, viewMode);
     setExpandedSubjects(new Set());
   }, [viewMode]);
-
-  const handleStartNewCycle = useCallback(() => {
-    setSubjects(currentSubjects => {
-      const activeSubjects = currentSubjects.filter(s => s.status === SubjectStatus.ACTIVE);
-      const completedCycleSubjects = currentSubjects.filter(s => s.status === SubjectStatus.COMPLETED_CYCLE);
-  
-      // Case 1: All subjects in the cycle are done. Time to reset and start a new grand cycle.
-      if (activeSubjects.length === 0 && completedCycleSubjects.length > 0) {
-        const newSubjects = currentSubjects.map(subject =>
-          subject.status === SubjectStatus.COMPLETED_CYCLE
-            ? { ...subject, status: SubjectStatus.ACTIVE }
-            : subject
-        );
-        const allActiveNow = newSubjects.filter(s => s.status === SubjectStatus.ACTIVE);
-        const newFocusIds = new Set(allActiveNow.slice(0, STUDY_FOCUS_COUNT).map(s => s.id));
-        setStudyFocusSubjectIds(newFocusIds);
-        return newSubjects;
-      } else {
-        // Case 2: Daily cycle is done, but more subjects are active. Set the next focus group.
-        const newFocusIds = new Set(activeSubjects.slice(0, STUDY_FOCUS_COUNT).map(s => s.id));
-        setStudyFocusSubjectIds(newFocusIds);
-        return currentSubjects;
-      }
-    });
-  }, []);
-  
-  const groupedSubjects = useMemo(() => {
-    return subjects.reduce((acc, subject) => {
-      const status = subject.status;
-      if (!acc[status]) {
-        acc[status] = [];
-      }
-      acc[status].push(subject);
-      return acc;
-    }, {} as Record<SubjectStatus, StudyCycleSubject[]>);
-  }, [subjects]);
-
-  const activeSubjects = groupedSubjects[SubjectStatus.ACTIVE] || [];
-  const completedCycleSubjects = groupedSubjects[SubjectStatus.COMPLETED_CYCLE] || [];
-
-  const isDayCompleted = useMemo(() => {
-    if (studyFocusSubjectIds.size === 0) {
-        return activeSubjects.length === 0 && completedCycleSubjects.length > 0;
-    }
-    const remainingFocusSubjects = activeSubjects.filter(s => studyFocusSubjectIds.has(s.id));
-    return remainingFocusSubjects.length === 0;
-  }, [activeSubjects, completedCycleSubjects, studyFocusSubjectIds]);
   
   const handleToggleExpand = useCallback((subjectId: string) => {
     setExpandedSubjects(prev => {
@@ -165,49 +87,7 @@ export const StudyCycleContent: React.FC = () => {
     setExpandedSubjects(new Set());
   }, []);
 
-  const handleToggleMark = useCallback((subjectId: string, topicId: string) => {
-    setSessionMarks(prev => {
-      const currentMarks = prev[subjectId] ? new Set(prev[subjectId]) : new Set<string>();
-      if (currentMarks.has(topicId)) {
-        currentMarks.delete(topicId);
-      } else {
-        currentMarks.add(topicId);
-      }
-      return {
-        ...prev,
-        [subjectId]: currentMarks,
-      };
-    });
-  }, []);
-
-  const handleCompleteSession = useCallback((subjectId: string) => {
-    const revisedTopicIds = Array.from(sessionMarks[subjectId] || []);
-    if (revisedTopicIds.length === 0) return;
-    
-    setSubjects(currentSubjects => 
-      currentSubjects.map(subject => {
-        if (subject.id === subjectId) {
-          const newTopics = subject.topics.map(topic => 
-            revisedTopicIds.includes(topic.id) 
-              ? { ...topic, reviewStatus: getNextReviewInterval(topic.reviewStatus) } 
-              : topic
-          );
-          
-          const allCompleted = newTopics.every(t => t.reviewStatus === ReviewInterval.COMPLETED);
-          const newStatus = allCompleted ? SubjectStatus.FINISHED : SubjectStatus.COMPLETED_CYCLE;
-          
-          return { ...subject, topics: newTopics, status: newStatus };
-        }
-        return subject;
-      })
-    );
-
-    setSessionMarks(prev => {
-      const newMarks = { ...prev };
-      delete newMarks[subjectId];
-      return newMarks;
-    });
-  }, [sessionMarks]);
+  // Use the handlers from the hook
 
   const handleOpenNotes = useCallback((subjectId: string, topicId: string) => {
     setEditingTopic({ subjectId, topicId });
@@ -217,22 +97,10 @@ export const StudyCycleContent: React.FC = () => {
     setEditingTopic(null);
   }, []);
   
-  const handleSaveNotes = useCallback((subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
-    setSubjects(currentSubjects =>
-      currentSubjects.map(s => {
-        if (s.id === subjectId) {
-          return {
-            ...s,
-            topics: s.topics.map(t =>
-              t.id === topicId ? { ...t, ...updatedData } : t
-            ),
-          };
-        }
-        return s;
-      })
-    );
+  const handleSaveNotesWithClose = useCallback((subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
+    handleSaveNotes(subjectId, topicId, updatedData);
     handleCloseNotes();
-  }, [handleCloseNotes]);
+  }, [handleSaveNotes]);
 
   const topicToEdit = useMemo(() => {
     if (!editingTopic) return null;
@@ -267,7 +135,7 @@ export const StudyCycleContent: React.FC = () => {
             <StudyCycleSubjectCard
               key={`${subject.id}-${subject.status}`}
               subject={subject}
-              onCompleteSession={handleCompleteSession}
+              onCompleteSession={handleCompleteSessionData}
               onOpenNotes={handleOpenNotes}
               isActionable={isActionableSection}
               isStudyFocus={isActionableSection && studyFocusSubjectIds.has(subject.id)}
@@ -331,7 +199,7 @@ export const StudyCycleContent: React.FC = () => {
                     Dia de Estudos Concluído
                 </h2>
             </div>
-            <CompletionMessage onStartNewCycle={handleStartNewCycle} />
+            <CompletionMessage onStartNewCycle={handleStartNewCycleData} />
           </section>
         ) : (
           <>
@@ -348,7 +216,7 @@ export const StudyCycleContent: React.FC = () => {
           subject={topicToEdit.subject}
           topic={topicToEdit.topic}
           onClose={handleCloseNotes}
-          onSave={handleSaveNotes}
+          onSave={handleSaveNotesWithClose}
         />
       )}
     </div>
