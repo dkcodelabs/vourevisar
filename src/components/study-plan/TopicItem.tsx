@@ -85,7 +85,7 @@ const TopicItem: React.FC<TopicItemProps> = ({
   return (
     <>
       <div className="flex items-center justify-between py-3 px-4 transition-colors hover:bg-gray-50">
-        <p className="text-sm font-medium text-gray-600 flex-1 min-w-0 pr-4 truncate">{topic.name}</p>
+        <p className="text-sm text-zinc-800 dark:text-zinc-200 flex-1 min-w-0 pr-4 truncate">{topic.name}</p>
         <div className="flex items-center gap-2 flex-shrink-0">
           {isTopicCompleted ? (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">

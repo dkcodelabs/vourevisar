@@ -133,6 +133,19 @@ export const useStudyCycleData = () => {
     return remainingFocusSubjects.length === 0;
   }, [activeSubjects, completedCycleSubjects, studyFocusSubjectIds]);
 
+  // Check if all studies are completed (all subjects are finished and all topics are completed)
+  const areAllStudiesCompleted = useMemo(() => {
+    if (studyCycleSubjects.length === 0) return false;
+    
+    return studyCycleSubjects.every(subject => {
+      // Subject must be finished
+      if (subject.status !== 'FINISHED') return false;
+      
+      // All topics must be completed
+      return subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
+    });
+  }, [studyCycleSubjects]);
+
   // Handle starting new cycle
   const handleStartNewCycle = useCallback(async () => {
     if (!user) return;
@@ -269,6 +282,7 @@ export const useStudyCycleData = () => {
     activeSubjects,
     completedCycleSubjects,
     isDayCompleted,
+    areAllStudiesCompleted,
     studyFocusSubjectIds,
     sessionMarks,
     handleStartNewCycle,

@@ -8,37 +8,37 @@ interface TypographyProps {
 }
 
 export const PageTitle = ({ children, className, as: Component = 'h1' }: TypographyProps) => (
-  <Component className={cn('title-page', className)}>
+  <Component className={cn('text-xl font-bold', className)}>
     {children}
   </Component>
 );
 
 export const SectionTitle = ({ children, className, as: Component = 'h2' }: TypographyProps) => (
-  <Component className={cn('title-section', className)}>
+  <Component className={cn('text-lg font-semibold', className)}>
     {children}
   </Component>
 );
 
 export const CardTitle = ({ children, className, as: Component = 'h3' }: TypographyProps) => (
-  <Component className={cn('title-card', className)}>
+  <Component className={cn('text-lg font-bold', className)}>
     {children}
   </Component>
 );
 
 export const Subtitle = ({ children, className, as: Component = 'p' }: TypographyProps) => (
-  <Component className={cn('subtitle', className)}>
+  <Component className={cn('text-base font-medium', className)}>
     {children}
   </Component>
 );
 
 export const BodyText = ({ children, className, as: Component = 'p' }: TypographyProps) => (
-  <Component className={cn('text-body', className)}>
+  <Component className={cn('text-base', className)}>
     {children}
   </Component>
 );
 
 export const CaptionText = ({ children, className, as: Component = 'span' }: TypographyProps) => (
-  <Component className={cn('text-caption', className)}>
+  <Component className={cn('text-sm', className)}>
     {children}
   </Component>
 );

@@ -6,6 +6,7 @@ import { STATUS_CONFIG } from '@/constants/study-cycle';
 import { StudyCycleSubjectCard } from './StudyCycleSubjectCard';
 import { GridIcon, ListIcon, ChevronsDownIcon, ChevronsUpIcon, CheckCircleIcon } from './Icons';
 import { StudyCycleNotesModal } from './StudyCycleNotesModal';
+import AllStudiesCompletedCard from './AllStudiesCompletedCard';
 
 const LOCAL_STORAGE_VIEW_KEY = 'studyCycleViewMode';
 
@@ -41,6 +42,7 @@ export const StudyCycleContent: React.FC = () => {
     activeSubjects,
     completedCycleSubjects,
     isDayCompleted,
+    areAllStudiesCompleted,
     studyFocusSubjectIds,
     sessionMarks,
     handleStartNewCycle: handleStartNewCycleData,
@@ -191,7 +193,11 @@ export const StudyCycleContent: React.FC = () => {
             </div>
         </div>
         
-        {isDayCompleted ? (
+        {areAllStudiesCompleted ? (
+          <section className="mb-12">
+            <AllStudiesCompletedCard />
+          </section>
+        ) : isDayCompleted ? (
           <section className="mb-12">
             <div className="flex items-center mb-6">
                 <span className="mr-4 text-emerald-500"><CheckCircleIcon /></span>

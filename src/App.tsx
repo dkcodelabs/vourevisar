@@ -26,6 +26,7 @@ import StudyCycle from "@/pages/StudyCycle";
 
 import { ProfileOnboardingGate } from "@/components/ProfileOnboardingGate";
 import { useBrowserCompatibility } from "@/hooks/useBrowserCompatibility";
+import { FontDiagnostic } from "@/components/FontDiagnostic";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,15 +42,17 @@ const App = () => {
   useBrowserCompatibility();
   
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <ThemeProvider>
-          <BrowserRouter>
-            <AuthProvider>
-              <AppProvider>
-              <Sonner />
-              <ProfileOnboardingGate />
-              <Routes>
+    <div className="font-sans">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <ThemeProvider>
+            <BrowserRouter>
+              <AuthProvider>
+                <AppProvider>
+                <Sonner />
+                <ProfileOnboardingGate />
+                {process.env.NODE_ENV === 'development' && <FontDiagnostic />}
+                <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
@@ -77,6 +80,7 @@ const App = () => {
         </ThemeProvider>
       </TooltipProvider>
     </QueryClientProvider>
+    </div>
   );
 };
 

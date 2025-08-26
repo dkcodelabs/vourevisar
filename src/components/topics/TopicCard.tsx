@@ -51,7 +51,7 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onDelete, onNotesClick }) 
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <h3 className="font-medium text-gray-900 truncate">{topic.name}</h3>
+            <h3 className="text-base text-zinc-800 dark:text-zinc-200 truncate">{topic.name}</h3>
             {topic.notes && (
               <Button
                 variant="ghost"

@@ -75,7 +75,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="title-card"
+          className="text-base font-normal"
           autoFocus
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSave();
@@ -105,7 +105,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
   }
 
   return (
-    <h3 className="title-card text-slate-800 dark:text-slate-100 truncate">
+    <h3 className="text-base font-normal text-zinc-800 dark:text-zinc-200 truncate">
       {name}
     </h3>
   );

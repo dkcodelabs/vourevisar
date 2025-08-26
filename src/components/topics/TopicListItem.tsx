@@ -160,7 +160,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-gray-900 text-lg truncate">
+                  <h3 className="text-base text-zinc-800 dark:text-zinc-200 truncate">
                     {topic.name}
                   </h3>
                   {topic.isMarkedForReview && (

@@ -111,11 +111,7 @@
   }
   
   body {
-    @apply bg-background text-foreground;
-    /* Explicit font family for cross-browser consistency */
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-    font-feature-settings: "rlig" 1, "calt" 1;
-    font-variant-ligatures: common-ligatures;
+    @apply bg-background text-foreground font-sans;
     /* Prevent horizontal scroll */
     overflow-x: hidden;
     /* Better line height for readability */
@@ -440,139 +436,9 @@ img, video {
 
 /* Additional Responsive Utilities */
 
-/* Typography Design System - Cross-browser consistent */
-/* Use these semantic classes for consistent typography across all browsers */
+/* Typography Design System - Let Tailwind work naturally */
 
-/* Page titles - Main page headings */
-.title-page {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-size: 1.125rem !important;
-  line-height: 1.75rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-@media (min-width: 768px) {
-  .title-page {
-    font-size: 1.125rem !important;
-    line-height: 1.75rem !important;
-  }
-}
-
-@media (min-width: 1024px) {
-  .title-page {
-    font-size: 1.125rem !important;
-    line-height: 1.75rem !important;
-  }
-}
-
-/* Section titles - Section headings within pages */
-.title-section {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-size: 1rem !important;
-  line-height: 1.5rem !important;
-  font-weight: 600 !important;
-  letter-spacing: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-@media (min-width: 768px) {
-  .title-section {
-    font-size: 1rem !important;
-    line-height: 1.5rem !important;
-  }
-}
-
-/* Card titles - Titles in cards, components, etc */
-.title-card {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-size: 0.875rem !important;
-  line-height: 1.25rem !important;
-  font-weight: 600 !important;
-  letter-spacing: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  color: inherit !important;
-}
-
-/* Override any other conflicting styles with maximum specificity */
-h1.title-card,
-h2.title-card, 
-h3.title-card,
-h4.title-card,
-h5.title-card,
-h6.title-card,
-.title-card h1,
-.title-card h2,
-.title-card h3,
-.title-card h4,
-.title-card h5,
-.title-card h6,
-div.title-card,
-span.title-card {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-size: 0.875rem !important;
-  line-height: 1.25rem !important;
-  font-weight: 600 !important;
-  letter-spacing: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  color: inherit !important;
-}
-
-/* Subtitle text */
-.subtitle {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-size: 0.875rem !important;
-  line-height: 1.25rem !important;
-  font-weight: 500 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-@media (min-width: 768px) {
-  .subtitle {
-    font-size: 0.875rem !important;
-    line-height: 1.25rem !important;
-  }
-}
-
-/* Body text variations */
-.text-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-size: 0.75rem !important;
-  line-height: 1rem !important;
-  font-weight: 400 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-@media (min-width: 768px) {
-  .text-body {
-    font-size: 0.875rem !important;
-    line-height: 1.25rem !important;
-  }
-}
-
-/* Caption/small text */
-.text-caption {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-size: 0.625rem !important;
-  line-height: 0.875rem !important;
-  font-weight: 400 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-@media (min-width: 768px) {
-  .text-caption {
-    font-size: 0.75rem !important;
-    line-height: 1rem !important;
-  }
-}
+/* Remove all font size overrides - let Tailwind handle it */
 
 /* Safe scrolling */
 .safe-scroll {
@@ -707,82 +573,12 @@ span.title-card {
     max-width: 100%;
   }
 }
-/* Cross-browser compatibility fixes */
+/* Minimal cross-browser compatibility */
 
-/* Firefox specific fixes */
-@-moz-document url-prefix() {
-  * {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  }
-  
-  button, input, select, textarea {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  }
-}
-
-/* Edge/IE specific fixes */
-@supports (-ms-ime-align: auto) {
-  * {
-    font-family: 'Inter', 'Segoe UI', sans-serif !important;
-  }
-}
-
-/* Safari specific fixes */
-@supports (-webkit-appearance: none) {
-  * {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-}
-
-/* Chrome/Chromium specific fixes */
-@media screen and (-webkit-min-device-pixel-ratio: 0) {
-  * {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  }
-}
-
-/* Force consistent font rendering across all browsers */
-.font-consistent {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
-  -webkit-font-smoothing: antialiased !important;
-  -moz-osx-font-smoothing: grayscale !important;
-  text-rendering: optimizeLegibility !important;
-  font-variant-ligatures: common-ligatures !important;
-}
-
-/* Apply consistent font to all text elements */
-body, 
-h1, h2, h3, h4, h5, h6,
-p, span, div, a, button, input, textarea, select,
-.title-card, .title-section, .title-page,
-.subtitle, .text-body, .text-caption {
-  @apply font-consistent;
-}
-
-/* Force smaller text sizes globally */
+/* Font smoothing only */
 * {
-  font-size: 0.875rem !important;
-  line-height: 1.25rem !important;
-}
-
-/* Override for specific semantic classes */
-.title-card {
-  font-size: 0.875rem !important;
-  line-height: 1.25rem !important;
-  font-weight: 600 !important;
-}
-
-.title-section {
-  font-size: 1rem !important;
-  line-height: 1.5rem !important;
-  font-weight: 600 !important;
-}
-
-.title-page {
-  font-size: 1.125rem !important;
-  line-height: 1.75rem !important;
-  font-weight: 700 !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Ensure buttons have consistent styling */
@@ -852,7 +648,7 @@ input, textarea, select {
 
 /* Consistent button styling */
 .button-consistent {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  @apply font-sans;
   font-weight: 500 !important;
   font-size: 0.875rem !important;
   line-height: 1.25rem !important;
@@ -870,7 +666,7 @@ input, textarea, select {
 
 /* Consistent form elements */
 .input-consistent {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  @apply font-sans;
   font-size: 0.875rem !important;
   line-height: 1.25rem !important;
   padding: 0.75rem !important;
@@ -905,7 +701,7 @@ input, textarea, select {
 /* Print styles */
 @media print {
   * {
-    font-family: 'Inter', serif !important;
+    @apply font-sans;
     color: black !important;
     background: white !important;
   }

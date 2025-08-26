@@ -76,7 +76,7 @@ const SubjectProgressCard: React.FC<SubjectProgressCardProps> = ({
             {topics.map((topic, index) => (
               <div key={index} className="flex items-start gap-2 border-b border-gray-100 pb-2 last:border-b-0">
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-800 truncate">{topic.name}</div>
+                  <div className="text-base text-zinc-800 dark:text-zinc-200 truncate">{topic.name}</div>
                   <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
                     <div
                       className={`h-1.5 rounded-full transition-all duration-300 ${getProgressBarColor(topic.percentage)}`}

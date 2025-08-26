@@ -687,9 +687,9 @@ const Subjects = () => {
                                         <li className="text-gray-400 text-sm">Nenhum tópico cadastrado.</li>
                                       ) : (
                                         subject.topics.map(topic => (
-                                          <li key={topic.id} className="flex items-center gap-2 text-sm">
+                                          <li key={topic.id} className="flex items-center gap-2 text-base">
                                             <BookOpen className="h-4 w-4 text-blue-400" />
-                                            <span>{topic.name}</span>
+                                            <span className="text-zinc-800 dark:text-zinc-200">{topic.name}</span>
                                           </li>
                                         ))
                                       )}

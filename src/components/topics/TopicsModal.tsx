@@ -201,7 +201,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
                         ) : (
                           <>
                             <div className="flex-1">
-                              <h4 className="font-medium text-gray-900">{topic.name}</h4>
+                              <h4 className="text-base text-zinc-800 dark:text-zinc-200">{topic.name}</h4>
                               <div className="flex items-center gap-2 mt-1">
                                 {getStatusBadge(topic)}
                                 {topic.reviewCount > 0 && (

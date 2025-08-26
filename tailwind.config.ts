@@ -21,29 +21,16 @@ export default {
 		extend: {
 			fontFamily: {
 				sans: [
-					'Inter', 
-					'-apple-system', 
-					'BlinkMacSystemFont', 
-					'Segoe UI', 
-					'Roboto', 
-					'Oxygen', 
-					'Ubuntu', 
-					'Cantarell', 
-					'Fira Sans', 
-					'Droid Sans', 
-					'Helvetica Neue', 
-					'sans-serif'
+					'ui-sans-serif', 
+					'system-ui', 
+					'sans-serif', 
+					'"Apple Color Emoji"', 
+					'"Segoe UI Emoji"', 
+					'"Segoe UI Symbol"', 
+					'"Noto Color Emoji"'
 				],
 			},
-			fontSize: {
-				// Custom semantic typography sizes - Smaller for consistency
-				'title-page': ['1.125rem', { lineHeight: '1.75rem', fontWeight: '700' }],
-				'title-section': ['1rem', { lineHeight: '1.5rem', fontWeight: '600' }], 
-				'title-card': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '600' }],
-				'subtitle': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '500' }],
-				'body': ['0.75rem', { lineHeight: '1rem', fontWeight: '400' }],
-				'caption': ['0.625rem', { lineHeight: '0.875rem', fontWeight: '400' }],
-			},
+
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',

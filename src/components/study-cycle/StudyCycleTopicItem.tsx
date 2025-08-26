@@ -34,7 +34,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   if (isSubjectFinished) {
     return (
       <div className="flex items-center justify-between w-full px-4 py-2">
-        <span className="text-sm text-gray-800 dark:text-slate-300">{topic.name}</span>
+        <span className="text-sm text-zinc-800 dark:text-zinc-200">{topic.name}</span>
         <div className="flex items-center gap-2">
           <span className="font-semibold text-emerald-600 dark:text-emerald-400">Revisado</span>
           <div className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500 text-white">
@@ -51,11 +51,11 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   const buttonBaseClasses = "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-200";
   const buttonStateClasses = isMarkedInSession
     ? "bg-sky-500 border-sky-600 text-white"
-    : "bg-white dark:bg-slate-700 border-gray-300 dark:border-slate-500 hover:bg-sky-100 dark:hover:bg-sky-800";
+    : "bg-gray-50 dark:bg-slate-700 border-gray-400 dark:border-slate-500 hover:bg-sky-100 dark:hover:bg-sky-800 hover:border-sky-400";
 
   return (
     <div className={`${baseClasses} ${bgClasses}`}>
-      <span className="text-sm text-gray-800 dark:text-slate-300">{topic.name}</span>
+      <span className="text-sm text-zinc-800 dark:text-zinc-200">{topic.name}</span>
       <div className="flex items-center gap-3">
         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusConfig.className}`}>
           {statusConfig.text}

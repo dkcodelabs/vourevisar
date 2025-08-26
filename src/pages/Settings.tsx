@@ -134,15 +134,38 @@ const Settings = () => {
   };
 
   const handleResetCycle = async () => {
-    if (!user || !userCycle) return;
+    if (!user) {
+      console.error('❌ Usuário não encontrado para reset');
+      return;
+    }
 
+    console.log('🔄 Iniciando handleResetCycle...');
     setIsResettingCycle(true);
     try {
+      console.log('🔄 Chamando resetCycle...');
       await resetCycle();
-      toast.success("Ciclo resetado com sucesso");
+      
+      console.log('✅ resetCycle executado com sucesso');
+      
+      // Atualizar todos os dados da aplicação
+      console.log('🔄 Atualizando dados da aplicação...');
+      await Promise.all([
+        refreshData(), // Atualiza o contexto global
+        fetchUserSettingsContext(), // Atualiza as configurações
+        checkHasReviews() // Atualiza o estado de revisões
+      ]);
+      
+      console.log('✅ Dados atualizados com sucesso');
+      toast.success("Ciclo e revisões resetados com sucesso! Todas as matérias voltaram ao status inicial.");
+      
+      // Recarregar a página após um pequeno delay para garantir que todos os estados foram atualizados
+      setTimeout(() => {
+        console.log('🔄 Recarregando página...');
+        window.location.reload();
+      }, 1500);
     } catch (err: any) {
-      console.error('Erro ao resetar ciclo:', err);
-      toast.error("Não foi possível resetar o ciclo");
+      console.error('❌ Erro ao resetar ciclo:', err);
+      toast.error(`Não foi possível resetar o ciclo: ${err.message || 'Erro desconhecido'}`);
     } finally {
       setIsResettingCycle(false);
     }
