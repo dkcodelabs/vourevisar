@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useTopicReview } from '@/hooks/useTopicReview';
 import type { StudyCycleSubject, StudyCycleTopic, SubjectStatus, ReviewInterval, Difficulty } from '@/types/study-cycle';
 import type { Subject, Topic } from '@/types';
 
@@ -25,10 +26,16 @@ const mapReviewStageToInterval = (reviewStage?: string, completed?: boolean): Re
   
   switch (reviewStage) {
     case '24h':
+    case '1d':
       return 'REVISED_7D' as ReviewInterval;
     case '7 dias':
+    case '7d':
       return 'REVISED_15D' as ReviewInterval;
+    case '15 dias':
+    case '15d':
+      return 'REVISED_30D' as ReviewInterval;
     case '30 dias':
+    case '30d':
       return 'REVISED_30D' as ReviewInterval;
     case 'Concluído':
       return 'COMPLETED' as ReviewInterval;
@@ -94,6 +101,7 @@ const mapDifficultyToLevel = (difficulty: Difficulty): string => {
 export const useStudyCycleData = () => {
   const { user } = useAuth();
   const { subjects, refreshData, updateTopic } = useApp();
+  const { markTopicAsReviewed } = useTopicReview();
   const [studyFocusSubjectIds, setStudyFocusSubjectIds] = useState<Set<string>>(new Set());
   const [sessionMarks, setSessionMarks] = useState<Record<string, Set<string>>>({});
 
@@ -197,46 +205,15 @@ export const useStudyCycleData = () => {
     if (revisedTopicIds.length === 0) return;
 
     try {
-      // Update each revised topic in the database
+      console.log('🔵 handleCompleteSession - Processando revisões:', {
+        subjectId,
+        revisedTopicIds
+      });
+
+      // Update each revised topic using the same logic as the study plan
       for (const topicId of revisedTopicIds) {
-        const topic = subjects
-          .find(s => s.id === subjectId)
-          ?.topics.find(t => t.id === topicId);
-        
-        if (topic) {
-          const currentInterval = mapReviewStageToInterval(topic.reviewStage, topic.completed);
-          const nextInterval = getNextReviewInterval(currentInterval);
-          const newReviewStage = mapIntervalToReviewStage(nextInterval);
-          const isCompleted = nextInterval === 'COMPLETED';
-
-          await updateTopic(subjectId, topicId, {
-            reviewStage: newReviewStage,
-            completed: isCompleted,
-            last_reviewed_at: new Date(),
-            review_count: (topic.review_count || 0) + 1
-          });
-        }
-      }
-
-      // Check if all topics in subject are completed
-      const subject = subjects.find(s => s.id === subjectId);
-      if (subject) {
-        const allTopicsCompleted = subject.topics.every(t => {
-          if (revisedTopicIds.includes(t.id)) {
-            const currentInterval = mapReviewStageToInterval(t.reviewStage, t.completed);
-            const nextInterval = getNextReviewInterval(currentInterval);
-            return nextInterval === 'COMPLETED';
-          }
-          return t.completed;
-        });
-
-        if (allTopicsCompleted) {
-          await supabase
-            .from('subjects')
-            .update({ status: 'Concluída' })
-            .eq('id', subjectId)
-            .eq('user_id', user?.id);
-        }
+        console.log('🔵 Marcando tópico como revisado:', topicId);
+        await markTopicAsReviewed(topicId);
       }
 
       // Clear session marks for this subject
@@ -249,14 +226,23 @@ export const useStudyCycleData = () => {
       // Refresh data to reflect changes
       await refreshData();
 
+      console.log('✅ handleCompleteSession - Sessão completada com sucesso');
+
     } catch (error) {
-      console.error('Error completing session:', error);
+      console.error('❌ Error completing session:', error);
+      throw error;
     }
-  }, [sessionMarks, subjects, updateTopic, user?.id, refreshData]);
+  }, [sessionMarks, markTopicAsReviewed, refreshData]);
 
   // Handle saving topic notes
   const handleSaveNotes = useCallback(async (subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
     try {
+      console.log('🔵 handleSaveNotes - Salvando dados do tópico:', {
+        subjectId,
+        topicId,
+        updatedData
+      });
+
       const updatePayload: any = {};
       
       if (updatedData.notes !== undefined) {
@@ -270,9 +256,12 @@ export const useStudyCycleData = () => {
 
       await updateTopic(subjectId, topicId, updatePayload);
       await refreshData();
+
+      console.log('✅ handleSaveNotes - Notas salvas com sucesso');
       
     } catch (error) {
-      console.error('Error saving topic notes:', error);
+      console.error('❌ Error saving topic notes:', error);
+      throw error;
     }
   }, [updateTopic, refreshData]);
 
