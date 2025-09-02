@@ -231,8 +231,6 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
       />
     </>
   );
-};
-
 });
 
 AllStudiesCompletedCard.displayName = 'AllStudiesCompletedCard';
