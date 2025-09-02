@@ -100,16 +100,16 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
     <TooltipProvider>
       <div className="w-full">
         {/* Desktop Table */}
-        <div className="hidden md:block overflow-x-auto bg-white rounded-lg shadow-sm border border-slate-200 responsive-table">
+        <div className="hidden md:block overflow-x-auto bg-card rounded-lg shadow-sm border border-border responsive-table">
           <Table>
             <TableHeader>
-              <TableRow className="bg-slate-50 border-b border-slate-200 hover:bg-slate-50">
-                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">DISCIPLINA</TableHead>
-                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">TÓPICO</TableHead>
-                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">ESTÁGIO</TableHead>
-                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">PRÓXIMA REVISÃO</TableHead>
-                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">STATUS</TableHead>
-                <TableHead className="text-xs font-bold text-slate-600 uppercase tracking-wider px-6 py-3">AÇÕES</TableHead>
+              <TableRow className="bg-muted/50 border-b border-border hover:bg-muted/30">
+                <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">DISCIPLINA</TableHead>
+                <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">TÓPICO</TableHead>
+                <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">ESTÁGIO</TableHead>
+                <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">PRÓXIMA REVISÃO</TableHead>
+                <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">STATUS</TableHead>
+                <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">AÇÕES</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -134,16 +134,16 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                 }
                 
                 return (
-                  <TableRow key={topic.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                    <TableCell className="px-6 py-3 text-sm font-medium text-slate-800">{topic.subject_name}</TableCell>
-                    <TableCell className="px-6 py-3 text-sm text-slate-600">{topic.name}</TableCell>
-                    <TableCell className="px-6 py-3 text-sm text-slate-500">
+                  <TableRow key={topic.id} className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors">
+                    <TableCell className="px-6 py-3 text-sm font-medium text-foreground">{topic.subject_name}</TableCell>
+                    <TableCell className="px-6 py-3 text-sm text-muted-foreground">{topic.name}</TableCell>
+                    <TableCell className="px-6 py-3 text-sm text-muted-foreground">
                       {topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' 
                         ? topic.review_stage 
                         : (topic.review_count > 0 ? '24h' : 'Não iniciado')
                       }
                     </TableCell>
-                    <TableCell className="px-6 py-3 text-sm text-slate-500">
+                    <TableCell className="px-6 py-3 text-sm text-muted-foreground">
                       {proxima ? format(proxima, 'dd/MM/yyyy') : '-'}
                     </TableCell>
                     <TableCell className="px-6 py-3">
@@ -159,10 +159,10 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                               variant="ghost"
                               size="sm"
                               onClick={() => handleNotesClick(topic)}
-                              className="h-8 w-8 p-0 hover:bg-slate-100"
+                              className="h-8 w-8 p-0 hover:bg-muted"
                             >
                               <FileText 
-                                className={`h-4 w-4 ${hasNotes(topic) ? 'text-blue-600' : 'text-slate-400'}`} 
+                                className={`h-4 w-4 ${hasNotes(topic) ? 'text-primary' : 'text-muted-foreground'}`} 
                               />
                             </Button>
                           </TooltipTrigger>
@@ -176,9 +176,9 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 hover:bg-slate-100"
+                              className="h-8 w-8 p-0 hover:bg-muted"
                             >
-                              <Edit className="h-4 w-4 text-slate-400" />
+                              <Edit className="h-4 w-4 text-muted-foreground" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
@@ -194,7 +194,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                                 size="sm"
                                 onClick={() => setConfirmTopicId(topic.id)}
                                 disabled={isLogicLoading}
-                                className="h-8 w-8 p-0 hover:bg-green-50 text-green-600"
+                                className="h-8 w-8 p-0 hover:bg-green-50 text-primary"
                               >
                                 <RotateCcw className="w-4 h-4" />
                               </Button>
@@ -246,7 +246,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-slate-500 py-12 px-6">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-12 px-6">
                   Nenhuma revisão encontrada para este filtro.
                 </TableCell>
               </TableRow>
@@ -278,14 +278,14 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               }
               
               return (
-                <div key={topic.id} className="bg-white border border-slate-200 rounded-lg shadow-sm mobile-card">
+                <div key={topic.id} className="bg-card border border-border rounded-lg shadow-sm mobile-card">
                   <div className="p-4 space-y-3">
                     {/* Subject and Topic */}
                     <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
                         {topic.subject_name}
                       </p>
-                      <h3 className="text-sm font-medium text-slate-800">{topic.name}</h3>
+                      <h3 className="text-sm font-medium text-foreground">{topic.name}</h3>
                     </div>
                     
                     {/* Status and Stage */}
@@ -293,7 +293,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
                         {status}
                       </span>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                         {topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' 
                           ? topic.review_stage 
                           : (topic.review_count > 0 ? '24h' : 'Não iniciado')
@@ -302,8 +302,8 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                     </div>
                     
                     {/* Date and Actions */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                      <p className="text-xs text-slate-500">
+                    <div className="flex items-center justify-between pt-2 border-t border-border">
+                      <p className="text-xs text-muted-foreground">
                         {proxima ? format(proxima, 'dd/MM/yyyy') : 'Sem data'}
                       </p>
                       
@@ -316,9 +316,9 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                               onClick={() => handleNotesClick(topic)}
                               className="h-8 w-8 p-0 touch-target"
                             >
-                              <FileText 
-                                className={`h-4 w-4 ${hasNotes(topic) ? 'text-blue-600' : 'text-slate-400'}`} 
-                              />
+                               <FileText 
+                                className={`h-4 w-4 ${hasNotes(topic) ? 'text-primary' : 'text-muted-foreground'}`} 
+                               />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
@@ -334,7 +334,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                                 size="sm"
                                 onClick={() => setConfirmTopicId(topic.id)}
                                 disabled={isLogicLoading}
-                                className="h-8 w-8 p-0 text-green-600 touch-target"
+                                className="h-8 w-8 p-0 text-primary touch-target"
                               >
                                 <RotateCcw className="w-4 h-4" />
                               </Button>
@@ -386,7 +386,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               );
             })
           ) : (
-            <div className="text-center text-slate-500 py-12">
+            <div className="text-center text-muted-foreground py-12">
               Nenhuma revisão encontrada para este filtro.
             </div>
           )}

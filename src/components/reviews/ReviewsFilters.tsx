@@ -42,10 +42,10 @@ export const ReviewsFilters: React.FC<ReviewsFiltersProps> = ({
       
       <Popover>
         <PopoverTrigger asChild>
-          <Button 
-            variant="outline" 
-            className="text-sm border-slate-300 hover:bg-slate-50 bg-white px-4 py-2 h-10 whitespace-nowrap"
-          >
+            <Button 
+              variant="outline" 
+              className="text-sm border-border hover:bg-muted bg-background px-4 py-2 h-10 whitespace-nowrap"
+            >
             <Filter className="h-4 w-4 mr-2" />
             {selectedDate ? format(selectedDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Filtrar por data'}
           </Button>

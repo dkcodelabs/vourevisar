@@ -211,8 +211,8 @@ const Dashboard = () => {
   const currentStreak = calculateStreak();
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-6">
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-4">
         {/* Header com saudação e streak */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

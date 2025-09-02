@@ -93,7 +93,7 @@ const TempNotesModal: React.FC<TempNotesModalProps> = ({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full h-32 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-300 dark:border-slate-600 p-3 text-slate-800 dark:text-slate-200 placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition resize-none"
+              className="w-full h-32 bg-background border border-border rounded-lg p-3 text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary transition resize-none"
               placeholder="Escreva suas anotações sobre este tópico..."
             />
           </div>
@@ -150,7 +150,7 @@ const TempNotesModal: React.FC<TempNotesModalProps> = ({
                 value={newSubtopic}
                 onChange={(e) => setNewSubtopic(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addSubtopic()}
-                className="flex-grow bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-800 dark:text-slate-200 placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                className="flex-grow bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary transition"
                 placeholder="Adicionar subtópico..."
               />
               <button

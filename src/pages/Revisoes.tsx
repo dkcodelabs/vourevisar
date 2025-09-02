@@ -113,8 +113,8 @@ const Revisoes = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-4 md:p-6">
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-4">
         {/* Removido o título principal */}
         {/* <motion.div
           initial={{ opacity: 0, y: 20 }}

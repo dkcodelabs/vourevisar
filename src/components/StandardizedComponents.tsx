@@ -33,7 +33,7 @@ export const StandardSubjectCard: React.FC<{
   viewMode?: 'grid' | 'list';
 }> = ({ title, topics, viewMode = 'grid' }) => {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-md overflow-hidden">
+    <div className="bg-card rounded-2xl shadow-md overflow-hidden">
       <div className="p-6">
         <SubjectTitle viewMode={viewMode}>{title}</SubjectTitle>
         <div className="mt-4 space-y-2">

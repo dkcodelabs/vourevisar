@@ -84,7 +84,7 @@ export function AppSidebar() {
                       className={`w-full justify-start h-10 px-4 text-sm font-medium transition-colors rounded-lg ${
                         isActive 
                           ? 'bg-app-blue text-white hover:bg-app-blue' 
-                          : 'text-gray-700 hover:bg-gray-100'
+                          : 'text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       <div className="flex items-center">

@@ -247,7 +247,7 @@ const Topics = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <p className="text-slate-600">Carregando tópicos...</p>
@@ -259,8 +259,8 @@ const Topics = () => {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-slate-50">
-        <div className="container mx-auto p-4 md:p-6">
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto p-4">
           {/* Filters */}
           <div className="mb-6 space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -362,7 +362,7 @@ const Topics = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className={`${topicStatus.border} border-l-4 border-b border-slate-200 last:border-b-0 hover:bg-slate-50 transition-colors`}
+                        className={`${topicStatus.border} border-l-4 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors`}
                       >
                         <div className="px-4 sm:px-6 py-4">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">

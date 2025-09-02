@@ -137,9 +137,9 @@ const Login = () => {
 
   return (
     <div className="light">
-      <PageContainer className="bg-slate-50">
+      <PageContainer className="bg-background">
         <div className="min-h-screen flex items-center justify-center p-4">
-          <GlassCard className="w-full max-w-md p-8 bg-white border border-gray-200 shadow-lg">
+          <GlassCard className="w-full max-w-md p-8 bg-card border border-border shadow-lg">
             <AnimatedTitle
               icon={isRegistering ? <UserPlus size={32} /> : <LogIn size={32} />}
               className="mb-8 text-center"

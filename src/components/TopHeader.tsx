@@ -95,7 +95,7 @@ export const TopHeader = React.memo(() => {
                   className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                     isActive 
                       ? 'bg-app-blue text-white' 
-                      : 'text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700'
+                      : 'text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   <item.icon size={16} className="mr-2 flex-shrink-0" />
@@ -118,7 +118,7 @@ export const TopHeader = React.memo(() => {
                     <span className={`text-sm font-mono font-semibold hidden sm:block transition-all duration-300 ${
                       isBlinking 
                         ? 'text-red-500 animate-pulse' 
-                        : 'text-gray-700 dark:text-slate-200'
+                        : 'text-muted-foreground'
                     }`}>
                       {timeLeft === 0 && isBlinking ? '00:00' : formattedTime}
                     </span>
@@ -134,7 +134,7 @@ export const TopHeader = React.memo(() => {
                         stroke="currentColor"
                         strokeWidth="2"
                         fill="none"
-                        className="text-gray-200 dark:text-slate-600"
+                        className="text-muted-foreground"
                       />
                       {state !== 'stopped' && (
                         <circle
@@ -148,7 +148,7 @@ export const TopHeader = React.memo(() => {
                           strokeDasharray={2 * Math.PI * 20}
                           strokeDashoffset={2 * Math.PI * 20 * (1 - (progress || 0) / 100)}
                           className={`transition-all duration-1000 ease-linear ${
-                            state === 'running' ? 'text-green-500' : state === 'paused' ? 'text-red-500' : 'text-gray-400'
+                            state === 'running' ? 'text-green-500' : state === 'paused' ? 'text-red-500' : 'text-muted-foreground'
                           }`}
                         />
                       )}
@@ -158,21 +158,21 @@ export const TopHeader = React.memo(() => {
                     {state === 'stopped' ? (
                       <Timer 
                         size={14} 
-                        className="text-gray-600 dark:text-slate-300"
+                        className="text-muted-foreground"
                       />
                     ) : (
                       <div className="flex flex-col items-center">
                         <span className={`text-xs font-mono font-bold sm:hidden transition-all duration-300 ${
                           isBlinking 
                             ? 'text-red-500 animate-pulse' 
-                            : 'text-gray-700 dark:text-slate-200'
+                            : 'text-muted-foreground'
                         }`}>
                           {timeLeft === 0 && isBlinking ? '00' : formattedTime.split(':')[0]}
                         </span>
                         <span className={`text-xs font-mono font-bold sm:hidden transition-all duration-300 ${
                           isBlinking 
                             ? 'text-red-500 animate-pulse' 
-                            : 'text-gray-700 dark:text-slate-200'
+                            : 'text-muted-foreground'
                         }`}>
                           {timeLeft === 0 && isBlinking ? '00' : formattedTime.split(':')[1]}
                         </span>
@@ -222,7 +222,7 @@ const MobileMenu = React.memo(({ navItems }: { navItems: NavItem[] }) => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center w-10 h-10 rounded-lg text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200"
+        className="flex items-center justify-center w-10 h-10 rounded-lg text-muted-foreground hover:bg-muted transition-colors duration-200"
         aria-label="Menu"
       >
         <Menu className="w-6 h-6" />
@@ -237,9 +237,9 @@ const MobileMenu = React.memo(({ navItems }: { navItems: NavItem[] }) => {
           />
           
           {/* Menu - positioned to the left */}
-          <div className="absolute left-0 top-12 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50 p-2 max-h-[80vh] overflow-y-auto transition-colors duration-200">
-            <div className="p-2 border-b border-gray-100 dark:border-slate-700 mb-2">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-slate-100">Menu de Navegação</h3>
+          <div className="absolute left-0 top-12 w-64 bg-card rounded-lg shadow-lg border border-border z-50 p-2 max-h-[80vh] overflow-y-auto transition-colors duration-200">
+            <div className="p-2 border-b border-border mb-2">
+              <h3 className="text-sm font-semibold text-foreground">Menu de Navegação</h3>
             </div>
             {navItems.map((item) => {
               const isActive = isItemActive(item);
@@ -252,7 +252,7 @@ const MobileMenu = React.memo(({ navItems }: { navItems: NavItem[] }) => {
                   className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors w-full ${
                     isActive 
                       ? 'bg-app-blue text-white' 
-                      : 'text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700'
+                      : 'text-muted-foreground hover:bg-muted'
                   }`}
                   onClick={() => setIsOpen(false)}
                 >

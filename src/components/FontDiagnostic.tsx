@@ -46,14 +46,14 @@ export const FontDiagnostic: React.FC = () => {
   }
   
   return (
-    <div className="fixed bottom-4 left-4 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg p-4 max-w-md z-50 font-sans">
+    <div className="fixed bottom-4 left-4 bg-card border border-border rounded-lg shadow-lg p-4 max-w-md z-50 font-sans">
       <div className="flex justify-between items-center mb-3">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
           Diagnóstico de Fontes
         </h3>
         <button
           onClick={() => setIsVisible(false)}
-          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          className="text-muted-foreground hover:text-foreground"
         >
           ✕
         </button>
@@ -125,7 +125,7 @@ export const FontDiagnostic: React.FC = () => {
 // Componente para mostrar exemplo de fontes padronizadas
 export const FontExample: React.FC = () => {
   return (
-    <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow-md font-sans">
+    <div className="p-6 bg-card rounded-lg shadow-md font-sans">
       <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-4">
         Exemplo de Fontes Padronizadas
       </h2>
