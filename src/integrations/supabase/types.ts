@@ -7,13 +7,67 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
   }
   public: {
     Tables: {
+      general_notes: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      general_reminders: {
+        Row: {
+          completed: boolean | null
+          created_at: string | null
+          id: string
+          reminder_date: string | null
+          text: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          reminder_date?: string | null
+          text: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          reminder_date?: string | null
+          text?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       pomodoro_sessions: {
         Row: {
           created_at: string | null
@@ -165,6 +219,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          notes: Json | null
           priority: number | null
           status: string
           total_study_time_minutes: number | null
@@ -177,6 +232,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          notes?: Json | null
           priority?: number | null
           status?: string
           total_study_time_minutes?: number | null
@@ -189,6 +245,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          notes?: Json | null
           priority?: number | null
           status?: string
           total_study_time_minutes?: number | null
@@ -348,60 +405,6 @@ export type Database = {
           subjects_per_day?: number
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      general_notes: {
-        Row: {
-          id: string
-          user_id: string
-          content: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          content?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          content?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      general_reminders: {
-        Row: {
-          id: string
-          user_id: string
-          text: string
-          reminder_date: string | null
-          completed: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          text: string
-          reminder_date?: string | null
-          completed?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          text?: string
-          reminder_date?: string | null
-          completed?: boolean
-          created_at?: string
-          updated_at?: string
         }
         Relationships: []
       }

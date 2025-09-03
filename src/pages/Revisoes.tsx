@@ -14,6 +14,7 @@ import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import NotesModal from '@/components/reviews/NotesModal';
+import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { useSearchParams } from 'react-router-dom';
 
 const Revisoes = () => {
@@ -30,6 +31,15 @@ const Revisoes = () => {
     isOpen: false,
     topicId: '',
     topicName: '',
+    subjectName: ''
+  });
+  const [subjectNotesModal, setSubjectNotesModal] = useState<{
+    isOpen: boolean;
+    subjectId: string;
+    subjectName: string;
+  }>({
+    isOpen: false,
+    subjectId: '',
     subjectName: ''
   });
 
@@ -259,6 +269,16 @@ const Revisoes = () => {
                     // Navegar para a página de tópicos da matéria
                     window.location.href = `/materias/${subjectId}/topicos`;
                   }}
+                  onSubjectNote={(subjectId) => {
+                    const subject = subjects.find(s => s.id === subjectId);
+                    if (subject) {
+                      setSubjectNotesModal({
+                        isOpen: true,
+                        subjectId: subjectId,
+                        subjectName: subject.name
+                      });
+                    }
+                  }}
                 />
               )}
             </div>
@@ -288,6 +308,20 @@ const Revisoes = () => {
         topicId={notesModalData.topicId}
         topicName={notesModalData.topicName}
         subjectName={notesModalData.subjectName}
+      />
+
+      {/* Subject Notes Modal */}
+      <SubjectNotesModal
+        isOpen={subjectNotesModal.isOpen}
+        onClose={() => {
+          setSubjectNotesModal(prev => ({ ...prev, isOpen: false }));
+          setTimeout(async () => {
+            await refreshData();
+            refetch();
+          }, 200);
+        }}
+        subjectId={subjectNotesModal.subjectId}
+        subjectName={subjectNotesModal.subjectName}
       />
     </div>
   );

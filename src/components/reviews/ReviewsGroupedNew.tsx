@@ -16,9 +16,10 @@ interface ReviewsGroupedNewProps {
     searchTerm?: string;
     highlightedTopic?: string | null;
     onToggleExpanded: (subjectId: string) => void;
-    onMarkReviewed: (subjectId: string, topicId: string) => void;
-    onAddNote: (subjectId: string, topicId: string) => void;
-    onEditTopic: (subjectId: string, topicId: string) => void;
+  onMarkReviewed: (subjectId: string, topicId: string) => void;
+  onAddNote: (subjectId: string, topicId: string) => void;
+  onEditTopic: (subjectId: string, topicId: string) => void;
+  onSubjectNote: (subjectId: string) => void;
 }
 
 export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
@@ -28,9 +29,10 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
     searchTerm = '',
     highlightedTopic = null,
     onToggleExpanded,
-    onMarkReviewed,
-    onAddNote,
-    onEditTopic
+  onMarkReviewed,
+  onAddNote,
+  onEditTopic,
+  onSubjectNote
 }) => {
     const [confirmDialog, setConfirmDialog] = useState<{
         isOpen: boolean;

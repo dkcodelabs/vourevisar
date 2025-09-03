@@ -42,6 +42,7 @@ export interface Subject {
   status: Status;
   priority?: number;
   color?: string;
+  notes?: TopicNotes;
 }
 
 export interface DailyStudyPlan {
