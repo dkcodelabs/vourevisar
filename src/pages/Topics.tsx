@@ -250,7 +250,7 @@ const Topics = () => {
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <p className="text-slate-600">Carregando tópicos...</p>
+            <p className="text-muted-foreground">Carregando tópicos...</p>
           </div>
         </div>
       </div>
@@ -266,10 +266,10 @@ const Topics = () => {
             <div className="flex flex-col sm:flex-row gap-3">
               {/* Subject Filter */}
               <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                <SelectTrigger className="bg-card border-input text-foreground">
                   <SelectValue placeholder="Todas as disciplinas" />
                 </SelectTrigger>
-                <SelectContent className="z-50 bg-white">
+                <SelectContent className="z-50 bg-popover">
                   <SelectItem value="all">Todas as disciplinas</SelectItem>
                   {subjects.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
@@ -279,12 +279,12 @@ const Topics = () => {
 
               {/* Search */}
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   placeholder="Pesquisar tópico ou disciplina"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-white border-slate-300"
+                  className="pl-10 bg-card border-input"
                 />
               </div>
             </div>
@@ -292,7 +292,7 @@ const Topics = () => {
             <div className="flex flex-col sm:flex-row gap-3">
               {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                <SelectTrigger className="bg-card border-input text-foreground">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,7 +305,7 @@ const Topics = () => {
 
               {/* Difficulty Filter */}
               <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                <SelectTrigger className="bg-card border-input text-foreground">
                   <SelectValue placeholder="Dificuldade" />
                 </SelectTrigger>
                 <SelectContent>
@@ -318,7 +318,7 @@ const Topics = () => {
 
               {/* Sort */}
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="bg-white border-slate-300 text-slate-700">
+                <SelectTrigger className="bg-card border-input text-foreground">
                   <SelectValue placeholder="Data de Revisão" />
                 </SelectTrigger>
                 <SelectContent>
@@ -333,9 +333,9 @@ const Topics = () => {
           {/* Topics List */}
           <div className="pb-8">
             {filteredAndSortedTopics.length === 0 ? (
-              <Card className="bg-white shadow-sm border border-slate-200">
+              <Card className="bg-card shadow-sm border">
                 <CardContent className="text-center py-12">
-                  <p className="text-slate-500 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
                       ? 'Nenhum tópico encontrado para os filtros aplicados.' 
                       : 'Nenhum tópico cadastrado ainda.'
@@ -350,7 +350,7 @@ const Topics = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
+              <div className="bg-card shadow-sm border rounded-lg overflow-hidden">
                 <AnimatePresence>
                   {filteredAndSortedTopics.map((topic) => {
                     const topicStatus = getTopicStatus(topic);
@@ -377,7 +377,7 @@ const Topics = () => {
                                   setEditingTopicId(isEditing ? topic.id : null);
                                 }}
                               />
-                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mt-1">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mt-1">
                                 {topic.subjectName}
                               </p>
                             </div>
@@ -412,7 +412,7 @@ const Topics = () => {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
-                                      className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                      className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground"
                                     >
                                       <FileText className="h-4 w-4" />
                                     </Button>
@@ -428,7 +428,7 @@ const Topics = () => {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => setEditingTopicId(topic.id)}
-                                      className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                      className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground"
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
@@ -444,7 +444,7 @@ const Topics = () => {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleDeleteTopic(topic.id)}
-                                      className="h-8 w-8 p-0 hover:bg-slate-200 text-slate-600"
+                                      className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>

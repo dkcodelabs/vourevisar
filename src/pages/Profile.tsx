@@ -268,7 +268,7 @@ const Profile = () => {
             transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
             className="mb-8"
           >
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl font-bold text-foreground mb-2">
               Perfil
             </h1>
           </motion.div>

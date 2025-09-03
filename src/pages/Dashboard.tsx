@@ -217,10 +217,10 @@ const Dashboard = () => {
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
                 Olá, {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}! 👋
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-muted-foreground mt-1">
                 Aqui está um resumo dos seus estudos
               </p>
             </div>
@@ -256,10 +256,10 @@ const Dashboard = () => {
 
         {/* Se não há matérias, mostrar estado vazio */}
         {subjects.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 text-center">
-            <BookOpen className="h-16 w-16 mx-auto text-gray-400 mb-6" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Bem-vindo ao Sistema de Estudos!</h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+          <div className="bg-card rounded-2xl p-12 shadow-sm border text-center">
+            <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-6" />
+            <h2 className="text-2xl font-bold text-card-foreground mb-3">Bem-vindo ao Sistema de Estudos!</h2>
+            <p className="text-muted-foreground mb-8 max-w-md mx-auto">
               Comece adicionando suas primeiras matérias para organizar seus estudos e acompanhar seu progresso.
             </p>
             <Button

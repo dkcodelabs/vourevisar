@@ -45,41 +45,43 @@
   }
 
   .dark {
-    --background: 220 13% 9%;
+    /* Blue theme dark mode - matching study cycle background */
+    --background: 217 33% 17%;  /* Blue dark background */
     --foreground: 220 15% 95%;
 
-    --card: 220 13% 11%;
+    /* Cards - #1E293B (slate-800 equivalent in HSL) */
+    --card: 215 28% 17%;  /* #1E293B in HSL */
     --card-foreground: 220 15% 95%;
 
-    --popover: 220 13% 11%;
+    --popover: 215 28% 17%;
     --popover-foreground: 220 15% 95%;
 
     --primary: 195 89% 49%;
     --primary-foreground: 220 15% 95%;
 
-    --secondary: 220 13% 15%;
+    --secondary: 220 13% 25%;
     --secondary-foreground: 220 15% 85%;
 
-    --muted: 220 13% 15%;
+    --muted: 220 13% 25%;
     --muted-foreground: 220 15% 65%;
 
-    --accent: 220 13% 15%;
+    --accent: 220 13% 25%;
     --accent-foreground: 220 15% 85%;
 
     --destructive: 0 75% 55%;
     --destructive-foreground: 220 15% 95%;
 
-    --border: 220 13% 20%;
-    --input: 220 13% 17%;
+    --border: 220 13% 30%;
+    --input: 215 28% 20%;
     --ring: 195 89% 49%;
     
-    --sidebar-background: 220 13% 9%;
+    --sidebar-background: 217 33% 17%;
     --sidebar-foreground: 220 15% 95%;
     --sidebar-primary: 195 89% 49%;
     --sidebar-primary-foreground: 220 15% 95%;
-    --sidebar-accent: 220 13% 15%;
+    --sidebar-accent: 220 13% 25%;
     --sidebar-accent-foreground: 220 15% 85%;
-    --sidebar-border: 220 13% 20%;
+    --sidebar-border: 220 13% 30%;
     --sidebar-ring: 195 89% 49%;
   }
 }

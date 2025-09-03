@@ -12,16 +12,16 @@ const LOCAL_STORAGE_VIEW_KEY = 'studyCycleViewMode';
 
 const CompletionMessage: React.FC<{ onStartNewCycle: () => void }> = ({ onStartNewCycle }) => {
   return (
-    <div className="text-center p-8 md:p-16 bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-emerald-500/20 flex flex-col items-center gap-6 animate-fade-in">
+    <div className="text-center p-8 md:p-16 bg-card rounded-2xl shadow-lg border border-emerald-500/20 flex flex-col items-center gap-6 animate-fade-in">
       <div className="text-emerald-500">
         <svg className="h-20 w-20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.228a25.14 25.14 0 012.916.52 6.003 6.003 0 00-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" />
         </svg>
       </div>
-      <h3 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-slate-100">
+      <h3 className="text-3xl md:text-4xl font-bold text-card-foreground">
         Parabéns!
       </h3>
-      <p className="max-w-md text-base text-gray-600 dark:text-slate-400">
+      <p className="max-w-md text-base text-muted-foreground">
         Você concluiu todas as suas revisões para o ciclo de hoje. Ótimo trabalho! Descanse ou, se estiver pronto, inicie o próximo ciclo de estudos.
       </p>
       <button
@@ -128,7 +128,7 @@ export const StudyCycleContent: React.FC = () => {
       <section key={status} className="mb-12">
         <div className="flex items-center mb-6">
           <span className={`mr-4 text-${config.borderColor.split('-')[1]}-500`}>{config.icon}</span>
-          <h2 className={`text-xl font-bold text-gray-900 dark:text-slate-100 border-b-2 ${config.borderColor} pb-2`}>
+          <h2 className={`text-xl font-bold text-foreground border-b-2 ${config.borderColor} pb-2`}>
             {config.title}
           </h2>
         </div>
@@ -154,38 +154,38 @@ export const StudyCycleContent: React.FC = () => {
   };
   
   return (
-    <div className="min-h-screen text-gray-900 dark:text-slate-100 font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans">
       <main className="container mx-auto p-4 md:p-8 pr-[calc(1rem+15px)] md:pr-[calc(2rem+15px)]">
         <div className="flex justify-end items-center mb-6">
             {viewMode === 'list' && !isDayCompleted && (
-              <div className="flex items-center gap-1 p-1 bg-gray-200 dark:bg-slate-700 rounded-lg mr-2">
-                <button
-                  onClick={handleExpandAll}
-                  className="p-2 rounded-md text-gray-600 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
-                  aria-label="Expandir Todos"
-                >
-                  <ChevronsDownIcon />
-                </button>
-                <button
-                  onClick={handleCollapseAll}
-                  className="p-2 rounded-md text-gray-600 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
-                  aria-label="Recolher Todos"
-                >
-                  <ChevronsUpIcon />
-                </button>
-              </div>
+            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
+              <button
+                onClick={handleExpandAll}
+                className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Expandir Todos"
+              >
+                <ChevronsDownIcon />
+              </button>
+              <button
+                onClick={handleCollapseAll}
+                className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Recolher Todos"
+              >
+                <ChevronsUpIcon />
+              </button>
+            </div>
             )}
-            <div className="flex items-center gap-1 p-1 bg-gray-200 dark:bg-slate-700 rounded-lg">
+            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
               <button 
                 onClick={() => setViewMode('grid')} 
-                className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-sky-500 shadow' : 'text-gray-600 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
+                className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
                 aria-label="Visualização em Grade"
               >
                 <GridIcon />
               </button>
               <button 
                 onClick={() => setViewMode('list')} 
-                className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-sky-500 shadow' : 'text-gray-600 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
+                className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
                 aria-label="Visualização em Lista"
               >
                 <ListIcon />
@@ -201,7 +201,7 @@ export const StudyCycleContent: React.FC = () => {
           <section className="mb-12">
             <div className="flex items-center mb-6">
                 <span className="mr-4 text-emerald-500"><CheckCircleIcon /></span>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 border-b-2 border-emerald-500 pb-2">
+                <h2 className="text-xl font-bold text-foreground border-b-2 border-emerald-500 pb-2">
                     Dia de Estudos Concluído
                 </h2>
             </div>
