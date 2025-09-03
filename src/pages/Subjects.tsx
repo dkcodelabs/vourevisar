@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Edit2, BookOpen, GripVertical, Target, CheckCircle, ChevronDown, ChevronRight, Check, X } from 'lucide-react';
+import { Plus, BookOpen, Target, Clock, Edit, Trash2, MoreVertical, NotebookPen, GripVertical, ChevronDown, ChevronRight, Check, X, CheckCircle, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ReviewProfile } from '@/types/study';
 import TopicsModal from '@/components/topics/TopicsModal';
 import ContentUploadModal from '@/components/ContentUploadModal';
+import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 
 // Função corrigida para calcular o status automaticamente baseado nos tópicos
 const calculateSubjectStatus = (subject: Subject): Status => {
@@ -87,6 +88,17 @@ const Subjects = () => {
 
   // Estado para o modal de upload de conteúdo
   const [contentUploadModal, setContentUploadModal] = useState(false);
+  
+  // Estado para o modal de anotações de matéria
+  const [subjectNotesModal, setSubjectNotesModal] = useState<{
+    isOpen: boolean;
+    subjectId: string;
+    subjectName: string;
+  }>({
+    isOpen: false,
+    subjectId: '',
+    subjectName: ''
+  });
 
   useEffect(() => {
     const checkProfile = async () => {
@@ -508,6 +520,21 @@ const Subjects = () => {
                                           <Button
                                             variant="outline"
                                             size="sm"
+                                            onClick={e => { 
+                                              e.preventDefault(); 
+                                              e.stopPropagation(); 
+                                              setSubjectNotesModal({
+                                                isOpen: true,
+                                                subjectId: subject.id,
+                                                subjectName: subject.name
+                                              });
+                                            }}
+                                          >
+                                            <NotebookPen className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
                                           >
                                             <Edit2 className="h-4 w-4" />
@@ -626,60 +653,77 @@ const Subjects = () => {
                                     )}
 
                                     {/* Botões Mobile - Empilhados */}
-                                    {!isEditing && (
-                                      <div className="flex flex-col space-y-2 px-12">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleOpenTopicsModal(subject); }}
-                                          className="w-full justify-start"
-                                        >
-                                          <BookOpen className="h-4 w-4 mr-2" />
-                                          Ver Tópicos
-                                        </Button>
-                                        <div className="flex space-x-2">
+                                      {!isEditing && (
+                                        <div className="flex flex-col space-y-2 px-12">
                                           <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
-                                            className="flex-1"
+                                            onClick={e => { e.preventDefault(); e.stopPropagation(); handleOpenTopicsModal(subject); }}
+                                            className="w-full justify-start"
                                           >
-                                            <Edit2 className="h-4 w-4 mr-1" />
-                                            Editar
+                                            <BookOpen className="h-4 w-4 mr-2" />
+                                            Ver Tópicos
                                           </Button>
-                                          <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="flex-1"
-                                              >
-                                                <Trash2 className="h-4 w-4 text-red-500 mr-1" />
-                                                Excluir
-                                              </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent aria-describedby="confirm-subject-delete-2-description">
-                                              <AlertDialogHeader>
-                                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                                <AlertDialogDescription id="confirm-subject-delete-2-description">
-                                                  Tem certeza que deseja excluir a matéria "{subject.name}"?
-                                                  Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
-                                                </AlertDialogDescription>
-                                              </AlertDialogHeader>
-                                              <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction
-                                                  onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
-                                                  className="bg-red-600 hover:bg-red-700"
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={e => { 
+                                              e.preventDefault(); 
+                                              e.stopPropagation(); 
+                                              setSubjectNotesModal({
+                                                isOpen: true,
+                                                subjectId: subject.id,
+                                                subjectName: subject.name
+                                              });
+                                            }}
+                                            className="w-full justify-start"
+                                          >
+                                            <NotebookPen className="h-4 w-4 mr-2" />
+                                            Anotações da Matéria
+                                          </Button>
+                                          <div className="flex space-x-2">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
+                                              className="flex-1"
+                                            >
+                                              <Edit2 className="h-4 w-4 mr-1" />
+                                              Editar
+                                            </Button>
+                                            <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  className="flex-1"
                                                 >
+                                                  <Trash2 className="h-4 w-4 text-red-500 mr-1" />
                                                   Excluir
-                                                </AlertDialogAction>
-                                              </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                          </AlertDialog>
+                                                </Button>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent aria-describedby="confirm-subject-delete-2-description">
+                                                <AlertDialogHeader>
+                                                  <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                                  <AlertDialogDescription id="confirm-subject-delete-2-description">
+                                                    Tem certeza que deseja excluir a matéria "{subject.name}"?
+                                                    Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
+                                                  </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                  <AlertDialogAction
+                                                    onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
+                                                    className="bg-red-600 hover:bg-red-700"
+                                                  >
+                                                    Excluir
+                                                  </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                            </AlertDialog>
+                                          </div>
                                         </div>
-                                      </div>
-                                    )}
+                                      )}
                                   </div>
                                   {expandedSubjectIds.includes(subject.id) && (
                                     <ul className="ml-12 mt-2">
@@ -721,6 +765,19 @@ const Subjects = () => {
             open={contentUploadModal}
             onOpenChange={setContentUploadModal}
             onSuccess={forceRefresh}
+          />
+
+          {/* Subject Notes Modal */}
+          <SubjectNotesModal
+            isOpen={subjectNotesModal.isOpen}
+            onClose={() => {
+              setSubjectNotesModal(prev => ({ ...prev, isOpen: false }));
+              setTimeout(() => {
+                forceRefresh();
+              }, 200);
+            }}
+            subjectId={subjectNotesModal.subjectId}
+            subjectName={subjectNotesModal.subjectName}
           />
         </motion.div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, FileText, Edit3, CheckCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Edit3, CheckCircle, NotebookPen } from 'lucide-react';
 import { differenceInDays, startOfDay } from 'date-fns';
 import { Subject } from '@/types';
 import { SubtopicsList } from '@/components/ui/subtopics-list';
@@ -233,20 +233,35 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                         <Card className="bg-white/80 backdrop-blur-md border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 mb-4">
                             <CardContent className="p-4">
                                 {/* Cabeçalho da matéria com seta de expandir/recolher */}
-                                <div className="flex items-center justify-between mb-2 cursor-pointer" onClick={() => onToggleExpanded(subject.id)}>
-                                    <div className="flex items-center gap-2">
-                                        {isExpanded ? (
-                                            <ChevronDown className="h-5 w-5 text-gray-600" />
-                                        ) : (
-                                            <ChevronRight className="h-5 w-5 text-gray-600" />
-                                        )}
-                                        <div className="w-1.5 h-6 rounded bg-gray-300" style={{ backgroundColor: color }} />
-                                        <span className="font-bold text-gray-800 text-base uppercase">{subject.name}</span>
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                        {topics.length} {topics.length === 1 ? 'tópico' : 'tópicos'}
-                                    </div>
-                                </div>
+                                 <div className="flex items-center justify-between mb-2">
+                                     <div 
+                                       className="flex items-center gap-2 cursor-pointer flex-1" 
+                                       onClick={() => onToggleExpanded(subject.id)}
+                                     >
+                                         {isExpanded ? (
+                                             <ChevronDown className="h-5 w-5 text-gray-600" />
+                                         ) : (
+                                             <ChevronRight className="h-5 w-5 text-gray-600" />
+                                         )}
+                                         <div className="w-1.5 h-6 rounded bg-gray-300" style={{ backgroundColor: color }} />
+                                         <span className="font-bold text-gray-800 text-base uppercase">{subject.name}</span>
+                                     </div>
+                                     <div className="flex items-center gap-3">
+                                         <button
+                                             onClick={(e) => {
+                                                 e.stopPropagation();
+                                                 onSubjectNote(subject.id);
+                                             }}
+                                             className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                                             title="Anotações da matéria"
+                                         >
+                                             <NotebookPen className="w-4 h-4" />
+                                         </button>
+                                         <div className="text-xs text-gray-500">
+                                             {topics.length} {topics.length === 1 ? 'tópico' : 'tópicos'}
+                                         </div>
+                                     </div>
+                                 </div>
 
                                 {/* Tópicos (expandido) */}
                                 {isExpanded && (

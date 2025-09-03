@@ -3,11 +3,13 @@ import type { StudyCycleSubject } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
 import { StudyCycleTopicItem } from './StudyCycleTopicItem';
 import { ChevronDownIcon } from './Icons';
+import { NotebookPen } from 'lucide-react';
 
 interface StudyCycleSubjectCardProps {
   subject: StudyCycleSubject;
   onCompleteSession: (subjectId: string) => void;
   onOpenNotes: (subjectId: string, topicId: string) => void;
+  onSubjectNotesClick: () => void;
   isActionable: boolean;
   isStudyFocus: boolean;
   viewMode: 'grid' | 'list';
@@ -29,6 +31,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   subject,
   onCompleteSession,
   onOpenNotes,
+  onSubjectNotesClick,
   isActionable,
   isStudyFocus,
   viewMode,
@@ -64,7 +67,16 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     return (
       <div className="bg-card rounded-2xl shadow-md overflow-hidden flex flex-col">
         <div className="p-6">
-          <h3 className="text-base text-card-foreground" style={{ fontWeight: 700 }}>{subject.name}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base text-card-foreground" style={{ fontWeight: 700 }}>{subject.name}</h3>
+            <button
+              onClick={onSubjectNotesClick}
+              className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+              title="Anotações da matéria"
+            >
+              <NotebookPen className="w-4 h-4" />
+            </button>
+          </div>
           <div className="flex items-center gap-4 mt-4">
             <div className="w-full bg-muted rounded-full h-2.5">
               <div
@@ -105,8 +117,18 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           aria-controls={`topics-${subject.id}`}
         >
           <div className="flex-grow">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between">
               <h3 className="text-base text-card-foreground" style={{ fontWeight: 700 }}>{subject.name}</h3>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSubjectNotesClick();
+                }}
+                className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                title="Anotações da matéria"
+              >
+                <NotebookPen className="w-4 h-4" />
+              </button>
             </div>
             <div className="flex items-center gap-4 mt-2">
               <div className="w-full bg-muted rounded-full h-2">
@@ -156,8 +178,15 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   return (
     <div className={`${cardBaseClasses} flex flex-col ${focusClasses}`}>
       <div className="p-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between">
           <h3 className="text-base text-card-foreground" style={{ fontWeight: 700 }}>{subject.name}</h3>
+          <button
+            onClick={onSubjectNotesClick}
+            className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+            title="Anotações da matéria"
+          >
+            <NotebookPen className="w-4 h-4" />
+          </button>
         </div>
         <div className="flex items-center gap-4 mt-4">
           <div className="w-full bg-muted rounded-full h-2.5">

@@ -6,6 +6,8 @@ import { STATUS_CONFIG } from '@/constants/study-cycle';
 import { StudyCycleSubjectCard } from './StudyCycleSubjectCard';
 import { GridIcon, ListIcon, ChevronsDownIcon, ChevronsUpIcon, CheckCircleIcon } from './Icons';
 import { StudyCycleNotesModal } from './StudyCycleNotesModal';
+import { TempNotesModal } from './TempNotesModal';
+import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import AllStudiesCompletedCard from './AllStudiesCompletedCard';
 
 const LOCAL_STORAGE_VIEW_KEY = 'studyCycleViewMode';
@@ -58,6 +60,15 @@ export const StudyCycleContent: React.FC = () => {
 
   const [editingTopic, setEditingTopic] = useState<{ subjectId: string; topicId: string } | null>(null);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
+  const [subjectNotesModal, setSubjectNotesModal] = useState<{
+    isOpen: boolean;
+    subjectId: string;
+    subjectName: string;
+  }>({
+    isOpen: false,
+    subjectId: '',
+    subjectName: ''
+  });
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_VIEW_KEY, viewMode);
@@ -104,6 +115,14 @@ export const StudyCycleContent: React.FC = () => {
     handleCloseNotes();
   }, [handleSaveNotes]);
 
+  const handleOpenSubjectNotes = useCallback((subject: StudyCycleSubject) => {
+    setSubjectNotesModal({
+      isOpen: true,
+      subjectId: subject.id,
+      subjectName: subject.name
+    });
+  }, []);
+
   const topicToEdit = useMemo(() => {
     if (!editingTopic) return null;
     const subject = subjects.find(s => s.id === editingTopic.subjectId);
@@ -139,6 +158,7 @@ export const StudyCycleContent: React.FC = () => {
               subject={subject}
               onCompleteSession={handleCompleteSessionData}
               onOpenNotes={handleOpenNotes}
+              onSubjectNotesClick={() => handleOpenSubjectNotes(subject)}
               isActionable={isActionableSection}
               isStudyFocus={isActionableSection && studyFocusSubjectIds.has(subject.id)}
               viewMode={viewMode}
@@ -225,6 +245,14 @@ export const StudyCycleContent: React.FC = () => {
           onSave={handleSaveNotesWithClose}
         />
       )}
+      
+      {/* Subject Notes Modal */}
+      <SubjectNotesModal
+        isOpen={subjectNotesModal.isOpen}
+        onClose={() => setSubjectNotesModal(prev => ({ ...prev, isOpen: false }))}
+        subjectId={subjectNotesModal.subjectId}
+        subjectName={subjectNotesModal.subjectName}
+      />
     </div>
   );
 };
