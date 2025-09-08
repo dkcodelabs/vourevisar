@@ -64,7 +64,7 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user || !formData.subject || !formData.topic || !formData.bank) {
+    if (!user || !formData.subject || !formData.bank) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
@@ -97,10 +97,10 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
         attempts.push({
           user_id: user.id,
           subject: formData.subject,
-          topic: formData.topic,
+          topic: formData.topic || 'Geral',
           bank: formData.bank,
           question_type: 'multipla-escolha', // Using valid constraint value
-          question_text: `Questão ${i + 1} - ${formData.subject} - ${formData.topic}`,
+          question_text: `Questão ${i + 1} - ${formData.subject} - ${formData.topic || 'Geral'}`,
           correct_answer: 'N/A',
           user_answer: i < formData.correctQuestions ? 'Correto' : 'Incorreto',
           is_correct: i < formData.correctQuestions,

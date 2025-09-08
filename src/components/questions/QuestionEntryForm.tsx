@@ -54,10 +54,10 @@ const QuestionEntryForm: React.FC<QuestionEntryFormProps> = ({
     setFormData(prev => ({ ...prev, bank }));
   };
 
-  const isFormValid = formData.subject && formData.topic && formData.bank && formData.totalQuestions > 0;
+  const isFormValid = formData.subject && formData.bank && formData.totalQuestions > 0;
 
   return (
-    <Card className="bg-white/70 backdrop-blur-lg border-white/20">
+    <Card className="bg-card/50 backdrop-blur-lg border-border/20">
       <CardHeader>
         <CardTitle>Registrar Questões Resolvidas</CardTitle>
       </CardHeader>

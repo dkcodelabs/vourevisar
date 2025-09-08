@@ -110,12 +110,19 @@ export const useStudyCycleData = () => {
     return subjects.map(mapSubjectToStudyCycleSubject);
   }, [subjects]);
 
-  // Initialize study focus subjects
+  // Initialize study focus subjects (only when subjects structure changes)
   useEffect(() => {
     const activeSubjects = studyCycleSubjects.filter(s => s.status === 'ACTIVE');
-    const initialFocusIds = new Set(activeSubjects.slice(0, STUDY_FOCUS_COUNT).map(s => s.id));
-    setStudyFocusSubjectIds(initialFocusIds);
-  }, [studyCycleSubjects]);
+    const newFocusIds = new Set(activeSubjects.slice(0, STUDY_FOCUS_COUNT).map(s => s.id));
+    
+    // Only update if the focus subjects actually changed
+    const currentFocusArray = Array.from(studyFocusSubjectIds).sort();
+    const newFocusArray = Array.from(newFocusIds).sort();
+    
+    if (JSON.stringify(currentFocusArray) !== JSON.stringify(newFocusArray)) {
+      setStudyFocusSubjectIds(newFocusIds);
+    }
+  }, [studyCycleSubjects.length, studyCycleSubjects.map(s => s.id + s.status).join(','), studyFocusSubjectIds]);
 
   // Group subjects by status
   const groupedSubjects = useMemo(() => {

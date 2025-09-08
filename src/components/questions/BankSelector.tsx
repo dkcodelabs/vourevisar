@@ -9,6 +9,7 @@ interface BankSelectorProps {
 
 const BankSelector: React.FC<BankSelectorProps> = ({ value, onChange }) => {
   const bancasDisponiveis = [
+    'Todas',
     'CESPE/CEBRASPE',
     'FCC',
     'FGV',
@@ -25,7 +26,7 @@ const BankSelector: React.FC<BankSelectorProps> = ({ value, onChange }) => {
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-gray-700">
+      <label className="text-sm font-medium text-foreground">
         Banca *
       </label>
       <Select value={value} onValueChange={onChange}>

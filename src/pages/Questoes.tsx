@@ -95,8 +95,8 @@ const Questoes = () => {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800">Acesso Negado</h1>
-          <p className="text-gray-600">Você precisa estar logado para acessar esta página.</p>
+          <h1 className="text-2xl font-bold text-foreground">Acesso Negado</h1>
+          <p className="text-muted-foreground">Você precisa estar logado para acessar esta página.</p>
         </div>
       </div>
     );
@@ -133,7 +133,7 @@ const Questoes = () => {
         <div className="lg:col-span-2 w-full">
           <div className="lg:sticky lg:top-6 space-y-4 mobile-card">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-800">Estatísticas</h3>
+              <h3 className="text-lg font-semibold text-foreground">Estatísticas</h3>
             </div>
             <div className="mb-4">
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -156,7 +156,7 @@ const Questoes = () => {
       {/* Separador para estatísticas detalhadas */}
       <div className="flex items-center gap-4 mt-8">
         <Separator className="flex-1" />
-        <span className="text-gray-500 font-medium">Estatísticas Detalhadas</span>
+        <span className="text-muted-foreground font-medium">Estatísticas Detalhadas</span>
         <Separator className="flex-1" />
       </div>
 

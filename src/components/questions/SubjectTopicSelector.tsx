@@ -81,8 +81,10 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
       
       toast.success(`Matéria "${subjectName}" criada com sucesso!`);
       
-      // Refresh subjects list
-      window.location.reload();
+      // Refresh subjects list by refetching data
+      setTimeout(() => {
+        window.location.href = window.location.pathname;
+      }, 1000);
     } catch (error) {
       console.error('Erro ao criar matéria:', error);
       toast.error('Erro ao criar nova matéria');
@@ -144,12 +146,12 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
     return (
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Matéria *</label>
-          <div className="h-10 bg-gray-200 animate-pulse rounded"></div>
+          <label className="text-sm font-medium text-foreground">Matéria *</label>
+          <div className="h-10 bg-muted animate-pulse rounded"></div>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Tópico *</label>
-          <div className="h-10 bg-gray-200 animate-pulse rounded"></div>
+          <label className="text-sm font-medium text-foreground">Tópico (opcional)</label>
+          <div className="h-10 bg-muted animate-pulse rounded"></div>
         </div>
       </div>
     );
@@ -158,7 +160,7 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
   return (
     <>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">
+        <label className="text-sm font-medium text-foreground">
           Matéria *
         </label>
         <Combobox
@@ -174,8 +176,8 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">
-          Tópico *
+        <label className="text-sm font-medium text-foreground">
+          Tópico (opcional)
         </label>
         <Combobox
           options={topicOptions}
