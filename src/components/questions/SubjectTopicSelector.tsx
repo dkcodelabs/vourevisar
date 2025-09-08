@@ -43,10 +43,13 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
     label: subject.name
   }));
 
-  const topicOptions = topics.map(topic => ({
-    value: topic.id,
-    label: topic.name
-  }));
+  const topicOptions = subject ? [
+    { value: 'Geral', label: 'Geral' },
+    ...topics.map(topic => ({
+      value: topic.id,
+      label: topic.name
+    }))
+  ] : [];
 
   const handleSubjectChange = async (subjectId: string) => {
     const selectedSubject = subjects.find(s => s.id === subjectId);
@@ -92,10 +95,15 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
   };
 
   const handleTopicChange = (topicId: string) => {
-    const selectedTopic = topics.find(t => t.id === topicId);
-    if (selectedTopic) {
-      console.log('Topic changed to:', selectedTopic.name);
-      onTopicChange(selectedTopic.name);
+    if (topicId === 'Geral') {
+      console.log('Topic changed to: Geral');
+      onTopicChange('Geral');
+    } else {
+      const selectedTopic = topics.find(t => t.id === topicId);
+      if (selectedTopic) {
+        console.log('Topic changed to:', selectedTopic.name);
+        onTopicChange(selectedTopic.name);
+      }
     }
   };
 
@@ -181,7 +189,7 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
         </label>
         <Combobox
           options={topicOptions}
-          value={topics.find(t => t.name === topic)?.id || ''}
+          value={topic === 'Geral' ? 'Geral' : topics.find(t => t.name === topic)?.id || ''}
           onValueChange={handleTopicChange}
           placeholder="Digite ou selecione um tópico..."
           searchPlaceholder="Pesquisar tópicos..."

@@ -120,10 +120,10 @@ const QuestionsOverview: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="bg-card">
         <CardContent className="p-6">
           <div className="text-center">
-            <p className="text-gray-600">Carregando dados...</p>
+            <p className="text-muted-foreground">Carregando dados...</p>
           </div>
         </CardContent>
       </Card>
@@ -132,12 +132,12 @@ const QuestionsOverview: React.FC = () => {
 
   if (subjectsData.length === 0) {
     return (
-      <Card>
+      <Card className="bg-card">
         <CardContent className="p-6">
           <div className="text-center">
-            <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-2">Nenhuma questão registrada ainda</p>
-            <p className="text-sm text-gray-500">
+            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-foreground mb-2">Nenhuma questão registrada ainda</p>
+            <p className="text-sm text-muted-foreground">
               Comece registrando suas questões resolvidas para ver o progresso por matéria e tópico
             </p>
           </div>
