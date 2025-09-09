@@ -22,23 +22,25 @@ const mapStatusToStudyCycleStatus = (status: string): SubjectStatus => {
 };
 
 const mapReviewStageToInterval = (reviewStage?: string, completed?: boolean): ReviewInterval => {
-  if (completed) return 'COMPLETED' as ReviewInterval;
+  if (completed || reviewStage === 'Concluído') return 'COMPLETED' as ReviewInterval;
   
   switch (reviewStage) {
     case '24h':
     case '1d':
-      return 'REVISED_7D' as ReviewInterval;
+      return 'REVISED_7D' as ReviewInterval; // Primeira revisão (24h) -> mostra como "Revisado (24h)"
+    case '3d':
+      return 'REVISED_15D' as ReviewInterval; // Segunda revisão (3d) -> mostra como "Revisado (7d)"
     case '7 dias':
     case '7d':
-      return 'REVISED_15D' as ReviewInterval;
+      return 'REVISED_15D' as ReviewInterval; // Segunda revisão (7d) -> mostra como "Revisado (7d)"
     case '15 dias':
     case '15d':
-      return 'REVISED_30D' as ReviewInterval;
+      return 'REVISED_30D' as ReviewInterval; // Terceira revisão (15d) -> mostra como "Revisado (15d)"
     case '30 dias':
     case '30d':
-      return 'REVISED_30D' as ReviewInterval;
-    case 'Concluído':
-      return 'COMPLETED' as ReviewInterval;
+      return 'REVISED_30D' as ReviewInterval; // Quarta revisão (30d) -> mostra como "Revisado (15d)"
+    case '60d':
+      return 'REVISED_30D' as ReviewInterval; // Quinta revisão (60d) -> mostra como "Revisado (15d)"
     default:
       return 'NOT_STARTED' as ReviewInterval;
   }
@@ -59,6 +61,7 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => ({
   id: topic.id,
   name: topic.name,
   reviewStatus: mapReviewStageToInterval(topic.reviewStage, topic.completed),
+  reviewStage: topic.reviewStage || '', // Adicionar o estágio real do banco
   notes: topic.notes?.content || '',
   difficulty: mapDifficultyLevel(topic.difficulty_level),
   subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || []
@@ -67,7 +70,28 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => ({
 const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => ({
   id: subject.id,
   name: subject.name,
-  topics: subject.topics.map(mapTopicToStudyCycleTopic),
+  topics: subject.topics
+    .map(mapTopicToStudyCycleTopic)
+    .sort((a, b) => {
+      // Manter ordem consistente: primeiro por status de revisão, depois por nome
+      const statusOrder = {
+        'NOT_STARTED': 0,
+        'REVISED_7D': 1,
+        'REVISED_15D': 2,
+        'REVISED_30D': 3,
+        'COMPLETED': 4
+      };
+      
+      const aOrder = statusOrder[a.reviewStatus] || 0;
+      const bOrder = statusOrder[b.reviewStatus] || 0;
+      
+      if (aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+      
+      // Se mesmo status, ordenar por nome para manter consistência
+      return a.name.localeCompare(b.name);
+    }),
   status: mapStatusToStudyCycleStatus(subject.status)
 });
 
@@ -75,11 +99,11 @@ const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => (
 const mapIntervalToReviewStage = (interval: ReviewInterval): string => {
   switch (interval) {
     case 'REVISED_7D':
-      return '24h';
+      return '7d';
     case 'REVISED_15D':
-      return '7 dias';
+      return '15d';
     case 'REVISED_30D':
-      return '30 dias';
+      return '30d';
     case 'COMPLETED':
       return 'Concluído';
     default:
