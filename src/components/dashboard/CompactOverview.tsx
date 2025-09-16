@@ -10,12 +10,14 @@ interface CompactOverviewProps {
     subjects: Subject[];
     overdueCount: number;
     todayCount: number;
+    futureCount: number;
 }
 
 export const CompactOverview: React.FC<CompactOverviewProps> = ({
     subjects,
     overdueCount,
-    todayCount
+    todayCount,
+    futureCount
 }) => {
     const navigate = useNavigate();
 
@@ -59,8 +61,8 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-1 h-8 rounded-full bg-green-500"></div>
-                            <div>
-                                <AlertTriangle className="h-5 w-5 text-orange-500 mb-1" />
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5 text-orange-500" />
                                 <span className="font-semibold text-gray-900 text-sm">Revisão</span>
                             </div>
                         </div>
@@ -72,23 +74,24 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                     </div>
 
                     <div className="space-y-0.5 mb-4">
-                        {overdueCount > 0 && (
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-600">• Atrasados</span>
-                                <span className="font-semibold text-red-600 text-sm">{overdueCount}</span>
-                            </div>
-                        )}
-                        {todayCount > 0 && (
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-600">• Hoje</span>
-                                <span className="font-semibold text-orange-600 text-sm">{todayCount}</span>
-                            </div>
-                        )}
-                        {!hasUrgentItems && (
-                            <div className="text-xs text-center py-2 text-green-600 font-medium">
-                                🎉 Tudo em dia!
-                            </div>
-                        )}
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">• Atrasados</span>
+                            <span className={`font-semibold text-sm ${overdueCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                {overdueCount}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">• Hoje</span>
+                            <span className={`font-semibold text-sm ${todayCount > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
+                                {todayCount}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">• Futuras (7 dias)</span>
+                            <span className={`font-semibold text-sm ${futureCount > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                                {futureCount}
+                            </span>
+                        </div>
                     </div>
 
                     <Button
@@ -108,8 +111,8 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-1 h-8 rounded-full bg-green-500"></div>
-                            <div>
-                                <BookOpen className="h-5 w-5 text-blue-500 mb-1" />
+                            <div className="flex items-center gap-2">
+                                <BookOpen className="h-5 w-5 text-blue-500" />
                                 <span className="font-semibold text-gray-900 text-sm">Matérias</span>
                             </div>
                         </div>
@@ -137,8 +140,7 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
 
                     <Button
                         size="sm"
-                        variant="outline"
-                        className="w-full rounded-lg border-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-all duration-200"
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
                         onClick={() => navigate('/materias')}
                     >
                         <BookOpen className="h-4 w-4 mr-2" />
@@ -153,8 +155,8 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-1 h-8 rounded-full bg-green-500"></div>
-                            <div>
-                                <Target className="h-5 w-5 text-green-600 mb-1" />
+                            <div className="flex items-center gap-2">
+                                <Target className="h-5 w-5 text-green-600" />
                                 <span className="font-semibold text-gray-900 text-sm">Tópicos</span>
                             </div>
                         </div>
@@ -182,8 +184,7 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
 
                     <Button
                         size="sm"
-                        variant="outline"
-                        className="w-full rounded-lg border-gray-200 hover:bg-green-50 hover:border-green-300 hover:text-green-600 transition-all duration-200"
+                        className="w-full bg-green-500 hover:bg-green-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
                         onClick={() => navigate('/topicos')}
                     >
                         <Target className="h-4 w-4 mr-2" />
@@ -198,8 +199,8 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-1 h-8 rounded-full bg-green-500"></div>
-                            <div>
-                                <div className="w-5 h-5 mb-1 flex items-center justify-center">
+                            <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 flex items-center justify-center">
                                     {isActive ? '🔥' : '⏰'}
                                 </div>
                                 <span className="font-semibold text-gray-900 text-sm">Pomodoro</span>
@@ -252,10 +253,9 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                     <div className="flex items-center gap-2">
                         <Button
                             size="sm"
-                            variant="outline"
-                            className={`flex-1 rounded-lg border-gray-200 transition-all duration-200 ${isActive
-                                ? 'hover:bg-red-50 hover:border-red-300 hover:text-red-600'
-                                : 'hover:bg-purple-50 hover:border-purple-300 hover:text-purple-600'
+                            className={`flex-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-white ${isActive
+                                ? 'bg-red-500 hover:bg-red-600'
+                                : 'bg-purple-500 hover:bg-purple-600'
                                 }`}
                             onClick={isActive ? pauseTimer : startTimer}
                         >
@@ -274,8 +274,7 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
 
                         <Button
                             size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0 hover:bg-gray-100 rounded-lg"
+                            className="h-8 w-8 p-0 bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-700 rounded-lg transition-all duration-200"
                             onClick={resetTimer}
                             title="Reiniciar timer"
                         >

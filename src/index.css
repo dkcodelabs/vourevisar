@@ -700,6 +700,34 @@ input, textarea, select {
   animation: highlight-blink 2s ease-in-out 3;
 }
 
+/* General Notes Modal - Consistent styling */
+.general-notes-modal .ql-container,
+.general-notes-modal .ql-toolbar {
+  transition: all 0.2s ease-in-out !important;
+}
+
+.general-notes-modal .ql-editor {
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out !important;
+}
+
+/* Button consistency improvements */
+.modal-button-secondary {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid hsl(var(--border));
+  background: transparent;
+  color: hsl(var(--foreground));
+}
+
+.modal-button-secondary:hover {
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
+}
+
+.modal-button-secondary:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
 /* Print styles */
 @media print {
   * {

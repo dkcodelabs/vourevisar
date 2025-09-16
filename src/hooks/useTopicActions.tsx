@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toastManager } from '@/utils/toastManager';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 
 export const useTopicActions = () => {
@@ -120,8 +120,9 @@ export const useTopicActions = () => {
         }
       }
 
-      toast.success('Revisão registrada com sucesso!', {
+      toastManager.success('Revisão registrada com sucesso!', {
         duration: 3000,
+        id: 'review-success'
       });
     } catch (error) {
       console.error('Erro ao marcar tópico como revisado:', error);

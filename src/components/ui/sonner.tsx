@@ -12,6 +12,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
         [data-sonner-toaster] {
           --width: 360px;
           --front-layer: 1000;
+          --normal-bg: hsl(var(--background));
+          --normal-border: hsl(var(--border));
+          --normal-text: hsl(var(--foreground));
         }
         
         [data-sonner-toast] {
@@ -19,6 +22,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
           border: 1px solid hsl(var(--border)) !important;
           box-shadow: 0 4px 12px hsl(var(--shadow) / 0.15) !important;
           backdrop-filter: blur(12px) !important;
+          margin-bottom: 8px !important;
+          position: relative !important;
+          transform: translateY(0) !important;
+        }
+        
+        [data-sonner-toaster][data-stacked="true"] [data-sonner-toast] {
+          transform: translateY(0) !important;
+          margin-bottom: 8px !important;
         }
         
         [data-sonner-toast][data-type="success"] {
@@ -93,6 +104,54 @@ const Toaster = ({ ...props }: ToasterProps) => {
           opacity: 0.8 !important;
         }
         
+        /* Garantir que os toasts não se sobreponham */
+        [data-sonner-toaster] [data-sonner-toast]:nth-child(1) {
+          z-index: 1003 !important;
+        }
+        
+        [data-sonner-toaster] [data-sonner-toast]:nth-child(2) {
+          z-index: 1002 !important;
+        }
+        
+        [data-sonner-toaster] [data-sonner-toast]:nth-child(3) {
+          z-index: 1001 !important;
+        }
+        
+        /* Animações suaves */
+        [data-sonner-toast] {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        [data-sonner-toast][data-mounted="true"] {
+          animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        [data-sonner-toast][data-removed="true"] {
+          animation: slideOut 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%) !important;
+            opacity: 0 !important;
+          }
+          to {
+            transform: translateX(0) !important;
+            opacity: 1 !important;
+          }
+        }
+        
+        @keyframes slideOut {
+          from {
+            transform: translateX(0) !important;
+            opacity: 1 !important;
+          }
+          to {
+            transform: translateX(100%) !important;
+            opacity: 0 !important;
+          }
+        }
+        
         @media (max-width: 640px) {
           [data-sonner-toaster] {
             --width: calc(100vw - 32px);
@@ -116,10 +175,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
         closeButton
         richColors
         duration={4000}
-        visibleToasts={4}
+        visibleToasts={3}
         pauseWhenPageIsHidden={false}
-        expand={true}
-        gap={12}
+        expand={false}
+        gap={8}
         offset={16}
         hotkey={[]}
         invert={false}
@@ -127,6 +186,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
           duration: 4000,
           style: {
             pointerEvents: 'auto'
+          },
+          classNames: {
+            toast: 'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
+            description: 'group-[.toast]:text-muted-foreground',
+            actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
+            cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
           },
         }}
         {...props}

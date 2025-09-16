@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toastManager } from '@/utils/toastManager';
 import { Database } from '@/integrations/supabase/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -17,11 +17,13 @@ export function useAuthOperations() {
       if (error) throw error;
       
       console.log('Sign in successful:', data.user?.email);
-      toast.success('Login realizado com sucesso!');
+      toastManager.success('Login realizado com sucesso!', {
+        id: 'login-success'
+      });
       return data;
     } catch (error: any) {
       console.error('Sign in error:', error);
-      toast.error(error.message || 'Erro ao fazer login');
+      toastManager.error(error.message || 'Erro ao fazer login');
       throw error;
     } finally {
       setLoading(false);
@@ -80,11 +82,11 @@ export function useAuthOperations() {
       }
       
       console.log('Sign up successful:', data.user?.email);
-      toast.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
+      toastManager.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
       return data;
     } catch (error: any) {
       console.error('Sign up error:', error);
-      toast.error(error.message || 'Erro ao criar conta');
+      toastManager.error(error.message || 'Erro ao criar conta');
       throw error;
     } finally {
       setLoading(false);
@@ -122,7 +124,7 @@ export function useAuthOperations() {
       return data;
     } catch (error: any) {
       console.error("Erro no login com Google:", error);
-      toast.error('Erro ao fazer login com Google. Verifique as configurações OAuth.');
+      toastManager.error('Erro ao fazer login com Google. Verifique as configurações OAuth.');
       throw error;
     } finally {
       setLoading(false);
@@ -137,7 +139,7 @@ export function useAuthOperations() {
       
       if (!session) {
         console.log('No active session found');
-        toast.success('Logout realizado com sucesso!');
+        toastManager.success('Logout realizado com sucesso!');
         return;
       }
 
@@ -151,11 +153,11 @@ export function useAuthOperations() {
       }
       
       console.log('Logout successful');
-      toast.success('Logout realizado com sucesso!');
+      toastManager.success('Logout realizado com sucesso!');
     } catch (error: any) {
       console.error('Error during logout:', error);
       // Even if there's an error, we should clear local state
-      toast.error('Erro ao sair, mas você foi desconectado localmente');
+      toastManager.error('Erro ao sair, mas você foi desconectado localmente');
     } finally {
       setLoading(false);
     }
@@ -170,11 +172,11 @@ export function useAuthOperations() {
       
       if (error) throw error;
       
-      toast.success('Email de recuperação enviado!');
+      toastManager.success('Email de recuperação enviado!');
       return true;
     } catch (error: any) {
       console.error('Reset password error:', error);
-      toast.error('Erro ao enviar email de recuperação');
+      toastManager.error('Erro ao enviar email de recuperação');
       throw error;
     } finally {
       setLoading(false);
@@ -190,10 +192,10 @@ export function useAuthOperations() {
 
       if (error) throw error;
 
-      toast.success('Senha atualizada com sucesso!');
+      toastManager.success('Senha atualizada com sucesso!');
     } catch (error: any) {
       console.error('Update password error:', error);
-      toast.error('Erro ao atualizar senha');
+      toastManager.error('Erro ao atualizar senha');
       throw error;
     } finally {
       setLoading(false);
@@ -219,11 +221,11 @@ export function useAuthOperations() {
       
       const updatedProfile = currentProfile ? { ...currentProfile, ...profileData } : null;
       
-      toast.success('Perfil atualizado com sucesso!');
+      toastManager.success('Perfil atualizado com sucesso!');
       return updatedProfile;
     } catch (error: any) {
       console.error('Error updating profile:', error);
-      toast.error('Erro ao atualizar perfil');
+      toastManager.error('Erro ao atualizar perfil');
       throw error;
     } finally {
       setLoading(false);

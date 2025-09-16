@@ -144,6 +144,17 @@ const Dashboard = () => {
     }).length;
   }, 0);
 
+  // Contar tópicos futuros (próximos 7 dias, excluindo hoje)
+  const futureCount = subjects.reduce((count, subject) => {
+    return count + subject.topics.filter(topic => {
+      if (!topic.nextReview) return false;
+      const reviewDate = startOfDay(new Date(topic.nextReview));
+      const nextWeek = new Date(today);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      return reviewDate > today && reviewDate <= nextWeek;
+    }).length;
+  }, 0);
+
   // Calcular progresso geral
   const totalTopics = subjects.reduce((total, subject) => total + subject.topics.length, 0);
   const completedTopics = subjects.reduce((total, subject) => 
@@ -277,6 +288,7 @@ const Dashboard = () => {
               subjects={subjects}
               overdueCount={overdueCount}
               todayCount={todayCount}
+              futureCount={futureCount}
             />
 
             {/* Barra Visual de Streak */}

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toastManager } from '@/utils/toastManager';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 
 export const useTopicReview = () => {
@@ -126,13 +126,14 @@ export const useTopicReview = () => {
       // Não chamar refreshData aqui se usado dentro de uma sessão
       // O refresh será feito pelo componente que gerencia a sessão
       console.log('🔵 Revisão processada sem refresh automático');
-      toast.success('Revisão registrada com sucesso!', {
+      toastManager.success('Revisão registrada com sucesso!', {
         duration: 3000,
+        id: 'review-success'
       });
       
     } catch (error) {
       console.error('❌ Erro ao marcar tópico como revisado:', error);
-      toast.error('Erro ao registrar revisão');
+      toastManager.error('Erro ao registrar revisão');
       throw error;
     } finally {
       setIsLoading(false);

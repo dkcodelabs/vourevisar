@@ -44,7 +44,6 @@ export function AuthCallback() {
         
         if (existingSession) {
           console.log('Sessão já ativa encontrada');
-          toast.success('Login realizado com sucesso!');
           setRedirectPath('/');
           return;
         }
@@ -64,7 +63,6 @@ export function AuthCallback() {
             
             if (newSession) {
               console.log('Sessão estabelecida com sucesso');
-              toast.success('Login realizado com sucesso!');
               setRedirectPath('/');
               return;
             }
