@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Calendar as CalendarIcon, Trash2, Save, Edit2, Check, X } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, Trash2, Save, Edit2, Check, X, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toastManager } from '@/utils/toastManager';
 import { TopicNotes } from '@/types';
 
 interface Reminder {
@@ -21,9 +21,23 @@ interface Reminder {
     completed: boolean;
 }
 
+interface AllNotesEntry {
+    id: string;
+    subjectName: string;
+    topicName: string;
+    content: string;
+    updatedAt: string;
+    createdAt: string;
+    type?: 'topic' | 'subject';
+    subjectId?: string;
+}
+
 interface GeneralNotesModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onOpenTopicNotes?: (topicId: string, topicName: string, subjectName: string) => void;
+    onOpenSubjectNotes?: (subjectId: string, subjectName: string) => void;
+    onRequestReopen?: () => void; // Nova prop para solicitar reabertura
 }
 
 interface CustomCalendarProps {
@@ -156,14 +170,14 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ selectedDate, onDateSel
     );
 };
 
-const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }) => {
-    console.log('GeneralNotesModal renderizado com isOpen:', isOpen);
+const GeneralNotesModal: React.FC<GeneralNotesModalProps> = React.memo(({ isOpen, onClose, onOpenTopicNotes, onOpenSubjectNotes, onRequestReopen }) => {
     const { user } = useAuth();
     const quillRef = useRef<ReactQuill>(null);
     const calendarRef = useRef<HTMLDivElement>(null);
     const [notes, setNotes] = useState<TopicNotes | undefined>();
     const [currentContent, setCurrentContent] = useState('');
     const [reminders, setReminders] = useState<Reminder[]>([]);
+    
     const [newReminderText, setNewReminderText] = useState('');
     const [newReminderDate, setNewReminderDate] = useState<Date>(new Date());
     const [showCalendar, setShowCalendar] = useState(false);
@@ -176,46 +190,16 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
     const [editingDate, setEditingDate] = useState<Date | null>(null);
     const [showEditDatePicker, setShowEditDatePicker] = useState(false);
 
+    // Estados para visão condensada
+    const [allNotes, setAllNotes] = useState<AllNotesEntry[]>([]);
+    const [filteredNotes, setFilteredNotes] = useState<AllNotesEntry[]>([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+    const [isLoadingAllNotes, setIsLoadingAllNotes] = useState(false);
+    const [activeTab, setActiveTab] = useState('notes');
+    const [isTemporarilyHidden, setIsTemporarilyHidden] = useState(false);
 
-    // Carregar dados ao abrir o modal
-    useEffect(() => {
-        console.log('useEffect do modal executado - isOpen:', isOpen, 'user:', !!user);
-        if (isOpen && user) {
-            console.log('Carregando dados do modal...');
-            loadGeneralNotes();
-            loadReminders();
-            // Resetar data para hoje quando abrir o modal
-            setNewReminderDate(new Date());
-        }
-    }, [isOpen, user]);
-
-    // Verificar overflow quando o conteúdo carrega
-    useEffect(() => {
-        if (currentContent && quillRef.current) {
-            setTimeout(() => {
-                checkOverflow();
-            }, 100);
-        }
-    }, [currentContent]);
-
-    // Fechar calendário ao clicar fora
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
-                setShowCalendar(false);
-            }
-        };
-
-        if (showCalendar) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [showCalendar]);
-
-    const loadGeneralNotes = async () => {
+    const loadGeneralNotes = useCallback(async () => {
         if (!user) return;
 
         setIsLoading(true);
@@ -246,16 +230,16 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             console.error('Erro ao carregar anotações gerais:', error);
             // Não mostrar erro se for apenas porque não há dados
             if (error.message && !error.message.includes('No rows found')) {
-                toast.error('Erro ao carregar anotações');
+                toastManager.error('Erro ao carregar anotações');
             }
             // Mesmo com erro, inicializar com conteúdo vazio
             setCurrentContent('');
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [user]);
 
-    const loadReminders = async () => {
+    const loadReminders = useCallback(async () => {
         if (!user) return;
 
         try {
@@ -279,10 +263,296 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             console.error('Erro ao carregar lembretes:', error);
             // Não mostrar erro se for apenas porque não há dados
             if (error.message && !error.message.includes('No rows found')) {
-                toast.error('Erro ao carregar lembretes');
+                toastManager.error('Erro ao carregar lembretes');
             }
             // Mesmo com erro, inicializar com array vazio
             setReminders([]);
+        }
+    }, [user]);
+
+    // Carregar dados ao abrir o modal
+    useEffect(() => {
+        if (isOpen && user) {
+            loadGeneralNotes();
+            loadReminders();
+            // Resetar estado de ocultação quando modal é reaberto
+            setIsTemporarilyHidden(false);
+        } else if (!isOpen) {
+            // Resetar aba quando modal fechar
+            setActiveTab('notes');
+            // Limpar campos quando fechar
+            setNewReminderText('');
+            // Resetar estado de ocultação
+            setIsTemporarilyHidden(false);
+        }
+    }, [isOpen, user, loadGeneralNotes, loadReminders]);
+
+    // Detectar quando o modal deve ser reaberto após fechamento de modal secundário
+    useEffect(() => {
+        if (isTemporarilyHidden && onRequestReopen) {
+            // Aguardar um pequeno delay para garantir que o modal secundário foi fechado
+            const timer = setTimeout(() => {
+                setIsTemporarilyHidden(false);
+                onRequestReopen();
+            }, 100);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [isTemporarilyHidden, onRequestReopen]);
+
+    // Verificar overflow quando o conteúdo carrega
+    useEffect(() => {
+        if (currentContent && quillRef.current) {
+            setTimeout(() => {
+                checkOverflow();
+            }, 100);
+        }
+    }, [currentContent]);
+
+    // Fechar calendário ao clicar fora
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+                setShowCalendar(false);
+            }
+        };
+
+        if (showCalendar) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showCalendar]);
+
+    // Filtrar e ordenar anotações
+    useEffect(() => {
+        let filtered = [...allNotes];
+
+        // Aplicar filtro de pesquisa
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase();
+            filtered = filtered.filter(note =>
+                note.subjectName.toLowerCase().includes(term) ||
+                note.topicName.toLowerCase().includes(term) ||
+                note.content.toLowerCase().includes(term)
+            );
+        }
+
+        // Aplicar ordenação
+        filtered.sort((a, b) => {
+            const dateA = new Date(a.updatedAt).getTime();
+            const dateB = new Date(b.updatedAt).getTime();
+            return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+        });
+
+        setFilteredNotes(filtered);
+    }, [allNotes, searchTerm, sortOrder]);
+
+    const loadAllNotes = useCallback(async () => {
+        if (!user) return;
+
+        setIsLoadingAllNotes(true);
+        try {
+            console.log('🔍 Carregando todas as anotações para o usuário:', user.id);
+
+            // Buscar tópicos com anotações
+            const { data: topicsData, error: topicsError } = await supabase
+                .from('topics')
+                .select(`
+                    id, 
+                    name, 
+                    notes, 
+                    updated_at, 
+                    created_at, 
+                    subject_id,
+                    subjects!inner(user_id, name)
+                `)
+                .eq('subjects.user_id', user.id)
+                .not('notes', 'is', null);
+
+            // Buscar matérias com anotações (sem tópico específico)
+            const { data: subjectsData, error: subjectsError } = await supabase
+                .from('subjects')
+                .select('id, name, notes, updated_at, created_at')
+                .eq('user_id', user.id)
+                .not('notes', 'is', null);
+
+            if (topicsError) throw topicsError;
+            if (subjectsError) throw subjectsError;
+
+            console.log('📊 Tópicos com anotações encontrados:', topicsData?.length || 0);
+            console.log('📚 Matérias com anotações encontradas:', subjectsData?.length || 0);
+
+            const allNotesEntries: AllNotesEntry[] = [];
+
+            // Processar anotações de tópicos
+            if (topicsData && topicsData.length > 0) {
+                const topicEntries = topicsData
+                    .filter(topic => {
+                        const hasNotes = !!topic.notes;
+                        let notesContent = '';
+                        if (typeof topic.notes === 'string') {
+                            notesContent = topic.notes;
+                        } else if (topic.notes && typeof topic.notes === 'object') {
+                            notesContent = (topic.notes as any)?.content || '';
+                        }
+
+                        const contentNotEmpty = hasNotes && notesContent && notesContent.trim() !== '';
+                        console.log(`🔍 Tópico ${topic.name}:`, { hasNotes, contentNotEmpty });
+                        return contentNotEmpty;
+                    })
+                    .map(topic => {
+                        let content = '';
+                        if (typeof topic.notes === 'string') {
+                            content = topic.notes;
+                        } else if (topic.notes && typeof topic.notes === 'object') {
+                            content = (topic.notes as any)?.content || '';
+                        }
+
+                        return {
+                            id: topic.id,
+                            subjectName: (topic.subjects as any)?.name || 'Matéria não encontrada',
+                            topicName: topic.name,
+                            content: content,
+                            updatedAt: topic.updated_at || topic.created_at || new Date().toISOString(),
+                            createdAt: topic.created_at || new Date().toISOString(),
+                            type: 'topic' as const
+                        };
+                    });
+
+                allNotesEntries.push(...topicEntries);
+            }
+
+            // Processar anotações de matérias
+            if (subjectsData && subjectsData.length > 0) {
+                const subjectEntries = subjectsData
+                    .filter(subject => {
+                        const hasNotes = !!subject.notes;
+                        let notesContent = '';
+                        if (typeof subject.notes === 'string') {
+                            notesContent = subject.notes;
+                        } else if (subject.notes && typeof subject.notes === 'object') {
+                            notesContent = (subject.notes as any)?.content || '';
+                        }
+
+                        const contentNotEmpty = hasNotes && notesContent && notesContent.trim() !== '';
+                        console.log(`🔍 Matéria ${subject.name}:`, { hasNotes, contentNotEmpty });
+                        return contentNotEmpty;
+                    })
+                    .map(subject => {
+                        let content = '';
+                        if (typeof subject.notes === 'string') {
+                            content = subject.notes;
+                        } else if (subject.notes && typeof subject.notes === 'object') {
+                            content = (subject.notes as any)?.content || '';
+                        }
+
+                        return {
+                            id: `subject-${subject.id}`,
+                            subjectName: subject.name,
+                            topicName: '(Anotações Gerais da Matéria)',
+                            content: content,
+                            updatedAt: subject.updated_at || subject.created_at || new Date().toISOString(),
+                            createdAt: subject.created_at || new Date().toISOString(),
+                            type: 'subject' as const,
+                            subjectId: subject.id
+                        };
+                    });
+
+                allNotesEntries.push(...subjectEntries);
+            }
+
+            // Ordenar por data de atualização (mais recentes primeiro)
+            const sortedEntries = allNotesEntries.sort((a, b) =>
+                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            );
+
+            console.log('📝 Total de anotações processadas:', sortedEntries.length);
+            console.log('📊 Tipos encontrados:', {
+                topics: sortedEntries.filter(e => e.type === 'topic').length,
+                subjects: sortedEntries.filter(e => e.type === 'subject').length
+            });
+
+            // Atualizar registros sem updated_at com datas aleatórias
+            await updateMissingDates();
+
+            setAllNotes(sortedEntries);
+            setFilteredNotes(sortedEntries);
+        } catch (error) {
+            console.error('Erro ao carregar todas as anotações:', error);
+            toastManager.error('Erro ao carregar anotações');
+            setAllNotes([]);
+            setFilteredNotes([]);
+        } finally {
+            setIsLoadingAllNotes(false);
+        }
+    }, [user]);
+
+    // Carregar dados quando a aba "condensed" for acessada
+    useEffect(() => {
+        console.log('🔄 Aba ativa mudou para:', activeTab);
+        if (activeTab === 'condensed' && user && allNotes.length === 0 && !isLoadingAllNotes) {
+            console.log('📋 Carregando dados da visão condensada...');
+            loadAllNotes();
+        }
+    }, [activeTab, user, loadAllNotes, allNotes.length, isLoadingAllNotes]);
+
+
+    const updateMissingDates = async () => {
+        if (!user) return;
+
+        try {
+            console.log('🔄 Atualizando registros sem updated_at...');
+
+            // Gerar data aleatória entre 30 dias atrás e hoje
+            const generateRandomDate = () => {
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+                const randomTime = thirtyDaysAgo.getTime() + Math.random() * (now.getTime() - thirtyDaysAgo.getTime());
+                return new Date(randomTime).toISOString();
+            };
+
+            // Atualizar tópicos sem updated_at
+            const { data: topicsWithoutDate } = await supabase
+                .from('topics')
+                .select('id, subjects!inner(user_id)')
+                .eq('subjects.user_id', user.id)
+                .is('updated_at', null);
+
+            if (topicsWithoutDate && topicsWithoutDate.length > 0) {
+                console.log(`📊 Atualizando ${topicsWithoutDate.length} tópicos sem data`);
+
+                for (const topic of topicsWithoutDate) {
+                    await supabase
+                        .from('topics')
+                        .update({ updated_at: generateRandomDate() })
+                        .eq('id', topic.id);
+                }
+            }
+
+            // Atualizar matérias sem updated_at
+            const { data: subjectsWithoutDate } = await supabase
+                .from('subjects')
+                .select('id')
+                .eq('user_id', user.id)
+                .is('updated_at', null);
+
+            if (subjectsWithoutDate && subjectsWithoutDate.length > 0) {
+                console.log(`📚 Atualizando ${subjectsWithoutDate.length} matérias sem data`);
+
+                for (const subject of subjectsWithoutDate) {
+                    await supabase
+                        .from('subjects')
+                        .update({ updated_at: generateRandomDate() })
+                        .eq('id', subject.id);
+                }
+            }
+
+            console.log('✅ Datas atualizadas com sucesso!');
+        } catch (error) {
+            console.error('❌ Erro ao atualizar datas:', error);
         }
     };
 
@@ -312,9 +582,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
     };
 
     const addReminder = async () => {
-        console.log('addReminder chamado', { newReminderText, user: !!user, newReminderDate });
         if (!newReminderText.trim() || !user) {
-            console.log('Condição de retorno atingida', { textTrim: newReminderText.trim(), user: !!user });
             return;
         }
 
@@ -340,11 +608,10 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             }]);
 
             setNewReminderText('');
-            setNewReminderDate(new Date());
-            toast.success('Lembrete adicionado!');
+            toastManager.success('Lembrete adicionado!');
         } catch (error) {
             console.error('Erro ao adicionar lembrete:', error);
-            toast.error('Erro ao adicionar lembrete');
+            toastManager.error('Erro ao adicionar lembrete');
         }
     };
 
@@ -358,10 +625,10 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             if (error) throw error;
 
             setReminders(prev => prev.filter(r => r.id !== id));
-            toast.success('Lembrete removido!');
+            toastManager.success('Lembrete removido!');
         } catch (error) {
             console.error('Erro ao remover lembrete:', error);
-            toast.error('Erro ao remover lembrete');
+            toastManager.error('Erro ao remover lembrete');
         }
     };
 
@@ -379,7 +646,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             ));
         } catch (error) {
             console.error('Erro ao atualizar lembrete:', error);
-            toast.error('Erro ao atualizar lembrete');
+            toastManager.error('Erro ao atualizar lembrete');
         }
     };
 
@@ -398,7 +665,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
 
     const saveReminderEdit = async (id: string) => {
         if (!editingText.trim()) {
-            toast.error('O texto do lembrete não pode estar vazio');
+            toastManager.error('O texto do lembrete não pode estar vazio');
             return;
         }
 
@@ -418,10 +685,41 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             ));
 
             cancelEditingReminder();
-            toast.success('Lembrete atualizado!');
+            toastManager.success('Lembrete atualizado!');
         } catch (error) {
             console.error('Erro ao atualizar lembrete:', error);
-            toast.error('Erro ao atualizar lembrete');
+            toastManager.error('Erro ao atualizar lembrete');
+        }
+    };
+
+    const handleViewTopicNotes = (noteId: string, subjectName: string) => {
+        console.log('🔍 Abrindo modal da anotação:', { noteId, subjectName });
+
+        // Encontrar a anotação na lista
+        const note = allNotes.find(n => n.id === noteId);
+
+        if (!note) {
+            toastManager.error('Anotação não encontrada');
+            return;
+        }
+
+        // Ocultar temporariamente o modal atual em vez de fechá-lo
+        setIsTemporarilyHidden(true);
+
+        if (note.type === 'subject') {
+            // Para anotações de matéria, abrir o modal de matéria
+            if (onOpenSubjectNotes && note.subjectId) {
+                onOpenSubjectNotes(note.subjectId, subjectName);
+            } else {
+                toastManager.info(`Abrindo anotações da matéria: ${subjectName}`);
+            }
+        } else {
+            // Para anotações de tópico, abrir o modal de tópico
+            if (onOpenTopicNotes) {
+                onOpenTopicNotes(noteId, note.topicName, subjectName);
+            } else {
+                toastManager.info(`Abrindo anotações do tópico: ${note.topicName}`);
+            }
         }
     };
 
@@ -484,10 +782,10 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             };
 
             await saveNotes(notesToSave);
-            toast.success('Anotações salvas com sucesso!');
+            toastManager.success('Anotações salvas com sucesso!');
         } catch (error) {
             console.error('Erro ao salvar:', error);
-            toast.error('Erro ao salvar anotações');
+            toastManager.error('Erro ao salvar anotações');
         } finally {
             setIsSaving(false);
         }
@@ -540,6 +838,9 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
                     height: 42px;
                     background: var(--modal-quill-toolbar-bg) !important;
                     transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+                    position: relative !important;
+                    z-index: 10 !important;
+                    pointer-events: auto !important;
                 }
                 
                 /* Remover efeitos de foco indesejados */
@@ -605,7 +906,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
                     right: 13px;
                     height: 30px;
                     background: var(--modal-quill-fade-overlay);
-                    pointer-events: none;
+                    pointer-events: none !important;
                     opacity: 0;
                     transition: opacity 0.3s ease;
                     border-radius: 0 0 5px 5px;
@@ -625,6 +926,22 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
                 /* Forçar altura do componente ReactQuill */
                 .quill {
                     height: 400px !important;
+                }
+                
+                /* Toolbar funcionalidade - Garantir que os botões funcionem */
+                .ql-toolbar button {
+                    pointer-events: auto !important;
+                    cursor: pointer !important;
+                }
+                
+                .ql-toolbar .ql-picker {
+                    pointer-events: auto !important;
+                    cursor: pointer !important;
+                }
+                
+                .ql-toolbar .ql-picker-label {
+                    pointer-events: auto !important;
+                    cursor: pointer !important;
                 }
                 
                 /* Toolbar icons - Modo escuro */
@@ -654,7 +971,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
                 }
 
             `}</style>
-            <Dialog open={isOpen} onOpenChange={(open) => {
+            <Dialog open={isOpen && !isTemporarilyHidden} onOpenChange={(open) => {
                 console.log('Dialog onOpenChange chamado com:', open);
                 if (!open) onClose();
             }}>
@@ -667,10 +984,16 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
                     </DialogHeader>
 
                     <div className="flex-1 overflow-hidden">
-                        <Tabs defaultValue="notes" className="h-full flex flex-col">
-                            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+                        <Tabs
+                            defaultValue="notes"
+                            value={activeTab}
+                            onValueChange={setActiveTab}
+                            className="h-full flex flex-col"
+                        >
+                            <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
                                 <TabsTrigger value="notes">📝 Anotações</TabsTrigger>
                                 <TabsTrigger value="reminders">🔔 Lembretes</TabsTrigger>
+                                <TabsTrigger value="condensed">📋 Visão Condensada</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="notes" className="flex-1 overflow-hidden mt-4">
@@ -768,7 +1091,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
                                     </div>
 
                                     {/* Lista de lembretes */}
-                                    <div className="space-y-2">
+                                    <div className="max-h-[400px] overflow-y-auto space-y-2">
                                         {reminders.length === 0 ? (
                                             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                                                 <p>Nenhum lembrete criado ainda.</p>
@@ -918,6 +1241,95 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
                                     </div>
                                 </div>
                             </TabsContent>
+
+                            <TabsContent value="condensed" className="flex-1 overflow-auto mt-4">
+                                <div className="space-y-4">
+                                    {/* Controles de filtro e ordenação */}
+                                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-3">
+                                        <div className="flex gap-3 items-center">
+                                            <div className="flex-1">
+                                                <Input
+                                                    placeholder="Pesquisar por matéria, tópico ou conteúdo..."
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                                                />
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                                                className="whitespace-nowrap"
+                                            >
+                                                {sortOrder === 'desc' ? '📅 Mais recentes' : '📅 Mais antigas'}
+                                            </Button>
+                                        </div>
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                                            {filteredNotes.length} anotação(ões) encontrada(s)
+                                        </div>
+                                    </div>
+
+                                    {/* Lista de anotações */}
+                                    {isLoadingAllNotes ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                                            <span className="ml-2 text-gray-600 dark:text-gray-400">Carregando anotações...</span>
+                                        </div>
+                                    ) : filteredNotes.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                            {searchTerm ? (
+                                                <div>
+                                                    <p className="mb-2">🔍 Nenhuma anotação encontrada com os filtros aplicados.</p>
+                                                    <p className="text-sm">Tente ajustar sua pesquisa ou limpar o filtro.</p>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <p className="mb-2">📝 Nenhuma anotação encontrada.</p>
+                                                    <p className="text-sm">As anotações criadas nos tópicos aparecerão aqui automaticamente.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="max-h-[400px] overflow-y-auto space-y-3">
+                                            {filteredNotes.map((note) => (
+                                                <div
+                                                    key={note.id}
+                                                    className="bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow"
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <div className="flex-1">
+                                                            {/* Data e hora - menor */}
+                                                            <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                                                                📅 {format(new Date(note.updatedAt), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                                                            </div>
+
+                                                            {/* Matéria */}
+                                                            <div className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-1">
+                                                                📚 {note.subjectName}
+                                                            </div>
+
+                                                            {/* Tópico */}
+                                                            <div className="text-sm text-gray-700 dark:text-gray-300">
+                                                                📖 {note.topicName}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Botão Ver */}
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleViewTopicNotes(note.id, note.subjectName)}
+                                                            className="ml-4 whitespace-nowrap"
+                                                        >
+                                                            Ver ►
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </TabsContent>
                         </Tabs>
                     </div>
 
@@ -947,6 +1359,8 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose }
             </Dialog>
         </>
     );
-};
+});
+
+GeneralNotesModal.displayName = 'GeneralNotesModal';
 
 export default GeneralNotesModal;

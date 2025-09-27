@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { StudyCycleSubject, StudyCycleTopic, SubTopic } from '@/types/study-cycle';
 import { Difficulty } from '@/types/study-cycle';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import {
   CloseIcon,
   SaveIcon,
@@ -26,6 +28,7 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
   const [difficulty, setDifficulty] = useState(topic.difficulty ?? Difficulty.MEDIUM);
   const [subTopics, setSubTopics] = useState<SubTopic[]>(topic.subTopics ?? []);
   const [newSubTopic, setNewSubTopic] = useState('');
+  const quillRef = useRef<ReactQuill>(null);
 
   const handleSave = () => {
     onSave(subject.id, topic.id, { notes, difficulty, subTopics });
@@ -63,13 +66,85 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
   const unselectedDifficultyClasses = "bg-slate-700 text-slate-300 hover:bg-slate-600";
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="notes-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <>
+      <style>{`
+        /* ReactQuill Container */
+        .ql-container {
+          height: 158px !important;
+          border: 1px solid #cbd5e1 !important;
+          border-top: none !important;
+          border-radius: 0 0 6px 6px !important;
+          background: white !important;
+        }
+        
+        .dark .ql-container {
+          border-color: #475569 !important;
+          background: #334155 !important;
+        }
+        
+        /* ReactQuill Toolbar */
+        .ql-toolbar {
+          border: 1px solid #cbd5e1 !important;
+          border-bottom: none !important;
+          border-radius: 6px 6px 0 0 !important;
+          height: 42px;
+          background: #f8fafc !important;
+        }
+        
+        .dark .ql-toolbar {
+          border-color: #475569 !important;
+          background: #475569 !important;
+        }
+        
+        /* Editor */
+        .ql-editor {
+          height: 158px !important;
+          max-height: 158px !important;
+          min-height: 158px !important;
+          font-size: 14px;
+          line-height: 1.6;
+          overflow-y: auto !important;
+          padding: 12px 15px !important;
+          color: #1e293b !important;
+        }
+        
+        .dark .ql-editor {
+          color: #f1f5f9 !important;
+        }
+        
+        /* Toolbar icons - Dark mode */
+        .dark .ql-toolbar .ql-stroke {
+          stroke: #f1f5f9 !important;
+        }
+        
+        .dark .ql-toolbar .ql-fill {
+          fill: #f1f5f9 !important;
+        }
+        
+        .dark .ql-toolbar .ql-picker-label {
+          color: #f1f5f9 !important;
+        }
+        
+        .dark .ql-toolbar .ql-picker-options {
+          background: #334155 !important;
+          border: 1px solid #475569 !important;
+        }
+        
+        .dark .ql-toolbar .ql-picker-item {
+          color: #f1f5f9 !important;
+        }
+        
+        .dark .ql-toolbar .ql-picker-item:hover {
+          background: #475569 !important;
+        }
+      `}</style>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notes-modal-title"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm"
+        onClick={onClose}
+      >
       <div
         className="relative w-full max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-2xl m-4 max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}
@@ -96,13 +171,34 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
             <h3 className="flex items-center gap-3 font-semibold text-slate-700 dark:text-slate-200 mb-3">
               <NotesIcon /> Anotações
             </h3>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Comece a escrever suas anotações... Use a barra de ferramentas para formatação."
-              className="w-full h-32 p-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-colors"
-              aria-label="Campo de anotações"
-            ></textarea>
+            <div className="bg-white dark:bg-slate-700 rounded-lg">
+              <ReactQuill
+                ref={quillRef}
+                theme="snow"
+                value={notes}
+                onChange={setNotes}
+                className="h-full"
+                style={{ height: '200px' }}
+                modules={{
+                  toolbar: [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline'],
+                    [{ 'background': [] }],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    ['link'],
+                    ['clean']
+                  ]
+                }}
+                formats={[
+                  'header',
+                  'bold', 'italic', 'underline',
+                  'background',
+                  'list', 'bullet',
+                  'link'
+                ]}
+                placeholder="Comece a escrever suas anotações... Use a barra de ferramentas para formatação."
+              />
+            </div>
           </div>
 
           {/* Nível de dificuldade */}
@@ -180,5 +276,6 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
         </footer>
       </div>
     </div>
+    </>
   );
 };

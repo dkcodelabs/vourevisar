@@ -65,7 +65,10 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
     try {
       const { error } = await supabase
         .from('subjects')
-        .update({ notes: updatedNotes as any })
+        .update({ 
+          notes: updatedNotes as any,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', subjectId);
 
       if (error) throw error;

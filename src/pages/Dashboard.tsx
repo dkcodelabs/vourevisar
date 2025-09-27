@@ -15,6 +15,8 @@ import { CalendarAndStats } from '@/components/dashboard/CalendarAndStats';
 import { StreakVisualBar } from '@/components/dashboard/StreakVisualBar';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
 import GeneralNotesModal from '@/components/GeneralNotesModal';
+import NotesModal from '@/components/reviews/NotesModal';
+import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 
 const Dashboard = () => {
   const { subjects, isDataLoaded, isLoading, error } = useApp();
@@ -23,9 +25,29 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [isGeneralNotesModalOpen, setIsGeneralNotesModalOpen] = useState(false);
+  const [topicNotesModal, setTopicNotesModal] = useState({
+    isOpen: false,
+    topicId: '',
+    topicName: '',
+    subjectName: ''
+  });
+  const [subjectNotesModal, setSubjectNotesModal] = useState({
+    isOpen: false,
+    subjectId: '',
+    subjectName: ''
+  });
+  const [shouldReopenGeneralNotes, setShouldReopenGeneralNotes] = useState(false);
   
   // Debug do estado do modal
   console.log('Estado do modal de anotações:', isGeneralNotesModalOpen);
+
+  // Reabrir modal de anotações gerais quando necessário
+  React.useEffect(() => {
+    if (shouldReopenGeneralNotes) {
+      setIsGeneralNotesModalOpen(true);
+      setShouldReopenGeneralNotes(false);
+    }
+  }, [shouldReopenGeneralNotes]);
 
   // Buscar dados de revisões para o calendário
   const { data: reviewData } = useQuery({
@@ -318,6 +340,54 @@ const Dashboard = () => {
                 console.log('Fechando modal de anotações');
                 setIsGeneralNotesModalOpen(false);
               }}
+              onOpenTopicNotes={(topicId, topicName, subjectName) => {
+                console.log('🔍 Abrindo modal de tópico:', { topicId, topicName, subjectName });
+                setTopicNotesModal({
+                  isOpen: true,
+                  topicId,
+                  topicName,
+                  subjectName
+                });
+              }}
+              onOpenSubjectNotes={(subjectId, subjectName) => {
+                console.log('🔍 Abrindo modal de matéria:', { subjectId, subjectName });
+                setSubjectNotesModal({
+                  isOpen: true,
+                  subjectId,
+                  subjectName
+                });
+              }}
+              onRequestReopen={() => {
+                console.log('🔄 Solicitando reabertura do modal de anotações gerais');
+                setShouldReopenGeneralNotes(true);
+              }}
+            />
+
+            {/* Modal de Anotações do Tópico */}
+            <NotesModal
+              isOpen={topicNotesModal.isOpen}
+              onClose={() => {
+                console.log('Fechando modal de tópico');
+                setTopicNotesModal(prev => ({ ...prev, isOpen: false }));
+                // Reabrir modal de anotações gerais se estava aberto antes
+                setShouldReopenGeneralNotes(true);
+              }}
+              topicId={topicNotesModal.topicId}
+              topicName={topicNotesModal.topicName}
+              subjectName={topicNotesModal.subjectName}
+            />
+
+            {/* Modal de Anotações da Matéria */}
+            <SubjectNotesModal
+              isOpen={subjectNotesModal.isOpen}
+              onClose={() => {
+                console.log('Fechando modal de matéria');
+                setSubjectNotesModal(prev => ({ ...prev, isOpen: false }));
+                // Reabrir modal de anotações gerais se estava aberto antes
+                setShouldReopenGeneralNotes(true);
+              }}
+              subjectId={subjectNotesModal.subjectId}
+              subjectName={subjectNotesModal.subjectName}
             />
           </div>
         )}

@@ -14,6 +14,7 @@ interface RichTextNotesEditorProps {
   isLoading?: boolean;
   onChange?: () => void;
   hideHeader?: boolean;
+  hideToolbar?: boolean;
 }
 
 const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
@@ -21,7 +22,8 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   onSave,
   isLoading = false,
   onChange,
-  hideHeader = false
+  hideHeader = false,
+  hideToolbar = false
 }) => {
   const [content, setContent] = useState(notes?.content || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -40,6 +42,45 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
       onChange();
     }
   }, [content, notes?.content, onChange]);
+
+
+
+  // Ajustar altura automaticamente
+  useEffect(() => {
+    const adjustHeight = () => {
+      if (quillRef.current) {
+        const editor = quillRef.current.getEditor();
+        const container = editor.container;
+        const editorElement = container.querySelector('.ql-editor') as HTMLElement;
+        
+        if (editorElement) {
+          // Resetar altura para calcular a altura necessária
+          editorElement.style.height = 'auto';
+          
+          // Definir altura mínima menor
+          const minHeight = 60;
+          const scrollHeight = editorElement.scrollHeight;
+          const newHeight = Math.max(minHeight, scrollHeight + 10); // +10px para margem
+          
+          editorElement.style.height = `${newHeight}px`;
+          
+          // Ajustar também o container
+          const containerElement = container.querySelector('.ql-container') as HTMLElement;
+          if (containerElement) {
+            containerElement.style.height = 'auto';
+          }
+        }
+      }
+    };
+
+    // Ajustar altura imediatamente
+    adjustHeight();
+    
+    // Ajustar altura após um pequeno delay para garantir que o DOM foi atualizado
+    const timeoutId = setTimeout(adjustHeight, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [content]);
 
   const handleSave = async () => {
     if (isSaving) return;
@@ -71,11 +112,27 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
 
   const handleContentChange = (value: string) => {
     setContent(value);
+    
+    // Ajustar altura após mudança de conteúdo
+    setTimeout(() => {
+      if (quillRef.current) {
+        const editor = quillRef.current.getEditor();
+        const editorElement = editor.container.querySelector('.ql-editor') as HTMLElement;
+        
+        if (editorElement) {
+          editorElement.style.height = 'auto';
+          const minHeight = 60;
+          const scrollHeight = editorElement.scrollHeight;
+          const newHeight = Math.max(minHeight, scrollHeight + 10);
+          editorElement.style.height = `${newHeight}px`;
+        }
+      }
+    }, 10);
   };
 
   // Configuração da toolbar do Quill
   const modules = {
-    toolbar: [
+    toolbar: hideToolbar ? false : [
       [{ 'header': [1, 2, 3, false] }],
       ['bold', 'italic', 'underline'],
       [{ 'background': [] }], // highlight
@@ -99,9 +156,22 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   // Estilo customizado para o highlight amarelo
   const customStyles = `
     .ql-editor {
-      min-height: 120px;
+      min-height: 60px;
+      max-height: none;
+      height: auto !important;
       font-size: 14px;
       line-height: 1.6;
+      overflow-y: visible !important;
+      padding: 12px 15px !important;
+      resize: none;
+    }
+    .ql-container {
+      height: auto !important;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    .ql-container.ql-snow {
+      border: 1px solid #e2e8f0;
     }
     .ql-toolbar {
       border-top: 1px solid #e2e8f0;
@@ -110,10 +180,10 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
       border-bottom: none;
       border-radius: 6px 6px 0 0;
     }
-    .ql-container {
-      border-bottom: 1px solid #e2e8f0;
-      border-left: 1px solid #e2e8f0;
-      border-right: 1px solid #e2e8f0;
+    .ql-container:not(.ql-toolbar + .ql-container) {
+      border-radius: 6px;
+    }
+    .ql-toolbar + .ql-container {
       border-top: none;
       border-radius: 0 0 6px 6px;
     }
@@ -121,6 +191,16 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
       color: #9ca3af;
       font-style: normal;
       content: 'Comece a escrever suas anotações... Use a barra de ferramentas para formatação.';
+    }
+    
+    /* Força altura dinâmica */
+    .quill {
+      height: auto !important;
+    }
+    
+    .ql-container .ql-editor {
+      height: auto !important;
+      min-height: 60px !important;
     }
   `;
 
@@ -187,6 +267,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
           formats={formats}
           readOnly={isLoading || isSaving}
           className="bg-white"
+
         />
       </div>
 

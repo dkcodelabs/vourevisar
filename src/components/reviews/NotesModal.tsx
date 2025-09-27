@@ -30,12 +30,17 @@ const NotesModal: React.FC<NotesModalProps> = ({
   subjectName
 }) => {
   const [notes, setNotes] = useState<TopicNotes | undefined>(undefined);
+  const [subjectNotes, setSubjectNotes] = useState<TopicNotes | undefined>(undefined);
+  const [subjectId, setSubjectId] = useState<string>('');
   const [difficulty, setDifficulty] = useState<DifficultyLevel | null>(null);
   const [subtopics, setSubtopics] = useState<TopicSubtopic[]>([]);
   const [newSubtopic, setNewSubtopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [activeEditor, setActiveEditor] = useState<'subject' | 'topic'>('topic');
+  const [currentSubjectContent, setCurrentSubjectContent] = useState('');
+  const [currentTopicContent, setCurrentTopicContent] = useState('');
   const isMobile = useIsMobile();
   const { refreshData } = useApp();
 
@@ -58,22 +63,47 @@ const NotesModal: React.FC<NotesModalProps> = ({
   const loadTopicNotes = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // Carregar anotações do tópico
+      const { data: topicData, error: topicError } = await supabase
         .from('topics')
-        .select('notes, difficulty_level, subtopics, difficulty_set_at')
+        .select('notes, difficulty_level, subtopics, difficulty_set_at, subject_id')
         .eq('id', topicId)
         .single();
 
-      if (error) throw error;
+      if (topicError) throw topicError;
 
-      if (data?.notes) {
-        setNotes(data.notes as TopicNotes);
+      if (topicData?.notes) {
+        const topicNotesData = topicData.notes as TopicNotes;
+        console.log('🔍 Anotações do tópico carregadas:', topicNotesData);
+        setNotes(topicNotesData);
+        setCurrentTopicContent(topicNotesData.content || '');
       } else {
         setNotes(undefined);
+        setCurrentTopicContent('');
       }
       
-      setDifficulty((data?.difficulty_level as DifficultyLevel) || null);
-      setSubtopics((data?.subtopics as unknown as TopicSubtopic[]) || []);
+      setDifficulty((topicData?.difficulty_level as DifficultyLevel) || null);
+      setSubtopics((topicData?.subtopics as unknown as TopicSubtopic[]) || []);
+
+      // Carregar anotações da matéria
+      if (topicData?.subject_id) {
+        setSubjectId(topicData.subject_id);
+        const { data: subjectData, error: subjectError } = await supabase
+          .from('subjects')
+          .select('notes')
+          .eq('id', topicData.subject_id)
+          .single();
+
+        if (subjectError) {
+          console.warn('Erro ao carregar anotações da matéria:', subjectError);
+          setSubjectNotes(undefined);
+        } else {
+          const subjectNotesData = subjectData?.notes as TopicNotes || undefined;
+          console.log('🔍 Anotações da matéria carregadas:', subjectNotesData);
+          setSubjectNotes(subjectNotesData);
+          setCurrentSubjectContent(subjectNotesData?.content || '');
+        }
+      }
     } catch (error) {
       console.error('Erro ao carregar anotações:', error);
       toast.error('Erro ao carregar anotações');
@@ -105,9 +135,12 @@ const NotesModal: React.FC<NotesModalProps> = ({
         notes: updatedNotes as any,
         difficulty_level: difficulty,
         subtopics: subtopics,
-        difficulty_set_at: difficulty ? new Date().toISOString() : null
+        difficulty_set_at: difficulty ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString()
       };
 
+      console.log('💾 Salvando anotações do tópico:', { topicId, updates });
+      
       const { error } = await supabase
         .from('topics')
         .update(updates)
@@ -115,6 +148,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
       if (error) throw error;
 
+      console.log('✅ Anotações do tópico salvas com sucesso!');
       setNotes(updatedNotes);
       setHasUnsavedChanges(false);
       toast.success('Dados salvos com sucesso!');
@@ -131,26 +165,82 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
   const handleSaveAndClose = async () => {
     try {
-      // Forçar salvamento e fechar modal
-      const editorComponent = document.querySelector('.ql-editor');
-      if (editorComponent) {
-        const content = editorComponent.innerHTML;
-        const notesToSave: TopicNotes = {
-          content: content.trim(),
-          updatedAt: new Date().toISOString(),
-          createdAt: notes?.createdAt || new Date().toISOString()
-        };
-        await saveNotes(notesToSave);
-        // Fechar modal apenas após sucesso no salvamento
-        if (onSave) {
-          onSave(); // Chama onSave se fornecido (caso do study plan)
-        } else {
-          onClose(); // Caso contrário, apenas fecha (caso das revisões)
+      console.log('💾 Salvando todas as anotações antes de fechar...');
+      console.log('📝 Conteúdo atual - Matéria:', currentSubjectContent);
+      console.log('📝 Conteúdo atual - Tópico:', currentTopicContent);
+      
+      // Capturar conteúdo atual dos editores diretamente
+      const allEditors = document.querySelectorAll('.ql-editor');
+      console.log('📊 Editores encontrados:', allEditors.length);
+      
+      // Salvar anotações da matéria (primeiro editor)
+      if (allEditors[0]) {
+        const subjectContent = (allEditors[0] as HTMLElement).innerHTML;
+        console.log('📚 Conteúdo da matéria capturado:', subjectContent);
+        
+        if (subjectContent && subjectContent.trim() !== '<p><br></p>' && subjectContent.trim() !== '') {
+          const subjectNotesToSave: TopicNotes = {
+            content: subjectContent.trim(),
+            updatedAt: new Date().toISOString(),
+            createdAt: subjectNotes?.createdAt || new Date().toISOString()
+          };
+          await saveSubjectNotes(subjectNotesToSave);
         }
       }
+
+      // Salvar anotações do tópico (segundo editor)
+      if (allEditors[1]) {
+        const topicContent = (allEditors[1] as HTMLElement).innerHTML;
+        console.log('📖 Conteúdo do tópico capturado:', topicContent);
+        
+        if (topicContent && topicContent.trim() !== '<p><br></p>' && topicContent.trim() !== '') {
+          const topicNotesToSave: TopicNotes = {
+            content: topicContent.trim(),
+            updatedAt: new Date().toISOString(),
+            createdAt: notes?.createdAt || new Date().toISOString()
+          };
+          await saveNotes(topicNotesToSave);
+        }
+      }
+
+      console.log('✅ Todas as anotações salvas com sucesso!');
+      
+      // Fechar modal apenas após sucesso no salvamento
+      if (onSave) {
+        onSave(); // Chama onSave se fornecido (caso do study plan)
+      } else {
+        onClose(); // Caso contrário, apenas fecha (caso das revisões)
+      }
     } catch (error) {
-      console.error('Erro ao salvar:', error);
+      console.error('❌ Erro ao salvar:', error);
       // Modal não fecha em caso de erro
+    }
+  };
+
+  const saveSubjectNotes = async (updatedNotes: TopicNotes) => {
+    console.log('💾 Salvando anotações da matéria:', { subjectId, updatedNotes });
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('subjects')
+        .update({ 
+          notes: updatedNotes as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', subjectId);
+
+      if (error) throw error;
+
+      console.log('✅ Anotações da matéria salvas com sucesso!');
+      setSubjectNotes(updatedNotes);
+      setHasUnsavedChanges(false);
+      toast.success('Anotações da matéria salvas com sucesso!');
+    } catch (error) {
+      console.error('❌ Erro ao salvar anotações da matéria:', error);
+      toast.error('Erro ao salvar anotações da matéria');
+      throw error;
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -260,16 +350,54 @@ const NotesModal: React.FC<NotesModalProps> = ({
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Anotações */}
+
+
+              {/* Anotações da Matéria */}
               <div>
-                <Label className="text-sm font-medium mb-3 block">
-                  📝 Anotações
+                <Label className="text-sm font-medium mb-3 block text-blue-600 dark:text-blue-400">
+                  📚 Anotações da Matéria ({subjectName})
                 </Label>
                 <RichTextNotesEditor
+                  key={`subject-${subjectId}`}
+                  notes={subjectNotes}
+                  onSave={saveSubjectNotes}
+                  isLoading={isLoading || isSaving}
+                  onChange={() => {
+                    handleNotesChange();
+                    setTimeout(() => {
+                      const editors = document.querySelectorAll('.ql-editor');
+                      if (editors[0]) {
+                        const content = (editors[0] as HTMLElement).innerHTML;
+                        console.log('📚 Conteúdo da matéria atualizado:', content);
+                        setCurrentSubjectContent(content);
+                      }
+                    }, 100);
+                  }}
+                  hideHeader={true}
+                />
+              </div>
+
+              {/* Anotações do Tópico */}
+              <div>
+                <Label className="text-sm font-medium mb-3 block">
+                  📖 Anotações do Tópico ({topicName})
+                </Label>
+                <RichTextNotesEditor
+                  key={`topic-${topicId}`}
                   notes={notes}
                   onSave={saveNotes}
                   isLoading={isLoading || isSaving}
-                  onChange={handleNotesChange}
+                  onChange={() => {
+                    handleNotesChange();
+                    setTimeout(() => {
+                      const editors = document.querySelectorAll('.ql-editor');
+                      if (editors[1]) {
+                        const content = (editors[1] as HTMLElement).innerHTML;
+                        console.log('📖 Conteúdo do tópico atualizado:', content);
+                        setCurrentTopicContent(content);
+                      }
+                    }, 100);
+                  }}
                   hideHeader={true}
                 />
               </div>
