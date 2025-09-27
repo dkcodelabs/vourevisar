@@ -170,7 +170,7 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ selectedDate, onDateSel
     );
 };
 
-const GeneralNotesModal: React.FC<GeneralNotesModalProps> = React.memo(({ isOpen, onClose, onOpenTopicNotes, onOpenSubjectNotes, onRequestReopen }) => {
+const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, onOpenTopicNotes, onOpenSubjectNotes, onRequestReopen }) => {
     const { user } = useAuth();
     const quillRef = useRef<ReactQuill>(null);
     const calendarRef = useRef<HTMLDivElement>(null);
@@ -586,12 +586,17 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = React.memo(({ isOpen
             return;
         }
 
+        const textToSave = newReminderText.trim();
+        
+        // Limpar o input imediatamente para evitar problemas de estado
+        setNewReminderText('');
+
         try {
             const { data, error } = await supabase
                 .from('general_reminders')
                 .insert({
                     user_id: user.id,
-                    text: newReminderText.trim(),
+                    text: textToSave,
                     reminder_date: newReminderDate?.toISOString() || null,
                     completed: false
                 })
@@ -607,11 +612,12 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = React.memo(({ isOpen
                 completed: data.completed || false
             }]);
 
-            setNewReminderText('');
             toastManager.success('Lembrete adicionado!');
         } catch (error) {
             console.error('Erro ao adicionar lembrete:', error);
             toastManager.error('Erro ao adicionar lembrete');
+            // Restaurar o texto se houve erro
+            setNewReminderText(textToSave);
         }
     };
 
@@ -726,8 +732,8 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = React.memo(({ isOpen
     const checkOverflow = () => {
         if (quillRef.current) {
             const quill = quillRef.current.getEditor();
-            const editorElement = quill.container.querySelector('.ql-editor');
-            const containerElement = quill.container;
+            const editorElement = quill.root.querySelector('.ql-editor');
+            const containerElement = quill.root;
 
             if (editorElement && containerElement) {
                 const hasOverflow = editorElement.scrollHeight > editorElement.clientHeight;
@@ -752,7 +758,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = React.memo(({ isOpen
                 const selection = quill.getSelection();
                 if (selection) {
                     // Scroll para a posição do cursor com margem extra
-                    const editorElement = quill.container.querySelector('.ql-editor');
+                    const editorElement = quill.root.querySelector('.ql-editor');
                     if (editorElement) {
                         const bounds = quill.getBounds(selection.index);
                         const editorRect = editorElement.getBoundingClientRect();
@@ -1037,6 +1043,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = React.memo(({ isOpen
                                         <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">Novo Lembrete</Label>
                                         <div className="flex gap-2">
                                             <Input
+                                                key={`reminder-input-${reminders.length}`}
                                                 placeholder="Digite seu lembrete..."
                                                 value={newReminderText}
                                                 onChange={(e) => setNewReminderText(e.target.value)}
@@ -1359,8 +1366,6 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = React.memo(({ isOpen
             </Dialog>
         </>
     );
-});
-
-GeneralNotesModal.displayName = 'GeneralNotesModal';
+};
 
 export default GeneralNotesModal;
