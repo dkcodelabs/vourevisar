@@ -2,7 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BookOpen, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { BookOpen, ChevronDown, ChevronUp, CheckCircle, Trash } from 'lucide-react';
 import { Subject } from '@/types';
 import TopicItem from './TopicItem';
 
@@ -15,6 +16,10 @@ interface SubjectCardProps {
   onCancelTopicReview: (subjectId: string, topicId: string) => void;
   onCompleteSession: (subjectId: string) => void;
   isDaySubject?: boolean;
+  viewNumber?: number;
+  totalViews?: number;
+  cycleIndex?: number;
+  onRemoveView?: () => void;
 }
 
 const SubjectCard: React.FC<SubjectCardProps> = ({
@@ -25,7 +30,10 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
   onMarkTopicForReview,
   onCancelTopicReview,
   onCompleteSession,
-  isDaySubject = false
+  isDaySubject = false,
+  viewNumber,
+  totalViews,
+  onRemoveView
 }) => {
   return (
     <div className="w-full">
@@ -37,7 +45,13 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
               onClick={() => onToggleExpand(subject.id)}
             >
               <BookOpen size={18} className="mr-2 text-app-blue group-hover:rotate-12 transition-transform" />
-              {subject.name} {isDaySubject && "(Hoje)"}
+              {subject.name}
+              {isDaySubject && " (Hoje)"}
+              {viewNumber && totalViews && totalViews > 1 && (
+                <Badge className="ml-2 bg-blue-600 text-white text-xs">
+                  {viewNumber}ª passada
+                </Badge>
+              )}
               <motion.div
                 animate={{ rotate: isExpanded ? 180 : 0 }}
                 transition={{ type: "tween", duration: 0.2 }}
@@ -49,6 +63,20 @@ const SubjectCard: React.FC<SubjectCardProps> = ({
                 )}
               </motion.div>
             </CardTitle>
+            {onRemoveView && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveView();
+                }}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                title="Remover esta visualização do ciclo"
+              >
+                <Trash className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="pt-0">

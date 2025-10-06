@@ -16,6 +16,7 @@ export const useNextSubjects = (subjects: Subject[], userCycle: UserCycle | null
     console.log('🔄 useNextSubjects - Análise completa:', {
       ciclo_atual_length: userCycle.ciclo_atual?.length,
       disciplinas_do_dia_length: userCycle.disciplinas_do_dia?.length,
+      disciplinas_do_dia: userCycle.disciplinas_do_dia,
       total_subjects: subjects.length
     });
 
@@ -83,29 +84,31 @@ export const useNextSubjects = (subjects: Subject[], userCycle: UserCycle | null
 
     allSubjectsWithStatus = [...allSubjectsWithStatus, ...subjectsNotInCycle];
 
-    // CORREÇÃO: Filtrar próximas matérias excluindo as que estão nas disciplinas do dia
-    // E também excluindo matérias que estão "in-review" (todos tópicos em revisão)
+    // CORREÇÃO: Filtrar próximas matérias excluindo EXATAMENTE as que estão nas disciplinas do dia
+    // Precisamos manter apenas as matérias únicas que não estão sendo estudadas hoje
+    const todaySubjectIds = new Set(userCycle.disciplinas_do_dia || []);
     const nextSubjects = allSubjectsWithStatus.filter(
-      item => !userCycle.disciplinas_do_dia?.includes(item.subject.id) &&
+      item => !todaySubjectIds.has(item.subject.id) &&
         item.status === 'available' // Apenas matérias disponíveis (com tópicos não estudados)
     );
 
     // Agrupar por status (excluindo matérias que estão nas disciplinas do dia)
+    const todaySubjectIdsSet = new Set(userCycle.disciplinas_do_dia || []);
     const subjectsByStatus = {
       available: allSubjectsWithStatus.filter(item =>
-        item.status === 'available' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+        item.status === 'available' && !todaySubjectIdsSet.has(item.subject.id)
       ),
       'in-review': allSubjectsWithStatus.filter(item =>
-        item.status === 'in-review' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+        item.status === 'in-review' && !todaySubjectIdsSet.has(item.subject.id)
       ),
       completed: allSubjectsWithStatus.filter(item =>
-        item.status === 'completed' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+        item.status === 'completed' && !todaySubjectIdsSet.has(item.subject.id)
       ),
       'no-topics': allSubjectsWithStatus.filter(item =>
-        item.status === 'no-topics' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+        item.status === 'no-topics' && !todaySubjectIdsSet.has(item.subject.id)
       ),
       unavailable: allSubjectsWithStatus.filter(item =>
-        item.status === 'unavailable' && !userCycle.disciplinas_do_dia?.includes(item.subject.id)
+        item.status === 'unavailable' && !todaySubjectIdsSet.has(item.subject.id)
       )
     };
 

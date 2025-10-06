@@ -5,6 +5,8 @@ import SubjectCard from './SubjectCard';
 import NextSubjects from './NextSubjects';
 import { Subject, UserCycle } from '@/types';
 import { SubjectWithStatus } from '@/hooks/useNextSubjects';
+import { useDailySubjectsWithViews } from '@/hooks/useDailySubjectsWithViews';
+import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
 
 interface StudyPlanMainViewProps {
   userCycle: UserCycle;
@@ -56,6 +58,9 @@ const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
   onCancelTopicReview,
   onCompleteSession
 }) => {
+  const dailySubjectsWithViews = useDailySubjectsWithViews(dailySubjects, userCycle);
+  const { getSubjectViewCount, removeSubjectView } = useCycleViewManagement();
+
   return (
     <>
       <CycleInfo 
@@ -68,20 +73,32 @@ const StudyPlanMainView: React.FC<StudyPlanMainViewProps> = ({
       />
       
       <div className="space-y-4">
-        {dailySubjects.map((subject) => (
-          <div key={subject.id}>
-            <SubjectCard
-              subject={subject}
-              isExpanded={expandedSubject === subject.id}
-              tempMarkedTopics={tempMarkedTopics}
-              onToggleExpand={onToggleExpand}
-              onMarkTopicForReview={onMarkTopicForReview}
-              onCancelTopicReview={onCancelTopicReview}
-              onCompleteSession={onCompleteSession}
-              isDaySubject={true}
-            />
-          </div>
-        ))}
+        {dailySubjectsWithViews.map((view) => {
+          const totalViews = getSubjectViewCount(view.subject.id, userCycle?.ciclo_atual || []);
+          
+          return (
+            <div key={`${view.subject.id}-${view.cycleIndex}`}>
+              <SubjectCard
+                subject={view.subject}
+                isExpanded={expandedSubject === view.subject.id}
+                tempMarkedTopics={tempMarkedTopics}
+                onToggleExpand={onToggleExpand}
+                onMarkTopicForReview={onMarkTopicForReview}
+                onCancelTopicReview={onCancelTopicReview}
+                onCompleteSession={onCompleteSession}
+                isDaySubject={true}
+                viewNumber={view.viewNumber}
+                totalViews={totalViews}
+                cycleIndex={view.cycleIndex}
+                onRemoveView={
+                  totalViews > 1
+                    ? () => removeSubjectView(view.subject.id, view.viewNumber - 1, view.subject.name)
+                    : undefined
+                }
+              />
+            </div>
+          );
+        })}
       </div>
 
       {Object.values(subjectsByStatus).some(arr => arr.length > 0) && !allDaySubjectsCompleted && !isCycleCompleted && !allTopicsInReview && dailySubjects.length > 0 && (

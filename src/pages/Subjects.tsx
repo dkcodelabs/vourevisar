@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, BookOpen, Target, Clock, Edit, Trash2, MoreVertical, NotebookPen, GripVertical, ChevronDown, ChevronRight, Check, X, CheckCircle, Edit2 } from 'lucide-react';
+import { Plus, BookOpen, Target, Clock, Edit, Trash2, MoreVertical, NotebookPen, GripVertical, ChevronDown, ChevronRight, Check, X, CheckCircle, Edit2, Copy, Trash } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -23,6 +23,7 @@ import { ReviewProfile } from '@/types/study';
 import TopicsModal from '@/components/topics/TopicsModal';
 import ContentUploadModal from '@/components/ContentUploadModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
+import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
 
 // Função corrigida para calcular o status automaticamente baseado nos tópicos
 const calculateSubjectStatus = (subject: Subject): Status => {
@@ -99,6 +100,31 @@ const Subjects = () => {
     subjectId: '',
     subjectName: ''
   });
+
+  // Hook para gerenciar visualizações duplicadas no ciclo
+  const { addSubjectView, getSubjectViewCount } = useCycleViewManagement();
+  
+  // Estado para armazenar o ciclo atual e contar visualizações
+  const [userCycle, setUserCycle] = useState<any>(null);
+
+  // Carregar ciclo atual para mostrar contadores
+  useEffect(() => {
+    const loadCycle = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('user_cycles')
+        .select('ciclo_atual')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (data) {
+        setUserCycle(data);
+      }
+    };
+    
+    loadCycle();
+  }, [user, subjects]); // Recarregar quando subjects mudar
 
   useEffect(() => {
     const checkProfile = async () => {
@@ -310,6 +336,23 @@ const Subjects = () => {
 
   const handleCloseTopicsModal = () => {
     setTopicsModal({ isOpen: false, subject: null });
+  };
+
+  const handleAddSubjectView = async (subject: Subject) => {
+    const success = await addSubjectView(subject.id, subject.name);
+    if (success) {
+      // Recarregar ciclo para atualizar contadores
+      const { data } = await supabase
+        .from('user_cycles')
+        .select('ciclo_atual')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      
+      if (data) {
+        setUserCycle(data);
+      }
+      forceRefresh();
+    }
   };
 
   if (loading) {
@@ -532,6 +575,29 @@ const Subjects = () => {
                                           >
                                             <NotebookPen className="h-4 w-4" />
                                           </Button>
+                                          {calculatedStatus !== 'Concluída' && userCycle?.ciclo_atual && (
+                                            <div className="relative">
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={e => { 
+                                                  e.preventDefault(); 
+                                                  e.stopPropagation(); 
+                                                  handleAddSubjectView(subject);
+                                                }}
+                                                title="Adicionar visualização no ciclo"
+                                              >
+                                                <Copy className="h-4 w-4" />
+                                              </Button>
+                                              {getSubjectViewCount(subject.id, userCycle.ciclo_atual) > 0 && (
+                                                <Badge 
+                                                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white"
+                                                >
+                                                  {getSubjectViewCount(subject.id, userCycle.ciclo_atual)}
+                                                </Badge>
+                                              )}
+                                            </div>
+                                          )}
                                           <Button
                                             variant="outline"
                                             size="sm"
@@ -681,6 +747,26 @@ const Subjects = () => {
                                             <NotebookPen className="h-4 w-4 mr-2" />
                                             Anotações da Matéria
                                           </Button>
+                                          {calculatedStatus !== 'Concluída' && userCycle?.ciclo_atual && (
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={e => { 
+                                                e.preventDefault(); 
+                                                e.stopPropagation(); 
+                                                handleAddSubjectView(subject);
+                                              }}
+                                              className="w-full justify-start"
+                                            >
+                                              <Copy className="h-4 w-4 mr-2" />
+                                              Duplicar no Ciclo
+                                              {getSubjectViewCount(subject.id, userCycle.ciclo_atual) > 0 && (
+                                                <Badge className="ml-auto h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white">
+                                                  {getSubjectViewCount(subject.id, userCycle.ciclo_atual)}
+                                                </Badge>
+                                              )}
+                                            </Button>
+                                          )}
                                           <div className="flex space-x-2">
                                             <Button
                                               variant="outline"
