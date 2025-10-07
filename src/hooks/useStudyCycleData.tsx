@@ -61,7 +61,6 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => ({
   id: topic.id,
   name: topic.name,
   reviewStatus: mapReviewStageToInterval(topic.reviewStage, topic.completed),
-  reviewStage: topic.reviewStage || '', // Adicionar o estágio real do banco
   notes: topic.notes?.content || '',
   difficulty: mapDifficultyLevel(topic.difficulty_level),
   subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || []

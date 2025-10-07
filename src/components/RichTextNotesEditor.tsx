@@ -50,7 +50,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
     const adjustHeight = () => {
       if (quillRef.current) {
         const editor = quillRef.current.getEditor();
-        const container = editor.container;
+        const container = editor.root;
         const editorElement = container.querySelector('.ql-editor') as HTMLElement;
         
         if (editorElement) {
@@ -117,7 +117,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
     setTimeout(() => {
       if (quillRef.current) {
         const editor = quillRef.current.getEditor();
-        const editorElement = editor.container.querySelector('.ql-editor') as HTMLElement;
+        const editorElement = editor.root.querySelector('.ql-editor') as HTMLElement;
         
         if (editorElement) {
           editorElement.style.height = 'auto';
