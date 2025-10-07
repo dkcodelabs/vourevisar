@@ -665,31 +665,31 @@ const Subjects = () => {
                                                <Trash className="h-4 w-4" />
                                              </Button>
                                            ) : (
-                                             <>
-                                               {calculatedStatus !== 'Concluída' && userCycle?.ciclo_atual && (
-                                                 <div className="relative">
-                                                   <Button
-                                                     variant="outline"
-                                                     size="sm"
-                                                     onClick={e => { 
-                                                       e.preventDefault(); 
-                                                       e.stopPropagation(); 
-                                                       handleAddSubjectView(subject);
-                                                     }}
-                                                     title="Adicionar visualização no ciclo"
-                                                   >
-                                                     <Copy className="h-4 w-4" />
-                                                   </Button>
-                                                   {viewCount > 1 && (
-                                                     <Badge 
-                                                       className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white"
-                                                     >
-                                                       {viewCount}
-                                                     </Badge>
-                                                   )}
-                                                 </div>
-                                               )}
-                                               <Button
+                                              <>
+                                                {calculatedStatus !== 'Concluída' && (
+                                                  <div className="relative">
+                                                    <Button
+                                                      variant="outline"
+                                                      size="sm"
+                                                      onClick={e => { 
+                                                        e.preventDefault(); 
+                                                        e.stopPropagation(); 
+                                                        handleAddSubjectView(subject);
+                                                      }}
+                                                      title="Adicionar visualização no ciclo"
+                                                    >
+                                                      <Copy className="h-4 w-4" />
+                                                    </Button>
+                                                    {viewCount > 1 && (
+                                                      <Badge 
+                                                        className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white"
+                                                      >
+                                                        {viewCount}
+                                                      </Badge>
+                                                    )}
+                                                  </div>
+                                                )}
+                                                <Button
                                                  variant="outline"
                                                  size="sm"
                                                  onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
@@ -861,7 +861,7 @@ const Subjects = () => {
                                             </Button>
                                           ) : (
                                             <>
-                                              {calculatedStatus !== 'Concluída' && userCycle?.ciclo_atual && (
+                                              {calculatedStatus !== 'Concluída' && (
                                                 <Button
                                                   variant="outline"
                                                   size="sm"
