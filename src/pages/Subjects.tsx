@@ -102,10 +102,18 @@ const Subjects = () => {
   });
 
   // Hook para gerenciar visualizações duplicadas no ciclo
-  const { addSubjectView, getSubjectViewCount } = useCycleViewManagement();
+  const { addSubjectView, removeSubjectView, getSubjectViewCount } = useCycleViewManagement();
   
   // Estado para armazenar o ciclo atual e contar visualizações
   const [userCycle, setUserCycle] = useState<any>(null);
+  
+  // Estado para lista expandida com visualizações
+  const [expandedSubjectList, setExpandedSubjectList] = useState<Array<{
+    id: string;
+    subject: Subject;
+    viewIndex: number;
+    isView: boolean;
+  }>>([]);
 
   // Carregar ciclo atual para mostrar contadores
   useEffect(() => {
@@ -125,6 +133,48 @@ const Subjects = () => {
     
     loadCycle();
   }, [user, subjects]); // Recarregar quando subjects mudar
+  
+  // Criar lista expandida de matérias com visualizações
+  useEffect(() => {
+    if (!userCycle?.ciclo_atual || !localSubjects.length) {
+      setExpandedSubjectList(
+        localSubjects.map(subject => ({
+          id: `${subject.id}-0`,
+          subject,
+          viewIndex: 0,
+          isView: false
+        }))
+      );
+      return;
+    }
+    
+    const expanded: Array<{
+      id: string;
+      subject: Subject;
+      viewIndex: number;
+      isView: boolean;
+    }> = [];
+    
+    // Mapear ciclo_atual para criar entradas de visualização
+    userCycle.ciclo_atual.forEach((subjectId: string, cycleIndex: number) => {
+      const subject = localSubjects.find(s => s.id === subjectId);
+      if (!subject) return;
+      
+      // Contar quantas vezes esta matéria já apareceu antes neste ciclo
+      const viewIndex = userCycle.ciclo_atual
+        .slice(0, cycleIndex)
+        .filter((id: string) => id === subjectId).length;
+      
+      expanded.push({
+        id: `${subject.id}-${cycleIndex}`,
+        subject,
+        viewIndex,
+        isView: viewIndex > 0
+      });
+    });
+    
+    setExpandedSubjectList(expanded);
+  }, [userCycle, localSubjects]);
 
   useEffect(() => {
     const checkProfile = async () => {
@@ -267,42 +317,43 @@ const Subjects = () => {
       return;
     }
 
-    const oldIndex = localSubjects.findIndex((subject) => subject.id === active.id);
-    const newIndex = localSubjects.findIndex((subject) => subject.id === over.id);
+    const oldIndex = expandedSubjectList.findIndex((item) => item.id === active.id);
+    const newIndex = expandedSubjectList.findIndex((item) => item.id === over.id);
 
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const reorderedSubjects = arrayMove(localSubjects, oldIndex, newIndex);
-    setLocalSubjects(reorderedSubjects);
+    const reordered = arrayMove(expandedSubjectList, oldIndex, newIndex);
+    setExpandedSubjectList(reordered);
 
     try {
-      // Atualizar prioridades diretamente no Supabase, aguardando todos os updates
-      const updates = reorderedSubjects.map((subject, index) => ({
-        id: subject.id,
-        priority: index + 1,
-        updated_at: new Date().toISOString()
-      }));
+      // Reconstruir ciclo_atual baseado na nova ordem
+      const newCicloAtual = reordered.map(item => item.subject.id);
 
-      const updatePromises = updates.map(update =>
-        supabase
-          .from('subjects')
-          .update({ priority: update.priority, updated_at: update.updated_at })
-          .eq('id', update.id)
-      );
+      const { error } = await supabase
+        .from('user_cycles')
+        .update({
+          ciclo_atual: newCicloAtual,
+          atualizado_em: new Date().toISOString()
+        })
+        .eq('user_id', user!.id);
 
-      const results = await Promise.all(updatePromises);
-      const hasError = results.some(r => r.error);
-      if (hasError) {
-        console.error('Erro ao atualizar prioridades:', results);
-        toast.error("Erro ao atualizar ordem das matérias");
-      } else {
-        toast.success("Ordem das matérias atualizada!");
+      if (error) throw error;
+
+      toast.success("Ordem do ciclo atualizada!");
+      
+      // Recarregar ciclo
+      const { data } = await supabase
+        .from('user_cycles')
+        .select('ciclo_atual')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      
+      if (data) {
+        setUserCycle(data);
       }
-      // Recarregar a lista após todos os updates
-      window.location.reload();
     } catch (error) {
-      console.error('Erro ao reordenar matérias:', error);
-      toast.error("Erro ao atualizar ordem das matérias");
+      console.error('Erro ao reordenar ciclo:', error);
+      toast.error("Erro ao atualizar ordem do ciclo");
     }
   };
 
@@ -342,6 +393,23 @@ const Subjects = () => {
     const success = await addSubjectView(subject.id, subject.name);
     if (success) {
       // Recarregar ciclo para atualizar contadores
+      const { data } = await supabase
+        .from('user_cycles')
+        .select('ciclo_atual')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      
+      if (data) {
+        setUserCycle(data);
+      }
+      forceRefresh();
+    }
+  };
+  
+  const handleRemoveSubjectView = async (subjectId: string, viewIndex: number, subjectName: string) => {
+    const success = await removeSubjectView(subjectId, viewIndex, subjectName);
+    if (success) {
+      // Recarregar ciclo
       const { data } = await supabase
         .from('user_cycles')
         .select('ciclo_atual')
@@ -447,16 +515,18 @@ const Subjects = () => {
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
             >
-              <SortableContext items={localSubjects.map(s => s.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext items={expandedSubjectList.map(item => item.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-4 px-4 sm:px-6 max-w-full">
                   <AnimatePresence>
-                    {localSubjects.map((subject) => {
+                    {expandedSubjectList.map((item) => {
+                      const { subject, viewIndex, isView } = item;
                       const progress = getSubjectProgress(subject);
                       const calculatedStatus = calculateSubjectStatus(subject);
                       const isEditing = editingSubjectId === subject.id;
+                      const viewCount = userCycle?.ciclo_atual ? getSubjectViewCount(subject.id, userCycle.ciclo_atual) : 0;
 
                       return (
-                        <SortableItem key={subject.id} id={subject.id}>
+                        <SortableItem key={item.id} id={item.id}>
                           {({ listeners, attributes }) => (
                             <motion.div
                               layout
@@ -466,7 +536,7 @@ const Subjects = () => {
                               transition={{ duration: 0.2 }}
                               className="w-full max-w-full"
                             >
-                              <Card className="hover:shadow-lg transition-shadow relative max-w-full overflow-hidden">
+                              <Card className={`hover:shadow-lg transition-shadow relative max-w-full overflow-hidden ${isView ? 'border-l-4 border-l-blue-500' : ''}`}>
                                 <CardContent className="p-4 max-w-full">
                                   {/* Layout Desktop */}
                                   <div className="hidden sm:flex items-center justify-between max-w-full">
@@ -519,14 +589,19 @@ const Subjects = () => {
                                                 <X className="h-4 w-4" />
                                               </Button>
                                             </div>
-                                          ) : (
-                                            <>
-                                              <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
-                                              <Badge className={getStatusColor(calculatedStatus)}>
-                                                {calculatedStatus}
-                                              </Badge>
-                                            </>
-                                          )}
+                                           ) : (
+                                             <>
+                                               <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
+                                               {isView && (
+                                                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                                                   {viewIndex + 1}ª visualização
+                                                 </Badge>
+                                               )}
+                                               <Badge className={getStatusColor(calculatedStatus)}>
+                                                 {calculatedStatus}
+                                               </Badge>
+                                             </>
+                                           )}
                                         </div>
                                         <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
                                           <div className="flex items-center space-x-1">
@@ -550,91 +625,109 @@ const Subjects = () => {
                                       onClick={(e) => e.stopPropagation()}
                                       onMouseDown={(e) => e.stopPropagation()}
                                     >
-                                      {!isEditing && (
-                                        <>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={e => { e.preventDefault(); e.stopPropagation(); handleOpenTopicsModal(subject); }}
-                                          >
-                                            <BookOpen className="h-4 w-4 mr-1" />
-                                            Tópicos
-                                          </Button>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={e => { 
-                                              e.preventDefault(); 
-                                              e.stopPropagation(); 
-                                              setSubjectNotesModal({
-                                                isOpen: true,
-                                                subjectId: subject.id,
-                                                subjectName: subject.name
-                                              });
-                                            }}
-                                          >
-                                            <NotebookPen className="h-4 w-4" />
-                                          </Button>
-                                          {calculatedStatus !== 'Concluída' && userCycle?.ciclo_atual && (
-                                            <div className="relative">
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={e => { 
-                                                  e.preventDefault(); 
-                                                  e.stopPropagation(); 
-                                                  handleAddSubjectView(subject);
-                                                }}
-                                                title="Adicionar visualização no ciclo"
-                                              >
-                                                <Copy className="h-4 w-4" />
-                                              </Button>
-                                              {getSubjectViewCount(subject.id, userCycle.ciclo_atual) > 0 && (
-                                                <Badge 
-                                                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white"
-                                                >
-                                                  {getSubjectViewCount(subject.id, userCycle.ciclo_atual)}
-                                                </Badge>
-                                              )}
-                                            </div>
-                                          )}
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
-                                          >
-                                            <Edit2 className="h-4 w-4" />
-                                          </Button>
-                                          <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                              >
-                                                <Trash2 className="h-4 w-4 text-red-500" />
-                                              </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent aria-describedby="confirm-subject-delete-1-description">
-                                              <AlertDialogHeader>
-                                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                                <AlertDialogDescription id="confirm-subject-delete-1-description">
-                                                  Tem certeza que deseja excluir a matéria "{subject.name}"?
-                                                  Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
-                                                </AlertDialogDescription>
-                                              </AlertDialogHeader>
-                                              <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction
-                                                  onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
-                                                  className="bg-red-600 hover:bg-red-700"
-                                                >
-                                                  Excluir
-                                                </AlertDialogAction>
-                                              </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                          </AlertDialog>
-                                        </>
-                                      )}
+                                       {!isEditing && (
+                                         <>
+                                           <Button
+                                             variant="outline"
+                                             size="sm"
+                                             onClick={e => { e.preventDefault(); e.stopPropagation(); handleOpenTopicsModal(subject); }}
+                                           >
+                                             <BookOpen className="h-4 w-4 mr-1" />
+                                             Tópicos
+                                           </Button>
+                                           <Button
+                                             variant="outline"
+                                             size="sm"
+                                             onClick={e => { 
+                                               e.preventDefault(); 
+                                               e.stopPropagation(); 
+                                               setSubjectNotesModal({
+                                                 isOpen: true,
+                                                 subjectId: subject.id,
+                                                 subjectName: subject.name
+                                               });
+                                             }}
+                                           >
+                                             <NotebookPen className="h-4 w-4" />
+                                           </Button>
+                                           {isView ? (
+                                             <Button
+                                               variant="outline"
+                                               size="sm"
+                                               onClick={e => { 
+                                                 e.preventDefault(); 
+                                                 e.stopPropagation(); 
+                                                 handleRemoveSubjectView(subject.id, viewIndex, subject.name);
+                                               }}
+                                               title="Remover esta visualização do ciclo"
+                                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                             >
+                                               <Trash className="h-4 w-4" />
+                                             </Button>
+                                           ) : (
+                                             <>
+                                               {calculatedStatus !== 'Concluída' && userCycle?.ciclo_atual && (
+                                                 <div className="relative">
+                                                   <Button
+                                                     variant="outline"
+                                                     size="sm"
+                                                     onClick={e => { 
+                                                       e.preventDefault(); 
+                                                       e.stopPropagation(); 
+                                                       handleAddSubjectView(subject);
+                                                     }}
+                                                     title="Adicionar visualização no ciclo"
+                                                   >
+                                                     <Copy className="h-4 w-4" />
+                                                   </Button>
+                                                   {viewCount > 1 && (
+                                                     <Badge 
+                                                       className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white"
+                                                     >
+                                                       {viewCount}
+                                                     </Badge>
+                                                   )}
+                                                 </div>
+                                               )}
+                                               <Button
+                                                 variant="outline"
+                                                 size="sm"
+                                                 onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
+                                               >
+                                                 <Edit2 className="h-4 w-4" />
+                                               </Button>
+                                               <AlertDialog>
+                                                 <AlertDialogTrigger asChild>
+                                                   <Button
+                                                     variant="outline"
+                                                     size="sm"
+                                                   >
+                                                     <Trash2 className="h-4 w-4 text-red-500" />
+                                                   </Button>
+                                                 </AlertDialogTrigger>
+                                                 <AlertDialogContent aria-describedby="confirm-subject-delete-1-description">
+                                                   <AlertDialogHeader>
+                                                     <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                                     <AlertDialogDescription id="confirm-subject-delete-1-description">
+                                                       Tem certeza que deseja excluir a matéria "{subject.name}"?
+                                                       Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
+                                                     </AlertDialogDescription>
+                                                   </AlertDialogHeader>
+                                                   <AlertDialogFooter>
+                                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                     <AlertDialogAction
+                                                       onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
+                                                       className="bg-red-600 hover:bg-red-700"
+                                                     >
+                                                       Excluir
+                                                     </AlertDialogAction>
+                                                   </AlertDialogFooter>
+                                                 </AlertDialogContent>
+                                               </AlertDialog>
+                                             </>
+                                           )}
+                                         </>
+                                       )}
                                     </div>
                                   </div>
 
@@ -688,26 +781,31 @@ const Subjects = () => {
                                               <X className="h-4 w-4" />
                                             </Button>
                                           </div>
-                                        ) : (
-                                          <div className="space-y-2">
-                                            <div className="flex items-center space-x-2">
-                                              <h3 className="font-semibold text-lg truncate flex-1">{subject.name}</h3>
-                                              <Badge className={getStatusColor(calculatedStatus)}>
-                                                {calculatedStatus}
-                                              </Badge>
-                                            </div>
-                                            <div className="flex items-center space-x-4 text-sm text-gray-600">
-                                              <div className="flex items-center space-x-1">
-                                                <Target className="h-4 w-4" />
-                                                <span>{subject.topics.length} tópicos</span>
-                                              </div>
-                                              <div className="flex items-center space-x-1">
-                                                <CheckCircle className="h-4 w-4" />
-                                                <span>{progress}% concluído</span>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
+                                         ) : (
+                                           <div className="space-y-2">
+                                             <div className="flex items-center space-x-2">
+                                               <h3 className="font-semibold text-lg truncate flex-1">{subject.name}</h3>
+                                               {isView && (
+                                                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">
+                                                   {viewIndex + 1}ª vis.
+                                                 </Badge>
+                                               )}
+                                               <Badge className={getStatusColor(calculatedStatus)}>
+                                                 {calculatedStatus}
+                                               </Badge>
+                                             </div>
+                                             <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                               <div className="flex items-center space-x-1">
+                                                 <Target className="h-4 w-4" />
+                                                 <span>{subject.topics.length} tópicos</span>
+                                               </div>
+                                               <div className="flex items-center space-x-1">
+                                                 <CheckCircle className="h-4 w-4" />
+                                                 <span>{progress}% concluído</span>
+                                               </div>
+                                             </div>
+                                           </div>
+                                         )}
                                       </div>
                                     </div>
 
@@ -718,7 +816,7 @@ const Subjects = () => {
                                       </div>
                                     )}
 
-                                    {/* Botões Mobile - Empilhados */}
+                                     {/* Botões Mobile - Empilhados */}
                                       {!isEditing && (
                                         <div className="flex flex-col space-y-2 px-12">
                                           <Button
@@ -747,68 +845,86 @@ const Subjects = () => {
                                             <NotebookPen className="h-4 w-4 mr-2" />
                                             Anotações da Matéria
                                           </Button>
-                                          {calculatedStatus !== 'Concluída' && userCycle?.ciclo_atual && (
+                                          {isView ? (
                                             <Button
                                               variant="outline"
                                               size="sm"
                                               onClick={e => { 
                                                 e.preventDefault(); 
                                                 e.stopPropagation(); 
-                                                handleAddSubjectView(subject);
+                                                handleRemoveSubjectView(subject.id, viewIndex, subject.name);
                                               }}
-                                              className="w-full justify-start"
+                                              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
                                             >
-                                              <Copy className="h-4 w-4 mr-2" />
-                                              Duplicar no Ciclo
-                                              {getSubjectViewCount(subject.id, userCycle.ciclo_atual) > 0 && (
-                                                <Badge className="ml-auto h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white">
-                                                  {getSubjectViewCount(subject.id, userCycle.ciclo_atual)}
-                                                </Badge>
-                                              )}
+                                              <Trash className="h-4 w-4 mr-2" />
+                                              Remover Visualização
                                             </Button>
-                                          )}
-                                          <div className="flex space-x-2">
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
-                                              className="flex-1"
-                                            >
-                                              <Edit2 className="h-4 w-4 mr-1" />
-                                              Editar
-                                            </Button>
-                                            <AlertDialog>
-                                              <AlertDialogTrigger asChild>
+                                          ) : (
+                                            <>
+                                              {calculatedStatus !== 'Concluída' && userCycle?.ciclo_atual && (
                                                 <Button
                                                   variant="outline"
                                                   size="sm"
+                                                  onClick={e => { 
+                                                    e.preventDefault(); 
+                                                    e.stopPropagation(); 
+                                                    handleAddSubjectView(subject);
+                                                  }}
+                                                  className="w-full justify-start"
+                                                >
+                                                  <Copy className="h-4 w-4 mr-2" />
+                                                  Duplicar no Ciclo
+                                                  {viewCount > 1 && (
+                                                    <Badge className="ml-auto h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white">
+                                                      {viewCount}
+                                                    </Badge>
+                                                  )}
+                                                </Button>
+                                              )}
+                                              <div className="flex space-x-2">
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  onClick={e => { e.preventDefault(); e.stopPropagation(); handleStartEdit(subject); }}
                                                   className="flex-1"
                                                 >
-                                                  <Trash2 className="h-4 w-4 text-red-500 mr-1" />
-                                                  Excluir
+                                                  <Edit2 className="h-4 w-4 mr-1" />
+                                                  Editar
                                                 </Button>
-                                              </AlertDialogTrigger>
-                                              <AlertDialogContent aria-describedby="confirm-subject-delete-2-description">
-                                                <AlertDialogHeader>
-                                                  <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                                  <AlertDialogDescription id="confirm-subject-delete-2-description">
-                                                    Tem certeza que deseja excluir a matéria "{subject.name}"?
-                                                    Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
-                                                  </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                  <AlertDialogAction
-                                                    onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
-                                                    className="bg-red-600 hover:bg-red-700"
-                                                  >
-                                                    Excluir
-                                                  </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                              </AlertDialogContent>
-                                            </AlertDialog>
-                                          </div>
-                                        </div>
+                                                <AlertDialog>
+                                                  <AlertDialogTrigger asChild>
+                                                    <Button
+                                                      variant="outline"
+                                                      size="sm"
+                                                      className="flex-1"
+                                                    >
+                                                      <Trash2 className="h-4 w-4 text-red-500 mr-1" />
+                                                      Excluir
+                                                    </Button>
+                                                  </AlertDialogTrigger>
+                                                  <AlertDialogContent aria-describedby="confirm-subject-delete-2-description">
+                                                    <AlertDialogHeader>
+                                                      <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                                      <AlertDialogDescription id="confirm-subject-delete-2-description">
+                                                        Tem certeza que deseja excluir a matéria "{subject.name}"?
+                                                        Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
+                                                      </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                      <AlertDialogAction
+                                                        onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(subject.id); }}
+                                                        className="bg-red-600 hover:bg-red-700"
+                                                      >
+                                                        Excluir
+                                                      </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                  </AlertDialogContent>
+                                                </AlertDialog>
+                                              </div>
+                                            </>
+                                          )}
+                                         </div>
                                       )}
                                   </div>
                                   {expandedSubjectIds.includes(subject.id) && (
