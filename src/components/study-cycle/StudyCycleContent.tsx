@@ -9,6 +9,12 @@ import { StudyCycleNotesModal } from './StudyCycleNotesModal';
 import { TempNotesModal } from './TempNotesModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import AllStudiesCompletedCard from './AllStudiesCompletedCard';
+import { CycleStats } from '@/components/CycleStats';
+import { useCycleStatus } from '@/hooks/useCycleStatus';
+import { NewCycleModal } from '@/components/NewCycleModal';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const LOCAL_STORAGE_VIEW_KEY = 'studyCycleViewMode';
 
@@ -43,15 +49,67 @@ export const StudyCycleContent: React.FC = () => {
     groupedSubjects,
     activeSubjects,
     completedCycleSubjects,
-    isDayCompleted,
+
     areAllStudiesCompleted,
-    studyFocusSubjectIds,
+
     sessionMarks,
+    userCycle,
+    dailySubjectsWithViews,
     handleStartNewCycle: handleStartNewCycleData,
     handleToggleMark,
     handleCompleteSession: handleCompleteSessionData,
-    handleSaveNotes
+    handleSaveNotes,
+    refreshCycleData
   } = useStudyCycleData();
+
+  // Escutar eventos de atualização do ciclo
+  useEffect(() => {
+    const handleCycleUpdate = () => {
+      refreshCycleData();
+    };
+    
+    const handleNewCycleStarted = (event: CustomEvent) => {
+      console.log('🎉 Evento newCycleStarted recebido:', event.detail);
+      const { cycleNumber, totalSubjects } = event.detail;
+      setNewCycleModal({
+        isOpen: true,
+        cycleNumber,
+        totalSubjects
+      });
+      console.log('🎉 Modal definido para abrir:', { cycleNumber, totalSubjects });
+    };
+    
+    window.addEventListener('cycleUpdated', handleCycleUpdate);
+    window.addEventListener('newCycleStarted', handleNewCycleStarted as EventListener);
+    
+    return () => {
+      window.removeEventListener('cycleUpdated', handleCycleUpdate);
+      window.removeEventListener('newCycleStarted', handleNewCycleStarted as EventListener);
+    };
+  }, [refreshCycleData]);
+
+  // Refresh cycle data when component mounts
+  useEffect(() => {
+    try {
+      refreshCycleData();
+    } catch (error) {
+      console.error('Erro ao carregar dados do ciclo:', error);
+    }
+  }, []); // Executar apenas uma vez quando o componente monta
+
+  // Detectar quando um novo ciclo foi iniciado
+  useEffect(() => {
+    if (userCycle && userCycle.ciclos_realizados !== null && userCycle.ciclos_realizados !== undefined) {
+      if (previousCycleNumber !== null && userCycle.ciclos_realizados > previousCycleNumber) {
+        // Novo ciclo foi iniciado
+        setShowNewCycleMessage(true);
+        setTimeout(() => setShowNewCycleMessage(false), 8000); // Esconder após 8 segundos
+      }
+      setPreviousCycleNumber(userCycle.ciclos_realizados);
+    }
+  }, [userCycle?.ciclos_realizados]);
+
+  // Debug logs removidos para evitar spam
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     const savedViewMode = localStorage.getItem(LOCAL_STORAGE_VIEW_KEY);
@@ -69,6 +127,22 @@ export const StudyCycleContent: React.FC = () => {
     subjectId: '',
     subjectName: ''
   });
+
+  const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
+  const [previousCycleNumber, setPreviousCycleNumber] = useState<number | null>(null);
+  const [newCycleModal, setNewCycleModal] = useState<{
+    isOpen: boolean;
+    cycleNumber: number;
+    totalSubjects: number;
+  }>({
+    isOpen: false,
+    cycleNumber: 0,
+    totalSubjects: 0
+  });
+
+  // Hook para status do ciclo
+  const { markSubjectAsStudied, isSubjectStudied } = useCycleStatus();
+  const { user } = useAuth();
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_VIEW_KEY, viewMode);
@@ -160,7 +234,7 @@ export const StudyCycleContent: React.FC = () => {
               onOpenNotes={handleOpenNotes}
               onSubjectNotesClick={() => handleOpenSubjectNotes(subject)}
               isActionable={isActionableSection}
-              isStudyFocus={isActionableSection && studyFocusSubjectIds.has(subject.id)}
+              isStudyFocus={false}
               viewMode={viewMode}
               isExpanded={expandedSubjects.has(subject.id)}
               onToggleExpand={() => handleToggleExpand(subject.id)}
@@ -176,8 +250,38 @@ export const StudyCycleContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <main className="container mx-auto p-4 md:p-8 pr-[calc(1rem+15px)] md:pr-[calc(2rem+15px)]">
+        {/* Estatísticas do Ciclo */}
+        <div className="mb-6">
+          <CycleStats />
+
+        </div>
+
+        {/* Mensagem de Novo Ciclo Iniciado */}
+        {showNewCycleMessage && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-lg animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-2xl">🔄</div>
+                <div>
+                  <h3 className="text-lg font-bold text-blue-700">Novo Ciclo Iniciado!</h3>
+                  <p className="text-blue-600 text-sm">
+                    Ciclo #{userCycle?.ciclos_realizados || 0} foi iniciado com sucesso. 
+                    Todas as matérias foram resetadas para um novo ciclo de estudos.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowNewCycleMessage(false)}
+                className="text-blue-400 hover:text-blue-600 text-xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+        
         <div className="flex justify-end items-center mb-6">
-            {viewMode === 'list' && !isDayCompleted && (
+            {viewMode === 'list' && (
             <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
               <button
                 onClick={handleExpandAll}
@@ -213,27 +317,27 @@ export const StudyCycleContent: React.FC = () => {
             </div>
         </div>
         
-        {areAllStudiesCompleted ? (
-          <section className="mb-12">
-            <AllStudiesCompletedCard />
-          </section>
-        ) : isDayCompleted ? (
-          <section className="mb-12">
-            <div className="flex items-center mb-6">
-                <span className="mr-4 text-emerald-500"><CheckCircleIcon /></span>
-                <h2 className="text-xl font-bold text-foreground border-b-2 border-emerald-500 pb-2">
-                    Dia de Estudos Concluído
-                </h2>
+        <>
+          {/* Verificar se todas as matérias ativas foram estudadas no ciclo atual */}
+          {activeSubjects.length > 0 && activeSubjects.every(subject => {
+            const markedTopics = sessionMarks[subject.id] || new Set();
+            return markedTopics.size > 0 || subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
+          }) && (
+            <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-green-700 mb-2">🎉 Parabéns!</h2>
+                <p className="text-green-600 mb-4">
+                  Você concluiu todas as matérias ativas do ciclo atual! 
+                  Um novo ciclo será iniciado automaticamente quando você concluir a última sessão.
+                </p>
+              </div>
             </div>
-            <CompletionMessage onStartNewCycle={handleStartNewCycleData} />
-          </section>
-        ) : (
-          <>
-            {renderSection(SubjectStatus.ACTIVE)}
-            {renderSection(SubjectStatus.COMPLETED_CYCLE)}
-            {renderSection(SubjectStatus.FINISHED)}
-          </>
-        )}
+          )}
+          
+          {renderSection(SubjectStatus.ACTIVE)}
+          {renderSection(SubjectStatus.COMPLETED_CYCLE)}
+          {renderSection(SubjectStatus.FINISHED)}
+        </>
 
       </main>
       
@@ -252,6 +356,14 @@ export const StudyCycleContent: React.FC = () => {
         onClose={() => setSubjectNotesModal(prev => ({ ...prev, isOpen: false }))}
         subjectId={subjectNotesModal.subjectId}
         subjectName={subjectNotesModal.subjectName}
+      />
+
+      {/* New Cycle Modal */}
+      <NewCycleModal
+        isOpen={newCycleModal.isOpen}
+        onClose={() => setNewCycleModal(prev => ({ ...prev, isOpen: false }))}
+        cycleNumber={newCycleModal.cycleNumber}
+        totalSubjects={newCycleModal.totalSubjects}
       />
     </div>
   );

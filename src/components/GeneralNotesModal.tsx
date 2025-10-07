@@ -492,9 +492,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
     // Carregar dados quando a aba "condensed" for acessada
     useEffect(() => {
-        console.log('🔄 Aba ativa mudou para:', activeTab);
         if (activeTab === 'condensed' && user && allNotes.length === 0 && !isLoadingAllNotes) {
-            console.log('📋 Carregando dados da visão condensada...');
             loadAllNotes();
         }
     }, [activeTab, user, loadAllNotes, allNotes.length, isLoadingAllNotes]);

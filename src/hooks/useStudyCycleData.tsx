@@ -3,8 +3,9 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useTopicReview } from '@/hooks/useTopicReview';
+import { useDailySubjectsWithViews } from '@/hooks/useDailySubjectsWithViews';
 import type { StudyCycleSubject, StudyCycleTopic, SubjectStatus, ReviewInterval, Difficulty } from '@/types/study-cycle';
-import type { Subject, Topic } from '@/types';
+import type { Subject, Topic, UserCycle } from '@/types';
 
 const STUDY_FOCUS_COUNT = 2;
 
@@ -66,10 +67,8 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => ({
   subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || []
 });
 
-const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => ({
-  id: subject.id,
-  name: subject.name,
-  topics: subject.topics
+const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
+  const mappedTopics = subject.topics
     .map(mapTopicToStudyCycleTopic)
     .sort((a, b) => {
       // Manter ordem consistente: primeiro por status de revisão, depois por nome
@@ -90,9 +89,18 @@ const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => (
       
       // Se mesmo status, ordenar por nome para manter consistência
       return a.name.localeCompare(b.name);
-    }),
-  status: mapStatusToStudyCycleStatus(subject.status)
-});
+    });
+
+  // Verificar se todos os tópicos estão concluídos para determinar o status correto
+  const isFullyCompleted = mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === 'COMPLETED');
+  
+  return {
+    id: subject.id,
+    name: subject.name,
+    topics: mappedTopics,
+    status: isFullyCompleted ? 'FINISHED' as SubjectStatus : mapStatusToStudyCycleStatus(subject.status)
+  };
+};
 
 // Reverse mapping functions for database updates
 const mapIntervalToReviewStage = (interval: ReviewInterval): string => {
@@ -127,25 +135,121 @@ export const useStudyCycleData = () => {
   const { markTopicAsReviewed } = useTopicReview();
   const [studyFocusSubjectIds, setStudyFocusSubjectIds] = useState<Set<string>>(new Set());
   const [sessionMarks, setSessionMarks] = useState<Record<string, Set<string>>>({});
+  const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
 
-  // Transform subjects from database to study cycle format
-  const studyCycleSubjects = useMemo(() => {
-    return subjects.map(mapSubjectToStudyCycleSubject);
-  }, [subjects]);
+  // Debug removido
 
-  // Initialize study focus subjects (only when subjects structure changes)
+  // Load user cycle data
   useEffect(() => {
-    const activeSubjects = studyCycleSubjects.filter(s => s.status === 'ACTIVE');
-    const newFocusIds = new Set(activeSubjects.slice(0, STUDY_FOCUS_COUNT).map(s => s.id));
+    const loadUserCycle = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('user_cycles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Erro ao carregar ciclo:', error);
+          return;
+        }
+        
+        // Se o ciclo existe mas está vazio, adicionar matérias ativas
+        if (data && (!data.ciclo_atual || data.ciclo_atual.length === 0)) {
+          console.log('🔍 Ciclo vazio, adicionando matérias ativas...');
+          
+          // Buscar matérias ativas
+          const { data: activeSubjects, error: subjectsError } = await supabase
+            .from('subjects')
+            .select('id')
+            .eq('user_id', user.id)
+            .neq('status', 'Concluída')
+            .order('priority', { ascending: true });
+          
+          if (!subjectsError && activeSubjects && activeSubjects.length > 0) {
+            const subjectIds = activeSubjects.map(s => s.id);
+            
+            // Atualizar o ciclo com as matérias ativas
+            const { error: updateError } = await supabase
+              .from('user_cycles')
+              .update({
+                ciclo_atual: subjectIds,
+                atualizado_em: new Date().toISOString()
+              })
+              .eq('user_id', user.id);
+            
+            if (!updateError) {
+              console.log('🔍 Ciclo atualizado com', subjectIds.length, 'matérias');
+              // Recarregar o ciclo atualizado
+              const { data: updatedCycle } = await supabase
+                .from('user_cycles')
+                .select('*')
+                .eq('user_id', user.id)
+                .maybeSingle();
+              
+              setUserCycle(updatedCycle);
+              return;
+            }
+          }
+        }
+        
+        setUserCycle(data);
+      } catch (error) {
+        console.error('Erro ao carregar ciclo:', error);
+      }
+    };
     
-    // Only update if the focus subjects actually changed
-    const currentFocusArray = Array.from(studyFocusSubjectIds).sort();
-    const newFocusArray = Array.from(newFocusIds).sort();
-    
-    if (JSON.stringify(currentFocusArray) !== JSON.stringify(newFocusArray)) {
-      setStudyFocusSubjectIds(newFocusIds);
+    loadUserCycle();
+  }, [user]);
+
+  // Get daily subjects with views
+  const dailySubjectsWithViews = useDailySubjectsWithViews(subjects, userCycle);
+
+  // Transform subjects from database to study cycle format, considering views
+  const studyCycleSubjects = useMemo(() => {
+    if (!userCycle?.ciclo_atual) {
+      // Fallback to regular subjects if no cycle
+      return subjects.map(mapSubjectToStudyCycleSubject);
     }
-  }, [studyCycleSubjects.length, studyCycleSubjects.map(s => s.id + s.status).join(','), studyFocusSubjectIds]);
+
+    // Create subjects based on cycle order with views
+    const cycleSubjects: StudyCycleSubject[] = [];
+    const processedSubjects = new Map<string, number>();
+
+    userCycle.ciclo_atual.forEach((subjectId, index) => {
+      const subject = subjects.find(s => s.id === subjectId);
+      if (!subject) return;
+
+      const viewNumber = (processedSubjects.get(subjectId) || 0) + 1;
+      processedSubjects.set(subjectId, viewNumber);
+
+      try {
+        const studyCycleSubject = mapSubjectToStudyCycleSubject(subject);
+        
+        // Add view information to the subject
+        if (viewNumber > 1) {
+          studyCycleSubject.name = `${subject.name} (${viewNumber}ª visualização)`;
+          // Use consistent ID format for views
+          studyCycleSubject.id = `${subject.id}-view-${viewNumber}`;
+        } else {
+          // Keep original ID for first occurrence
+          studyCycleSubject.id = subject.id;
+        }
+        
+        studyCycleSubject.originalId = subject.id;
+        studyCycleSubject.viewNumber = viewNumber;
+        
+        cycleSubjects.push(studyCycleSubject);
+      } catch (error) {
+        console.error('Erro ao mapear matéria:', error, subject);
+      }
+    });
+    return cycleSubjects;
+  }, [subjects, userCycle]);
+
+  // Sistema simplificado - remover lógica de foco diário
 
   // Group subjects by status
   const groupedSubjects = useMemo(() => {
@@ -162,14 +266,7 @@ export const useStudyCycleData = () => {
   const activeSubjects = groupedSubjects['ACTIVE'] || [];
   const completedCycleSubjects = groupedSubjects['COMPLETED_CYCLE'] || [];
 
-  // Check if day is completed
-  const isDayCompleted = useMemo(() => {
-    if (studyFocusSubjectIds.size === 0) {
-      return activeSubjects.length === 0 && completedCycleSubjects.length > 0;
-    }
-    const remainingFocusSubjects = activeSubjects.filter(s => studyFocusSubjectIds.has(s.id));
-    return remainingFocusSubjects.length === 0;
-  }, [activeSubjects, completedCycleSubjects, studyFocusSubjectIds]);
+  // Remover lógica de isDayCompleted - sistema simplificado
 
   // Check if all studies are completed (all subjects are finished and all topics are completed)
   const areAllStudiesCompleted = useMemo(() => {
@@ -255,6 +352,23 @@ export const useStudyCycleData = () => {
 
       // Refresh data to reflect changes
       await refreshData();
+      
+      // Também recarregar dados do ciclo diretamente
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('user_cycles')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          if (!error) {
+            setUserCycle(data);
+          }
+        } catch (error) {
+          console.error('Erro ao recarregar ciclo:', error);
+        }
+      }
 
       console.log('✅ handleCompleteSession - Sessão completada com sucesso');
 
@@ -262,7 +376,7 @@ export const useStudyCycleData = () => {
       console.error('❌ Error completing session:', error);
       throw error;
     }
-  }, [sessionMarks, markTopicAsReviewed, refreshData]);
+  }, [sessionMarks, markTopicAsReviewed, refreshData, user]);
 
   // Handle saving topic notes
   const handleSaveNotes = useCallback(async (subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
@@ -295,19 +409,44 @@ export const useStudyCycleData = () => {
     }
   }, [updateTopic, refreshData]);
 
+  // Function to refresh cycle data
+  const refreshCycleData = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_cycles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Erro ao recarregar ciclo:', error);
+        return;
+      }
+      
+      setUserCycle(data);
+      await refreshData(); // Also refresh subjects data
+    } catch (error) {
+      console.error('Erro ao recarregar ciclo:', error);
+    }
+  }, [user, refreshData]); // Incluir refreshData mas sem causar loops
+
   return {
     studyCycleSubjects,
     groupedSubjects,
     activeSubjects,
     completedCycleSubjects,
-    isDayCompleted,
     areAllStudiesCompleted,
-    studyFocusSubjectIds,
+
     sessionMarks,
+    userCycle,
+    dailySubjectsWithViews,
     handleStartNewCycle,
     handleToggleMark,
     handleCompleteSession,
-    handleSaveNotes
+    handleSaveNotes,
+    refreshCycleData
   };
 };
 

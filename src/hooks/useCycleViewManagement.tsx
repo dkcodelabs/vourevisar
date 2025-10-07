@@ -13,7 +13,7 @@ export const useCycleViewManagement = () => {
     setIsLoading(true);
     try {
       // Buscar ciclo atual
-      const { data: userCycle, error: fetchError } = await supabase
+      let { data: userCycle, error: fetchError } = await supabase
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
@@ -21,9 +21,41 @@ export const useCycleViewManagement = () => {
 
       if (fetchError) throw fetchError;
 
+      // Se não existe ciclo, criar um novo
       if (!userCycle) {
-        toast.error('Nenhum ciclo ativo encontrado');
-        return;
+        console.log('Nenhum ciclo encontrado, criando novo ciclo...');
+        
+        // Buscar todas as matérias ativas do usuário
+        const { data: subjects, error: subjectsError } = await supabase
+          .from('subjects')
+          .select('id')
+          .eq('user_id', user.id)
+          .neq('status', 'Concluída')
+          .order('priority', { ascending: true });
+
+        if (subjectsError) throw subjectsError;
+
+        const cicloAtual = subjects?.map(s => s.id) || [];
+        
+        // Criar novo ciclo
+        const { data: newCycle, error: createError } = await supabase
+          .from('user_cycles')
+          .insert({
+            user_id: user.id,
+            ciclo_atual: cicloAtual,
+            disciplinas_do_dia: [],
+            indice_atual: 0,
+            ciclos_realizados: 0,
+            data_inicio_ciclo: new Date().toISOString(),
+            atualizado_em: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        
+        userCycle = newCycle;
+        toast.success('Novo ciclo criado automaticamente');
       }
 
       // Adicionar o subject_id novamente ao ciclo_atual
@@ -67,7 +99,7 @@ export const useCycleViewManagement = () => {
 
       if (!userCycle) {
         toast.error('Nenhum ciclo ativo encontrado');
-        return;
+        return false;
       }
 
       // Encontrar e remover a visualização específica

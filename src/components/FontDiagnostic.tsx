@@ -23,14 +23,14 @@ export const FontDiagnostic: React.FC = () => {
     setReport(diagnosticReport);
     setIsVisible(true);
     
-    console.log('📊 Relatório de Diagnóstico:', diagnosticReport);
+    // Log removido para otimização
   };
   
   useEffect(() => {
-    // Executa diagnóstico automático em desenvolvimento
-    if (process.env.NODE_ENV === 'development') {
-      setTimeout(runDiagnostic, 2000);
-    }
+    // Diagnóstico automático desabilitado para otimização
+    // if (process.env.NODE_ENV === 'development') {
+    //   setTimeout(runDiagnostic, 2000);
+    // }
   }, []);
   
   if (!isVisible || !report) {

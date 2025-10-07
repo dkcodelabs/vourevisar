@@ -13,10 +13,7 @@ export const useDailySubjectsWithViews = (subjects: Subject[], userCycle: UserCy
       return [];
     }
 
-    console.log('🔄 useDailySubjectsWithViews:', {
-      disciplinas_do_dia: userCycle.disciplinas_do_dia,
-      ciclo_atual: userCycle.ciclo_atual
-    });
+    // Console.log removido para evitar spam
 
     const views: SubjectView[] = [];
     
@@ -46,7 +43,7 @@ export const useDailySubjectsWithViews = (subjects: Subject[], userCycle: UserCy
       }
     });
 
-    console.log('📋 Views geradas:', views);
+    // Console.log removido para evitar spam
     return views;
   }, [subjects, userCycle]);
 

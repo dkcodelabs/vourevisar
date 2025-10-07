@@ -27,10 +27,10 @@ export const useSubjectOperations = (
       if (error) throw error;
 
       await loadSubjects();
-      toast.success('Matéria adicionada com sucesso!');
+      // Removido toast para não roubar foco
     } catch (error: any) {
       console.error('Error adding subject:', error);
-      toast.error('Erro ao adicionar matéria');
+      // Removido toast, deixar o componente lidar com erros
       throw error;
     }
   };
@@ -53,10 +53,9 @@ export const useSubjectOperations = (
       if (error) throw error;
 
       await loadSubjects();
-      toast.success('Matéria atualizada com sucesso!');
+      // Removido toast para não roubar foco
     } catch (error: any) {
       console.error('Error updating subject:', error);
-      toast.error('Erro ao atualizar matéria');
       throw error;
     }
   };
@@ -74,10 +73,9 @@ export const useSubjectOperations = (
       if (error) throw error;
 
       await loadSubjects();
-      toast.success('Matéria removida com sucesso!');
+      // Removido toast para não roubar foco
     } catch (error: any) {
       console.error('Error deleting subject:', error);
-      toast.error('Erro ao remover matéria');
       throw error;
     }
   };

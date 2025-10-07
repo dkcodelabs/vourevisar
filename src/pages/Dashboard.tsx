@@ -38,8 +38,7 @@ const Dashboard = () => {
   });
   const [shouldReopenGeneralNotes, setShouldReopenGeneralNotes] = useState(false);
   
-  // Debug do estado do modal
-  console.log('Estado do modal de anotações:', isGeneralNotesModalOpen);
+
 
   // Reabrir modal de anotações gerais quando necessário
   React.useEffect(() => {
@@ -273,10 +272,7 @@ const Dashboard = () => {
                 <span className="font-medium">Progresso: {progressPercentage}%</span>
               </div>
               <Button 
-                onClick={() => {
-                  console.log('Botão de anotações clicado');
-                  setIsGeneralNotesModalOpen(true);
-                }}
+                onClick={() => setIsGeneralNotesModalOpen(true)}
                 variant="outline"
                 className="flex items-center gap-2 bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 transition-colors border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-600 dark:hover:bg-green-900/30"
               >
@@ -336,12 +332,8 @@ const Dashboard = () => {
             {/* Modal de Anotações Gerais */}
             <GeneralNotesModal
               isOpen={isGeneralNotesModalOpen}
-              onClose={() => {
-                console.log('Fechando modal de anotações');
-                setIsGeneralNotesModalOpen(false);
-              }}
+              onClose={() => setIsGeneralNotesModalOpen(false)}
               onOpenTopicNotes={(topicId, topicName, subjectName) => {
-                console.log('🔍 Abrindo modal de tópico:', { topicId, topicName, subjectName });
                 setTopicNotesModal({
                   isOpen: true,
                   topicId,
@@ -350,7 +342,6 @@ const Dashboard = () => {
                 });
               }}
               onOpenSubjectNotes={(subjectId, subjectName) => {
-                console.log('🔍 Abrindo modal de matéria:', { subjectId, subjectName });
                 setSubjectNotesModal({
                   isOpen: true,
                   subjectId,
@@ -358,7 +349,6 @@ const Dashboard = () => {
                 });
               }}
               onRequestReopen={() => {
-                console.log('🔄 Solicitando reabertura do modal de anotações gerais');
                 setShouldReopenGeneralNotes(true);
               }}
             />
@@ -367,9 +357,7 @@ const Dashboard = () => {
             <NotesModal
               isOpen={topicNotesModal.isOpen}
               onClose={() => {
-                console.log('Fechando modal de tópico');
                 setTopicNotesModal(prev => ({ ...prev, isOpen: false }));
-                // Reabrir modal de anotações gerais se estava aberto antes
                 setShouldReopenGeneralNotes(true);
               }}
               topicId={topicNotesModal.topicId}
@@ -381,9 +369,7 @@ const Dashboard = () => {
             <SubjectNotesModal
               isOpen={subjectNotesModal.isOpen}
               onClose={() => {
-                console.log('Fechando modal de matéria');
                 setSubjectNotesModal(prev => ({ ...prev, isOpen: false }));
-                // Reabrir modal de anotações gerais se estava aberto antes
                 setShouldReopenGeneralNotes(true);
               }}
               subjectId={subjectNotesModal.subjectId}

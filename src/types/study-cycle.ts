@@ -37,4 +37,6 @@ export interface StudyCycleSubject {
   name: string;
   topics: StudyCycleTopic[];
   status: SubjectStatus;
+  originalId?: string; // ID original da matéria (para visualizações)
+  viewNumber?: number; // Número da visualização (1, 2, 3, etc.)
 }

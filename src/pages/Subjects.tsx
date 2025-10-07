@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ import TopicsModal from '@/components/topics/TopicsModal';
 import ContentUploadModal from '@/components/ContentUploadModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
+import { useCycleStatus } from '@/hooks/useCycleStatus';
+import { CycleStatusIndicator } from '@/components/CycleStatusIndicator';
 
 // Função corrigida para calcular o status automaticamente baseado nos tópicos
 const calculateSubjectStatus = (subject: Subject): Status => {
@@ -76,6 +78,7 @@ const Subjects = () => {
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
 
   // Estados para edição inline
   const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
@@ -104,16 +107,13 @@ const Subjects = () => {
   // Hook para gerenciar visualizações duplicadas no ciclo
   const { addSubjectView, removeSubjectView, getSubjectViewCount } = useCycleViewManagement();
   
+  // Hook para gerenciar status do ciclo de estudos
+  const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
+  
   // Estado para armazenar o ciclo atual e contar visualizações
   const [userCycle, setUserCycle] = useState<any>(null);
   
-  // Estado para lista expandida com visualizações
-  const [expandedSubjectList, setExpandedSubjectList] = useState<Array<{
-    id: string;
-    subject: Subject;
-    viewIndex: number;
-    isView: boolean;
-  }>>([]);
+  // expandedSubjectList agora é um useMemo (definido mais abaixo)
 
   // Carregar ciclo atual para mostrar contadores
   useEffect(() => {
@@ -128,24 +128,49 @@ const Subjects = () => {
       
       if (data) {
         setUserCycle(data);
+      } else {
+        // Se não existe ciclo, criar um básico
+        console.log('Nenhum ciclo encontrado, criando ciclo básico...');
+        try {
+          const activeSubjects = localSubjects.filter(s => s.status !== 'Concluída');
+          const cicloAtual = activeSubjects.map(s => s.id);
+          
+          const { data: newCycle, error } = await supabase
+            .from('user_cycles')
+            .insert({
+              user_id: user.id,
+              ciclo_atual: cicloAtual,
+              disciplinas_do_dia: [],
+              indice_atual: 0,
+              ciclos_realizados: 0,
+              data_inicio_ciclo: new Date().toISOString(),
+              atualizado_em: new Date().toISOString()
+            })
+            .select('ciclo_atual')
+            .single();
+          
+          if (!error && newCycle) {
+            setUserCycle(newCycle);
+            console.log('Ciclo básico criado com sucesso');
+          }
+        } catch (error) {
+          console.error('Erro ao criar ciclo básico:', error);
+        }
       }
     };
     
     loadCycle();
-  }, [user, subjects]); // Recarregar quando subjects mudar
+  }, [user]); // Remover localSubjects da dependência para evitar loops
   
-  // Criar lista expandida de matérias com visualizações
-  useEffect(() => {
+  // Criar lista expandida de matérias com visualizações usando useMemo
+  const expandedSubjectList = useMemo(() => {
     if (!userCycle?.ciclo_atual || !localSubjects.length) {
-      setExpandedSubjectList(
-        localSubjects.map(subject => ({
-          id: `${subject.id}-0`,
-          subject,
-          viewIndex: 0,
-          isView: false
-        }))
-      );
-      return;
+      return localSubjects.map(subject => ({
+        id: `${subject.id}-0`,
+        subject,
+        viewIndex: 0,
+        isView: false
+      }));
     }
     
     const expanded: Array<{
@@ -155,7 +180,7 @@ const Subjects = () => {
       isView: boolean;
     }> = [];
     
-    // Mapear ciclo_atual para criar entradas de visualização
+    // Primeiro, adicionar todas as matérias do ciclo com suas visualizações
     userCycle.ciclo_atual.forEach((subjectId: string, cycleIndex: number) => {
       const subject = localSubjects.find(s => s.id === subjectId);
       if (!subject) return;
@@ -173,8 +198,21 @@ const Subjects = () => {
       });
     });
     
-    setExpandedSubjectList(expanded);
-  }, [userCycle, localSubjects]);
+    // Depois, adicionar matérias que não estão no ciclo (novas matérias)
+    const subjectsInCycle = new Set(userCycle.ciclo_atual);
+    localSubjects.forEach(subject => {
+      if (!subjectsInCycle.has(subject.id)) {
+        expanded.push({
+          id: `${subject.id}-0`,
+          subject,
+          viewIndex: 0,
+          isView: false
+        });
+      }
+    });
+    
+    return expanded;
+  }, [userCycle?.ciclo_atual, localSubjects]);
 
   useEffect(() => {
     const checkProfile = async () => {
@@ -206,28 +244,31 @@ const Subjects = () => {
     setLocalSubjects(subjects);
   }, [subjects]);
 
+  // Focar o input quando necessário
   useLayoutEffect(() => {
-    if (!loading && newSubjectName === '' && inputRef.current) {
-      setTimeout(() => {
-        if (inputRef.current) {
+    if (!loading && !isAddingSubject && newSubjectName === '' && inputRef.current) {
+      const timeoutId = setTimeout(() => {
+        if (inputRef.current && document.activeElement !== inputRef.current) {
           inputRef.current.focus();
         }
-      }, 0);
+      }, 50);
+      return () => clearTimeout(timeoutId);
     }
-  }, [loading, localSubjects, newSubjectName]);
+  }, [loading, newSubjectName, isAddingSubject]);
 
+  // Efeito para manter foco após operações
   useEffect(() => {
-    if (inputRef.current && newSubjectName === '') {
-      inputRef.current.focus();
+    if (!isAddingSubject && newSubjectName === '' && inputRef.current) {
+      const timeoutId = setTimeout(() => {
+        if (inputRef.current && document.activeElement !== inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
-  }, []);
+  }, [isAddingSubject, newSubjectName]);
 
-  console.log('Subjects component render:', {
-    subjectsCount: subjects.length,
-    isLoading,
-    error,
-    subjectsData: subjects
-  });
+  // Removido console.log para evitar spam nos logs
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -238,17 +279,22 @@ const Subjects = () => {
 
   // Recarregar dados sempre que a página for acessada
   useEffect(() => {
-    console.log('📄 Subjects - Página acessada, forçando refresh dos dados...');
     if (user) {
       forceRefresh();
     }
-  }, [user?.id, forceRefresh]); // Dependência mínima para evitar loops
+  }, [user?.id]); // Remover forceRefresh da dependência
 
   const handleSaveSubject = async () => {
     if (!newSubjectName.trim()) {
-      toast.warning("Por favor, insira o nome da matéria");
+      // Não mostrar toast, apenas focar o input
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
       return;
     }
+    
+    setIsAddingSubject(true);
+    
     try {
       // Adicionar nova matéria
       const maxPriority = localSubjects.length > 0 ? Math.max(...localSubjects.map(s => s.priority || 0)) : 0;
@@ -259,14 +305,26 @@ const Subjects = () => {
         topics: [],
         priority: maxPriority + 1,
       });
-      toast.success("Matéria criada com sucesso!");
+      
+      // Limpar o input imediatamente
       setNewSubjectName('');
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      
     } catch (error) {
       console.error('Erro ao salvar matéria:', error);
-      toast.error("Erro ao salvar matéria. Tente novamente.");
+      // Mostrar toast apenas em caso de erro real
+      toast.error("Erro ao salvar matéria. Tente novamente.", {
+        duration: 3000,
+        position: 'bottom-right'
+      });
+    } finally {
+      setIsAddingSubject(false);
+      
+      // Garantir que o foco seja restaurado imediatamente
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 50);
     }
   };
 
@@ -278,19 +336,20 @@ const Subjects = () => {
 
   const handleSaveEdit = async () => {
     if (!editingName.trim()) {
-      toast.warning("Por favor, insira o nome da matéria");
       return;
     }
 
     if (editingSubjectId && editingName.trim() !== '') {
       try {
         await updateSubject(editingSubjectId, { name: editingName.trim().toUpperCase() });
-        toast.success("Matéria atualizada com sucesso!");
         setEditingSubjectId(null);
         setEditingName('');
       } catch (error) {
         console.error('Erro ao atualizar matéria:', error);
-        toast.error("Erro ao atualizar matéria. Tente novamente.");
+        toast.error("Erro ao atualizar matéria. Tente novamente.", {
+          duration: 3000,
+          position: 'bottom-right'
+        });
       }
     }
   };
@@ -303,10 +362,13 @@ const Subjects = () => {
   const handleDelete = async (id: string) => {
     try {
       await deleteSubject(id);
-      toast.success("Matéria excluída com sucesso!");
+      // Removido toast de sucesso para não roubar foco
     } catch (error) {
       console.error('Erro ao excluir matéria:', error);
-      toast.error("Erro ao excluir matéria. Tente novamente.");
+      toast.error("Erro ao excluir matéria. Tente novamente.", {
+        duration: 3000,
+        position: 'bottom-right'
+      });
     }
   };
 
@@ -390,19 +452,24 @@ const Subjects = () => {
   };
 
   const handleAddSubjectView = async (subject: Subject) => {
-    const success = await addSubjectView(subject.id, subject.name);
-    if (success) {
-      // Recarregar ciclo para atualizar contadores
-      const { data } = await supabase
-        .from('user_cycles')
-        .select('ciclo_atual')
-        .eq('user_id', user!.id)
-        .maybeSingle();
-      
-      if (data) {
-        setUserCycle(data);
+    try {
+      const success = await addSubjectView(subject.id, subject.name);
+      if (success) {
+        // Recarregar ciclo para atualizar contadores
+        const { data } = await supabase
+          .from('user_cycles')
+          .select('ciclo_atual')
+          .eq('user_id', user!.id)
+          .maybeSingle();
+        
+        if (data) {
+          setUserCycle(data);
+        }
+        forceRefresh();
       }
-      forceRefresh();
+    } catch (error) {
+      console.error('Erro ao adicionar visualização:', error);
+      toast.error('Erro ao adicionar visualização da matéria');
     }
   };
   
@@ -477,12 +544,35 @@ const Subjects = () => {
                   value={newSubjectName}
                   onChange={e => setNewSubjectName(e.target.value)}
                   onKeyPress={e => e.key === 'Enter' && handleSaveSubject()}
+                  onBlur={(e) => {
+                    // Apenas restaurar foco se não estiver indo para outro elemento interativo
+                    if (newSubjectName === '' && !e.relatedTarget && !isAddingSubject) {
+                      setTimeout(() => {
+                        if (inputRef.current && newSubjectName === '' && !isAddingSubject) {
+                          inputRef.current.focus();
+                        }
+                      }, 50);
+                    }
+                  }}
                   className="flex-1 mobile-button"
                   ref={inputRef}
                 />
-                <Button onClick={handleSaveSubject} disabled={!newSubjectName.trim()} className="w-full sm:w-auto mobile-button touch-target">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar
+                <Button 
+                  onClick={handleSaveSubject} 
+                  disabled={!newSubjectName.trim() || isAddingSubject} 
+                  className="w-full sm:w-auto mobile-button touch-target"
+                >
+                  {isAddingSubject ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Adicionando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Adicionar
+                    </>
+                  )}
                 </Button>
               </div>
               <Button 
@@ -591,7 +681,14 @@ const Subjects = () => {
                                             </div>
                                            ) : (
                                              <>
-                                               <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
+                                               <div className="flex items-center space-x-2">
+                                                 <CycleStatusIndicator 
+                                                   isStudied={isSubjectStudied(subject.id)}
+                                                   isNextSuggested={isNextSuggested(subject.id, subject)}
+                                                   variant="dot"
+                                                 />
+                                                 <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
+                                               </div>
                                                {isView && (
                                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
                                                    {viewIndex + 1}ª visualização
@@ -784,6 +881,11 @@ const Subjects = () => {
                                          ) : (
                                            <div className="space-y-2">
                                              <div className="flex items-center space-x-2">
+                                               <CycleStatusIndicator 
+                                                 isStudied={isSubjectStudied(subject.id)}
+                                                 isNextSuggested={isNextSuggested(subject.id, subject)}
+                                                 variant="dot"
+                                               />
                                                <h3 className="font-semibold text-lg truncate flex-1">{subject.name}</h3>
                                                {isView && (
                                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">

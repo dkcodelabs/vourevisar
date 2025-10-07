@@ -174,8 +174,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
         position="bottom-right"
         closeButton
         richColors
-        duration={4000}
-        visibleToasts={3}
+        duration={2000}
+        visibleToasts={2}
         pauseWhenPageIsHidden={false}
         expand={false}
         gap={8}
@@ -183,9 +183,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
         hotkey={[]}
         invert={false}
         toastOptions={{
-          duration: 4000,
+          duration: 2000,
           style: {
-            pointerEvents: 'auto'
+            pointerEvents: 'none' // Evitar que os toasts roubem foco
           },
           classNames: {
             toast: 'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',

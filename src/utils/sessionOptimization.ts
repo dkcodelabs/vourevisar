@@ -43,7 +43,7 @@ export const SessionOptimizer = {
       }
     });
     
-    console.log(`Otimizados ${elementsWithInlineFont.length} elementos com font-family inline`);
+    // Log removido para otimização
   },
   
   // Monitora performance da sessão
@@ -57,8 +57,9 @@ export const SessionOptimizer = {
       
       if (now - lastRenderTime > 100) { // Se passou mais de 100ms
         if (renderCount > 50) {
-          console.warn('⚠️ Muitas re-renderizações detectadas:', renderCount);
-          console.log('💡 Considere otimizar componentes ou usar React.memo()');
+          // Logs desabilitados para otimização
+          // console.warn('⚠️ Muitas re-renderizações detectadas:', renderCount);
+          // console.log('💡 Considere otimizar componentes ou usar React.memo()');
         }
         renderCount = 0;
       }
@@ -106,8 +107,9 @@ export const useSessionOptimization = () => {
     setTimeout(() => {
       const issues = SessionOptimizer.checkRenderingIssues();
       if (issues.length > 0) {
-        console.warn('🔍 Problemas de renderização detectados:');
-        issues.forEach(issue => console.warn('  -', issue));
+        // Logs desabilitados para otimização
+        // console.warn('🔍 Problemas de renderização detectados:');
+        // issues.forEach(issue => console.warn('  -', issue));
         
         // Aplica otimizações automáticas
         SessionOptimizer.autoOptimize();
