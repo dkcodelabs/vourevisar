@@ -20,7 +20,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
   { to: "/materias", label: "Matérias", icon: BookOpen },
-  { to: "/plano-estudos", label: "Plano de Estudos", icon: Calendar },
+  // Plano de estudos removido - substituído por Ciclo de Estudos
   { to: "/topicos", label: "Tópicos", icon: List },
   { to: "/revisoes", label: "Revisões", icon: Clock },
   { to: "/questoes", label: "Questões", icon: HelpCircle },

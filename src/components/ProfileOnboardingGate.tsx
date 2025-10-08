@@ -15,7 +15,7 @@ export function ProfileOnboardingGate() {
   const [hasReviews, setHasReviews] = useState(false);
 
   // Lista de rotas que requerem perfil definido
-  const protectedRoutes = ['/materias', '/topicos', '/revisoes', '/revisao-geral', '/plano-estudos'];
+  const protectedRoutes = ['/materias', '/topicos', '/revisoes', '/revisao-geral', '/ciclo-estudos'];
 
   useEffect(() => {
     const checkProfile = async () => {

@@ -10,7 +10,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
-import StudyPlan from "@/pages/StudyPlan";
+// StudyPlan removido - substituído por StudyCycle
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import Statistics from "@/pages/Statistics";
@@ -60,7 +60,7 @@ const App = () => {
                   <Route path="" element={<AppLayout />}>
                     <Route index element={<Dashboard />} />
                     <Route path="materias" element={<Subjects />} />
-                    <Route path="plano-estudos" element={<StudyPlan />} />
+                    {/* Plano de estudos removido - substituído por ciclo-estudos */}
                     <Route path="estatisticas" element={<Statistics />} />
                     <Route path="materias/:subjectId/topicos" element={<Topics />} />
                     <Route path="topicos" element={<Topics />} />

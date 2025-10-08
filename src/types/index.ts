@@ -45,10 +45,7 @@ export interface Subject {
   notes?: TopicNotes;
 }
 
-export interface DailyStudyPlan {
-  date: Date;
-  subjects: Subject[];
-}
+// DailyStudyPlan removida - não mais necessária
 
 export interface UserSettings {
   subjectsPerDay: number;

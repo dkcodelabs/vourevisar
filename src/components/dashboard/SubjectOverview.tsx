@@ -191,7 +191,7 @@ export const SubjectOverview: React.FC<SubjectOverviewProps> = ({ subjects }) =>
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => navigate('/plano-estudos')}
+            onClick={() => navigate('/ciclo-estudos')}
           >
             <Target className="h-4 w-4 mr-1" />
             Plano

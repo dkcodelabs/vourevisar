@@ -10,7 +10,7 @@ import { ReviewsTable } from '@/components/reviews/ReviewsTable';
 import { ReviewsGroupedNew } from '@/components/reviews/ReviewsGroupedNew';
 import { ReviewsBulkActions } from '@/components/reviews/ReviewsBulkActions';
 import { useApp } from '@/contexts/AppContext';
-import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
+import { useTopicReview } from '@/hooks/useTopicReview';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import NotesModal from '@/components/reviews/NotesModal';
@@ -44,7 +44,7 @@ const Revisoes = () => {
   });
 
   const { subjects, refreshData } = useApp();
-  const { markTopicAsReviewed, isLoading: isMarkingReviewed } = useStudyPlanLogic();
+  const { markTopicAsReviewed, isLoading: isMarkingReviewed } = useTopicReview();
   const {
     topics,
     isLoading,

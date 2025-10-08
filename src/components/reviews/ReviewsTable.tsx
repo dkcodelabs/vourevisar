@@ -7,7 +7,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, Dialo
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, differenceInDays, isBefore, startOfDay } from 'date-fns';
 import { FileText, CheckCircle2, Edit, RotateCcw } from 'lucide-react';
-import { useStudyPlanLogic } from '@/hooks/useStudyPlanLogic';
+import { useTopicReview } from '@/hooks/useTopicReview';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
 import NotesModal from './NotesModal';
@@ -39,7 +39,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
   refetch
 }) => {
   const { refreshData } = useApp();
-  const { markTopicAsReviewed, isLoading: isLogicLoading } = useStudyPlanLogic();
+  const { markTopicAsReviewed, isLoading: isLogicLoading } = useTopicReview();
   const [confirmTopicId, setConfirmTopicId] = useState<string | null>(null);
   const [notesModalData, setNotesModalData] = useState<{
     isOpen: boolean;
