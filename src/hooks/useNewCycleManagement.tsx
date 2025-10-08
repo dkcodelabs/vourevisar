@@ -92,6 +92,9 @@ export const useNewCycleManagement = (
       setShowNewCycleStarted(true);
       setTimeout(() => setShowNewCycleStarted(false), 5000);
       
+      // Disparar evento para atualizar estatísticas imediatamente
+      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      
       toast.success('Novo ciclo iniciado com sucesso!');
     } catch (error) {
       console.error('Erro ao iniciar novo ciclo:', error);

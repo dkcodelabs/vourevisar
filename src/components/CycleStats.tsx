@@ -15,13 +15,19 @@ export const CycleStats: React.FC = () => {
     
     // Escutar evento de atualização do ciclo para atualizar imediatamente
     const handleCycleUpdate = () => {
-      loadStats();
+      console.log('🔄 CycleStats: Evento cycleUpdated recebido, recarregando stats...');
+      // Limpar stats atual para forçar re-render
+      setStats(null);
+      // Pequeno delay para garantir que os dados foram atualizados no banco
+      setTimeout(() => {
+        loadStats();
+      }, 300);
     };
     
     window.addEventListener('cycleUpdated', handleCycleUpdate);
     
-    // Recarregar stats a cada 1 segundo como backup
-    const interval = setInterval(loadStats, 1000);
+    // Recarregar stats a cada 5 segundos como backup (reduzido de 1s)
+    const interval = setInterval(loadStats, 5000);
     
     return () => {
       clearInterval(interval);

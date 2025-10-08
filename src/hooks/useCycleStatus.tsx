@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UserCycle } from '@/types';
+import { updateStudiedSubjects, addStudiedSubject, resetCycle, isSubjectStudiedGlobal } from '@/utils/cycleState';
 
 export const useCycleStatus = () => {
   const { user } = useAuth();
@@ -21,6 +22,14 @@ export const useCycleStatus = () => {
         .maybeSingle();
 
       if (error) throw error;
+      
+      // Log removido para evitar spam
+      
+      // Atualizar estado global
+      if (data?.materias_estudadas_ciclo) {
+        updateStudiedSubjects(data.materias_estudadas_ciclo);
+      }
+      
       setUserCycle(data);
     } catch (error) {
       console.error('Erro ao carregar ciclo:', error);
@@ -33,7 +42,19 @@ export const useCycleStatus = () => {
 
     setIsLoading(true);
     try {
-      const currentStudied = userCycle.materias_estudadas_ciclo || [];
+      // SEMPRE buscar estado atual do banco para evitar dados desatualizados
+      const { data: freshCycle, error: cycleError } = await supabase
+        .from('user_cycles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (cycleError || !freshCycle) {
+        console.error('❌ Erro ao buscar ciclo atual:', cycleError);
+        return false;
+      }
+      
+      const currentStudied = freshCycle.materias_estudadas_ciclo || [];
       
       // Se já está estudada, não fazer nada
       if (currentStudied.includes(subjectId)) {
@@ -55,18 +76,17 @@ export const useCycleStatus = () => {
       const activeSubjectsInCurrentCycle: string[] = [];
       const completedSubjectsInCurrentCycle: string[] = [];
       
-      userCycle.ciclo_atual.forEach(id => {
+      freshCycle.ciclo_atual.forEach(id => {
         const subject = allSubjects.find(s => s.id === id);
         if (!subject) return;
         
-        // Verificar se está 100% concluída
+        // Verificar se está 100% concluída (TODOS os tópicos devem estar concluídos)
         if (subject.topics && subject.topics.length > 0) {
-          const completedTopics = subject.topics.filter(topic =>
-            topic.reviewStage === 'Concluído'
-          ).length;
+          const allTopicsCompleted = subject.topics.every(topic =>
+            topic.reviewStage === 'Concluído' || topic.completed === true
+          );
           
-          const progress = Math.round((completedTopics / subject.topics.length) * 100);
-          if (progress >= 100) {
+          if (allTopicsCompleted) {
             completedSubjectsInCurrentCycle.push(id);
             return;
           }
@@ -80,8 +100,18 @@ export const useCycleStatus = () => {
         return !newStudied.includes(id);
       });
       
-      // Se não há matérias ativas ou todas as ativas foram estudadas, reiniciar ciclo
-      const isLastActiveSubject = activeSubjectsInCurrentCycle.length === 0 || unstudiedActiveSubjects.length === 0;
+      // Verificar se esta é a última matéria ativa (APÓS incluir a atual)
+      const isLastActiveSubject = unstudiedActiveSubjects.length === 0;
+      
+      console.log('🎯 Debug detalhado da última matéria:', {
+        subjectName,
+        currentSubjectId: subjectId,
+        activeSubjectsInCurrentCycle,
+        newStudied,
+        unstudiedActiveSubjects,
+        isLastActiveSubject,
+        shouldStartNewCycle: isLastActiveSubject
+      });
       
       // Obter nomes das matérias para debug
       const unstudiedSubjectNames = unstudiedActiveSubjects.map(id => {
@@ -96,12 +126,18 @@ export const useCycleStatus = () => {
       
       console.log('🔍 Verificação de fim de ciclo:', {
         subjectName,
+        totalInCycle: freshCycle.ciclo_atual.length,
         activeSubjectsInCurrentCycle: activeSubjectsInCurrentCycle.length,
+        completedSubjectsInCurrentCycle: completedSubjectsInCurrentCycle.length,
         unstudiedActiveSubjects: unstudiedActiveSubjects.length,
         unstudiedSubjectNames,
         isLastActiveSubject,
         newStudied: newStudied.length,
-        studiedSubjectNames
+        studiedSubjectNames,
+        activeSubjectNames: activeSubjectsInCurrentCycle.map(id => {
+          const subject = allSubjects.find(s => s.id === id);
+          return subject ? subject.name : id;
+        })
       });
 
       // Log para debug (a verificação de fim de ciclo agora é feita no componente)
@@ -113,15 +149,43 @@ export const useCycleStatus = () => {
       
       // Log removido para otimização
       
-      let updateData: any = {
-        materias_estudadas_ciclo: isLastActiveSubject ? [] : newStudied, // Reset se for a última ativa
-        atualizado_em: new Date().toISOString()
-      };
+      let updateData: any;
 
-      // A lógica de novo ciclo agora é feita no componente após verificação completa
+      if (isLastActiveSubject) {
+        // É a última matéria - iniciar novo ciclo
+        updateData = {
+          materias_estudadas_ciclo: [],
+          ciclos_realizados: (freshCycle.ciclos_realizados || 0) + 1,
+          data_inicio_ciclo: new Date().toISOString(),
+          atualizado_em: new Date().toISOString()
+        };
+        console.log('🎉 Iniciando novo ciclo:', {
+          cicloAtual: freshCycle.ciclos_realizados,
+          novoCiclo: updateData.ciclos_realizados,
+          calculo: `${freshCycle.ciclos_realizados || 0} + 1 = ${updateData.ciclos_realizados}`
+        });
+        
+        // Atualizar estado global
+        resetCycle(updateData.ciclos_realizados);
+      } else {
+        // Não é a última - apenas adicionar à lista de estudadas
+        updateData = {
+          materias_estudadas_ciclo: newStudied,
+          atualizado_em: new Date().toISOString()
+        };
+        
+        console.log('📝 Atualizando lista de estudadas:', {
+          antes: currentStudied,
+          depois: newStudied,
+          adicionada: subjectName
+        });
+        
+        // Atualizar estado global
+        addStudiedSubject(subjectId);
+      }
 
-      // Antes de atualizar, verificar se há matérias 100% concluídas que devem ser removidas do ciclo
-      const currentCycle = updateData.ciclo_atual || userCycle.ciclo_atual;
+      // SEMPRE limpar matérias 100% concluídas do ciclo
+      const currentCycle = freshCycle.ciclo_atual || [];
       const cleanedCycle = currentCycle.filter((id: string) => {
         const subject = allSubjects.find(s => s.id === id);
         if (!subject) return false;
@@ -129,11 +193,12 @@ export const useCycleStatus = () => {
         // Remover matérias 100% concluídas do ciclo
         if (subject.topics && subject.topics.length > 0) {
           const completedTopics = subject.topics.filter(topic =>
-            topic.reviewStage === 'Concluído'
+            topic.reviewStage === 'Concluído' || topic.completed === true
           ).length;
           
           const progress = Math.round((completedTopics / subject.topics.length) * 100);
           if (progress >= 100) {
+            console.log(`🗑️ Removendo matéria 100% concluída do ciclo: ${subject.name}`);
             return false;
           }
         }
@@ -141,10 +206,28 @@ export const useCycleStatus = () => {
         return true;
       });
       
-      // Se o ciclo foi limpo, atualizar
-      if (cleanedCycle.length !== currentCycle.length) {
-        updateData.ciclo_atual = cleanedCycle;
+      // Sempre atualizar o ciclo limpo
+      updateData.ciclo_atual = cleanedCycle;
+      
+      // IMPORTANTE: Filtrar IDs estudados para manter apenas os que ainda estão no ciclo limpo
+      if (updateData.materias_estudadas_ciclo && cleanedCycle.length !== currentCycle.length) {
+        const filteredStudiedIds = updateData.materias_estudadas_ciclo.filter((id: string) => 
+          cleanedCycle.includes(id)
+        );
+        updateData.materias_estudadas_ciclo = filteredStudiedIds;
+        
+        console.log('🔧 Filtrando IDs estudados após limpeza do ciclo:', {
+          antes: newStudied,
+          depois: filteredStudiedIds,
+          removidos: newStudied.filter((id: string) => !filteredStudiedIds.includes(id))
+        });
       }
+      
+      console.log('🔄 Limpeza do ciclo:', {
+        cicloOriginal: currentCycle.length,
+        cicloLimpo: cleanedCycle.length,
+        removidas: currentCycle.length - cleanedCycle.length
+      });
 
       const { error } = await supabase
         .from('user_cycles')
@@ -153,20 +236,7 @@ export const useCycleStatus = () => {
 
       if (error) throw error;
 
-      // Recarregar dados imediatamente
-      await loadCycle();
-      
-      // Forçar atualização das estatísticas globalmente
-      window.dispatchEvent(new CustomEvent('cycleUpdated'));
-      
-      // Se foi um novo ciclo, forçar atualização completa
-      if (isLastActiveSubject) {
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('cycleUpdated'));
-        }, 500);
-      }
-      
-      // Forçar atualização do estado local para refletir mudanças imediatamente
+      // Forçar atualização do estado local IMEDIATAMENTE
       const { data: updatedCycle } = await supabase
         .from('user_cycles')
         .select('*')
@@ -175,12 +245,34 @@ export const useCycleStatus = () => {
       
       if (updatedCycle) {
         setUserCycle(updatedCycle);
+        console.log('🔄 Estado local atualizado:', updatedCycle);
         
-        // Se foi iniciado um novo ciclo, mostrar mensagem adicional
-        if (isLastActiveSubject && updatedCycle.materias_estudadas_ciclo?.length === 0) {
-          toast.info(`📊 Estatísticas atualizadas: Ciclo #${updatedCycle.ciclos_realizados || 0} com ${updatedCycle.ciclo_atual?.length || 0} matérias ativas.`);
+        // Se foi iniciado um novo ciclo, mostrar notificação
+        if (isLastActiveSubject) {
+          // Verificar se ainda há matérias ativas para estudar
+          const hasActiveSubjects = activeSubjectsInCurrentCycle.length > 0;
+          
+          if (hasActiveSubjects) {
+            console.log('🔔 DISPARANDO MENSAGEM DE NOVO CICLO');
+            toast.success(`🎉 Parabéns! Ciclo #${updatedCycle.ciclos_realizados} iniciado!`);
+            
+            // Modal removida - apenas toast
+          } else {
+            // Todas as matérias foram concluídas - NÃO disparar evento de novo ciclo
+            console.log('🎊 Todos os estudos foram concluídos!');
+            console.log('🔔 DISPARANDO MENSAGEM DE ESTUDOS CONCLUÍDOS');
+            toast.success('🎊 Parabéns! Você concluiu todos os estudos!');
+            
+            // Disparar evento especial (sem modal)
+            window.dispatchEvent(new CustomEvent('allStudiesCompleted'));
+          }
         }
       }
+      
+      // Forçar atualização de todos os componentes com pequeno delay
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      }, 100);
       
       // Dados recarregados
       
@@ -194,10 +286,19 @@ export const useCycleStatus = () => {
     }
   }, [user, userCycle, loadCycle]);
 
-  // Verificar se uma matéria foi estudada no ciclo atual (versão otimizada)
+  // Verificar se uma matéria foi estudada no ciclo atual (usando estado global)
   const isSubjectStudied = useCallback((subjectId: string): boolean => {
-    if (!userCycle?.materias_estudadas_ciclo) return false;
-    return userCycle.materias_estudadas_ciclo.includes(subjectId);
+    // Usar estado global para resposta imediata
+    const globalResult = isSubjectStudiedGlobal(subjectId);
+    
+    // Fallback para dados do banco se estado global não tiver
+    const dbResult = userCycle?.materias_estudadas_ciclo?.includes(subjectId) || false;
+    
+    const result = globalResult || dbResult;
+    
+    // Log removido para evitar spam
+    
+    return result;
   }, [userCycle]);
 
   // Obter próxima matéria sugerida (primeira não estudada e não concluída)
@@ -267,89 +368,126 @@ export const useCycleStatus = () => {
     }
   }, [userCycle]);
 
-  // Obter estatísticas completas do ciclo atual
+  // Obter estatísticas corretas do ciclo atual
   const getCycleStats = useCallback(async () => {
     if (!user) return null;
     
+    console.log('🔄 getCycleStats: Buscando estatísticas atualizadas...');
+    
     try {
-      // Buscar dados do ciclo (sempre buscar dados frescos)
-      const { data: cycleData, error: cycleError } = await supabase
+      // Buscar dados frescos do ciclo atual
+      const { data: freshUserCycle, error: cycleError } = await supabase
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
       
-      if (cycleError || !cycleData) {
-        console.error('Erro ao buscar ciclo:', cycleError);
+      if (cycleError || !freshUserCycle) {
+        console.error('Erro ao buscar ciclo atual:', cycleError);
         return null;
       }
-      
-      // Atualizar o estado local com os dados mais recentes
-      setUserCycle(cycleData);
-      
-      // Buscar dados das matérias
-      const { data: subjects, error: subjectsError } = await supabase
+      // Buscar todas as matérias do usuário para calcular as 100% concluídas
+      const { data: allSubjects, error: subjectsError } = await supabase
         .from('subjects')
-        .select('*')
+        .select(`
+          id,
+          name,
+          status,
+          topics:topics(id, review_stage, completed)
+        `)
         .eq('user_id', user.id);
       
-      if (subjectsError || !subjects) {
+      if (subjectsError || !allSubjects) {
         console.error('Erro ao buscar matérias:', subjectsError);
         return null;
       }
       
-      // Separar matérias ativas (não 100% concluídas) das 100% concluídas
-      const activeSubjectsInCycle: string[] = [];
-      const completedSubjectsInCycle: string[] = [];
-      
-      (cycleData.ciclo_atual || []).forEach((id: string) => {
-        const subject = subjects.find(s => s.id === id);
-        if (!subject) return;
+      // Contar matérias 100% concluídas (que têm todos os tópicos com review_stage = 'Concluído' OU completed = true)
+      const completedSubjects = allSubjects.filter(subject => {
+        if (!subject.topics || subject.topics.length === 0) return false;
         
-        if (subject.topics && subject.topics.length > 0) {
-          const completedTopics = subject.topics.filter(topic =>
-            topic.reviewStage === 'Concluído'
-          ).length;
-          
-          const progress = Math.round((completedTopics / subject.topics.length) * 100);
-          if (progress >= 100) {
-            completedSubjectsInCycle.push(id);
-          } else {
-            activeSubjectsInCycle.push(id);
-          }
-        } else {
-          // Matérias sem tópicos são consideradas ativas
-          activeSubjectsInCycle.push(id);
-        }
+        const completedTopics = subject.topics.filter(topic => 
+          topic.review_stage === 'Concluído' || topic.completed === true
+        ).length;
+        
+        const isCompleted = completedTopics === subject.topics.length;
+        
+        // Log detalhado para debug (removido para evitar spam)
+        
+        return isCompleted;
       });
       
-      // Contar apenas matérias ativas que foram estudadas
-      const studiedActiveSubjects = (cycleData.materias_estudadas_ciclo || []).filter(id => 
-        activeSubjectsInCycle.includes(id)
+      // LIMPAR matérias 100% concluídas do ciclo_atual
+      const completedSubjectIds = completedSubjects.map(s => s.id);
+      const currentCycle = freshUserCycle.ciclo_atual || [];
+      const cleanedCycle = currentCycle.filter(id => !completedSubjectIds.includes(id));
+      
+      console.log('🧹 Limpeza do ciclo:', {
+        completedSubjects: completedSubjects.map(s => ({ id: s.id, name: s.name })),
+        currentCycle: currentCycle.length,
+        cleanedCycle: cleanedCycle.length,
+        removedSubjects: currentCycle.length - cleanedCycle.length
+      });
+      
+      // Se o ciclo foi limpo, atualizar no banco
+      if (cleanedCycle.length !== currentCycle.length) {
+        // Atualizar status das matérias concluídas para "Concluída"
+        for (const completedSubject of completedSubjects) {
+          if (completedSubject.status !== 'Concluída') {
+            await supabase
+              .from('subjects')
+              .update({ status: 'Concluída' })
+              .eq('id', completedSubject.id)
+              .eq('user_id', user.id);
+          }
+        }
+        
+        await supabase
+          .from('user_cycles')
+          .update({
+            ciclo_atual: cleanedCycle,
+            atualizado_em: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+        
+        // Atualizar o userCycle local
+        setUserCycle(prev => prev ? { ...prev, ciclo_atual: cleanedCycle } : null);
+        
+        // Usar o ciclo limpo para os cálculos
+        freshUserCycle.ciclo_atual = cleanedCycle;
+      }
+      
+      const totalSubjects = cleanedCycle.length;
+      
+      // Contar apenas matérias estudadas que AINDA ESTÃO no ciclo limpo
+      const studiedInCurrentCycle = (freshUserCycle.materias_estudadas_ciclo || []).filter(studiedId => 
+        cleanedCycle.includes(studiedId)
       );
       
-      const totalSubjects = cycleData.ciclo_atual?.length || 0;
-      const totalActiveSubjects = activeSubjectsInCycle.length;
-      const studiedSubjects = studiedActiveSubjects.length;
-      const remainingSubjects = Math.max(0, totalActiveSubjects - studiedSubjects);
+      const studiedSubjects = studiedInCurrentCycle.length;
+      const remainingSubjects = Math.max(0, totalSubjects - studiedSubjects);
       
       const stats = {
         totalSubjects,
-        totalActiveSubjects: activeSubjectsInCycle.length,
-        totalCompletedSubjects: completedSubjectsInCycle.length,
+        totalActiveSubjects: totalSubjects,
+        totalCompletedSubjects: completedSubjects.length, // Agora conta corretamente
         studiedSubjects,
         remainingSubjects,
-        activeSubjects: activeSubjectsInCycle.length,
-        cycleNumber: cycleData.ciclos_realizados || 0,
-        cycleStartDate: cycleData.data_inicio_ciclo,
-        studiedSubjectIds: cycleData.materias_estudadas_ciclo || [],
-        studiedActiveSubjectIds: studiedActiveSubjects,
-        allSubjectIds: cycleData.ciclo_atual || [],
-        activeSubjectIds: activeSubjectsInCycle,
-        completedSubjectIds: completedSubjectsInCycle
+        activeSubjects: totalSubjects,
+        cycleNumber: freshUserCycle.ciclos_realizados || 0,
+        cycleStartDate: freshUserCycle.data_inicio_ciclo,
+        studiedSubjectIds: freshUserCycle.materias_estudadas_ciclo || [],
+        studiedActiveSubjectIds: studiedInCurrentCycle,
+        allSubjectIds: cleanedCycle,
+        activeSubjectIds: cleanedCycle,
+        completedSubjectIds: completedSubjects.map(s => s.id)
       };
       
-      // Estatísticas calculadas
+      console.log('📊 getCycleStats: Estatísticas calculadas:', stats);
+      
+      // Limpeza forçada removida para evitar loops infinitos
+      // A limpeza já é feita na lógica principal acima
+      
       return stats;
     } catch (error) {
       console.error('Erro ao obter estatísticas do ciclo:', error);
@@ -360,7 +498,9 @@ export const useCycleStatus = () => {
   // Carregar dados quando o componente monta
   useEffect(() => {
     loadCycle();
-  }, [user]); // Usar apenas user como dependência
+    
+    // Listener removido para evitar loops
+  }, [user]); // Manter apenas user como dependência
 
   return {
     userCycle,

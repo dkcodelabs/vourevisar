@@ -226,6 +226,9 @@ export const useNextDay = () => {
 
       console.log('✅ handleNextDay finalizado com sucesso');
       
+      // Disparar evento para atualizar estatísticas imediatamente
+      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      
     } catch (error) {
       console.error('Erro ao gerar próximo dia:', error);
       toast.error('Erro ao carregar próximas matérias');

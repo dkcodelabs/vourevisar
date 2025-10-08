@@ -218,6 +218,7 @@ export const useStudyCycleData = () => {
     const cycleSubjects: StudyCycleSubject[] = [];
     const processedSubjects = new Map<string, number>();
 
+    // 1. Adicionar matérias do ciclo ativo
     userCycle.ciclo_atual.forEach((subjectId, index) => {
       const subject = subjects.find(s => s.id === subjectId);
       if (!subject) return;
@@ -246,6 +247,50 @@ export const useStudyCycleData = () => {
         console.error('Erro ao mapear matéria:', error, subject);
       }
     });
+
+    // 2. Adicionar matérias 100% concluídas que NÃO estão no ciclo ativo
+    const completedSubjects = subjects.filter(subject => {
+      // Verificar se não está no ciclo ativo
+      const isInActiveCycle = userCycle.ciclo_atual.includes(subject.id);
+      if (isInActiveCycle) return false;
+
+      // Verificar se está 100% concluída
+      const mappedTopics = subject.topics
+        .map(mapTopicToStudyCycleTopic)
+        .sort((a, b) => {
+          const statusOrder = {
+            'NOT_STARTED': 0,
+            'REVISED_7D': 1,
+            'REVISED_15D': 2,
+            'REVISED_30D': 3,
+            'COMPLETED': 4
+          };
+          
+          const aOrder = statusOrder[a.reviewStatus] || 0;
+          const bOrder = statusOrder[b.reviewStatus] || 0;
+          
+          if (aOrder !== bOrder) {
+            return aOrder - bOrder;
+          }
+          
+          return a.name.localeCompare(b.name);
+        });
+
+      const isFullyCompleted = mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === 'COMPLETED');
+      return isFullyCompleted;
+    });
+
+    // Adicionar matérias 100% concluídas à lista
+    completedSubjects.forEach(subject => {
+      try {
+        const studyCycleSubject = mapSubjectToStudyCycleSubject(subject);
+        studyCycleSubject.originalId = subject.id;
+        cycleSubjects.push(studyCycleSubject);
+      } catch (error) {
+        console.error('Erro ao mapear matéria concluída:', error, subject);
+      }
+    });
+
     return cycleSubjects;
   }, [subjects, userCycle]);
 
@@ -304,6 +349,9 @@ export const useStudyCycleData = () => {
       const newActiveSubjects = subjects.filter(s => s.status !== 'Concluída');
       const newFocusIds = new Set(newActiveSubjects.slice(0, STUDY_FOCUS_COUNT).map(s => s.id));
       setStudyFocusSubjectIds(newFocusIds);
+      
+      // Disparar evento para atualizar estatísticas imediatamente
+      window.dispatchEvent(new CustomEvent('cycleUpdated'));
 
     } catch (error) {
       console.error('Error starting new cycle:', error);
@@ -371,6 +419,9 @@ export const useStudyCycleData = () => {
       }
 
       console.log('✅ handleCompleteSession - Sessão completada com sucesso');
+      
+      // Disparar evento para atualizar estatísticas imediatamente
+      window.dispatchEvent(new CustomEvent('cycleUpdated'));
 
     } catch (error) {
       console.error('❌ Error completing session:', error);

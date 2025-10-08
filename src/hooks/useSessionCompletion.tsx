@@ -188,7 +188,43 @@ export const useSessionCompletion = () => {
             
             setUserCycle(freshCycle);
             setTempMarkedTopics({});
-            toast.success('🎉 Matéria completamente concluída! Movida para Concluídas Gerais.');
+            
+            // Verificar se TODAS as matérias estão agora concluídas
+            const { data: allUserSubjects, error: allSubjectsError } = await supabase
+              .from('subjects')
+              .select(`
+                id,
+                name,
+                status,
+                topics:topics(id, review_stage, completed)
+              `)
+              .eq('user_id', user.id);
+            
+            if (!allSubjectsError && allUserSubjects) {
+              const allSubjectsCompleted = allUserSubjects.every(subject => {
+                if (!subject.topics || subject.topics.length === 0) return false;
+                return subject.topics.every(topic => 
+                  topic.review_stage === 'Concluído' || topic.completed === true
+                );
+              });
+              
+              if (allSubjectsCompleted) {
+                console.log('🎊 TODOS OS ESTUDOS CONCLUÍDOS!');
+                
+                // Disparar evento especial para estudos concluídos
+                window.dispatchEvent(new CustomEvent('allStudiesCompleted'));
+                
+                toast.success('🎊 Parabéns! Você concluiu todos os estudos! Todas as matérias foram dominadas!');
+              } else {
+                toast.success('🎉 Matéria completamente concluída! Movida para Concluídas Gerais.');
+              }
+            } else {
+              toast.success('🎉 Matéria completamente concluída! Movida para Concluídas Gerais.');
+            }
+            
+            // Disparar evento para atualizar estatísticas imediatamente
+            window.dispatchEvent(new CustomEvent('cycleUpdated'));
+            
             return;
           }
         }
@@ -250,6 +286,10 @@ export const useSessionCompletion = () => {
         setUserCycle(freshCycle);
         
         setTempMarkedTopics({});
+        
+        // Disparar evento para atualizar estatísticas imediatamente
+        window.dispatchEvent(new CustomEvent('cycleUpdated'));
+        
         toast.success('Matéria pulada! Ela será estudada em outro dia.');
         
         console.log('✅ Matéria pulada com sucesso - removida do dia atual');
@@ -327,6 +367,10 @@ export const useSessionCompletion = () => {
       console.log('✅ Sessão concluída - dados atualizados');
       
       console.log('✅ handleCompleteSession FINALIZADO COM SUCESSO');
+      
+      // Disparar evento para atualizar estatísticas imediatamente
+      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      
       toast.success('Sessão concluída com sucesso!');
     } catch (error) {
       console.error('❌ Erro ao concluir sessão:', error);

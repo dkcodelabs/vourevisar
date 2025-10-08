@@ -68,121 +68,28 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         originalId: subject.originalId,
         subjectName: subject.name
       });
-      
+
       // 1. Executar a função original primeiro (marcar tópicos como revisados)
       await onCompleteSession(subject.id);
-      
-      // 2. Marcar como estudada no ciclo E verificar se é a última
+
+      // 2. Marcar como estudada no ciclo
       const originalId = subject.originalId || subject.id;
-      console.log('🔵 Chamando markSubjectAsStudied com ID:', originalId);
       const success = await markSubjectAsStudied(originalId, subject.name);
-      
+
       if (success) {
         console.log('✅ Matéria marcada como estudada com sucesso');
         
-        // 3. VERIFICAÇÃO IMEDIATA: Era a última matéria não estudada?
-        // Vamos verificar diretamente no banco de dados
-        await checkIfLastSubjectAndShowModal(originalId, subject.name);
+        // Forçar atualização dos dados do ciclo
+        window.dispatchEvent(new CustomEvent('forceRefresh'));
       }
-      
+
       console.log('✅ handleComplete concluído');
     } catch (error) {
       console.error('Erro ao completar sessão:', error);
     }
   };
 
-  const checkIfLastSubjectAndShowModal = async (subjectId: string, subjectName: string) => {
-    try {
-      console.log('🔍 Verificando se era a última matéria não estudada...');
-      
-      // Buscar dados atualizados do ciclo
-      const { data: cycleData, error: cycleError } = await supabase
-        .from('user_cycles')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
-      
-      if (cycleError || !cycleData) {
-        console.error('Erro ao buscar dados do ciclo:', cycleError);
-        return;
-      }
-      
-      // Buscar todas as matérias
-      const { data: allSubjects, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('user_id', user?.id);
-      
-      if (subjectsError || !allSubjects) {
-        console.error('Erro ao buscar matérias:', subjectsError);
-        return;
-      }
-      
-      // Filtrar matérias ativas (não 100% concluídas) no ciclo atual
-      const activeSubjectsInCycle = cycleData.ciclo_atual.filter(id => {
-        const subject = allSubjects.find(s => s.id === id);
-        if (!subject) return false;
-        
-        if (subject.topics && subject.topics.length > 0) {
-          const completedTopics = subject.topics.filter(topic =>
-            topic.reviewStage === 'Concluído'
-          ).length;
-          const progress = Math.round((completedTopics / subject.topics.length) * 100);
-          return progress < 100; // Só incluir se não estiver 100% concluída
-        }
-        return true;
-      });
-      
-      // Verificar quantas matérias ativas ainda não foram estudadas
-      const unstudiedActiveSubjects = activeSubjectsInCycle.filter(id => {
-        return !cycleData.materias_estudadas_ciclo.includes(id);
-      });
-      
-      console.log('🔍 Verificação final:', {
-        activeSubjectsInCycle: activeSubjectsInCycle.length,
-        unstudiedActiveSubjects: unstudiedActiveSubjects.length,
-        materias_estudadas: cycleData.materias_estudadas_ciclo.length
-      });
-      
-      // Se não há mais matérias ativas não estudadas, é hora do novo ciclo!
-      if (unstudiedActiveSubjects.length === 0) {
-        console.log('🎉 ÚLTIMA MATÉRIA CONFIRMADA! Iniciando novo ciclo...');
-        
-        // Atualizar para novo ciclo no banco
-        const { error: updateError } = await supabase
-          .from('user_cycles')
-          .update({
-            materias_estudadas_ciclo: [],
-            ciclos_realizados: (cycleData.ciclos_realizados || 0) + 1,
-            data_inicio_ciclo: new Date().toISOString(),
-            atualizado_em: new Date().toISOString()
-          })
-          .eq('user_id', user?.id);
-        
-        if (updateError) {
-          console.error('Erro ao atualizar ciclo:', updateError);
-          return;
-        }
-        
-        // Mostrar modal
-        console.log('🎉 Disparando modal de novo ciclo...');
-        window.dispatchEvent(new CustomEvent('newCycleStarted', {
-          detail: {
-            cycleNumber: (cycleData.ciclos_realizados || 0) + 1,
-            totalSubjects: activeSubjectsInCycle.length
-          }
-        }));
-        
-        toast.success('🎉 Parabéns! Você completou o ciclo de estudos!');
-      } else {
-        console.log(`📚 Ainda faltam ${unstudiedActiveSubjects.length} matérias no ciclo atual`);
-        toast.info(`📚 Matéria estudada! Ainda faltam ${unstudiedActiveSubjects.length} matérias no ciclo.`);
-      }
-      
-    } catch (error) {
-      console.error('Erro ao verificar última matéria:', error);
-    }
-  };
+
 
   const cardBaseClasses = "bg-card rounded-2xl shadow-md overflow-hidden transition-all duration-300";
   const focusClasses = isStudyFocus
@@ -240,18 +147,18 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div className="flex-grow">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 flex-1 min-w-0">
-                <CycleStatusIndicator 
+                <CycleStatusIndicator
                   isStudied={(() => {
                     const id = subject.originalId || subject.id;
-                    
+
+
+
                     // Se a matéria está 100% concluída, sempre verde
                     const isFullyCompleted = subject.topics.length > 0 && subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
                     if (isFullyCompleted) return true;
-                    
-                    // Senão, verificar se foi estudada no ciclo atual
-                    const studied = isSubjectStudied(id);
 
-                    return studied;
+                    // Senão, verificar se foi estudada no ciclo atual
+                    return isSubjectStudied(id);
                   })()}
                   isNextSuggested={isNextSuggested(subject.originalId || subject.id)}
                   variant="dot"
@@ -321,14 +228,16 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
   return (
     <div className={`${cardBaseClasses} flex flex-col ${focusClasses} relative`}>
-      <CycleStatusIndicator 
+      <CycleStatusIndicator
         isStudied={(() => {
           const id = subject.originalId || subject.id;
-          
+
+
+
           // Se a matéria está 100% concluída, sempre verde
           const isFullyCompleted = subject.topics.length > 0 && subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
           if (isFullyCompleted) return true;
-          
+
           // Senão, verificar se foi estudada no ciclo atual
           return isSubjectStudied(id);
         })()}

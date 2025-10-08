@@ -11,10 +11,11 @@ import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import AllStudiesCompletedCard from './AllStudiesCompletedCard';
 import { CycleStats } from '@/components/CycleStats';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
-import { NewCycleModal } from '@/components/NewCycleModal';
+// Modal removida - import desabilitado
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+
 
 const LOCAL_STORAGE_VIEW_KEY = 'studyCycleViewMode';
 
@@ -68,23 +69,21 @@ export const StudyCycleContent: React.FC = () => {
       refreshCycleData();
     };
     
-    const handleNewCycleStarted = (event: CustomEvent) => {
-      console.log('🎉 Evento newCycleStarted recebido:', event.detail);
-      const { cycleNumber, totalSubjects } = event.detail;
-      setNewCycleModal({
-        isOpen: true,
-        cycleNumber,
-        totalSubjects
-      });
-      console.log('🎉 Modal definido para abrir:', { cycleNumber, totalSubjects });
+    const handleForceRefresh = () => {
+      console.log('🔄 Forçando refresh completo...');
+      refreshCycleData();
     };
     
+    // Modal removida - evento desabilitado
+    
     window.addEventListener('cycleUpdated', handleCycleUpdate);
-    window.addEventListener('newCycleStarted', handleNewCycleStarted as EventListener);
+    window.addEventListener('forceRefresh', handleForceRefresh);
+    // Modal removida - listener desabilitado
     
     return () => {
       window.removeEventListener('cycleUpdated', handleCycleUpdate);
-      window.removeEventListener('newCycleStarted', handleNewCycleStarted as EventListener);
+      window.removeEventListener('forceRefresh', handleForceRefresh);
+      // Modal removida - listener desabilitado
     };
   }, [refreshCycleData]);
 
@@ -130,15 +129,7 @@ export const StudyCycleContent: React.FC = () => {
 
   const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
   const [previousCycleNumber, setPreviousCycleNumber] = useState<number | null>(null);
-  const [newCycleModal, setNewCycleModal] = useState<{
-    isOpen: boolean;
-    cycleNumber: number;
-    totalSubjects: number;
-  }>({
-    isOpen: false,
-    cycleNumber: 0,
-    totalSubjects: 0
-  });
+  // Modal removida - estado desabilitado
 
   // Hook para status do ciclo
   const { markSubjectAsStudied, isSubjectStudied } = useCycleStatus();
@@ -319,20 +310,7 @@ export const StudyCycleContent: React.FC = () => {
         
         <>
           {/* Verificar se todas as matérias ativas foram estudadas no ciclo atual */}
-          {activeSubjects.length > 0 && activeSubjects.every(subject => {
-            const markedTopics = sessionMarks[subject.id] || new Set();
-            return markedTopics.size > 0 || subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
-          }) && (
-            <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-green-700 mb-2">🎉 Parabéns!</h2>
-                <p className="text-green-600 mb-4">
-                  Você concluiu todas as matérias ativas do ciclo atual! 
-                  Um novo ciclo será iniciado automaticamente quando você concluir a última sessão.
-                </p>
-              </div>
-            </div>
-          )}
+          {/* Mensagem removida para evitar confusão */}
           
           {renderSection(SubjectStatus.ACTIVE)}
           {renderSection(SubjectStatus.COMPLETED_CYCLE)}
@@ -358,13 +336,9 @@ export const StudyCycleContent: React.FC = () => {
         subjectName={subjectNotesModal.subjectName}
       />
 
-      {/* New Cycle Modal */}
-      <NewCycleModal
-        isOpen={newCycleModal.isOpen}
-        onClose={() => setNewCycleModal(prev => ({ ...prev, isOpen: false }))}
-        cycleNumber={newCycleModal.cycleNumber}
-        totalSubjects={newCycleModal.totalSubjects}
-      />
+      {/* Modal removida */}
+
+
     </div>
   );
 };

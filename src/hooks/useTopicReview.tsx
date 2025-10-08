@@ -40,7 +40,7 @@ export const useTopicReview = () => {
       if (settingsError) throw settingsError;
 
       const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
-      const { intervals } = REVIEW_PROFILES[profile];
+      const { intervals, maxReviews } = REVIEW_PROFILES[profile];
 
       let newReviewCount = topic.review_count + 1;
       let reviewStage;
@@ -49,20 +49,23 @@ export const useTopicReview = () => {
 
       console.log('🔵 Calculando próximo estágio:', {
         newReviewCount,
+        maxReviews,
         intervalsLength: intervals.length,
         intervals
       });
 
-      // Calcular próximo estágio de revisão - CORRIGIDO
-      if (newReviewCount <= intervals.length) {
+      // Calcular próximo estágio de revisão usando maxReviews
+      if (newReviewCount <= maxReviews) {
         const nextInterval = intervals[newReviewCount - 1];
         reviewStage = nextInterval === 1 ? '24h' : `${nextInterval}d`;
         const nextReviewDate = new Date();
         nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
         nextReview = nextReviewDate.toISOString();
-        completed = false; // Ainda não concluído
+        
+        // Se é a última revisão do perfil, marcar como concluído
+        completed = (newReviewCount === maxReviews);
       } else {
-        // Quando excede o número de intervalos definidos, marca como concluído
+        // Quando excede o número máximo de revisões, marca como concluído
         reviewStage = 'Concluído';
         nextReview = null;
         completed = true;
@@ -126,6 +129,10 @@ export const useTopicReview = () => {
       // Não chamar refreshData aqui se usado dentro de uma sessão
       // O refresh será feito pelo componente que gerencia a sessão
       console.log('🔵 Revisão processada sem refresh automático');
+      
+      // Disparar evento para atualizar estatísticas imediatamente
+      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      
       toastManager.success('Revisão registrada com sucesso!', {
         duration: 3000,
         id: 'review-success'

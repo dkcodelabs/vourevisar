@@ -165,6 +165,9 @@ export const useStudyCycle = () => {
       } else {
         toast.success('Matéria pulada!');
       }
+      
+      // Disparar evento para atualizar estatísticas imediatamente
+      window.dispatchEvent(new CustomEvent('cycleUpdated'));
     } catch (error) {
       console.error('❌ Erro ao concluir sessão:', error);
       toast.error('Erro ao concluir sessão');
