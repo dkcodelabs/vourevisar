@@ -13,24 +13,33 @@ export const CycleStats: React.FC = () => {
     
     loadStats();
     
-    // Escutar evento de atualização do ciclo para atualizar imediatamente
-    const handleCycleUpdate = () => {
-      console.log('🔄 CycleStats: Evento cycleUpdated recebido, recarregando stats...');
-      // Limpar stats atual para forçar re-render
-      setStats(null);
-      // Pequeno delay para garantir que os dados foram atualizados no banco
+    // Sistema controlado de eventos para evitar loops infinitos
+    let lastStatsUpdateTime = 0;
+    const STATS_DEBOUNCE_TIME = 1000; // 1 segundo
+    
+    const handleCycleUpdate = (event: any) => {
+      const now = Date.now();
+      
+      // Debounce: ignorar eventos muito próximos
+      if (now - lastStatsUpdateTime < STATS_DEBOUNCE_TIME) {
+        console.log('🚫 Evento cycleUpdated ignorado no CycleStats - debounce ativo');
+        return;
+      }
+      
+      lastStatsUpdateTime = now;
+      console.log('🔄 CycleStats: Processando evento cycleUpdated');
+      
+      // Recarregar stats após um delay
       setTimeout(() => {
         loadStats();
-      }, 300);
+      }, 500);
     };
     
     window.addEventListener('cycleUpdated', handleCycleUpdate);
     
-    // Recarregar stats a cada 5 segundos como backup (reduzido de 1s)
-    const interval = setInterval(loadStats, 5000);
+    // Polling removido - apenas eventos
     
     return () => {
-      clearInterval(interval);
       window.removeEventListener('cycleUpdated', handleCycleUpdate);
     };
   }, [getCycleStats]);

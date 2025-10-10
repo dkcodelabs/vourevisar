@@ -11,6 +11,8 @@ export const useSubjectOperations = (
   const addSubject = async (subjectData: Omit<Subject, 'id'>) => {
     if (!user) return;
 
+    console.log('🔵 addSubject iniciado:', { subjectData, userId: user.id });
+
     try {
       const { data, error } = await supabase
         .from('subjects')
@@ -24,12 +26,18 @@ export const useSubjectOperations = (
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro no insert:', error);
+        throw error;
+      }
+
+      console.log('✅ Matéria inserida com sucesso:', data);
 
       await loadSubjects();
+      console.log('✅ loadSubjects executado');
       // Removido toast para não roubar foco
     } catch (error: any) {
-      console.error('Error adding subject:', error);
+      console.error('❌ Error adding subject:', error);
       // Removido toast, deixar o componente lidar com erros
       throw error;
     }

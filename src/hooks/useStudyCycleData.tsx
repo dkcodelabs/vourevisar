@@ -204,11 +204,54 @@ export const useStudyCycleData = () => {
     loadUserCycle();
   }, [user]);
 
+  // Auto-adicionar matérias novas ao ciclo
+  useEffect(() => {
+    const addNewSubjectsToCycle = async () => {
+      if (!user || !userCycle?.ciclo_atual || subjects.length === 0) return;
+      
+      // Encontrar matérias que não estão no ciclo
+      const subjectsNotInCycle = subjects.filter(subject => 
+        !userCycle.ciclo_atual.includes(subject.id) && 
+        subject.status !== 'Concluída'
+      );
+      
+      if (subjectsNotInCycle.length > 0) {
+        console.log('🔄 Adicionando matérias novas ao ciclo:', subjectsNotInCycle.map(s => s.name));
+        
+        // Adicionar as novas matérias ao ciclo
+        const newSubjectIds = subjectsNotInCycle.map(s => s.id);
+        const updatedCycle = [...userCycle.ciclo_atual, ...newSubjectIds];
+        
+        try {
+          const { error } = await supabase
+            .from('user_cycles')
+            .update({
+              ciclo_atual: updatedCycle,
+              atualizado_em: new Date().toISOString()
+            })
+            .eq('user_id', user.id);
+          
+          if (!error) {
+            // Atualizar o estado local
+            setUserCycle(prev => prev ? { ...prev, ciclo_atual: updatedCycle } : null);
+          }
+        } catch (error) {
+          console.error('Erro ao adicionar matérias ao ciclo:', error);
+        }
+      }
+    };
+    
+    addNewSubjectsToCycle();
+  }, [user, subjects, userCycle?.ciclo_atual]);
+
   // Get daily subjects with views
   const dailySubjectsWithViews = useDailySubjectsWithViews(subjects, userCycle);
 
   // Transform subjects from database to study cycle format, considering views
   const studyCycleSubjects = useMemo(() => {
+    // Evitar logs excessivos - só logar quando necessário
+    if (subjects.length === 0) return [];
+
     if (!userCycle?.ciclo_atual) {
       // Fallback to regular subjects if no cycle
       return subjects.map(mapSubjectToStudyCycleSubject);
@@ -481,7 +524,7 @@ export const useStudyCycleData = () => {
     } catch (error) {
       console.error('Erro ao recarregar ciclo:', error);
     }
-  }, [user, refreshData]); // Incluir refreshData mas sem causar loops
+  }, [user]); // Remover refreshData para evitar loops
 
   return {
     studyCycleSubjects,

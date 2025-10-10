@@ -1,14 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UserCycle } from '@/types';
 import { updateStudiedSubjects, addStudiedSubject, resetCycle, isSubjectStudiedGlobal } from '@/utils/cycleState';
 
+// Sistema de controle de eventos para evitar loops infinitos
+let isProcessingCycleUpdate = false;
+let lastEventTime = 0;
+const EVENT_DEBOUNCE_TIME = 1000; // 1 segundo
+
 export const useCycleStatus = () => {
   const { user } = useAuth();
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const reloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Carregar dados do ciclo
   const loadCycle = useCallback(async () => {
@@ -43,11 +49,17 @@ export const useCycleStatus = () => {
     setIsLoading(true);
     try {
       // SEMPRE buscar estado atual do banco para evitar dados desatualizados
+      console.log('🔍 Buscando dados frescos do ciclo...');
       const { data: freshCycle, error: cycleError } = await supabase
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
+      
+      console.log('🔍 Dados frescos carregados:', {
+        ciclos_realizados: freshCycle?.ciclos_realizados,
+        materias_estudadas_ciclo: freshCycle?.materias_estudadas_ciclo
+      });
       
       if (cycleError || !freshCycle) {
         console.error('❌ Erro ao buscar ciclo atual:', cycleError);
@@ -80,14 +92,33 @@ export const useCycleStatus = () => {
         const subject = allSubjects.find(s => s.id === id);
         if (!subject) return;
         
-        // Verificar se está 100% concluída (TODOS os tópicos devem estar concluídos)
+        // Verificar se está 100% concluída (TODOS os tópicos devem estar na última revisão OU completed)
         if (subject.topics && subject.topics.length > 0) {
-          const allTopicsCompleted = subject.topics.every(topic =>
-            topic.reviewStage === 'Concluído' || topic.completed === true
-          );
+          const allTopicsCompleted = subject.topics.every(topic => {
+            // Considerar concluído se:
+            // 1. reviewStage é 'Concluído' OU
+            // 2. completed é true OU  
+            // 3. reviewStage é a última revisão possível (60d ou superior)
+            return topic.reviewStage === 'Concluído' || 
+                   topic.completed === true ||
+                   topic.reviewStage === '60d';
+          });
+          
+          console.log(`🔍 Verificação de conclusão - ${subject.name}:`, {
+            totalTopics: subject.topics.length,
+            topics: subject.topics.map(t => ({
+              name: t.name,
+              reviewStage: t.reviewStage,
+              completed: t.completed,
+              isCompleted: t.reviewStage === 'Concluído' || t.completed === true || t.reviewStage === '60d'
+            })),
+            allTopicsCompleted,
+            willBeRemoved: allTopicsCompleted
+          });
           
           if (allTopicsCompleted) {
             completedSubjectsInCurrentCycle.push(id);
+            console.log(`✅ Matéria ${subject.name} será removida do ciclo (100% concluída)`);
             return;
           }
         }
@@ -150,6 +181,7 @@ export const useCycleStatus = () => {
       // Log removido para otimização
       
       let updateData: any;
+      let newCycleNumberForEvent: number | undefined;
 
       if (isLastActiveSubject) {
         // É a última matéria - iniciar novo ciclo
@@ -164,6 +196,10 @@ export const useCycleStatus = () => {
           novoCiclo: updateData.ciclos_realizados,
           calculo: `${freshCycle.ciclos_realizados || 0} + 1 = ${updateData.ciclos_realizados}`
         });
+        
+        // CRÍTICO: Salvar o número do novo ciclo para usar no evento
+        newCycleNumberForEvent = updateData.ciclos_realizados;
+        console.log('🔍 Salvando número do novo ciclo para evento:', newCycleNumberForEvent);
         
         // Atualizar estado global
         resetCycle(updateData.ciclos_realizados);
@@ -247,32 +283,117 @@ export const useCycleStatus = () => {
         setUserCycle(updatedCycle);
         console.log('🔄 Estado local atualizado:', updatedCycle);
         
-        // Se foi iniciado um novo ciclo, mostrar notificação
+        // CRÍTICO: Atualizar estado global imediatamente
+        console.log('🔄 Atualizando estado global com:', updatedCycle.materias_estudadas_ciclo);
+        updateStudiedSubjects(updatedCycle.materias_estudadas_ciclo || []);
+        
+        // CRÍTICO: Forçar re-render de todos os componentes que usam isSubjectStudied
+        console.log('🔄 Forçando re-render de componentes...');
+        
+        // Forçar atualização do estado local para garantir re-render
+        setUserCycle(null); // Limpar primeiro
+        setTimeout(() => {
+          setUserCycle(updatedCycle); // Definir novamente para forçar re-render
+          console.log('🔄 Estado local forçadamente atualizado para re-render');
+        }, 50);
+        
+        // LÓGICA SIMPLIFICADA: Verificar se estudos foram concluídos antes de disparar novo ciclo
         if (isLastActiveSubject) {
-          // Verificar se ainda há matérias ativas para estudar
-          const hasActiveSubjects = activeSubjectsInCurrentCycle.length > 0;
+          // CRÍTICO: Verificar se todos os estudos foram concluídos ANTES de disparar novo ciclo
+          const { data: allUserSubjects } = await supabase
+            .from('subjects')
+            .select(`
+              id,
+              name,
+              topics:topics(id, completed)
+            `)
+            .eq('user_id', user.id);
           
-          if (hasActiveSubjects) {
-            console.log('🔔 DISPARANDO MENSAGEM DE NOVO CICLO');
-            toast.success(`🎉 Parabéns! Ciclo #${updatedCycle.ciclos_realizados} iniciado!`);
+          if (allUserSubjects && allUserSubjects.length > 0) {
+            const areAllStudiesCompleted = allUserSubjects.every(subject => 
+              subject.topics && subject.topics.length > 0 && 
+              subject.topics.every(topic => topic.completed === true)
+            );
             
-            // Modal removida - apenas toast
-          } else {
-            // Todas as matérias foram concluídas - NÃO disparar evento de novo ciclo
-            console.log('🎊 Todos os estudos foram concluídos!');
-            console.log('🔔 DISPARANDO MENSAGEM DE ESTUDOS CONCLUÍDOS');
-            toast.success('🎊 Parabéns! Você concluiu todos os estudos!');
+            console.log('🔍 Verificação final no useCycleStatus:', {
+              totalSubjects: allUserSubjects.length,
+              areAllStudiesCompleted,
+              subjectsStatus: allUserSubjects.map(s => ({
+                name: s.name,
+                totalTopics: s.topics?.length || 0,
+                completedTopics: s.topics?.filter(t => t.completed).length || 0,
+                allCompleted: s.topics?.every(t => t.completed) || false
+              }))
+            });
             
-            // Disparar evento especial (sem modal)
-            window.dispatchEvent(new CustomEvent('allStudiesCompleted'));
+            if (areAllStudiesCompleted) {
+              console.log('🚫 NÃO disparando novo ciclo - todos os estudos foram concluídos');
+              return true; // Sair sem disparar evento de novo ciclo
+            }
           }
+          
+          console.log('🔔 DISPARANDO MENSAGEM DE NOVO CICLO');
+          console.log(`🎉 Novo ciclo iniciado - última matéria do ciclo completada`);
+          // A mensagem de novo ciclo é exibida pelo componente StudyCycleContent
         }
       }
       
-      // Forçar atualização de todos os componentes com pequeno delay
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('cycleUpdated'));
-      }, 100);
+      // CRÍTICO: Sistema controlado de eventos para evitar loops infinitos
+      if (!isProcessingCycleUpdate) {
+        isProcessingCycleUpdate = true;
+        
+        // Limpar timeout anterior se existir
+        if (reloadTimeoutRef.current) {
+          clearTimeout(reloadTimeoutRef.current);
+        }
+        
+        // Disparar eventos de forma controlada
+        reloadTimeoutRef.current = setTimeout(() => {
+          console.log('🔄 Disparando eventos de atualização de ciclo (controlado)');
+          
+          // Disparar apenas um evento principal
+          const newCycleNumber = isLastActiveSubject && typeof newCycleNumberForEvent !== 'undefined' 
+            ? newCycleNumberForEvent 
+            : updatedCycle?.ciclos_realizados || 0;
+            
+          console.log('🔍 Disparando evento cycleUpdated com número do ciclo:', {
+            isNewCycle: isLastActiveSubject,
+            newCycleNumber,
+            newCycleNumberForEvent: typeof newCycleNumberForEvent !== 'undefined' ? newCycleNumberForEvent : 'undefined',
+            updatedCycleCiclosRealizados: updatedCycle?.ciclos_realizados
+          });
+          
+          window.dispatchEvent(new CustomEvent('cycleUpdated', {
+            detail: { 
+              isNewCycle: isLastActiveSubject,
+              subjectId,
+              subjectName,
+              newCycleNumber,
+              timestamp: Date.now(),
+              forceRerender: true
+            }
+          }));
+          
+          // Se é novo ciclo, disparar evento adicional para forçar re-render
+          if (isLastActiveSubject) {
+            setTimeout(() => {
+              console.log('🔄 Disparando evento de força re-render para novo ciclo');
+              window.dispatchEvent(new CustomEvent('forceComponentRerender', {
+                detail: { reason: 'newCycle', timestamp: Date.now() }
+              }));
+            }, 100);
+          }
+          
+          // Reset do controle após um tempo
+          setTimeout(() => {
+            isProcessingCycleUpdate = false;
+            console.log('🔄 Sistema de controle de eventos resetado');
+          }, 2000);
+          
+        }, 500); // Delay único de 500ms
+      } else {
+        console.log('🚫 Evento de ciclo ignorado - já processando atualização');
+      }
       
       // Dados recarregados
       
@@ -288,17 +409,27 @@ export const useCycleStatus = () => {
 
   // Verificar se uma matéria foi estudada no ciclo atual (usando estado global)
   const isSubjectStudied = useCallback((subjectId: string): boolean => {
-    // Usar estado global para resposta imediata
-    const globalResult = isSubjectStudiedGlobal(subjectId);
+    // CRÍTICO: Se não há dados do ciclo, considerar não estudada (false = laranja)
+    if (!userCycle) {
+      console.log(`🔍 isSubjectStudied(${subjectId}): userCycle é null, retornando false`);
+      return false;
+    }
     
-    // Fallback para dados do banco se estado global não tiver
-    const dbResult = userCycle?.materias_estudadas_ciclo?.includes(subjectId) || false;
+    if (!userCycle.materias_estudadas_ciclo) {
+      console.log(`🔍 isSubjectStudied(${subjectId}): materias_estudadas_ciclo é null, retornando false`);
+      return false;
+    }
     
-    const result = globalResult || dbResult;
+    // Usar apenas dados do banco (mais confiável que estado global)
+    const dbResult = userCycle.materias_estudadas_ciclo.includes(subjectId);
     
-    // Log removido para evitar spam
+    console.log(`🔍 isSubjectStudied(${subjectId}):`, {
+      materias_estudadas_ciclo: userCycle.materias_estudadas_ciclo,
+      dbResult,
+      ciclo_numero: userCycle.ciclos_realizados
+    });
     
-    return result;
+    return dbResult;
   }, [userCycle]);
 
   // Obter próxima matéria sugerida (primeira não estudada e não concluída)
@@ -372,7 +503,7 @@ export const useCycleStatus = () => {
   const getCycleStats = useCallback(async () => {
     if (!user) return null;
     
-    console.log('🔄 getCycleStats: Buscando estatísticas atualizadas...');
+    // Log removido para evitar spam
     
     try {
       // Buscar dados frescos do ciclo atual
@@ -422,12 +553,7 @@ export const useCycleStatus = () => {
       const currentCycle = freshUserCycle.ciclo_atual || [];
       const cleanedCycle = currentCycle.filter(id => !completedSubjectIds.includes(id));
       
-      console.log('🧹 Limpeza do ciclo:', {
-        completedSubjects: completedSubjects.map(s => ({ id: s.id, name: s.name })),
-        currentCycle: currentCycle.length,
-        cleanedCycle: cleanedCycle.length,
-        removedSubjects: currentCycle.length - cleanedCycle.length
-      });
+      // Log removido para evitar spam
       
       // Se o ciclo foi limpo, atualizar no banco
       if (cleanedCycle.length !== currentCycle.length) {
@@ -483,7 +609,7 @@ export const useCycleStatus = () => {
         completedSubjectIds: completedSubjects.map(s => s.id)
       };
       
-      console.log('📊 getCycleStats: Estatísticas calculadas:', stats);
+      // Log removido para evitar spam
       
       // Limpeza forçada removida para evitar loops infinitos
       // A limpeza já é feita na lógica principal acima
@@ -499,8 +625,36 @@ export const useCycleStatus = () => {
   useEffect(() => {
     loadCycle();
     
-    // Listener removido para evitar loops
-  }, [user]); // Manter apenas user como dependência
+    // Sistema de eventos com debounce para evitar loops infinitos
+    const handleCycleUpdate = (event: any) => {
+      const now = Date.now();
+      
+      // Debounce: ignorar eventos muito próximos
+      if (now - lastEventTime < EVENT_DEBOUNCE_TIME) {
+        console.log('🚫 Evento cycleUpdated ignorado - debounce ativo');
+        return;
+      }
+      
+      lastEventTime = now;
+      console.log('🔄 useCycleStatus: Processando evento cycleUpdated');
+      
+      // Recarregar dados após um pequeno delay
+      setTimeout(() => {
+        loadCycle();
+      }, 300);
+    };
+    
+    window.addEventListener('cycleUpdated', handleCycleUpdate);
+    
+    return () => {
+      window.removeEventListener('cycleUpdated', handleCycleUpdate);
+      
+      // Limpar timeout se o componente for desmontado
+      if (reloadTimeoutRef.current) {
+        clearTimeout(reloadTimeoutRef.current);
+      }
+    };
+  }, [user, loadCycle]);
 
   return {
     userCycle,

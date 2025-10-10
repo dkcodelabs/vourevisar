@@ -11,6 +11,9 @@ import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import AllStudiesCompletedCard from './AllStudiesCompletedCard';
 import { CycleStats } from '@/components/CycleStats';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
+
+import { AllStudiesCompletedBanner } from './AllStudiesCompletedBanner';
+import { CycleStatsModal } from './CycleStatsModal';
 // Modal removida - import desabilitado
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,29 +66,72 @@ export const StudyCycleContent: React.FC = () => {
     refreshCycleData
   } = useStudyCycleData();
 
-  // Escutar eventos de atualização do ciclo
+  // Sistema controlado de eventos para evitar loops infinitos
   useEffect(() => {
-    const handleCycleUpdate = () => {
-      refreshCycleData();
+    let lastUpdateTime = 0;
+    const UPDATE_DEBOUNCE_TIME = 1000; // 1 segundo
+    
+    const handleCycleUpdate = (event: any) => {
+      const now = Date.now();
+      
+      // CRÍTICO: Não aplicar debounce para eventos de novo ciclo
+      if (event.detail?.isNewCycle) {
+        console.log('📢 Novo ciclo detectado no StudyCycleContent (sem debounce)');
+        console.log('🔍 Debug do número do ciclo:', {
+          eventNewCycleNumber: event.detail?.newCycleNumber,
+          userCycleCiclosRealizados: userCycle?.ciclos_realizados,
+          fallback: 0
+        });
+        const cycleNumber = event.detail?.newCycleNumber || userCycle?.ciclos_realizados || 0;
+        console.log('🔍 Número do ciclo escolhido:', cycleNumber);
+        console.log('🔍 Número que será exibido na mensagem:', cycleNumber + 1);
+        setNewCycleNumber(cycleNumber);
+        setShowNewCycleMessage(true);
+        setTimeout(() => setShowNewCycleMessage(false), 8000);
+        
+        // Recarregar dados imediatamente para novo ciclo
+        setTimeout(() => {
+          refreshCycleData();
+        }, 300);
+        return; // Sair aqui para não aplicar debounce
+      }
+      
+      // Debounce apenas para eventos normais (não novo ciclo)
+      if (now - lastUpdateTime < UPDATE_DEBOUNCE_TIME) {
+        console.log('🚫 Evento cycleUpdated ignorado no StudyCycleContent - debounce ativo');
+        return;
+      }
+      
+      lastUpdateTime = now;
+      console.log('🔄 StudyCycleContent: Processando evento cycleUpdated');
+      
+      // Recarregar dados após um delay
+      setTimeout(() => {
+        refreshCycleData();
+      }, 300);
     };
     
-    const handleForceRefresh = () => {
-      console.log('🔄 Forçando refresh completo...');
-      refreshCycleData();
-    };
+
     
-    // Modal removida - evento desabilitado
+    const handleForceRerender = (event: any) => {
+      console.log('🔄 StudyCycleContent: Forçando re-render por evento externo', event.detail);
+      
+      // Forçar refresh imediato dos dados
+      refreshCycleData();
+      
+      // Forçar re-render do componente mudando a key
+      setForceRenderKey(prev => prev + 1);
+      console.log('🔄 Força re-render aplicada - key incrementada');
+    };
     
     window.addEventListener('cycleUpdated', handleCycleUpdate);
-    window.addEventListener('forceRefresh', handleForceRefresh);
-    // Modal removida - listener desabilitado
+    window.addEventListener('forceComponentRerender', handleForceRerender);
     
     return () => {
       window.removeEventListener('cycleUpdated', handleCycleUpdate);
-      window.removeEventListener('forceRefresh', handleForceRefresh);
-      // Modal removida - listener desabilitado
+      window.removeEventListener('forceComponentRerender', handleForceRerender);
     };
-  }, [refreshCycleData]);
+  }, []); // Sem dependências para evitar loops
 
   // Refresh cycle data when component mounts
   useEffect(() => {
@@ -96,13 +142,22 @@ export const StudyCycleContent: React.FC = () => {
     }
   }, []); // Executar apenas uma vez quando o componente monta
 
-  // Detectar quando um novo ciclo foi iniciado
+  // Detectar quando um novo ciclo foi iniciado (apenas se ainda há matérias ativas)
   useEffect(() => {
     if (userCycle && userCycle.ciclos_realizados !== null && userCycle.ciclos_realizados !== undefined) {
       if (previousCycleNumber !== null && userCycle.ciclos_realizados > previousCycleNumber) {
-        // Novo ciclo foi iniciado
-        setShowNewCycleMessage(true);
-        setTimeout(() => setShowNewCycleMessage(false), 8000); // Esconder após 8 segundos
+        // Verificar se ainda há matérias no ciclo (se não há, os estudos foram concluídos)
+        const hasActiveSubjects = userCycle.ciclo_atual && userCycle.ciclo_atual.length > 0;
+        
+        if (hasActiveSubjects) {
+          // Novo ciclo foi iniciado com matérias ativas
+          console.log('📢 Mostrando mensagem de novo ciclo na interface');
+          setShowNewCycleMessage(true);
+          setTimeout(() => setShowNewCycleMessage(false), 8000); // Esconder após 8 segundos
+        } else {
+          // Estudos foram concluídos - não mostrar mensagem de novo ciclo
+          console.log('📢 Estudos concluídos - não mostrando mensagem de novo ciclo');
+        }
       }
       setPreviousCycleNumber(userCycle.ciclos_realizados);
     }
@@ -128,12 +183,18 @@ export const StudyCycleContent: React.FC = () => {
   });
 
   const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
+  const [newCycleNumber, setNewCycleNumber] = useState<number | null>(null);
   const [previousCycleNumber, setPreviousCycleNumber] = useState<number | null>(null);
+  const [forceRenderKey, setForceRenderKey] = useState(0);
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [currentStats, setCurrentStats] = useState<any>(null);
   // Modal removida - estado desabilitado
 
   // Hook para status do ciclo
-  const { markSubjectAsStudied, isSubjectStudied } = useCycleStatus();
+  const { markSubjectAsStudied, isSubjectStudied, getCycleStats } = useCycleStatus();
   const { user } = useAuth();
+  
+
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_VIEW_KEY, viewMode);
@@ -188,6 +249,12 @@ export const StudyCycleContent: React.FC = () => {
     });
   }, []);
 
+  const handleOpenStatsModal = useCallback(async () => {
+    const stats = await getCycleStats();
+    setCurrentStats(stats);
+    setShowStatsModal(true);
+  }, [getCycleStats]);
+
   const topicToEdit = useMemo(() => {
     if (!editingTopic) return null;
     const subject = subjects.find(s => s.id === editingTopic.subjectId);
@@ -219,7 +286,7 @@ export const StudyCycleContent: React.FC = () => {
         <div className={containerClasses}>
           {sectionSubjects.map((subject) => (
             <StudyCycleSubjectCard
-              key={`${subject.id}-${subject.status}`}
+              key={`${subject.id}-${subject.status}-${forceRenderKey}`}
               subject={subject}
               onCompleteSession={handleCompleteSessionData}
               onOpenNotes={handleOpenNotes}
@@ -241,11 +308,16 @@ export const StudyCycleContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <main className="container mx-auto p-4 md:p-8 pr-[calc(1rem+15px)] md:pr-[calc(2rem+15px)]">
-        {/* Estatísticas do Ciclo */}
-        <div className="mb-6">
-          <CycleStats />
+        {/* Banner de Estudos Concluídos - Sempre visível quando todos estudos estão concluídos */}
+        {areAllStudiesCompleted && (
+          <AllStudiesCompletedBanner 
+            onResetComplete={() => {
+              refreshCycleData();
+            }}
+          />
+        )}
 
-        </div>
+
 
         {/* Mensagem de Novo Ciclo Iniciado */}
         {showNewCycleMessage && (
@@ -256,7 +328,7 @@ export const StudyCycleContent: React.FC = () => {
                 <div>
                   <h3 className="text-lg font-bold text-blue-700">Novo Ciclo Iniciado!</h3>
                   <p className="text-blue-600 text-sm">
-                    Ciclo #{userCycle?.ciclos_realizados || 0} foi iniciado com sucesso. 
+                    Ciclo #{(newCycleNumber || userCycle?.ciclos_realizados || 0) + 1} foi iniciado com sucesso. 
                     Todas as matérias foram resetadas para um novo ciclo de estudos.
                   </p>
                 </div>
@@ -270,8 +342,23 @@ export const StudyCycleContent: React.FC = () => {
             </div>
           </div>
         )}
+
+
         
-        <div className="flex justify-end items-center mb-6">
+        <div className="flex justify-between items-center mb-6">
+          {/* Botão de Estatísticas */}
+          <button
+            onClick={handleOpenStatsModal}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors border border-blue-200"
+            aria-label="Ver Estatísticas do Ciclo"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <span className="hidden sm:inline">Estatísticas</span>
+          </button>
+
+          <div className="flex items-center gap-2">
             {viewMode === 'list' && (
             <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
               <button
@@ -306,6 +393,7 @@ export const StudyCycleContent: React.FC = () => {
                 <ListIcon />
               </button>
             </div>
+          </div>
         </div>
         
         <>
@@ -336,8 +424,12 @@ export const StudyCycleContent: React.FC = () => {
         subjectName={subjectNotesModal.subjectName}
       />
 
-      {/* Modal removida */}
-
+      {/* Cycle Stats Modal */}
+      <CycleStatsModal
+        isOpen={showStatsModal}
+        onClose={() => setShowStatsModal(false)}
+        stats={currentStats}
+      />
 
     </div>
   );

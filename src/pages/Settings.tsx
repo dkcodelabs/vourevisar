@@ -630,47 +630,117 @@ const Settings = () => {
                             try {
                               console.log('🔄 Iniciando reset das revisões para usuário:', user.id);
                               
+                              // 1. Buscar todas as matérias do usuário
                               const { data: subjectsData, error: subjectsError } = await supabase
                                 .from('subjects')
                                 .select('id')
                                 .eq('user_id', user.id);
                               if (subjectsError) throw subjectsError;
                               const subjectIds = (subjectsData || []).map(s => s.id);
+                              console.log('🔄 Matérias encontradas:', subjectIds.length);
                               
+                              // 2. Resetar TODOS os campos de revisão dos tópicos
                               if (subjectIds.length > 0) {
-                                await supabase
+                                const { error: topicsError } = await supabase
                                   .from('topics')
                                   .update({
                                     review_stage: null,
                                     review_count: 0,
                                     next_review: null,
                                     last_reviewed_at: null,
-                                    completed: false
+                                    completed: false,
+                                    updated_at: new Date().toISOString()
                                   })
                                   .in('subject_id', subjectIds);
+                                
+                                if (topicsError) throw topicsError;
+                                console.log('✅ Tópicos resetados');
                               }
                               
-                              await supabase
+                              // 3. Resetar status das matérias
+                              const { error: subjectsUpdateError } = await supabase
                                 .from('subjects')
-                                .update({ status: 'Nova' })
+                                .update({ 
+                                  status: 'Nova',
+                                  updated_at: new Date().toISOString()
+                                })
                                 .eq('user_id', user.id);
                               
-                              await supabase
+                              if (subjectsUpdateError) throw subjectsUpdateError;
+                              console.log('✅ Status das matérias resetado');
+                              
+                              // 4. Resetar COMPLETAMENTE o ciclo do usuário
+                              const { error: cycleError } = await supabase
                                 .from('user_cycles')
                                 .update({
                                   ciclo_atual: [],
                                   disciplinas_do_dia: [],
+                                  materias_estudadas_ciclo: [], // CRÍTICO: Limpar matérias estudadas
                                   ciclos_realizados: 0,
                                   data_inicio_ciclo: null,
-                                  data_fim_ciclo: null
+                                  data_fim_ciclo: null,
+                                  atualizado_em: new Date().toISOString()
                                 })
                                 .eq('user_id', user.id);
                               
-                              toast.success("Revisões limpos!");
-                              setTimeout(() => window.location.reload(), 1000);
+                              if (cycleError) throw cycleError;
+                              console.log('✅ Ciclo resetado completamente');
+                              
+                              // 5. Deletar sessões de estudo (opcional, mas recomendado)
+                              const { error: sessionsError } = await supabase
+                                .from('study_sessions')
+                                .delete()
+                                .eq('user_id', user.id);
+                              
+                              if (sessionsError) {
+                                console.warn('⚠️ Erro ao deletar sessões (não crítico):', sessionsError);
+                              } else {
+                                console.log('✅ Sessões de estudo deletadas');
+                              }
+                              
+                              // 6. CRÍTICO: Limpar estado global do frontend
+                              console.log('🔄 Limpando estado global...');
+                              
+                              // Importar e usar as funções do cycleState
+                              const { updateStudiedSubjects, resetCycle } = await import('@/utils/cycleState');
+                              updateStudiedSubjects([]); // Limpar matérias estudadas
+                              resetCycle(0); // Resetar para ciclo 0
+                              
+                              // 7. Disparar eventos para atualizar componentes
+                              console.log('🔄 Disparando eventos de atualização...');
+                              window.dispatchEvent(new CustomEvent('cycleUpdated', {
+                                detail: { 
+                                  isReset: true,
+                                  reason: 'reviewsCleared',
+                                  timestamp: Date.now()
+                                }
+                              }));
+                              
+                              window.dispatchEvent(new CustomEvent('forceComponentRerender', {
+                                detail: { reason: 'reviewsCleared', timestamp: Date.now() }
+                              }));
+                              
+                              // 8. Atualizar contextos da aplicação
+                              console.log('🔄 Atualizando contextos...');
+                              await Promise.all([
+                                refreshData(), // Atualiza o contexto global
+                                fetchUserCycle(), // Atualiza o ciclo do usuário
+                                fetchUserSettingsContext(), // Atualiza as configurações
+                                checkHasReviews() // Atualiza o estado de revisões
+                              ]);
+                              
+                              console.log('✅ Reset das revisões concluído com sucesso');
+                              toast.success("Revisões limpas com sucesso! Sistema resetado para estado inicial.");
+                              
+                              // 9. Recarregar página após delay para garantir sincronização
+                              setTimeout(() => {
+                                console.log('🔄 Recarregando página para garantir sincronização...');
+                                window.location.reload();
+                              }, 1500);
+                              
                             } catch (err) {
-                              console.error('Erro ao limpar revisões:', err);
-                              toast.error("Erro ao limpar revisões.");
+                              console.error('❌ Erro ao limpar revisões:', err);
+                              toast.error(`Erro ao limpar revisões: ${err.message || 'Erro desconhecido'}`);
                             }
                           }
                         }}

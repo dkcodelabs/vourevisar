@@ -79,8 +79,16 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
       if (success) {
         console.log('✅ Matéria marcada como estudada com sucesso');
         
-        // Forçar atualização dos dados do ciclo
+        // CRÍTICO: Forçar múltiplas atualizações para garantir que o status visual seja atualizado
         window.dispatchEvent(new CustomEvent('forceRefresh'));
+        
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('cycleUpdated'));
+        }, 100);
+        
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('forceRefresh'));
+        }, 200);
       }
 
       console.log('✅ handleComplete concluído');
@@ -148,17 +156,18 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 flex-1 min-w-0">
                 <CycleStatusIndicator
+                  key={`${subject.id}-${Date.now()}`} // CRÍTICO: Forçar re-render com timestamp
                   isStudied={(() => {
                     const id = subject.originalId || subject.id;
-
-
 
                     // Se a matéria está 100% concluída, sempre verde
                     const isFullyCompleted = subject.topics.length > 0 && subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
                     if (isFullyCompleted) return true;
 
                     // Senão, verificar se foi estudada no ciclo atual
-                    return isSubjectStudied(id);
+                    const studied = isSubjectStudied(id);
+                    // Log removido para evitar spam
+                    return studied;
                   })()}
                   isNextSuggested={isNextSuggested(subject.originalId || subject.id)}
                   variant="dot"
@@ -229,17 +238,18 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   return (
     <div className={`${cardBaseClasses} flex flex-col ${focusClasses} relative`}>
       <CycleStatusIndicator
+        key={`${subject.id}-${Date.now()}`} // CRÍTICO: Forçar re-render com timestamp
         isStudied={(() => {
           const id = subject.originalId || subject.id;
-
-
 
           // Se a matéria está 100% concluída, sempre verde
           const isFullyCompleted = subject.topics.length > 0 && subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
           if (isFullyCompleted) return true;
 
           // Senão, verificar se foi estudada no ciclo atual
-          return isSubjectStudied(id);
+          const studied = isSubjectStudied(id);
+          console.log(`🔍 Status de ${subject.name}:`, { id, studied, isFullyCompleted });
+          return studied;
         })()}
         isNextSuggested={isNextSuggested(subject.originalId || subject.id)}
         variant="badge"

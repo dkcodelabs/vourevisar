@@ -123,6 +123,64 @@ export const useTopicReview = () => {
             .from('subjects')
             .update({ status: 'Concluída' })
             .eq('id', topic.subject_id);
+          
+          // VERIFICAÇÃO CRÍTICA: Após atualizar a matéria, verificar se TODOS os estudos foram concluídos
+          console.log('🔍 Verificando se todos os estudos foram concluídos...');
+          
+          const { data: allUserSubjects, error: subjectsError } = await supabase
+            .from('subjects')
+            .select(`
+              id,
+              name,
+              status,
+              topics:topics(id, completed, review_stage)
+            `)
+            .eq('user_id', user?.id);
+          
+          if (!subjectsError && allUserSubjects) {
+            // Verificar se TODAS as matérias estão 100% concluídas
+            const totalSubjects = allUserSubjects.length;
+            const fullyCompletedSubjects = allUserSubjects.filter(subject => {
+              if (!subject.topics || subject.topics.length === 0) return false;
+              
+              // Uma matéria está 100% concluída se TODOS os tópicos estão completed: true
+              const allTopicsCompleted = subject.topics.every(topic => topic.completed === true);
+              
+              console.log(`🔍 Matéria ${subject.name}:`, {
+                totalTopics: subject.topics.length,
+                completedTopics: subject.topics.filter(t => t.completed).length,
+                allTopicsCompleted
+              });
+              
+              return allTopicsCompleted;
+            });
+            
+            const areAllStudiesCompleted = fullyCompletedSubjects.length === totalSubjects && totalSubjects > 0;
+            
+            console.log('🔍 Análise final dos estudos:', {
+              totalSubjects,
+              fullyCompletedSubjects: fullyCompletedSubjects.length,
+              areAllStudiesCompleted,
+              completedSubjectNames: fullyCompletedSubjects.map(s => s.name)
+            });
+            
+            if (areAllStudiesCompleted) {
+              console.log('🎊 TODOS OS ESTUDOS FORAM CONCLUÍDOS!');
+              console.log('🔔 DISPARANDO MENSAGEM DE ESTUDOS CONCLUÍDOS');
+              
+              // Disparar evento para mostrar mensagem de estudos concluídos
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('studiesCompleted', {
+                  detail: { reason: 'allTopicsCompleted', timestamp: Date.now() }
+                }));
+                window.dispatchEvent(new CustomEvent('allStudiesCompleted', {
+                  detail: { reason: 'allTopicsCompleted', timestamp: Date.now() }
+                }));
+              }, 100);
+              
+              return; // Sair aqui para não disparar evento de ciclo
+            }
+          }
         }
       }
 
