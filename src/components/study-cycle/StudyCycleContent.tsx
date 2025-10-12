@@ -14,6 +14,8 @@ import { useCycleStatus } from '@/hooks/useCycleStatus';
 
 import { AllStudiesCompletedBanner } from './AllStudiesCompletedBanner';
 import { CycleStatsModal } from './CycleStatsModal';
+import { DailyStudyProgress } from './DailyStudyProgress';
+import { useDailyStudyProgress } from '@/hooks/useDailyStudyProgress';
 // Modal removida - import desabilitado
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -193,6 +195,9 @@ export const StudyCycleContent: React.FC = () => {
   // Hook para status do ciclo
   const { markSubjectAsStudied, isSubjectStudied, getCycleStats } = useCycleStatus();
   const { user } = useAuth();
+  
+  // Hook para progresso diário
+  const { saveStudySession } = useDailyStudyProgress();
 
   // Função para obter a posição no ciclo
   const getCyclePosition = useCallback((subjectId: string) => {
@@ -208,6 +213,56 @@ export const StudyCycleContent: React.FC = () => {
     
     return positions.length > 0 ? positions : null;
   }, [userCycle?.ciclo_atual]);
+
+  // Função modificada para integrar com sistema de progresso diário
+  const handleCompleteSessionWithProgress = useCallback(async (subjectId: string) => {
+    try {
+      console.log('🔄 Iniciando handleCompleteSessionWithProgress para:', subjectId);
+      
+      // 1. Executar lógica original do sistema
+      await handleCompleteSessionData(subjectId);
+      console.log('✅ handleCompleteSessionData concluído');
+
+      // 2. Salvar sessão no nosso sistema de progresso diário
+      const subject = subjects.find(s => s.id === subjectId);
+      const cyclePosition = getCyclePosition(subjectId);
+      const topicsStudied = Array.from(sessionMarks[subjectId] || []);
+
+      console.log('📊 Dados da sessão:', {
+        subject: subject?.name,
+        cyclePosition,
+        topicsStudied: topicsStudied.length,
+        user: !!user
+      });
+
+      if (subject && user) {
+        const sessionData = {
+          subjectId: subject.id,
+          subjectName: subject.name,
+          cyclePosition: cyclePosition?.[0] || 1,
+          topicsStudied,
+          completedAt: new Date().toISOString()
+        };
+
+        console.log('💾 Salvando sessão:', sessionData);
+        const success = await saveStudySession(sessionData);
+        
+        if (success) {
+          console.log('✅ Sessão salva com sucesso, disparando evento');
+          // Disparar evento para atualizar outros componentes
+          window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
+            detail: { subjectId, subjectName: subject.name }
+          }));
+        } else {
+          console.error('❌ Falha ao salvar sessão');
+        }
+      } else {
+        console.warn('⚠️ Dados insuficientes:', { subject: !!subject, user: !!user });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao completar sessão com progresso:', error);
+    }
+  }, [handleCompleteSessionData, subjects, getCyclePosition, sessionMarks, user, saveStudySession]);
   
 
 
@@ -305,7 +360,7 @@ export const StudyCycleContent: React.FC = () => {
               <StudyCycleSubjectCard
                 key={`${subject.id}-${subject.status}-${forceRenderKey}`}
                 subject={subject}
-                onCompleteSession={handleCompleteSessionData}
+                onCompleteSession={handleCompleteSessionWithProgress}
                 onOpenNotes={handleOpenNotes}
                 onSubjectNotesClick={() => handleOpenSubjectNotes(subject)}
                 isActionable={isActionableSection}
@@ -337,6 +392,20 @@ export const StudyCycleContent: React.FC = () => {
         )}
 
 
+
+        {/* Card de Progresso Diário */}
+        {!areAllStudiesCompleted && (
+          <DailyStudyProgress 
+            className="mb-6"
+            onSubjectClick={(subjectId) => {
+              // Scroll para a matéria clicada (opcional)
+              const element = document.getElementById(`subject-${subjectId}`);
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+          />
+        )}
 
         {/* Mensagem de Novo Ciclo Iniciado */}
         {showNewCycleMessage && (

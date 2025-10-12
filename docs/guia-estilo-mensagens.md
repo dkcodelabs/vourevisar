@@ -239,3 +239,72 @@ Exemplos:
 
 **Última atualização:** Outubro 2025
 **Versão:** 2.1 - Adicionadas mensagens de motivação e progresso expandidas
+
+---
+
+## 📊 Sistema "Estudo do Dia" - Abordagem Limpa (Opção B)
+
+**Filosofia:** Interface limpa e elegante que mantém o foco no essencial, coletando dados silenciosamente para análises futuras.
+
+### 🎯 Mensagens de Meta Diária
+
+**Quando meta é alcançada:**
+```
+✅ Meta diária concluída!
+```
+
+**Quando estudou além da meta:**
+```
+💪 Você estudou além da meta hoje
+Continue assim para acelerar seu progresso!
+```
+
+### 🧠 Princípios da Abordagem Limpa
+
+1. **Simplicidade Visual:** Usuário vê apenas o essencial
+2. **Feedback Claro:** Bolinhas verdes/laranjas mostram status das matérias
+3. **Coleta Silenciosa:** Sistema registra tudo internamente (horários, durações, padrões)
+4. **Foco no Essencial:** Sem números confusos ou percentuais desnecessários
+5. **Motivação Sutil:** Mensagens encorajadoras sem poluição visual
+
+### 📈 Dados Coletados Silenciosamente
+
+O sistema registra automaticamente:
+- Horário de cada estudo
+- Duração das sessões
+- Sequência de matérias estudadas
+- Padrões de produtividade
+- Dias da semana mais ativos
+- Horários de maior foco
+
+### 🔮 Funcionalidades Futuras Habilitadas
+
+Com os dados coletados, o sistema poderá oferecer:
+
+**Página de Estatísticas:**
+- Gráficos de produtividade
+- Heatmaps de horários
+- Análise de padrões
+
+**Insights Inteligentes:**
+- "Você estuda melhor às 14h"
+- "Matemática precisa de mais atenção"
+- "Sequência de 5 dias consecutivos!"
+
+**IA Preditiva:**
+- Sugestões de cronograma otimizado
+- Alertas de revisão baseados em padrões
+- Recomendações personalizadas
+
+### ✅ Vantagens da Abordagem
+
+- **Interface Limpa:** Sem poluição visual
+- **Foco no Essencial:** Usuário vê apenas o que importa
+- **Coleta Rica:** Dados completos para análises
+- **Escalabilidade:** Base para funcionalidades avançadas
+- **UX Superior:** Experiência fluida e intuitiva
+
+---
+
+**Implementação:** Dezembro 2025
+**Status:** Ativo - Opção B implementada
