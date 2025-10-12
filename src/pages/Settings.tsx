@@ -427,9 +427,17 @@ const Settings = () => {
                 <div className="space-y-4">
                   <div>
                     <h2 className="text-lg font-semibold">Perfil de Revisão</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Escolha o perfil que melhor se adapta ao seu ritmo de estudos e experiência.
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        Escolha o perfil que melhor se adapta ao seu ritmo de estudos e experiência.
+                      </p>
+                      <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
+                        <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <span>Atenção: Depois que a primeira revisão for marcada, o perfil ficará bloqueado para alterações. Para mudar de perfil, use o botão "Limpar Apenas Revisões" na aba Sistema.</span>
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="max-w-2xl">
@@ -441,8 +449,8 @@ const Settings = () => {
                     />
                     {hasReviews && (
                       <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded text-sm">
-                        <strong>Perfil bloqueado:</strong> Você possui revisões em andamento. 
-                        Complete todas as revisões para alterar o perfil.
+                        <strong>Perfil bloqueado:</strong> Há revisões em andamento. 
+                        Para alterar o perfil, use "Limpar Apenas Revisões" na aba Sistema.
                       </div>
                     )}
                   </div>

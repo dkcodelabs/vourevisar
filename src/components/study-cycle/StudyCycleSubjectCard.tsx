@@ -5,6 +5,7 @@ import { StudyCycleTopicItem } from './StudyCycleTopicItem';
 import { ChevronDownIcon } from './Icons';
 import { NotebookPen } from 'lucide-react';
 import { CycleStatusIndicator } from '@/components/CycleStatusIndicator';
+import { Badge } from '@/components/ui/badge';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +23,7 @@ interface StudyCycleSubjectCardProps {
   onToggleExpand: () => void;
   markedTopicIds: Set<string>;
   onToggleMark: (topicId: string) => void;
+  cyclePositions?: number[] | null;
 }
 
 const reviewProgression = [
@@ -43,11 +45,32 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   isExpanded,
   onToggleExpand,
   markedTopicIds,
-  onToggleMark
+  onToggleMark,
+  cyclePositions
 }) => {
   const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
   const { user } = useAuth();
   const isFullyCompleted = useMemo(() => subject.topics.every(t => t.reviewStatus === ReviewInterval.COMPLETED), [subject.topics]);
+
+  // Componente para renderizar as posições no ciclo
+  const CyclePositionBadges = () => {
+    if (!cyclePositions || cyclePositions.length === 0) return null;
+    
+    return (
+      <div className="flex flex-wrap gap-1">
+        {cyclePositions.map((position, index) => (
+          <Badge 
+            key={`${position}-${index}`}
+            variant="secondary" 
+            className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-semibold"
+            title={`Posição ${position} na sequência do ciclo`}
+          >
+            #{position}
+          </Badge>
+        ))}
+      </div>
+    );
+  };
 
   const progress = useMemo(() => {
     if (subject.topics.length === 0) return 0;
@@ -109,7 +132,10 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
       <div className="bg-card rounded-2xl shadow-md overflow-hidden flex flex-col">
         <div className="p-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-base text-card-foreground" style={{ fontWeight: 700 }}>{subject.name}</h3>
+            <div className="flex items-center space-x-2 flex-1 min-w-0">
+              <CyclePositionBadges />
+              <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
+            </div>
             <button
               onClick={onSubjectNotesClick}
               className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
@@ -172,6 +198,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                   isNextSuggested={isNextSuggested(subject.originalId || subject.id)}
                   variant="dot"
                 />
+                <CyclePositionBadges />
                 <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
               </div>
               <button
@@ -258,6 +285,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
       <div className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 flex-1 min-w-0">
+            <CyclePositionBadges />
             <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
           </div>
           <button

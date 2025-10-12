@@ -193,6 +193,21 @@ export const StudyCycleContent: React.FC = () => {
   // Hook para status do ciclo
   const { markSubjectAsStudied, isSubjectStudied, getCycleStats } = useCycleStatus();
   const { user } = useAuth();
+
+  // Função para obter a posição no ciclo
+  const getCyclePosition = useCallback((subjectId: string) => {
+    if (!userCycle?.ciclo_atual) return null;
+    
+    // Encontrar todas as ocorrências da matéria no ciclo
+    const positions: number[] = [];
+    userCycle.ciclo_atual.forEach((id: string, index: number) => {
+      if (id === subjectId) {
+        positions.push(index + 1);
+      }
+    });
+    
+    return positions.length > 0 ? positions : null;
+  }, [userCycle?.ciclo_atual]);
   
 
 
@@ -284,22 +299,26 @@ export const StudyCycleContent: React.FC = () => {
           </h2>
         </div>
         <div className={containerClasses}>
-          {sectionSubjects.map((subject) => (
-            <StudyCycleSubjectCard
-              key={`${subject.id}-${subject.status}-${forceRenderKey}`}
-              subject={subject}
-              onCompleteSession={handleCompleteSessionData}
-              onOpenNotes={handleOpenNotes}
-              onSubjectNotesClick={() => handleOpenSubjectNotes(subject)}
-              isActionable={isActionableSection}
-              isStudyFocus={false}
-              viewMode={viewMode}
-              isExpanded={expandedSubjects.has(subject.id)}
-              onToggleExpand={() => handleToggleExpand(subject.id)}
-              markedTopicIds={sessionMarks[subject.id] || new Set()}
-              onToggleMark={(topicId) => handleToggleMark(subject.id, topicId)}
-            />
-          ))}
+          {sectionSubjects.map((subject) => {
+            const cyclePositions = getCyclePosition(subject.originalId || subject.id);
+            return (
+              <StudyCycleSubjectCard
+                key={`${subject.id}-${subject.status}-${forceRenderKey}`}
+                subject={subject}
+                onCompleteSession={handleCompleteSessionData}
+                onOpenNotes={handleOpenNotes}
+                onSubjectNotesClick={() => handleOpenSubjectNotes(subject)}
+                isActionable={isActionableSection}
+                isStudyFocus={false}
+                viewMode={viewMode}
+                isExpanded={expandedSubjects.has(subject.id)}
+                onToggleExpand={() => handleToggleExpand(subject.id)}
+                markedTopicIds={sessionMarks[subject.id] || new Set()}
+                onToggleMark={(topicId) => handleToggleMark(subject.id, topicId)}
+                {...(cyclePositions && { cyclePositions })}
+              />
+            );
+          })}
         </div>
       </section>
     );

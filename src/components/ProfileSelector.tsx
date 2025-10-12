@@ -36,14 +36,7 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ selected, onSe
 
   return (
     <div className="flex flex-col items-center gap-6 sm:grid sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-      {!onboarding && (
-        <div className="w-full md:col-span-2 xl:col-span-3 mb-2">
-          <h3 className="text-lg font-medium text-gray-900">Perfil de Revisão</h3>
-          <p className="text-sm text-gray-500">
-            Escolha o perfil que melhor se adapta ao seu ritmo de estudos e experiência.
-          </p>
-        </div>
-      )}
+
       {Object.values(ReviewProfile).map((profileType) => {
         const profileConfig = REVIEW_PROFILES[profileType];
         const showIntervals = !isMobile || expanded[profileType];

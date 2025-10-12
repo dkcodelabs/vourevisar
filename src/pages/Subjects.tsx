@@ -162,6 +162,13 @@ const Subjects = () => {
     loadCycle();
   }, [user]); // Remover localSubjects da dependência para evitar loops
   
+  // Função auxiliar para obter a posição no ciclo
+  const getCyclePosition = (itemId: string) => {
+    if (!userCycle?.ciclo_atual) return null;
+    const position = expandedSubjectList.findIndex(item => item.id === itemId);
+    return position >= 0 ? position + 1 : null;
+  };
+
   // Criar lista expandida de matérias com visualizações usando useMemo
   const expandedSubjectList = useMemo(() => {
     if (!userCycle?.ciclo_atual || !localSubjects.length) {
@@ -385,7 +392,6 @@ const Subjects = () => {
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reordered = arrayMove(expandedSubjectList, oldIndex, newIndex);
-    setExpandedSubjectList(reordered);
 
     try {
       // Reconstruir ciclo_atual baseado na nova ordem
@@ -687,6 +693,19 @@ const Subjects = () => {
                                                    isNextSuggested={isNextSuggested(subject.id, subject)}
                                                    variant="dot"
                                                  />
+                                                 {/* Número da sequência no ciclo */}
+                                                 {(() => {
+                                                   const position = getCyclePosition(item.id);
+                                                   return position ? (
+                                                     <Badge 
+                                                       variant="secondary" 
+                                                       className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-semibold"
+                                                       title={`Posição ${position} na sequência do ciclo`}
+                                                     >
+                                                       #{position}
+                                                     </Badge>
+                                                   ) : null;
+                                                 })()}
                                                  <h3 className="font-semibold text-lg truncate">{subject.name}</h3>
                                                </div>
                                                {isView && (
@@ -886,6 +905,19 @@ const Subjects = () => {
                                                  isNextSuggested={isNextSuggested(subject.id, subject)}
                                                  variant="dot"
                                                />
+                                               {/* Número da sequência no ciclo - Mobile */}
+                                               {(() => {
+                                                 const position = getCyclePosition(item.id);
+                                                 return position ? (
+                                                   <Badge 
+                                                     variant="secondary" 
+                                                     className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-semibold"
+                                                     title={`Posição ${position} na sequência do ciclo`}
+                                                   >
+                                                     #{position}
+                                                   </Badge>
+                                                 ) : null;
+                                               })()}
                                                <h3 className="font-semibold text-lg truncate flex-1">{subject.name}</h3>
                                                {isView && (
                                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">
