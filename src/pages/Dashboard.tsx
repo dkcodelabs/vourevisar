@@ -14,6 +14,7 @@ import { SubjectOverview } from '@/components/dashboard/SubjectOverview';
 import { CalendarAndStats } from '@/components/dashboard/CalendarAndStats';
 import { StreakVisualBar } from '@/components/dashboard/StreakVisualBar';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
+import { CompactSubjectAccordion } from '@/components/dashboard/CompactSubjectAccordion';
 import GeneralNotesModal from '@/components/GeneralNotesModal';
 import NotesModal from '@/components/reviews/NotesModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
@@ -315,11 +316,11 @@ const Dashboard = () => {
               onDayClick={(date) => setSelectedCalendarDate(date)}
             />
 
-            {/* Visão por Matéria */}
-            <SubjectOverview subjects={subjects} />
-
             {/* Calendário e Estatísticas */}
             <CalendarAndStats subjects={subjects} reviewData={reviewData} />
+
+            {/* Visão Compacta por Matéria - Movido para o final */}
+            <CompactSubjectAccordion subjects={subjects} />
 
             {/* Modal do Calendário de Streak */}
             <StreakCalendarModal

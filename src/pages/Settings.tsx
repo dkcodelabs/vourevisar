@@ -414,9 +414,10 @@ const Settings = () => {
           )}
 
           <Tabs defaultValue="estudos" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="estudos">Estudos</TabsTrigger>
               <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
+              <TabsTrigger value="informacoes">Informações</TabsTrigger>
               <TabsTrigger value="sistema">Sistema</TabsTrigger>
             </TabsList>
 
@@ -593,6 +594,179 @@ const Settings = () => {
                       >
                         {isSaving ? 'Salvando...' : 'Salvar Configurações'}
                       </GradientButton>
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
+            </TabsContent>
+
+            {/* Aba Informações */}
+            <TabsContent value="informacoes" className="space-y-4">
+              <GlassCard className="p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-lg font-semibold">Como Funcionam as Porcentagens</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Entenda como são calculadas as porcentagens de progresso das suas matérias.
+                    </p>
+                  </div>
+
+                  {/* Categorização Geral */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100">Categorias de Status</h3>
+                    <div className="grid gap-3">
+                      <div className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                        <span className="text-2xl">🎯</span>
+                        <div>
+                          <div className="font-medium text-emerald-800 dark:text-emerald-200">100% - Dominada</div>
+                          <div className="text-sm text-emerald-600 dark:text-emerald-400">Todas as revisões do perfil foram completadas</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <span className="text-2xl">⚡</span>
+                        <div>
+                          <div className="font-medium text-blue-800 dark:text-blue-200">60-99% - Progredindo</div>
+                          <div className="text-sm text-blue-600 dark:text-blue-400">Boa parte das revisões já foi feita</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                        <span className="text-2xl">⚠️</span>
+                        <div>
+                          <div className="font-medium text-orange-800 dark:text-orange-200">40-59% - Precisa Atenção</div>
+                          <div className="text-sm text-orange-600 dark:text-orange-400">Algumas revisões feitas, mas precisa de mais foco</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <span className="text-2xl">🚨</span>
+                        <div>
+                          <div className="font-medium text-red-800 dark:text-red-200">0-39% - Crítica</div>
+                          <div className="text-sm text-red-600 dark:text-red-400">Poucas ou nenhuma revisão feita</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Perfis de Revisão */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100">Porcentagens por Perfil de Revisão</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Cada perfil tem um número diferente de revisões, o que afeta como a porcentagem é calculada.
+                    </p>
+                    
+                    <div className="grid gap-4 md:grid-cols-3">
+                      {/* Iniciante */}
+                      <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xl">🌟</span>
+                          <h4 className="font-medium">Iniciante</h4>
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          6 revisões por tópico
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>6/6 revisões:</span>
+                            <span className="font-medium text-emerald-600">100% 🎯</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>4-5 revisões:</span>
+                            <span className="font-medium text-blue-600">67-83% ⚡</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>2-3 revisões:</span>
+                            <span className="font-medium text-orange-600">33-50% ⚠️</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>0-1 revisões:</span>
+                            <span className="font-medium text-red-600">0-17% 🚨</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Intermediário */}
+                      <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xl">🚀</span>
+                          <h4 className="font-medium">Intermediário</h4>
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          4 revisões por tópico
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>4/4 revisões:</span>
+                            <span className="font-medium text-emerald-600">100% 🎯</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>3 revisões:</span>
+                            <span className="font-medium text-blue-600">75% ⚡</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>2 revisões:</span>
+                            <span className="font-medium text-orange-600">50% ⚠️</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>0-1 revisões:</span>
+                            <span className="font-medium text-red-600">0-25% 🚨</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Avançado */}
+                      <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xl">💎</span>
+                          <h4 className="font-medium">Avançado</h4>
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          3 revisões por tópico
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>3/3 revisões:</span>
+                            <span className="font-medium text-emerald-600">100% 🎯</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>2 revisões:</span>
+                            <span className="font-medium text-blue-600">67% ⚡</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>1 revisão:</span>
+                            <span className="font-medium text-orange-600">33% ⚠️</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>0 revisões:</span>
+                            <span className="font-medium text-red-600">0% 🚨</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Como é Calculado */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100">Como é Calculado</h3>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <strong>1. Para cada tópico:</strong> (Revisões feitas ÷ Revisões do perfil) × 100
+                        </div>
+                        <div>
+                          <strong>2. Para a matéria:</strong> Média de todos os tópicos
+                        </div>
+                        <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                          <strong>Exemplo:</strong> Matéria com 2 tópicos (Perfil Intermediário)
+                          <br />
+                          • Tópico A: 4/4 revisões = 100%
+                          <br />
+                          • Tópico B: 2/4 revisões = 50%
+                          <br />
+                          • <strong>Resultado:</strong> (100% + 50%) ÷ 2 = 75% - Progredindo ⚡
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -198,6 +198,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
     const [isLoadingAllNotes, setIsLoadingAllNotes] = useState(false);
     const [activeTab, setActiveTab] = useState('notes');
     const [isTemporarilyHidden, setIsTemporarilyHidden] = useState(false);
+    const [hasLoadedNotes, setHasLoadedNotes] = useState(false);
 
     const loadGeneralNotes = useCallback(async () => {
         if (!user) return;
@@ -247,7 +248,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                 .from('general_reminders')
                 .select('*')
                 .eq('user_id', user.id)
-                .order('reminder_date', { ascending: true });
+                .order('created_at', { ascending: false });
 
             if (error) throw error;
 
@@ -284,6 +285,8 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
             setNewReminderText('');
             // Resetar estado de ocultação
             setIsTemporarilyHidden(false);
+            // Resetar flag de carregamento para permitir recarregar na próxima vez
+            setHasLoadedNotes(false);
         }
     }, [isOpen, user, loadGeneralNotes, loadReminders]);
 
@@ -393,14 +396,36 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                     .filter(topic => {
                         const hasNotes = !!topic.notes;
                         let notesContent = '';
+                        
+                        console.log(`🔍 Debug tópico ${topic.name}:`, {
+                            hasNotes,
+                            notesType: typeof topic.notes,
+                            notesValue: topic.notes,
+                            notesKeys: topic.notes && typeof topic.notes === 'object' ? Object.keys(topic.notes) : null
+                        });
+                        
                         if (typeof topic.notes === 'string') {
                             notesContent = topic.notes;
                         } else if (topic.notes && typeof topic.notes === 'object') {
-                            notesContent = (topic.notes as any)?.content || '';
+                            // Tentar diferentes propriedades possíveis
+                            const notesObj = topic.notes as any;
+                            notesContent = notesObj?.content || notesObj?.text || notesObj?.notes || JSON.stringify(notesObj);
                         }
 
-                        const contentNotEmpty = hasNotes && notesContent && notesContent.trim() !== '';
-                        console.log(`🔍 Tópico ${topic.name}:`, { hasNotes, contentNotEmpty });
+                        // Remover tags HTML e verificar se há conteúdo real
+                        const cleanContent = notesContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+                        
+                        // Verificar se não é apenas um objeto vazio serializado
+                        const isEmptyObject = notesContent === '{}' || notesContent === 'null' || notesContent === 'undefined';
+                        const contentNotEmpty = hasNotes && cleanContent && cleanContent !== '' && !isEmptyObject;
+                        
+                        console.log(`🔍 Tópico ${topic.name}:`, { 
+                            hasNotes, 
+                            notesContent: notesContent.substring(0, 100),
+                            cleanContent: cleanContent.substring(0, 100),
+                            isEmptyObject,
+                            contentNotEmpty 
+                        });
                         return contentNotEmpty;
                     })
                     .map(topic => {
@@ -408,7 +433,8 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                         if (typeof topic.notes === 'string') {
                             content = topic.notes;
                         } else if (topic.notes && typeof topic.notes === 'object') {
-                            content = (topic.notes as any)?.content || '';
+                            const notesObj = topic.notes as any;
+                            content = notesObj?.content || notesObj?.text || notesObj?.notes || JSON.stringify(notesObj);
                         }
 
                         return {
@@ -431,14 +457,36 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                     .filter(subject => {
                         const hasNotes = !!subject.notes;
                         let notesContent = '';
+                        
+                        console.log(`🔍 Debug matéria ${subject.name}:`, {
+                            hasNotes,
+                            notesType: typeof subject.notes,
+                            notesValue: subject.notes,
+                            notesKeys: subject.notes && typeof subject.notes === 'object' ? Object.keys(subject.notes) : null
+                        });
+                        
                         if (typeof subject.notes === 'string') {
                             notesContent = subject.notes;
                         } else if (subject.notes && typeof subject.notes === 'object') {
-                            notesContent = (subject.notes as any)?.content || '';
+                            // Tentar diferentes propriedades possíveis
+                            const notesObj = subject.notes as any;
+                            notesContent = notesObj?.content || notesObj?.text || notesObj?.notes || JSON.stringify(notesObj);
                         }
 
-                        const contentNotEmpty = hasNotes && notesContent && notesContent.trim() !== '';
-                        console.log(`🔍 Matéria ${subject.name}:`, { hasNotes, contentNotEmpty });
+                        // Remover tags HTML e verificar se há conteúdo real
+                        const cleanContent = notesContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+                        
+                        // Verificar se não é apenas um objeto vazio serializado
+                        const isEmptyObject = notesContent === '{}' || notesContent === 'null' || notesContent === 'undefined';
+                        const contentNotEmpty = hasNotes && cleanContent && cleanContent !== '' && !isEmptyObject;
+                        
+                        console.log(`🔍 Matéria ${subject.name}:`, { 
+                            hasNotes, 
+                            notesContent: notesContent.substring(0, 100),
+                            cleanContent: cleanContent.substring(0, 100),
+                            isEmptyObject,
+                            contentNotEmpty 
+                        });
                         return contentNotEmpty;
                     })
                     .map(subject => {
@@ -446,7 +494,8 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                         if (typeof subject.notes === 'string') {
                             content = subject.notes;
                         } else if (subject.notes && typeof subject.notes === 'object') {
-                            content = (subject.notes as any)?.content || '';
+                            const notesObj = subject.notes as any;
+                            content = notesObj?.content || notesObj?.text || notesObj?.notes || JSON.stringify(notesObj);
                         }
 
                         return {
@@ -492,10 +541,12 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
     // Carregar dados quando a aba "condensed" for acessada
     useEffect(() => {
-        if (activeTab === 'condensed' && user && allNotes.length === 0 && !isLoadingAllNotes) {
+        if (activeTab === 'condensed' && user && !hasLoadedNotes && !isLoadingAllNotes) {
+            console.log('🔄 Carregando anotações para aba condensada...');
+            setHasLoadedNotes(true);
             loadAllNotes();
         }
-    }, [activeTab, user, loadAllNotes, allNotes.length, isLoadingAllNotes]);
+    }, [activeTab, user, hasLoadedNotes, isLoadingAllNotes]); // Usando flag de controle
 
 
     const updateMissingDates = async () => {
@@ -603,12 +654,12 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
             if (error) throw error;
 
-            setReminders(prev => [...prev, {
+            setReminders(prev => [{
                 id: data.id,
                 text: data.text,
                 date: data.reminder_date ? new Date(data.reminder_date) : null,
                 completed: data.completed || false
-            }]);
+            }, ...prev]);
 
             toastManager.success('Lembrete adicionado!');
         } catch (error) {
