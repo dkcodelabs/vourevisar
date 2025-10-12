@@ -79,17 +79,29 @@ export const StudyCycleContent: React.FC = () => {
       // CRÍTICO: Não aplicar debounce para eventos de novo ciclo
       if (event.detail?.isNewCycle) {
         console.log('📢 Novo ciclo detectado no StudyCycleContent (sem debounce)');
-        console.log('🔍 Debug do número do ciclo:', {
+        
+        // VALIDAÇÃO: Só mostrar mensagem se o ciclo realmente resetou
+        // Verificar se não há matérias estudadas no ciclo (indica reset real)
+        const hasStudiedSubjects = userCycle?.materias_estudadas_ciclo && 
+                                   userCycle.materias_estudadas_ciclo.length > 0;
+        
+        console.log('🔍 Validação de novo ciclo:', {
           eventNewCycleNumber: event.detail?.newCycleNumber,
           userCycleCiclosRealizados: userCycle?.ciclos_realizados,
-          fallback: 0
+          hasStudiedSubjects,
+          materias_estudadas: userCycle?.materias_estudadas_ciclo
         });
-        const cycleNumber = event.detail?.newCycleNumber || userCycle?.ciclos_realizados || 0;
-        console.log('🔍 Número do ciclo escolhido:', cycleNumber);
-        console.log('🔍 Número que será exibido na mensagem:', cycleNumber + 1);
-        setNewCycleNumber(cycleNumber);
-        setShowNewCycleMessage(true);
-        setTimeout(() => setShowNewCycleMessage(false), 8000);
+        
+        // Só mostrar mensagem se não há matérias estudadas (ciclo resetado)
+        if (!hasStudiedSubjects) {
+          const cycleNumber = event.detail?.newCycleNumber || userCycle?.ciclos_realizados || 0;
+          console.log('✅ Ciclo validado - mostrando mensagem');
+          setNewCycleNumber(cycleNumber);
+          setShowNewCycleMessage(true);
+          setTimeout(() => setShowNewCycleMessage(false), 8000);
+        } else {
+          console.log('❌ Ciclo em andamento - NÃO mostrar mensagem');
+        }
         
         // Recarregar dados imediatamente para novo ciclo
         setTimeout(() => {
@@ -144,26 +156,9 @@ export const StudyCycleContent: React.FC = () => {
     }
   }, []); // Executar apenas uma vez quando o componente monta
 
-  // Detectar quando um novo ciclo foi iniciado (apenas se ainda há matérias ativas)
-  useEffect(() => {
-    if (userCycle && userCycle.ciclos_realizados !== null && userCycle.ciclos_realizados !== undefined) {
-      if (previousCycleNumber !== null && userCycle.ciclos_realizados > previousCycleNumber) {
-        // Verificar se ainda há matérias no ciclo (se não há, os estudos foram concluídos)
-        const hasActiveSubjects = userCycle.ciclo_atual && userCycle.ciclo_atual.length > 0;
-        
-        if (hasActiveSubjects) {
-          // Novo ciclo foi iniciado com matérias ativas
-          console.log('📢 Mostrando mensagem de novo ciclo na interface');
-          setShowNewCycleMessage(true);
-          setTimeout(() => setShowNewCycleMessage(false), 8000); // Esconder após 8 segundos
-        } else {
-          // Estudos foram concluídos - não mostrar mensagem de novo ciclo
-          console.log('📢 Estudos concluídos - não mostrando mensagem de novo ciclo');
-        }
-      }
-      setPreviousCycleNumber(userCycle.ciclos_realizados);
-    }
-  }, [userCycle?.ciclos_realizados]);
+  // REMOVIDO: useEffect que detectava mudanças em ciclos_realizados
+  // A mensagem de novo ciclo agora é controlada APENAS pelo evento cycleUpdated
+  // Isso evita que a mensagem apareça quando o ciclo já está em andamento
 
   // Debug logs removidos para evitar spam
 

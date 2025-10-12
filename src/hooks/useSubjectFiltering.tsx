@@ -11,7 +11,7 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
   const cycleStats = useCycleSubjectStats(subjects, userCycle);
   const { dailySubjects } = useDailySubjects(subjects, userCycle);
   const { nextSubjects, subjectsByStatus } = useNextSubjects(subjects, userCycle, userSettings);
-  const cycleStatus = useCycleStatus(subjects, userCycle, dailySubjects.length, nextSubjects.length);
+  const { isSubjectStudied } = useCycleStatus();
 
   // Nova seção: matérias disponíveis para próximo ciclo
   const nextCycleSubjects = useMemo(() => {
@@ -36,6 +36,6 @@ export const useSubjectFiltering = (subjects: Subject[], userCycle: UserCycle | 
     nextSubjects,
     nextCycleSubjects,
     subjectsByStatus,
-    ...cycleStatus
+    isSubjectStudied
   };
 };

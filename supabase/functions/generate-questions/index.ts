@@ -224,7 +224,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error generating questions:', error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'Failed to generate questions' 
+      error: (error as Error).message || 'Failed to generate questions' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -331,10 +331,11 @@ export const useDailyStudyProgress = () => {
   }, []);
 
   // Obter horário de conclusão de uma matéria
-  const getSubjectCompletionTime = useCallback(async (subjectId: string) => {
+  const getSubjectCompletionTime = useCallback(async (subjectId: string): Promise<string | null> => {
     if (!user) return null;
 
     try {
+      // @ts-ignore - Tipo inferido muito complexo, mas funciona corretamente
       const { data, error } = await supabase
         .from('study_sessions')
         .select('completed_at')
@@ -347,8 +348,7 @@ export const useDailyStudyProgress = () => {
 
       if (error || !data) return null;
 
-      const sessionData: any = data;
-      return new Date(sessionData.completed_at).toLocaleTimeString('pt-BR', {
+      return new Date((data as any).completed_at).toLocaleTimeString('pt-BR', {
         hour: '2-digit',
         minute: '2-digit'
       });
