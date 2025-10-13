@@ -393,8 +393,39 @@ export const useStudyCycleData = () => {
       const newFocusIds = new Set(newActiveSubjects.slice(0, STUDY_FOCUS_COUNT).map(s => s.id));
       setStudyFocusSubjectIds(newFocusIds);
       
-      // Disparar evento para atualizar estatísticas imediatamente
-      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      // CORREÇÃO: Resetar progresso diário quando novo ciclo é iniciado
+      const { error: resetError } = await supabase
+        .from('user_cycles')
+        .update({
+          materias_estudadas_hoje: [],
+          data_ultimo_reset: new Date().toISOString().split('T')[0],
+          data_inicio_ciclo: new Date().toISOString(),
+          atualizado_em: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (resetError) {
+        console.error('Erro ao resetar progresso diário:', resetError);
+      } else {
+        console.log('✅ Progresso diário resetado para novo ciclo');
+      }
+
+      // Disparar eventos para atualizar componentes
+      window.dispatchEvent(new CustomEvent('cycleUpdated', {
+        detail: { 
+          isNewCycle: true,
+          reason: 'newCycleStarted',
+          timestamp: Date.now()
+        }
+      }));
+
+      window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
+        detail: { 
+          isReset: true,
+          reason: 'newCycleStarted',
+          timestamp: Date.now()
+        }
+      }));
 
     } catch (error) {
       console.error('Error starting new cycle:', error);

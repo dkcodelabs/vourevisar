@@ -133,8 +133,8 @@ export const useStudyCycle = () => {
     }
   };
 
-  // Função para concluir sessão (simplificada para o mock)
-  const handleCompleteSession = async (subjectId: string) => {
+  // Função para concluir sessão (integrada com sistema de progresso diário)
+  const handleCompleteSession = async (subjectId: string, saveStudySession?: (session: any) => Promise<boolean>) => {
     console.log('🔵 handleCompleteSession INICIADO:', {
       subjectId,
       tempMarkedTopics: tempMarkedTopics[subjectId] || []
@@ -165,9 +165,45 @@ export const useStudyCycle = () => {
       } else {
         toast.success('Matéria pulada!');
       }
+
+      // INTEGRAÇÃO: Salvar sessão de estudo no sistema de progresso diário
+      if (saveStudySession && topicsToReview.length > 0) {
+        const session = {
+          subjectId: subject.id,
+          subjectName: subject.name,
+          cyclePosition: 0, // Será calculado no hook
+          topicsStudied: topicsToReview,
+          completedAt: new Date().toISOString()
+        };
+
+        console.log('💾 Salvando sessão de estudo:', session);
+        const saved = await saveStudySession(session);
+        
+        if (saved) {
+          console.log('✅ Sessão salva com sucesso - progresso diário atualizado');
+        } else {
+          console.warn('⚠️ Falha ao salvar sessão - progresso diário pode não estar atualizado');
+        }
+      }
       
-      // Disparar evento para atualizar estatísticas imediatamente
-      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      // Disparar eventos para atualizar componentes
+      window.dispatchEvent(new CustomEvent('cycleUpdated', {
+        detail: { 
+          subjectId, 
+          subjectName: subject.name,
+          topicsStudied: topicsToReview.length,
+          completed: true
+        }
+      }));
+
+      window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
+        detail: { 
+          subjectId, 
+          subjectName: subject.name,
+          topicsStudied: topicsToReview.length
+        }
+      }));
+
     } catch (error) {
       console.error('❌ Erro ao concluir sessão:', error);
       toast.error('Erro ao concluir sessão');

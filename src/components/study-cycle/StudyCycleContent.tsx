@@ -214,50 +214,77 @@ export const StudyCycleContent: React.FC = () => {
     try {
       console.log('🔄 Iniciando handleCompleteSessionWithProgress para:', subjectId);
       
-      // 1. Executar lógica original do sistema
-      await handleCompleteSessionData(subjectId);
-      console.log('✅ handleCompleteSessionData concluído');
-
-      // 2. Salvar sessão no nosso sistema de progresso diário
+      // 1. Preparar dados da sessão ANTES de executar a lógica original
       const subject = subjects.find(s => s.id === subjectId);
       const cyclePosition = getCyclePosition(subjectId);
       const topicsStudied = Array.from(sessionMarks[subjectId] || []);
 
-      console.log('📊 Dados da sessão:', {
+      console.log('📊 Dados da sessão preparados:', {
         subject: subject?.name,
         cyclePosition,
         topicsStudied: topicsStudied.length,
         user: !!user
       });
 
+      // 2. Salvar sessão no sistema de progresso diário SEMPRE (mesmo se pulou)
       if (subject && user) {
         const sessionData = {
           subjectId: subject.id,
           subjectName: subject.name,
           cyclePosition: cyclePosition?.[0] || 1,
-          topicsStudied,
+          topicsStudied, // Pode ser vazio se pulou a matéria
           completedAt: new Date().toISOString()
         };
 
-        console.log('💾 Salvando sessão:', sessionData);
+        console.log('💾 Salvando sessão no progresso diário:', {
+          ...sessionData,
+          topicsCount: topicsStudied.length,
+          isPulada: topicsStudied.length === 0
+        });
+        
         const success = await saveStudySession(sessionData);
         
         if (success) {
-          console.log('✅ Sessão salva com sucesso, disparando evento');
-          // Disparar evento para atualizar outros componentes
-          window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
-            detail: { subjectId, subjectName: subject.name }
-          }));
+          console.log('✅ Sessão salva com sucesso no progresso diário');
         } else {
-          console.error('❌ Falha ao salvar sessão');
+          console.error('❌ Falha ao salvar sessão no progresso diário');
         }
       } else {
-        console.warn('⚠️ Dados insuficientes:', { subject: !!subject, user: !!user });
+        console.warn('⚠️ Sessão não salva - dados insuficientes:', { 
+          subject: !!subject, 
+          user: !!user
+        });
       }
+
+      // 3. Executar lógica original do sistema (que limpa os marks)
+      await handleCompleteSessionData(subjectId);
+      console.log('✅ handleCompleteSessionData concluído');
+
+      // 4. Esconder mensagem de novo ciclo quando sessão for concluída
+      if (showNewCycleMessage) {
+        console.log('🔄 Escondendo mensagem de novo ciclo após conclusão de sessão');
+        setShowNewCycleMessage(false);
+      }
+
+      // 5. Disparar eventos para atualizar componentes
+      window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
+        detail: { subjectId, subjectName: subject?.name || 'Matéria' }
+      }));
+
+      window.dispatchEvent(new CustomEvent('cycleUpdated', {
+        detail: { 
+          subjectId, 
+          subjectName: subject?.name || 'Matéria',
+          topicsStudied: topicsStudied.length,
+          completed: true
+        }
+      }));
+
     } catch (error) {
       console.error('❌ Erro ao completar sessão com progresso:', error);
+      toast.error('Erro ao completar sessão');
     }
-  }, [handleCompleteSessionData, subjects, getCyclePosition, sessionMarks, user, saveStudySession]);
+  }, [handleCompleteSessionData, subjects, getCyclePosition, sessionMarks, user, saveStudySession, showNewCycleMessage]);
   
 
 

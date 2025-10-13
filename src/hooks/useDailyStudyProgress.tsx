@@ -74,10 +74,10 @@ export const useDailyStudyProgress = () => {
         const cycleAge = Date.now() - new Date(data.data_inicio_ciclo).getTime();
         const cycleAgeDays = Math.floor(cycleAge / (24 * 60 * 60 * 1000));
         
-        // NOVA LÓGICA: Detectar novo ciclo de forma mais precisa
+        // NOVA LÓGICA CORRIGIDA: Detectar novo ciclo de forma mais precisa
         const isNewCycle = (
-          // Caso 1: Ciclo iniciado hoje ou ontem sem progresso
-          (cycleAgeDays <= 1 && bankDataIsEmpty) ||
+          // Caso 1: Ciclo iniciado hoje ou ontem (SEMPRE resetar, independente do progresso)
+          (cycleAgeDays <= 1) ||
           // Caso 2: Nunca foi resetado
           (!lastResetDate) ||
           // Caso 3: Ciclo muito antigo sem progresso (backup)
@@ -94,7 +94,11 @@ export const useDailyStudyProgress = () => {
           cycleStartDate: data.data_inicio_ciclo,
           lastReset: data.data_ultimo_reset,
           today,
-          isNewDay
+          isNewDay,
+          // Condições detalhadas
+          condicao1_cicloRecente: cycleAgeDays <= 1,
+          condicao2_nuncaResetado: !lastResetDate,
+          condicao3_cicloAntigoSemProgresso: cycleAgeDays > 3 && bankDataIsEmpty
         });
         
         let shouldReset = false;
@@ -254,9 +258,27 @@ export const useDailyStudyProgress = () => {
         return false;
       }
 
-      // Atualizar progresso diário no user_cycles
-      const data: any = userCycle;
-      const currentStudied = data?.materias_estudadas_hoje || [];
+      // Atualizar progresso diário no user_cycles - BUSCAR DADOS ATUAIS DO BANCO
+      console.log('🔍 Buscando dados atuais do banco para atualizar progresso...');
+      
+      const { data: currentCycleData, error: fetchError } = await supabase
+        .from('user_cycles')
+        .select('materias_estudadas_hoje')
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Erro ao buscar dados atuais do ciclo:', fetchError);
+        return false;
+      }
+
+      const currentStudied = currentCycleData?.materias_estudadas_hoje || [];
+      console.log('📊 Estado atual do progresso:', {
+        currentStudied,
+        novaMateria: session.subjectId,
+        jaEstudada: currentStudied.includes(session.subjectId)
+      });
+
       if (!currentStudied.includes(session.subjectId)) {
         const updatedStudied = [...currentStudied, session.subjectId];
         
@@ -273,13 +295,21 @@ export const useDailyStudyProgress = () => {
           return false;
         }
 
-        console.log('✅ Progresso atualizado:', { 
+        console.log('✅ Progresso atualizado com sucesso:', { 
           antes: currentStudied.length, 
           depois: updatedStudied.length,
-          materia: session.subjectName 
+          materia: session.subjectName,
+          materiasEstudadas: updatedStudied
         });
+
+        // CORREÇÃO: Atualizar resetReason para 'continue' após primeira sessão
+        if (currentStudied.length === 0) {
+          console.log('🔄 Primeira sessão concluída - mudando resetReason para continue');
+          setResetReason('continue');
+        }
       } else {
         console.log('⚠️ Matéria já foi estudada hoje:', session.subjectName);
+        // Mesmo assim retornar true pois a sessão foi salva
       }
 
       // Disparar eventos para outros componentes
@@ -391,18 +421,31 @@ export const useDailyStudyProgress = () => {
     loadDailyProgress();
   }, [loadDailyProgress]);
 
+  // Função para forçar refresh dos dados
+  const forceRefresh = useCallback(async () => {
+    console.log('🔄 Forçando refresh dos dados do progresso diário...');
+    setIsLoading(true);
+    await loadDailyProgress();
+  }, [loadDailyProgress]);
+
   // Escutar eventos de atualização
   useEffect(() => {
     const handleProgressUpdate = (event: any) => {
       console.log('🔔 Evento dailyProgressUpdated recebido:', event.detail);
-      // Recarregar dados em vez de recarregar a página inteira
-      loadDailyProgress();
+      // Recarregar dados com delay maior para garantir sincronização
+      setTimeout(() => {
+        console.log('🔄 Recarregando dados após dailyProgressUpdated...');
+        loadDailyProgress();
+      }, 500); // Delay maior para garantir que o banco foi atualizado
     };
 
-    const handleCycleUpdate = () => {
-      console.log('🔄 Evento de atualização de ciclo recebido');
+    const handleCycleUpdate = (event: any) => {
+      console.log('🔄 Evento de atualização de ciclo recebido:', event.detail);
       // Forçar recarregamento completo dos dados
-      loadDailyProgress();
+      setTimeout(() => {
+        console.log('🔄 Recarregando dados após cycleUpdated...');
+        loadDailyProgress();
+      }, 800); // Delay ainda maior para ciclos
     };
 
     window.addEventListener('dailyProgressUpdated', handleProgressUpdate);
@@ -424,6 +467,7 @@ export const useDailyStudyProgress = () => {
     isSubjectStudiedToday,
     getSubjectCompletionTime,
     resetDailyProgress,
-    refreshProgress: loadDailyProgress
+    refreshProgress: loadDailyProgress,
+    forceRefresh
   };
 };

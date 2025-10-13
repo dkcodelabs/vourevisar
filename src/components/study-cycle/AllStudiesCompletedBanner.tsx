@@ -68,7 +68,7 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
       if (subjectsUpdateError) throw subjectsUpdateError;
       console.log('✅ Status das matérias resetado');
       
-      // 4. Resetar COMPLETAMENTE o ciclo do usuário
+      // 4. Resetar COMPLETAMENTE o ciclo do usuário E o progresso diário
       const { error: cycleError } = await supabase
         .from('user_cycles')
         .update({
@@ -78,6 +78,9 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
           ciclos_realizados: 0,
           data_inicio_ciclo: null,
           data_fim_ciclo: null,
+          // CORREÇÃO: Resetar também o progresso diário
+          materias_estudadas_hoje: [],
+          data_ultimo_reset: new Date().toISOString().split('T')[0],
           atualizado_em: new Date().toISOString()
         })
         .eq('user_id', user.id);
@@ -106,6 +109,16 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
       // 7. Disparar eventos para atualizar componentes
       console.log('🔄 Disparando eventos de atualização...');
       window.dispatchEvent(new CustomEvent('cycleUpdated', {
+        detail: { 
+          isReset: true,
+          isNewCycle: true, // Importante: marcar como novo ciclo
+          reason: 'reviewsCleared',
+          timestamp: Date.now()
+        }
+      }));
+
+      // CORREÇÃO: Disparar evento específico para reset do progresso diário
+      window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
         detail: { 
           isReset: true,
           reason: 'reviewsCleared',
