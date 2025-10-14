@@ -13,12 +13,12 @@ interface StudyCycleTopicItemProps {
 }
 
 const REVIEW_STATUS_CONFIG: Record<ReviewInterval, { text: string; className: string }> = {
-  [ReviewInterval.NOT_STARTED]: { text: 'Não iniciado', className: 'bg-gray-200 text-gray-600 dark:bg-slate-600 dark:text-slate-300' },
-  [ReviewInterval.REVISED_24H]: { text: 'Revisado (24h)', className: 'bg-blue-200 text-blue-800 dark:bg-blue-800/50 dark:text-blue-300' },
-  [ReviewInterval.REVISED_7D]: { text: 'Revisado (7d)', className: 'bg-purple-200 text-purple-800 dark:bg-purple-800/50 dark:text-purple-300' },
-  [ReviewInterval.REVISED_15D]: { text: 'Revisado (15d)', className: 'bg-purple-200 text-purple-800 dark:bg-purple-800/50 dark:text-purple-300' },
-  [ReviewInterval.REVISED_30D]: { text: 'Revisado (30d)', className: 'bg-red-200 text-red-800 dark:bg-red-800/50 dark:text-red-300' },
-  [ReviewInterval.COMPLETED]: { text: 'Revisado', className: 'bg-emerald-200 text-emerald-800 dark:bg-emerald-800/50 dark:text-emerald-300' },
+  [ReviewInterval.NOT_STARTED]: { text: 'Não estudado', className: 'bg-gray-200 text-gray-600 dark:bg-slate-600 dark:text-slate-300' },
+  [ReviewInterval.REVISED_24H]: { text: 'Próxima: 24h', className: 'bg-blue-200 text-blue-800 dark:bg-blue-800/50 dark:text-blue-300' },
+  [ReviewInterval.REVISED_7D]: { text: 'Próxima: 7d', className: 'bg-purple-200 text-purple-800 dark:bg-purple-800/50 dark:text-purple-300' },
+  [ReviewInterval.REVISED_15D]: { text: 'Próxima: 15d', className: 'bg-purple-200 text-purple-800 dark:bg-purple-800/50 dark:text-purple-300' },
+  [ReviewInterval.REVISED_30D]: { text: 'Próxima: 30d', className: 'bg-red-200 text-red-800 dark:bg-red-800/50 dark:text-red-300' },
+  [ReviewInterval.COMPLETED]: { text: 'Concluído', className: 'bg-emerald-200 text-emerald-800 dark:bg-emerald-800/50 dark:text-emerald-300' },
 };
 
 export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({

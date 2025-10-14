@@ -305,7 +305,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                     </div>
 
                                                     <div className="flex flex-col items-end min-w-[80px] text-xs font-medium">
-                                                        <span className="text-gray-600">Revisão</span>
+                                                        <span className="text-gray-600">Próxima</span>
                                                         <span className={getStatusColor(status)}>{topic.reviewStage || '1ª Revisão'}</span>
                                                     </div>
 
