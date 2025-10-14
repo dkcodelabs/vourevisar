@@ -133,7 +133,7 @@ export const StudyCycleContent: React.FC = () => {
   // Refresh cycle data when component mounts
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadInitialData = async () => {
       try {
         if (isMounted) {
@@ -143,9 +143,9 @@ export const StudyCycleContent: React.FC = () => {
         console.error('Erro ao carregar dados do ciclo:', error);
       }
     };
-    
+
     loadInitialData();
-    
+
     return () => {
       isMounted = false;
     };

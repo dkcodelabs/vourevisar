@@ -57,6 +57,8 @@ export const useTopicReview = () => {
       // Calcular próximo estágio de revisão usando maxReviews
       if (newReviewCount <= maxReviews) {
         const nextInterval = intervals[newReviewCount - 1];
+
+        
         reviewStage = nextInterval === 1 ? '24h' : `${nextInterval}d`;
         const nextReviewDate = new Date();
         nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);

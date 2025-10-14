@@ -28,20 +28,20 @@ const mapReviewStageToInterval = (reviewStage?: string, completed?: boolean): Re
   switch (reviewStage) {
     case '24h':
     case '1d':
-      return 'REVISED_7D' as ReviewInterval; // Primeira revisão (24h) -> mostra como "Revisado (24h)"
+      return 'REVISED_24H' as ReviewInterval; // Primeira revisão (24h) -> mostra como "Revisado (24h)"
     case '3d':
-      return 'REVISED_15D' as ReviewInterval; // Segunda revisão (3d) -> mostra como "Revisado (7d)"
+      return 'REVISED_7D' as ReviewInterval; // Segunda revisão (3d) -> mostra como "Revisado (3d)"
     case '7 dias':
     case '7d':
-      return 'REVISED_15D' as ReviewInterval; // Segunda revisão (7d) -> mostra como "Revisado (7d)"
+      return 'REVISED_7D' as ReviewInterval; // Segunda revisão (7d) -> mostra como "Revisado (7d)"
     case '15 dias':
     case '15d':
-      return 'REVISED_30D' as ReviewInterval; // Terceira revisão (15d) -> mostra como "Revisado (15d)"
+      return 'REVISED_15D' as ReviewInterval; // Terceira revisão (15d) -> mostra como "Revisado (15d)"
     case '30 dias':
     case '30d':
-      return 'REVISED_30D' as ReviewInterval; // Quarta revisão (30d) -> mostra como "Revisado (15d)"
+      return 'REVISED_30D' as ReviewInterval; // Quarta revisão (30d) -> mostra como "Revisado (30d)"
     case '60d':
-      return 'REVISED_30D' as ReviewInterval; // Quinta revisão (60d) -> mostra como "Revisado (15d)"
+      return 'REVISED_30D' as ReviewInterval; // Quinta revisão (60d) -> mostra como "Revisado (30d)"
     default:
       return 'NOT_STARTED' as ReviewInterval;
   }
@@ -74,10 +74,11 @@ const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
       // Manter ordem consistente: primeiro por status de revisão, depois por nome
       const statusOrder = {
         'NOT_STARTED': 0,
-        'REVISED_7D': 1,
-        'REVISED_15D': 2,
-        'REVISED_30D': 3,
-        'COMPLETED': 4
+        'REVISED_24H': 1,
+        'REVISED_7D': 2,
+        'REVISED_15D': 3,
+        'REVISED_30D': 4,
+        'COMPLETED': 5
       };
       
       const aOrder = statusOrder[a.reviewStatus] || 0;
@@ -105,6 +106,8 @@ const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
 // Reverse mapping functions for database updates
 const mapIntervalToReviewStage = (interval: ReviewInterval): string => {
   switch (interval) {
+    case 'REVISED_24H':
+      return '24h';
     case 'REVISED_7D':
       return '7d';
     case 'REVISED_15D':
@@ -303,10 +306,11 @@ export const useStudyCycleData = () => {
         .sort((a, b) => {
           const statusOrder = {
             'NOT_STARTED': 0,
-            'REVISED_7D': 1,
-            'REVISED_15D': 2,
-            'REVISED_30D': 3,
-            'COMPLETED': 4
+            'REVISED_24H': 1,
+            'REVISED_7D': 2,
+            'REVISED_15D': 3,
+            'REVISED_30D': 4,
+            'COMPLETED': 5
           };
           
           const aOrder = statusOrder[a.reviewStatus] || 0;
@@ -586,6 +590,7 @@ export const useStudyCycleData = () => {
 // Helper function to get next review interval
 const reviewProgression = [
   'NOT_STARTED' as ReviewInterval,
+  'REVISED_24H' as ReviewInterval,
   'REVISED_7D' as ReviewInterval,
   'REVISED_15D' as ReviewInterval,
   'REVISED_30D' as ReviewInterval,

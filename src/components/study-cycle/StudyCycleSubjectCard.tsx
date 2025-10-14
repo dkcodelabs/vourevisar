@@ -28,6 +28,7 @@ interface StudyCycleSubjectCardProps {
 
 const reviewProgression = [
   ReviewInterval.NOT_STARTED,
+  ReviewInterval.REVISED_24H,
   ReviewInterval.REVISED_7D,
   ReviewInterval.REVISED_15D,
   ReviewInterval.REVISED_30D,
