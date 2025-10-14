@@ -102,16 +102,14 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
       if (success) {
         console.log('✅ Matéria marcada como estudada com sucesso');
         
-        // CRÍTICO: Forçar múltiplas atualizações para garantir que o status visual seja atualizado
-        window.dispatchEvent(new CustomEvent('forceRefresh'));
-        
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('cycleUpdated'));
-        }, 100);
-        
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('forceRefresh'));
-        }, 200);
+        // Disparar apenas um evento para evitar loops infinitos
+        window.dispatchEvent(new CustomEvent('cycleUpdated', {
+          detail: { 
+            subjectId: originalId, 
+            subjectName: subject.name,
+            completed: true 
+          }
+        }));
       }
 
       console.log('✅ handleComplete concluído');

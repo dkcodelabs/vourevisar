@@ -1,23 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
-import { SubjectStatus, ReviewInterval } from '@/types/study-cycle';
+import { SubjectStatus } from '@/types/study-cycle';
 import { useStudyCycleData } from '@/hooks/useStudyCycleData';
 import { STATUS_CONFIG } from '@/constants/study-cycle';
 import { StudyCycleSubjectCard } from './StudyCycleSubjectCard';
-import { GridIcon, ListIcon, ChevronsDownIcon, ChevronsUpIcon, CheckCircleIcon } from './Icons';
+import { GridIcon, ListIcon, ChevronsDownIcon, ChevronsUpIcon } from './Icons';
 import { StudyCycleNotesModal } from './StudyCycleNotesModal';
-import { TempNotesModal } from './TempNotesModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
-import AllStudiesCompletedCard from './AllStudiesCompletedCard';
-import { CycleStats } from '@/components/CycleStats';
-import { useCycleStatus } from '@/hooks/useCycleStatus';
-
 import { AllStudiesCompletedBanner } from './AllStudiesCompletedBanner';
 import { CycleStatsModal } from './CycleStatsModal';
 import { DailyStudyProgress } from './DailyStudyProgress';
 import { useDailyStudyProgress } from '@/hooks/useDailyStudyProgress';
-// Modal removida - import desabilitado
-import { supabase } from '@/integrations/supabase/client';
+import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -53,15 +47,9 @@ export const StudyCycleContent: React.FC = () => {
   const {
     studyCycleSubjects: subjects,
     groupedSubjects,
-    activeSubjects,
-    completedCycleSubjects,
-
     areAllStudiesCompleted,
-
     sessionMarks,
     userCycle,
-    dailySubjectsWithViews,
-    handleStartNewCycle: handleStartNewCycleData,
     handleToggleMark,
     handleCompleteSession: handleCompleteSessionData,
     handleSaveNotes,
@@ -72,75 +60,66 @@ export const StudyCycleContent: React.FC = () => {
   useEffect(() => {
     let lastUpdateTime = 0;
     const UPDATE_DEBOUNCE_TIME = 1000; // 1 segundo
-    
+
     const handleCycleUpdate = (event: any) => {
       const now = Date.now();
-      
+
       // CRÍTICO: Não aplicar debounce para eventos de novo ciclo
       if (event.detail?.isNewCycle) {
         console.log('📢 Novo ciclo detectado no StudyCycleContent (sem debounce)');
-        
+
         // VALIDAÇÃO: Só mostrar mensagem se o ciclo realmente resetou
         // Verificar se não há matérias estudadas no ciclo (indica reset real)
-        const hasStudiedSubjects = userCycle?.materias_estudadas_ciclo && 
-                                   userCycle.materias_estudadas_ciclo.length > 0;
-        
+        const hasStudiedSubjects = userCycle?.materias_estudadas_ciclo &&
+          userCycle.materias_estudadas_ciclo.length > 0;
+
         console.log('🔍 Validação de novo ciclo:', {
           eventNewCycleNumber: event.detail?.newCycleNumber,
           userCycleCiclosRealizados: userCycle?.ciclos_realizados,
           hasStudiedSubjects,
           materias_estudadas: userCycle?.materias_estudadas_ciclo
         });
-        
-        // Só mostrar mensagem se não há matérias estudadas (ciclo resetado)
-        if (!hasStudiedSubjects) {
-          const cycleNumber = event.detail?.newCycleNumber || userCycle?.ciclos_realizados || 0;
-          console.log('✅ Ciclo validado - mostrando mensagem');
-          setNewCycleNumber(cycleNumber);
-          setShowNewCycleMessage(true);
-          setTimeout(() => setShowNewCycleMessage(false), 8000);
-        } else {
-          console.log('❌ Ciclo em andamento - NÃO mostrar mensagem');
-        }
-        
+
+        // Lógica de validação removida - mensagem já aparece no componente colapsável
+
         // Recarregar dados imediatamente para novo ciclo
         setTimeout(() => {
           refreshCycleData();
         }, 300);
         return; // Sair aqui para não aplicar debounce
       }
-      
+
       // Debounce apenas para eventos normais (não novo ciclo)
       if (now - lastUpdateTime < UPDATE_DEBOUNCE_TIME) {
         console.log('🚫 Evento cycleUpdated ignorado no StudyCycleContent - debounce ativo');
         return;
       }
-      
+
       lastUpdateTime = now;
       console.log('🔄 StudyCycleContent: Processando evento cycleUpdated');
-      
+
       // Recarregar dados após um delay
       setTimeout(() => {
         refreshCycleData();
       }, 300);
     };
-    
 
-    
+
+
     const handleForceRerender = (event: any) => {
       console.log('🔄 StudyCycleContent: Forçando re-render por evento externo', event.detail);
-      
+
       // Forçar refresh imediato dos dados
       refreshCycleData();
-      
+
       // Forçar re-render do componente mudando a key
       setForceRenderKey(prev => prev + 1);
       console.log('🔄 Força re-render aplicada - key incrementada');
     };
-    
+
     window.addEventListener('cycleUpdated', handleCycleUpdate);
     window.addEventListener('forceComponentRerender', handleForceRerender);
-    
+
     return () => {
       window.removeEventListener('cycleUpdated', handleCycleUpdate);
       window.removeEventListener('forceComponentRerender', handleForceRerender);
@@ -149,11 +128,23 @@ export const StudyCycleContent: React.FC = () => {
 
   // Refresh cycle data when component mounts
   useEffect(() => {
-    try {
-      refreshCycleData();
-    } catch (error) {
-      console.error('Erro ao carregar dados do ciclo:', error);
-    }
+    let isMounted = true;
+    
+    const loadInitialData = async () => {
+      try {
+        if (isMounted) {
+          await refreshCycleData();
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados do ciclo:', error);
+      }
+    };
+    
+    loadInitialData();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []); // Executar apenas uma vez quando o componente monta
 
   // REMOVIDO: useEffect que detectava mudanças em ciclos_realizados
@@ -179,25 +170,23 @@ export const StudyCycleContent: React.FC = () => {
     subjectName: ''
   });
 
-  const [showNewCycleMessage, setShowNewCycleMessage] = useState(false);
-  const [newCycleNumber, setNewCycleNumber] = useState<number | null>(null);
-  const [previousCycleNumber, setPreviousCycleNumber] = useState<number | null>(null);
+
   const [forceRenderKey, setForceRenderKey] = useState(0);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [currentStats, setCurrentStats] = useState<any>(null);
   // Modal removida - estado desabilitado
 
   // Hook para status do ciclo
-  const { markSubjectAsStudied, isSubjectStudied, getCycleStats } = useCycleStatus();
+  const { getCycleStats } = useCycleStatus();
   const { user } = useAuth();
-  
+
   // Hook para progresso diário
   const { saveStudySession } = useDailyStudyProgress();
 
   // Função para obter a posição no ciclo
   const getCyclePosition = useCallback((subjectId: string) => {
     if (!userCycle?.ciclo_atual) return null;
-    
+
     // Encontrar todas as ocorrências da matéria no ciclo
     const positions: number[] = [];
     userCycle.ciclo_atual.forEach((id: string, index: number) => {
@@ -205,7 +194,7 @@ export const StudyCycleContent: React.FC = () => {
         positions.push(index + 1);
       }
     });
-    
+
     return positions.length > 0 ? positions : null;
   }, [userCycle?.ciclo_atual]);
 
@@ -213,7 +202,7 @@ export const StudyCycleContent: React.FC = () => {
   const handleCompleteSessionWithProgress = useCallback(async (subjectId: string) => {
     try {
       console.log('🔄 Iniciando handleCompleteSessionWithProgress para:', subjectId);
-      
+
       // 1. Preparar dados da sessão ANTES de executar a lógica original
       const subject = subjects.find(s => s.id === subjectId);
       const cyclePosition = getCyclePosition(subjectId);
@@ -241,17 +230,17 @@ export const StudyCycleContent: React.FC = () => {
           topicsCount: topicsStudied.length,
           isPulada: topicsStudied.length === 0
         });
-        
+
         const success = await saveStudySession(sessionData);
-        
+
         if (success) {
           console.log('✅ Sessão salva com sucesso no progresso diário');
         } else {
           console.error('❌ Falha ao salvar sessão no progresso diário');
         }
       } else {
-        console.warn('⚠️ Sessão não salva - dados insuficientes:', { 
-          subject: !!subject, 
+        console.warn('⚠️ Sessão não salva - dados insuficientes:', {
+          subject: !!subject,
           user: !!user
         });
       }
@@ -260,20 +249,14 @@ export const StudyCycleContent: React.FC = () => {
       await handleCompleteSessionData(subjectId);
       console.log('✅ handleCompleteSessionData concluído');
 
-      // 4. Esconder mensagem de novo ciclo quando sessão for concluída
-      if (showNewCycleMessage) {
-        console.log('🔄 Escondendo mensagem de novo ciclo após conclusão de sessão');
-        setShowNewCycleMessage(false);
-      }
-
-      // 5. Disparar eventos para atualizar componentes
+      // 4. Disparar eventos para atualizar componentes
       window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
         detail: { subjectId, subjectName: subject?.name || 'Matéria' }
       }));
 
       window.dispatchEvent(new CustomEvent('cycleUpdated', {
-        detail: { 
-          subjectId, 
+        detail: {
+          subjectId,
           subjectName: subject?.name || 'Matéria',
           topicsStudied: topicsStudied.length,
           completed: true
@@ -284,15 +267,15 @@ export const StudyCycleContent: React.FC = () => {
       console.error('❌ Erro ao completar sessão com progresso:', error);
       toast.error('Erro ao completar sessão');
     }
-  }, [handleCompleteSessionData, subjects, getCyclePosition, sessionMarks, user, saveStudySession, showNewCycleMessage]);
-  
+  }, [handleCompleteSessionData, subjects, getCyclePosition, sessionMarks, user, saveStudySession]);
+
 
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_VIEW_KEY, viewMode);
     setExpandedSubjects(new Set());
   }, [viewMode]);
-  
+
   const handleToggleExpand = useCallback((subjectId: string) => {
     setExpandedSubjects(prev => {
       const newSet = new Set(prev);
@@ -327,7 +310,7 @@ export const StudyCycleContent: React.FC = () => {
   const handleCloseNotes = useCallback(() => {
     setEditingTopic(null);
   }, []);
-  
+
   const handleSaveNotesWithClose = useCallback((subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
     handleSaveNotes(subjectId, topicId, updatedData);
     handleCloseNotes();
@@ -360,9 +343,8 @@ export const StudyCycleContent: React.FC = () => {
 
     if (!config || sectionSubjects.length === 0) return null;
 
-    const isFinishedSection = status === SubjectStatus.FINISHED;
     const isActionableSection = status === SubjectStatus.ACTIVE;
-    
+
     const containerClasses = viewMode === 'grid'
       ? "grid grid-cols-1 md:grid-cols-2 gap-8"
       : "flex flex-col items-center gap-4";
@@ -400,13 +382,13 @@ export const StudyCycleContent: React.FC = () => {
       </section>
     );
   };
-  
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <main className="container mx-auto p-4 md:p-8 pr-[calc(1rem+15px)] md:pr-[calc(2rem+15px)]">
         {/* Banner de Estudos Concluídos - Sempre visível quando todos estudos estão concluídos */}
         {areAllStudiesCompleted && (
-          <AllStudiesCompletedBanner 
+          <AllStudiesCompletedBanner
             onResetComplete={() => {
               refreshCycleData();
             }}
@@ -417,44 +399,13 @@ export const StudyCycleContent: React.FC = () => {
 
         {/* Card de Progresso Diário */}
         {!areAllStudiesCompleted && (
-          <DailyStudyProgress 
-            className="mb-6"
-            onSubjectClick={(subjectId) => {
-              // Scroll para a matéria clicada (opcional)
-              const element = document.getElementById(`subject-${subjectId}`);
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }}
-          />
-        )}
-
-        {/* Mensagem de Novo Ciclo Iniciado */}
-        {showNewCycleMessage && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-lg animate-pulse">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="text-2xl">🔄</div>
-                <div>
-                  <h3 className="text-lg font-bold text-blue-700">Novo Ciclo Iniciado!</h3>
-                  <p className="text-blue-600 text-sm">
-                    Ciclo #{(newCycleNumber || userCycle?.ciclos_realizados || 0) + 1} foi iniciado com sucesso. 
-                    Todas as matérias foram resetadas para um novo ciclo de estudos.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowNewCycleMessage(false)}
-                className="text-blue-400 hover:text-blue-600 text-xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-          </div>
+          <DailyStudyProgress className="mb-6" />
         )}
 
 
-        
+
+
+
         <div className="flex justify-between items-center mb-6">
           {/* Botão de Estatísticas */}
           <button
@@ -470,33 +421,33 @@ export const StudyCycleContent: React.FC = () => {
 
           <div className="flex items-center gap-2">
             {viewMode === 'list' && (
-            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
-              <button
-                onClick={handleExpandAll}
-                className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Expandir Todos"
-              >
-                <ChevronsDownIcon />
-              </button>
-              <button
-                onClick={handleCollapseAll}
-                className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Recolher Todos"
-              >
-                <ChevronsUpIcon />
-              </button>
-            </div>
+              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
+                <button
+                  onClick={handleExpandAll}
+                  className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Expandir Todos"
+                >
+                  <ChevronsDownIcon />
+                </button>
+                <button
+                  onClick={handleCollapseAll}
+                  className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Recolher Todos"
+                >
+                  <ChevronsUpIcon />
+                </button>
+              </div>
             )}
             <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-              <button 
-                onClick={() => setViewMode('grid')} 
+              <button
+                onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
                 aria-label="Visualização em Grade"
               >
                 <GridIcon />
               </button>
-              <button 
-                onClick={() => setViewMode('list')} 
+              <button
+                onClick={() => setViewMode('list')}
                 className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
                 aria-label="Visualização em Lista"
               >
@@ -505,18 +456,18 @@ export const StudyCycleContent: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <>
           {/* Verificar se todas as matérias ativas foram estudadas no ciclo atual */}
           {/* Mensagem removida para evitar confusão */}
-          
+
           {renderSection(SubjectStatus.ACTIVE)}
           {renderSection(SubjectStatus.COMPLETED_CYCLE)}
           {renderSection(SubjectStatus.FINISHED)}
         </>
 
       </main>
-      
+
       {topicToEdit && (
         <StudyCycleNotesModal
           subject={topicToEdit.subject}
@@ -525,7 +476,7 @@ export const StudyCycleContent: React.FC = () => {
           onSave={handleSaveNotesWithClose}
         />
       )}
-      
+
       {/* Subject Notes Modal */}
       <SubjectNotesModal
         isOpen={subjectNotesModal.isOpen}

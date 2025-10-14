@@ -472,10 +472,7 @@ export const useStudyCycleData = () => {
         return newMarks;
       });
 
-      // Refresh data to reflect changes
-      await refreshData();
-      
-      // Também recarregar dados do ciclo diretamente
+      // Recarregar apenas dados do ciclo para evitar loops
       if (user) {
         try {
           const { data, error } = await supabase
@@ -495,7 +492,13 @@ export const useStudyCycleData = () => {
       console.log('✅ handleCompleteSession - Sessão completada com sucesso');
       
       // Disparar evento para atualizar estatísticas imediatamente
-      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      window.dispatchEvent(new CustomEvent('cycleUpdated', {
+        detail: { 
+          subjectId: revisedTopicIds[0], // Usar primeiro tópico como referência
+          completed: true,
+          topicsCount: revisedTopicIds.length
+        }
+      }));
 
     } catch (error) {
       console.error('❌ Error completing session:', error);
@@ -551,11 +554,12 @@ export const useStudyCycleData = () => {
       }
       
       setUserCycle(data);
-      await refreshData(); // Also refresh subjects data
+      // Remover refreshData() para evitar loops infinitos
+      // Os dados dos subjects serão atualizados pelos eventos
     } catch (error) {
       console.error('Erro ao recarregar ciclo:', error);
     }
-  }, [user]); // Remover refreshData para evitar loops
+  }, [user]);
 
   return {
     studyCycleSubjects,
