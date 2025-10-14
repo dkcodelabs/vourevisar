@@ -261,18 +261,20 @@ export const useDailyStudyProgress = () => {
       // Atualizar progresso diário no user_cycles - BUSCAR DADOS ATUAIS DO BANCO
       console.log('🔍 Buscando dados atuais do banco para atualizar progresso...');
       
+      // @ts-ignore - Campo existe mas pode estar faltando na definição de tipos
       const { data: currentCycleData, error: fetchError } = await supabase
         .from('user_cycles')
         .select('materias_estudadas_hoje')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
         console.error('Erro ao buscar dados atuais do ciclo:', fetchError);
         return false;
       }
 
-      const currentStudied = currentCycleData?.materias_estudadas_hoje || [];
+      // @ts-ignore - Campo existe mas pode estar faltando na definição de tipos
+      const currentStudied = (currentCycleData?.materias_estudadas_hoje as string[]) || [];
       console.log('📊 Estado atual do progresso:', {
         currentStudied,
         novaMateria: session.subjectId,

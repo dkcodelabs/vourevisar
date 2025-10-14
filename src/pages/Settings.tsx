@@ -20,6 +20,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { Check } from "lucide-react";
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { ResetCycleConfirmDialog } from '@/components/ResetCycleConfirmDialog';
 
 interface UserCycle {
   id: string;
@@ -50,6 +51,7 @@ const Settings = () => {
     updated_at: ''
   });
   const [hasReviews, setHasReviews] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   // Use the custom hook for cycle management
   const { userCycle, isLoading: isCycleLoading, fetchUserCycle, resetCycle } = useCycleState();
@@ -784,7 +786,7 @@ const Settings = () => {
             {/* Aba Sistema */}
             <TabsContent value="sistema" className="space-y-4">
               <GlassCard className="p-6">
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div>
                     <h2 className="text-lg font-semibold">Gerenciar Dados</h2>
                     <p className="text-sm text-muted-foreground">
@@ -792,17 +794,18 @@ const Settings = () => {
                     </p>
                   </div>
                   
+                  {/* Botão Limpar Apenas Revisões */}
                   <div className="space-y-3">
-                    <div className="p-3 border border-yellow-200 bg-yellow-50/50 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Atenção:</strong> Estas ações não podem ser desfeitas!
+                    <div className="p-4 border border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800 rounded-lg">
+                      <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                        Limpar Apenas Revisões
+                      </h3>
+                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                        Remove o progresso de revisões mas mantém suas matérias e tópicos intactos.
                       </p>
-                    </div>
-
-                    <div className="space-y-3">
                       <Button
                         variant="outline"
-                        className="w-full justify-start border-blue-500 text-blue-700 hover:bg-blue-50"
+                        className="w-full justify-start border-blue-500 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/40"
                         onClick={async () => {
                           if (!user) {
                             toast.error("Usuário não autenticado.");
@@ -898,25 +901,18 @@ const Settings = () => {
                                 }
                               }));
                               
-                              window.dispatchEvent(new CustomEvent('forceComponentRerender', {
-                                detail: { reason: 'reviewsCleared', timestamp: Date.now() }
-                              }));
-                              
-                              // 8. Atualizar contextos da aplicação
-                              console.log('🔄 Atualizando contextos...');
+                              // 8. Atualizar dados da aplicação
                               await Promise.all([
-                                refreshData(), // Atualiza o contexto global
-                                fetchUserCycle(), // Atualiza o ciclo do usuário
-                                fetchUserSettingsContext(), // Atualiza as configurações
-                                checkHasReviews() // Atualiza o estado de revisões
+                                refreshData(),
+                                fetchUserCycle(),
+                                fetchUserSettingsContext(),
+                                checkHasReviews()
                               ]);
                               
-                              console.log('✅ Reset das revisões concluído com sucesso');
-                              toast.success("Revisões limpas com sucesso! Sistema resetado para estado inicial.");
+                              toast.success("Revisões limpas com sucesso! O sistema foi reiniciado.");
                               
-                              // 9. Recarregar página após delay para garantir sincronização
                               setTimeout(() => {
-                                console.log('🔄 Recarregando página para garantir sincronização...');
+                                console.log('🔄 Recarregando página...');
                                 window.location.reload();
                               }, 1500);
                               
@@ -929,20 +925,39 @@ const Settings = () => {
                       >
                         Limpar Apenas Revisões
                       </Button>
-
-                      <Button
-                        variant="destructive"
-                        className="w-full"
-                        onClick={handleClearAll}
-                      >
-                        Limpar Tudo (Matérias + Revisões)
-                      </Button>
                     </div>
+                  </div>
+
+                  {/* Zona de Perigo */}
+                  <div className="p-4 border-2 border-destructive/50 bg-destructive/5 rounded-lg space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                      <h3 className="font-semibold text-destructive">
+                        Zona de Perigo
+                      </h3>
+                    </div>
+                    <p className="text-sm text-destructive/80">
+                      Esta ação irá remover <strong>permanentemente</strong> todas as suas matérias, tópicos, revisões e anotações. Não há como desfazer.
+                    </p>
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => setResetDialogOpen(true)}
+                    >
+                      ⚠️ Reset Completo (Irreversível)
+                    </Button>
                   </div>
                 </div>
               </GlassCard>
             </TabsContent>
           </Tabs>
+
+          <ResetCycleConfirmDialog
+            open={resetDialogOpen}
+            onOpenChange={setResetDialogOpen}
+            onConfirm={handleClearAll}
+            userId={user?.id || ''}
+          />
         </div>
       </div>
     </TooltipProvider>
