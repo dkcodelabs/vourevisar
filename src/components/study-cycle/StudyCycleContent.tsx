@@ -63,9 +63,10 @@ export const StudyCycleContent: React.FC = () => {
 
     const handleCycleUpdate = (event: any) => {
       const now = Date.now();
+      const eventDetail = event?.detail;
 
       // CRÍTICO: Não aplicar debounce para eventos de novo ciclo
-      if (event.detail?.isNewCycle) {
+      if (eventDetail?.isNewCycle) {
         console.log('📢 Novo ciclo detectado no StudyCycleContent (sem debounce)');
 
         // VALIDAÇÃO: Só mostrar mensagem se o ciclo realmente resetou
@@ -74,7 +75,7 @@ export const StudyCycleContent: React.FC = () => {
           userCycle.materias_estudadas_ciclo.length > 0;
 
         console.log('🔍 Validação de novo ciclo:', {
-          eventNewCycleNumber: event.detail?.newCycleNumber,
+          eventNewCycleNumber: eventDetail?.newCycleNumber,
           userCycleCiclosRealizados: userCycle?.ciclos_realizados,
           hasStudiedSubjects,
           materias_estudadas: userCycle?.materias_estudadas_ciclo
@@ -89,19 +90,22 @@ export const StudyCycleContent: React.FC = () => {
         return; // Sair aqui para não aplicar debounce
       }
 
-      // Debounce apenas para eventos normais (não novo ciclo)
-      if (now - lastUpdateTime < UPDATE_DEBOUNCE_TIME) {
+      // Permitir eventos de revisão de tópicos sem debounce
+      const isTopicReview = eventDetail?.source === 'topicReview' || eventDetail?.type === 'topicReview';
+
+      // Debounce apenas para eventos normais (não novo ciclo nem revisões de tópicos)
+      if (!isTopicReview && now - lastUpdateTime < UPDATE_DEBOUNCE_TIME) {
         console.log('🚫 Evento cycleUpdated ignorado no StudyCycleContent - debounce ativo');
         return;
       }
 
       lastUpdateTime = now;
-      console.log('🔄 StudyCycleContent: Processando evento cycleUpdated');
+      console.log('🔄 StudyCycleContent: Processando evento cycleUpdated', { isTopicReview, eventDetail });
 
-      // Recarregar dados após um delay
+      // Recarregar dados após um delay (menor para revisões de tópicos)
       setTimeout(() => {
         refreshCycleData();
-      }, 300);
+      }, isTopicReview ? 100 : 300);
     };
 
 

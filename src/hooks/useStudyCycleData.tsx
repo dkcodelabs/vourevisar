@@ -472,7 +472,10 @@ export const useStudyCycleData = () => {
         return newMarks;
       });
 
-      // Recarregar apenas dados do ciclo para evitar loops
+      // Recarregar dados dos subjects para mostrar próxima revisão
+      await refreshData();
+      
+      // Recarregar dados do ciclo
       if (user) {
         try {
           const { data, error } = await supabase
@@ -542,6 +545,9 @@ export const useStudyCycleData = () => {
     if (!user) return;
     
     try {
+      // Refresh subjects data to show updated review status
+      await refreshData();
+      
       const { data, error } = await supabase
         .from('user_cycles')
         .select('*')
@@ -554,12 +560,10 @@ export const useStudyCycleData = () => {
       }
       
       setUserCycle(data);
-      // Remover refreshData() para evitar loops infinitos
-      // Os dados dos subjects serão atualizados pelos eventos
     } catch (error) {
       console.error('Erro ao recarregar ciclo:', error);
     }
-  }, [user]);
+  }, [user, refreshData]);
 
   return {
     studyCycleSubjects,

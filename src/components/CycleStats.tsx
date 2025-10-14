@@ -19,20 +19,24 @@ export const CycleStats: React.FC = () => {
     
     const handleCycleUpdate = (event: any) => {
       const now = Date.now();
+      const eventDetail = event?.detail;
       
-      // Debounce: ignorar eventos muito próximos
-      if (now - lastStatsUpdateTime < STATS_DEBOUNCE_TIME) {
+      // Permitir eventos de revisão de tópicos sem debounce
+      const isTopicReview = eventDetail?.source === 'topicReview' || eventDetail?.type === 'topicReview';
+      
+      // Debounce apenas para eventos normais (não revisões de tópicos)
+      if (!isTopicReview && now - lastStatsUpdateTime < STATS_DEBOUNCE_TIME) {
         console.log('🚫 Evento cycleUpdated ignorado no CycleStats - debounce ativo');
         return;
       }
       
       lastStatsUpdateTime = now;
-      console.log('🔄 CycleStats: Processando evento cycleUpdated');
+      console.log('🔄 CycleStats: Processando evento cycleUpdated', { isTopicReview, eventDetail });
       
-      // Recarregar stats após um delay
+      // Recarregar stats após um delay (menor para revisões de tópicos)
       setTimeout(() => {
         loadStats();
-      }, 500);
+      }, isTopicReview ? 200 : 500);
     };
     
     window.addEventListener('cycleUpdated', handleCycleUpdate);

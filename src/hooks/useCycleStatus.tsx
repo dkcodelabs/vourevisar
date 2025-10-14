@@ -39,7 +39,7 @@ interface SubjectWithTopics {
 // Sistema de controle de eventos para evitar loops infinitos
 let isProcessingCycleUpdate = false;
 let lastEventTime = 0;
-const EVENT_DEBOUNCE_TIME = 1000; // 1 segundo
+const EVENT_DEBOUNCE_TIME = 500; // Reduzido para 500ms para melhor responsividade
 
 export const useCycleStatus = () => {
   const { user } = useAuth();
@@ -672,20 +672,24 @@ export const useCycleStatus = () => {
     // Sistema de eventos com debounce para evitar loops infinitos
     const handleCycleUpdate = (event: any) => {
       const now = Date.now();
+      const eventDetail = event?.detail;
       
-      // Debounce: ignorar eventos muito próximos
-      if (now - lastEventTime < EVENT_DEBOUNCE_TIME) {
+      // Permitir eventos de revisão de tópicos sem debounce
+      const isTopicReview = eventDetail?.source === 'topicReview' || eventDetail?.type === 'topicReview';
+      
+      // Debounce apenas para eventos normais (não revisões de tópicos)
+      if (!isTopicReview && now - lastEventTime < EVENT_DEBOUNCE_TIME) {
         console.log('🚫 Evento cycleUpdated ignorado - debounce ativo');
         return;
       }
       
       lastEventTime = now;
-      console.log('🔄 useCycleStatus: Processando evento cycleUpdated');
+      console.log('🔄 useCycleStatus: Processando evento cycleUpdated', { isTopicReview, eventDetail });
       
       // Recarregar dados após um pequeno delay
       setTimeout(() => {
         loadCycle();
-      }, 300);
+      }, isTopicReview ? 100 : 300); // Delay menor para revisões de tópicos
     };
     
     window.addEventListener('cycleUpdated', handleCycleUpdate);

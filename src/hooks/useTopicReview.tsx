@@ -186,10 +186,19 @@ export const useTopicReview = () => {
 
       // Não chamar refreshData aqui se usado dentro de uma sessão
       // O refresh será feito pelo componente que gerencia a sessão
-      console.log('🔵 Revisão processada sem refresh automático');
+      console.log('🔵 Revisão processada - disparando evento de atualização');
       
-      // Disparar evento para atualizar estatísticas imediatamente
-      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      // Disparar evento para atualizar estatísticas imediatamente com detalhes específicos
+      window.dispatchEvent(new CustomEvent('cycleUpdated', {
+        detail: { 
+          source: 'topicReview', 
+          type: 'topicReview',
+          topicId,
+          reviewStage,
+          completed,
+          timestamp: Date.now()
+        }
+      }));
       
       toastManager.success('Revisão registrada com sucesso!', {
         duration: 3000,
