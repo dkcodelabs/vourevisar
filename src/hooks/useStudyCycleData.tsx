@@ -71,25 +71,8 @@ const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
   const mappedTopics = subject.topics
     .map(mapTopicToStudyCycleTopic)
     .sort((a, b) => {
-      // Manter ordem consistente: primeiro por status de revisão, depois por nome
-      const statusOrder = {
-        'NOT_STARTED': 0,
-        'REVISED_24H': 1,
-        'REVISED_7D': 2,
-        'REVISED_15D': 3,
-        'REVISED_30D': 4,
-        'COMPLETED': 5
-      };
-      
-      const aOrder = statusOrder[a.reviewStatus] || 0;
-      const bOrder = statusOrder[b.reviewStatus] || 0;
-      
-      if (aOrder !== bOrder) {
-        return aOrder - bOrder;
-      }
-      
-      // Se mesmo status, ordenar por nome para manter consistência
-      return a.name.localeCompare(b.name);
+      // Ordenar por ID para manter ordem de inserção no banco
+      return a.id.localeCompare(b.id);
     });
 
   // Verificar se todos os tópicos estão concluídos para determinar o status correto
@@ -304,23 +287,8 @@ export const useStudyCycleData = () => {
       const mappedTopics = subject.topics
         .map(mapTopicToStudyCycleTopic)
         .sort((a, b) => {
-          const statusOrder = {
-            'NOT_STARTED': 0,
-            'REVISED_24H': 1,
-            'REVISED_7D': 2,
-            'REVISED_15D': 3,
-            'REVISED_30D': 4,
-            'COMPLETED': 5
-          };
-          
-          const aOrder = statusOrder[a.reviewStatus] || 0;
-          const bOrder = statusOrder[b.reviewStatus] || 0;
-          
-          if (aOrder !== bOrder) {
-            return aOrder - bOrder;
-          }
-          
-          return a.name.localeCompare(b.name);
+          // Ordenar por ID para manter ordem de inserção no banco
+          return a.id.localeCompare(b.id);
         });
 
       const isFullyCompleted = mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === 'COMPLETED');
@@ -531,6 +499,10 @@ export const useStudyCycleData = () => {
       if (updatedData.difficulty !== undefined) {
         updatePayload.difficulty_level = mapDifficultyToLevel(updatedData.difficulty);
         updatePayload.difficulty_set_at = new Date();
+      }
+
+      if (updatedData.subTopics !== undefined) {
+        updatePayload.subtopics = updatedData.subTopics;
       }
 
       await updateTopic(subjectId, topicId, updatePayload);

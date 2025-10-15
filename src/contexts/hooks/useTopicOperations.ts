@@ -68,6 +68,19 @@ export const useTopicOperations = (
         updateData.notes = updates.notes;
       }
 
+      // Atualizar nível de dificuldade se fornecido
+      if (updates.difficulty_level !== undefined) {
+        updateData.difficulty_level = updates.difficulty_level;
+        updateData.difficulty_set_at = new Date().toISOString();
+      }
+
+      // Atualizar subtópicos se fornecidos
+      if (updates.subtopics !== undefined) {
+        updateData.subtopics = updates.subtopics;
+      }
+
+      console.log('📝 updateTopic - Final updateData:', updateData);
+
       const { error } = await supabase
         .from('topics')
         .update(updateData)

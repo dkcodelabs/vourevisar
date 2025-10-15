@@ -34,7 +34,7 @@ export const transformTopicData = (topic: any): Topic => {
     is_completed: topic.completed || false,
     difficulty_level: topic.difficulty_level,
     notes: notes,
-    subtopics: topic.subtopics || []
+    subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : []
   };
 };
 
