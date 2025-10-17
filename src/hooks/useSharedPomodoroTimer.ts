@@ -1,37 +1,92 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-// Estado global compartilhado
-let globalState = {
-  timeLeft: 25 * 60,
-  isRunning: false,
-  sessionsToday: 0,
-  initialTime: 25 * 60,
-  isBlinking: false,
-  listeners: new Set<() => void>()
+// Função para carregar estado do localStorage
+const loadStateFromStorage = () => {
+  try {
+    const saved = localStorage.getItem('pomodoroState');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const today = new Date().toDateString();
+
+      // Se é um novo dia, resetar sessões
+      if (parsed.lastDate !== today) {
+        return {
+          timeLeft: 25 * 60,
+          isRunning: false,
+          sessionsToday: 0,
+          initialTime: 25 * 60,
+          isBlinking: false,
+          lastDate: today,
+          listeners: new Set<() => void>()
+        };
+      }
+
+      return {
+        ...parsed,
+        isRunning: false, // Sempre pausar quando recarregar a página
+        isBlinking: false,
+        listeners: new Set<() => void>()
+      };
+    }
+  } catch (error) {
+    console.error('Erro ao carregar estado do pomodoro:', error);
+  }
+
+  return {
+    timeLeft: 25 * 60,
+    isRunning: false,
+    sessionsToday: 0,
+    initialTime: 25 * 60,
+    isBlinking: false,
+    lastDate: new Date().toDateString(),
+    listeners: new Set<() => void>()
+  };
 };
+
+// Função para salvar estado no localStorage
+const saveStateToStorage = (state: any) => {
+  try {
+    const stateToSave = {
+      timeLeft: state.timeLeft,
+      isRunning: state.isRunning,
+      sessionsToday: state.sessionsToday,
+      initialTime: state.initialTime,
+      lastDate: state.lastDate
+    };
+    localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+  } catch (error) {
+    console.error('Erro ao salvar estado do pomodoro:', error);
+  }
+};
+
+// Estado global compartilhado
+let globalState = loadStateFromStorage();
 
 // Timer global único
 let globalInterval: NodeJS.Timeout | null = null;
 
 const startGlobalTimer = () => {
   if (globalInterval) return;
-  
+
   globalInterval = setInterval(() => {
     if (globalState.isRunning && globalState.timeLeft > 0) {
       globalState.timeLeft -= 1;
+      saveStateToStorage(globalState);
       globalState.listeners.forEach(listener => listener());
     } else if (globalState.timeLeft === 0 && globalState.isRunning) {
       globalState.isRunning = false;
       globalState.sessionsToday += 1;
       globalState.isBlinking = true;
-      
+      saveStateToStorage(globalState);
+
       // Para o piscar após 3 segundos e reseta o timer
       setTimeout(() => {
         globalState.isBlinking = false;
         globalState.timeLeft = globalState.initialTime;
+        saveStateToStorage(globalState);
         globalState.listeners.forEach(listener => listener());
       }, 3000);
-      
+
       globalState.listeners.forEach(listener => listener());
     }
   }, 1000);
@@ -55,15 +110,15 @@ export const useSharedPomodoroTimer = () => {
   useEffect(() => {
     const listener = () => updateRef.current();
     globalState.listeners.add(listener);
-    
+
     // Iniciar timer global se necessário
     if (globalState.listeners.size === 1) {
       startGlobalTimer();
     }
-    
+
     return () => {
       globalState.listeners.delete(listener);
-      
+
       // Parar timer global se não há mais listeners
       if (globalState.listeners.size === 0) {
         stopGlobalTimer();
@@ -73,6 +128,7 @@ export const useSharedPomodoroTimer = () => {
 
   const toggleTimer = useCallback(() => {
     globalState.isRunning = !globalState.isRunning;
+    saveStateToStorage(globalState);
     globalState.listeners.forEach(listener => listener());
   }, []);
 
@@ -80,6 +136,7 @@ export const useSharedPomodoroTimer = () => {
     globalState.isRunning = false;
     globalState.isBlinking = false;
     globalState.timeLeft = globalState.initialTime;
+    saveStateToStorage(globalState);
     globalState.listeners.forEach(listener => listener());
   }, []);
 
@@ -88,6 +145,7 @@ export const useSharedPomodoroTimer = () => {
       const newTime = Math.max(5 * 60, Math.min(60 * 60, globalState.initialTime + (minutes * 60)));
       globalState.initialTime = newTime;
       globalState.timeLeft = newTime;
+      saveStateToStorage(globalState);
       globalState.listeners.forEach(listener => listener());
     }
   }, []);

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, BookOpen, Target, Eye, Play, Pause, Minus, Plus, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Subject } from '@/types';
-import { usePomodoroTimer } from '@/hooks/usePomodoroTimer';
+import { useSharedPomodoroTimer } from '@/hooks/useSharedPomodoroTimer';
 
 interface CompactOverviewProps {
     subjects: Subject[];
@@ -24,15 +24,14 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
     // Hook do Pomodoro Timer
     const {
         timeLeft,
-        isActive,
+        isRunning,
         sessionsToday,
-        startTimer,
-        pauseTimer,
+        toggleTimer,
         resetTimer,
         adjustTime,
         formatTime,
-        getSessionsProgress
-    } = usePomodoroTimer();
+        getProgress
+    } = useSharedPomodoroTimer();
 
     // Calcular estatísticas de matérias
     const totalSubjects = subjects.length;
@@ -201,7 +200,7 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                             <div className="w-1 h-8 rounded-full bg-green-500"></div>
                             <div className="flex items-center gap-2">
                                 <div className="w-5 h-5 flex items-center justify-center">
-                                    {isActive ? '🔥' : '⏰'}
+                                    {isRunning ? '🔥' : '⏰'}
                                 </div>
                                 <span className="font-semibold text-gray-900 text-sm">Pomodoro</span>
                             </div>
@@ -214,7 +213,7 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                                     size="sm"
                                     className="h-6 w-6 p-0 hover:bg-gray-100"
                                     onClick={() => adjustTime(-5)}
-                                    disabled={isActive}
+                                    disabled={isRunning}
                                 >
                                     <Minus className="h-3 w-3" />
                                 </Button>
@@ -226,7 +225,7 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                                     size="sm"
                                     className="h-6 w-6 p-0 hover:bg-gray-100"
                                     onClick={() => adjustTime(5)}
-                                    disabled={isActive}
+                                    disabled={isRunning}
                                 >
                                     <Plus className="h-3 w-3" />
                                 </Button>
@@ -245,7 +244,7 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                         <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
                                 className="h-2 rounded-full bg-green-500 transition-all duration-500"
-                                style={{ width: `${getSessionsProgress()}%` }}
+                                style={{ width: `${getProgress()}%` }}
                             ></div>
                         </div>
                     </div>
@@ -253,13 +252,13 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                     <div className="flex items-center gap-2">
                         <Button
                             size="sm"
-                            className={`flex-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-white ${isActive
+                            className={`flex-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-white ${isRunning
                                 ? 'bg-red-500 hover:bg-red-600'
                                 : 'bg-purple-500 hover:bg-purple-600'
                                 }`}
-                            onClick={isActive ? pauseTimer : startTimer}
+                            onClick={toggleTimer}
                         >
-                            {isActive ? (
+                            {isRunning ? (
                                 <>
                                     <Pause className="h-4 w-4 mr-2" />
                                     Pausar

@@ -147,12 +147,66 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
         return REVIEW_PROFILES[userProfile].maxReviews;
     };
 
+    // Função para determinar a cor da matéria baseada no status dos tópicos
+    const getSubjectColor = (subject: Subject, topics: any[], index: number) => {
+        // Para a aba "hoje" (que inclui hoje + atrasadas), usar cores baseadas no status
+        if (tab === 'hoje') {
+            // Verificar se há tópicos atrasados
+            const hasOverdueTopics = topics.some(topic => getTopicStatus(topic) === 'overdue');
+            if (hasOverdueTopics) {
+                return '#ef4444'; // Vermelho para atrasadas
+            }
+            
+            // Se não há atrasados, mas há tópicos para hoje
+            const hasTodayTopics = topics.some(topic => getTopicStatus(topic) === 'today');
+            if (hasTodayTopics) {
+                return '#f97316'; // Laranja para hoje
+            }
+        }
+        
+        // Para outras abas ou casos padrão, usar as cores do array
+        return colors[index % colors.length];
+    };
+
+    // Função para calcular quantos dias um tópico está atrasado
+    const getDaysOverdue = (topic: any) => {
+        if (!topic.nextReview) return 0;
+        const today = startOfDay(new Date());
+        const reviewDate = startOfDay(new Date(topic.nextReview));
+        const daysOverdue = differenceInDays(today, reviewDate);
+        return Math.max(0, daysOverdue); // Retorna 0 se não estiver atrasado
+    };
+
+    // Função para encontrar o maior atraso de uma matéria
+    const getSubjectMaxOverdue = (topics: any[]) => {
+        if (topics.length === 0) return 0;
+        return Math.max(...topics.map(topic => getDaysOverdue(topic)));
+    };
+
+    // Função para encontrar a próxima revisão mais próxima de uma matéria
+    const getSubjectNextReview = (topics: any[]) => {
+        const validDates = topics
+            .filter(topic => topic.nextReview)
+            .map(topic => new Date(topic.nextReview))
+            .sort((a, b) => a.getTime() - b.getTime());
+        
+        return validDates.length > 0 ? validDates[0] : null;
+    };
+
+    // Função para encontrar a conclusão mais recente de uma matéria
+    const getSubjectLatestCompletion = (topics: any[]) => {
+        const validDates = topics
+            .filter(topic => topic.updatedAt)
+            .map(topic => new Date(topic.updatedAt))
+            .sort((a, b) => b.getTime() - a.getTime());
+        
+        return validDates.length > 0 ? validDates[0] : null;
+    };
+
     // Filtrar matérias que têm tópicos para a aba atual
     const subjectsWithTopics = subjects
-        .map((subject, index) => ({
-            subject,
-            color: colors[index % colors.length],
-            topics: getTopicsForTab(subject).filter(topic => {
+        .map((subject, index) => {
+            const filteredTopics = getTopicsForTab(subject).filter(topic => {
                 if (searchTerm.trim() === '') return true;
 
                 const searchLower = searchTerm.toLowerCase();
@@ -160,10 +214,93 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                     topic.name.toLowerCase().includes(searchLower) ||
                     subject.name.toLowerCase().includes(searchLower)
                 );
-            })
-        }))
+            });
+
+            // Ordenar tópicos dentro da matéria baseado na aba
+            const sortedTopics = filteredTopics.sort((a, b) => {
+                if (tab === 'hoje') {
+                    // Aba hoje: ordenar por atraso (mais atrasado primeiro)
+                    const aDaysOverdue = getDaysOverdue(a);
+                    const bDaysOverdue = getDaysOverdue(b);
+                    
+                    // Se ambos estão atrasados, ordenar pelo mais atrasado primeiro
+                    if (aDaysOverdue > 0 && bDaysOverdue > 0) {
+                        return bDaysOverdue - aDaysOverdue;
+                    }
+                    
+                    // Se apenas um está atrasado, ele vem primeiro
+                    if (aDaysOverdue > 0) return -1;
+                    if (bDaysOverdue > 0) return 1;
+                    
+                    // Se nenhum está atrasado, ordenar alfabeticamente
+                    return a.name.localeCompare(b.name);
+                    
+                } else if (tab === 'futuras') {
+                    // Aba futuras: ordenar do mais próximo para o mais distante
+                    if (!a.nextReview && !b.nextReview) return a.name.localeCompare(b.name);
+                    if (!a.nextReview) return 1;
+                    if (!b.nextReview) return -1;
+                    
+                    const aDate = new Date(a.nextReview);
+                    const bDate = new Date(b.nextReview);
+                    return aDate.getTime() - bDate.getTime(); // Mais próximo primeiro
+                    
+                } else if (tab === 'concluido') {
+                    // Aba concluído: ordenar pela sequência que foi concluído (mais recente primeiro)
+                    // Assumindo que tópicos concluídos mais recentemente têm updatedAt mais recente
+                    if (!a.updatedAt && !b.updatedAt) return a.name.localeCompare(b.name);
+                    if (!a.updatedAt) return 1;
+                    if (!b.updatedAt) return -1;
+                    
+                    const aDate = new Date(a.updatedAt);
+                    const bDate = new Date(b.updatedAt);
+                    return bDate.getTime() - aDate.getTime(); // Mais recente primeiro
+                }
+                
+                // Ordenação padrão alfabética
+                return a.name.localeCompare(b.name);
+            });
+
+            return {
+                subject,
+                color: getSubjectColor(subject, sortedTopics, index),
+                topics: sortedTopics,
+                maxOverdue: getSubjectMaxOverdue(sortedTopics),
+                nextReview: getSubjectNextReview(sortedTopics),
+                latestCompletion: getSubjectLatestCompletion(sortedTopics)
+            };
+        })
         .filter(item => item.topics.length > 0)
-        .sort((a, b) => a.subject.name.localeCompare(b.subject.name));
+        .sort((a, b) => {
+            if (tab === 'hoje') {
+                // Aba hoje: ordenar por atraso (matéria mais atrasada primeiro)
+                if (a.maxOverdue > 0 && b.maxOverdue === 0) return -1;
+                if (a.maxOverdue === 0 && b.maxOverdue > 0) return 1;
+                
+                if (a.maxOverdue > 0 && b.maxOverdue > 0) {
+                    return b.maxOverdue - a.maxOverdue;
+                }
+                
+            } else if (tab === 'futuras') {
+                // Aba futuras: ordenar pela próxima revisão mais próxima
+                if (!a.nextReview && !b.nextReview) return a.subject.name.localeCompare(b.subject.name);
+                if (!a.nextReview) return 1;
+                if (!b.nextReview) return -1;
+                
+                return a.nextReview.getTime() - b.nextReview.getTime();
+                
+            } else if (tab === 'concluido') {
+                // Aba concluído: ordenar pela conclusão mais recente
+                if (!a.latestCompletion && !b.latestCompletion) return a.subject.name.localeCompare(b.subject.name);
+                if (!a.latestCompletion) return 1;
+                if (!b.latestCompletion) return -1;
+                
+                return b.latestCompletion.getTime() - a.latestCompletion.getTime();
+            }
+            
+            // Ordenação padrão por nome da matéria
+            return a.subject.name.localeCompare(b.subject.name);
+        });
 
     const hasActiveSearch = searchTerm.trim() !== '';
     const hasNoResults = subjectsWithTopics.length === 0;

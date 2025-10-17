@@ -1,96 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw, Coffee, BookOpen } from 'lucide-react';
+import { useSharedPomodoroTimer } from '@/hooks/useSharedPomodoroTimer';
 
 interface PomodoroCardProps {
   className?: string;
 }
 
 export const PomodoroCard: React.FC<PomodoroCardProps> = ({ className = '' }) => {
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutos em segundos
-  const [isActive, setIsActive] = useState(false);
-  const [isBreak, setIsBreak] = useState(false);
-  const [sessions, setSessions] = useState(0);
+  const {
+    timeLeft,
+    isRunning,
+    sessionsToday,
+    initialTime,
+    isBlinking,
+    toggleTimer,
+    resetTimer,
+    formatTime,
+    getProgress,
+    getState
+  } = useSharedPomodoroTimer();
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(timeLeft => timeLeft - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      // Timer acabou
-      if (isBreak) {
-        // Fim do intervalo, volta para sessão de trabalho
-        setTimeLeft(25 * 60);
-        setIsBreak(false);
-      } else {
-        // Fim da sessão de trabalho
-        setSessions(prev => prev + 1);
-        setTimeLeft(5 * 60); // 5 minutos de pausa
-        setIsBreak(true);
-      }
-      setIsActive(false);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isActive, timeLeft, isBreak]);
-
-  const toggleTimer = () => {
-    setIsActive(!isActive);
-  };
-
-  const resetTimer = () => {
-    setIsActive(false);
-    setTimeLeft(isBreak ? 5 * 60 : 25 * 60);
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getProgress = () => {
-    const totalTime = isBreak ? 5 * 60 : 25 * 60;
-    return ((totalTime - timeLeft) / totalTime) * 100;
-  };
+  // Determinar se está em pausa baseado no tempo restante vs tempo inicial
+  const isBreak = timeLeft < initialTime && timeLeft > 0 && !isRunning && getState() === 'paused';
+  const currentState = getState();
 
   return (
     <Card className={`bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 ${className}`}>
       <CardContent className="p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-1 h-6 rounded-full bg-green-500" />
+          <div className={`w-1 h-6 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-400'}`} />
           <div className="flex items-center gap-2">
-            {isBreak ? (
-              <Coffee className="h-5 w-5 text-orange-500" />
-            ) : (
-              <BookOpen className="h-5 w-5 text-blue-500" />
-            )}
+            <BookOpen className="h-5 w-5 text-blue-500" />
             <span className="font-bold text-gray-800 text-base uppercase">
-              {isBreak ? 'PAUSA' : 'POMODORO'}
+              POMODORO
             </span>
           </div>
         </div>
 
         <div className="text-center mb-6">
-          <div className="text-4xl font-mono font-bold text-gray-900 mb-2">
+          <div className={`text-4xl font-mono font-bold mb-2 transition-all duration-300 ${
+            isBlinking ? 'text-green-500 animate-pulse' : 'text-gray-900'
+          }`}>
             {formatTime(timeLeft)}
           </div>
           <div className="text-sm text-gray-500 mb-4">
-            {isBreak ? 'Tempo de descanso' : 'Tempo de foco'}
+            {currentState === 'running' ? 'Tempo de foco' : 
+             currentState === 'paused' ? 'Pausado' : 'Pronto para começar'}
           </div>
           
           {/* Barra de progresso */}
           <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
             <div 
-              className={`h-2 rounded-full transition-all duration-1000 ${
-                isBreak ? 'bg-orange-500' : 'bg-green-500'
-              }`}
+              className="h-2 rounded-full transition-all duration-1000 bg-green-500"
               style={{ width: `${getProgress()}%` }}
             />
           </div>
@@ -102,12 +65,12 @@ export const PomodoroCard: React.FC<PomodoroCardProps> = ({ className = '' }) =>
             size="sm"
             onClick={toggleTimer}
             className={`h-12 w-12 p-0 rounded-full transition-all duration-200 ${
-              isActive 
+              isRunning 
                 ? 'bg-red-50 hover:bg-red-100 text-red-600' 
                 : 'bg-green-50 hover:bg-green-100 text-green-600'
             }`}
           >
-            {isActive ? (
+            {isRunning ? (
               <Pause className="h-6 w-6" />
             ) : (
               <Play className="h-6 w-6 ml-0.5" />
@@ -129,7 +92,7 @@ export const PomodoroCard: React.FC<PomodoroCardProps> = ({ className = '' }) =>
             Sessões completadas
           </div>
           <div className="text-2xl font-bold text-green-600">
-            {sessions}
+            {sessionsToday}
           </div>
         </div>
 
@@ -139,7 +102,7 @@ export const PomodoroCard: React.FC<PomodoroCardProps> = ({ className = '' }) =>
             <div
               key={i}
               className={`w-2 h-2 rounded-full ${
-                i < sessions % 4 ? 'bg-green-500' : 'bg-gray-200'
+                i < sessionsToday % 4 ? 'bg-green-500' : 'bg-gray-200'
               }`}
             />
           ))}
