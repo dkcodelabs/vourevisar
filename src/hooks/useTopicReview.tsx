@@ -64,8 +64,8 @@ export const useTopicReview = () => {
         nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
         nextReview = nextReviewDate.toISOString();
         
-        // Se é a última revisão do perfil, marcar como concluído
-        completed = (newReviewCount === maxReviews);
+        // Se excedeu o número máximo de revisões, marcar como concluído
+        completed = (newReviewCount > maxReviews);
       } else {
         // Quando excede o número máximo de revisões, marca como concluído
         reviewStage = 'Concluído';

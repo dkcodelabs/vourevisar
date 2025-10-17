@@ -313,28 +313,16 @@ const NotesModal: React.FC<NotesModalProps> = ({
                 {subjectName}
               </DialogDescription>
             </div>
-            <div className="flex items-center gap-2">
+            {isMobile && (
               <Button
-                variant="default"
+                variant="ghost"
                 size="sm"
-                onClick={handleSaveAndClose}
-                className="flex items-center gap-2"
-                disabled={isSaving}
+                onClick={onClose}
+                className="h-8 w-8 p-0"
               >
-                <Save className="h-4 w-4" />
-                {isSaving ? 'Salvando...' : 'Salvar e Fechar'}
+                <X className="h-4 w-4" />
               </Button>
-              {isMobile && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClose}
-                  className="h-8 w-8 p-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         </DialogHeader>
         
@@ -493,6 +481,26 @@ const NotesModal: React.FC<NotesModalProps> = ({
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Botões de ação */}
+              <div className="flex justify-end gap-3 pt-4 border-t bg-white p-4 -mx-4 -mb-4">
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={isSaving}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={handleSaveAndClose}
+                  className="flex items-center gap-2"
+                  disabled={isSaving}
+                >
+                  <Save className="h-4 w-4" />
+                  {isSaving ? 'Salvando...' : 'Salvar e Fechar'}
+                </Button>
               </div>
             </div>
           )}

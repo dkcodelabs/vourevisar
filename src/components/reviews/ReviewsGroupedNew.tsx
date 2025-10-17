@@ -162,9 +162,15 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
             if (hasTodayTopics) {
                 return '#f97316'; // Laranja para hoje
             }
+        } else if (tab === 'futuras') {
+            // Aba futuras: cor azul
+            return '#3b82f6'; // Azul para futuras
+        } else if (tab === 'concluido') {
+            // Aba concluído: cor verde
+            return '#22c55e'; // Verde para concluídas
         }
         
-        // Para outras abas ou casos padrão, usar as cores do array
+        // Para outros casos padrão, usar as cores do array
         return colors[index % colors.length];
     };
 
