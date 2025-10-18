@@ -167,7 +167,6 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1">
-                        <BookOpen className="h-4 w-4 text-gray-400" />
                         
                         {editingTopicId === topic.id ? (
                           <div className="flex items-center gap-2 flex-1">
@@ -200,10 +199,14 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
                           </div>
                         ) : (
                           <>
+                            {/* Espaço fixo para a marcação de status */}
+                            <div className="w-20 flex-shrink-0">
+                              {getStatusBadge(topic)}
+                            </div>
+                            
                             <div className="flex-1">
                               <h4 className="text-base text-zinc-800 dark:text-zinc-200">{topic.name}</h4>
                               <div className="flex items-center gap-2 mt-1">
-                                {getStatusBadge(topic)}
                                 {topic.reviewCount > 0 && (
                                   <span className="text-xs text-gray-500">
                                     {topic.reviewCount} revisões

@@ -34,11 +34,11 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
 
   if (isSubjectFinished) {
     return (
-      <div className="flex items-center justify-between w-full px-4 py-2">
-        <span className="text-sm text-zinc-800 dark:text-zinc-200">{topic.name}</span>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full px-4 py-2 gap-2">
+        <span className="text-sm text-zinc-800 dark:text-zinc-200 flex-1">{topic.name}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
           <span className="font-semibold text-emerald-600 dark:text-emerald-400">Revisado</span>
-          <div className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500 text-white">
+          <div className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500 text-white shadow-md">
             <CheckIcon />
           </div>
         </div>
@@ -49,33 +49,42 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   const baseClasses = "flex items-center justify-between w-full p-3 text-left transition-colors duration-200 rounded-lg";
   const bgClasses = 'bg-white dark:bg-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700';
 
-  const buttonBaseClasses = "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-200";
+  const buttonBaseClasses = "flex-shrink-0 w-8 h-8 min-w-[2rem] min-h-[2rem] max-w-[2rem] max-h-[2rem] rounded-full flex items-center justify-center border-2 transition-all duration-200";
   const buttonStateClasses = isMarkedInSession
-    ? "bg-sky-500 border-sky-600 text-white"
-    : "bg-gray-50 dark:bg-slate-700 border-gray-400 dark:border-slate-500 hover:bg-sky-100 dark:hover:bg-sky-800 hover:border-sky-400";
+    ? "bg-blue-600 border-blue-700 text-white shadow-md"
+    : "border-gray-300 dark:border-slate-400 shadow-sm dark:bg-slate-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-500"
+    + " bg-[#F1F5F9] hover:bg-[#DBEAFE] hover:border-blue-400";
 
   return (
     <div className={`${baseClasses} ${bgClasses}`}>
-      <span className="text-sm text-zinc-800 dark:text-zinc-200">{topic.name}</span>
-      <div className="flex items-center gap-3">
-        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusConfig.className}`}>
-          {statusConfig.text}
+      {/* Layout responsivo: desktop = horizontal, mobile = vertical */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
+        {/* Texto do tópico */}
+        <span className="text-sm text-zinc-800 dark:text-zinc-200 flex-1">
+          {topic.name}
         </span>
-        <button
-          onClick={onOpenNotes}
-          className="p-1 text-gray-400 hover:text-sky-500 dark:text-slate-500 dark:hover:text-sky-400 transition-colors"
-          aria-label={`Anotações para ${topic.name}`}
-        >
-          <EditIcon />
-        </button>
-        <button
-          onClick={() => onToggleMark(topic.id)}
-          disabled={isTopicCompleted || !isActionable}
-          className={`${buttonBaseClasses} ${buttonStateClasses} ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
-          aria-label={`Marcar ${topic.name} como revisado`}
-        >
-          {isMarkedInSession && <CheckIcon />}
-        </button>
+        
+        {/* Controles: status, anotação e radiobox */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusConfig.className}`}>
+            {statusConfig.text}
+          </span>
+          <button
+            onClick={onOpenNotes}
+            className="p-1 text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400 transition-colors"
+            aria-label={`Anotações para ${topic.name}`}
+          >
+            <EditIcon />
+          </button>
+          <button
+            onClick={() => onToggleMark(topic.id)}
+            disabled={isTopicCompleted || !isActionable}
+            className={`${buttonBaseClasses} ${buttonStateClasses} ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            aria-label={`Marcar ${topic.name} como revisado`}
+          >
+            {isMarkedInSession && <CheckIcon />}
+          </button>
+        </div>
       </div>
     </div>
   );
