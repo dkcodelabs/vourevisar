@@ -16,7 +16,6 @@ export function useAuthOperations() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       
-      console.log('Sign in successful:', data.user?.email);
       toastManager.success('Login realizado com sucesso!', {
         id: 'login-success'
       });
@@ -38,8 +37,6 @@ export function useAuthOperations() {
       // Check if email already exists using secure function
       const { data: emailCheckResult, error: emailCheckError } = await supabase
         .rpc('check_email_exists', { email_to_check: email });
-      
-      console.log('Email check result:', emailCheckResult);
       
       if (emailCheckError) {
         console.error("Error checking existing email:", emailCheckError);
@@ -81,7 +78,6 @@ export function useAuthOperations() {
         throw error;
       }
       
-      console.log('Sign up successful:', data.user?.email);
       toastManager.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
       return data;
     } catch (error: any) {
@@ -96,13 +92,9 @@ export function useAuthOperations() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
-      console.log("Iniciando login com Google...");
-      
       // Usar o domínio atual para callback
       const currentOrigin = window.location.origin;
       const redirectUrl = `${currentOrigin}/auth/callback`;
-      
-      console.log("Redirect URL:", redirectUrl);
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -115,15 +107,10 @@ export function useAuthOperations() {
         }
       });
       
-      if (error) {
-        console.error("Erro no login com Google:", error);
-        throw error;
-      }
+      if (error) throw error;
       
-      console.log("Login com Google iniciado com sucesso");
       return data;
     } catch (error: any) {
-      console.error("Erro no login com Google:", error);
       toastManager.error('Erro ao fazer login com Google. Verifique as configurações OAuth.');
       throw error;
     } finally {
@@ -138,24 +125,16 @@ export function useAuthOperations() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        console.log('No active session found');
         toastManager.success('Logout realizado com sucesso!');
         return;
       }
-
-      console.log('Signing out user:', session.user?.email);
       
       const { error } = await supabase.auth.signOut();
       
-      if (error) {
-        console.error('Logout error:', error);
-        throw error;
-      }
+      if (error) throw error;
       
-      console.log('Logout successful');
       toastManager.success('Logout realizado com sucesso!');
     } catch (error: any) {
-      console.error('Error during logout:', error);
       // Even if there's an error, we should clear local state
       toastManager.error('Erro ao sair, mas você foi desconectado localmente');
     } finally {

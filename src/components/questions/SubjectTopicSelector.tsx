@@ -5,6 +5,7 @@ import { useSubjectsAndTopics } from '@/hooks/useSubjectsAndTopics';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { subjectNameSchema, topicNameSchema } from '@/lib/validation';
 
 interface SubjectTopicSelectorProps {
   subject: string;
@@ -26,10 +27,8 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
   useEffect(() => {
     const loadTopicsForSubject = async () => {
       if (subject && subjects.length > 0) {
-        console.log('Loading topics for subject:', subject);
         const selectedSubject = subjects.find(s => s.name === subject);
         if (selectedSubject) {
-          console.log('Found subject:', selectedSubject);
           await fetchTopicsBySubject(selectedSubject.id);
         }
       }
@@ -54,7 +53,6 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
   const handleSubjectChange = async (subjectId: string) => {
     const selectedSubject = subjects.find(s => s.id === subjectId);
     if (selectedSubject) {
-      console.log('Subject changed to:', selectedSubject.name);
       onSubjectChange(selectedSubject.name);
       onTopicChange('');
       await fetchTopicsBySubject(subjectId);
@@ -68,16 +66,16 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
     }
 
     try {
+      // Validate input
+      const validatedName = subjectNameSchema.parse(subjectName);
+
       const { data: newSubject, error } = await supabase
         .from('subjects')
-        .insert([{ name: subjectName, user_id: user.id }])
+        .insert([{ name: validatedName, user_id: user.id }])
         .select()
         .single();
 
-      if (error) {
-        console.error('Erro ao criar matéria:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       onSubjectChange(subjectName);
       onTopicChange('');
@@ -88,20 +86,22 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
       setTimeout(() => {
         window.location.href = window.location.pathname;
       }, 1000);
-    } catch (error) {
-      console.error('Erro ao criar matéria:', error);
-      toast.error('Erro ao criar nova matéria');
+    } catch (error: any) {
+      if (error.errors) {
+        // Zod validation error
+        toast.error(error.errors[0]?.message || 'Erro ao validar nome da matéria');
+      } else {
+        toast.error('Erro ao criar nova matéria');
+      }
     }
   };
 
   const handleTopicChange = (topicId: string) => {
     if (topicId === 'Geral') {
-      console.log('Topic changed to: Geral');
       onTopicChange('Geral');
     } else {
       const selectedTopic = topics.find(t => t.id === topicId);
       if (selectedTopic) {
-        console.log('Topic changed to:', selectedTopic.name);
         onTopicChange(selectedTopic.name);
       }
     }
@@ -119,6 +119,9 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
     }
 
     try {
+      // Validate input
+      const validatedName = topicNameSchema.parse(topicName);
+
       const selectedSubject = subjects.find(s => s.name === subject);
       if (!selectedSubject) {
         toast.error('Matéria não encontrada');
@@ -128,25 +131,26 @@ const SubjectTopicSelector: React.FC<SubjectTopicSelectorProps> = ({
       const { data: newTopic, error } = await supabase
         .from('topics')
         .insert([{ 
-          name: topicName, 
+          name: validatedName, 
           subject_id: selectedSubject.id,
           user_id: user.id 
         }])
         .select()
         .single();
 
-      if (error) {
-        console.error('Erro ao criar tópico:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       onTopicChange(topicName);
       
       toast.success(`Tópico "${topicName}" criado com sucesso!`);
       await fetchTopicsBySubject(selectedSubject.id);
-    } catch (error) {
-      console.error('Erro ao criar tópico:', error);
-      toast.error('Erro ao criar novo tópico');
+    } catch (error: any) {
+      if (error.errors) {
+        // Zod validation error
+        toast.error(error.errors[0]?.message || 'Erro ao validar nome do tópico');
+      } else {
+        toast.error('Erro ao criar novo tópico');
+      }
     }
   };
 

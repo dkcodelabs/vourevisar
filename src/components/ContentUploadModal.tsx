@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ExternalLink, Upload, FileText, CheckCircle2, AlertCircle, Copy, Check } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
+import { subjectNameSchema, topicNameSchema } from '@/lib/validation';
 
 interface ContentUploadModalProps {
   open: boolean;
@@ -218,6 +219,14 @@ ${content}`;
       let totalTopics = 0;
 
       for (const [subjectName, topics] of Object.entries(subjectGroups)) {
+        // Validate subject name
+        try {
+          subjectNameSchema.parse(subjectName);
+        } catch (error: any) {
+          toast.error(`Matéria "${subjectName}": ${error.errors[0]?.message}`);
+          continue;
+        }
+
         // Verificar se a matéria já existe
         const { data: existingSubject } = await supabase
           .from('subjects')
@@ -252,6 +261,14 @@ ${content}`;
         // Inserir tópicos (verificar duplicatas)
         const topicsToInsert = [];
         for (const topicName of topics) {
+          // Validate topic name
+          try {
+            topicNameSchema.parse(topicName);
+          } catch (error: any) {
+            toast.error(`Tópico "${topicName}": ${error.errors[0]?.message}`);
+            continue;
+          }
+
           const { data: existingTopic } = await supabase
             .from('topics')
             .select('id')

@@ -1,6 +1,7 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -108,13 +109,37 @@ function parseQuestions(rawText: string, type: string): ParsedQuestion[] {
   return questions;
 }
 
+// Request validation schema
+const requestSchema = z.object({
+  subject: z.string().trim().min(1).max(200),
+  topic: z.string().trim().min(1).max(500),
+  bank: z.string().trim().min(1).max(100),
+  quantity: z.number().int().min(1).max(20),
+  difficulty: z.enum(['facil', 'medio', 'dificil']),
+  type: z.enum(['multipla-escolha', 'verdadeiro-falso', 'dissertativa'])
+});
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { subject, topic, bank, quantity, difficulty, type }: QuestionRequest = await req.json();
+    // Parse and validate request
+    const rawBody = await req.json();
+    const validationResult = requestSchema.safeParse(rawBody);
+    
+    if (!validationResult.success) {
+      return new Response(JSON.stringify({ 
+        error: 'Dados de requisição inválidos',
+        details: validationResult.error.errors.map(e => e.message)
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { subject, topic, bank, quantity, difficulty, type } = validationResult.data;
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
@@ -222,9 +247,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error generating questions:', error);
+    // Log error without exposing sensitive details
+    console.error('Error generating questions:', error instanceof Error ? error.message : 'Unknown error');
     return new Response(JSON.stringify({ 
-      error: (error as Error).message || 'Failed to generate questions' 
+      error: 'Falha ao gerar questões. Por favor, tente novamente.' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

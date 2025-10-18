@@ -148,12 +148,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
     try {
       setLoading(true);
-      console.log('Attempting to sign up user:', email);
       
       const result = await authOps.signUp(email, password, name, phone);
       return { success: true, user: result?.user };
     } catch (error: any) {
-      console.error('Sign up error:', error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -163,12 +161,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      console.log('Attempting to sign in user:', email);
       
       await authOps.signIn(email, password);
       return { success: true };
     } catch (error: any) {
-      console.error('Sign in error:', error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -178,12 +174,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
-      console.log('Attempting to sign in with Google');
       
       await authOps.signInWithGoogle();
       return { success: true };
     } catch (error: any) {
-      console.error('Google sign in error:', error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -193,7 +187,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       setLoading(true);
-      console.log('Attempting to sign out user');
       
       await authOps.signOut();
       setUser(null);
@@ -201,7 +194,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       navigate('/login');
       return { success: true };
     } catch (error: any) {
-      console.error('Sign out error:', error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -232,7 +224,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await authOps.resetPassword(email);
       return { success: true };
     } catch (error: any) {
-      console.error('Reset password error:', error);
       return { success: false, error: error.message };
     }
   };
