@@ -253,13 +253,13 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                     
                 } else if (tab === 'concluido') {
                     // Aba concluído: ordenar pela sequência que foi concluído (mais recente primeiro)
-                    // Assumindo que tópicos concluídos mais recentemente têm updatedAt mais recente
-                    if (!a.updatedAt && !b.updatedAt) return a.name.localeCompare(b.name);
-                    if (!a.updatedAt) return 1;
-                    if (!b.updatedAt) return -1;
+                    // Assumindo que tópicos concluídos mais recentemente têm last_reviewed_at mais recente
+                    if (!a.last_reviewed_at && !b.last_reviewed_at) return a.name.localeCompare(b.name);
+                    if (!a.last_reviewed_at) return 1;
+                    if (!b.last_reviewed_at) return -1;
                     
-                    const aDate = new Date(a.updatedAt);
-                    const bDate = new Date(b.updatedAt);
+                    const aDate = new Date(a.last_reviewed_at);
+                    const bDate = new Date(b.last_reviewed_at);
                     return bDate.getTime() - aDate.getTime(); // Mais recente primeiro
                 }
                 
