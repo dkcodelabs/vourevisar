@@ -181,34 +181,67 @@ export type Database = {
       }
       study_sessions: {
         Row: {
+          completed_at: string | null
           created_at: string
+          cycle_position: number | null
+          day_of_week: number | null
+          hour_of_day: number | null
           id: string
+          is_weekend: boolean | null
           session_date: string
           session_duration_minutes: number | null
+          started_at: string | null
+          study_date: string | null
+          subject_id: string | null
+          subject_name: string | null
           subjects_worked: Json | null
+          topics_count: number | null
           topics_studied: number
+          topics_studied_array: string[] | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
+          cycle_position?: number | null
+          day_of_week?: number | null
+          hour_of_day?: number | null
           id?: string
+          is_weekend?: boolean | null
           session_date?: string
           session_duration_minutes?: number | null
+          started_at?: string | null
+          study_date?: string | null
+          subject_id?: string | null
+          subject_name?: string | null
           subjects_worked?: Json | null
+          topics_count?: number | null
           topics_studied?: number
+          topics_studied_array?: string[] | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
+          cycle_position?: number | null
+          day_of_week?: number | null
+          hour_of_day?: number | null
           id?: string
+          is_weekend?: boolean | null
           session_date?: string
           session_duration_minutes?: number | null
+          started_at?: string | null
+          study_date?: string | null
+          subject_id?: string | null
+          subject_name?: string | null
           subjects_worked?: Json | null
+          topics_count?: number | null
           topics_studied?: number
+          topics_studied_array?: string[] | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -333,11 +366,16 @@ export type Database = {
           created_at: string | null
           data_fim_ciclo: string | null
           data_inicio_ciclo: string | null
+          data_ultimo_reset: string | null
           disciplinas_do_dia: string[] | null
           id: string
           indice_atual: number | null
+          materias_estudadas_ciclo: string[] | null
+          materias_estudadas_hoje: string[] | null
           materias_pendentes: string[] | null
+          materias_por_dia: number | null
           skipped_subjects: string[] | null
+          streak_dias_consecutivos: number | null
           user_id: string
         }
         Insert: {
@@ -347,11 +385,16 @@ export type Database = {
           created_at?: string | null
           data_fim_ciclo?: string | null
           data_inicio_ciclo?: string | null
+          data_ultimo_reset?: string | null
           disciplinas_do_dia?: string[] | null
           id?: string
           indice_atual?: number | null
+          materias_estudadas_ciclo?: string[] | null
+          materias_estudadas_hoje?: string[] | null
           materias_pendentes?: string[] | null
+          materias_por_dia?: number | null
           skipped_subjects?: string[] | null
+          streak_dias_consecutivos?: number | null
           user_id: string
         }
         Update: {
@@ -361,11 +404,16 @@ export type Database = {
           created_at?: string | null
           data_fim_ciclo?: string | null
           data_inicio_ciclo?: string | null
+          data_ultimo_reset?: string | null
           disciplinas_do_dia?: string[] | null
           id?: string
           indice_atual?: number | null
+          materias_estudadas_ciclo?: string[] | null
+          materias_estudadas_hoje?: string[] | null
           materias_pendentes?: string[] | null
+          materias_por_dia?: number | null
           skipped_subjects?: string[] | null
+          streak_dias_consecutivos?: number | null
           user_id?: string
         }
         Relationships: [
@@ -405,6 +453,69 @@ export type Database = {
           subjects_per_day?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_study_analytics: {
+        Row: {
+          calculado_em: string | null
+          created_at: string | null
+          dias_mais_produtivos: number[] | null
+          horario_mais_produtivo: number | null
+          horarios_pico: number[] | null
+          id: string
+          maior_streak: number | null
+          media_duracao_sessao: number | null
+          media_sessoes_por_dia: number | null
+          melhor_dia_semana: number | null
+          melhor_horario_fim: string | null
+          melhor_horario_inicio: string | null
+          pior_dia_semana: number | null
+          streak_atual: number | null
+          total_horas_estudadas: number | null
+          total_sessoes: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          calculado_em?: string | null
+          created_at?: string | null
+          dias_mais_produtivos?: number[] | null
+          horario_mais_produtivo?: number | null
+          horarios_pico?: number[] | null
+          id?: string
+          maior_streak?: number | null
+          media_duracao_sessao?: number | null
+          media_sessoes_por_dia?: number | null
+          melhor_dia_semana?: number | null
+          melhor_horario_fim?: string | null
+          melhor_horario_inicio?: string | null
+          pior_dia_semana?: number | null
+          streak_atual?: number | null
+          total_horas_estudadas?: number | null
+          total_sessoes?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          calculado_em?: string | null
+          created_at?: string | null
+          dias_mais_produtivos?: number[] | null
+          horario_mais_produtivo?: number | null
+          horarios_pico?: number[] | null
+          id?: string
+          maior_streak?: number | null
+          media_duracao_sessao?: number | null
+          media_sessoes_por_dia?: number | null
+          melhor_dia_semana?: number | null
+          melhor_horario_fim?: string | null
+          melhor_horario_inicio?: string | null
+          pior_dia_semana?: number | null
+          streak_atual?: number | null
+          total_horas_estudadas?: number | null
+          total_sessoes?: number | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
