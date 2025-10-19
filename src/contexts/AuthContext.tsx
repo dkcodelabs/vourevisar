@@ -191,6 +191,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await authOps.signOut();
       setUser(null);
       setProfile(null);
+      
+      // Clear sensitive data from localStorage on logout
+      localStorage.removeItem('contentUpload_content');
+      localStorage.removeItem('contentUpload_chatGptResult');
+      
       navigate('/login');
       return { success: true };
     } catch (error: any) {

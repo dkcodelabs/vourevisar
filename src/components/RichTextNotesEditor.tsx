@@ -8,6 +8,21 @@ import { toast } from 'sonner';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
+/**
+ * SECURITY NOTE: Rich Text Editor Safety
+ * 
+ * This component uses ReactQuill for rich text editing, which provides built-in XSS protection:
+ * - ReactQuill sanitizes input during editing
+ * - Content is stored as HTML in the database
+ * - When rendered back in ReactQuill, it remains safe
+ * - React's JSX escaping protects against XSS in most contexts
+ * 
+ * IMPORTANT: If notes content is ever displayed outside of ReactQuill or React components,
+ * it MUST be sanitized first using a library like DOMPurify.
+ * 
+ * NEVER use dangerouslySetInnerHTML with user-generated notes content without sanitization.
+ */
+
 interface RichTextNotesEditorProps {
   notes?: TopicNotes;
   onSave: (notes: TopicNotes) => Promise<void>;
