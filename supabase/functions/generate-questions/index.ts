@@ -1,12 +1,16 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Rate limit: 20 requests per hour per user
+const RATE_LIMIT_PER_HOUR = 20;
 
 interface QuestionRequest {
   subject: string;
@@ -125,6 +129,61 @@ serve(async (req) => {
   }
 
   try {
+    // Initialize Supabase client
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase configuration missing');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+
+    // Get user from auth header
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Sessão inválida' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check rate limit
+    const { data: rateLimitOk, error: rateLimitError } = await supabase
+      .rpc('check_rate_limit', {
+        p_user_id: user.id,
+        p_endpoint: 'generate-questions',
+        p_max_per_hour: RATE_LIMIT_PER_HOUR
+      });
+
+    if (rateLimitError) {
+      console.error('Rate limit check error:', rateLimitError);
+    }
+
+    if (rateLimitOk === false) {
+      return new Response(JSON.stringify({ 
+        error: `Limite de requisições excedido. Você pode fazer até ${RATE_LIMIT_PER_HOUR} requisições por hora. Tente novamente mais tarde.` 
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Parse and validate request
     const rawBody = await req.json();
     const validationResult = requestSchema.safeParse(rawBody);
@@ -229,6 +288,17 @@ serve(async (req) => {
     const parsedQuestions = parseQuestions(generatedQuestions, type);
 
     console.log('Questions generated and parsed successfully');
+
+    // Log successful API usage
+    const { error: logError } = await supabase.rpc('log_api_usage', {
+      p_user_id: user.id,
+      p_endpoint: 'generate-questions'
+    });
+
+    if (logError) {
+      console.error('Error logging API usage:', logError);
+      // Don't fail the request if logging fails
+    }
 
     return new Response(JSON.stringify({ 
       questions: parsedQuestions,

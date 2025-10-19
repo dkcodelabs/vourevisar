@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_usage: {
+        Row: {
+          created_at: string | null
+          endpoint: string
+          id: string
+          last_request: string
+          request_count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          last_request?: string
+          request_count?: number
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          last_request?: string
+          request_count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       general_notes: {
         Row: {
           content: string | null
@@ -530,6 +560,14 @@ export type Database = {
           email_exists: boolean
           provider_type: string
         }[]
+      }
+      check_rate_limit: {
+        Args: { p_endpoint: string; p_max_per_hour: number; p_user_id: string }
+        Returns: boolean
+      }
+      log_api_usage: {
+        Args: { p_endpoint: string; p_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {
