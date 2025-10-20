@@ -15,6 +15,10 @@ interface UserRoleData {
   user: User | null
 }
 
+interface UserRoleRow {
+  role: string
+}
+
 export function useUserRole(): UserRoleData & {
   isOwner: boolean
   isAdmin: boolean
@@ -44,11 +48,11 @@ export function useUserRole(): UserRoleData & {
         return
       }
 
-      // Busca roles do usuário
-      const { data: userRoles, error: roleError } = await supabase
-        .from('user_roles')
+      // Busca roles do usuário (usando type assertion para contornar problemas de inferência de tipos)
+      const { data: userRoles, error: roleError } = await (supabase
+        .from('user_roles' as any)
         .select('role')
-        .eq('user_id', currentUser.id)
+        .eq('user_id', currentUser.id) as any)
 
       if (roleError) {
         throw roleError
