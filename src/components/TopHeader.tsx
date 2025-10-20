@@ -2,13 +2,14 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, BookOpen, Calendar, List, Clock, HelpCircle, TrendingUp, Timer, Menu, Target, LucideIcon 
+  LayoutDashboard, BookOpen, Calendar, List, Clock, HelpCircle, TrendingUp, Timer, Menu, Target, Settings, LucideIcon 
 } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { PomodoroPopover } from '@/components/PomodoroPopover';
 import { useSharedPomodoroTimer } from '@/hooks/useSharedPomodoroTimer';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface NavItem {
   to: string;
@@ -17,17 +18,25 @@ interface NavItem {
   end?: boolean;
 }
 
-// Mover navItems para fora do componente para evitar recriação
-const navItems: NavItem[] = [
-  { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
-  { to: "/materias", label: "Matérias", icon: BookOpen },
-  { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: Target },
-  // Plano de estudos removido - substituído por Ciclo de Estudos
-  { to: "/topicos", label: "Tópicos", icon: List },
-  { to: "/revisoes", label: "Revisões", icon: Clock },
-  { to: "/questoes", label: "Questões", icon: HelpCircle },
-  { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
-];
+// Função para gerar navItems baseado nas permissões
+const getNavItems = (isAdmin: boolean): NavItem[] => {
+  const baseItems: NavItem[] = [
+    { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
+    { to: "/materias", label: "Matérias", icon: BookOpen },
+    { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: Target },
+    { to: "/topicos", label: "Tópicos", icon: List },
+    { to: "/revisoes", label: "Revisões", icon: Clock },
+    { to: "/questoes", label: "Questões", icon: HelpCircle },
+    { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
+  ];
+
+  // Adiciona Gerenciamento apenas para admins/owners
+  if (isAdmin) {
+    baseItems.splice(1, 0, { to: "/gerenciamento", label: "Gerenciamento", icon: Settings });
+  }
+
+  return baseItems;
+};
 
 // Hook personalizado para lógica de navegação
 const useNavigation = () => {
@@ -58,11 +67,13 @@ export const TopHeader = React.memo(() => {
   const { user } = useAuth();
   const { isItemActive } = useNavigation();
   const { timeLeft, isRunning, getProgress, formatTime, getState, isBlinking } = useSharedPomodoroTimer();
+  const { isAdmin } = useUserRole();
   
   // Memoizar cálculos para evitar re-renders desnecessários
   const state = React.useMemo(() => getState(), [getState]);
   const progress = React.useMemo(() => Math.max(0, Math.min(100, getProgress() || 0)), [getProgress]);
   const formattedTime = React.useMemo(() => formatTime(timeLeft), [formatTime, timeLeft]);
+  const navItems = React.useMemo(() => getNavItems(isAdmin), [isAdmin]);
 
   return (
     <header className="w-full">

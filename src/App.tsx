@@ -23,6 +23,8 @@ import Revisoes from "@/pages/Revisoes";
 import Questoes from "@/pages/Questoes";
 import QuestionsStatistics from "@/pages/QuestionsStatistics";
 import StudyCycle from "@/pages/StudyCycle";
+import Gerenciamento from "@/pages/Gerenciamento";
+import { SimpleRoleTest } from "@/components/SimpleRoleTest";
 
 import { ProfileOnboardingGate } from "@/components/ProfileOnboardingGate";
 import { useBrowserCompatibility } from "@/hooks/useBrowserCompatibility";
@@ -68,6 +70,8 @@ const App = () => {
                     <Route path="questoes" element={<Questoes />} />
                     <Route path="questoes/estatisticas" element={<QuestionsStatistics />} />
                     <Route path="ciclo-estudos" element={<StudyCycle />} />
+                    <Route path="gerenciamento" element={<Gerenciamento />} />
+                    <Route path="test-roles" element={<SimpleRoleTest />} />
                     <Route path="perfil" element={<Profile />} />
                     <Route path="configuracoes" element={<Settings />} />
                   </Route>
