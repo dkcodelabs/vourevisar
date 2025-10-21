@@ -48,17 +48,20 @@ export function useUserRole(): UserRoleData & {
         return
       }
 
-      // Busca roles do usuário (usando type assertion para contornar problemas de inferência de tipos)
-      const { data: userRoles, error: roleError } = await (supabase
-        .from('user_roles' as any)
-        .select('role')
-        .eq('user_id', currentUser.id) as any)
+      // Busca roles do usuário usando rpc para evitar problemas de tipos
+      const { data: userRoles, error: roleError } = await supabase.rpc(
+        'get_user_roles',
+        { user_id: currentUser.id }
+      )
 
       if (roleError) {
-        throw roleError
+        console.error('Error fetching user roles:', roleError)
+        setRoles([])
+        setHighestRole(null)
+        return
       }
 
-      if (userRoles && userRoles.length > 0) {
+      if (userRoles && Array.isArray(userRoles) && userRoles.length > 0) {
         const rolesList = userRoles.map(r => r.role as AppRole)
         setRoles(rolesList)
 
