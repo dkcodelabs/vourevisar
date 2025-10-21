@@ -881,16 +881,22 @@ function DocumentacaoSection({ openModal }: { openModal: (mode: 'list' | 'assign
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
-              alignItems: 'center',
+              alignItems: 'flex-start',
               paddingBottom: '12px',
               borderBottom: '1px solid #f1f5f9'
             }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
                   👑 Owner (Proprietário)
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
                   Acesso total e irrestrito - Pode criar outros owners
+                </div>
+                <div style={{ fontSize: '12px', color: '#374151' }}>
+                  <strong>Pode fazer:</strong> Controle absoluto, configurações críticas, backup, relatórios financeiros, gerenciar qualquer usuário
+                </div>
+                <div style={{ fontSize: '12px', color: '#374151', marginTop: '4px' }}>
+                  <strong>Na prática:</strong> Você como dono do negócio - controle total
                 </div>
               </div>
               <span style={{ 
@@ -909,16 +915,25 @@ function DocumentacaoSection({ openModal }: { openModal: (mode: 'list' | 'assign
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
-              alignItems: 'center',
+              alignItems: 'flex-start',
               paddingBottom: '12px',
               borderBottom: '1px solid #f1f5f9'
             }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
                   🛡️ Admin (Administrador)
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
                   Gerencia usuários e moderators - Não pode criar outros admins
+                </div>
+                <div style={{ fontSize: '12px', color: '#374151' }}>
+                  <strong>Pode fazer:</strong> Gerenciar users/moderators, relatórios administrativos, suporte avançado
+                </div>
+                <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '2px' }}>
+                  <strong>NÃO pode:</strong> Criar admins, configurações críticas, backup
+                </div>
+                <div style={{ fontSize: '12px', color: '#374151', marginTop: '4px' }}>
+                  <strong>Na prática:</strong> Funcionário de confiança que ajuda no dia a dia
                 </div>
               </div>
               <span style={{ 
@@ -937,16 +952,25 @@ function DocumentacaoSection({ openModal }: { openModal: (mode: 'list' | 'assign
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
-              alignItems: 'center',
+              alignItems: 'flex-start',
               paddingBottom: '12px',
               borderBottom: '1px solid #f1f5f9'
             }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
                   👮 Moderator (Moderador)
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
                   Gerencia usuários comuns - Acesso limitado às configurações
+                </div>
+                <div style={{ fontSize: '12px', color: '#374151' }}>
+                  <strong>Pode fazer:</strong> Gerenciar apenas users, relatórios básicos, suporte simples
+                </div>
+                <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '2px' }}>
+                  <strong>NÃO pode:</strong> Criar admins/moderators, dados financeiros, configurações
+                </div>
+                <div style={{ fontSize: '12px', color: '#374151', marginTop: '4px' }}>
+                  <strong>Na prática:</strong> Suporte básico, moderação, ajuda inicial
                 </div>
               </div>
               <span style={{ 
@@ -965,14 +989,23 @@ function DocumentacaoSection({ openModal }: { openModal: (mode: 'list' | 'assign
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
-              alignItems: 'center'
+              alignItems: 'flex-start'
             }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
                   👤 User (Usuário)
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
                   Role padrão - Sujeito às limitações de assinatura
+                </div>
+                <div style={{ fontSize: '12px', color: '#374151' }}>
+                  <strong>Pode fazer:</strong> Usar funcionalidades de estudo, gerenciar próprio perfil
+                </div>
+                <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '2px' }}>
+                  <strong>Limitações:</strong> Sujeito a assinatura (trial/pago/expirado), sem acesso admin
+                </div>
+                <div style={{ fontSize: '12px', color: '#374151', marginTop: '4px' }}>
+                  <strong>Na prática:</strong> Seus clientes pagantes que usam o sistema
                 </div>
               </div>
               <span style={{ 
@@ -986,6 +1019,78 @@ function DocumentacaoSection({ openModal }: { openModal: (mode: 'list' | 'assign
               }}>
                 Nível 1
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Aplicação Prática no Negócio */}
+        <div style={{ 
+          background: '#ffffff', 
+          border: '1px solid #e2e8f0', 
+          borderRadius: '12px', 
+          padding: '24px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 20px 0', 
+            fontSize: '18px', 
+            fontWeight: '600', 
+            color: '#059669',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            💼 Aplicação Prática no Negócio
+          </h3>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              paddingBottom: '12px',
+              borderBottom: '1px solid #f1f5f9'
+            }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                🚀 Cenário 1: Crescimento da Empresa
+              </div>
+              <div style={{ fontSize: '12px', color: '#374151', lineHeight: '1.4' }}>
+                • <strong>Você (Owner):</strong> Controle total do negócio<br/>
+                • <strong>Funcionário de confiança (Admin):</strong> Gerencia usuários e suporte<br/>
+                • <strong>Estagiário (Moderator):</strong> Suporte básico aos clientes<br/>
+                • <strong>Clientes (User):</strong> Pagam e usam o sistema para estudar
+              </div>
+            </div>
+            
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              paddingBottom: '12px',
+              borderBottom: '1px solid #f1f5f9'
+            }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                🔒 Cenário 2: Segurança
+              </div>
+              <div style={{ fontSize: '12px', color: '#374151', lineHeight: '1.4' }}>
+                • <strong>Dados financeiros:</strong> Só owners veem receita, MRR, ARR<br/>
+                • <strong>Configurações críticas:</strong> Só owners alteram preços e durações<br/>
+                • <strong>Gerenciamento hierárquico:</strong> Cada nível só gerencia níveis inferiores<br/>
+                • <strong>Backup crítico:</strong> Só owners têm acesso a funções de backup
+              </div>
+            </div>
+            
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column'
+            }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                📈 Cenário 3: Escalabilidade
+              </div>
+              <div style={{ fontSize: '12px', color: '#374151', lineHeight: '1.4' }}>
+                • <strong>Delegação segura:</strong> Você pode delegar sem perder controle<br/>
+                • <strong>Crescimento controlado:</strong> Funcionários têm acesso necessário sem riscos<br/>
+                • <strong>Auditoria completa:</strong> Todas as ações são registradas<br/>
+                • <strong>Flexibilidade:</strong> Sistema cresce mantendo segurança
+              </div>
             </div>
           </div>
         </div>
