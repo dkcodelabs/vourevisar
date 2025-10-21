@@ -115,21 +115,40 @@ const Login = () => {
 
     setIsLoading(true);
     try {
+      console.log('🔐 Solicitando recuperação de senha para:', email);
+      console.log('🔗 URL de redirecionamento:', `${window.location.origin}/reset-password`);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       });
 
       if (error) {
-        console.error('Forgot password error:', error);
-        toast.error('Erro ao enviar email de recuperação');
+        console.error('❌ Erro ao enviar email:', error);
+        
+        // Mensagens de erro mais específicas
+        if (error.message.includes('Email not confirmed')) {
+          toast.error('Email não confirmado. Verifique sua caixa de entrada primeiro.');
+        } else if (error.message.includes('rate limit')) {
+          toast.error('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
+        } else if (error.message.includes('User not found')) {
+          // Não revela se o usuário existe por segurança
+          toast.success('Se este email estiver cadastrado, você receberá um link para redefinir sua senha.');
+          setShowForgotPassword(false);
+        } else {
+          toast.error('Erro ao enviar email de recuperação. Tente novamente.');
+        }
         return;
       }
 
-      toast.success('Se este email estiver cadastrado, você receberá um link para redefinir sua senha');
+      console.log('✅ Email de recuperação enviado com sucesso!');
+      toast.success(
+        'Email enviado! Verifique sua caixa de entrada (e spam) para redefinir sua senha.',
+        { duration: 6000 }
+      );
       setShowForgotPassword(false);
     } catch (error: any) {
-      console.error('Forgot password error:', error);
-      toast.error('Erro ao enviar email de recuperação');
+      console.error('❌ Erro inesperado:', error);
+      toast.error('Erro ao enviar email de recuperação. Tente novamente mais tarde.');
     } finally {
       setIsLoading(false);
     }
