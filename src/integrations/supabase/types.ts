@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -43,6 +43,99 @@ export type Database = {
           window_start?: string
         }
         Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          changes: Json | null
+          created_at: string | null
+          id: string
+          ip_address: unknown | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changes?: Json | null
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changes?: Json | null
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string | null
+          id: string
+          likes_count: number | null
+          parent_id: string | null
+          post_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          likes_count?: number | null
+          parent_id?: string | null
+          post_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          likes_count?: number | null
+          parent_id?: string | null
+          post_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       general_notes: {
         Row: {
@@ -98,6 +191,169 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          message: string | null
+          metadata: Json | null
+          read: boolean | null
+          title: string
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          read?: boolean | null
+          title: string
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          read?: boolean | null
+          title?: string
+          type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      organization_members: {
+        Row: {
+          id: string
+          joined_at: string | null
+          organization_id: string | null
+          role: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          joined_at?: string | null
+          organization_id?: string | null
+          role?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          joined_at?: string | null
+          organization_id?: string | null
+          role?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          owner_id: string
+          settings: Json | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          owner_id: string
+          settings?: Json | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          owner_id?: string
+          settings?: Json | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      payment_history: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string | null
+          id: string
+          paid_at: string | null
+          payment_status: string | null
+          period_end: string
+          period_start: string
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          stripe_invoice_id: string | null
+          stripe_payment_intent_id: string | null
+          subscription_id: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_status?: string | null
+          period_end: string
+          period_start: string
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          subscription_id: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_status?: string | null
+          period_end?: string
+          period_start?: string
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          subscription_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_history_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pomodoro_sessions: {
         Row: {
           created_at: string | null
@@ -128,36 +384,96 @@ export type Database = {
         }
         Relationships: []
       }
+      posts: {
+        Row: {
+          author_id: string
+          content: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          published_at: string | null
+          status: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+          visibility: string | null
+        }
+        Insert: {
+          author_id: string
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          published_at?: string | null
+          status?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+          visibility?: string | null
+        }
+        Update: {
+          author_id?: string
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          published_at?: string | null
+          status?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+          visibility?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string
+          display_name: string | null
           email: string | null
           id: string
+          is_public: boolean | null
+          location: string | null
           name: string | null
           phone: string | null
+          preferences: Json | null
           provider_type: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
+          display_name?: string | null
           email?: string | null
           id: string
+          is_public?: boolean | null
+          location?: string | null
           name?: string | null
           phone?: string | null
+          preferences?: Json | null
           provider_type?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
+          display_name?: string | null
           email?: string | null
           id?: string
+          is_public?: boolean | null
+          location?: string | null
           name?: string | null
           phone?: string | null
+          preferences?: Json | null
           provider_type?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -317,6 +633,36 @@ export type Database = {
         }
         Relationships: []
       }
+      system_settings: {
+        Row: {
+          description: string | null
+          id: string
+          key: string
+          updated_at: string | null
+          updated_by: string | null
+          value: Json | null
+          visible_to_users: boolean | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value?: Json | null
+          visible_to_users?: boolean | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value?: Json | null
+          visible_to_users?: boolean | null
+        }
+        Relationships: []
+      }
       topics: {
         Row: {
           completed: boolean
@@ -456,6 +802,30 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           created_at: string
@@ -549,11 +919,80 @@ export type Database = {
         }
         Relationships: []
       }
+      user_subscriptions: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_payment_at: string | null
+          next_billing_date: string | null
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_ends_at: string | null
+          subscription_started_at: string | null
+          trial_ends_at: string | null
+          trial_started_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_payment_at?: string | null
+          next_billing_date?: string | null
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          subscription_started_at?: string | null
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_payment_at?: string | null
+          next_billing_date?: string | null
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          subscription_started_at?: string | null
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      assign_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _target_user_id: string
+        }
+        Returns: undefined
+      }
+      assign_user_role_admin: {
+        Args: {
+          new_role: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      cancel_subscription: {
+        Args: { immediate?: boolean; target_user_id: string }
+        Returns: boolean
+      }
       check_email_exists: {
         Args: { email_to_check: string }
         Returns: {
@@ -565,13 +1004,162 @@ export type Database = {
         Args: { p_endpoint: string; p_max_per_hour: number; p_user_id: string }
         Returns: boolean
       }
+      cleanup_old_audit_logs: {
+        Args: { _days_to_keep?: number }
+        Returns: number
+      }
+      get_all_user_roles_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
+      get_highest_user_role: {
+        Args: { target_user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_organization_role: {
+        Args: { _org_id: string; _user_id?: string }
+        Returns: string
+      }
+      get_role_audit_log: {
+        Args: { _limit?: number }
+        Returns: {
+          assigned_at: string
+          assigned_by: string
+          assigned_by_email: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_email: string
+          user_id: string
+        }[]
+      }
+      get_subscription_info: {
+        Args: { check_user_id?: string }
+        Returns: Json
+      }
+      get_user_info: {
+        Args: { _user_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          highest_role: Database["public"]["Enums"]["app_role"]
+          last_sign_in_at: string
+          role_history: Json
+          roles: string[]
+          user_id: string
+        }[]
+      }
+      get_user_roles: {
+        Args: { user_id: string }
+        Returns: {
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
+      has_active_subscription: {
+        Args: { check_user_id?: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args:
+          | { _role: Database["public"]["Enums"]["app_role"]; _user_id: string }
+          | {
+              check_role: Database["public"]["Enums"]["app_role"]
+              check_user_id?: string
+            }
+        Returns: boolean
+      }
+      has_role_or_higher: {
+        Args:
+          | {
+              _min_role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+          | {
+              check_user_id?: string
+              min_role: Database["public"]["Enums"]["app_role"]
+            }
+        Returns: boolean
+      }
+      is_organization_member: {
+        Args: { _org_id: string; _user_id?: string }
+        Returns: boolean
+      }
+      is_owner: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      list_users_with_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          email: string
+          highest_role: Database["public"]["Enums"]["app_role"]
+          last_sign_in_at: string
+          roles: string[]
+          user_id: string
+        }[]
+      }
       log_api_usage: {
         Args: { p_endpoint: string; p_user_id: string }
         Returns: undefined
       }
+      log_custom_action: {
+        Args: {
+          _action: string
+          _metadata?: Json
+          _record_id?: string
+          _table_name?: string
+        }
+        Returns: undefined
+      }
+      remove_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _target_user_id: string
+        }
+        Returns: undefined
+      }
+      remove_user_role_admin: {
+        Args: {
+          role_to_remove: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      set_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _target_user_id: string
+        }
+        Returns: undefined
+      }
+      start_paid_subscription: {
+        Args: {
+          duration_months?: number
+          new_plan: Database["public"]["Enums"]["subscription_plan"]
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      test_owner_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      update_expired_subscriptions: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "admin" | "moderator" | "user"
+      subscription_plan: "free_trial" | "monthly" | "annual"
+      subscription_status:
+        | "trial"
+        | "active"
+        | "expired"
+        | "canceled"
+        | "suspended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -698,6 +1286,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "admin", "moderator", "user"],
+      subscription_plan: ["free_trial", "monthly", "annual"],
+      subscription_status: [
+        "trial",
+        "active",
+        "expired",
+        "canceled",
+        "suspended",
+      ],
+    },
   },
 } as const
