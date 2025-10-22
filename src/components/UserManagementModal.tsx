@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useUserRole, AppRole } from '@/hooks/useUserRole'
 import { X, Crown, Shield, Users, User, AlertTriangle, Check } from 'lucide-react'
+import { SubscriptionManagementModal } from './SubscriptionManagementModal'
 
 interface UserWithRoles {
   id: string
@@ -33,6 +34,7 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
   const [error, setError] = useState<string | null>(null)
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
   const { refetch } = useUserRole()
 
   // Buscar usuários
@@ -176,6 +178,11 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
     }
   }
 
+  // Se for modal de assinaturas, mostrar o modal específico
+  if (title.includes('Assinaturas')) {
+    return <SubscriptionManagementModal isOpen={isOpen} onClose={onClose} />
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -190,8 +197,26 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
           </button>
         </div>
 
+        {/* Search Bar */}
+        <div className="px-4 py-3 border-b bg-gray-50">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Pesquisar usuários por nome ou email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
         {/* Content */}
-        <div className="p-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="p-4 overflow-y-auto max-h-[calc(90vh-180px)]">
           {loading ? (
             <div className="flex items-center justify-center py-6">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -212,7 +237,12 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
             </div>
           ) : (
             <div className="space-y-2">
-              {users.map(user => (
+              {users
+                .filter(user => 
+                  user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  (user.full_name && user.full_name.toLowerCase().includes(searchTerm.toLowerCase()))
+                )
+                .map(user => (
                 <div key={user.id} className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-sm transition-all duration-200">
                   {/* Header com info do usuário e roles */}
                   <div className="flex items-center justify-between mb-3">
@@ -240,23 +270,39 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
                       </div>
                     </div>
 
-                    {/* Current Roles - Badges */}
+                    {/* Current Roles - Badges Reorganizados */}
                     <div className="flex flex-wrap gap-1 justify-end">
                       {user.roles.length > 0 ? (
-                        user.roles.map(role => (
-                          <span
-                            key={role}
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(role)} ${
-                              role === 'user' ? 'opacity-75' : ''
-                            }`}
-                          >
-                            {getRoleIcon(role)}
-                            <span className="ml-1 capitalize">
-                              {role === 'user' ? 'Usuário' : role === 'owner' ? 'Proprietário' : role === 'admin' ? 'Admin' : 'Moderador'}
+                        <>
+                          {/* Roles administrativas primeiro (esquerda) */}
+                          {user.roles
+                            .filter(role => role !== 'user')
+                            .sort((a, b) => {
+                              const order = { owner: 0, admin: 1, moderator: 2 }
+                              return order[a] - order[b]
+                            })
+                            .map(role => (
+                              <span
+                                key={role}
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(role)}`}
+                              >
+                                {getRoleIcon(role)}
+                                <span className="ml-1 capitalize">
+                                  {role === 'owner' ? 'Proprietário' : role === 'admin' ? 'Admin' : 'Moderador'}
+                                </span>
+                              </span>
+                            ))}
+                          
+                          {/* Usuário padrão por último (direita) */}
+                          {user.roles.includes('user') && (
+                            <span
+                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor('user')} opacity-75`}
+                            >
+                              {getRoleIcon('user')}
+                              <span className="ml-1">Usuário (padrão)</span>
                             </span>
-                            {role === 'user' && <span className="ml-1">(padrão)</span>}
-                          </span>
-                        ))
+                          )}
+                        </>
                       ) : (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200">
                           <AlertTriangle className="w-3 h-3 mr-1" />

@@ -121,6 +121,12 @@ export default function Gerenciamento() {
                   active={activeSection === 'documentacao'}
                   onClick={() => setActiveSection('documentacao')}
                 />
+                <SidebarItem
+                  icon="💳"
+                  label="Assinaturas"
+                  active={activeSection === 'assinaturas'}
+                  onClick={() => setActiveSection('assinaturas')}
+                />
               </AdminOnly>
 
               {/* Seções EXCLUSIVAS para Owners */}
@@ -175,6 +181,7 @@ export default function Gerenciamento() {
             {activeSection === 'relatorios' && <RelatoriosSection openModal={openModal} />}
             {activeSection === 'configuracoes' && <ConfiguracoesSection openModal={openModal} />}
             {activeSection === 'documentacao' && <DocumentacaoSection openModal={openModal} />}
+            {activeSection === 'assinaturas' && <AssinaturasSection openModal={openModal} />}
             {activeSection === 'roles' && <RolesSection openModal={openModal} />}
             {activeSection === 'sistema' && <SistemaSection openModal={openModal} />}
             {activeSection === 'backup' && <BackupSection openModal={openModal} />}
@@ -1235,6 +1242,287 @@ function DocumentacaoSection({ openModal }: { openModal: (mode: 'list' | 'assign
             </div>
             <div style={{ fontSize: '14px', color: '#374151' }}>
               • <strong>Triggers:</strong> Auto-atribuição de roles para novos usuários
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+function AssinaturasSection({ openModal }: { openModal: (mode: 'list' | 'assign' | 'manage', title: string) => void }) {
+  return (
+    <div>
+      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: '700', color: '#1e293b' }}>
+          💳 Gerenciar Assinaturas
+        </h2>
+        <p style={{ margin: 0, color: '#64748b', fontSize: '16px' }}>
+          Controle de assinaturas e planos dos usuários - Teste Free vs Assinante
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        
+        {/* Gerenciar Assinaturas de Usuários */}
+        <div style={{ 
+          background: '#ffffff', 
+          border: '1px solid #e2e8f0', 
+          borderRadius: '12px', 
+          padding: '24px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 20px 0', 
+            fontSize: '18px', 
+            fontWeight: '600', 
+            color: '#059669',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            👥 Gerenciar Assinaturas dos Usuários
+          </h3>
+          
+          <div style={{ marginBottom: '16px' }}>
+            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '12px' }}>
+              Visualize todos os usuários e seus status de assinatura. Ative/desative assinaturas para teste.
+            </p>
+          </div>
+          
+          <button
+            onClick={() => openModal('manage', '💳 Gerenciar Assinaturas dos Usuários')}
+            style={{
+              background: '#059669',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '12px 24px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#047857'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#059669'}
+          >
+            Gerenciar Assinaturas
+          </button>
+        </div>
+
+        {/* Estatísticas de Assinaturas */}
+        <div style={{ 
+          background: '#ffffff', 
+          border: '1px solid #e2e8f0', 
+          borderRadius: '12px', 
+          padding: '24px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 20px 0', 
+            fontSize: '18px', 
+            fontWeight: '600', 
+            color: '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            📊 Estatísticas de Assinaturas
+          </h3>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+            gap: '20px' 
+          }}>
+            <div style={{ textAlign: 'center', padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#6b7280', marginBottom: '4px' }}>
+                -
+              </div>
+              <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                Usuários Free
+              </div>
+            </div>
+            
+            <div style={{ textAlign: 'center', padding: '16px', background: '#fef3c7', borderRadius: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#d97706', marginBottom: '4px' }}>
+                -
+              </div>
+              <div style={{ fontSize: '14px', color: '#d97706' }}>
+                Trials Ativos
+              </div>
+            </div>
+            
+            <div style={{ textAlign: 'center', padding: '16px', background: '#ecfdf5', borderRadius: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#059669', marginBottom: '4px' }}>
+                -
+              </div>
+              <div style={{ fontSize: '14px', color: '#059669' }}>
+                Assinantes Pagos
+              </div>
+            </div>
+            
+            <div style={{ textAlign: 'center', padding: '16px', background: '#fef2f2', borderRadius: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#dc2626', marginBottom: '4px' }}>
+                -
+              </div>
+              <div style={{ fontSize: '14px', color: '#dc2626' }}>
+                Expirados
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ações Rápidas */}
+        <div style={{ 
+          background: '#ffffff', 
+          border: '1px solid #e2e8f0', 
+          borderRadius: '12px', 
+          padding: '24px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 20px 0', 
+            fontSize: '18px', 
+            fontWeight: '600', 
+            color: '#7c3aed',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            ⚡ Ações Rápidas de Teste
+          </h3>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+            <ActionCard
+              icon="🆓"
+              title="Tornar Usuário Free"
+              description="Remove assinatura ativa"
+              onClick={() => alert('🆓 Função: Tornar Free - Em desenvolvimento')}
+            />
+            <ActionCard
+              icon="✅"
+              title="Ativar Assinatura"
+              description="Torna usuário assinante"
+              onClick={() => alert('✅ Função: Ativar Assinatura - Em desenvolvimento')}
+            />
+            <ActionCard
+              icon="🔄"
+              title="Renovar Trial"
+              description="Reinicia período de teste"
+              onClick={() => alert('🔄 Função: Renovar Trial - Em desenvolvimento')}
+            />
+            <ActionCard
+              icon="📋"
+              title="Relatório Completo"
+              description="Exportar dados de assinaturas"
+              onClick={() => alert('📋 Função: Relatório - Em desenvolvimento')}
+            />
+          </div>
+        </div>
+
+        {/* Configurações de Planos */}
+        <div style={{ 
+          background: '#ffffff', 
+          border: '1px solid #e2e8f0', 
+          borderRadius: '12px', 
+          padding: '24px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 20px 0', 
+            fontSize: '18px', 
+            fontWeight: '600', 
+            color: '#dc2626',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            ⚙️ Configurações de Planos
+          </h3>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              paddingBottom: '12px',
+              borderBottom: '1px solid #f1f5f9'
+            }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                  🆓 Trial Gratuito
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                  Duração padrão para novos usuários
+                </div>
+              </div>
+              <span style={{ 
+                fontSize: '14px', 
+                fontWeight: '600', 
+                color: '#d97706',
+                background: '#fef3c7',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                border: '1px solid #fcd34d'
+              }}>
+                7 dias
+              </span>
+            </div>
+            
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              paddingBottom: '12px',
+              borderBottom: '1px solid #f1f5f9'
+            }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                  💰 Plano Mensal
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                  Renovação automática mensal
+                </div>
+              </div>
+              <span style={{ 
+                fontSize: '14px', 
+                fontWeight: '600', 
+                color: '#2563eb',
+                background: '#dbeafe',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                border: '1px solid #93c5fd'
+              }}>
+                R$ 29,90
+              </span>
+            </div>
+            
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center'
+            }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                  💎 Plano Anual
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                  17% de desconto vs mensal
+                </div>
+              </div>
+              <span style={{ 
+                fontSize: '14px', 
+                fontWeight: '600', 
+                color: '#7c3aed',
+                background: '#f3e8ff',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                border: '1px solid #c4b5fd'
+              }}>
+                R$ 299,90
+              </span>
             </div>
           </div>
         </div>

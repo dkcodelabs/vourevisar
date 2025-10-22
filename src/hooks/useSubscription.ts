@@ -30,6 +30,7 @@ interface UseSubscriptionReturn {
   isExpired: boolean
   daysRemaining: number
   planName: string
+  hasActiveSubscription: boolean
   refetch: () => Promise<void>
   startPaidSubscription: (plan: SubscriptionPlan) => Promise<boolean>
   cancelSubscription: (immediate?: boolean) => Promise<boolean>
@@ -157,6 +158,7 @@ export function useSubscription(): UseSubscriptionReturn {
     isExpired,
     daysRemaining,
     planName,
+    hasActiveSubscription: isActive, // Alias para compatibilidade
     refetch: fetchSubscription,
     startPaidSubscription,
     cancelSubscription
