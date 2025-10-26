@@ -52,13 +52,11 @@ export function useUserProfile(): UseUserProfileReturn {
     try {
       setLoading(true)
       setError(null)
-      console.log('🔄 Fetching user profile... Trigger:', refreshTrigger)
 
       // Verificar se está autenticado
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
-        console.log('❌ No authenticated user found')
         setProfile(null)
         return
       }
@@ -77,14 +75,11 @@ export function useUserProfile(): UseUserProfileReturn {
       }
 
       // Buscar informações da assinatura
-      console.log('🔍 Calling get_subscription_info for user:', user.id)
       const { data: subscriptionData, error: subscriptionError } = await supabase
         .rpc('get_subscription_info', { check_user_id: user.id })
 
-      console.log('📊 Raw subscription response:', { subscriptionData, subscriptionError })
-
       if (subscriptionError) {
-        console.error('❌ Subscription error:', subscriptionError)
+        console.error('Subscription error:', subscriptionError)
       }
 
       // Buscar perfil básico
@@ -98,25 +93,17 @@ export function useUserProfile(): UseUserProfileReturn {
         console.error('Profile error:', profileError)
       }
 
-      // Processar dados da assinatura
-      let processedSubscription = null
-      if (subscriptionData && typeof subscriptionData === 'object' && !('error' in subscriptionData)) {
-        processedSubscription = subscriptionData
-        console.log('✅ Subscription data processed:', processedSubscription)
-      } else {
-        console.log('❌ No valid subscription data:', subscriptionData)
-      }
-
       const userProfile: UserProfile = {
         id: user.id,
         email: user.email || '',
         name: profileData?.name || user.email?.split('@')[0] || 'Usuário',
         role: roleData?.role || 'user',
-        subscription: processedSubscription
+        subscription: subscriptionData && typeof subscriptionData === 'object' && !('error' in subscriptionData) 
+          ? subscriptionData 
+          : null
       }
 
-      console.log('🔍 Complete profile loaded:', userProfile)
-      console.log('📊 Subscription data:', subscriptionData)
+      console.log('Complete profile:', userProfile)
       setProfile(userProfile)
 
     } catch (err) {
@@ -128,9 +115,9 @@ export function useUserProfile(): UseUserProfileReturn {
   }, [refreshTrigger])
 
   const forceRefresh = useCallback(() => {
-    console.log('🔄 Force refreshing profile... Trigger:', refreshTrigger + 1)
+    console.log('Force refreshing profile...')
     setRefreshTrigger(prev => prev + 1)
-  }, [refreshTrigger])
+  }, [])
 
   const refetch = useCallback(async () => {
     await fetchProfile()
@@ -189,47 +176,26 @@ export function useUserProfile(): UseUserProfileReturn {
           filter: `user_id=eq.${profile.id}`
         },
         (payload) => {
-          console.log('🔄 Real-time subscription changed:', payload)
-          // Aguardar um pouco para garantir consistência
-          setTimeout(() => {
-            console.log('🎯 Refreshing profile after real-time change')
-            forceRefresh()
-          }, 500)
+          console.log('Subscription changed:', payload)
+          forceRefresh()
         }
       )
       .subscribe()
 
     // Listener para eventos customizados (quando admin altera assinatura)
     const handleSubscriptionChange = (event: CustomEvent) => {
-      console.log('🔄 Custom subscription change event:', event.detail)
-      if (event.detail?.userId === profile.id || event.detail?.forceAll) {
-        console.log('🎯 Forcing immediate refresh for current user')
-        // Aguardar um pouco para garantir que a mudança foi persistida
-        setTimeout(() => {
-          forceRefresh()
-        }, 300)
-      }
-    }
-
-    const handleForceRefresh = (event: CustomEvent) => {
-      console.log('🚀 Force profile refresh event:', event.detail)
-      if (event.detail?.userId === profile.id || event.detail?.forceAll) {
-        console.log('🎯 Forcing refresh for current user')
-        // Aguardar um pouco para garantir que a mudança foi persistida
-        setTimeout(() => {
-          forceRefresh()
-        }, 300)
+      console.log('Custom subscription change event:', event.detail)
+      if (event.detail?.userId === profile.id) {
+        setTimeout(() => forceRefresh(), 500)
       }
     }
 
     window.addEventListener('subscription-changed', handleSubscriptionChange as EventListener)
-    window.addEventListener('force-profile-refresh', handleForceRefresh as EventListener)
 
     return () => {
       supabase.removeChannel(roleSubscription)
       supabase.removeChannel(subscriptionSubscription)
       window.removeEventListener('subscription-changed', handleSubscriptionChange as EventListener)
-      window.removeEventListener('force-profile-refresh', handleForceRefresh as EventListener)
     }
   }, [profile?.id, forceRefresh])
 
@@ -248,19 +214,6 @@ export function useUserProfile(): UseUserProfileReturn {
   let badgeColor = 'gray'
 
   if (profile) {
-    console.log('🏷️ Badge calculation:', {
-      role: profile.role,
-      isOwner,
-      isAdmin,
-      isModerator,
-      isPaidUser,
-      isTrialUser,
-      hasActiveSubscription,
-      subscriptionPlan: profile.subscription?.plan,
-      subscriptionStatus: profile.subscription?.status,
-      subscriptionActive: profile.subscription?.is_active
-    })
-
     // Prioridade: Role administrativo > Assinatura paga > Trial > Free
     if (isOwner) {
       displayBadge = 'Proprietário'
@@ -287,8 +240,6 @@ export function useUserProfile(): UseUserProfileReturn {
       displayBadge = 'Free'
       badgeColor = 'gray'
     }
-
-    console.log('🎯 Final badge:', { displayBadge, badgeColor })
   }
 
   return {

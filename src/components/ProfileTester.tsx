@@ -166,7 +166,7 @@ export function ProfileTester() {
               <ul className="ml-4 mt-1 space-y-1">
                 <li>• Owner/Admin/Moderador sempre aparecem primeiro</li>
                 <li>• Depois assinaturas pagas (Mensal/Anual)</li>
-                <li>• Depois Free (7d)</li>
+                <li>• Depois Trial</li>
                 <li>• Por último Free</li>
               </ul>
             </div>

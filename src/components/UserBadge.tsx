@@ -41,7 +41,7 @@ export function UserBadge({ showIcon = true, size = 'md', variant = 'default' }:
     if (isAdmin) return <Shield className="w-3 h-3 mr-1" />
     if (isModerator) return <Users className="w-3 h-3 mr-1" />
     if (isPaidUser) return <UserCheck className="w-3 h-3 mr-1" />
-    if (isTrialUser) return <User className="w-3 h-3 mr-1" />
+    if (isTrialUser) return <Clock className="w-3 h-3 mr-1" />
     return <User className="w-3 h-3 mr-1" />
   }
 

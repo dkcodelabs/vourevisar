@@ -2,7 +2,7 @@
 // HOOK PARA VERIFICAR ROLES DO USUÁRIO
 // =====================================================
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '@/integrations/supabase/client'
+import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 
 export type AppRole = 'owner' | 'admin' | 'moderator' | 'user'
@@ -13,10 +13,6 @@ interface UserRoleData {
   loading: boolean
   error: string | null
   user: User | null
-}
-
-interface UserRoleRow {
-  role: string
 }
 
 export function useUserRole(): UserRoleData & {
@@ -48,20 +44,17 @@ export function useUserRole(): UserRoleData & {
         return
       }
 
-      // Busca roles do usuário usando rpc para evitar problemas de tipos
-      const { data: userRoles, error: roleError } = await supabase.rpc(
-        'get_user_roles',
-        { user_id: currentUser.id }
-      )
+      // Busca roles do usuário
+      const { data: userRoles, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', currentUser.id)
 
       if (roleError) {
-        console.error('Error fetching user roles:', roleError)
-        setRoles([])
-        setHighestRole(null)
-        return
+        throw roleError
       }
 
-      if (userRoles && Array.isArray(userRoles) && userRoles.length > 0) {
+      if (userRoles && userRoles.length > 0) {
         const rolesList = userRoles.map(r => r.role as AppRole)
         setRoles(rolesList)
 

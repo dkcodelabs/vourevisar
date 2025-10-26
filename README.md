@@ -1,73 +1,131 @@
-# Welcome to your Lovable project
+# 🔐 Sistema de Roles Seguro - Implementação
 
-## Project info
+Este diretório contém a implementação completa do sistema de roles seguro para Supabase.
 
-**URL**: https://lovable.dev/projects/886a63b8-f3f4-44de-8805-e1f52dc6b095
+## 📋 Ordem de Execução
 
-## How can I edit this code?
+Execute os arquivos SQL **nesta ordem exata** no Supabase SQL Editor:
 
-There are several ways of editing your application.
+### 1. `01_create_enum_roles.sql`
+- Cria o ENUM `app_role` com os tipos: owner, admin, moderator, user
+- Define a hierarquia de permissões
 
-**Use Lovable**
+### 2. `02_create_user_roles_table.sql`
+- Cria a tabela `user_roles` separada e protegida
+- Adiciona índices para performance
+- Estabelece constraints de integridade
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/886a63b8-f3f4-44de-8805-e1f52dc6b095) and start prompting.
+### 3. `03_setup_rls_policies.sql`
+- Habilita Row Level Security (RLS)
+- Cria políticas que bloqueiam modificações diretas
+- Permite que usuários vejam apenas suas próprias roles
 
-Changes made via Lovable will be committed automatically to this repo.
+### 4. `04_basic_security_functions.sql`
+- Funções `has_role()` e `has_role_or_higher()`
+- Função `get_user_highest_role()`
+- Todas com `SECURITY DEFINER` para máxima segurança
 
-**Use your preferred IDE**
+### 5. `05_insert_initial_owner.sql`
+- **⚠️ IMPORTANTE**: Edite este arquivo antes de executar
+- Substitua `SEU_USER_ID_AQUI` pelo seu UUID real
+- Cria o primeiro proprietário do sistema
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 🔍 Como Encontrar Seu User ID
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Faça login no seu aplicativo
+2. No Supabase Dashboard → Authentication → Users
+3. Copie o UUID da coluna "id"
+4. Ou execute: `SELECT id, email FROM auth.users;`
 
-Follow these steps:
+## ✅ Verificação da Instalação
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Após executar todos os scripts, teste:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+```sql
+-- Verifica se você é owner
+SELECT has_role('owner');
 
-# Step 3: Install the necessary dependencies.
-npm i
+-- Verifica sua role mais alta
+SELECT get_user_highest_role();
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+-- Lista todos os owners
+SELECT 
+  ur.user_id,
+  au.email,
+  ur.role,
+  ur.assigned_at
+FROM user_roles ur
+JOIN auth.users au ON au.id = ur.user_id
+WHERE ur.role = 'owner';
 ```
 
-**Edit a file directly in GitHub**
+## 🛡️ Características de Segurança
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- ✅ Roles em tabela separada (não manipulável pelo frontend)
+- ✅ RLS bloqueia modificações diretas via API
+- ✅ Funções SECURITY DEFINER para verificações seguras
+- ✅ Auditoria completa (quem atribuiu, quando)
+- ✅ Hierarquia de permissões clara
+- ✅ Type-safety com ENUMs
 
-**Use GitHub Codespaces**
+## 🚀 Próximos Passos
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Após a implementação básica (arquivos 01-05), continue com:
 
-## What technologies are used for this project?
+### 6. `06_security_definer_functions.sql`
+- **A MÁGICA**: Funções que executam com privilégios elevados
+- Evitam recursão infinita em RLS policies
+- Funções para atribuir, remover e verificar roles
 
-This project is built with:
+### 7. `07_advanced_admin_functions.sql`
+- Funções administrativas avançadas
+- Listagem de usuários com roles
+- Auditoria e logs de mudanças
+- Informações detalhadas de usuários
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### 8. `08_update_rls_policies.sql`
+- Atualiza policies para usar SECURITY DEFINER functions
+- Remove policies antigas que causavam recursão
+- Implementa proteção total contra modificações diretas
 
-## How can I deploy this project?
+### 9. `09_test_security_functions.sql`
+- Bateria completa de testes
+- Verifica se tudo está funcionando
+- Testa cenários de segurança e proteções
 
-Simply open [Lovable](https://lovable.dev/projects/886a63b8-f3f4-44de-8805-e1f52dc6b095) and click on Share -> Publish.
+## 🔧 Execução Completa
 
-## Can I connect a custom domain to my Lovable project?
+### **Fase 1: Sistema Base (01 → 09)**
+Execute os arquivos básicos do sistema de roles.
 
-Yes, you can!
+### **Fase 2: Tabelas do Sistema (10 → 13)**
+- **`10_system_tables_with_rls.sql`** - Tabelas essenciais com RLS
+- **`11_advanced_rls_examples.sql`** - Exemplos avançados (posts, organizações)
+- **`12_audit_triggers.sql`** - Sistema de auditoria automática
+- **`13_test_system_tables.sql`** - Testes completos das funcionalidades
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Execute **TODOS** os arquivos na ordem (01 → 13) para ter o sistema completo e testado.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 🏗️ **Arquitetura Completa Implementada:**
+
+### 🔐 **Sistema de Roles:**
+- ✅ ENUMs e hierarquia (owner > admin > moderator > user)
+- ✅ Tabela protegida com RLS
+- ✅ SECURITY DEFINER functions
+- ✅ Funções administrativas completas
+
+### 🗄️ **Tabelas do Sistema:**
+- ✅ **system_settings** - Configurações globais
+- ✅ **audit_logs** - Logs de auditoria imutáveis
+- ✅ **profiles** - Perfis de usuários
+- ✅ **notifications** - Sistema de notificações
+- ✅ **posts** - Conteúdo com moderação
+- ✅ **comments** - Comentários hierárquicos
+- ✅ **organizations** - Sistema de equipes/organizações
+
+### 🛡️ **Recursos de Segurança:**
+- ✅ RLS em todas as tabelas
+- ✅ Auditoria automática via triggers
+- ✅ Funções helper para verificações complexas
+- ✅ Proteção contra escalada de privilégios
+- ✅ Logs imutáveis de todas as ações
