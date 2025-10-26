@@ -53,15 +53,61 @@ export function useSubscription(): UseSubscriptionReturn {
         return
       }
 
-      // Buscar informações da assinatura
-      const { data, error: subscriptionError } = await (supabase as any)
-        .rpc('get_subscription_info')
+      console.log('Fetching subscription for user:', user.id)
 
-      if (subscriptionError) {
-        throw subscriptionError
+      // Buscar diretamente da tabela para garantir dados atualizados
+      const { data: subscriptionData, error: directError } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+
+      if (directError && directError.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Direct subscription error:', directError)
+        throw directError
       }
 
-      setSubscription(data)
+      console.log('Direct subscription data:', subscriptionData)
+
+      if (!subscriptionData) {
+        // Usuário sem assinatura
+        setSubscription({
+          user_id: user.id,
+          plan: 'free_trial',
+          status: 'expired',
+          is_active: false,
+          days_remaining: 0,
+          trial_ends_at: null,
+          subscription_ends_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        return
+      }
+
+      // Calcular se está ativo
+      const now = new Date()
+      let isActive = false
+      let daysRemaining = 0
+
+      if (subscriptionData.status === 'trial' && subscriptionData.trial_ends_at) {
+        const trialEnd = new Date(subscriptionData.trial_ends_at)
+        isActive = trialEnd > now
+        daysRemaining = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+      } else if (subscriptionData.status === 'active' && subscriptionData.subscription_ends_at) {
+        const subEnd = new Date(subscriptionData.subscription_ends_at)
+        isActive = subEnd > now
+        daysRemaining = Math.max(0, Math.ceil((subEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+      }
+
+      const processedSubscription = {
+        ...subscriptionData,
+        is_active: isActive,
+        days_remaining: daysRemaining
+      }
+
+      console.log('Processed subscription:', processedSubscription)
+      setSubscription(processedSubscription)
     } catch (err) {
       console.error('Error fetching subscription:', err)
       setError(err instanceof Error ? err.message : 'Erro ao carregar assinatura')

@@ -13,6 +13,7 @@ export function ProfileOnboardingGate() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profile, setProfile] = useState<ReviewProfile | null>(null);
   const [hasReviews, setHasReviews] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Lista de rotas que requerem perfil definido
   const protectedRoutes = ['/materias', '/topicos', '/revisoes', '/revisao-geral', '/ciclo-estudos'];
@@ -26,24 +27,47 @@ export function ProfileOnboardingGate() {
       setLoadingProfile(true);
       
       try {
-        // Buscar perfil
-        const { data } = await supabase
+        // Buscar perfil com retry em caso de erro de conectividade
+        const { data, error } = await supabase
           .from('user_settings')
           .select('review_profile')
           .eq('user_id', user.id)
           .single();
         
+        // Se erro de conectividade, tentar novamente após delay
+        if (error && (error.message?.includes('Failed to fetch') || error.message?.includes('ERR_INTERNET_DISCONNECTED'))) {
+          console.log('🌐 Problema de conectividade detectado, tentativa:', retryCount + 1);
+          
+          if (retryCount < 3) {
+            setTimeout(() => {
+              setRetryCount(prev => prev + 1);
+            }, 2000 * (retryCount + 1)); // Delay progressivo: 2s, 4s, 6s
+            setLoadingProfile(false);
+            return;
+          } else {
+            console.log('🌐 Máximo de tentativas atingido, assumindo que usuário tem perfil');
+            setLoadingProfile(false);
+            return;
+          }
+        }
+        
         setProfile(data?.review_profile as ReviewProfile || null);
         
-        // Checar se já existem revisões
-        const { data: topics } = await supabase
+        // Checar se já existem revisões (com tratamento de erro)
+        const { data: topics, error: topicsError } = await supabase
           .from('topics')
           .select('id, subject_id, subjects!inner(user_id)')
           .eq('subjects.user_id', user.id)
           .gt('review_count', 0)
           .limit(1);
         
-        setHasReviews(topics && topics.length > 0);
+        // Se erro de conectividade nas revisões, assumir que não tem
+        if (topicsError && (topicsError.message?.includes('Failed to fetch') || topicsError.message?.includes('ERR_INTERNET_DISCONNECTED'))) {
+          console.log('🌐 Problema de conectividade ao buscar revisões, assumindo que não tem');
+          setHasReviews(false);
+        } else {
+          setHasReviews(topics && topics.length > 0);
+        }
         
         // Verificar se está em uma rota protegida sem perfil
         const isProtectedRoute = protectedRoutes.some(route => location.pathname.startsWith(route));
@@ -58,16 +82,26 @@ export function ProfileOnboardingGate() {
         } else {
           setShowOnboarding(needsProfile);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Erro ao verificar perfil:', error);
-        setShowOnboarding(true);
+        
+        // Se for erro de conectividade, não mostrar onboarding
+        if (error?.message?.includes('Failed to fetch') || 
+            error?.message?.includes('ERR_INTERNET_DISCONNECTED') ||
+            error?.message?.includes('net::ERR_INTERNET_DISCONNECTED')) {
+          console.log('🌐 Erro de conectividade detectado, não mostrando onboarding');
+          setShowOnboarding(false);
+        } else {
+          // Outros erros (ex: usuário realmente não tem perfil)
+          setShowOnboarding(true);
+        }
       } finally {
         setLoadingProfile(false);
       }
     };
     
     checkProfile();
-  }, [user, location.pathname]);
+  }, [user, location.pathname, retryCount]);
 
   const handleConfirmProfile = async (profile: ReviewProfile) => {
     if (!user || hasReviews) return;

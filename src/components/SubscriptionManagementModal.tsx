@@ -1,7 +1,7 @@
 // =====================================================
 // MODAL PARA GERENCIAR ASSINATURAS DOS USUÁRIOS
 // =====================================================
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { UserCheck, User, Crown, Shield, Users, Calendar, DollarSign, XCircle } from 'lucide-react'
+import { useSubscriptionStats } from '@/hooks/useSubscriptionStats'
 
 interface UserWithSubscription {
   id: string
@@ -43,12 +44,14 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [processingUserId, setProcessingUserId] = useState<string | null>(null)
+  const stats = useSubscriptionStats()
 
   // Buscar usuários e suas assinaturas
   const fetchUsers = async () => {
     try {
       setLoading(true)
       setError(null)
+      console.log('🔄 MODAL: Starting to fetch users...')
 
       // Buscar usuários básicos primeiro
       const { data: profiles, error: profilesError } = await supabase
@@ -57,11 +60,11 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         .order('email')
 
       if (profilesError) {
-        console.error('Error fetching profiles:', profilesError)
+        console.error('❌ MODAL: Error fetching profiles:', profilesError)
         throw profilesError
       }
 
-      console.log('Profiles found:', profiles?.length || 0)
+      console.log('👥 MODAL: Profiles found:', profiles?.length || 0)
 
       // Buscar roles separadamente
       const { data: roles, error: rolesError } = await supabase
@@ -85,7 +88,7 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         throw subscriptionsError
       }
 
-      console.log('Subscriptions found:', subscriptions?.length || 0)
+      console.log('💳 MODAL: Subscriptions found:', subscriptions?.length || 0)
 
       // Processar dados para o formato esperado
       const processedUsers: UserWithSubscription[] = profiles.map(user => {
@@ -131,9 +134,10 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         return processedUser
       })
 
+      console.log('✅ MODAL: Setting users data, total:', processedUsers.length)
       setUsers(processedUsers)
     } catch (err) {
-      console.error('Error fetching users:', err)
+      console.error('❌ MODAL: Error fetching users:', err)
       setError(err instanceof Error ? err.message : 'Erro ao carregar usuários')
     } finally {
       setLoading(false)
@@ -146,38 +150,53 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
       setProcessingUserId(userId)
       setError(null)
 
+      console.log(`Changing subscription for user ${userId} to ${action}`)
+
       if (action === 'deactivate') {
-        // Desativar assinatura - marcar como expirada
-        const { error } = await (supabase as any)
-          .rpc('update_user_subscription', {
-            target_user_id: userId,
-            new_plan: 'free_trial',
-            new_status: 'expired',
-            new_trial_started_at: null,
-            new_trial_ends_at: null,
-            new_subscription_started_at: null,
-            new_subscription_ends_at: null
+        // Desativar assinatura - usar cancel_subscription
+        const { data, error } = await supabase
+          .rpc('cancel_subscription', {
+            target_user_id: userId
           })
 
         if (error) throw error
+        console.log('Subscription deactivated successfully')
       } else if (action === 'activate_trial') {
-        // Ativar trial - 7 dias
-        const now = new Date().toISOString()
-        const trialEnd = new Date()
-        trialEnd.setDate(trialEnd.getDate() + 7)
+        // Ativar Free - 7 dias
+        const trialEndDate = new Date()
+        trialEndDate.setDate(trialEndDate.getDate() + 7)
 
-        const { error } = await (supabase as any)
-          .rpc('update_user_subscription', {
-            target_user_id: userId,
-            new_plan: 'free_trial',
-            new_status: 'trial',
-            new_trial_started_at: now,
-            new_trial_ends_at: trialEnd.toISOString(),
-            new_subscription_started_at: null,
-            new_subscription_ends_at: null
+        // Primeiro tentar update, se não existir, fazer insert
+        const { error: updateError } = await supabase
+          .from('user_subscriptions')
+          .update({
+            plan: 'free_trial' as const,
+            status: 'trial' as const,
+            trial_started_at: new Date().toISOString(),
+            trial_ends_at: trialEndDate.toISOString(),
+            subscription_started_at: null,
+            subscription_ends_at: null,
+            updated_at: new Date().toISOString()
           })
+          .eq('user_id', userId)
 
-        if (error) throw error
+        if (updateError) {
+          // Se update falhou, tentar insert
+          const { error: insertError } = await supabase
+            .from('user_subscriptions')
+            .insert({
+              user_id: userId,
+              plan: 'free_trial' as const,
+              status: 'trial' as const,
+              trial_started_at: new Date().toISOString(),
+              trial_ends_at: trialEndDate.toISOString(),
+              updated_at: new Date().toISOString()
+            })
+          
+          if (insertError) throw insertError
+        }
+
+        console.log('Free activated successfully')
       } else {
         // Ativar assinatura paga
         const planMap = {
@@ -186,31 +205,66 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         }
 
         const plan = planMap[action]
-        const now = new Date().toISOString()
-        const endDate = new Date()
+        const subscriptionEndDate = new Date()
+        subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + (plan === 'annual' ? 12 : 1))
+        
+        // Primeiro tentar update, se não existir, fazer insert
+        const { error: updateError } = await supabase
+          .from('user_subscriptions')
+          .update({
+            plan: plan as 'monthly' | 'annual',
+            status: 'active' as const,
+            subscription_started_at: new Date().toISOString(),
+            subscription_ends_at: subscriptionEndDate.toISOString(),
+            trial_started_at: null,
+            trial_ends_at: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
 
-        if (plan === 'monthly') {
-          endDate.setMonth(endDate.getMonth() + 1)
-        } else if (plan === 'annual') {
-          endDate.setFullYear(endDate.getFullYear() + 1)
+        if (updateError) {
+          // Se update falhou, tentar insert
+          const { error: insertError } = await supabase
+            .from('user_subscriptions')
+            .insert({
+              user_id: userId,
+              plan: plan as 'monthly' | 'annual',
+              status: 'active' as const,
+              subscription_started_at: new Date().toISOString(),
+              subscription_ends_at: subscriptionEndDate.toISOString(),
+              updated_at: new Date().toISOString()
+            })
+          
+          if (insertError) throw insertError
         }
 
-        const { error } = await (supabase as any)
-          .rpc('update_user_subscription', {
-            target_user_id: userId,
-            new_plan: plan,
-            new_status: 'active',
-            new_trial_started_at: null,
-            new_trial_ends_at: null,
-            new_subscription_started_at: now,
-            new_subscription_ends_at: endDate.toISOString()
-          })
-
-        if (error) throw error
+        console.log('Paid subscription activated successfully')
       }
 
-      // Recarregar dados
+      // Forçar atualização IMEDIATA de todos os componentes
+      console.log('🎯 Dispatching events for user:', userId, 'action:', action)
+      
+      // Aguardar um pouco para garantir que a transação foi commitada
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Evento específico de mudança de assinatura
+      window.dispatchEvent(new CustomEvent('subscription-changed', { 
+        detail: { userId, action, timestamp: Date.now() } 
+      }))
+      
+      // Evento geral de refresh de perfil
+      window.dispatchEvent(new CustomEvent('force-profile-refresh', { 
+        detail: { userId, forceAll: true, timestamp: Date.now() } 
+      }))
+      
+      // Aguardar mais um pouco antes de atualizar o modal
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // Recarregar dados do modal e estatísticas
       await fetchUsers()
+      stats.refresh()
+      
+      console.log('✅ All updates completed for user:', userId)
     } catch (err) {
       console.error('Error changing subscription:', err)
       setError(err instanceof Error ? err.message : 'Erro ao alterar assinatura')
@@ -220,7 +274,9 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
   }
 
   useEffect(() => {
+    console.log('🚪 MODAL: isOpen changed to:', isOpen)
     if (isOpen) {
+      console.log('🔄 MODAL: Modal opened, calling fetchUsers...')
       fetchUsers()
     }
   }, [isOpen])
@@ -246,7 +302,7 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
     }
 
     if (user.is_active && user.subscription_status === 'trial') {
-      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200"><UserCheck className="w-3 h-3 mr-1" />Trial ({user.days_remaining || 0}d)</Badge>
+      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200"><UserCheck className="w-3 h-3 mr-1" />Free ({user.days_remaining || 0}d)</Badge>
     }
 
     if (user.is_active && user.subscription_plan === 'monthly') {
@@ -274,6 +330,14 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
           </DialogDescription>
         </DialogHeader>
 
+        {/* Resumo geral */}
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md">
+          <div className="flex items-center justify-between">
+            <span className="font-medium">📊 Total de Usuários no Sistema</span>
+            <span className="text-2xl font-bold">{loading ? '...' : users.length}</span>
+          </div>
+        </div>
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
             <strong>Erro:</strong> {error}
@@ -287,38 +351,29 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Estatísticas rápidas - apenas usuários comuns */}
+            {/* Estatísticas reais usando o hook */}
             <div className="grid grid-cols-4 gap-4 mb-6">
-              <div className="bg-gray-50 p-3 rounded-lg text-center">
-                <div className="text-2xl font-bold text-gray-600">
-                  {users.filter(u => 
-                    u.role === 'user' && (!u.is_active || !u.subscription_plan)
-                  ).length}
-                </div>
-                <div className="text-sm text-gray-500">Free</div>
-              </div>
               <div className="bg-yellow-50 p-3 rounded-lg text-center">
                 <div className="text-2xl font-bold text-yellow-600">
-                  {users.filter(u => 
-                    u.role === 'user' && u.subscription_status === 'trial' && u.is_active
-                  ).length}
+                  {stats.loading ? '...' : stats.freeActiveUsers}
                 </div>
-                <div className="text-sm text-yellow-600">Trial</div>
+                <div className="text-sm text-yellow-600">Free (7d)</div>
               </div>
-              <div className="bg-green-50 p-3 rounded-lg text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {users.filter(u => 
-                    u.role === 'user' && u.is_active && u.subscription_status === 'active' && 
-                    (u.subscription_plan === 'monthly' || u.subscription_plan === 'annual')
-                  ).length}
+              <div className="bg-blue-50 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {stats.loading ? '...' : stats.monthlyUsers}
                 </div>
-                <div className="text-sm text-green-600">Pagos</div>
+                <div className="text-sm text-blue-600">Mensal</div>
+              </div>
+              <div className="bg-purple-50 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {stats.loading ? '...' : stats.annualUsers}
+                </div>
+                <div className="text-sm text-purple-600">Anual</div>
               </div>
               <div className="bg-red-50 p-3 rounded-lg text-center">
                 <div className="text-2xl font-bold text-red-600">
-                  {users.filter(u => 
-                    u.role === 'user' && u.subscription_status === 'expired'
-                  ).length}
+                  {stats.loading ? '...' : stats.expiredUsers}
                 </div>
                 <div className="text-sm text-red-600">Expirados</div>
               </div>
@@ -355,7 +410,7 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
                         <SelectValue placeholder="Alterar..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="activate_trial">🆓 Ativar Trial</SelectItem>
+                        <SelectItem value="activate_trial">🆓 Ativar Free (7 dias)</SelectItem>
                         <SelectItem value="activate_monthly">💰 Ativar Mensal</SelectItem>
                         <SelectItem value="activate_annual">💎 Ativar Anual</SelectItem>
                         <SelectItem value="deactivate">❌ Desativar</SelectItem>
@@ -379,9 +434,108 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         )}
 
         <div className="flex justify-between items-center pt-4 border-t">
-          <Button variant="outline" onClick={fetchUsers} disabled={loading}>
-            🔄 Atualizar
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={fetchUsers} disabled={loading}>
+              🔄 Atualizar Lista
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                // Forçar refresh de todos os componentes
+                window.dispatchEvent(new CustomEvent('force-profile-refresh', { 
+                  detail: { forceAll: true, timestamp: Date.now() } 
+                }))
+              }}
+              disabled={loading}
+            >
+              🎯 Forçar Badge
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                console.log('🔄 MANUAL: Forcing fetchUsers and stats...')
+                fetchUsers()
+                stats.refresh()
+              }}
+              disabled={loading}
+            >
+              📊 Atualizar Stats
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                console.log('🔍 DEBUG: Current users state:', users.length, users)
+              }}
+              disabled={loading}
+            >
+              🔍 Debug Users
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                // Testar função SQL diretamente
+                try {
+                  const { data: { user } } = await supabase.auth.getUser()
+                  if (user) {
+                    console.log('🧪 Testing SQL function for user:', user.id)
+                    
+                    // Testar get_subscription_info
+                    const { data, error } = await supabase.rpc('get_subscription_info', { check_user_id: user.id })
+                    console.log('📊 SQL Result:', { data, error })
+                    
+                    // Testar busca direta na tabela
+                    const { data: directData, error: directError } = await supabase
+                      .from('user_subscriptions')
+                      .select('*')
+                      .eq('user_id', user.id)
+                      .single()
+                    
+                    console.log('📋 Direct table query:', { directData, directError })
+                    
+                    alert(`SQL Function: ${JSON.stringify(data, null, 2)}\n\nDirect Query: ${JSON.stringify(directData, null, 2)}`)
+                  }
+                } catch (err) {
+                  console.error('Erro no teste SQL:', err)
+                  alert(`Erro: ${err}`)
+                }
+              }}
+              disabled={loading}
+            >
+              🧪 Testar SQL
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                // Testar eventos de atualização para o usuário atual
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                  console.log('🧪 Testing update events for current user:', user.id)
+                  window.dispatchEvent(new CustomEvent('subscription-changed', { 
+                    detail: { userId: user.id, action: 'test', timestamp: Date.now() } 
+                  }))
+                  window.dispatchEvent(new CustomEvent('force-profile-refresh', { 
+                    detail: { userId: user.id, forceAll: true, timestamp: Date.now() } 
+                  }))
+                  console.log('✅ Events dispatched for current user')
+                } else {
+                  console.log('❌ No current user found')
+                }
+              }}
+              disabled={loading}
+            >
+              🧪 Testar Badge Atual
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                // Forçar atualização completa
+                window.location.reload()
+              }}
+              disabled={loading}
+            >
+              🔄 Recarregar Página
+            </Button>
+          </div>
           <Button onClick={onClose}>
             Fechar
           </Button>

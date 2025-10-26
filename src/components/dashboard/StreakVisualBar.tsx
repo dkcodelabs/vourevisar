@@ -113,20 +113,20 @@ export const StreakVisualBar: React.FC<StreakVisualBarProps> = ({
   };
 
   return (
-    <div className={`bg-white border border-gray-100 rounded-xl shadow-sm p-6 mb-6 ${className}`}>
-      {/* Header com navegação */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
+    <div className={`bg-white border border-gray-100 rounded-xl shadow-sm p-4 md:p-6 mb-6 overflow-hidden ${className}`}>
+      {/* Header com navegação - RESPONSIVO */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="flex items-center justify-center sm:justify-start gap-3">
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigateMonth('prev')}
-            className="h-7 w-7 p-0"
+            className="h-8 w-8 p-0 hover:bg-gray-100"
           >
-            <ChevronLeft className="h-3 w-3" />
+            <ChevronLeft className="h-4 w-4" />
           </Button>
           
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-gray-900 capitalize min-w-[140px] text-center">
             {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
           </h3>
           
@@ -135,14 +135,14 @@ export const StreakVisualBar: React.FC<StreakVisualBarProps> = ({
             size="sm"
             onClick={() => navigateMonth('next')}
             disabled={isSameMonth(currentMonth, new Date())}
-            className="h-7 w-7 p-0"
+            className="h-8 w-8 p-0 hover:bg-gray-100 disabled:opacity-50"
           >
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="text-right">
-          <div className="text-sm font-medium text-gray-900">
+        <div className="text-center sm:text-right">
+          <div className="text-sm font-semibold text-gray-900">
             {activeDays}/{totalDays} dias ativos
           </div>
           <div className="text-xs text-gray-500">
@@ -158,84 +158,153 @@ export const StreakVisualBar: React.FC<StreakVisualBarProps> = ({
         </p>
       </div>
 
-      {/* Timeline dos dias - Uma linha contínua sem quebras */}
-      <div className="mb-3 overflow-x-auto overflow-y-hidden">
+      {/* Timeline dos dias - RESPONSIVO SEM SCROLL HORIZONTAL */}
+      <div className="mb-4">
         <TooltipProvider>
-          <div className="flex gap-1 justify-center min-w-max px-2">
-            {monthDays.map((day, index) => {
-              const status = getDayStatus(day);
-              const dayNumber = format(day.date, 'd');
-              
-              return (
-                <Tooltip key={index}>
-                  <TooltipTrigger asChild>
-                    <button
-                      className={`
-                        flex-shrink-0 w-7 h-7 rounded-full border transition-all duration-200
-                        hover:scale-110 hover:shadow-sm active:scale-95
-                        flex items-center justify-center text-xs font-medium
-                        ${getDayColor(status)}
-                        ${status === 'active' || status === 'today' ? 'text-white' : 
-                          status === 'future' ? 'text-gray-400' : 'text-gray-600'}
-                        ${status === 'future' ? 'cursor-not-allowed' : 'cursor-pointer'}
-                      `}
-                      onClick={() => status !== 'future' ? onDayClick(day.date) : null}
-                      disabled={status === 'future'}
-                    >
-                      <span className="text-xs">{dayNumber}</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
-                    <div className="text-center">
-                      <div className="font-medium mb-1">
-                        {format(day.date, 'dd/MM/yyyy', { locale: ptBR })}
-                      </div>
-                      <div className="text-xs">
-                        {status === 'today' && '📅 Hoje'}
-                        {status === 'active' && `✅ ${day.activities.length} atividade${day.activities.length > 1 ? 's' : ''}`}
-                        {status === 'inactive' && '❌ Sem atividade'}
-                        {status === 'future' && '⏳ Futuro'}
-                      </div>
-                      {day.activities.length > 0 && (
-                        <div className="mt-2 text-xs text-left">
-                          {day.activities.slice(0, 3).map((activity, i) => (
-                            <div key={i} className="truncate">
-                              • {activity.subject} - {activity.topic}
+          {/* Desktop: Linha horizontal com scroll suave */}
+          <div className="hidden md:block">
+            <div className="relative">
+              {/* Container com padding para evitar sobreposição */}
+              <div className="overflow-x-auto pb-4" style={{ scrollbarWidth: 'thin' }}>
+                <div className="flex gap-1 justify-center min-w-max px-2">
+                  {monthDays.map((day, index) => {
+                    const status = getDayStatus(day);
+                    const dayNumber = format(day.date, 'd');
+                    
+                    return (
+                      <Tooltip key={index}>
+                        <TooltipTrigger asChild>
+                          <button
+                            className={`
+                              flex-shrink-0 w-8 h-8 rounded-lg border transition-all duration-200
+                              hover:scale-105 hover:shadow-md active:scale-95
+                              flex items-center justify-center text-sm font-medium
+                              ${getDayColor(status)}
+                              ${status === 'active' || status === 'today' ? 'text-white' : 
+                                status === 'future' ? 'text-gray-400' : 'text-gray-600'}
+                              ${status === 'future' ? 'cursor-not-allowed' : 'cursor-pointer'}
+                            `}
+                            onClick={() => status !== 'future' ? onDayClick(day.date) : null}
+                            disabled={status === 'future'}
+                          >
+                            <span className="text-sm font-semibold">{dayNumber}</span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <div className="text-center">
+                            <div className="font-medium mb-1">
+                              {format(day.date, 'dd/MM/yyyy', { locale: ptBR })}
                             </div>
-                          ))}
-                          {day.activities.length > 3 && (
-                            <div className="text-gray-400">
-                              +{day.activities.length - 3} mais...
+                            <div className="text-xs">
+                              {status === 'today' && '📅 Hoje'}
+                              {status === 'active' && `✅ ${day.activities.length} atividade${day.activities.length > 1 ? 's' : ''}`}
+                              {status === 'inactive' && '❌ Sem atividade'}
+                              {status === 'future' && '⏳ Futuro'}
                             </div>
-                          )}
+                            {day.activities.length > 0 && (
+                              <div className="mt-2 text-xs text-left">
+                                {day.activities.slice(0, 3).map((activity, i) => (
+                                  <div key={i} className="truncate">
+                                    • {activity.subject} - {activity.topic}
+                                  </div>
+                                ))}
+                                {day.activities.length > 3 && (
+                                  <div className="text-gray-400">
+                                    +{day.activities.length - 3} mais...
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile: Grid responsivo sem scroll horizontal */}
+          <div className="md:hidden">
+            <div className="grid grid-cols-7 gap-1 mb-3">
+              {monthDays.map((day, index) => {
+                const status = getDayStatus(day);
+                const dayNumber = format(day.date, 'd');
+                
+                return (
+                  <Tooltip key={index}>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`
+                          aspect-square rounded-lg border transition-all duration-200
+                          hover:scale-105 active:scale-95
+                          flex items-center justify-center text-xs font-medium
+                          ${getDayColor(status)}
+                          ${status === 'active' || status === 'today' ? 'text-white' : 
+                            status === 'future' ? 'text-gray-400' : 'text-gray-600'}
+                          ${status === 'future' ? 'cursor-not-allowed' : 'cursor-pointer'}
+                        `}
+                        onClick={() => status !== 'future' ? onDayClick(day.date) : null}
+                        disabled={status === 'future'}
+                      >
+                        <span className="text-xs font-semibold">{dayNumber}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <div className="text-center">
+                        <div className="font-medium mb-1">
+                          {format(day.date, 'dd/MM/yyyy', { locale: ptBR })}
                         </div>
-                      )}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
+                        <div className="text-xs">
+                          {status === 'today' && '📅 Hoje'}
+                          {status === 'active' && `✅ ${day.activities.length} atividade${day.activities.length > 1 ? 's' : ''}`}
+                          {status === 'inactive' && '❌ Sem atividade'}
+                          {status === 'future' && '⏳ Futuro'}
+                        </div>
+                        {day.activities.length > 0 && (
+                          <div className="mt-2 text-xs text-left">
+                            {day.activities.slice(0, 3).map((activity, i) => (
+                              <div key={i} className="truncate">
+                                • {activity.subject} - {activity.topic}
+                              </div>
+                            ))}
+                            {day.activities.length > 3 && (
+                              <div className="text-gray-400">
+                                +{day.activities.length - 3} mais...
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
           </div>
         </TooltipProvider>
       </div>
 
-      {/* Legenda compacta */}
-      <div className="flex items-center justify-center gap-3 text-xs text-gray-600">
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span>Estudou</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-red-100 border border-red-300 rounded-full"></div>
-          <span>Não estudou</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-          <span>Hoje</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-gray-100 border border-gray-200 rounded-full"></div>
-          <span>Futuro</span>
+      {/* Legenda - SEPARADA E SEM SOBREPOSIÇÃO */}
+      <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
+            <span className="text-gray-700 font-medium">Estudou</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-red-100 border border-red-300 rounded-full"></div>
+            <span className="text-gray-700 font-medium">Não estudou</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full shadow-sm"></div>
+            <span className="text-gray-700 font-medium">Hoje</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-gray-100 border border-gray-200 rounded-full"></div>
+            <span className="text-gray-700 font-medium">Futuro</span>
+          </div>
         </div>
       </div>
     </div>

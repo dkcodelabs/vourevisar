@@ -5,6 +5,8 @@ import React, { useState } from 'react'
 import { useUserRole } from '@/hooks/useUserRole'
 import { AdminOnly, OwnerOnly } from '@/components/ProtectedComponent'
 import { UserManagementModal } from '@/components/UserManagementModal'
+import { ProfileTester } from '@/components/ProfileTester'
+import { useSubscriptionStats } from '@/hooks/useSubscriptionStats'
 
 export default function Gerenciamento() {
   const { user, isOwner, isAdmin, loading } = useUserRole()
@@ -127,6 +129,12 @@ export default function Gerenciamento() {
                   active={activeSection === 'assinaturas'}
                   onClick={() => setActiveSection('assinaturas')}
                 />
+                <SidebarItem
+                  icon="🧪"
+                  label="Teste Sistema"
+                  active={activeSection === 'teste'}
+                  onClick={() => setActiveSection('teste')}
+                />
               </AdminOnly>
 
               {/* Seções EXCLUSIVAS para Owners */}
@@ -182,6 +190,7 @@ export default function Gerenciamento() {
             {activeSection === 'configuracoes' && <ConfiguracoesSection openModal={openModal} />}
             {activeSection === 'documentacao' && <DocumentacaoSection openModal={openModal} />}
             {activeSection === 'assinaturas' && <AssinaturasSection openModal={openModal} />}
+            {activeSection === 'teste' && <TesteSection openModal={openModal} />}
             {activeSection === 'roles' && <RolesSection openModal={openModal} />}
             {activeSection === 'sistema' && <SistemaSection openModal={openModal} />}
             {activeSection === 'backup' && <BackupSection openModal={openModal} />}
@@ -1252,6 +1261,8 @@ function DocumentacaoSection({ openModal }: { openModal: (mode: 'list' | 'assign
 }
 
 function AssinaturasSection({ openModal }: { openModal: (mode: 'list' | 'assign' | 'manage', title: string) => void }) {
+  const stats = useSubscriptionStats()
+  
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '32px' }}>
@@ -1265,6 +1276,133 @@ function AssinaturasSection({ openModal }: { openModal: (mode: 'list' | 'assign'
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
         
+        {/* Teste do Sistema Integrado */}
+        <div style={{ 
+          background: '#ffffff', 
+          border: '2px solid #3b82f6', 
+          borderRadius: '12px', 
+          padding: '24px',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 20px 0', 
+            fontSize: '18px', 
+            fontWeight: '600', 
+            color: '#3b82f6',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            🧪 Teste do Sistema Integrado - Role + Assinatura
+          </h3>
+          
+          <div style={{ marginBottom: '16px' }}>
+            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '12px' }}>
+              <strong>TESTE COMPLETO:</strong> Verifique se o badge na barra superior atualiza automaticamente quando você alterar assinaturas.
+            </p>
+            <div style={{ fontSize: '12px', color: '#374151', background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              <strong>Como testar:</strong><br/>
+              1. Observe o badge atual na barra superior<br/>
+              2. Altere sua assinatura no modal abaixo<br/>
+              3. Veja se o badge atualiza automaticamente<br/>
+              4. Teste também o componente de teste detalhado
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => openModal('manage', '💳 Gerenciar Assinaturas dos Usuários')}
+              style={{
+                background: '#059669',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#047857'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#059669'}
+            >
+              Gerenciar Assinaturas
+            </button>
+            
+            <button
+              onClick={() => {
+                // Abrir componente de teste em nova aba
+                const testWindow = window.open('', '_blank', 'width=800,height=600');
+                if (testWindow) {
+                  testWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                      <title>Teste do Sistema Integrado</title>
+                      <style>
+                        body { font-family: system-ui, sans-serif; padding: 20px; background: #f8fafc; }
+                        .container { max-width: 800px; margin: 0 auto; }
+                        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+                        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+                        .purple { background: #faf5ff; color: #7c3aed; border: 1px solid #e879f9; }
+                        .blue { background: #eff6ff; color: #2563eb; border: 1px solid #93c5fd; }
+                        .green { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+                        .yellow { background: #fef3c7; color: #d97706; border: 1px solid #fcd34d; }
+                        .gray { background: #f8fafc; color: #6b7280; border: 1px solid #e2e8f0; }
+                      </style>
+                    </head>
+                    <body>
+                      <div class="container">
+                        <div class="card">
+                          <h2>🧪 Teste do Sistema Integrado</h2>
+                          <p>Este é um teste para verificar se o sistema está funcionando corretamente.</p>
+                          
+                          <h3>Badges de Exemplo:</h3>
+                          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0;">
+                            <span class="badge purple">👑 Proprietário</span>
+                            <span class="badge blue">🛡️ Administrador</span>
+                            <span class="badge green">👮 Moderador</span>
+                            <span class="badge blue">💰 Mensal</span>
+                            <span class="badge purple">💎 Anual</span>
+                            <span class="badge yellow">🆓 Trial (7d)</span>
+                            <span class="badge gray">👤 Free</span>
+                          </div>
+                          
+                          <h3>Instruções:</h3>
+                          <ol>
+                            <li>Volte para a página principal</li>
+                            <li>Observe o badge na barra superior</li>
+                            <li>Altere sua assinatura no modal de gerenciamento</li>
+                            <li>Veja se o badge atualiza automaticamente</li>
+                          </ol>
+                          
+                          <p><strong>Resultado esperado:</strong> O badge deve mudar instantaneamente quando você alterar a assinatura.</p>
+                        </div>
+                      </div>
+                    </body>
+                    </html>
+                  `);
+                }
+              }}
+              style={{
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#2563eb'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#3b82f6'}
+            >
+              🧪 Abrir Teste Detalhado
+            </button>
+          </div>
+        </div>
+
         {/* Gerenciar Assinaturas de Usuários */}
         <div style={{ 
           background: '#ffffff', 
@@ -1282,7 +1420,7 @@ function AssinaturasSection({ openModal }: { openModal: (mode: 'list' | 'assign'
             alignItems: 'center',
             gap: '8px'
           }}>
-            👥 Gerenciar Assinaturas dos Usuários
+            👥 Visualização Completa de Usuários
           </h3>
           
           <div style={{ marginBottom: '16px' }}>
@@ -1291,24 +1429,48 @@ function AssinaturasSection({ openModal }: { openModal: (mode: 'list' | 'assign'
             </p>
           </div>
           
-          <button
-            onClick={() => openModal('manage', '💳 Gerenciar Assinaturas dos Usuários')}
-            style={{
-              background: '#059669',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '12px 24px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#047857'}
-            onMouseLeave={(e) => e.currentTarget.style.background = '#059669'}
-          >
-            Gerenciar Assinaturas
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => openModal('manage', '💳 Gerenciar Assinaturas dos Usuários')}
+              style={{
+                background: '#059669',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#047857'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#059669'}
+            >
+              Gerenciar Assinaturas
+            </button>
+            
+            <button
+              onClick={() => {
+                console.log('🔄 PAGE: Refreshing stats...')
+                stats.refresh()
+              }}
+              style={{
+                background: '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#1d4ed8'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#2563eb'}
+            >
+              📊 Atualizar Stats
+            </button>
+          </div>
         </div>
 
         {/* Estatísticas de Assinaturas */}
@@ -1336,36 +1498,36 @@ function AssinaturasSection({ openModal }: { openModal: (mode: 'list' | 'assign'
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
             gap: '20px' 
           }}>
-            <div style={{ textAlign: 'center', padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: '#6b7280', marginBottom: '4px' }}>
-                -
-              </div>
-              <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                Usuários Free
-              </div>
-            </div>
-            
             <div style={{ textAlign: 'center', padding: '16px', background: '#fef3c7', borderRadius: '8px' }}>
               <div style={{ fontSize: '24px', fontWeight: '700', color: '#d97706', marginBottom: '4px' }}>
-                -
+                {stats.loading ? '...' : stats.freeActiveUsers}
               </div>
               <div style={{ fontSize: '14px', color: '#d97706' }}>
-                Trials Ativos
+                Free (7d)
               </div>
             </div>
             
-            <div style={{ textAlign: 'center', padding: '16px', background: '#ecfdf5', borderRadius: '8px' }}>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: '#059669', marginBottom: '4px' }}>
-                -
+            <div style={{ textAlign: 'center', padding: '16px', background: '#dbeafe', borderRadius: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#2563eb', marginBottom: '4px' }}>
+                {stats.loading ? '...' : stats.monthlyUsers}
               </div>
-              <div style={{ fontSize: '14px', color: '#059669' }}>
-                Assinantes Pagos
+              <div style={{ fontSize: '14px', color: '#2563eb' }}>
+                Mensal
+              </div>
+            </div>
+            
+            <div style={{ textAlign: 'center', padding: '16px', background: '#f3e8ff', borderRadius: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#7c3aed', marginBottom: '4px' }}>
+                {stats.loading ? '...' : stats.annualUsers}
+              </div>
+              <div style={{ fontSize: '14px', color: '#7c3aed' }}>
+                Anual
               </div>
             </div>
             
             <div style={{ textAlign: 'center', padding: '16px', background: '#fef2f2', borderRadius: '8px' }}>
               <div style={{ fontSize: '24px', fontWeight: '700', color: '#dc2626', marginBottom: '4px' }}>
-                -
+                {stats.loading ? '...' : stats.expiredUsers}
               </div>
               <div style={{ fontSize: '14px', color: '#dc2626' }}>
                 Expirados
@@ -1527,6 +1689,141 @@ function AssinaturasSection({ openModal }: { openModal: (mode: 'list' | 'assign'
           </div>
         </div>
 
+      </div>
+    </div>
+  )
+}
+
+function TesteSection({ openModal }: { openModal: (mode: 'list' | 'assign' | 'manage', title: string) => void }) {
+  return (
+    <div>
+      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: '700', color: '#1e293b' }}>
+          🧪 Teste Completo do Sistema
+        </h2>
+        <p style={{ margin: 0, color: '#64748b', fontSize: '16px' }}>
+          Teste integrado de roles + assinaturas - Verifique se o badge atualiza automaticamente
+        </p>
+      </div>
+
+      <div style={{ marginBottom: '24px' }}>
+        <ProfileTester />
+      </div>
+
+      <div style={{ 
+        background: '#ffffff', 
+        border: '2px solid #059669', 
+        borderRadius: '12px', 
+        padding: '24px',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h3 style={{ 
+          margin: '0 0 20px 0', 
+          fontSize: '18px', 
+          fontWeight: '600', 
+          color: '#059669',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          ✅ Instruções de Teste
+        </h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ 
+            background: '#f0f9ff', 
+            border: '1px solid #0ea5e9', 
+            borderRadius: '8px', 
+            padding: '16px'
+          }}>
+            <h4 style={{ margin: '0 0 8px 0', color: '#0369a1', fontSize: '16px', fontWeight: '600' }}>
+              🎯 Teste Principal: Badge Automático
+            </h4>
+            <ol style={{ margin: '0', paddingLeft: '20px', color: '#374151' }}>
+              <li>Observe o badge atual na barra superior (deve mostrar seu status atual)</li>
+              <li>Vá para a seção "Assinaturas" → "Gerenciar Assinaturas"</li>
+              <li>Altere sua própria assinatura (ex: de Free para Mensal)</li>
+              <li>Volte para esta página e veja se o badge atualizou automaticamente</li>
+              <li>Teste também o componente acima - deve mostrar as mesmas informações</li>
+            </ol>
+          </div>
+          
+          <div style={{ 
+            background: '#fef3c7', 
+            border: '1px solid #f59e0b', 
+            borderRadius: '8px', 
+            padding: '16px'
+          }}>
+            <h4 style={{ margin: '0 0 8px 0', color: '#d97706', fontSize: '16px', fontWeight: '600' }}>
+              ⚡ Teste de Performance
+            </h4>
+            <ul style={{ margin: '0', paddingLeft: '20px', color: '#374151' }}>
+              <li>O badge deve atualizar em menos de 2 segundos</li>
+              <li>Não deve ser necessário recarregar a página</li>
+              <li>O componente de teste deve mostrar logs no console</li>
+              <li>Todas as informações devem ser consistentes</li>
+            </ul>
+          </div>
+          
+          <div style={{ 
+            background: '#ecfdf5', 
+            border: '1px solid #10b981', 
+            borderRadius: '8px', 
+            padding: '16px'
+          }}>
+            <h4 style={{ margin: '0 0 8px 0', color: '#059669', fontSize: '16px', fontWeight: '600' }}>
+              🏆 Resultado Esperado
+            </h4>
+            <div style={{ color: '#374151' }}>
+              <strong>Prioridade do Badge:</strong><br/>
+              1. Owner/Admin/Moderador (sempre aparecem primeiro)<br/>
+              2. Assinatura Anual → "Anual" (roxo)<br/>
+              3. Assinatura Mensal → "Mensal" (azul)<br/>
+              4. Trial Ativo → "Trial (Xd)" (amarelo)<br/>
+              5. Sem assinatura → "Free" (cinza)
+            </div>
+          </div>
+        </div>
+        
+        <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
+          <button
+            onClick={() => openModal('manage', '💳 Gerenciar Assinaturas dos Usuários')}
+            style={{
+              background: '#059669',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '12px 24px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#047857'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#059669'}
+          >
+            Ir para Gerenciar Assinaturas
+          </button>
+          
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              background: '#6b7280',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '12px 24px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#4b5563'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#6b7280'}
+          >
+            🔄 Recarregar Página
+          </button>
+        </div>
       </div>
     </div>
   )
