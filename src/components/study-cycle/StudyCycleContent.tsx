@@ -158,8 +158,17 @@ export const StudyCycleContent: React.FC = () => {
   // Debug logs removidos para evitar spam
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    // Sempre iniciar com visualização lista por padrão
+    // Se o usuário já escolheu uma preferência, respeitar a escolha
     const savedViewMode = localStorage.getItem(LOCAL_STORAGE_VIEW_KEY);
-    return (savedViewMode === 'grid' || savedViewMode === 'list') ? savedViewMode : 'grid';
+    
+    // Se não há preferência salva, definir 'list' como padrão e salvar
+    if (!savedViewMode) {
+      localStorage.setItem(LOCAL_STORAGE_VIEW_KEY, 'list');
+      return 'list';
+    }
+    
+    return (savedViewMode === 'grid' || savedViewMode === 'list') ? savedViewMode : 'list';
   });
 
   const [editingTopic, setEditingTopic] = useState<{ subjectId: string; topicId: string } | null>(null);

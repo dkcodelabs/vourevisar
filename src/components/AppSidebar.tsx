@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar 
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, HelpCircle, TrendingUp, LucideIcon } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -18,12 +18,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  { to: "/gerenciamento", label: "Gerenciamento", icon: Shield },
   { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
-  { to: "/materias", label: "Matérias", icon: BookOpen },
-  // Plano de estudos removido - substituído por Ciclo de Estudos
-  { to: "/topicos", label: "Tópicos", icon: List },
+  { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: RotateCcw },
   { to: "/revisoes", label: "Revisões", icon: Clock },
-  { to: "/questoes", label: "Questões", icon: HelpCircle },
+  { to: "/materias", label: "Matérias", icon: BookOpen },
+  { to: "/topicos", label: "Tópicos", icon: List },
   { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
   { to: "/perfil", label: "Perfil", icon: User },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
@@ -49,6 +49,16 @@ export function AppSidebar() {
     // Para matérias, considerar ativo apenas se estiver exatamente em /materias
     if (item.to === '/materias') {
       return location.pathname === '/materias';
+    }
+    
+    // Para gerenciamento, considerar ativo se estiver em /gerenciamento
+    if (item.to === '/gerenciamento') {
+      return location.pathname === '/gerenciamento';
+    }
+    
+    // Para ciclo de estudos, considerar ativo se estiver em /ciclo-estudos
+    if (item.to === '/ciclo-estudos') {
+      return location.pathname === '/ciclo-estudos';
     }
     
     return location.pathname.startsWith(item.to);

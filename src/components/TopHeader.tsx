@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, BookOpen, Calendar, List, Clock, HelpCircle, TrendingUp, Timer, Menu, Target, Settings, LucideIcon 
+  LayoutDashboard, BookOpen, Calendar, List, Clock, TrendingUp, Timer, Menu, Target, Settings, LucideIcon 
 } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,17 +22,16 @@ interface NavItem {
 const getNavItems = (isAdmin: boolean): NavItem[] => {
   const baseItems: NavItem[] = [
     { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
-    { to: "/materias", label: "Matérias", icon: BookOpen },
     { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: Target },
-    { to: "/topicos", label: "Tópicos", icon: List },
     { to: "/revisoes", label: "Revisões", icon: Clock },
-    { to: "/questoes", label: "Questões", icon: HelpCircle },
+    { to: "/materias", label: "Matérias", icon: BookOpen },
+    { to: "/topicos", label: "Tópicos", icon: List },
     { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
   ];
 
-  // Adiciona Gerenciamento apenas para admins/owners
+  // Adiciona Gerenciamento no início para admins/owners
   if (isAdmin) {
-    baseItems.splice(1, 0, { to: "/gerenciamento", label: "Gerenciamento", icon: Settings });
+    baseItems.unshift({ to: "/gerenciamento", label: "Gerenciamento", icon: Settings });
   }
 
   return baseItems;

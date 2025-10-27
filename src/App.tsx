@@ -20,8 +20,8 @@ import ResetPassword from "@/pages/ResetPassword";
 import { AuthCallback } from "@/components/AuthCallback";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
-import Questoes from "@/pages/Questoes";
-import QuestionsStatistics from "@/pages/QuestionsStatistics";
+// import Questoes from "@/pages/Questoes"; // OCULTO
+// import QuestionsStatistics from "@/pages/QuestionsStatistics"; // OCULTO
 import StudyCycle from "@/pages/StudyCycle";
 import Gerenciamento from "@/pages/Gerenciamento";
 import { SimpleRoleTest } from "@/components/SimpleRoleTest";
@@ -67,8 +67,8 @@ const App = () => {
                     <Route path="materias/:subjectId/topicos" element={<Topics />} />
                     <Route path="topicos" element={<Topics />} />
                     <Route path="revisoes" element={<Revisoes />} />
-                    <Route path="questoes" element={<Questoes />} />
-                    <Route path="questoes/estatisticas" element={<QuestionsStatistics />} />
+                    {/* <Route path="questoes" element={<Questoes />} /> */} {/* OCULTO */}
+                    {/* <Route path="questoes/estatisticas" element={<QuestionsStatistics />} /> */} {/* OCULTO */}
                     <Route path="ciclo-estudos" element={<StudyCycle />} />
                     <Route path="gerenciamento" element={<Gerenciamento />} />
                     <Route path="test-roles" element={<SimpleRoleTest />} />
