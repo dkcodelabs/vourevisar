@@ -98,3 +98,29 @@ export function AuthenticatedOnly({
 
   return <>{children}</>
 }
+
+// =====================================================
+// BOTÃO PROTEGIDO POR ROLE
+// =====================================================
+export interface ProtectedButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  requiredRole: AppRole
+  orHigher?: boolean
+  fallback?: React.ReactNode
+}
+
+export function ProtectedButton({ 
+  children,
+  requiredRole,
+  orHigher = false,
+  fallback = null,
+  ...buttonProps
+}: ProtectedButtonProps) {
+  const { hasRole, hasRoleOrHigher, loading } = useUserRole()
+
+  if (loading) return <>{fallback}</>
+
+  const hasPermission = orHigher ? hasRoleOrHigher(requiredRole) : hasRole(requiredRole)
+  if (!hasPermission) return <>{fallback}</>
+
+  return <button {...buttonProps}>{children}</button>
+}

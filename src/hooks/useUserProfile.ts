@@ -8,6 +8,7 @@ interface UserProfile {
   id: string
   email: string
   name: string | null
+  avatar_url?: string | null
   role: 'owner' | 'admin' | 'moderator' | 'user'
   subscription: {
     plan: 'free_trial' | 'monthly' | 'annual'
@@ -85,7 +86,7 @@ export function useUserProfile(): UseUserProfileReturn {
       // Buscar perfil básico
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('name')
+        .select('name, avatar_url')
         .eq('id', user.id)
         .single()
 
@@ -97,9 +98,10 @@ export function useUserProfile(): UseUserProfileReturn {
         id: user.id,
         email: user.email || '',
         name: profileData?.name || user.email?.split('@')[0] || 'Usuário',
+        avatar_url: profileData?.avatar_url || null,
         role: roleData?.role || 'user',
-        subscription: subscriptionData && typeof subscriptionData === 'object' && !('error' in subscriptionData) 
-          ? subscriptionData 
+        subscription: subscriptionData && typeof subscriptionData === 'object' && !Array.isArray(subscriptionData) && !('error' in subscriptionData) 
+          ? subscriptionData as UserProfile['subscription']
           : null
       }
 

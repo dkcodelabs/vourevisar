@@ -58,10 +58,10 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
 
       // Se a resposta contém erro
       if (data && typeof data === 'object' && 'error' in data) {
-        throw new Error(data.error)
+        throw new Error(String(data.error))
       }
 
-      setSubscriptionInfo(data)
+      setSubscriptionInfo(data as unknown as SubscriptionInfo)
     } catch (err) {
       console.error('Error fetching subscription info:', err)
       setError(err instanceof Error ? err.message : 'Erro ao carregar informações da assinatura')
@@ -100,33 +100,40 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
 
   // Escutar mudanças na tabela user_subscriptions
   useEffect(() => {
-    const { data: { user } } = supabase.auth.getUser()
+    let isMounted = true
     
-    if (!user) return
+    const setupListener = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user || !isMounted) return
 
-    console.log('Setting up subscription listener for user:', user.id)
+      console.log('Setting up subscription listener for user:', user.id)
 
-    const subscription = supabase
-      .channel('subscription_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_subscriptions',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Subscription changed:', payload)
-          forceRefresh()
-        }
-      )
-      .subscribe()
+      const subscription = supabase
+        .channel('subscription_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_subscriptions',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Subscription changed:', payload)
+            forceRefresh()
+          }
+        )
+        .subscribe()
 
-    return () => {
-      console.log('Unsubscribing from subscription changes')
-      supabase.removeChannel(subscription)
+      return () => {
+        isMounted = false
+        console.log('Unsubscribing from subscription changes')
+        supabase.removeChannel(subscription)
+      }
     }
+    
+    setupListener()
   }, [forceRefresh])
 
   return {

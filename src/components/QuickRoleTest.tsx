@@ -12,7 +12,7 @@ export default function QuickRoleTest() {
     const testSupabase = async () => {
       try {
         // Importa dinamicamente para evitar erros
-        const { supabase } = await import('@/lib/supabase')
+        const { supabase } = await import('@/integrations/supabase/client')
         
         // Testa conexão
         const { data: { user }, error } = await supabase.auth.getUser()

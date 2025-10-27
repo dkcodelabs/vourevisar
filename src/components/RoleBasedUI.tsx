@@ -43,12 +43,9 @@ export function UserRoleBadge({ className = '' }: { className?: string }) {
 // =====================================================
 // BOTÃO COM VERIFICAÇÃO DE PERMISSÃO
 // =====================================================
-interface ProtectedButtonProps {
-  children: React.ReactNode
+interface ProtectedButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   requiredRole: AppRole
   orHigher?: boolean
-  onClick?: () => void
-  className?: string
   disabledText?: string
 }
 
@@ -56,9 +53,9 @@ export function ProtectedButton({
   children,
   requiredRole,
   orHigher = false,
-  onClick,
   className = '',
-  disabledText = 'Sem permissão'
+  disabledText = 'Sem permissão',
+  ...buttonProps
 }: ProtectedButtonProps) {
   const { hasRole, hasRoleOrHigher, loading } = useUserRole()
 
@@ -66,7 +63,7 @@ export function ProtectedButton({
 
   if (loading) {
     return (
-      <button disabled className={`opacity-50 cursor-not-allowed ${className}`}>
+      <button disabled className={`opacity-50 cursor-not-allowed ${className}`} {...buttonProps}>
         Carregando...
       </button>
     )
@@ -78,6 +75,7 @@ export function ProtectedButton({
         disabled 
         className={`opacity-50 cursor-not-allowed ${className}`}
         title={disabledText}
+        {...buttonProps}
       >
         {children}
       </button>
@@ -85,7 +83,7 @@ export function ProtectedButton({
   }
 
   return (
-    <button onClick={onClick} className={className}>
+    <button className={className} {...buttonProps}>
       {children}
     </button>
   )
