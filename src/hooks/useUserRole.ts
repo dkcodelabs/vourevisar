@@ -2,7 +2,7 @@
 // HOOK PARA VERIFICAR ROLES DO USUÁRIO
 // =====================================================
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
 import { User } from '@supabase/supabase-js'
 
 export type AppRole = 'owner' | 'admin' | 'moderator' | 'user'
