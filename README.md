@@ -1,131 +1,109 @@
-# 🔐 Sistema de Roles Seguro - Implementação
+# 📚 vouRevisar - Sistema Inteligente de Revisão para Concursos
 
-Este diretório contém a implementação completa do sistema de roles seguro para Supabase.
+> Plataforma completa para organização e otimização de estudos para concursos públicos
 
-## 📋 Ordem de Execução
+## 🎯 **Sobre o Projeto**
 
-Execute os arquivos SQL **nesta ordem exata** no Supabase SQL Editor:
+O **vouRevisar** é uma aplicação web moderna desenvolvida para auxiliar estudantes de concursos públicos na organização e acompanhamento de seus estudos através de ciclos inteligentes de revisão.
 
-### 1. `01_create_enum_roles.sql`
-- Cria o ENUM `app_role` com os tipos: owner, admin, moderator, user
-- Define a hierarquia de permissões
+## ✨ **Principais Funcionalidades**
 
-### 2. `02_create_user_roles_table.sql`
-- Cria a tabela `user_roles` separada e protegida
-- Adiciona índices para performance
-- Estabelece constraints de integridade
+### 📊 **Dashboard Inteligente**
+- Visão geral do progresso de estudos
+- Estatísticas detalhadas de desempenho
+- Calendário de atividades e metas
 
-### 3. `03_setup_rls_policies.sql`
-- Habilita Row Level Security (RLS)
-- Cria políticas que bloqueiam modificações diretas
-- Permite que usuários vejam apenas suas próprias roles
+### 🔄 **Sistema de Ciclos de Estudo**
+- Organização automática de matérias em ciclos
+- Acompanhamento de progresso por tópico
+- Algoritmo inteligente de distribuição de conteúdo
 
-### 4. `04_basic_security_functions.sql`
-- Funções `has_role()` e `has_role_or_higher()`
-- Função `get_user_highest_role()`
-- Todas com `SECURITY DEFINER` para máxima segurança
+### 📚 **Gestão de Matérias e Tópicos**
+- Cadastro personalizado de disciplinas
+- Organização hierárquica de conteúdos
+- Sistema de marcação e anotações
 
-### 5. `05_insert_initial_owner.sql`
-- **⚠️ IMPORTANTE**: Edite este arquivo antes de executar
-- Substitua `SEU_USER_ID_AQUI` pelo seu UUID real
-- Cria o primeiro proprietário do sistema
+### 📈 **Relatórios e Estatísticas**
+- Análise de desempenho por período
+- Gráficos de evolução de estudos
+- Métricas de produtividade
 
-## 🔍 Como Encontrar Seu User ID
+### ⏰ **Sistema de Revisões**
+- Cronograma automático de revisões
+- Lembretes e notificações
+- Controle de intervalos otimizados
 
-1. Faça login no seu aplicativo
-2. No Supabase Dashboard → Authentication → Users
-3. Copie o UUID da coluna "id"
-4. Ou execute: `SELECT id, email FROM auth.users;`
+## 🛠️ **Tecnologias Utilizadas**
 
-## ✅ Verificação da Instalação
+### **Frontend**
+- **React 18** com TypeScript
+- **Tailwind CSS** para estilização
+- **Vite** como bundler
+- **React Router** para navegação
+- **Lucide React** para ícones
 
-Após executar todos os scripts, teste:
+### **Backend & Database**
+- **Supabase** (PostgreSQL + Auth + Real-time)
+- **Row Level Security (RLS)** para segurança
+- **Sistema de roles** hierárquico
 
-```sql
--- Verifica se você é owner
-SELECT has_role('owner');
+### **Ferramentas de Desenvolvimento**
+- **ESLint** para qualidade de código
+- **TypeScript** para type safety
+- **Git** para controle de versão
 
--- Verifica sua role mais alta
-SELECT get_user_highest_role();
+## 🚀 **Como Executar Localmente**
 
--- Lista todos os owners
-SELECT 
-  ur.user_id,
-  au.email,
-  ur.role,
-  ur.assigned_at
-FROM user_roles ur
-JOIN auth.users au ON au.id = ur.user_id
-WHERE ur.role = 'owner';
+### **Pré-requisitos**
+- Node.js 18+ 
+- npm ou yarn
+- Conta no Supabase
+
+### **Instalação**
+```bash
+# Clone o repositório
+git clone https://github.com/vourevisar/revisao-inteligente-concursos-16.git
+
+# Entre no diretório
+cd revisao-inteligente-concursos-16
+
+# Instale as dependências
+npm install
+
+# Configure as variáveis de ambiente
+cp .env.local.example .env.local
+# Edite o .env.local com suas credenciais do Supabase
+
+# Execute o projeto
+npm run dev
 ```
 
-## 🛡️ Características de Segurança
+## 📱 **Responsividade**
 
-- ✅ Roles em tabela separada (não manipulável pelo frontend)
-- ✅ RLS bloqueia modificações diretas via API
-- ✅ Funções SECURITY DEFINER para verificações seguras
-- ✅ Auditoria completa (quem atribuiu, quando)
-- ✅ Hierarquia de permissões clara
-- ✅ Type-safety com ENUMs
+A aplicação é totalmente responsiva e otimizada para:
+- 💻 **Desktop** (1024px+)
+- 📱 **Tablet** (768px - 1023px)  
+- 📱 **Mobile** (320px - 767px)
 
-## 🚀 Próximos Passos
+## 🔐 **Segurança**
 
-Após a implementação básica (arquivos 01-05), continue com:
+- Autenticação segura via Supabase Auth
+- Sistema de roles e permissões
+- Proteção de dados com RLS
+- Validação de entrada em todas as operações
 
-### 6. `06_security_definer_functions.sql`
-- **A MÁGICA**: Funções que executam com privilégios elevados
-- Evitam recursão infinita em RLS policies
-- Funções para atribuir, remover e verificar roles
+## 📄 **Licença**
 
-### 7. `07_advanced_admin_functions.sql`
-- Funções administrativas avançadas
-- Listagem de usuários com roles
-- Auditoria e logs de mudanças
-- Informações detalhadas de usuários
+Este projeto está sob licença privada. Todos os direitos reservados.
 
-### 8. `08_update_rls_policies.sql`
-- Atualiza policies para usar SECURITY DEFINER functions
-- Remove policies antigas que causavam recursão
-- Implementa proteção total contra modificações diretas
+## 👥 **Contribuição**
 
-### 9. `09_test_security_functions.sql`
-- Bateria completa de testes
-- Verifica se tudo está funcionando
-- Testa cenários de segurança e proteções
+Este é um projeto privado. Para sugestões ou relatórios de bugs, entre em contato através dos canais oficiais.
 
-## 🔧 Execução Completa
+## 📞 **Suporte**
 
-### **Fase 1: Sistema Base (01 → 09)**
-Execute os arquivos básicos do sistema de roles.
+Para suporte técnico ou dúvidas sobre o sistema, utilize os canais de comunicação disponíveis na plataforma.
 
-### **Fase 2: Tabelas do Sistema (10 → 13)**
-- **`10_system_tables_with_rls.sql`** - Tabelas essenciais com RLS
-- **`11_advanced_rls_examples.sql`** - Exemplos avançados (posts, organizações)
-- **`12_audit_triggers.sql`** - Sistema de auditoria automática
-- **`13_test_system_tables.sql`** - Testes completos das funcionalidades
+---
 
-Execute **TODOS** os arquivos na ordem (01 → 13) para ter o sistema completo e testado.
-
-## 🏗️ **Arquitetura Completa Implementada:**
-
-### 🔐 **Sistema de Roles:**
-- ✅ ENUMs e hierarquia (owner > admin > moderator > user)
-- ✅ Tabela protegida com RLS
-- ✅ SECURITY DEFINER functions
-- ✅ Funções administrativas completas
-
-### 🗄️ **Tabelas do Sistema:**
-- ✅ **system_settings** - Configurações globais
-- ✅ **audit_logs** - Logs de auditoria imutáveis
-- ✅ **profiles** - Perfis de usuários
-- ✅ **notifications** - Sistema de notificações
-- ✅ **posts** - Conteúdo com moderação
-- ✅ **comments** - Comentários hierárquicos
-- ✅ **organizations** - Sistema de equipes/organizações
-
-### 🛡️ **Recursos de Segurança:**
-- ✅ RLS em todas as tabelas
-- ✅ Auditoria automática via triggers
-- ✅ Funções helper para verificações complexas
-- ✅ Proteção contra escalada de privilégios
-- ✅ Logs imutáveis de todas as ações
+**Desenvolvido com ❤️ para otimizar seus estudos para concursos públicos**
