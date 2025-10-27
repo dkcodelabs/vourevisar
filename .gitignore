@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Arquivos temporários
+temp-files/
+._*
+
+# Arquivos de desenvolvimento
+*.backup.*
+*.original.*
