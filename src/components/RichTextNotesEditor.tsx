@@ -149,7 +149,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   const modules = {
     toolbar: hideToolbar ? false : [
       [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline'],
+      ['bold', 'italic', 'underline', 'strike'],
       [{ 'background': [] }], // highlight
       [{ 'list': 'ordered'}, { 'list': 'bullet' }],
       ['link'],
@@ -162,7 +162,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
 
   const formats = [
     'header',
-    'bold', 'italic', 'underline',
+    'bold', 'italic', 'underline', 'strike',
     'background',
     'list', 'bullet',
     'link'

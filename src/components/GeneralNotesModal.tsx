@@ -1065,7 +1065,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                                             modules={{
                                                 toolbar: [
                                                     [{ 'header': [1, 2, 3, false] }],
-                                                    ['bold', 'italic', 'underline'],
+                                                    ['bold', 'italic', 'underline', 'strike'],
                                                     [{ 'background': [] }],
                                                     [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                                                     ['link'],
@@ -1074,7 +1074,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                                             }}
                                             formats={[
                                                 'header',
-                                                'bold', 'italic', 'underline',
+                                                'bold', 'italic', 'underline', 'strike',
                                                 'background',
                                                 'list', 'bullet',
                                                 'link'

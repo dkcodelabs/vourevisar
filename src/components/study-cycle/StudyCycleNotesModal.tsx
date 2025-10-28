@@ -182,7 +182,7 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
                 modules={{
                   toolbar: [
                     [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline'],
+                    ['bold', 'italic', 'underline', 'strike'],
                     [{ 'background': [] }],
                     [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                     ['link'],
@@ -191,7 +191,7 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
                 }}
                 formats={[
                   'header',
-                  'bold', 'italic', 'underline',
+                  'bold', 'italic', 'underline', 'strike',
                   'background',
                   'list', 'bullet',
                   'link'

@@ -1,23 +1,33 @@
-
 import React, { useEffect, useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  PieChart, Pie, Cell, ResponsiveContainer, 
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
-  LineChart, Line
-} from 'recharts';
-import { isAfter, isBefore, isToday, startOfWeek, endOfWeek, eachDayOfInterval, format } from 'date-fns';
-import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAdvancedStatistics } from '@/hooks/useAdvancedStatistics';
+import {
+  OverviewSection,
+  SpacedReviewsSection,
+  SubjectPerformanceSection,
+  StudyHabitsSection,
+  EvolutionSection,
+  InsightsSection
+} from '@/components/statistics';
+import { 
+  BarChart3, 
+  RefreshCw, 
+  Award, 
+  Activity, 
+  TrendingUp, 
+  Lightbulb,
+  Loader2
+} from 'lucide-react';
 
 const Statistics = () => {
-  const { subjects, studyProgress, fetchSubjects } = useApp();
+  const { subjects, fetchSubjects } = useApp();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const statisticsData = useAdvancedStatistics();
   
   useEffect(() => {
     const loadData = async () => {
@@ -36,105 +46,73 @@ const Statistics = () => {
     };
     
     loadData();
-  }, []);
-
-  // Dados para o gráfico de status dos tópicos
-  const topicStatusData = [
-    { name: 'Concluídos', value: studyProgress?.completedTopics || 0 },
-    { name: 'Atrasados', value: studyProgress?.delayedTopics || 0 },
-    { name: 'Para Hoje', value: studyProgress?.todayTopics || 0 },
-    { name: 'Futuros', value: studyProgress?.futureTopics || 0 }
-  ];
-
-  // Preparar dados para o gráfico de barras por matéria
-  const subjectTopicsData = subjects.map(subject => {
-    // Contar tópicos por status
-    let completed = 0;
-    let delayed = 0;
-    let today = 0;
-    let future = 0;
-    
-    subject.topics.forEach(topic => {
-      if (topic.completed && (!topic.nextReview || topic.reviewStage === 'Concluído')) {
-        completed++;
-      } else if (topic.nextReview) {
-        const reviewDate = new Date(topic.nextReview);
-        
-        if (isToday(reviewDate)) {
-          today++;
-        } else if (isBefore(reviewDate, new Date())) {
-          delayed++;
-        } else if (isAfter(reviewDate, new Date())) {
-          future++;
-        }
-      }
-    });
-    
-    return {
-      name: subject.name,
-      total: subject.topics.length,
-      concluidos: completed,
-      atrasados: delayed,
-      hoje: today,
-      futuros: future
-    };
-  });
-
-  // Preparar dados para o gráfico de progressão semanal (simulado)
-  const today = new Date();
-  const weekStart = startOfWeek(today);
-  const weekDays = eachDayOfInterval({
-    start: weekStart,
-    end: endOfWeek(today)
-  });
-
-  // Em uma aplicação real, estes dados viriam de registros históricos
-  // Aqui estamos apenas simulando para fins de demonstração
-  const weeklyProgressData = weekDays.map((day, index) => {
-    const dayName = format(day, 'EEE');
-    // Simular dados com base no índice
-    const completedThisDay = Math.floor(Math.random() * 5) + (index * 2);
-    const reviewedThisDay = Math.floor(Math.random() * 3) + index;
-    
-    return {
-      day: dayName,
-      concluidos: completedThisDay,
-      revisados: reviewedThisDay
-    };
-  });
+  }, [fetchSubjects]);
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-app-blue"></div>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto p-4">
+          <div className="flex flex-col items-center justify-center h-96 space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+            <h2 className="text-xl font-semibold text-gray-700">Carregando estatísticas...</h2>
+            <p className="text-gray-500">Analisando seus dados de estudo</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (hasError) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <h1 className="text-2xl font-bold text-red-600">Erro</h1>
-        <p>Não foi possível carregar os dados estatísticos</p>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="px-4 py-2 bg-app-blue text-white rounded hover:bg-app-light-blue"
-        >
-          Tentar Novamente
-        </button>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto p-4">
+          <div className="flex flex-col items-center justify-center h-96 space-y-4">
+            <div className="p-4 rounded-full bg-red-100">
+              <BarChart3 className="h-12 w-12 text-red-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-red-600">Erro ao Carregar Dados</h2>
+            <p className="text-gray-600 text-center max-w-md">
+              Não foi possível carregar os dados estatísticos. Verifique sua conexão e tente novamente.
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Tentar Novamente
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Check if the data is available before rendering charts
+  // Verificar se há dados disponíveis
   const hasData = subjects.length > 0;
 
   if (!hasData) {
     return (
-      <div className="text-center py-10">
-        <h1 className="text-3xl font-bold">Estatísticas de Estudo</h1>
-        <p className="mt-4 text-gray-600">Nenhum dado disponível para exibir estatísticas.</p>
-        <p className="text-gray-600">Adicione matérias e tópicos para começar a ver suas estatísticas.</p>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto p-4">
+          <div className="flex flex-col items-center justify-center h-96 space-y-6">
+            <div className="p-6 rounded-full bg-blue-100">
+              <BarChart3 className="h-16 w-16 text-blue-600" />
+            </div>
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-bold text-gray-900">Estatísticas de Estudo</h2>
+              <p className="text-lg text-gray-600">Nenhum dado disponível para análise</p>
+              <p className="text-gray-500 max-w-md">
+                Adicione matérias e tópicos para começar a ver suas estatísticas detalhadas e insights inteligentes.
+              </p>
+            </div>
+            <button 
+              onClick={() => window.location.href = '/subjects'} 
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            >
+              Adicionar Matérias
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -142,139 +120,137 @@ const Statistics = () => {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto p-4">
-          {/* Removido o título principal */}
-          {/* <motion.div
+        <div className="container mx-auto p-4 space-y-8">
+          {/* Header */}
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-            className="mb-8"
+            transition={{ duration: 0.5 }}
+            className="text-center space-y-4"
           >
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Estatísticas
-            </h1>
-          </motion.div> */}
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
-            <Card className="md:col-span-8">
-              <CardHeader>
-                <CardTitle>Progresso Semanal</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weeklyProgressData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="concluidos" 
-                        stroke="#8884d8" 
-                        name="Tópicos Concluídos" 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="revisados" 
-                        stroke="#82ca9d" 
-                        name="Tópicos Revisados" 
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="md:col-span-4">
-              <CardHeader>
-                <CardTitle>Distribuição de Tópicos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80 flex flex-col items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={topicStatusData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {topicStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Progresso por Matéria</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={subjectTopicsData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="concluidos" stackId="a" fill="#00C49F" name="Concluídos" />
-                    <Bar dataKey="hoje" stackId="a" fill="#FFBB28" name="Para Hoje" />
-                    <Bar dataKey="atrasados" stackId="a" fill="#FF8042" name="Atrasados" />
-                    <Bar dataKey="futuros" stackId="a" fill="#0088FE" name="Futuros" />
-                  </BarChart>
-                </ResponsiveContainer>
+            <div className="flex items-center justify-center gap-3">
+              <div className="p-3 rounded-full bg-blue-100">
+                <BarChart3 className="h-8 w-8 text-blue-600" />
               </div>
-            </CardContent>
-          </Card>
+              <h1 className="text-4xl font-bold text-gray-900">
+                Dashboard de Estatísticas
+              </h1>
+            </div>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Análise completa do seu progresso de estudos com insights inteligentes e métricas detalhadas
+            </p>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold">{studyProgress?.completedTopics || 0}</h3>
-                  <p className="text-sm text-gray-500">Tópicos Concluídos</p>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Tabs Navigation */}
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto p-1 bg-gray-100 rounded-xl">
+              <TabsTrigger 
+                value="overview" 
+                className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Visão Geral</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="reviews" 
+                className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span className="hidden sm:inline">Revisões</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="subjects" 
+                className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+              >
+                <Award className="h-4 w-4" />
+                <span className="hidden sm:inline">Disciplinas</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="habits" 
+                className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+              >
+                <Activity className="h-4 w-4" />
+                <span className="hidden sm:inline">Hábitos</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="evolution" 
+                className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+              >
+                <TrendingUp className="h-4 w-4" />
+                <span className="hidden sm:inline">Evolução</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="insights" 
+                className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+              >
+                <Lightbulb className="h-4 w-4" />
+                <span className="hidden sm:inline">Insights</span>
+              </TabsTrigger>
+            </TabsList>
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold">{studyProgress?.todayTopics || 0}</h3>
-                  <p className="text-sm text-gray-500">Revisões para Hoje</p>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Tab Contents */}
+            <div className="mt-8">
+              <TabsContent value="overview" className="space-y-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <OverviewSection data={statisticsData.overview} />
+                </motion.div>
+              </TabsContent>
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold">
-                    {studyProgress?.totalTopics > 0 
-                      ? Math.round((studyProgress?.completedTopics / studyProgress?.totalTopics) * 100) 
-                      : 0}%
-                  </h3>
-                  <p className="text-sm text-gray-500">Progresso Total</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              <TabsContent value="reviews" className="space-y-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <SpacedReviewsSection data={statisticsData.spacedReviews} />
+                </motion.div>
+              </TabsContent>
+
+              <TabsContent value="subjects" className="space-y-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <SubjectPerformanceSection data={statisticsData.subjectPerformance} />
+                </motion.div>
+              </TabsContent>
+
+              <TabsContent value="habits" className="space-y-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <StudyHabitsSection data={statisticsData.studyHabits} />
+                </motion.div>
+              </TabsContent>
+
+              <TabsContent value="evolution" className="space-y-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <EvolutionSection data={statisticsData.evolution} />
+                </motion.div>
+              </TabsContent>
+
+              <TabsContent value="insights" className="space-y-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <InsightsSection data={statisticsData.insights} />
+                </motion.div>
+              </TabsContent>
+            </div>
+          </Tabs>
         </div>
       </div>
     </TooltipProvider>
