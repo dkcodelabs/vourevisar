@@ -26,19 +26,7 @@ export const DailyStudyProgress: React.FC<DailyStudyProgressProps> = ({
   const [expandMode, setExpandMode] = useState<'manual' | 'auto' | null>(null);
   const [autoCollapseTimer, setAutoCollapseTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // Debug: Log do resetReason para verificar se está chegando corretamente
-  console.log('🔍 DailyStudyProgress - Estado atual:', {
-    resetReason,
-    progressPercentage: dailyProgress.progressPercentage,
-    studiedCount: dailyProgress.studiedCount,
-    dailyGoal: dailyProgress.dailyGoal,
-    isExpanded,
-    // Condições das mensagens
-    isNewCycle: resetReason === 'new_cycle',
-    isNewDay: resetReason === 'new_day',
-    isMetaAlcancada: dailyProgress.progressPercentage >= 100,
-    isContinue: resetReason === 'continue'
-  });
+  // Log removido para otimização
 
   // Auto-expansão SIMPLES
   useEffect(() => {

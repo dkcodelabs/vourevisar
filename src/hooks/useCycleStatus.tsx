@@ -81,8 +81,7 @@ export const useCycleStatus = () => {
 
     setIsLoading(true);
     try {
-      // SEMPRE buscar estado atual do banco para evitar dados desatualizados
-      console.log('🔍 Buscando dados frescos do ciclo...');
+      // Buscar estado atual do banco
       const { data: freshCycle, error: cycleError } = await supabase
         .from('user_cycles')
         .select('*')
@@ -91,13 +90,8 @@ export const useCycleStatus = () => {
       
       const typedFreshCycle = freshCycle as ExtendedUserCycle | null;
       
-      console.log('🔍 Dados frescos carregados:', {
-        ciclos_realizados: typedFreshCycle?.ciclos_realizados,
-        materias_estudadas_ciclo: typedFreshCycle?.materias_estudadas_ciclo
-      });
-      
       if (cycleError || !typedFreshCycle) {
-        console.error('❌ Erro ao buscar ciclo atual:', cycleError);
+        console.error('Erro ao buscar ciclo atual:', cycleError);
         return false;
       }
       
@@ -144,21 +138,10 @@ export const useCycleStatus = () => {
                    topic.reviewStage === '60d';
           });
           
-          console.log(`🔍 Verificação de conclusão - ${subject.name}:`, {
-            totalTopics: subject.topics.length,
-            topics: subject.topics.map(t => ({
-              name: t.name,
-              reviewStage: t.reviewStage,
-              completed: t.completed,
-              isCompleted: t.reviewStage === 'Concluído' || t.completed === true || t.reviewStage === '60d'
-            })),
-            allTopicsCompleted,
-            willBeRemoved: allTopicsCompleted
-          });
+          // Log removido para otimização
           
           if (allTopicsCompleted) {
             completedSubjectsInCurrentCycle.push(id);
-            console.log(`✅ Matéria ${subject.name} será removida do ciclo (100% concluída)`);
             return;
           }
         }
@@ -174,15 +157,7 @@ export const useCycleStatus = () => {
       // Verificar se esta é a última matéria ativa (APÓS incluir a atual)
       const isLastActiveSubject = unstudiedActiveSubjects.length === 0;
       
-      console.log('🎯 Debug detalhado da última matéria:', {
-        subjectName,
-        currentSubjectId: subjectId,
-        activeSubjectsInCurrentCycle,
-        newStudied,
-        unstudiedActiveSubjects,
-        isLastActiveSubject,
-        shouldStartNewCycle: isLastActiveSubject
-      });
+      // Log removido para otimização
       
       // Obter nomes das matérias para debug
       const unstudiedSubjectNames = unstudiedActiveSubjects.map(id => {
@@ -195,28 +170,9 @@ export const useCycleStatus = () => {
         return subject ? subject.name : id;
       });
       
-      console.log('🔍 Verificação de fim de ciclo:', {
-        subjectName,
-        totalInCycle: typedFreshCycle.ciclo_atual.length,
-        activeSubjectsInCurrentCycle: activeSubjectsInCurrentCycle.length,
-        completedSubjectsInCurrentCycle: completedSubjectsInCurrentCycle.length,
-        unstudiedActiveSubjects: unstudiedActiveSubjects.length,
-        unstudiedSubjectNames,
-        isLastActiveSubject,
-        newStudied: newStudied.length,
-        studiedSubjectNames,
-        activeSubjectNames: activeSubjectsInCurrentCycle.map(id => {
-          const subject = typedSubjects.find(s => s.id === id);
-          return subject ? subject.name : id;
-        })
-      });
+      // Log removido para otimização
 
-      // Log para debug (a verificação de fim de ciclo agora é feita no componente)
-      console.log('📚 Matéria marcada como estudada:', {
-        subjectName,
-        remaining: unstudiedActiveSubjects.length,
-        remainingNames: unstudiedSubjectNames
-      });
+      // Log removido para otimização
       
       // Log removido para otimização
       
@@ -449,29 +405,13 @@ export const useCycleStatus = () => {
     }
   }, [user, userCycle, loadCycle]);
 
-  // Verificar se uma matéria foi estudada no ciclo atual (usando estado global)
+  // Verificar se uma matéria foi estudada no ciclo atual (otimizado)
   const isSubjectStudied = useCallback((subjectId: string): boolean => {
-    // CRÍTICO: Se não há dados do ciclo, considerar não estudada (false = laranja)
-    if (!userCycle) {
-      console.log(`🔍 isSubjectStudied(${subjectId}): userCycle é null, retornando false`);
+    if (!userCycle?.materias_estudadas_ciclo) {
       return false;
     }
     
-    if (!userCycle.materias_estudadas_ciclo) {
-      console.log(`🔍 isSubjectStudied(${subjectId}): materias_estudadas_ciclo é null, retornando false`);
-      return false;
-    }
-    
-    // Usar apenas dados do banco (mais confiável que estado global)
-    const dbResult = userCycle.materias_estudadas_ciclo.includes(subjectId);
-    
-    console.log(`🔍 isSubjectStudied(${subjectId}):`, {
-      materias_estudadas_ciclo: userCycle.materias_estudadas_ciclo,
-      dbResult,
-      ciclo_numero: userCycle.ciclos_realizados
-    });
-    
-    return dbResult;
+    return userCycle.materias_estudadas_ciclo.includes(subjectId);
   }, [userCycle]);
 
   // Obter próxima matéria sugerida (primeira não estudada e não concluída)
@@ -669,27 +609,22 @@ export const useCycleStatus = () => {
   useEffect(() => {
     loadCycle();
     
-    // Sistema de eventos com debounce para evitar loops infinitos
+    // Sistema de eventos otimizado
     const handleCycleUpdate = (event: any) => {
       const now = Date.now();
       const eventDetail = event?.detail;
       
-      // Permitir eventos de revisão de tópicos sem debounce
       const isTopicReview = eventDetail?.source === 'topicReview' || eventDetail?.type === 'topicReview';
       
-      // Debounce apenas para eventos normais (não revisões de tópicos)
       if (!isTopicReview && now - lastEventTime < EVENT_DEBOUNCE_TIME) {
-        console.log('🚫 Evento cycleUpdated ignorado - debounce ativo');
         return;
       }
       
       lastEventTime = now;
-      console.log('🔄 useCycleStatus: Processando evento cycleUpdated', { isTopicReview, eventDetail });
       
-      // Recarregar dados após um pequeno delay
       setTimeout(() => {
         loadCycle();
-      }, isTopicReview ? 100 : 300); // Delay menor para revisões de tópicos
+      }, isTopicReview ? 100 : 300);
     };
     
     window.addEventListener('cycleUpdated', handleCycleUpdate);

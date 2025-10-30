@@ -38,7 +38,7 @@ export function useSimpleSubscription() {
         return
       }
 
-      console.log('🔍 Fetching subscription for user:', user.id)
+      // Log removido para otimização
 
       // Buscar diretamente da tabela
       const { data, error } = await supabase
@@ -47,10 +47,9 @@ export function useSimpleSubscription() {
         .eq('user_id', user.id)
         .single()
 
-      console.log('📊 Subscription data:', { data, error })
+      // Log removido para otimização
 
       if (error || !data) {
-        console.log('❌ No subscription found, using default')
         setSubscription({
           plan: 'free_trial',
           status: 'trial',
@@ -97,13 +96,7 @@ export function useSimpleSubscription() {
         }
       }
 
-      console.log('🎯 Final subscription:', { 
-        plan: data.plan, 
-        status: data.status, 
-        isActive, 
-        displayBadge, 
-        badgeColor 
-      })
+      // Log removido para otimização
 
       setSubscription({
         plan: data.plan,
@@ -114,7 +107,7 @@ export function useSimpleSubscription() {
       })
 
     } catch (err) {
-      console.error('❌ Error fetching subscription:', err)
+      console.error('Error fetching subscription:', err)
     } finally {
       if (!skipLoading) setLoading(false)
     }
@@ -125,11 +118,9 @@ export function useSimpleSubscription() {
     fetchSubscription()
   }, [])
 
-  // Escutar eventos de mudança (OTIMIZADO)
+  // Escutar eventos de mudança (otimizado)
   useEffect(() => {
-    const handleChange = (event: CustomEvent) => {
-      console.log('🔄 Subscription change event received:', event.detail)
-      // Atualização IMEDIATA (sem loading para não piscar)
+    const handleChange = () => {
       fetchSubscription(true)
     }
 

@@ -45,7 +45,7 @@ const getBadgeClasses = (badgeColor: string) => {
   }
 };
 
-export function UserProfileNav() {
+const UserProfileNavComponent = () => {
   const { user, signOut } = useAuth();
   const { 
     profile, 
@@ -81,12 +81,11 @@ export function UserProfileNav() {
   const AccountIcon = getBadgeIcon(displayBadge, badgeColor);
   const badgeClasses = getBadgeClasses(badgeColor);
   
-  console.log('UserProfileNav render:', { displayBadge, badgeColor, hasActiveSubscription });
+  // Log removido para otimização
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
-      console.log('UserProfileNav: Starting logout...');
       await signOut();
     } catch (error) {
       console.error('UserProfileNav: Logout error:', error);
@@ -168,4 +167,7 @@ export function UserProfileNav() {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
+
+// Memoizar o componente para evitar re-renderizações desnecessárias
+export const UserProfileNav = React.memo(UserProfileNavComponent);

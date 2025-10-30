@@ -62,17 +62,28 @@ export function useUserProfile(): UseUserProfileReturn {
         return
       }
 
-      console.log('Fetching profile for user:', user.id)
+      // Log removido para otimização
 
-      // Buscar role do usuário
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single()
-
-      if (roleError && roleError.code !== 'PGRST116') {
-        console.error('Role error:', roleError)
+      // Buscar role do usuário (com tratamento de erro 406)
+      let roleData = null;
+      try {
+        const { data, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .maybeSingle(); // Usar maybeSingle para evitar erro 406
+        
+        if (roleError && roleError.code !== 'PGRST116') {
+          console.error('Role error:', roleError);
+        } else {
+          roleData = data;
+        }
+      } catch (error) {
+        // Silenciar erro 406 - usuário pode não ter role definida
+        if (error && typeof error === 'object' && 'message' in error && 
+            !error.message.includes('406')) {
+          console.error('Role fetch error:', error);
+        }
       }
 
       // Buscar informações da assinatura
@@ -105,7 +116,7 @@ export function useUserProfile(): UseUserProfileReturn {
           : null
       }
 
-      console.log('Complete profile:', userProfile)
+      // Log removido para otimização
       setProfile(userProfile)
 
     } catch (err) {
@@ -117,7 +128,6 @@ export function useUserProfile(): UseUserProfileReturn {
   }, [refreshTrigger])
 
   const forceRefresh = useCallback(() => {
-    console.log('Force refreshing profile...')
     setRefreshTrigger(prev => prev + 1)
   }, [])
 
@@ -130,10 +140,9 @@ export function useUserProfile(): UseUserProfileReturn {
     fetchProfile()
   }, [fetchProfile])
 
-  // Escutar mudanças de auth
+  // Escutar mudanças de auth (otimizado)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      console.log('Auth state changed:', event)
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
         forceRefresh()
       }
@@ -146,7 +155,7 @@ export function useUserProfile(): UseUserProfileReturn {
   useEffect(() => {
     if (!profile?.id) return
 
-    console.log('Setting up real-time listeners for user:', profile.id)
+    // Log removido para otimização
 
     // Listener para mudanças de role
     const roleSubscription = supabase
@@ -159,8 +168,7 @@ export function useUserProfile(): UseUserProfileReturn {
           table: 'user_roles',
           filter: `user_id=eq.${profile.id}`
         },
-        (payload) => {
-          console.log('Role changed:', payload)
+        () => {
           forceRefresh()
         }
       )
@@ -177,16 +185,14 @@ export function useUserProfile(): UseUserProfileReturn {
           table: 'user_subscriptions',
           filter: `user_id=eq.${profile.id}`
         },
-        (payload) => {
-          console.log('Subscription changed:', payload)
+        () => {
           forceRefresh()
         }
       )
       .subscribe()
 
-    // Listener para eventos customizados (quando admin altera assinatura)
+    // Listener para eventos customizados (otimizado)
     const handleSubscriptionChange = (event: CustomEvent) => {
-      console.log('Custom subscription change event:', event.detail)
       if (event.detail?.userId === profile.id) {
         setTimeout(() => forceRefresh(), 500)
       }

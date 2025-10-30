@@ -53,7 +53,7 @@ export function useSubscription(): UseSubscriptionReturn {
         return
       }
 
-      console.log('Fetching subscription for user:', user.id)
+      // Log removido para otimização
 
       // Buscar diretamente da tabela para garantir dados atualizados
       const { data: subscriptionData, error: directError } = await supabase
@@ -67,7 +67,7 @@ export function useSubscription(): UseSubscriptionReturn {
         throw directError
       }
 
-      console.log('Direct subscription data:', subscriptionData)
+      // Log removido para otimização
 
       if (!subscriptionData) {
         // Usuário sem assinatura
@@ -106,7 +106,7 @@ export function useSubscription(): UseSubscriptionReturn {
         days_remaining: daysRemaining
       }
 
-      console.log('Processed subscription:', processedSubscription)
+      // Log removido para otimização
       setSubscription(processedSubscription)
     } catch (err) {
       console.error('Error fetching subscription:', err)

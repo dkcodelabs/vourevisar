@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { debounceEvent, getCachedData, setCachedData, devLog, errorLog } from '@/utils/performanceOptimizations';
 
 export interface DailyProgress {
   studiedCount: number;
@@ -35,14 +36,12 @@ export const useDailyStudyProgress = () => {
   // Carregar progresso diário
   const loadDailyProgress = useCallback(async () => {
     if (!user?.id) {
-      console.warn('Usuário não autenticado - não carregando progresso');
       setIsLoading(false);
       return;
     }
 
     try {
       setIsLoading(true);
-      console.log('🔄 Carregando progresso diário...');
 
       // DETECÇÃO INTELIGENTE: Verificar se precisa resetar automaticamente
       const today = new Date().toISOString().split('T')[0];
@@ -84,50 +83,23 @@ export const useDailyStudyProgress = () => {
           (cycleAgeDays > 3 && bankDataIsEmpty)
         );
         
-        console.log('🔍 Detecção de novo ciclo CORRIGIDA:', {
-          cycleAgeDays: cycleAgeDays + ' dias',
-          bankDataIsEmpty,
-          isNewCycle,
-          currentStudiedCount,
-          hadCompletedGoal,
-          bankData: data.materias_estudadas_hoje,
-          cycleStartDate: data.data_inicio_ciclo,
-          lastReset: data.data_ultimo_reset,
-          today,
-          isNewDay,
-          // Condições detalhadas
-          condicao1_cicloRecente: cycleAgeDays <= 1,
-          condicao2_nuncaResetado: !lastResetDate,
-          condicao3_cicloAntigoSemProgresso: cycleAgeDays > 3 && bankDataIsEmpty
-        });
+        // Log removido para otimização
         
         let shouldReset = false;
         let reason: 'new_cycle' | 'new_day' | 'continue' = 'continue';
         
         if (isNewCycle) {
-          // REGRA 1: Novo ciclo sempre reseta
           shouldReset = true;
           reason = 'new_cycle';
-          console.log('🔄 Novo ciclo detectado! Forçando reset...', {
-            cycleAgeDays,
-            bankDataIsEmpty,
-            lastResetDate
-          });
         } else if (isNewDay && hadCompletedGoal) {
-          // REGRA 2: Novo dia + meta cumprida = reset
           shouldReset = true;
           reason = 'new_day';
-          console.log('🌅 Novo dia + meta cumprida! Resetando progresso diário...');
         } else if (isNewDay && !hadCompletedGoal) {
-          // REGRA 3: Novo dia + meta não cumprida = continua
           shouldReset = false;
           reason = 'continue';
-          console.log('⏰ Novo dia + meta não cumprida! Continuando progresso...');
         } else {
-          // REGRA 4: Mesmo dia, manter estado atual
           shouldReset = false;
           reason = 'continue';
-          console.log('📅 Mesmo dia, mantendo estado atual...');
         }
         
         if (shouldReset) {
@@ -142,10 +114,8 @@ export const useDailyStudyProgress = () => {
             .eq('user_id', user.id);
 
           if (resetError) {
-            console.error('Erro ao resetar progresso:', resetError);
+            errorLog('Erro ao resetar progresso:', resetError);
           } else {
-            console.log('✅ Progresso diário resetado automaticamente');
-            // Atualizar dados locais
             data.materias_estudadas_hoje = [];
             data.data_ultimo_reset = today;
           }
@@ -176,15 +146,7 @@ export const useDailyStudyProgress = () => {
         const progressPercentage = dailyGoal > 0 ? Math.round((studiedCount / dailyGoal) * 100) : 0;
         const remainingCount = Math.max(0, dailyGoal - studiedCount);
 
-        console.log('📊 Progresso carregado:', {
-          studiedCount,
-          dailyGoal,
-          progressPercentage,
-          studiedSubjects: finalStudiedSubjects,
-          reason,
-          shouldReset,
-          bankData: data.materias_estudadas_hoje
-        });
+        // Log removido para otimização
 
         setDailyProgress({
           studiedCount,
@@ -212,10 +174,7 @@ export const useDailyStudyProgress = () => {
 
   // Salvar sessão de estudo
   const saveStudySession = useCallback(async (session: StudySession) => {
-    console.log('🎯 saveStudySession chamado:', session);
-    
     if (!user?.id) {
-      console.warn('❌ Usuário não autenticado - não salvando sessão');
       return false;
     }
 
@@ -224,8 +183,6 @@ export const useDailyStudyProgress = () => {
       const hourOfDay = now.getHours();
       const dayOfWeek = now.getDay() || 7; // domingo = 7
       const isWeekend = dayOfWeek >= 6;
-
-      console.log('💾 Salvando sessão:', { userId: user.id, session });
 
       // Preparar dados para inserção
       const sessionData = {
@@ -246,7 +203,7 @@ export const useDailyStudyProgress = () => {
         session_duration_minutes: null
       };
 
-      console.log('Dados da sessão a serem inseridos:', sessionData);
+      // Log removido para otimização
 
       // Inserir sessão na tabela study_sessions
       const { error: sessionError } = await supabase
@@ -258,8 +215,7 @@ export const useDailyStudyProgress = () => {
         return false;
       }
 
-      // Atualizar progresso diário no user_cycles - BUSCAR DADOS ATUAIS DO BANCO
-      console.log('🔍 Buscando dados atuais do banco para atualizar progresso...');
+      // Atualizar progresso diário no user_cycles
       
       // @ts-ignore - Campo existe mas pode estar faltando na definição de tipos
       const { data: currentCycleData, error: fetchError } = await supabase
@@ -275,11 +231,6 @@ export const useDailyStudyProgress = () => {
 
       // @ts-ignore - Campo existe mas pode estar faltando na definição de tipos
       const currentStudied = (currentCycleData?.materias_estudadas_hoje as string[]) || [];
-      console.log('📊 Estado atual do progresso:', {
-        currentStudied,
-        novaMateria: session.subjectId,
-        jaEstudada: currentStudied.includes(session.subjectId)
-      });
 
       if (!currentStudied.includes(session.subjectId)) {
         const updatedStudied = [...currentStudied, session.subjectId];
@@ -297,21 +248,10 @@ export const useDailyStudyProgress = () => {
           return false;
         }
 
-        console.log('✅ Progresso atualizado com sucesso:', { 
-          antes: currentStudied.length, 
-          depois: updatedStudied.length,
-          materia: session.subjectName,
-          materiasEstudadas: updatedStudied
-        });
-
         // CORREÇÃO: Atualizar resetReason para 'continue' após primeira sessão
         if (currentStudied.length === 0) {
-          console.log('🔄 Primeira sessão concluída - mudando resetReason para continue');
           setResetReason('continue');
         }
-      } else {
-        console.log('⚠️ Matéria já foi estudada hoje:', session.subjectName);
-        // Mesmo assim retornar true pois a sessão foi salva
       }
 
       // Disparar eventos para outros componentes
@@ -430,24 +370,17 @@ export const useDailyStudyProgress = () => {
     await loadDailyProgress();
   }, [loadDailyProgress]);
 
-  // Escutar eventos de atualização
+  // Sistema de debounce para eventos
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Escutar eventos de atualização (super otimizado)
   useEffect(() => {
-    const handleProgressUpdate = (event: any) => {
-      console.log('🔔 Evento dailyProgressUpdated recebido:', event.detail);
-      // Recarregar dados com delay maior para garantir sincronização
-      setTimeout(() => {
-        console.log('🔄 Recarregando dados após dailyProgressUpdated...');
-        loadDailyProgress();
-      }, 500); // Delay maior para garantir que o banco foi atualizado
+    const handleProgressUpdate = () => {
+      debounceEvent('dailyProgress', () => loadDailyProgress(), 300);
     };
 
-    const handleCycleUpdate = (event: any) => {
-      console.log('🔄 Evento de atualização de ciclo recebido:', event.detail);
-      // Forçar recarregamento completo dos dados
-      setTimeout(() => {
-        console.log('🔄 Recarregando dados após cycleUpdated...');
-        loadDailyProgress();
-      }, 800); // Delay ainda maior para ciclos
+    const handleCycleUpdate = () => {
+      debounceEvent('cycleUpdate', () => loadDailyProgress(), 500);
     };
 
     window.addEventListener('dailyProgressUpdated', handleProgressUpdate);

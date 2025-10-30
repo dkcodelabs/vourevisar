@@ -110,69 +110,39 @@ export const useReviewsData = () => {
   // CORREÇÃO: Usar comparação de strings de data para evitar problemas de timezone
   const todayDateString = format(startOfDay(new Date()), 'yyyy-MM-dd');
   
-  console.log('🔍 Debug classificação de datas:', {
-    todayDateString,
-    totalTopics: filteredTopics.length
-  });
+  // Log removido para otimização
 
-  const delayedTopics = filteredTopics.filter(t => {
-    if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
-    
-    const reviewDateString = format(startOfDay(new Date(t.next_review)), 'yyyy-MM-dd');
-    const isDelayed = reviewDateString < todayDateString;
-    
-    console.log(`📅 Tópico ${t.name} (${t.subject_name}):`, {
-      next_review: t.next_review,
-      reviewDateString,
-      todayDateString,
-      isDelayed
-    });
-    
-    return isDelayed;
-  });
-  
-  const todayTopics = filteredTopics.filter(t => {
-    if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
-    
-    const reviewDateString = format(startOfDay(new Date(t.next_review)), 'yyyy-MM-dd');
-    const isToday = reviewDateString === todayDateString;
-    
-    console.log(`📅 Tópico ${t.name} (${t.subject_name}):`, {
-      next_review: t.next_review,
-      reviewDateString,
-      todayDateString,
-      isToday
-    });
-    
-    return isToday;
-  });
-  
-  const futureTopics = filteredTopics.filter(t => {
-    if (t.completed || t.review_stage === 'Concluído' || !t.next_review) return false;
-    
-    const reviewDateString = format(startOfDay(new Date(t.next_review)), 'yyyy-MM-dd');
-    const isFuture = reviewDateString > todayDateString;
-    
-    console.log(`📅 Tópico ${t.name} (${t.subject_name}):`, {
-      next_review: t.next_review,
-      reviewDateString,
-      todayDateString,
-      isFuture
-    });
-    
-    return isFuture;
-  });
-  
-  const completedTopics = filteredTopics.filter(t => 
-    t.completed || t.review_stage === 'Concluído'
+  // Otimização: classificar tópicos em uma única iteração
+  const { delayedTopics, todayTopics, futureTopics, completedTopics } = filteredTopics.reduce(
+    (acc, topic) => {
+      if (topic.completed || topic.review_stage === 'Concluído') {
+        acc.completedTopics.push(topic);
+        return acc;
+      }
+
+      if (!topic.next_review) return acc;
+
+      const reviewDateString = format(startOfDay(new Date(topic.next_review)), 'yyyy-MM-dd');
+      
+      if (reviewDateString < todayDateString) {
+        acc.delayedTopics.push(topic);
+      } else if (reviewDateString === todayDateString) {
+        acc.todayTopics.push(topic);
+      } else {
+        acc.futureTopics.push(topic);
+      }
+
+      return acc;
+    },
+    {
+      delayedTopics: [] as Topic[],
+      todayTopics: [] as Topic[],
+      futureTopics: [] as Topic[],
+      completedTopics: [] as Topic[]
+    }
   );
 
-  console.log('📊 Classificação final:', {
-    delayed: delayedTopics.length,
-    today: todayTopics.length,
-    future: futureTopics.length,
-    completed: completedTopics.length
-  });
+  // Log removido para otimização
 
   return {
     topics: filteredTopics,

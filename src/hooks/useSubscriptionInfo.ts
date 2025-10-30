@@ -43,7 +43,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
         return
       }
 
-      console.log('Fetching subscription info for user:', user.id)
+      // Log removido para otimização
 
       // Chamar a função RPC para obter informações da assinatura
       const { data, error: rpcError } = await supabase
@@ -54,7 +54,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
         throw rpcError
       }
 
-      console.log('Subscription info received:', data)
+      // Log removido para otimização
 
       // Se a resposta contém erro
       if (data && typeof data === 'object' && 'error' in data) {
@@ -72,7 +72,6 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
 
   // Função para forçar atualização
   const forceRefresh = useCallback(() => {
-    console.log('Force refreshing subscription info...')
     setRefreshTrigger(prev => prev + 1)
   }, [])
 
@@ -89,7 +88,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
   // Escutar mudanças de autenticação
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id)
+      // Log removido para otimização
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
         forceRefresh()
       }
@@ -107,7 +106,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
       
       if (!user || !isMounted) return
 
-      console.log('Setting up subscription listener for user:', user.id)
+      // Log removido para otimização
 
       const subscription = supabase
         .channel('subscription_changes')
@@ -119,8 +118,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
             table: 'user_subscriptions',
             filter: `user_id=eq.${user.id}`
           },
-          (payload) => {
-            console.log('Subscription changed:', payload)
+          () => {
             forceRefresh()
           }
         )
@@ -128,7 +126,6 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
 
       return () => {
         isMounted = false
-        console.log('Unsubscribing from subscription changes')
         supabase.removeChannel(subscription)
       }
     }
