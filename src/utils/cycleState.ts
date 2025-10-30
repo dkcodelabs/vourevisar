@@ -10,27 +10,19 @@ let globalCycleState: {
 export const getCycleState = () => globalCycleState;
 
 export const updateStudiedSubjects = (subjectIds: string[]) => {
-  console.log('🔄 updateStudiedSubjects:', { antes: Array.from(globalCycleState.studiedSubjects), depois: subjectIds });
+  // Log removido para otimização
   globalCycleState.studiedSubjects = new Set(subjectIds);
 };
 
 export const addStudiedSubject = (subjectId: string) => {
-  console.log('➕ addStudiedSubject:', subjectId);
+  // Log removido para otimização
   globalCycleState.studiedSubjects.add(subjectId);
 };
 
 export const resetCycle = (newCycleNumber: number) => {
-  console.log('🔄 resetCycle:', { 
-    cicloAnterior: globalCycleState.cycleNumber, 
-    novoCiclo: newCycleNumber,
-    materiasAntes: Array.from(globalCycleState.studiedSubjects)
-  });
+  // Log removido para otimização
   globalCycleState.studiedSubjects.clear();
   globalCycleState.cycleNumber = newCycleNumber;
-  console.log('✅ resetCycle concluído:', { 
-    cicloAtual: globalCycleState.cycleNumber,
-    materiasDepois: Array.from(globalCycleState.studiedSubjects)
-  });
 };
 
 export const isSubjectStudiedGlobal = (subjectId: string): boolean => {
