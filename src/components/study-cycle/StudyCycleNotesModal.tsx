@@ -188,55 +188,75 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
   return (
     <>
       <style>{`
-        /* Modal Overlay - Garantir que apareça por cima de tudo */
-        .modal-overlay {
+        /* Modal Overlay - Máxima compatibilidade com todos os navegadores */
+        .study-cycle-modal-overlay {
           position: fixed !important;
           top: 0 !important;
           left: 0 !important;
           right: 0 !important;
           bottom: 0 !important;
-          z-index: 9999 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: 999999 !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
-          background: rgba(0, 0, 0, 0.5) !important;
-          backdrop-filter: blur(4px) !important;
+          background: rgba(0, 0, 0, 0.6) !important;
+          backdrop-filter: blur(8px) !important;
+          -webkit-backdrop-filter: blur(8px) !important;
+          padding: 1rem !important;
+          box-sizing: border-box !important;
         }
         
-        /* Modal Content */
-        .modal-content {
+        /* Modal Content - Forçar centralização */
+        .study-cycle-modal-content {
           position: relative !important;
-          z-index: 10000 !important;
+          z-index: 1000000 !important;
           max-height: 90vh !important;
           width: 100% !important;
           max-width: 42rem !important;
-          margin: 1rem !important;
+          margin: auto !important;
           background: white !important;
           border-radius: 1rem !important;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
           display: flex !important;
           flex-direction: column !important;
-          animation: modalFadeIn 0.3s ease-out !important;
+          animation: studyCycleModalFadeIn 0.3s ease-out !important;
+          transform: translateZ(0) !important;
+          will-change: transform, opacity !important;
         }
         
-        .dark .modal-content {
+        .dark .study-cycle-modal-content {
           background: #1e293b !important;
         }
         
-        @keyframes modalFadeIn {
-          from {
+        @keyframes studyCycleModalFadeIn {
+          0% {
             opacity: 0;
-            transform: scale(0.95) translateY(-10px);
+            transform: scale(0.9) translateY(-20px) translateZ(0);
           }
-          to {
+          100% {
             opacity: 1;
-            transform: scale(1) translateY(0);
+            transform: scale(1) translateY(0) translateZ(0);
           }
         }
         
         /* Garantir que o body não tenha scroll quando modal estiver aberto */
         body.modal-open {
           overflow: hidden !important;
+          position: fixed !important;
+          width: 100% !important;
+        }
+        
+        /* Forçar posicionamento para Chrome */
+        @supports (-webkit-appearance: none) {
+          .study-cycle-modal-overlay {
+            position: fixed !important;
+            inset: 0 !important;
+            display: flex !important;
+            place-items: center !important;
+            place-content: center !important;
+          }
         }
         /* ReactQuill Container */
         .ql-container {
@@ -312,12 +332,44 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
         role="dialog"
         aria-modal="true"
         aria-labelledby="notes-modal-title"
-        className="modal-overlay"
+        className="study-cycle-modal-overlay"
         onClick={handleClose}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 999999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          padding: '1rem',
+          boxSizing: 'border-box'
+        }}
       >
       <div
-        className="modal-content"
+        className="study-cycle-modal-content"
         onClick={e => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          zIndex: 1000000,
+          maxHeight: '90vh',
+          width: '100%',
+          maxWidth: '42rem',
+          margin: 'auto',
+          background: 'white',
+          borderRadius: '1rem',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+          display: 'flex',
+          flexDirection: 'column',
+          transform: 'translateZ(0)'
+        }}
       >
         <header className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <div>
