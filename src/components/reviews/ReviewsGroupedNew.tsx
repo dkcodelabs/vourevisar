@@ -127,13 +127,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
         const userProfile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
         const maxReviews = REVIEW_PROFILES[userProfile].maxReviews;
 
-        // Debug para verificar os dados do tópico
-        console.log('🔍 Debug tópico:', {
-            name: topic.name,
-            reviewStage: topic.reviewStage,
-            reviewCount: topic.reviewCount,
-            review_count: topic.review_count
-        });
+        // Log removido para otimização
 
         // Usar reviewCount do banco se disponível, senão usar 0
         const actualReviewCount = topic.reviewCount || topic.review_count || 0;

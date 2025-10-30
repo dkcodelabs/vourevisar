@@ -27,7 +27,7 @@ interface RichTextNotesEditorProps {
   notes?: TopicNotes;
   onSave: (notes: TopicNotes) => Promise<void>;
   isLoading?: boolean;
-  onChange?: () => void;
+  onChange?: (content: string) => void;
   hideHeader?: boolean;
   hideToolbar?: boolean;
 }
@@ -53,10 +53,10 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
     setHasChanges(hasChanges);
     
     // Chamar callback quando houver mudanças
-    if (hasChanges && onChange) {
-      onChange();
+    if (onChange) {
+      onChange(content);
     }
-  }, [content, notes?.content, onChange]);
+  }, [content, onChange]);
 
 
 

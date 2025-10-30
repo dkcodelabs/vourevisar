@@ -74,7 +74,6 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
       if (topicData?.notes) {
         const topicNotesData = topicData.notes as TopicNotes;
-        console.log('🔍 Anotações do tópico carregadas:', topicNotesData);
         setNotes(topicNotesData);
         setCurrentTopicContent(topicNotesData.content || '');
       } else {
@@ -99,7 +98,6 @@ const NotesModal: React.FC<NotesModalProps> = ({
           setSubjectNotes(undefined);
         } else {
           const subjectNotesData = subjectData?.notes as TopicNotes || undefined;
-          console.log('🔍 Anotações da matéria carregadas:', subjectNotesData);
           setSubjectNotes(subjectNotesData);
           setCurrentSubjectContent(subjectNotesData?.content || '');
         }
@@ -139,7 +137,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
         updated_at: new Date().toISOString()
       };
 
-      console.log('💾 Salvando anotações do tópico:', { topicId, updates });
+      // Log removido para otimização
       
       const { error } = await supabase
         .from('topics')
@@ -148,7 +146,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
       if (error) throw error;
 
-      console.log('✅ Anotações do tópico salvas com sucesso!');
+      // Log removido para otimização
       setNotes(updatedNotes);
       setHasUnsavedChanges(false);
       toast.success('Dados salvos com sucesso!');
@@ -165,60 +163,62 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
   const handleSaveAndClose = async () => {
     try {
-      console.log('💾 Salvando todas as anotações antes de fechar...');
-      console.log('📝 Conteúdo atual - Matéria:', currentSubjectContent);
-      console.log('📝 Conteúdo atual - Tópico:', currentTopicContent);
+      setIsSaving(true);
       
-      // Capturar conteúdo atual dos editores diretamente
-      const allEditors = document.querySelectorAll('.ql-editor');
-      console.log('📊 Editores encontrados:', allEditors.length);
-      
-      // Salvar anotações da matéria (primeiro editor)
-      if (allEditors[0]) {
-        const subjectContent = (allEditors[0] as HTMLElement).innerHTML;
-        console.log('📚 Conteúdo da matéria capturado:', subjectContent);
-        
-        if (subjectContent && subjectContent.trim() !== '<p><br></p>' && subjectContent.trim() !== '') {
-          const subjectNotesToSave: TopicNotes = {
-            content: subjectContent.trim(),
-            updatedAt: new Date().toISOString(),
-            createdAt: subjectNotes?.createdAt || new Date().toISOString()
-          };
-          await saveSubjectNotes(subjectNotesToSave);
-        }
+      // Salvar anotações da matéria se houver conteúdo
+      if (currentSubjectContent && currentSubjectContent.trim() !== '<p><br></p>' && currentSubjectContent.trim() !== '') {
+        const subjectNotesToSave: TopicNotes = {
+          content: currentSubjectContent.trim(),
+          updatedAt: new Date().toISOString(),
+          createdAt: subjectNotes?.createdAt || new Date().toISOString()
+        };
+        await saveSubjectNotes(subjectNotesToSave);
       }
 
-      // Salvar anotações do tópico (segundo editor)
-      if (allEditors[1]) {
-        const topicContent = (allEditors[1] as HTMLElement).innerHTML;
-        console.log('📖 Conteúdo do tópico capturado:', topicContent);
-        
-        if (topicContent && topicContent.trim() !== '<p><br></p>' && topicContent.trim() !== '') {
-          const topicNotesToSave: TopicNotes = {
-            content: topicContent.trim(),
-            updatedAt: new Date().toISOString(),
-            createdAt: notes?.createdAt || new Date().toISOString()
-          };
-          await saveNotes(topicNotesToSave);
-        }
+      // Salvar anotações do tópico se houver conteúdo
+      if (currentTopicContent && currentTopicContent.trim() !== '<p><br></p>' && currentTopicContent.trim() !== '') {
+        const topicNotesToSave: TopicNotes = {
+          content: currentTopicContent.trim(),
+          updatedAt: new Date().toISOString(),
+          createdAt: notes?.createdAt || new Date().toISOString()
+        };
+        await saveNotes(topicNotesToSave);
       }
 
-      console.log('✅ Todas as anotações salvas com sucesso!');
+      // Salvar dificuldade e subtópicos se houver mudanças
+      if (hasUnsavedChanges && !topicId.startsWith('temp-')) {
+        const updates: any = {
+          difficulty_level: difficulty,
+          subtopics: subtopics,
+          difficulty_set_at: difficulty ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await supabase
+          .from('topics')
+          .update(updates)
+          .eq('id', topicId);
+
+        if (error) throw error;
+      }
       
-      // Fechar modal apenas após sucesso no salvamento
+      toast.success('Dados salvos com sucesso!');
+      
+      // Fechar modal após sucesso
       if (onSave) {
-        onSave(); // Chama onSave se fornecido (caso do study plan)
+        onSave();
       } else {
-        onClose(); // Caso contrário, apenas fecha (caso das revisões)
+        onClose();
       }
     } catch (error) {
-      console.error('❌ Erro ao salvar:', error);
-      // Modal não fecha em caso de erro
+      console.error('Erro ao salvar:', error);
+      toast.error('Erro ao salvar dados');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const saveSubjectNotes = async (updatedNotes: TopicNotes) => {
-    console.log('💾 Salvando anotações da matéria:', { subjectId, updatedNotes });
     setIsSaving(true);
     try {
       const { error } = await supabase
@@ -231,12 +231,12 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
       if (error) throw error;
 
-      console.log('✅ Anotações da matéria salvas com sucesso!');
+      // Log removido para otimização
       setSubjectNotes(updatedNotes);
       setHasUnsavedChanges(false);
       toast.success('Anotações da matéria salvas com sucesso!');
     } catch (error) {
-      console.error('❌ Erro ao salvar anotações da matéria:', error);
+      console.error('Erro ao salvar anotações da matéria:', error);
       toast.error('Erro ao salvar anotações da matéria');
       throw error;
     } finally {
@@ -350,16 +350,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
                   notes={subjectNotes}
                   onSave={saveSubjectNotes}
                   isLoading={isLoading || isSaving}
-                  onChange={() => {
+                  onChange={(content) => {
                     handleNotesChange();
-                    setTimeout(() => {
-                      const editors = document.querySelectorAll('.ql-editor');
-                      if (editors[0]) {
-                        const content = (editors[0] as HTMLElement).innerHTML;
-                        console.log('📚 Conteúdo da matéria atualizado:', content);
-                        setCurrentSubjectContent(content);
-                      }
-                    }, 100);
+                    setCurrentSubjectContent(content);
                   }}
                   hideHeader={true}
                 />
@@ -375,16 +368,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
                   notes={notes}
                   onSave={saveNotes}
                   isLoading={isLoading || isSaving}
-                  onChange={() => {
+                  onChange={(content) => {
                     handleNotesChange();
-                    setTimeout(() => {
-                      const editors = document.querySelectorAll('.ql-editor');
-                      if (editors[1]) {
-                        const content = (editors[1] as HTMLElement).innerHTML;
-                        console.log('📖 Conteúdo do tópico atualizado:', content);
-                        setCurrentTopicContent(content);
-                      }
-                    }, 100);
+                    setCurrentTopicContent(content);
                   }}
                   hideHeader={true}
                 />
