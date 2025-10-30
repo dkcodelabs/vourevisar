@@ -52,8 +52,13 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
   }, [onClose]);
   
   useEffect(() => {
+    // Adicionar classe para prevenir scroll do body
+    document.body.classList.add('modal-open');
     document.addEventListener('keydown', handleKeyDown);
+    
     return () => {
+      // Remover classe ao desmontar o componente
+      document.body.classList.remove('modal-open');
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [handleKeyDown]);
@@ -68,6 +73,56 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
   return (
     <>
       <style>{`
+        /* Modal Overlay - Garantir que apareça por cima de tudo */
+        .modal-overlay {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          z-index: 9999 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          background: rgba(0, 0, 0, 0.5) !important;
+          backdrop-filter: blur(4px) !important;
+        }
+        
+        /* Modal Content */
+        .modal-content {
+          position: relative !important;
+          z-index: 10000 !important;
+          max-height: 90vh !important;
+          width: 100% !important;
+          max-width: 42rem !important;
+          margin: 1rem !important;
+          background: white !important;
+          border-radius: 1rem !important;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+          display: flex !important;
+          flex-direction: column !important;
+          animation: modalFadeIn 0.3s ease-out !important;
+        }
+        
+        .dark .modal-content {
+          background: #1e293b !important;
+        }
+        
+        @keyframes modalFadeIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95) translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+        
+        /* Garantir que o body não tenha scroll quando modal estiver aberto */
+        body.modal-open {
+          overflow: hidden !important;
+        }
         /* ReactQuill Container */
         .ql-container {
           height: 158px !important;
@@ -142,11 +197,11 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
         role="dialog"
         aria-modal="true"
         aria-labelledby="notes-modal-title"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm"
+        className="modal-overlay"
         onClick={onClose}
       >
       <div
-        className="relative w-full max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-2xl m-4 max-h-[90vh] flex flex-col"
+        className="modal-content"
         onClick={e => e.stopPropagation()}
       >
         <header className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
