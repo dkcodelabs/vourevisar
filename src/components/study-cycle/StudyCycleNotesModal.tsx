@@ -31,33 +31,70 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
   const [subTopics, setSubTopics] = useState<SubTopic[]>(topic.subTopics ?? []);
   const [newSubTopic, setNewSubTopic] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [showDraftWarning, setShowDraftWarning] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const quillRef = useRef<ReactQuill>(null);
   
   // Hook para persistência de drafts
   const { hasDraft, draftData, autoSaveDraft, clearDraft } = useDraftPersistence(topic.id, subject.id);
 
-  // Carregar draft se existir
+  // Carregar draft automaticamente apenas uma vez na montagem
   useEffect(() => {
-    if (hasDraft && draftData) {
-      setShowDraftWarning(true);
+    if (hasDraft && draftData && !draftLoaded) {
+      const originalNotes = topic.notes ?? '';
+      const originalDifficulty = topic.difficulty ?? Difficulty.MEDIUM;
+      const originalSubTopics = topic.subTopics ?? [];
+      
+      // Verificar se o draft tem conteúdo significativo e é diferente
+      const hasSignificantContent = draftData.notes.trim() || (draftData.subTopics && draftData.subTopics.length > 0);
+      const isDraftDifferent = 
+        draftData.notes !== originalNotes ||
+        draftData.difficulty !== originalDifficulty ||
+        JSON.stringify(draftData.subTopics || []) !== JSON.stringify(originalSubTopics);
+      
+      if (hasSignificantContent && isDraftDifferent) {
+        // Carregar silenciosamente o draft
+        setNotes(draftData.notes);
+        if (draftData.difficulty) {
+          setDifficulty(draftData.difficulty as Difficulty);
+        }
+        if (draftData.subTopics) {
+          setSubTopics(draftData.subTopics);
+        }
+      } else {
+        // Limpar draft se não há conteúdo significativo ou é igual aos dados originais
+        clearDraft();
+      }
+      
+      setDraftLoaded(true);
     }
-  }, [hasDraft, draftData]);
+  }, [hasDraft, draftData, draftLoaded]); // Removido topic e clearDraft das dependências
 
-  // Auto-save com debounce
+  // Auto-save com debounce - só salva se há mudanças reais
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (hasUnsavedChanges) {
-        autoSaveDraft({
-          notes,
-          difficulty,
-          subTopics
-        });
+        const originalNotes = topic.notes ?? '';
+        const originalDifficulty = topic.difficulty ?? Difficulty.MEDIUM;
+        const originalSubTopics = topic.subTopics ?? [];
+        
+        // Só salvar se há diferenças reais dos dados originais
+        const hasRealChanges = 
+          notes !== originalNotes ||
+          difficulty !== originalDifficulty ||
+          JSON.stringify(subTopics) !== JSON.stringify(originalSubTopics);
+        
+        if (hasRealChanges && (notes.trim() || subTopics.length > 0)) {
+          autoSaveDraft({
+            notes,
+            difficulty,
+            subTopics
+          });
+        }
       }
     }, 2000); // Auto-save após 2 segundos de inatividade
 
     return () => clearTimeout(timeoutId);
-  }, [notes, difficulty, subTopics, hasUnsavedChanges, autoSaveDraft]);
+  }, [notes, difficulty, subTopics, hasUnsavedChanges, autoSaveDraft, topic]);
 
   // Detectar mudanças
   useEffect(() => {
@@ -79,25 +116,7 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
     setHasUnsavedChanges(false);
   };
 
-  const handleLoadDraft = () => {
-    if (draftData) {
-      setNotes(draftData.notes);
-      if (draftData.difficulty) {
-        setDifficulty(draftData.difficulty as Difficulty);
-      }
-      if (draftData.subTopics) {
-        setSubTopics(draftData.subTopics);
-      }
-      setShowDraftWarning(false);
-      toast.success('Rascunho carregado!');
-    }
-  };
-
-  const handleDiscardDraft = () => {
-    clearDraft();
-    setShowDraftWarning(false);
-    toast.info('Rascunho descartado');
-  };
+  // Funções removidas - carregamento automático implementado
 
   const handleAddSubTopic = () => {
     if (newSubTopic.trim()) {
@@ -317,42 +336,6 @@ export const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ subj
         </header>
 
         <main className="p-6 space-y-6 overflow-y-auto">
-          {/* Aviso de Draft Disponível */}
-          {showDraftWarning && (
-            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="text-amber-600 dark:text-amber-400">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-amber-800 dark:text-amber-200">
-                      Rascunho encontrado
-                    </h4>
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      Você tem alterações não salvas desta anotação. Deseja carregá-las?
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleLoadDraft}
-                    className="px-3 py-1 bg-amber-600 text-white text-sm rounded hover:bg-amber-700 transition-colors"
-                  >
-                    Carregar
-                  </button>
-                  <button
-                    onClick={handleDiscardDraft}
-                    className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 transition-colors"
-                  >
-                    Descartar
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
           {/* Anotações */}
           <div className="p-5 bg-slate-100 dark:bg-slate-900 rounded-xl">
             <h3 className="flex items-center gap-3 font-semibold text-slate-700 dark:text-slate-200 mb-3">
