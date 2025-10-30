@@ -54,7 +54,12 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isToday, isReviewed,
   const [selectedTopicId, setSelectedTopicId] = useState<string>('');
   const [selectedTopicName, setSelectedTopicName] = useState<string>('');
   
-  const { tempMarkedTopics, handleMarkTopicForReview, handleCancelTopicReview, handleCompleteSession } = useStudyCycle();
+  const { 
+    tempMarkedTopics, 
+    handleMarkTopicForReview, 
+    handleCancelTopicReview, 
+    handleCompleteSession
+  } = useStudyCycle();
   
   const progressPercentage = (subject.progress / subject.total) * 100;
   
@@ -393,6 +398,8 @@ export const StudyCyclePage: React.FC = () => {
         viewMode={viewMode}
         defaultExpanded={false}
       />
+
+
     </div>
   );
 };

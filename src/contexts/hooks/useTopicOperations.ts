@@ -2,12 +2,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Topic, TopicNotes } from '@/types';
 import { toast } from 'sonner';
+import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
 
 export const useTopicOperations = (
   user: any,
   loadSubjects: () => Promise<void>,
   refreshData: () => Promise<void>
 ) => {
+  const { recordTopicCompletion } = useStudySessionTracking();
   const addTopic = async (subjectId: string, topicData: Omit<Topic, 'id'>) => {
     if (!user) return;
 
@@ -46,6 +48,9 @@ export const useTopicOperations = (
   const updateTopic = async (subjectId: string, topicId: string, updates: Partial<Topic>) => {
     try {
       console.log('📝 updateTopic - Updating topic:', { subjectId, topicId, updates });
+      
+      // Verificar se o tópico está sendo marcado como concluído
+      const wasCompleted = updates.completed === true;
       
       const updateData: any = {
         name: updates.name,
@@ -87,6 +92,31 @@ export const useTopicOperations = (
         .eq('id', topicId);
 
       if (error) throw error;
+
+      // Se o tópico foi marcado como concluído, registrar sessão de estudo
+      if (wasCompleted) {
+        try {
+          // Buscar informações da matéria
+          const { data: subjectData } = await supabase
+            .from('subjects')
+            .select('name')
+            .eq('id', subjectId)
+            .single();
+
+          if (subjectData) {
+            await recordTopicCompletion(
+              subjectId,
+              subjectData.name,
+              topicId,
+              updates.name || 'Tópico'
+            );
+            console.log('✅ Sessão de estudo registrada para tópico concluído');
+          }
+        } catch (sessionError) {
+          console.error('⚠️ Erro ao registrar sessão de estudo:', sessionError);
+          // Não falhar a operação principal por causa do tracking
+        }
+      }
 
       console.log('✅ updateTopic - Success, refreshing data...');
       

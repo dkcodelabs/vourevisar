@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import NotesModal from '@/components/reviews/NotesModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
+import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { useSearchParams } from 'react-router-dom';
 
 const Revisoes = () => {
@@ -43,8 +44,21 @@ const Revisoes = () => {
     subjectName: ''
   });
 
+
+
   const { subjects, refreshData } = useApp();
-  const { markTopicAsReviewed, isLoading: isMarkingReviewed } = useTopicReview();
+  const { 
+    markTopicAsReviewed, 
+    isLoading: isMarkingReviewed,
+    difficultyModalData,
+    openDifficultyModal,
+    closeDifficultyModal,
+    submitDifficultyRating
+  } = useTopicReview();
+
+
+
+
   const {
     topics,
     isLoading,
@@ -279,6 +293,14 @@ const Revisoes = () => {
                       });
                     }
                   }}
+                  onRateDifficulty={(subjectId, topicId, topicName, subjectName) => {
+                    // Encontrar o tópico para pegar a dificuldade atual
+                    const subject = subjects.find(s => s.id === subjectId);
+                    const topic = subject?.topics.find(t => t.id === topicId);
+                    const currentDifficulty = topic?.difficulty_level || null;
+                    
+                    openDifficultyModal(topicId, topicName, subjectId, subjectName, currentDifficulty);
+                  }}
                 />
               )}
             </div>
@@ -322,6 +344,18 @@ const Revisoes = () => {
         }}
         subjectId={subjectNotesModal.subjectId}
         subjectName={subjectNotesModal.subjectName}
+      />
+
+
+
+      {/* Modal de Avaliação de Dificuldade */}
+      <DifficultyRatingModal
+        isOpen={difficultyModalData.isOpen}
+        onClose={closeDifficultyModal}
+        onSubmit={submitDifficultyRating}
+        topicName={difficultyModalData.topicName}
+        subjectName={difficultyModalData.subjectName}
+        initialDifficulty={difficultyModalData.currentDifficulty}
       />
     </div>
   );

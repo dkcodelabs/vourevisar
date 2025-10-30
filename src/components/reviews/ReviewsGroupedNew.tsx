@@ -8,6 +8,7 @@ import { SubtopicsList } from '@/components/ui/subtopics-list';
 import { ReviewConfirmDialog } from './ReviewConfirmDialog';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
+import { DifficultyRating } from '@/components/ui/difficulty-rating';
 
 interface ReviewsGroupedNewProps {
     subjects: Subject[];
@@ -20,6 +21,7 @@ interface ReviewsGroupedNewProps {
   onAddNote: (subjectId: string, topicId: string) => void;
   onEditTopic: (subjectId: string, topicId: string) => void;
   onSubjectNote: (subjectId: string) => void;
+  onRateDifficulty: (subjectId: string, topicId: string, topicName: string, subjectName: string) => void;
 }
 
 export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
@@ -32,7 +34,8 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
   onMarkReviewed,
   onAddNote,
   onEditTopic,
-  onSubjectNote
+  onSubjectNote,
+  onRateDifficulty
 }) => {
     const [confirmDialog, setConfirmDialog] = useState<{
         isOpen: boolean;
@@ -373,7 +376,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                     const isExpanded = expandedSubjects.includes(subject.id);
 
                     return (
-                        <Card className="bg-white/80 backdrop-blur-md border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 mb-4">
+                        <Card key={subject.id} className="bg-white/80 backdrop-blur-md border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 mb-4">
                             <CardContent className="p-4">
                                 {/* Cabeçalho da matéria com seta de expandir/recolher */}
                                  <div className="flex items-center justify-between mb-2">
@@ -408,7 +411,19 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
 
                                 {/* Tópicos (expandido) */}
                                 {isExpanded && (
-                                    <div className="space-y-3 mt-2">
+                                    <div className="mt-2">
+                                        {/* Cabeçalho das colunas - apenas desktop */}
+                                        <div className="hidden md:grid grid-cols-[1fr_120px_100px_100px_120px_120px] gap-4 items-center pb-2 mb-2 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                            <div className="ml-7">Tópico</div>
+                                            <div className="text-center">Dificuldade</div>
+                                            <div className="text-center">Revisões</div>
+                                            <div className="text-center">Próxima</div>
+                                            <div className="text-center">Status</div>
+                                            <div className="text-center">Ações</div>
+                                        </div>
+                                        
+                                        {/* Lista de tópicos */}
+                                        <div className="space-y-0">
                                         {topics.map((topic) => {
                                             const status = getTopicStatus(topic);
                                             const statusText = getStatusText(topic);
@@ -418,9 +433,9 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                             return (
                                                 <div 
                                                     key={topic.id} 
-                                                    className={`flex items-start gap-2 border-b border-gray-100 pb-2 last:border-b-0 transition-all duration-300 ${
+                                                    className={`transition-all duration-300 ${
                                                         isHighlighted 
-                                                            ? 'animate-pulse bg-yellow-100 border-yellow-300 rounded-lg p-2 -m-2' 
+                                                            ? 'animate-pulse bg-yellow-100 border-yellow-300 rounded-lg px-3 -mx-3' 
                                                             : ''
                                                     }`}
                                                     style={{
@@ -429,8 +444,11 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                             : undefined
                                                     }}
                                                 >
-                                    <div className="flex-1 min-w-0 ml-7">
-                                        <div className={`font-medium truncate ${
+                                                    {/* Layout Desktop */}
+                                                    <div className="hidden md:grid grid-cols-[1fr_120px_100px_100px_120px_120px] gap-4 items-center border-b border-gray-100 pb-3 pt-3 last:border-b-0">
+                                    {/* Coluna 1: Nome do tópico + Subtópicos */}
+                                    <div className="min-w-0 ml-7">
+                                        <div className={`font-medium truncate mb-1 ${
                                             isHighlighted ? 'text-yellow-900' : 'text-gray-800'
                                         }`}>
                                             {topic.name}
@@ -442,22 +460,43 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                         )}
                                     </div>
 
-                                                    <div className="flex flex-col items-end min-w-[60px] text-xs font-medium">
-                                                        <span className="text-gray-600">Revisões</span>
+                                    {/* Coluna 2: Estrelas de dificuldade (clicável) */}
+                                    <div 
+                                        className="flex justify-center cursor-pointer hover:bg-gray-50 rounded-lg p-2 transition-colors group"
+                                        onClick={() => onRateDifficulty(subject.id, topic.id, topic.name, subject.name)}
+                                        title={topic.difficulty_level ? "Clique para editar dificuldade" : "Clique para avaliar dificuldade"}
+                                    >
+                                        {topic.difficulty_level ? (
+                                            <DifficultyRating
+                                                value={topic.difficulty_level}
+                                                readonly={true}
+                                                size="sm"
+                                                className="flex-shrink-0 group-hover:scale-105 transition-transform"
+                                            />
+                                        ) : (
+                                            <span className="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap group-hover:underline">
+                                                + Avaliar
+                                            </span>
+                                        )}
+                                    </div>
+
+                                                    {/* Coluna 3: Revisões */}
+                                                    <div className="flex justify-center text-xs font-medium">
                                                         <span className={getRevisionsColor(status)}>{reviewCount}/{getMaxReviews()}</span>
                                                     </div>
 
-                                                    <div className="flex flex-col items-end min-w-[80px] text-xs font-medium">
-                                                        <span className="text-gray-600">Próxima</span>
+                                                    {/* Coluna 4: Próxima */}
+                                                    <div className="flex justify-center text-xs font-medium">
                                                         <span className={getStatusColor(status)}>{topic.reviewStage || '1ª Revisão'}</span>
                                                     </div>
 
-                                                    <div className="flex flex-col items-end min-w-[100px] text-xs font-medium">
-                                                        <span className="text-gray-600">Status</span>
+                                                    {/* Coluna 5: Status */}
+                                                    <div className="flex justify-center text-xs font-medium">
                                                         <span className={getStatusColor(status)}>{statusText}</span>
                                                     </div>
 
-                                                    <div className="flex items-center gap-1 ml-2">
+                                                    {/* Coluna 6: Ações */}
+                                                    <div className="flex items-center gap-1 justify-end">
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -495,9 +534,101 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                             </Button>
                                                         )}
                                                     </div>
+                                                    </div>
+
+                                                    {/* Layout Mobile */}
+                                                    <div className="md:hidden border-b border-gray-100 pb-3 pt-3 last:border-b-0">
+                                                        {/* Nome do tópico */}
+                                                        <div className={`font-medium mb-3 ${
+                                                            isHighlighted ? 'text-yellow-900' : 'text-gray-800'
+                                                        }`}>
+                                                            {topic.name}
+                                                        </div>
+                                                        
+                                                        {/* Grid de informações */}
+                                                        <div className="grid grid-cols-2 gap-3 text-xs">
+                                                            {/* Dificuldade */}
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-gray-500 mb-1">Dificuldade</span>
+                                                                <div 
+                                                                    className="cursor-pointer hover:bg-gray-50 rounded-lg p-1 transition-colors"
+                                                                    onClick={() => onRateDifficulty(subject.id, topic.id, topic.name, subject.name)}
+                                                                >
+                                                                    {topic.difficulty_level ? (
+                                                                        <DifficultyRating
+                                                                            value={topic.difficulty_level}
+                                                                            readonly={true}
+                                                                            size="sm"
+                                                                        />
+                                                                    ) : (
+                                                                        <span className="text-blue-600 font-medium">+ Avaliar</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            {/* Revisões */}
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-gray-500 mb-1">Revisões</span>
+                                                                <span className={getRevisionsColor(status)}>{reviewCount}/{getMaxReviews()}</span>
+                                                            </div>
+                                                            
+                                                            {/* Próxima */}
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-gray-500 mb-1">Próxima</span>
+                                                                <span className={getStatusColor(status)}>{topic.reviewStage || '1ª Revisão'}</span>
+                                                            </div>
+                                                            
+                                                            {/* Status */}
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-gray-500 mb-1">Status</span>
+                                                                <span className={getStatusColor(status)}>{statusText}</span>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {/* Ações */}
+                                                        <div className="flex items-center justify-center gap-2 mt-3">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => onAddNote(subject.id, topic.id)}
+                                                                title="Adicionar nota"
+                                                                className="h-8 w-8 p-0"
+                                                            >
+                                                                <FileText className="h-4 w-4" />
+                                                            </Button>
+
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => onEditTopic(subject.id, topic.id)}
+                                                                title="Editar tópico"
+                                                                className="h-8 w-8 p-0"
+                                                            >
+                                                                <Edit3 className="h-4 w-4" />
+                                                            </Button>
+
+                                                            {status !== 'completed' && (
+                                                                <Button
+                                                                    variant="default"
+                                                                    size="sm"
+                                                                    onClick={() => setConfirmDialog({
+                                                                        isOpen: true,
+                                                                        subjectId: subject.id,
+                                                                        topicId: topic.id,
+                                                                        topicName: topic.name
+                                                                    })}
+                                                                    className="bg-green-600 hover:bg-green-700 h-8 px-3"
+                                                                >
+                                                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                                                    Revisei
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
+                                        </div>
                                     </div>
                                 )}
                             </CardContent>

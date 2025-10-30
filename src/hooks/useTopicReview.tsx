@@ -5,11 +5,30 @@ import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
+import { useStudySessionTracking } from './useStudySessionTracking';
 
 export const useTopicReview = () => {
   const { user } = useAuth();
   const { refreshData } = useApp();
   const [isLoading, setIsLoading] = useState(false);
+  const { recordTopicCompletion } = useStudySessionTracking();
+  
+  // Estado para controlar o modal de dificuldade
+  const [difficultyModalData, setDifficultyModalData] = useState<{
+    isOpen: boolean;
+    topicId: string;
+    topicName: string;
+    subjectId: string;
+    subjectName: string;
+    currentDifficulty: number | null;
+  }>({
+    isOpen: false,
+    topicId: '',
+    topicName: '',
+    subjectId: '',
+    subjectName: '',
+    currentDifficulty: null
+  });
 
   const markTopicAsReviewed = async (topicId: string) => {
     if (!user) return;
@@ -107,6 +126,97 @@ export const useTopicReview = () => {
       if (updateError) throw updateError;
 
       console.log('✅ Tópico atualizado com sucesso');
+
+      // Registrar sessão de estudo
+      try {
+        // Buscar informações da matéria
+        const { data: subjectData } = await supabase
+          .from('subjects')
+          .select('name')
+          .eq('id', topic.subject_id)
+          .single();
+
+        if (subjectData) {
+          await recordTopicCompletion(
+            topic.subject_id,
+            subjectData.name,
+            topicId,
+            topic.name
+          );
+          console.log('✅ Sessão de estudo registrada');
+        }
+      } catch (sessionError) {
+        console.error('⚠️ Erro ao registrar sessão de estudo:', sessionError);
+        // Não falhar a operação principal por causa do tracking
+      }
+
+      // VERIFICAÇÃO CRÍTICA: Modal aparece apenas na PRIMEIRA revisão E se não tem dificuldade
+      const isFirstReview = topic.review_count === 1; // Primeira revisão = review_count atual é 1 (antes de incrementar)
+      const hasNoDifficulty = !topic.difficulty_level;
+      const shouldShowModal = isFirstReview && hasNoDifficulty;
+      
+      console.log('🔍 VERIFICANDO MODAL DE DIFICULDADE:', {
+        topicId,
+        topicName: topic.name,
+        review_count_atual: topic.review_count,
+        newReviewCount,
+        isFirstReview: `${isFirstReview} (review_count atual é 1)`,
+        difficulty_level: topic.difficulty_level,
+        hasNoDifficulty,
+        shouldShowModal
+      });
+
+      if (shouldShowModal) {
+        console.log('🌟 CONDIÇÃO ATENDIDA - Primeira revisão sem dificuldade, mostrando modal:', {
+          topicId,
+          topicName: topic.name,
+          isFirstReview,
+          completed,
+          difficulty_level: topic.difficulty_level
+        });
+        
+        // Buscar informações da matéria para o modal
+        const { data: subjectData, error: subjectError } = await supabase
+          .from('subjects')
+          .select('name')
+          .eq('id', topic.subject_id)
+          .single();
+
+        if (subjectError) {
+          console.error('❌ Erro ao buscar dados da matéria:', subjectError);
+        }
+
+        if (subjectData) {
+          console.log('🌟 ABRINDO MODAL DE DIFICULDADE:', {
+            topicId,
+            topicName: topic.name,
+            subjectName: subjectData.name,
+            modalState: 'SETTING TO OPEN'
+          });
+          
+          setDifficultyModalData({
+            isOpen: true,
+            topicId: topicId,
+            topicName: topic.name,
+            subjectId: topic.subject_id,
+            subjectName: subjectData.name
+          });
+
+          console.log('🌟 MODAL STATE UPDATED - Verificar se modal aparece na tela');
+        } else {
+          console.error('❌ Dados da matéria não encontrados para o modal');
+        }
+      } else {
+        console.log('🔍 MODAL NÃO SERÁ EXIBIDO:', {
+          topicId,
+          completed,
+          review_count_atual: topic.review_count,
+          isFirstReview: `${isFirstReview} (precisa ser true)`,
+          difficulty_level: topic.difficulty_level,
+          hasNoDifficulty,
+          reason: !isFirstReview ? `não é primeira revisão (review_count=${topic.review_count}, precisa ser 1)` : 'já tem dificuldade definida'
+        });
+      }
 
       // Verificar se todas as revisões da matéria foram concluídas
       const { data: allTopicsOfSubject, error: allTopicsError } = await supabase
@@ -216,8 +326,71 @@ export const useTopicReview = () => {
     }
   };
 
+  const openDifficultyModal = (topicId: string, topicName: string, subjectId: string, subjectName: string, currentDifficulty: number | null = null) => {
+    setDifficultyModalData({
+      isOpen: true,
+      topicId,
+      topicName,
+      subjectId,
+      subjectName,
+      currentDifficulty
+    });
+  };
+
+  const closeDifficultyModal = () => {
+    setDifficultyModalData({
+      isOpen: false,
+      topicId: '',
+      topicName: '',
+      subjectId: '',
+      subjectName: '',
+      currentDifficulty: null
+    });
+  };
+
+  const submitDifficultyRating = async (difficulty: number | null) => {
+    if (!difficultyModalData.topicId) return;
+
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .update({
+          difficulty_level: difficulty,
+          difficulty_set_at: difficulty ? new Date().toISOString() : null
+        })
+        .eq('id', difficultyModalData.topicId);
+
+      if (error) throw error;
+
+      if (difficulty) {
+        const difficultyLabels = {
+          1: 'Muito Fácil',
+          2: 'Fácil', 
+          3: 'Médio',
+          4: 'Difícil',
+          5: 'Muito Difícil'
+        };
+        
+        const stars = '⭐'.repeat(difficulty);
+        toastManager.success(`Dificuldade: ${difficultyLabels[difficulty as keyof typeof difficultyLabels]} ${stars}`);
+      } else {
+        toastManager.info('Avaliação de dificuldade pulada');
+      }
+
+      // Atualizar dados
+      await refreshData();
+    } catch (error) {
+      console.error('Erro ao salvar dificuldade:', error);
+      toastManager.error('Erro ao salvar avaliação de dificuldade');
+    }
+  };
+
   return {
     markTopicAsReviewed,
-    isLoading
+    isLoading,
+    difficultyModalData,
+    openDifficultyModal,
+    closeDifficultyModal,
+    submitDifficultyRating
   };
 };

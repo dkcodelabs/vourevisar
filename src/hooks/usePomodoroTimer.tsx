@@ -3,11 +3,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { useStudySessionTracking } from './useStudySessionTracking';
 
 type PomodoroSession = Tables<'pomodoro_sessions'>;
 
 export const usePomodoroTimer = () => {
   const { user } = useAuth();
+  const { recordPomodoroSession } = useStudySessionTracking();
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutos em segundos
   const [initialTime, setInitialTime] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
@@ -117,6 +119,9 @@ export const usePomodoroTimer = () => {
 
       // Salvar no banco
       updateSessionInDB(newSessions, newTotalMinutes);
+      
+      // Registrar no sistema de tracking
+      recordPomodoroSession(newSessions, newTotalMinutes);
 
       // Reset timer para próxima sessão
       setTimeLeft(initialTime);

@@ -5,13 +5,17 @@ import { toast } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAdvancedStatistics } from '@/hooks/useAdvancedStatistics';
+import { migrateDifficultyLevels } from '@/utils/migrateDifficultyLevels';
+import { Button } from '@/components/ui/button';
 import {
   OverviewSection,
   SpacedReviewsSection,
   SubjectPerformanceSection,
   StudyHabitsSection,
   EvolutionSection,
-  InsightsSection
+  InsightsSection,
+  RealDataIndicator,
+  DifficultyStatsSection
 } from '@/components/statistics';
 import { 
   BarChart3, 
@@ -20,7 +24,8 @@ import {
   Activity, 
   TrendingUp, 
   Lightbulb,
-  Loader2
+  Loader2,
+  Star
 } from 'lucide-react';
 
 const Statistics = () => {
@@ -139,11 +144,39 @@ const Statistics = () => {
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Análise completa do seu progresso de estudos com insights inteligentes e métricas detalhadas
             </p>
+            
+            {/* Botão temporário de migração */}
+            <div className="flex justify-center">
+              <Button
+                onClick={async () => {
+                  toast.info('Iniciando migração de difficulty_level...');
+                  const result = await migrateDifficultyLevels();
+                  if (result.success) {
+                    toast.success(`Migração concluída! ${result.migratedCount} tópicos migrados.`);
+                    window.location.reload(); // Recarregar para ver os dados atualizados
+                  } else {
+                    toast.error('Erro na migração. Verifique o console.');
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                🔧 Migrar Difficulty Levels
+              </Button>
+            </div>
           </motion.div>
+
+          {/* Indicador de Dados Reais */}
+          <RealDataIndicator 
+            lastUpdated={new Date()}
+            totalSessions={statisticsData.studyHabits.averageTopicsPerDay * 30} // Estimativa
+            isLoading={isLoading}
+          />
 
           {/* Tabs Navigation */}
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto p-1 bg-gray-100 rounded-xl">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 h-auto p-1 bg-gray-100 rounded-xl">
               <TabsTrigger 
                 value="overview" 
                 className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
@@ -178,6 +211,13 @@ const Statistics = () => {
               >
                 <TrendingUp className="h-4 w-4" />
                 <span className="hidden sm:inline">Evolução</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="difficulty" 
+                className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all duration-200"
+              >
+                <Star className="h-4 w-4" />
+                <span className="hidden sm:inline">Dificuldade</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="insights" 
@@ -237,6 +277,16 @@ const Statistics = () => {
                   transition={{ duration: 0.5 }}
                 >
                   <EvolutionSection data={statisticsData.evolution} />
+                </motion.div>
+              </TabsContent>
+
+              <TabsContent value="difficulty" className="space-y-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <DifficultyStatsSection data={statisticsData.difficultyStats} />
                 </motion.div>
               </TabsContent>
 

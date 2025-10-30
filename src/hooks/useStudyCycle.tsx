@@ -5,11 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
 import { toast } from '@/lib/toast';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
+import { useStudySessionTracking } from './useStudySessionTracking';
 
 export const useStudyCycle = () => {
   const { user } = useAuth();
   const { subjects, updateTopic, setSubjects } = useApp();
   const [tempMarkedTopics, setTempMarkedTopics] = useState<Record<string, string[]>>({});
+  const { recordTopicCompletion } = useStudySessionTracking();
+  
+
 
   // Função para marcar tópico para revisão (copiada de useTopicActions)
   const handleMarkTopicForReview = (subjectId: string, topicId: string) => {
@@ -72,17 +76,49 @@ export const useStudyCycle = () => {
         completed = true;
       }
 
+      const now = new Date().toISOString();
+      const updateData: any = {
+        review_count: newReviewCount,
+        next_review: nextReview,
+        review_stage: reviewStage,
+        completed,
+        last_reviewed_at: now
+      };
+
+      // Se é a primeira revisão, definir first_studied_at
+      if (topic.review_count === 0 || !topic.first_studied_at) {
+        updateData.first_studied_at = now;
+      }
+
       const { error } = await supabase
         .from('topics')
-        .update({
-          review_count: newReviewCount,
-          next_review: nextReview,
-          review_stage: reviewStage,
-          completed
-        })
+        .update(updateData)
         .eq('id', topicId);
 
       if (error) throw error;
+
+      // Registrar sessão de estudo
+      try {
+        const { data: subjectData } = await supabase
+          .from('subjects')
+          .select('name')
+          .eq('id', topic.subject_id)
+          .single();
+
+        if (subjectData) {
+          await recordTopicCompletion(
+            topic.subject_id,
+            subjectData.name,
+            topicId,
+            topic.name
+          );
+        }
+      } catch (sessionError) {
+        console.error('⚠️ Erro ao registrar sessão de estudo:', sessionError);
+      }
+
+      // Modal de dificuldade removido - será exibido apenas na página de revisões
+      console.log('🔍 [Ciclo] Tópico processado - modal de dificuldade será exibido na página de revisões se necessário');
 
       setSubjects(prev => 
         prev.map(subject => ({
@@ -209,6 +245,8 @@ export const useStudyCycle = () => {
       toast.error('Erro ao concluir sessão');
     }
   };
+
+
 
   return {
     tempMarkedTopics,

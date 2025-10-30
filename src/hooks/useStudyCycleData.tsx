@@ -47,7 +47,26 @@ const mapReviewStageToInterval = (reviewStage?: string, completed?: boolean): Re
   }
 };
 
-const mapDifficultyLevel = (level?: string): Difficulty => {
+const mapDifficultyLevel = (level?: number | string): Difficulty => {
+  // Se for número (novo formato)
+  if (typeof level === 'number') {
+    switch (level) {
+      case 1:
+        return 'EASY' as Difficulty;
+      case 2:
+        return 'EASY' as Difficulty;
+      case 3:
+        return 'MEDIUM' as Difficulty;
+      case 4:
+        return 'HARD' as Difficulty;
+      case 5:
+        return 'HARD' as Difficulty;
+      default:
+        return 'MEDIUM' as Difficulty;
+    }
+  }
+  
+  // Se for string (formato antigo - compatibilidade)
   switch (level) {
     case 'easy':
       return 'EASY' as Difficulty;
@@ -104,14 +123,14 @@ const mapIntervalToReviewStage = (interval: ReviewInterval): string => {
   }
 };
 
-const mapDifficultyToLevel = (difficulty: Difficulty): string => {
+const mapDifficultyToLevel = (difficulty: Difficulty): number => {
   switch (difficulty) {
     case 'EASY':
-      return 'easy';
+      return 2; // Fácil = 2 estrelas
     case 'HARD':
-      return 'hard';
+      return 4; // Difícil = 4 estrelas
     default:
-      return 'medium';
+      return 3; // Médio = 3 estrelas
   }
 };
 

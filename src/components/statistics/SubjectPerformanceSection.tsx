@@ -30,6 +30,8 @@ interface SubjectPerformanceData {
   completedTopics: number;
   completionPercentage: number;
   studyTime: number;
+  difficultyPoints?: number;
+  averageDifficulty?: number;
   rank: number;
 }
 
@@ -248,6 +250,18 @@ export const SubjectPerformanceSection: React.FC<SubjectPerformanceSectionProps>
                       <p className="text-sm text-gray-600">
                         {subject.completedTopics} de {subject.totalTopics} tópicos • {formatTime(subject.studyTime)}
                       </p>
+                      {subject.difficultyPoints && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                            {subject.difficultyPoints} pontos
+                          </span>
+                          {subject.averageDifficulty && (
+                            <span className="text-xs text-gray-500">
+                              {'⭐'.repeat(Math.round(subject.averageDifficulty))} média
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">

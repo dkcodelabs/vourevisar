@@ -1,7 +1,7 @@
 export type Status = 'Nova' | 'Em Estudo' | 'Concluída';
 export type RevisionStatus = 'Atrasado' | 'Hoje' | 'Futura';
 export type RevisionStage = '24h' | '7 dias' | '30 dias' | 'Concluído' | string;
-export type DifficultyLevel = 'easy' | 'medium' | 'hard';
+export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
 
 export interface TopicSubtopic {
   id: string;
@@ -30,7 +30,7 @@ export interface Topic {
   last_reviewed_at?: Date;
   is_completed?: boolean;
   notes?: TopicNotes;
-  difficulty_level?: DifficultyLevel;
+  difficulty_level?: DifficultyLevel | null;
   subtopics?: TopicSubtopic[];
   difficulty_set_at?: Date;
 }

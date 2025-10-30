@@ -28,7 +28,10 @@ export const useDataLoading = (
         .from('subjects')
         .select(`
           *,
-          topics (*)
+          topics (
+            *,
+            difficulty_level
+          )
         `)
         .eq('user_id', user.id)
         .order('priority', { ascending: true });
