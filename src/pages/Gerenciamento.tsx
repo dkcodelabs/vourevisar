@@ -5,10 +5,16 @@ import React, { useState } from 'react'
 import { useUserRole } from '@/hooks/useUserRole'
 import { AdminOnly, OwnerOnly } from '@/components/ProtectedComponent'
 import { UserRoleBadge, ProtectedButton } from '@/components/RoleBasedUI'
+import { UserManagementModal } from '@/components/UserManagementModal'
+import { SubscriptionManagementModal } from '@/components/SubscriptionManagementModal'
 
 export default function Gerenciamento() {
   const { user, isOwner, isAdmin, loading } = useUserRole()
   const [activeSection, setActiveSection] = useState('usuarios')
+  const [userModalOpen, setUserModalOpen] = useState(false)
+  const [userModalMode, setUserModalMode] = useState<'list' | 'assign' | 'manage'>('list')
+  const [userModalTitle, setUserModalTitle] = useState('')
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false)
 
   if (loading) {
     return (
@@ -83,6 +89,12 @@ export default function Gerenciamento() {
                   onClick={() => setActiveSection('usuarios')}
                 />
                 <SidebarItem
+                  icon="💳"
+                  label="Assinaturas"
+                  active={activeSection === 'assinaturas'}
+                  onClick={() => setActiveSection('assinaturas')}
+                />
+                <SidebarItem
                   icon="📊"
                   label="Relatórios"
                   active={activeSection === 'relatorios'}
@@ -145,6 +157,7 @@ export default function Gerenciamento() {
             padding: '24px'
           }}>
             {activeSection === 'usuarios' && <UsuariosSection />}
+            {activeSection === 'assinaturas' && <AssinaturasSection />}
             {activeSection === 'relatorios' && <RelatoriosSection />}
             {activeSection === 'configuracoes' && <ConfiguracoesSection />}
             {activeSection === 'roles' && <RolesSection />}
@@ -153,6 +166,19 @@ export default function Gerenciamento() {
           </div>
         </div>
       </div>
+
+      {/* Modais */}
+      <UserManagementModal
+        isOpen={userModalOpen}
+        onClose={() => setUserModalOpen(false)}
+        mode={userModalMode}
+        title={userModalTitle}
+      />
+
+      <SubscriptionManagementModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+      />
     </div>
   )
 }
@@ -208,19 +234,81 @@ function UsuariosSection() {
           icon="👤"
           title="Listar Usuários"
           description="Ver todos os usuários cadastrados"
-          onClick={() => alert('🔧 Função: Listar Usuários')}
-        />
-        <ActionCard
-          icon="➕"
-          title="Adicionar Usuário"
-          description="Cadastrar novo usuário"
-          onClick={() => alert('🔧 Função: Adicionar Usuário')}
+          onClick={() => {
+            setUserModalMode('list')
+            setUserModalTitle('📋 Lista de Usuários')
+            setUserModalOpen(true)
+          }}
         />
         <ActionCard
           icon="🔧"
-          title="Editar Permissões"
-          description="Alterar roles dos usuários"
-          onClick={() => alert('🔧 Função: Editar Permissões')}
+          title="Atribuir Permissões"
+          description="Dar roles aos usuários"
+          onClick={() => {
+            setUserModalMode('assign')
+            setUserModalTitle('➕ Atribuir Permissões')
+            setUserModalOpen(true)
+          }}
+        />
+        <ActionCard
+          icon="⚙️"
+          title="Gerenciar Permissões"
+          description="Alterar/remover roles dos usuários"
+          onClick={() => {
+            setUserModalMode('manage')
+            setUserModalTitle('🔧 Gerenciar Permissões')
+            setUserModalOpen(true)
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function AssinaturasSection() {
+  return (
+    <div>
+      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>💳 Gerenciar Assinaturas</h2>
+      <p style={{ color: '#64748b', marginBottom: '24px' }}>
+        Gerencie os tipos de conta dos usuários (Free, Mensal, Anual).
+      </p>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <ActionCard
+          icon="💳"
+          title="Gerenciar Assinaturas"
+          description="Ativar/desativar planos dos usuários"
+          onClick={() => setSubscriptionModalOpen(true)}
+        />
+        <ActionCard
+          icon="📊"
+          title="Estatísticas"
+          description="Ver estatísticas de assinaturas"
+          onClick={() => {
+            setUserModalMode('list')
+            setUserModalTitle('📊 Estatísticas de Assinaturas')
+            setSubscriptionModalOpen(true)
+          }}
+        />
+        <ActionCard
+          icon="🆓"
+          title="Usuários Free"
+          description="Ver usuários com conta gratuita"
+          onClick={() => {
+            setUserModalMode('list')
+            setUserModalTitle('🆓 Usuários Free')
+            setSubscriptionModalOpen(true)
+          }}
+        />
+        <ActionCard
+          icon="💎"
+          title="Usuários Premium"
+          description="Ver usuários com planos pagos"
+          onClick={() => {
+            setUserModalMode('list')
+            setUserModalTitle('💎 Usuários Premium')
+            setSubscriptionModalOpen(true)
+          }}
         />
       </div>
     </div>
