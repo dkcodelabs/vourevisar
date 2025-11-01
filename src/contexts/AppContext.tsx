@@ -65,6 +65,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [user?.id]); // Apenas user.id como dependência
 
+  // Listener para eventos de atualização de dados
+  useEffect(() => {
+    const handleDataUpdate = (event: CustomEvent) => {
+      // Evento recebido, recarregando dados
+      refreshData();
+    };
+
+    window.addEventListener('topicUpdated', handleDataUpdate as EventListener);
+    window.addEventListener('subjectUpdated', handleDataUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('topicUpdated', handleDataUpdate as EventListener);
+      window.removeEventListener('subjectUpdated', handleDataUpdate as EventListener);
+    };
+  }, [refreshData]);
+
   const value: AppContextType = {
     subjects,
     studyProgress,

@@ -54,6 +54,13 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
       setInternalEditing(false);
       onEditChange?.(false);
       onUpdate();
+      
+      // Disparar evento para sincronizar outras páginas
+      // Evento disparado para sincronização
+      window.dispatchEvent(new CustomEvent('topicUpdated', { 
+        detail: { action: 'update', topicId } 
+      }));
+      
       toast.success("Nome do tópico atualizado com sucesso");
     } catch (error) {
       console.error('Erro ao atualizar nome do tópico:', error);

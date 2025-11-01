@@ -442,7 +442,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                     <div className="hidden md:grid grid-cols-[1fr_120px_100px_100px_120px_120px] gap-4 items-center border-b border-gray-100 pb-3 pt-3 last:border-b-0">
                                     {/* Coluna 1: Nome do tópico + Subtópicos */}
                                     <div className="min-w-0 ml-7">
-                                        <div className={`font-medium truncate mb-1 ${
+                                        <div className={`font-medium text-sm leading-tight mb-1 break-words ${
                                             isHighlighted ? 'text-yellow-900' : 'text-gray-800'
                                         }`}>
                                             {topic.name}
@@ -533,7 +533,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                     {/* Layout Mobile */}
                                                     <div className="md:hidden border-b border-gray-100 pb-3 pt-3 last:border-b-0">
                                                         {/* Nome do tópico */}
-                                                        <div className={`font-medium mb-3 ${
+                                                        <div className={`font-medium text-sm leading-tight mb-3 break-words ${
                                                             isHighlighted ? 'text-yellow-900' : 'text-gray-800'
                                                         }`}>
                                                             {topic.name}

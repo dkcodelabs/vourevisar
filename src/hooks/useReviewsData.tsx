@@ -95,9 +95,21 @@ export const useReviewsData = () => {
     const handleFocus = () => {
       refetch();
     };
+    
+    // Listener para mudanças de dados vindas de outras páginas
+    const handleDataUpdate = (event?: CustomEvent) => {
+      // Evento recebido, recarregando dados
+      refetch();
+    };
+    
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('topicUpdated', handleDataUpdate);
+    window.addEventListener('subjectUpdated', handleDataUpdate);
+    
     return () => {
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('topicUpdated', handleDataUpdate);
+      window.removeEventListener('subjectUpdated', handleDataUpdate);
     };
   }, [refetch]);
 

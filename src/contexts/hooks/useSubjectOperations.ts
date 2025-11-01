@@ -35,6 +35,12 @@ export const useSubjectOperations = (
 
       await loadSubjects();
       console.log('✅ loadSubjects executado');
+
+      // Disparar evento para sincronizar outras páginas
+      window.dispatchEvent(new CustomEvent('subjectUpdated', {
+        detail: { action: 'add', subjectId: data.id }
+      }));
+
       // Removido toast para não roubar foco
     } catch (error: any) {
       console.error('❌ Error adding subject:', error);
@@ -61,6 +67,12 @@ export const useSubjectOperations = (
       if (error) throw error;
 
       await loadSubjects();
+
+      // Disparar evento para sincronizar outras páginas
+      window.dispatchEvent(new CustomEvent('subjectUpdated', {
+        detail: { action: 'update', subjectId: id }
+      }));
+
       // Removido toast para não roubar foco
     } catch (error: any) {
       console.error('Error updating subject:', error);
@@ -81,6 +93,12 @@ export const useSubjectOperations = (
       if (error) throw error;
 
       await loadSubjects();
+
+      // Disparar evento para sincronizar outras páginas
+      window.dispatchEvent(new CustomEvent('subjectUpdated', {
+        detail: { action: 'delete', subjectId: id }
+      }));
+
       // Removido toast para não roubar foco
     } catch (error: any) {
       console.error('Error deleting subject:', error);

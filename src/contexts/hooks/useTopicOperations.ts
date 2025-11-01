@@ -37,6 +37,11 @@ export const useTopicOperations = (
       // refreshData já chama loadSubjects internamente
       await refreshData();
       
+      // Disparar evento para sincronizar outras páginas
+      window.dispatchEvent(new CustomEvent('topicUpdated', { 
+        detail: { action: 'add', subjectId, topicId: null } 
+      }));
+      
       toast.success('Tópico adicionado com sucesso!');
     } catch (error: any) {
       console.error('❌ Error adding topic:', error);
@@ -123,6 +128,11 @@ export const useTopicOperations = (
       // refreshData já chama loadSubjects internamente
       await refreshData();
       
+      // Disparar evento para sincronizar outras páginas
+      window.dispatchEvent(new CustomEvent('topicUpdated', { 
+        detail: { action: 'update', subjectId, topicId } 
+      }));
+      
     } catch (error: any) {
       console.error('❌ Error updating topic:', error);
       toast.error('Erro ao atualizar tópico');
@@ -145,6 +155,11 @@ export const useTopicOperations = (
       
       // refreshData já chama loadSubjects internamente
       await refreshData();
+      
+      // Disparar evento para sincronizar outras páginas
+      window.dispatchEvent(new CustomEvent('topicUpdated', { 
+        detail: { action: 'delete', subjectId, topicId } 
+      }));
       
       toast.success('Tópico removido com sucesso!');
     } catch (error: any) {

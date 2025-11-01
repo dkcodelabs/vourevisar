@@ -143,23 +143,7 @@ const Topics = () => {
     const stars4 = allTopics.filter(topic => topic.difficulty_level === 4).length;
     const stars5 = allTopics.filter(topic => topic.difficulty_level === 5).length;
 
-    // Debug log detalhado para entender o problema
-    console.log('🔍 Debug completo de dificuldades:', {
-      totalTopics: allTopics.length,
-      topicsWithDifficulty: allTopics.filter(t => t.difficulty_level).length,
-      allDifficulties: allTopics.map(t => ({
-        name: t.name,
-        subject: t.subjectName,
-        difficulty_level: t.difficulty_level,
-        hasValue: !!t.difficulty_level
-      })),
-      counts: { stars1, stars2, stars3, stars4, stars5 },
-      sampleTopics: allTopics.slice(0, 3).map(t => ({
-        name: t.name,
-        difficulty: t.difficulty_level,
-        id: t.id
-      }))
-    });
+    // Debug removido para otimização
 
     return {
       total: allTopics.length,

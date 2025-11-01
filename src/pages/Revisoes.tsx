@@ -109,6 +109,22 @@ const Revisoes = () => {
     }
   }, [searchParams, subjects, setSearchParams]);
 
+  // Efeito para recarregar dados quando a página se torna visível
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Página se tornou visível, recarregar dados
+        refetch();
+        refreshData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refetch, refreshData]);
+
   // Handlers para expandir/colapsar
   const handleExpandAll = () => {
     const allSubjectIds = subjects.map(s => s.id);
