@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronRight, BookOpen, Target, Zap, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { Subject } from '@/types';
 import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
-import { useApp } from '@/contexts/AppContext';
+// import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -24,11 +24,11 @@ interface SubjectHealth {
     reviewsTotal: number;
 }
 
-export const CompactSubjectAccordion: React.FC<CompactSubjectAccordionProps> = ({ subjects }) => {
+export const CompactSubjectAccordion: React.FC<CompactSubjectAccordionProps> = React.memo(({ subjects }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [userReviewProfile, setUserReviewProfile] = useState<ReviewProfile>(ReviewProfile.INTERMEDIATE);
     const navigate = useNavigate();
-    const { userSettings } = useApp();
+    // const { userSettings } = useApp();
     const { user } = useAuth();
 
     // Buscar perfil de revisão do usuário
@@ -50,7 +50,7 @@ export const CompactSubjectAccordion: React.FC<CompactSubjectAccordionProps> = (
 
                 if (data?.review_profile) {
                     setUserReviewProfile(data.review_profile as ReviewProfile);
-                    console.log(`👤 Perfil do usuário carregado: ${data.review_profile}`);
+                    // console.log(`👤 Perfil do usuário carregado: ${data.review_profile}`);
                 }
             } catch (error) {
                 console.warn('Erro ao buscar perfil:', error);
@@ -69,7 +69,7 @@ export const CompactSubjectAccordion: React.FC<CompactSubjectAccordionProps> = (
         // Usar perfil real do usuário
         const reviewProfile = userReviewProfile;
         const maxReviewsPerTopic = REVIEW_PROFILES[reviewProfile].maxReviews;
-        console.log(`👤 Perfil: ${reviewProfile} - Max revisões por tópico: ${maxReviewsPerTopic}`);
+        // console.log(`👤 Perfil: ${reviewProfile} - Max revisões por tópico: ${maxReviewsPerTopic}`);
 
         const totalTopics = subject.topics.length;
 
@@ -89,13 +89,13 @@ export const CompactSubjectAccordion: React.FC<CompactSubjectAccordionProps> = (
         // Calcular progresso real considerando reviewCount de cada tópico
         const totalProgress = subject.topics.reduce((sum, topic) => {
             const topicProgress = Math.min(topic.reviewCount || 0, maxReviewsPerTopic);
-            console.log(`🔍 ${subject.name} - Tópico: ${topic.name}, reviewCount: ${topic.reviewCount}, progresso: ${topicProgress}/${maxReviewsPerTopic}`);
+            // console.log(`🔍 ${subject.name} - Tópico: ${topic.name}, reviewCount: ${topic.reviewCount}, progresso: ${topicProgress}/${maxReviewsPerTopic}`);
             return sum + (topicProgress / maxReviewsPerTopic);
         }, 0);
 
         const percentage = Math.round((totalProgress / totalTopics) * 100);
-        console.log(`📊 ${subject.name} - Progresso: ${totalProgress}/${totalTopics} = ${percentage}%`);
-        console.log(`🎯 ${subject.name} - Tópicos concluídos: ${subject.topics.filter(t => t.reviewStage === 'Concluído').length}/${totalTopics}`);
+        // console.log(`📊 ${subject.name} - Progresso: ${totalProgress}/${totalTopics} = ${percentage}%`);
+        // console.log(`🎯 ${subject.name} - Tópicos concluídos: ${subject.topics.filter(t => t.reviewStage === 'Concluído').length}/${totalTopics}`);
 
         const totalReviewsNeeded = totalTopics * maxReviewsPerTopic;
         const completedReviews = subject.topics.reduce((sum, topic) =>
@@ -234,9 +234,9 @@ export const CompactSubjectAccordion: React.FC<CompactSubjectAccordionProps> = (
                                 </h3>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                                        <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer">
                                             <Info className="h-4 w-4" />
-                                        </button>
+                                        </div>
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="max-w-xs">
                                         <div className="space-y-2 text-sm">
@@ -343,4 +343,4 @@ export const CompactSubjectAccordion: React.FC<CompactSubjectAccordionProps> = (
             </div>
         </TooltipProvider>
     );
-};
+});

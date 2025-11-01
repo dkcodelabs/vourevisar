@@ -20,10 +20,12 @@ export const NewCycleModal: React.FC<NewCycleModalProps> = ({
   if (!isOpen) return null;
 
   const handleContinue = () => {
-    console.log('🔄 Modal OK clicado - recarregando página...');
+    console.log('✅ Modal OK clicado - fechando modal...');
     onClose();
-    // Recarregar imediatamente
-    window.location.reload();
+    // Disparar evento para atualizar componentes
+    window.dispatchEvent(new CustomEvent('cycleUpdated', {
+      detail: { isNewCycle: true, timestamp: Date.now() }
+    }));
   };
 
   return (

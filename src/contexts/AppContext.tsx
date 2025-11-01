@@ -1,11 +1,12 @@
 
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Subject, StudyProgress } from '@/types';
 import { AppContextType } from './types/AppContextTypes';
 import { useSubjectOperations } from './hooks/useSubjectOperations';
 import { useTopicOperations } from './hooks/useTopicOperations';
 import { useDataLoading } from './hooks/useDataLoading';
+
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -24,6 +25,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
 
   // Custom hooks for different operations
   const {
@@ -48,14 +50,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteTopic
   } = useTopicOperations(user, loadSubjects, refreshData);
 
-  // Recarregar dados quando o usuário muda
+  // Carregar dados quando o usuário muda
   useEffect(() => {
     if (user) {
-      // Limpar dados antigos primeiro
       setSubjects([]);
       setIsDataLoaded(false);
       setError(null);
-      // Carregar novos dados
       loadSubjects();
     } else {
       setSubjects([]);
@@ -63,7 +63,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsDataLoaded(false);
       setError(null);
     }
-  }, [user?.id, loadSubjects]);
+  }, [user?.id]); // Apenas user.id como dependência
 
   const value: AppContextType = {
     subjects,

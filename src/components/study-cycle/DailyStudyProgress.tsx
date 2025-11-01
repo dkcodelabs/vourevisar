@@ -75,17 +75,9 @@ export const DailyStudyProgress: React.FC<DailyStudyProgressProps> = ({
     return null;
   }
 
+  // DESABILITADO TEMPORARIAMENTE - estava causando loading infinito
   if (isLoading) {
-    return (
-      <Card className={`${className}`}>
-        <CardContent className="p-3">
-          <div className="animate-pulse space-y-2">
-            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-2 bg-gray-200 rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return null; // Não mostrar nada quando carregando
   }
 
   return (

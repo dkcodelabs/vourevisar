@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, Save, ThumbsUp, Minus, ThumbsDown, Plus } from 'lucide-react';
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
-import { TopicNotes, DifficultyLevel, TopicSubtopic } from '@/types';
+import { TopicNotes, TopicSubtopic } from '@/types';
+// import { DifficultyLevel } from '@/types'; // Removido - usando sistema de estrelas
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -19,6 +20,7 @@ interface NotesModalProps {
   topicId: string;
   topicName: string;
   subjectName: string;
+  showSubjectNotes?: boolean; // Controla se deve mostrar anotações da matéria
 }
 
 const NotesModal: React.FC<NotesModalProps> = ({
@@ -27,12 +29,13 @@ const NotesModal: React.FC<NotesModalProps> = ({
   onSave,
   topicId,
   topicName,
-  subjectName
+  subjectName,
+  showSubjectNotes = true // Por padrão, mostra anotações da matéria (comportamento atual)
 }) => {
   const [notes, setNotes] = useState<TopicNotes | undefined>(undefined);
   const [subjectNotes, setSubjectNotes] = useState<TopicNotes | undefined>(undefined);
   const [subjectId, setSubjectId] = useState<string>('');
-  const [difficulty, setDifficulty] = useState<DifficultyLevel | null>(null);
+  // const [difficulty, setDifficulty] = useState<DifficultyLevel | null>(null); // Removido - usando sistema de estrelas
   const [subtopics, setSubtopics] = useState<TopicSubtopic[]>([]);
   const [newSubtopic, setNewSubtopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +54,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       if (topicId.startsWith('temp-')) {
         // Para IDs temporários, apenas inicializar com valores vazios
         setNotes(undefined);
-        setDifficulty(null);
+        // setDifficulty(null); // Removido - usando sistema de estrelas
         setSubtopics([]);
         setIsLoading(false);
       } else {
@@ -66,7 +69,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       // Carregar anotações do tópico
       const { data: topicData, error: topicError } = await supabase
         .from('topics')
-        .select('notes, difficulty_level, subtopics, difficulty_set_at, subject_id')
+        .select('notes, subtopics, subject_id')
         .eq('id', topicId)
         .single();
 
@@ -81,11 +84,11 @@ const NotesModal: React.FC<NotesModalProps> = ({
         setCurrentTopicContent('');
       }
       
-      setDifficulty((topicData?.difficulty_level as DifficultyLevel) || null);
+      // setDifficulty((topicData?.difficulty_level as DifficultyLevel) || null); // Removido - usando sistema de estrelas
       setSubtopics((topicData?.subtopics as unknown as TopicSubtopic[]) || []);
 
-      // Carregar anotações da matéria
-      if (topicData?.subject_id) {
+      // Carregar anotações da matéria apenas se showSubjectNotes for true
+      if (showSubjectNotes && topicData?.subject_id) {
         setSubjectId(topicData.subject_id);
         const { data: subjectData, error: subjectError } = await supabase
           .from('subjects')
@@ -120,7 +123,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
         console.log('Salvando anotações temporárias:', {
           topicId,
           notes: updatedNotes,
-          difficulty,
+          // difficulty, // Removido - usando sistema de estrelas
           subtopics
         });
         setNotes(updatedNotes);
@@ -131,9 +134,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
       const updates: any = {
         notes: updatedNotes as any,
-        difficulty_level: difficulty,
+        // difficulty_level: difficulty, // Removido - usando sistema de estrelas
         subtopics: subtopics,
-        difficulty_set_at: difficulty ? new Date().toISOString() : null,
+        // difficulty_set_at: difficulty ? new Date().toISOString() : null, // Removido - usando sistema de estrelas
         updated_at: new Date().toISOString()
       };
 
@@ -165,8 +168,8 @@ const NotesModal: React.FC<NotesModalProps> = ({
     try {
       setIsSaving(true);
       
-      // Salvar anotações da matéria se houver conteúdo
-      if (currentSubjectContent && currentSubjectContent.trim() !== '<p><br></p>' && currentSubjectContent.trim() !== '') {
+      // Salvar anotações da matéria se houver conteúdo e showSubjectNotes for true
+      if (showSubjectNotes && currentSubjectContent && currentSubjectContent.trim() !== '<p><br></p>' && currentSubjectContent.trim() !== '') {
         const subjectNotesToSave: TopicNotes = {
           content: currentSubjectContent.trim(),
           updatedAt: new Date().toISOString(),
@@ -188,9 +191,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
       // Salvar dificuldade e subtópicos se houver mudanças
       if (hasUnsavedChanges && !topicId.startsWith('temp-')) {
         const updates: any = {
-          difficulty_level: difficulty,
+          // difficulty_level: difficulty, // Removido - usando sistema de estrelas
           subtopics: subtopics,
-          difficulty_set_at: difficulty ? new Date().toISOString() : null,
+          // difficulty_set_at: difficulty ? new Date().toISOString() : null, // Removido - usando sistema de estrelas
           updated_at: new Date().toISOString()
         };
 
@@ -266,23 +269,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
     setHasUnsavedChanges(true);
   };
 
-  const getDifficultyButtonStyle = (level: DifficultyLevel) => {
-    const isSelected = difficulty === level;
-    switch (level) {
-      case 'easy':
-        return isSelected 
-          ? 'bg-green-500 text-white border-green-500' 
-          : 'border-green-200 text-green-600 hover:bg-green-50';
-      case 'medium':
-        return isSelected 
-          ? 'bg-yellow-500 text-white border-yellow-500' 
-          : 'border-yellow-200 text-yellow-600 hover:bg-yellow-50';
-      case 'hard':
-        return isSelected 
-          ? 'bg-red-500 text-white border-red-500' 
-          : 'border-red-200 text-red-600 hover:bg-red-50';
-    }
-  };
+  // Função getDifficultyButtonStyle removida - usando sistema de estrelas
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -340,23 +327,25 @@ const NotesModal: React.FC<NotesModalProps> = ({
             <div className="space-y-6">
 
 
-              {/* Anotações da Matéria */}
-              <div>
-                <Label className="text-sm font-medium mb-3 block text-blue-600 dark:text-blue-400">
-                  📚 Anotações da Matéria ({subjectName})
-                </Label>
-                <RichTextNotesEditor
-                  key={`subject-${subjectId}`}
-                  notes={subjectNotes}
-                  onSave={saveSubjectNotes}
-                  isLoading={isLoading || isSaving}
-                  onChange={(content) => {
-                    handleNotesChange();
-                    setCurrentSubjectContent(content);
-                  }}
-                  hideHeader={true}
-                />
-              </div>
+              {/* Anotações da Matéria - apenas se showSubjectNotes for true */}
+              {showSubjectNotes && (
+                <div>
+                  <Label className="text-sm font-medium mb-3 block text-blue-600 dark:text-blue-400">
+                    📚 Anotações da Matéria ({subjectName})
+                  </Label>
+                  <RichTextNotesEditor
+                    key={`subject-${subjectId}`}
+                    notes={subjectNotes}
+                    onSave={saveSubjectNotes}
+                    isLoading={isLoading || isSaving}
+                    onChange={(content) => {
+                      handleNotesChange();
+                      setCurrentSubjectContent(content);
+                    }}
+                    hideHeader={true}
+                  />
+                </div>
+              )}
 
               {/* Anotações do Tópico */}
               <div>
@@ -376,53 +365,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
                 />
               </div>
 
-              {/* Nível de Dificuldade */}
-              <div>
-                <Label className="text-sm font-medium mb-3 block">
-                  📊 Nível de Dificuldade
-                </Label>
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={getDifficultyButtonStyle('easy')}
-                    onClick={() => {
-                      const newDifficulty = difficulty === 'easy' ? null : 'easy';
-                      setDifficulty(newDifficulty);
-                      setHasUnsavedChanges(true);
-                    }}
-                  >
-                    <ThumbsUp className="h-4 w-4 mr-2" />
-                    Fácil
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={getDifficultyButtonStyle('medium')}
-                    onClick={() => {
-                      const newDifficulty = difficulty === 'medium' ? null : 'medium';
-                      setDifficulty(newDifficulty);
-                      setHasUnsavedChanges(true);
-                    }}
-                  >
-                    <Minus className="h-4 w-4 mr-2" />
-                    Médio
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={getDifficultyButtonStyle('hard')}
-                    onClick={() => {
-                      const newDifficulty = difficulty === 'hard' ? null : 'hard';
-                      setDifficulty(newDifficulty);
-                      setHasUnsavedChanges(true);
-                    }}
-                  >
-                    <ThumbsDown className="h-4 w-4 mr-2" />
-                    Difícil
-                  </Button>
-                </div>
-              </div>
+              {/* Seção de Nível de Dificuldade removida - usando sistema de estrelas */}
 
               {/* Subtópicos */}
               <div>

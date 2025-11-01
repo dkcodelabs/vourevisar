@@ -2,6 +2,7 @@
 // LINK GERENCIAMENTO - PARA ADICIONAR NA BARRA DE MENU
 // =====================================================
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { useUserRole } from '@/hooks/useUserRole'
 import { AdminOnly } from '@/components/ProtectedComponent'
 
@@ -15,8 +16,8 @@ export default function GerenciamentoLink() {
 
   return (
     <AdminOnly>
-      <a 
-        href="/gerenciamento"
+      <Link 
+        to="/gerenciamento"
         style={{
           color: '#64748b',
           textDecoration: 'none',
@@ -39,7 +40,7 @@ export default function GerenciamentoLink() {
         }}
       >
         ⚙️ Gerenciamento
-      </a>
+      </Link>
     </AdminOnly>
   )
 }

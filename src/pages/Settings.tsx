@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,9 +19,13 @@ import { ProfileSelector } from '@/components/ProfileSelector';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Check } from "lucide-react";
+// Removido hook de visibilidade que causava recarregamentos
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ResetCycleConfirmDialog } from '@/components/ResetCycleConfirmDialog';
+import { SystemStatusTest } from '@/components/SystemStatusTest';
+import { QuickAdminSetup } from '@/components/QuickAdminSetup';
+import { FinalSystemCheck } from '@/components/FinalSystemCheck';
 
 interface UserCycle {
   id: string;
@@ -35,8 +40,12 @@ interface UserCycle {
 }
 
 const Settings = () => {
+  // Removido hook de visibilidade problemático
+
+  const navigate = useNavigate();
+
   const { user } = useAuth();
-  
+
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,9 +65,9 @@ const Settings = () => {
   // Use the custom hook for cycle management
   const { userCycle, isLoading: isCycleLoading, fetchUserCycle, resetCycle } = useCycleState();
   const [isResettingCycle, setIsResettingCycle] = useState(false);
-  
+
   const { fetchUserSettings: fetchUserSettingsContext, refreshData } = useApp();
-  
+
   // Buscar configurações do usuário ao carregar a página
   useEffect(() => {
     if (user) {
@@ -71,19 +80,19 @@ const Settings = () => {
 
   const fetchUserSettings = async () => {
     if (!user) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const { data, error } = await supabase
         .from('user_settings')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
+
       if (data) {
         setSettings({
           id: '', // Campo removido da tabela user_settings
@@ -109,7 +118,7 @@ const Settings = () => {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
-          
+
         if (insertError) throw insertError;
       }
     } catch (err: any) {
@@ -146,9 +155,9 @@ const Settings = () => {
     try {
       console.log('🔄 Chamando resetCycle...');
       await resetCycle();
-      
+
       console.log('✅ resetCycle executado com sucesso');
-      
+
       // Atualizar todos os dados da aplicação
       console.log('🔄 Atualizando dados da aplicação...');
       await Promise.all([
@@ -156,10 +165,10 @@ const Settings = () => {
         fetchUserSettingsContext(), // Atualiza as configurações
         checkHasReviews() // Atualiza o estado de revisões
       ]);
-      
+
       console.log('✅ Dados atualizados com sucesso');
       toast.success("Ciclo e revisões resetados com sucesso! Todas as matérias voltaram ao status inicial.");
-      
+
       // Recarregar a página após um pequeno delay para garantir que todos os estados foram atualizados
       setTimeout(() => {
         console.log('🔄 Recarregando página...');
@@ -172,18 +181,18 @@ const Settings = () => {
       setIsResettingCycle(false);
     }
   };
-  
+
   const handleNotificationsToggle = (checked: boolean) => {
     setSettings(prev => ({
       ...prev,
       notifications_enabled: checked
     }));
   };
-  
+
   const handleSubjectsPerDayChange = async (value: number[]) => {
     const newValue = value[0];
     console.log('🔧 Mudando subjects_per_day de', settings.subjects_per_day, 'para', newValue);
-    
+
     setSettings(prev => ({
       ...prev,
       subjects_per_day: newValue
@@ -194,19 +203,19 @@ const Settings = () => {
       try {
         const { error } = await supabase
           .from('user_settings')
-          .update({ 
+          .update({
             subjects_per_day: newValue,
             updated_at: new Date().toISOString()
           })
           .eq('user_id', user.id);
-        
+
         if (error) throw error;
-        
+
         console.log('✅ subjects_per_day salvo no banco:', newValue);
-        
+
         // Atualizar o contexto global imediatamente
         await fetchUserSettingsContext();
-        
+
         toast.success(`Agora você estudará ${newValue} matéria${newValue > 1 ? 's' : ''} por dia`);
       } catch (err) {
         console.error('Erro ao salvar subjects_per_day:', err);
@@ -219,14 +228,14 @@ const Settings = () => {
       }
     }
   };
-  
+
   const handleNotificationTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSettings(prev => ({
       ...prev,
       notification_time: e.target.value
     }));
   };
-  
+
   const handleProfileChange = async (newProfile: ReviewProfile) => {
     if (hasReviews) return;
     try {
@@ -247,13 +256,13 @@ const Settings = () => {
       toast.error("Erro ao atualizar perfil de revisão");
     }
   };
-  
+
   const handleSaveSettings = async () => {
     if (!user) return;
-    
+
     setIsSaving(true);
     setError(null);
-    
+
     try {
       const { error } = await supabase
         .from('user_settings')
@@ -265,9 +274,9 @@ const Settings = () => {
           review_profile: settings.review_profile,
           updated_at: new Date().toISOString()
         });
-      
+
       if (error) throw error;
-      
+
       // Atualizar o contexto global imediatamente
       await fetchUserSettingsContext();
       toast.success("Configurações salvas com sucesso");
@@ -282,63 +291,63 @@ const Settings = () => {
 
   // Calcular disciplinas concluídas do ciclo atual
   const disciplinasConcluidas = userCycle?.ciclo_atual?.length || 0;
-  
+
   const handleClearAll = async () => {
     if (!user) {
       toast.error("Usuário não autenticado.");
       return;
     }
-    
+
     if (window.confirm("Tem certeza que deseja excluir TODAS as matérias, tópicos e revisões? Esta ação não pode ser desfeita!")) {
       try {
         console.log('🧹 Iniciando limpeza completa do sistema para usuário:', user.id);
-        
+
         // 1. Buscar todas as matérias do usuário
         const { data: userSubjects, error: subjectsError } = await supabase
           .from('subjects')
           .select('id')
           .eq('user_id', user.id);
-        
+
         if (subjectsError) throw subjectsError;
-        
+
         const subjectIds = (userSubjects || []).map(s => s.id);
         console.log('🧹 Matérias encontradas:', subjectIds.length);
-        
+
         // 2. Deletar tópicos das matérias do usuário
         if (subjectIds.length > 0) {
           const { error: topicsError } = await supabase
             .from('topics')
             .delete()
             .in('subject_id', subjectIds);
-          
+
           if (topicsError) throw topicsError;
           console.log('🧹 Tópicos deletados');
         }
-        
+
         // 3. Deletar matérias do usuário
         const { error: subjectsDeleteError } = await supabase
           .from('subjects')
           .delete()
           .eq('user_id', user.id);
-        
+
         if (subjectsDeleteError) throw subjectsDeleteError;
         console.log('🧹 Matérias deletadas');
-        
+
         // 4. Deletar ciclos do usuário
         const { error: cyclesError } = await supabase
           .from('user_cycles')
           .delete()
           .eq('user_id', user.id);
-        
+
         if (cyclesError) throw cyclesError;
         console.log('🧹 Ciclos deletados');
-        
+
         // 5. Deletar sessões de estudo do usuário
         const { error: sessionsError } = await supabase
           .from('study_sessions')
           .delete()
           .eq('user_id', user.id);
-        
+
         if (sessionsError) throw sessionsError;
         console.log('🧹 Sessões deletadas');
 
@@ -347,11 +356,10 @@ const Settings = () => {
           refreshData(), // Atualiza o contexto global
           fetchUserCycle(), // Atualiza o ciclo do usuário
           fetchUserSettingsContext(), // Atualiza as configurações
-          checkHasReviews() // Atualiza o estado de revisões
         ]);
-        
+
         toast.success("Sistema limpo com sucesso!");
-        
+
         // Recarregar a página após um pequeno delay para garantir que todos os estados foram atualizados
         setTimeout(() => {
           window.location.reload();
@@ -362,7 +370,7 @@ const Settings = () => {
       }
     }
   };
-  
+
   if (isLoading || isCycleLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -371,7 +379,7 @@ const Settings = () => {
       </div>
     );
   }
-  
+
   function agruparPorMateria(topics) {
     const materias = {};
     topics.forEach(topic => {
@@ -389,7 +397,7 @@ const Settings = () => {
       futuras: topics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime()),
     };
   }
-  
+
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
@@ -416,11 +424,12 @@ const Settings = () => {
           )}
 
           <Tabs defaultValue="estudos" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="estudos">Estudos</TabsTrigger>
               <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
               <TabsTrigger value="informacoes">Informações</TabsTrigger>
               <TabsTrigger value="sistema">Sistema</TabsTrigger>
+              <TabsTrigger value="diagnostico">🔍 Diagnóstico</TabsTrigger>
             </TabsList>
 
             {/* Aba Estudos */}
@@ -441,17 +450,17 @@ const Settings = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="max-w-2xl">
-                    <ProfileSelector 
-                      selected={settings?.review_profile} 
-                      onSelect={handleProfileChange} 
-                      onboarding={false} 
-                      disabled={hasReviews} 
+                    <ProfileSelector
+                      selected={settings?.review_profile}
+                      onSelect={handleProfileChange}
+                      onboarding={false}
+                      disabled={hasReviews}
                     />
                     {hasReviews && (
                       <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded text-sm">
-                        <strong>Perfil bloqueado:</strong> Há revisões em andamento. 
+                        <strong>Perfil bloqueado:</strong> Há revisões em andamento.
                         Para alterar o perfil, use "Limpar Apenas Revisões" na aba Sistema.
                       </div>
                     )}
@@ -467,13 +476,13 @@ const Settings = () => {
                         Configure seus estudos diários.
                       </p>
                     </div>
-                    
+
                     <div className="space-y-4">
                       <div>
                         <h3 className="text-sm font-medium mb-2">
                           Matérias por dia: {settings.subjects_per_day}
                         </h3>
-                        <Slider 
+                        <Slider
                           value={[settings.subjects_per_day]}
                           max={10}
                           min={1}
@@ -485,12 +494,12 @@ const Settings = () => {
                           Mudanças aplicadas imediatamente
                         </p>
                       </div>
-                      
+
                       <div>
                         <h3 className="text-sm font-medium mb-2">Organizar Matérias</h3>
-                        <GradientButton 
+                        <GradientButton
                           className="w-full"
-                          onClick={() => window.location.href = '/materias'}
+                          onClick={() => navigate('/materias')}
                         >
                           Gerenciar Matérias
                         </GradientButton>
@@ -507,14 +516,14 @@ const Settings = () => {
                         Acompanhe suas estatísticas.
                       </p>
                     </div>
-                    
+
                     {userCycle ? (
                       <div className="space-y-4">
                         <div className="text-center p-3 bg-primary/10 rounded-lg">
                           <div className="text-2xl font-bold text-primary">{userCycle.ciclos_realizados || 0}</div>
                           <div className="text-sm text-muted-foreground">Total de ciclos</div>
                         </div>
-                        
+
                         <div className="space-y-2 text-sm">
                           <div>
                             <span className="font-medium">Data Início: </span>
@@ -570,7 +579,7 @@ const Settings = () => {
                       Configure suas notificações de estudo.
                     </p>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
@@ -579,15 +588,15 @@ const Settings = () => {
                           Receba lembretes para estudar
                         </p>
                       </div>
-                      <Switch 
+                      <Switch
                         checked={settings.notifications_enabled}
                         onCheckedChange={handleNotificationsToggle}
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="notification-time" className="text-sm">Horário Principal</Label>
-                      <Input 
+                      <Input
                         id="notification-time"
                         type="time"
                         value={settings.notification_time}
@@ -597,7 +606,7 @@ const Settings = () => {
                     </div>
 
                     <div className="pt-2">
-                      <GradientButton 
+                      <GradientButton
                         onClick={handleSaveSettings}
                         disabled={isSaving}
                         className="w-full"
@@ -632,7 +641,7 @@ const Settings = () => {
                           <div className="text-sm text-emerald-600 dark:text-emerald-400">Todas as revisões do perfil foram completadas</div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                         <span className="text-2xl">⚡</span>
                         <div>
@@ -640,7 +649,7 @@ const Settings = () => {
                           <div className="text-sm text-blue-600 dark:text-blue-400">Boa parte das revisões já foi feita</div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
                         <span className="text-2xl">⚠️</span>
                         <div>
@@ -648,7 +657,7 @@ const Settings = () => {
                           <div className="text-sm text-orange-600 dark:text-orange-400">Algumas revisões feitas, mas precisa de mais foco</div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                         <span className="text-2xl">🚨</span>
                         <div>
@@ -665,7 +674,7 @@ const Settings = () => {
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Cada perfil tem um número diferente de revisões, o que afeta como a porcentagem é calculada.
                     </p>
-                    
+
                     <div className="grid gap-4 md:grid-cols-3">
                       {/* Iniciante */}
                       <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -793,7 +802,7 @@ const Settings = () => {
                       Reinicie seu ambiente de estudos.
                     </p>
                   </div>
-                  
+
                   {/* Botão Limpar Apenas Revisões */}
                   <div className="space-y-3">
                     <div className="p-4 border border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800 rounded-lg">
@@ -814,7 +823,7 @@ const Settings = () => {
                           if (window.confirm("Tem certeza que deseja limpar apenas as revisões? As matérias e tópicos serão mantidos, mas todo o progresso será zerado.")) {
                             try {
                               console.log('🔄 Iniciando reset das revisões para usuário:', user.id);
-                              
+
                               // 1. Buscar todas as matérias do usuário
                               const { data: subjectsData, error: subjectsError } = await supabase
                                 .from('subjects')
@@ -823,7 +832,7 @@ const Settings = () => {
                               if (subjectsError) throw subjectsError;
                               const subjectIds = (subjectsData || []).map(s => s.id);
                               console.log('🔄 Matérias encontradas:', subjectIds.length);
-                              
+
                               // 2. Resetar TODOS os campos de revisão dos tópicos
                               if (subjectIds.length > 0) {
                                 const { error: topicsError } = await supabase
@@ -837,23 +846,23 @@ const Settings = () => {
                                     updated_at: new Date().toISOString()
                                   })
                                   .in('subject_id', subjectIds);
-                                
+
                                 if (topicsError) throw topicsError;
                                 console.log('✅ Tópicos resetados');
                               }
-                              
+
                               // 3. Resetar status das matérias
                               const { error: subjectsUpdateError } = await supabase
                                 .from('subjects')
-                                .update({ 
+                                .update({
                                   status: 'Nova',
                                   updated_at: new Date().toISOString()
                                 })
                                 .eq('user_id', user.id);
-                              
+
                               if (subjectsUpdateError) throw subjectsUpdateError;
                               console.log('✅ Status das matérias resetado');
-                              
+
                               // 4. Resetar COMPLETAMENTE o ciclo do usuário
                               const { error: cycleError } = await supabase
                                 .from('user_cycles')
@@ -867,55 +876,54 @@ const Settings = () => {
                                   atualizado_em: new Date().toISOString()
                                 })
                                 .eq('user_id', user.id);
-                              
+
                               if (cycleError) throw cycleError;
                               console.log('✅ Ciclo resetado completamente');
-                              
+
                               // 5. Deletar sessões de estudo (opcional, mas recomendado)
                               const { error: sessionsError } = await supabase
                                 .from('study_sessions')
                                 .delete()
                                 .eq('user_id', user.id);
-                              
+
                               if (sessionsError) {
                                 console.warn('⚠️ Erro ao deletar sessões (não crítico):', sessionsError);
                               } else {
                                 console.log('✅ Sessões de estudo deletadas');
                               }
-                              
+
                               // 6. CRÍTICO: Limpar estado global do frontend
                               console.log('🔄 Limpando estado global...');
-                              
+
                               // Importar e usar as funções do cycleState
                               const { updateStudiedSubjects, resetCycle } = await import('@/utils/cycleState');
                               updateStudiedSubjects([]); // Limpar matérias estudadas
                               resetCycle(0); // Resetar para ciclo 0
-                              
+
                               // 7. Disparar eventos para atualizar componentes
                               console.log('🔄 Disparando eventos de atualização...');
                               window.dispatchEvent(new CustomEvent('cycleUpdated', {
-                                detail: { 
+                                detail: {
                                   isReset: true,
                                   reason: 'reviewsCleared',
                                   timestamp: Date.now()
                                 }
                               }));
-                              
+
                               // 8. Atualizar dados da aplicação
                               await Promise.all([
                                 refreshData(),
                                 fetchUserCycle(),
                                 fetchUserSettingsContext(),
-                                checkHasReviews()
                               ]);
-                              
+
                               toast.success("Revisões limpas com sucesso! O sistema foi reiniciado.");
-                              
+
                               setTimeout(() => {
                                 console.log('🔄 Recarregando página...');
                                 window.location.reload();
                               }, 1500);
-                              
+
                             } catch (err) {
                               console.error('❌ Erro ao limpar revisões:', err);
                               toast.error(`Erro ao limpar revisões: ${err.message || 'Erro desconhecido'}`);
@@ -946,6 +954,29 @@ const Settings = () => {
                     >
                       ⚠️ Reset Completo (Irreversível)
                     </Button>
+                  </div>
+                </div>
+              </GlassCard>
+            </TabsContent>
+
+            {/* Aba Diagnóstico */}
+            <TabsContent value="diagnostico" className="space-y-4">
+              <GlassCard className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">🔍 Diagnóstico do Sistema</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Verifique o status das funcionalidades administrativas e de assinatura.
+                    </p>
+                  </div>
+                  <SystemStatusTest />
+                  
+                  <div className="mt-6">
+                    <QuickAdminSetup />
+                  </div>
+                  
+                  <div className="mt-6">
+                    <FinalSystemCheck />
                   </div>
                 </div>
               </GlassCard>

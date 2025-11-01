@@ -2,6 +2,7 @@
 // EXEMPLO DE NAVEGAÇÃO COM MENU GERENCIAMENTO
 // =====================================================
 import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useUserRole } from '@/hooks/useUserRole'
 import { AdminOnly } from '@/components/ProtectedComponent'
 import GerenciamentoMenu from '@/components/GerenciamentoMenu'
@@ -40,13 +41,13 @@ export default function NavigationWithGerenciamento() {
           gap: '24px'
         }}>
           {/* Links normais */}
-          <a href="/" style={{ color: '#64748b', textDecoration: 'none' }}>
+          <Link to="/" style={{ color: '#64748b', textDecoration: 'none' }}>
             🏠 Início
-          </a>
+          </Link>
           
-          <a href="/dashboard" style={{ color: '#64748b', textDecoration: 'none' }}>
+          <Link to="/dashboard" style={{ color: '#64748b', textDecoration: 'none' }}>
             📊 Dashboard
-          </a>
+          </Link>
 
           {/* Menu Gerenciamento - SÓ APARECE PARA ADMINS */}
           <AdminOnly>

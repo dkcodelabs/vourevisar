@@ -177,7 +177,11 @@ export const useCycleViewManagement = () => {
 
   const getSubjectViewCount = (subjectId: string, cicloAtual: string[]): number => {
     if (!cicloAtual) return 0;
-    return cicloAtual.filter(id => id === subjectId).length;
+    const count = cicloAtual.filter(id => id === subjectId).length;
+    
+
+    
+    return count;
   };
 
   const getViewNumber = (subjectId: string, cycleIndex: number, cicloAtual: string[]): number => {

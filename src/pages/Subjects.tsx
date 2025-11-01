@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +14,10 @@ import { toast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '@/components/SortableItem';
-import { useApp } from '@/contexts/AppContext';
+// Removido hook de contexto - usando estado local simples
 import { Subject, Status } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
+import { transformSubjectsData } from '@/contexts/utils/dataTransformers';
 import { UserProfileProvider, useUserProfile } from '@/contexts/UserProfileContext';
 import { ProfileSelector } from '@/components/ProfileSelector';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +27,8 @@ import ContentUploadModal from '@/components/ContentUploadModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
+import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
+// Removido import do hook de visibilidade que causava recarregamentos
 import { CycleStatusIndicator } from '@/components/CycleStatusIndicator';
 
 // Função corrigida para calcular o status automaticamente baseado nos tópicos
@@ -69,7 +73,73 @@ const getStatusColor = (status: Status) => {
 const Subjects = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { subjects, isLoading, error, addSubject, deleteSubject, updateSubject, forceRefresh } = useApp();
+  // Estado local simples - sem contextos
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  
+  // Cache simples no localStorage
+  const loadSubjects = async () => {
+    console.log('📥 LOAD SUBJECTS CALLED:', { 
+      user: !!user, 
+      userId: user?.id,
+      timestamp: new Date().toISOString() 
+    });
+    
+    if (!user) return;
+    
+    const cacheKey = `subjects_${user.id}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      try {
+        const data = JSON.parse(cached);
+        if (Date.now() - data.timestamp < 300000) { // 5 minutos
+          console.log('💾 USING CACHE:', { subjectsCount: data.subjects.length });
+          setSubjects(data.subjects);
+          return;
+        }
+      } catch (e) {}
+    }
+    
+    console.log('🔄 LOADING FROM DATABASE');
+    setIsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('subjects')
+        .select(`*, topics (*, difficulty_level)`)
+        .eq('user_id', user.id)
+        .order('priority', { ascending: true })
+        .order('created_at', { foreignTable: 'topics', ascending: true });
+      
+      const transformedSubjects = transformSubjectsData(data || []);
+      console.log('🔄 SETTING SUBJECTS:', { 
+        rawCount: data?.length || 0, 
+        transformedCount: transformedSubjects.length 
+      });
+      setSubjects(transformedSubjects);
+      
+      localStorage.setItem(cacheKey, JSON.stringify({
+        subjects: transformedSubjects,
+        timestamp: Date.now()
+      }));
+      
+      console.log('✅ DATA LOADED:', { subjectsCount: transformedSubjects.length });
+    } catch (error) {
+      console.error('❌ ERROR:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const refreshData = async () => {
+    if (user) {
+      localStorage.removeItem(`subjects_${user.id}`);
+      await loadSubjects();
+    }
+  };
+  
+
   const [newSubjectName, setNewSubjectName] = useState('');
   const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
   const { profile, setProfile } = useUserProfile();
@@ -110,63 +180,64 @@ const Subjects = () => {
   // Hook para gerenciar status do ciclo de estudos
   const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
   
+  // Hook para tracking de sessões de estudo
+  const { recordStudySession } = useStudySessionTracking();
+  
   // Estado para armazenar o ciclo atual e contar visualizações
   const [userCycle, setUserCycle] = useState<any>(null);
   
   // expandedSubjectList agora é um useMemo (definido mais abaixo)
 
-  // Carregar ciclo atual para mostrar contadores
+  // Carregar dados apenas uma vez por usuário
   useEffect(() => {
-    const loadCycle = async () => {
+    console.log('🚀 SUBJECTS useEffect TRIGGERED:', { 
+      user: !!user, 
+      userId: user?.id,
+      timestamp: new Date().toISOString() 
+    });
+    
+    if (user) {
+      loadSubjects().finally(() => {
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  // Carregar ciclo do usuário
+  useEffect(() => {
+    const loadUserCycle = async () => {
       if (!user) return;
       
-      const { data } = await supabase
-        .from('user_cycles')
-        .select('ciclo_atual')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (data) {
-        setUserCycle(data);
-      } else {
-        // Se não existe ciclo, criar um básico
-        console.log('Nenhum ciclo encontrado, criando ciclo básico...');
-        try {
-          const activeSubjects = localSubjects.filter(s => s.status !== 'Concluída');
-          const cicloAtual = activeSubjects.map(s => s.id);
-          
-          const { data: newCycle, error } = await supabase
-            .from('user_cycles')
-            .insert({
-              user_id: user.id,
-              ciclo_atual: cicloAtual,
-              disciplinas_do_dia: [],
-              indice_atual: 0,
-              ciclos_realizados: 0,
-              data_inicio_ciclo: new Date().toISOString(),
-              atualizado_em: new Date().toISOString()
-            })
-            .select('ciclo_atual')
-            .single();
-          
-          if (!error && newCycle) {
-            setUserCycle(newCycle);
-            console.log('Ciclo básico criado com sucesso');
-          }
-        } catch (error) {
-          console.error('Erro ao criar ciclo básico:', error);
+      try {
+        const { data } = await supabase
+          .from('user_cycles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (data) {
+          setUserCycle(data);
+          console.log('🔄 USER CYCLE LOADED:', { 
+            cycleLength: data.ciclo_atual?.length || 0,
+            timestamp: new Date().toISOString()
+          });
         }
+      } catch (error) {
+        console.error('Erro ao carregar ciclo:', error);
       }
     };
-    
-    loadCycle();
-  }, [user]); // Remover localSubjects da dependência para evitar loops
+
+    loadUserCycle();
+  }, [user?.id]);
   
   // Função auxiliar para obter a posição no ciclo
   const getCyclePosition = (itemId: string) => {
     if (!userCycle?.ciclo_atual) return null;
-    const position = expandedSubjectList.findIndex(item => item.id === itemId);
-    return position >= 0 ? position + 1 : null;
+    // Extrair o índice do ciclo do itemId (formato: subjectId-cycleIndex)
+    const cycleIndex = parseInt(itemId.split('-').pop() || '0');
+    return cycleIndex + 1; // +1 porque queremos posição 1-based
   };
 
   // Criar lista expandida de matérias com visualizações usando useMemo
@@ -218,36 +289,20 @@ const Subjects = () => {
       }
     });
     
+
+    
     return expanded;
   }, [userCycle?.ciclo_atual, localSubjects]);
 
-  useEffect(() => {
-    const checkProfile = async () => {
-      if (!user) return;
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('review_profile')
-        .eq('user_id', user.id)
-        .single();
-      if (
-        error ||
-        !data ||
-        !data.review_profile ||
-        ![ReviewProfile.BEGINNER, ReviewProfile.INTERMEDIATE, ReviewProfile.ADVANCED].includes(data.review_profile as ReviewProfile)
-      ) {
-        if (!toastShown) {
-          toast.warning("Você precisa escolher um perfil de revisão antes de adicionar matérias.");
-          setToastShown(true);
-        }
-        navigate('/configuracoes');
-      } else {
-        setLoading(false);
-      }
-    };
-    checkProfile();
-  }, [user, navigate, toast, toastShown]);
+  // useEffect duplicado removido - já existe acima
+  
+  // Não verificar perfil automaticamente - deixar para quando necessário
 
   useEffect(() => {
+    console.log('📋 SET LOCAL SUBJECTS useEffect TRIGGERED:', {
+      subjectsCount: subjects.length,
+      timestamp: new Date().toISOString()
+    });
     setLocalSubjects(subjects);
   }, [subjects]);
 
@@ -284,12 +339,7 @@ const Subjects = () => {
     })
   );
 
-  // Recarregar dados sempre que a página for acessada
-  useEffect(() => {
-    if (user) {
-      forceRefresh();
-    }
-  }, [user?.id]); // Remover forceRefresh da dependência
+
 
   const handleSaveSubject = async () => {
     if (!newSubjectName.trim()) {
@@ -305,13 +355,16 @@ const Subjects = () => {
     try {
       // Adicionar nova matéria
       const maxPriority = localSubjects.length > 0 ? Math.max(...localSubjects.map(s => s.priority || 0)) : 0;
-      await addSubject({
+      
+      await supabase.from('subjects').insert({
+        user_id: user.id,
         name: newSubjectName.trim().toUpperCase(),
         status: 'Nova',
         color: '#3B82F6',
-        topics: [],
         priority: maxPriority + 1,
       });
+      
+      await refreshData();
       
       // Limpar o input imediatamente
       setNewSubjectName('');
@@ -348,7 +401,13 @@ const Subjects = () => {
 
     if (editingSubjectId && editingName.trim() !== '') {
       try {
-        await updateSubject(editingSubjectId, { name: editingName.trim().toUpperCase() });
+        await supabase
+          .from('subjects')
+          .update({ name: editingName.trim().toUpperCase() })
+          .eq('id', editingSubjectId)
+          .eq('user_id', user.id);
+          
+        await refreshData();
         setEditingSubjectId(null);
         setEditingName('');
       } catch (error) {
@@ -368,8 +427,13 @@ const Subjects = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteSubject(id);
-      // Removido toast de sucesso para não roubar foco
+      await supabase
+        .from('subjects')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+        
+      await refreshData();
     } catch (error) {
       console.error('Erro ao excluir matéria:', error);
       toast.error("Erro ao excluir matéria. Tente novamente.", {
@@ -455,12 +519,25 @@ const Subjects = () => {
 
   const handleCloseTopicsModal = () => {
     setTopicsModal({ isOpen: false, subject: null });
+    // Refresh data para atualizar a contagem de tópicos e ordem
+    setTimeout(() => {
+      refreshData();
+    }, 200);
   };
 
   const handleAddSubjectView = async (subject: Subject) => {
     try {
       const success = await addSubjectView(subject.id, subject.name);
       if (success) {
+        // Registrar sessão de estudo
+        await recordStudySession({
+          subjectId: subject.id,
+          subjectName: subject.name,
+          topicsStudied: subject.topics?.map(t => t.id) || [],
+          topicsCount: subject.topics?.length || 0,
+          cyclePosition: getSubjectViewCount(subject.id, userCycle?.ciclo_atual || [])
+        });
+        
         // Recarregar ciclo para atualizar contadores
         const { data } = await supabase
           .from('user_cycles')
@@ -471,7 +548,7 @@ const Subjects = () => {
         if (data) {
           setUserCycle(data);
         }
-        forceRefresh();
+        // Cache será atualizado automaticamente na próxima navegação
       }
     } catch (error) {
       console.error('Erro ao adicionar visualização:', error);
@@ -492,7 +569,7 @@ const Subjects = () => {
       if (data) {
         setUserCycle(data);
       }
-      forceRefresh();
+      // Refresh será feito automaticamente pelo recarregamento do ciclo
     }
   };
 
@@ -510,23 +587,7 @@ const Subjects = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card className="text-center">
-          <CardHeader>
-            <CardTitle className="text-red-600">Erro ao carregar matérias</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <Button onClick={() => window.location.reload()}>
-              Tentar Novamente
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+
 
   return (
     <UserProfileProvider>
@@ -537,6 +598,8 @@ const Subjects = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
+
+
           {/* Header */}
           <div className="flex flex-col gap-4 mb-4 px-4 sm:px-6">
             <div className="mb-8">
@@ -620,6 +683,8 @@ const Subjects = () => {
                       const calculatedStatus = calculateSubjectStatus(subject);
                       const isEditing = editingSubjectId === subject.id;
                       const viewCount = userCycle?.ciclo_atual ? getSubjectViewCount(subject.id, userCycle.ciclo_atual) : 0;
+                      
+
 
                       return (
                         <SortableItem key={item.id} id={item.id}>
@@ -796,11 +861,11 @@ const Subjects = () => {
                                                     >
                                                       <Copy className="h-4 w-4" />
                                                     </Button>
-                                                    {viewCount > 1 && (
+                                                    {!isView && viewCount > 1 && (
                                                       <Badge 
                                                         className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white"
                                                       >
-                                                        {viewCount}
+                                                        {viewCount - 1}
                                                       </Badge>
                                                     )}
                                                   </div>
@@ -821,10 +886,10 @@ const Subjects = () => {
                                                      <Trash2 className="h-4 w-4 text-red-500" />
                                                    </Button>
                                                  </AlertDialogTrigger>
-                                                 <AlertDialogContent aria-describedby="confirm-subject-delete-1-description">
+                                                 <AlertDialogContent>
                                                    <AlertDialogHeader>
                                                      <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                                     <AlertDialogDescription id="confirm-subject-delete-1-description">
+                                                     <AlertDialogDescription>
                                                        Tem certeza que deseja excluir a matéria "{subject.name}"?
                                                        Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
                                                      </AlertDialogDescription>
@@ -1008,9 +1073,9 @@ const Subjects = () => {
                                                 >
                                                   <Copy className="h-4 w-4 mr-2" />
                                                   Duplicar no Ciclo
-                                                  {viewCount > 1 && (
+                                                  {!isView && viewCount > 1 && (
                                                     <Badge className="ml-auto h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white">
-                                                      {viewCount}
+                                                      {viewCount - 1}
                                                     </Badge>
                                                   )}
                                                 </Button>
@@ -1036,10 +1101,10 @@ const Subjects = () => {
                                                       Excluir
                                                     </Button>
                                                   </AlertDialogTrigger>
-                                                  <AlertDialogContent aria-describedby="confirm-subject-delete-2-description">
+                                                  <AlertDialogContent>
                                                     <AlertDialogHeader>
                                                       <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                                      <AlertDialogDescription id="confirm-subject-delete-2-description">
+                                                      <AlertDialogDescription>
                                                         Tem certeza que deseja excluir a matéria "{subject.name}"?
                                                         Esta ação não pode ser desfeita e todos os tópicos relacionados também serão excluídos.
                                                       </AlertDialogDescription>
@@ -1100,7 +1165,7 @@ const Subjects = () => {
           <ContentUploadModal
             open={contentUploadModal}
             onOpenChange={setContentUploadModal}
-            onSuccess={forceRefresh}
+            onSuccess={refreshData}
           />
 
           {/* Subject Notes Modal */}
@@ -1109,7 +1174,7 @@ const Subjects = () => {
             onClose={() => {
               setSubjectNotesModal(prev => ({ ...prev, isOpen: false }));
               setTimeout(() => {
-                forceRefresh();
+                refreshData(); // Refresh após fechar modal de anotações
               }, 200);
             }}
             subjectId={subjectNotesModal.subjectId}

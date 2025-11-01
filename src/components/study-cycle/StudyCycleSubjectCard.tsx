@@ -23,7 +23,7 @@ interface StudyCycleSubjectCardProps {
   onToggleExpand: () => void;
   markedTopicIds: Set<string>;
   onToggleMark: (topicId: string) => void;
-  cyclePositions?: number[] | null;
+  cyclePosition?: number | null;
 }
 
 const reviewProgression = [
@@ -47,29 +47,24 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   onToggleExpand,
   markedTopicIds,
   onToggleMark,
-  cyclePositions
+  cyclePosition
 }) => {
   const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
   const { user } = useAuth();
   const isFullyCompleted = useMemo(() => subject.topics.every(t => t.reviewStatus === ReviewInterval.COMPLETED), [subject.topics]);
 
-  // Componente para renderizar as posições no ciclo
-  const CyclePositionBadges = () => {
-    if (!cyclePositions || cyclePositions.length === 0) return null;
+  // Componente para renderizar a posição no ciclo
+  const CyclePositionBadge = () => {
+    if (!cyclePosition) return null;
     
     return (
-      <div className="flex flex-wrap gap-1">
-        {cyclePositions.map((position, index) => (
-          <Badge 
-            key={`${position}-${index}`}
-            variant="secondary" 
-            className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-semibold"
-            title={`Posição ${position} na sequência do ciclo`}
-          >
-            #{position}
-          </Badge>
-        ))}
-      </div>
+      <Badge 
+        variant="secondary" 
+        className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-semibold"
+        title={`Posição ${cyclePosition} na sequência do ciclo`}
+      >
+        #{cyclePosition}
+      </Badge>
     );
   };
 
@@ -197,7 +192,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                   isNextSuggested={isNextSuggested(subject.originalId || subject.id)}
                   variant="dot"
                 />
-                <CyclePositionBadges />
+                <CyclePositionBadge />
                 <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
               </div>
               <button

@@ -15,15 +15,12 @@ export const useDataLoading = (
   const [isLoading, setIsLoading] = useState(false);
 
   const loadSubjects = useCallback(async () => {
-    if (!user) {
-      return;
-    }
+    if (!user) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      // Load subjects with topics - FORÇAR RELOAD SEM CACHE
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
         .select(`
@@ -36,11 +33,8 @@ export const useDataLoading = (
         .eq('user_id', user.id)
         .order('priority', { ascending: true });
 
-      if (subjectsError) {
-        throw subjectsError;
-      }
+      if (subjectsError) throw subjectsError;
 
-      // Load user settings
       const { data: settingsData, error: settingsError } = await supabase
         .from('user_settings')
         .select('subjects_per_day')
@@ -64,19 +58,18 @@ export const useDataLoading = (
     } finally {
       setIsLoading(false);
     }
-  }, [user, setSubjects, setStudyProgress, setIsDataLoaded, setError, setUserSettings]);
+  }, [user?.id]); // Apenas user.id como dependência
 
   const refreshData = useCallback(async () => {
-    // Limpar estado antes de recarregar para forçar atualização
     setIsDataLoaded(false);
     await loadSubjects();
-  }, [loadSubjects, setIsDataLoaded]);
+  }, [loadSubjects]);
 
   const forceRefresh = useCallback(async () => {
     setIsDataLoaded(false);
     setSubjects([]);
     await loadSubjects();
-  }, [loadSubjects, setIsDataLoaded, setSubjects]);
+  }, [loadSubjects]);
 
   const fetchSubjects = useCallback(async () => {
     await loadSubjects();

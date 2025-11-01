@@ -101,7 +101,7 @@ export function ProfileOnboardingGate() {
     };
     
     checkProfile();
-  }, [user, location.pathname, retryCount]);
+  }, [user?.id, retryCount]); // Removido location.pathname para evitar loops
 
   const handleConfirmProfile = async (profile: ReviewProfile) => {
     if (!user || hasReviews) return;

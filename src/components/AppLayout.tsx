@@ -3,7 +3,8 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { TopHeader } from './TopHeader';
 
-export const AppLayout = React.memo(() => {
+export const AppLayout = () => {
+  
   return (
     <div className="min-h-screen bg-background transition-colors duration-200">
       <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border transition-colors duration-200">
@@ -11,9 +12,7 @@ export const AppLayout = React.memo(() => {
       </div>
       
       <main className="pt-16 container mx-auto px-4 py-6">
-        <React.Suspense fallback={<div className="min-h-[200px]" />}>
-          <Outlet />
-        </React.Suspense>
+        <Outlet />
       </main>
       
       <style>
@@ -111,4 +110,4 @@ export const AppLayout = React.memo(() => {
       </style>
     </div>
   );
-});
+};

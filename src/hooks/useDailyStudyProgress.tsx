@@ -33,14 +33,22 @@ export const useDailyStudyProgress = () => {
   const [userCycle, setUserCycle] = useState<any>(null);
   const [resetReason, setResetReason] = useState<'new_cycle' | 'new_day' | 'continue' | null>(null);
 
-  // Carregar progresso diário
-  const loadDailyProgress = useCallback(async () => {
+  // Carregar progresso diário - SEM useCallback
+  const loadDailyProgress = async () => {
+    console.log('🔄 useDailyStudyProgress loadDailyProgress CALLED:', { 
+      user: !!user, 
+      userId: user?.id,
+      timestamp: new Date().toISOString() 
+    });
+    
     if (!user?.id) {
+      console.log('❌ No user, setting isLoading false');
       setIsLoading(false);
       return;
     }
 
     try {
+      console.log('🔄 Setting isLoading TRUE');
       setIsLoading(true);
 
       // DETECÇÃO INTELIGENTE: Verificar se precisa resetar automaticamente
@@ -166,11 +174,12 @@ export const useDailyStudyProgress = () => {
         });
       }
     } catch (error) {
-      console.error('Erro ao carregar progresso diário:', error);
+      console.error('❌ ERRO ao carregar progresso diário:', error);
     } finally {
+      console.log('✅ Setting isLoading FALSE in finally');
       setIsLoading(false);
     }
-  }, [user]);
+  };
 
   // Salvar sessão de estudo
   const saveStudySession = useCallback(async (session: StudySession) => {
@@ -330,8 +339,8 @@ export const useDailyStudyProgress = () => {
     }
   }, [user]);
 
-  // Resetar progresso diário (para testes)
-  const resetDailyProgress = useCallback(async () => {
+  // Resetar progresso diário (para testes) - SEM useCallback
+  const resetDailyProgress = async () => {
     if (!user) return false;
 
     try {
@@ -356,19 +365,21 @@ export const useDailyStudyProgress = () => {
       console.error('Erro ao resetar progresso diário:', error);
       return false;
     }
-  }, [user, loadDailyProgress]);
+  };
 
-  // Carregar dados quando o componente monta
+  // Carregar dados quando o componente monta - SEM DEPENDÊNCIAS
   useEffect(() => {
-    loadDailyProgress();
-  }, [loadDailyProgress]);
+    if (user) {
+      loadDailyProgress();
+    }
+  }, [user?.id]); // Apenas user.id
 
-  // Função para forçar refresh dos dados
-  const forceRefresh = useCallback(async () => {
+  // Função para forçar refresh dos dados - SEM useCallback
+  const forceRefresh = async () => {
     console.log('🔄 Forçando refresh dos dados do progresso diário...');
     setIsLoading(true);
     await loadDailyProgress();
-  }, [loadDailyProgress]);
+  };
 
   // Sistema de debounce para eventos
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);

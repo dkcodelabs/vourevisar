@@ -16,9 +16,13 @@ import { motion } from 'framer-motion';
 import NotesModal from '@/components/reviews/NotesModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+// Removido hook de visibilidade que causava recarregamentos
 
 const Revisoes = () => {
+  // Removido hook de visibilidade problemático
+  
+  const navigate = useNavigate();
   const [tab, setTab] = useState<'hoje' | 'futuras' | 'concluido'>('hoje');
   const [expandedSubjects, setExpandedSubjects] = useState<string[]>([]);
   const [highlightedTopic, setHighlightedTopic] = useState<string | null>(null);
@@ -119,7 +123,7 @@ const Revisoes = () => {
 
   const handleShowStatistics = () => {
     // Navegar para estatísticas (funcionalidade já existente)
-    window.location.href = '/estatisticas';
+    navigate('/estatisticas');
   };
 
   // Calcular contadores para a aba atual
@@ -330,6 +334,7 @@ const Revisoes = () => {
         topicId={notesModalData.topicId}
         topicName={notesModalData.topicName}
         subjectName={notesModalData.subjectName}
+        showSubjectNotes={false}
       />
 
       {/* Subject Notes Modal */}

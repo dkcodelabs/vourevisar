@@ -240,7 +240,7 @@ export const useRealStatistics = (): RealStatisticsData => {
             
             setUserAnalytics(newAnalyticsData as UserAnalytics);
           } catch (rpcError) {
-            console.log('Função calculate_user_analytics não encontrada, usando dados simulados...');
+            console.log('Erro ao calcular analytics:', rpcError);
           }
         }
       } catch (error) {

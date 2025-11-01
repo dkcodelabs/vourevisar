@@ -10,20 +10,17 @@ import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
-// StudyPlan removido - substituído por StudyCycle
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import Statistics from "@/pages/Statistics";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import ResetPassword from "@/pages/ResetPassword";
-import { AuthCallback } from "@/components/AuthCallback";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
-// import Questoes from "@/pages/Questoes"; // OCULTO
-// import QuestionsStatistics from "@/pages/QuestionsStatistics"; // OCULTO
 import StudyCycle from "@/pages/StudyCycle";
 import Gerenciamento from "@/pages/Gerenciamento";
+import { AuthCallback } from "@/components/AuthCallback";
 import { SimpleRoleTest } from "@/components/SimpleRoleTest";
 
 import { ProfileOnboardingGate } from "@/components/ProfileOnboardingGate";
@@ -62,13 +59,10 @@ const App = () => {
                   <Route path="" element={<AppLayout />}>
                     <Route index element={<Dashboard />} />
                     <Route path="materias" element={<Subjects />} />
-                    {/* Plano de estudos removido - substituído por ciclo-estudos */}
                     <Route path="estatisticas" element={<Statistics />} />
                     <Route path="materias/:subjectId/topicos" element={<Topics />} />
                     <Route path="topicos" element={<Topics />} />
                     <Route path="revisoes" element={<Revisoes />} />
-                    {/* <Route path="questoes" element={<Questoes />} /> */} {/* OCULTO */}
-                    {/* <Route path="questoes/estatisticas" element={<QuestionsStatistics />} /> */} {/* OCULTO */}
                     <Route path="ciclo-estudos" element={<StudyCycle />} />
                     <Route path="gerenciamento" element={<Gerenciamento />} />
                     <Route path="test-roles" element={<SimpleRoleTest />} />

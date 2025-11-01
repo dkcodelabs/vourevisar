@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react';
 
 const Statistics = () => {
+  const navigate = useNavigate();
   const { subjects, fetchSubjects } = useApp();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -111,7 +113,7 @@ const Statistics = () => {
               </p>
             </div>
             <button 
-              onClick={() => window.location.href = '/subjects'} 
+              onClick={() => navigate('/subjects')} 
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
             >
               Adicionar Matérias

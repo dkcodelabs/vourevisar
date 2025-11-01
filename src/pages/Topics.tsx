@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Edit, FileText, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, FileText, Trash2, Star } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,8 +16,10 @@ import { ptBR } from 'date-fns/locale';
 import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
 import NotesModal from '@/components/reviews/NotesModal';
 import { EditableTopicName } from '@/components/EditableTopicName';
+import { DifficultyRating } from '@/components/ui/difficulty-rating';
 
 const Topics = () => {
+  const navigate = useNavigate();
   const { subjects, deleteTopic, updateTopic, isLoading } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
@@ -53,12 +56,11 @@ const Topics = () => {
       filtered = filtered.filter(topic => topic.subjectId === subjectFilter);
     }
 
-    // Aplicar filtro de pesquisa
+    // Aplicar filtro de pesquisa (apenas pelo nome do tópico)
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(topic => 
-        topic.name.toLowerCase().includes(searchLower) ||
-        topic.subjectName.toLowerCase().includes(searchLower)
+        topic.name.toLowerCase().includes(searchLower)
       );
     }
 
@@ -84,10 +86,11 @@ const Topics = () => {
       });
     }
 
-    // Aplicar filtro de dificuldade
+    // Aplicar filtro de dificuldade por estrelas
     if (difficultyFilter !== 'all') {
+      const targetStars = parseInt(difficultyFilter);
       filtered = filtered.filter(topic => {
-        return topic.difficulty_level === difficultyFilter;
+        return topic.difficulty_level === targetStars;
       });
     }
 
@@ -133,9 +136,12 @@ const Topics = () => {
       return reviewDate > today;
     }).length;
 
-    const easy = allTopics.filter(topic => topic.difficulty_level === 'easy').length;
-    const medium = allTopics.filter(topic => topic.difficulty_level === 'medium').length;
-    const hard = allTopics.filter(topic => topic.difficulty_level === 'hard').length;
+    // Contar por estrelas
+    const stars1 = allTopics.filter(topic => topic.difficulty_level === 1).length;
+    const stars2 = allTopics.filter(topic => topic.difficulty_level === 2).length;
+    const stars3 = allTopics.filter(topic => topic.difficulty_level === 3).length;
+    const stars4 = allTopics.filter(topic => topic.difficulty_level === 4).length;
+    const stars5 = allTopics.filter(topic => topic.difficulty_level === 5).length;
 
     // Debug log detalhado para entender o problema
     console.log('🔍 Debug completo de dificuldades:', {
@@ -147,7 +153,7 @@ const Topics = () => {
         difficulty_level: t.difficulty_level,
         hasValue: !!t.difficulty_level
       })),
-      counts: { easy, medium, hard },
+      counts: { stars1, stars2, stars3, stars4, stars5 },
       sampleTopics: allTopics.slice(0, 3).map(t => ({
         name: t.name,
         difficulty: t.difficulty_level,
@@ -160,9 +166,11 @@ const Topics = () => {
       delayed,
       today: todayTopics,
       upcoming,
-      easy,
-      medium,
-      hard
+      stars1,
+      stars2,
+      stars3,
+      stars4,
+      stars5
     };
   }, [allTopics]);
 
@@ -261,72 +269,142 @@ const Topics = () => {
     <TooltipProvider>
       <div className="min-h-screen bg-background">
         <div className="container mx-auto p-4">
-          {/* Filters */}
-          <div className="mb-6 space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* Subject Filter */}
-              <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                <SelectTrigger className="bg-card border-input text-foreground">
-                  <SelectValue placeholder="Todas as disciplinas" />
-                </SelectTrigger>
-                <SelectContent className="z-50 bg-popover">
-                  <SelectItem value="all">Todas as disciplinas</SelectItem>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Pesquisar tópico ou disciplina"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-card border-input"
-                />
+          {/* Header com Pesquisa */}
+          <div className="mb-8">
+            <div className="flex flex-col gap-6">
+              {/* Título e Pesquisa */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">Tópicos</h1>
+                  <p className="text-muted-foreground">Gerencie e acompanhe seus tópicos de estudo</p>
+                </div>
+                
+                {/* Campo de Pesquisa Principal */}
+                <div className="relative w-full sm:w-80">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+                  <Input
+                    placeholder="Pesquisar tópicos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-11 h-11 bg-card border-input text-foreground shadow-sm focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* Status Filter */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="bg-card border-input text-foreground">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos ({stats.total})</SelectItem>
-                  <SelectItem value="delayed">Atrasados ({stats.delayed})</SelectItem>
-                  <SelectItem value="today">Hoje ({stats.today})</SelectItem>
-                  <SelectItem value="upcoming">Próximos ({stats.upcoming})</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Filtros Organizados */}
+              <Card className="bg-card/50 border shadow-sm">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Subject Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Disciplina</label>
+                      <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                        <SelectTrigger className="bg-background border-input text-foreground h-10">
+                          <SelectValue placeholder="Todas as disciplinas" />
+                        </SelectTrigger>
+                        <SelectContent className="z-50 bg-popover">
+                          <SelectItem value="all">Todas as disciplinas</SelectItem>
+                          {subjects.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              {/* Difficulty Filter */}
-              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                <SelectTrigger className="bg-card border-input text-foreground">
-                  <SelectValue placeholder="Dificuldade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas Dificuldades</SelectItem>
-                  <SelectItem value="easy">🟢 Fácil ({stats.easy})</SelectItem>
-                  <SelectItem value="medium">🟡 Médio ({stats.medium})</SelectItem>
-                  <SelectItem value="hard">🔴 Difícil ({stats.hard})</SelectItem>
-                </SelectContent>
-              </Select>
+                    {/* Status Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Status</label>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="bg-background border-input text-foreground h-10">
+                          <SelectValue placeholder="Todos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos ({stats.total})</SelectItem>
+                          <SelectItem value="delayed">Atrasados ({stats.delayed})</SelectItem>
+                          <SelectItem value="today">Hoje ({stats.today})</SelectItem>
+                          <SelectItem value="upcoming">Próximos ({stats.upcoming})</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              {/* Sort */}
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="bg-card border-input text-foreground">
-                  <SelectValue placeholder="Data de Revisão" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">Data de Revisão</SelectItem>
-                  <SelectItem value="subject">Matéria</SelectItem>
-                  <SelectItem value="name">Nome do Tópico</SelectItem>
-                </SelectContent>
-              </Select>
+                    {/* Difficulty Filter com Estrelas */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Dificuldade</label>
+                      <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                        <SelectTrigger className="bg-background border-input text-foreground h-10">
+                          <SelectValue placeholder="Todas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas Dificuldades</SelectItem>
+                          <SelectItem value="1">
+                            <div className="flex items-center gap-2">
+                              <Star className="h-4 w-4 fill-green-500 text-green-500" />
+                              <span>1 Estrela ({stats.stars1})</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex">
+                                <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
+                                <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
+                              </div>
+                              <span>2 Estrelas ({stats.stars2})</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex">
+                                <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                                <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                                <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                              </div>
+                              <span>3 Estrelas ({stats.stars3})</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="4">
+                            <div className="flex items-center gap-2">
+                              <div className="flex">
+                                <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                                <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                                <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                                <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                              </div>
+                              <span>4 Estrelas ({stats.stars4})</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="5">
+                            <div className="flex items-center gap-2">
+                              <div className="flex">
+                                <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                                <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                                <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                                <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                                <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                              </div>
+                              <span>5 Estrelas ({stats.stars5})</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Sort */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Ordenar por</label>
+                      <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger className="bg-background border-input text-foreground h-10">
+                          <SelectValue placeholder="Data de Revisão" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="date">Data de Revisão</SelectItem>
+                          <SelectItem value="subject">Matéria</SelectItem>
+                          <SelectItem value="name">Nome do Tópico</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
@@ -342,7 +420,7 @@ const Topics = () => {
                     }
                   </p>
                   {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && subjectFilter === 'all' && (
-                    <Button onClick={() => window.location.href = '/materias'} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={() => navigate('/materias')} className="bg-blue-600 hover:bg-blue-700">
                       <Plus className="h-4 w-4 mr-2" />
                       Adicionar Primeira Matéria
                     </Button>
@@ -384,24 +462,39 @@ const Topics = () => {
                             
                             {/* Badges and Actions */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {/* Stage Badge */}
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
-                                  ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
-                                    topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
-                                    topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
-                                    'bg-gray-100 text-gray-700'}`}>
-                                  {stageDisplay}
-                                </span>
+                              <div className="flex items-center gap-3">
+                                {/* Difficulty Stars - Fixed Width, Right Aligned */}
+                                <div className="w-24 flex justify-end">
+                                  {topic.difficulty_level && (
+                                    <DifficultyRating 
+                                      value={topic.difficulty_level} 
+                                      readonly={true} 
+                                      size="sm" 
+                                    />
+                                  )}
+                                </div>
                                 
-                                {/* Status Badge */}
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
-                                  ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
-                                    topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
-                                    topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
-                                    'bg-gray-100 text-gray-700'}`}>
-                                  {topicStatus.status}
-                                </span>
+                                {/* Stage Badge - Fixed Width, Left Aligned */}
+                                <div className="w-20 flex justify-start">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                                    ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
+                                      topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
+                                      topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
+                                      'bg-gray-100 text-gray-700'}`}>
+                                    {stageDisplay}
+                                  </span>
+                                </div>
+                                
+                                {/* Status Badge - Fixed Width, Right Aligned */}
+                                <div className="w-36 flex justify-end">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                                    ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
+                                      topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
+                                      topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
+                                      'bg-gray-100 text-gray-700'}`}>
+                                    {topicStatus.status}
+                                  </span>
+                                </div>
                               </div>
                               
                               {/* Action Icons */}
@@ -481,6 +574,7 @@ const Topics = () => {
           topicId={notesModal.topicId}
           topicName={notesModal.topicName}
           subjectName={notesModal.subjectName}
+          showSubjectNotes={false}
         />
       </div>
     </TooltipProvider>

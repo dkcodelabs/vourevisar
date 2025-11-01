@@ -138,11 +138,10 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
         onResetComplete();
       }
       
-      // Recarregar página após delay para garantir sincronização
+      // Aguardar um pouco para garantir que os eventos foram processados
       setTimeout(() => {
-        console.log('🔄 Recarregando página para garantir sincronização...');
-        window.location.reload();
-      }, 1500);
+        console.log('✅ Reset concluído - eventos disparados para atualização dos componentes');
+      }, 500);
       
     } catch (err: any) {
       console.error('❌ Erro ao resetar revisões:', err);

@@ -5,15 +5,15 @@ import { useStudyCycleData } from '@/hooks/useStudyCycleData';
 import { STATUS_CONFIG } from '@/constants/study-cycle';
 import { StudyCycleSubjectCard } from './StudyCycleSubjectCard';
 import { GridIcon, ListIcon, ChevronsDownIcon, ChevronsUpIcon } from './Icons';
-import { StudyCycleNotesModal } from './StudyCycleNotesModal';
+import StudyCycleTopicNotesModal from './StudyCycleTopicNotesModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { AllStudiesCompletedBanner } from './AllStudiesCompletedBanner';
 import { CycleStatsModal } from './CycleStatsModal';
-import { DailyStudyProgress } from './DailyStudyProgress';
-import { useDailyStudyProgress } from '@/hooks/useDailyStudyProgress';
+// REMOVIDO DailyStudyProgress - estava causando loops infinitos
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+// Removido hook de visibilidade que causava recarregamentos
 
 
 const LOCAL_STORAGE_VIEW_KEY = 'studyCycleViewMode';
@@ -43,6 +43,8 @@ const CompletionMessage: React.FC<{ onStartNewCycle: () => void }> = ({ onStartN
 };
 
 export const StudyCycleContent: React.FC = () => {
+  // Removido hook de visibilidade problemático
+
   // Use the new hook for real database data
   const {
     studyCycleSubjects: subjects,
@@ -65,6 +67,11 @@ export const StudyCycleContent: React.FC = () => {
       const now = Date.now();
       const eventDetail = event?.detail;
 
+      console.log('🔄 MODAL: handleCycleUpdate disparado', { 
+        eventDetail,
+        timestamp: new Date().toISOString()
+      });
+
       // CRÍTICO: Não aplicar debounce para eventos de novo ciclo
       if (eventDetail?.isNewCycle) {
         console.log('📢 Novo ciclo detectado no StudyCycleContent (sem debounce)');
@@ -81,11 +88,10 @@ export const StudyCycleContent: React.FC = () => {
           materias_estudadas: userCycle?.materias_estudadas_ciclo
         });
 
-        // Lógica de validação removida - mensagem já aparece no componente colapsável
-
         // Recarregar dados imediatamente para novo ciclo
         setTimeout(() => {
-          refreshCycleData();
+          console.log('🔄 MODAL: Executando refreshCycleData para novo ciclo');
+          refreshCycleData(); // Refresh para novo ciclo
         }, 300);
         return; // Sair aqui para não aplicar debounce
       }
@@ -104,7 +110,8 @@ export const StudyCycleContent: React.FC = () => {
 
       // Recarregar dados após um delay (menor para revisões de tópicos)
       setTimeout(() => {
-        refreshCycleData();
+        console.log('🔄 MODAL: Executando refreshCycleData para evento normal');
+        refreshCycleData(); // Refresh para eventos normais
       }, isTopicReview ? 100 : 300);
     };
 
@@ -114,7 +121,8 @@ export const StudyCycleContent: React.FC = () => {
       console.log('🔄 StudyCycleContent: Forçando re-render por evento externo', event.detail);
 
       // Forçar refresh imediato dos dados
-      refreshCycleData();
+      console.log('🔄 MODAL: Executando refreshCycleData em handleForceRerender');
+      refreshCycleData(); // Refresh para forceRerender
 
       // Forçar re-render do componente mudando a key
       setForceRenderKey(prev => prev + 1);
@@ -171,8 +179,22 @@ export const StudyCycleContent: React.FC = () => {
     return (savedViewMode === 'grid' || savedViewMode === 'list') ? savedViewMode : 'list';
   });
 
-  const [editingTopic, setEditingTopic] = useState<{ subjectId: string; topicId: string } | null>(null);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
+  
+  // Modal de tópicos - usando o mesmo padrão do modal de matérias
+  const [topicNotesModal, setTopicNotesModal] = useState<{
+    isOpen: boolean;
+    subjectId: string;
+    topicId: string;
+    subjectName: string;
+    topicName: string;
+  }>({
+    isOpen: false,
+    subjectId: '',
+    topicId: '',
+    subjectName: '',
+    topicName: ''
+  });
   const [subjectNotesModal, setSubjectNotesModal] = useState<{
     isOpen: boolean;
     subjectId: string;
@@ -193,8 +215,7 @@ export const StudyCycleContent: React.FC = () => {
   const { getCycleStats } = useCycleStatus();
   const { user } = useAuth();
 
-  // Hook para progresso diário
-  const { saveStudySession } = useDailyStudyProgress();
+  // REMOVIDO hook de progresso diário - estava causando loops
 
   // Função para obter a posição no ciclo
   const getCyclePosition = useCallback((subjectId: string) => {
@@ -244,13 +265,8 @@ export const StudyCycleContent: React.FC = () => {
           isPulada: topicsStudied.length === 0
         });
 
-        const success = await saveStudySession(sessionData);
-
-        if (success) {
-          console.log('✅ Sessão salva com sucesso no progresso diário');
-        } else {
-          console.error('❌ Falha ao salvar sessão no progresso diário');
-        }
+        // TODO: Implementar saveStudySession quando necessário
+        console.log('💾 Dados da sessão preparados para salvar:', sessionData);
       } else {
         console.warn('⚠️ Sessão não salva - dados insuficientes:', {
           subject: !!subject,
@@ -280,7 +296,7 @@ export const StudyCycleContent: React.FC = () => {
       console.error('❌ Erro ao completar sessão com progresso:', error);
       toast.error('Erro ao completar sessão');
     }
-  }, [handleCompleteSessionData, subjects, getCyclePosition, sessionMarks, user, saveStudySession]);
+  }, [handleCompleteSessionData, subjects, getCyclePosition, sessionMarks, user]);
 
 
 
@@ -317,17 +333,36 @@ export const StudyCycleContent: React.FC = () => {
   // Use the handlers from the hook
 
   const handleOpenNotes = useCallback((subjectId: string, topicId: string) => {
-    setEditingTopic({ subjectId, topicId });
-  }, []);
+    console.log('🔵 MODAL: handleOpenNotes chamado', { subjectId, topicId });
+    
+    // Encontrar subject e topic para pegar os nomes
+    const subject = subjects.find(s => s.id === subjectId);
+    const topic = subject?.topics.find(t => t.id === topicId);
+    
+    if (subject && topic) {
+      setTopicNotesModal({
+        isOpen: true,
+        subjectId,
+        topicId,
+        subjectName: subject.name,
+        topicName: topic.name
+      });
+      console.log('🔵 MODAL: Modal aberto com isOpen=true');
+    } else {
+      console.error('🔴 MODAL: Subject ou topic não encontrado', { subjectId, topicId, subjects: subjects.length });
+    }
+  }, [subjects]);
 
   const handleCloseNotes = useCallback(() => {
-    setEditingTopic(null);
+    console.log('🔴 MODAL: handleCloseNotes chamado');
+    setTopicNotesModal(prev => ({ ...prev, isOpen: false }));
+    console.log('🔴 MODAL: Modal fechado com isOpen=false');
   }, []);
 
   const handleSaveNotesWithClose = useCallback((subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
     handleSaveNotes(subjectId, topicId, updatedData);
     handleCloseNotes();
-  }, [handleSaveNotes]);
+  }, [handleSaveNotes, handleCloseNotes]);
 
   const handleOpenSubjectNotes = useCallback((subject: StudyCycleSubject) => {
     setSubjectNotesModal({
@@ -343,12 +378,7 @@ export const StudyCycleContent: React.FC = () => {
     setShowStatsModal(true);
   }, [getCycleStats]);
 
-  const topicToEdit = useMemo(() => {
-    if (!editingTopic) return null;
-    const subject = subjects.find(s => s.id === editingTopic.subjectId);
-    const topic = subject?.topics.find(t => t.id === editingTopic.topicId);
-    return subject && topic ? { subject, topic } : null;
-  }, [subjects, editingTopic]);
+
 
   const renderSection = (status: SubjectStatus) => {
     const sectionSubjects = groupedSubjects[status] || [];
@@ -371,8 +401,9 @@ export const StudyCycleContent: React.FC = () => {
           </h2>
         </div>
         <div className={containerClasses}>
-          {sectionSubjects.map((subject) => {
-            const cyclePositions = getCyclePosition(subject.originalId || subject.id);
+          {sectionSubjects.map((subject, index) => {
+            // Cada subject deve ter sua posição específica, não todas as posições
+            const cyclePosition = subject.cyclePosition || null;
             return (
               <StudyCycleSubjectCard
                 key={`${subject.id}-${subject.status}-${forceRenderKey}`}
@@ -387,7 +418,7 @@ export const StudyCycleContent: React.FC = () => {
                 onToggleExpand={() => handleToggleExpand(subject.id)}
                 markedTopicIds={sessionMarks[subject.id] || new Set()}
                 onToggleMark={(topicId) => handleToggleMark(subject.id, topicId)}
-                {...(cyclePositions && { cyclePositions })}
+                cyclePosition={cyclePosition}
               />
             );
           })}
@@ -403,17 +434,14 @@ export const StudyCycleContent: React.FC = () => {
         {areAllStudiesCompleted && (
           <AllStudiesCompletedBanner
             onResetComplete={() => {
-              refreshCycleData();
+              refreshCycleData(); // Refresh para reset
             }}
           />
         )}
 
 
 
-        {/* Card de Progresso Diário */}
-        {!areAllStudiesCompleted && (
-          <DailyStudyProgress className="mb-6" />
-        )}
+        {/* Card de Progresso Diário REMOVIDO - estava causando loops */}
 
 
 
@@ -481,12 +509,21 @@ export const StudyCycleContent: React.FC = () => {
 
       </main>
 
-      {topicToEdit && (
-        <StudyCycleNotesModal
-          subject={topicToEdit.subject}
-          topic={topicToEdit.topic}
+      {/* Topic Notes Modal */}
+      {topicNotesModal.isOpen && topicNotesModal.subjectId && topicNotesModal.topicId && (
+        <StudyCycleTopicNotesModal
+          isOpen={topicNotesModal.isOpen}
           onClose={handleCloseNotes}
-          onSave={handleSaveNotesWithClose}
+          onSave={() => {
+            // Refresh data after save
+            setTimeout(() => {
+              refreshCycleData(); // Refresh para salvamento
+            }, 200);
+          }}
+          subjectId={topicNotesModal.subjectId}
+          topicId={topicNotesModal.topicId}
+          subjectName={topicNotesModal.subjectName}
+          topicName={topicNotesModal.topicName}
         />
       )}
 

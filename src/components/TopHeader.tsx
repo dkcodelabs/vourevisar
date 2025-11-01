@@ -62,7 +62,7 @@ const useNavigation = () => {
   return { isItemActive, location };
 };
 
-export const TopHeader = React.memo(() => {
+export const TopHeader = () => {
   const { user } = useAuth();
   const { isItemActive } = useNavigation();
   const { timeLeft, isRunning, getProgress, formatTime, getState, isBlinking } = useSharedPomodoroTimer();
@@ -216,10 +216,10 @@ export const TopHeader = React.memo(() => {
 
     </header>
   );
-});
+};
 
 // Mobile Menu Component
-const MobileMenu = React.memo(({ navItems }: { navItems: NavItem[] }) => {
+const MobileMenu = ({ navItems }: { navItems: NavItem[] }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const { isItemActive, location } = useNavigation();
 
@@ -276,4 +276,4 @@ const MobileMenu = React.memo(({ navItems }: { navItems: NavItem[] }) => {
       )}
     </div>
   );
-});
+};

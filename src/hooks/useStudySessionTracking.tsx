@@ -31,7 +31,7 @@ export const useStudySessionTracking = () => {
           started_at: startTime.toISOString(),
           completed_at: now.toISOString(),
           study_date: now.toISOString().split('T')[0], // YYYY-MM-DD
-          duration_minutes: sessionData.durationMinutes || 0,
+          session_duration_minutes: sessionData.durationMinutes || 0,
           topics_studied: sessionData.topicsStudied || [],
           topics_count: sessionData.topicsCount || 0,
           hour_of_day: getHours(now),
@@ -56,13 +56,13 @@ export const useStudySessionTracking = () => {
         console.log('Função update_daily_progress não encontrada, continuando...');
       }
 
-      // Recalcular analytics do usuário (se a função existir)
+      // Recalcular analytics do usuário
       try {
         await supabase.rpc('calculate_user_analytics' as any, {
           p_user_id: user.id
         });
       } catch (rpcError) {
-        console.log('Função calculate_user_analytics não encontrada, continuando...');
+        console.log('Erro ao recalcular analytics:', rpcError);
       }
 
       return data;

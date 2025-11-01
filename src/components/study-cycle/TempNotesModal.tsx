@@ -19,7 +19,7 @@ const TempNotesModal: React.FC<TempNotesModalProps> = ({
   subjectName
 }) => {
   const [notes, setNotes] = useState('');
-  const [difficulty, setDifficulty] = useState<'facil' | 'medio' | 'dificil' | ''>('');
+  // const [difficulty, setDifficulty] = useState<'facil' | 'medio' | 'dificil' | ''>(''); // Removido - usando sistema de estrelas
   const [subtopics, setSubtopics] = useState<string[]>([]);
   const [newSubtopic, setNewSubtopic] = useState('');
 
@@ -28,7 +28,7 @@ const TempNotesModal: React.FC<TempNotesModalProps> = ({
       topicId,
       topicName,
       notes,
-      difficulty,
+      // difficulty, // Removido - usando sistema de estrelas
       subtopics
     });
     

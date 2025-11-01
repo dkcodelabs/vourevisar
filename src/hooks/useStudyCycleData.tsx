@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useTopicReview } from '@/hooks/useTopicReview';
@@ -136,7 +135,49 @@ const mapDifficultyToLevel = (difficulty: Difficulty): number => {
 
 export const useStudyCycleData = () => {
   const { user } = useAuth();
-  const { subjects, refreshData, updateTopic } = useApp();
+  
+  // Estado local simples - SEM useApp()
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  
+  // Função para carregar dados localmente - SEM useCallback
+  const loadSubjects = async () => {
+    if (!user) return;
+    
+    try {
+      const { data } = await supabase
+        .from('subjects')
+        .select(`*, topics (*, difficulty_level)`)
+        .eq('user_id', user.id)
+        .order('priority', { ascending: true });
+      
+      setSubjects(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar matérias:', error);
+    }
+  };
+  
+  // Carregar dados apenas uma vez - SEM DEPENDÊNCIAS
+  useEffect(() => {
+    if (user) {
+      loadSubjects();
+    }
+  }, [user?.id]); // Apenas user.id como dependência
+  
+  const refreshData = () => {
+    loadSubjects();
+  };
+  
+  const updateTopic = async (topicId: string, updates: any) => {
+    try {
+      await supabase
+        .from('topics')
+        .update(updates)
+        .eq('id', topicId);
+      await loadSubjects();
+    } catch (error) {
+      console.error('Erro ao atualizar tópico:', error);
+    }
+  };
   const { markTopicAsReviewed } = useTopicReview();
   const [studyFocusSubjectIds, setStudyFocusSubjectIds] = useState<Set<string>>(new Set());
   const [sessionMarks, setSessionMarks] = useState<Record<string, Set<string>>>({});
@@ -247,7 +288,7 @@ export const useStudyCycleData = () => {
     };
     
     addNewSubjectsToCycle();
-  }, [user, subjects, userCycle?.ciclo_atual]);
+  }, [user?.id, subjects.length]); // Usar apenas user.id e subjects.length para evitar loops
 
   // Get daily subjects with views
   const dailySubjectsWithViews = useDailySubjectsWithViews(subjects, userCycle);
@@ -289,6 +330,7 @@ export const useStudyCycleData = () => {
         
         studyCycleSubject.originalId = subject.id;
         studyCycleSubject.viewNumber = viewNumber;
+        studyCycleSubject.cyclePosition = index + 1; // Posição específica no ciclo
         
         cycleSubjects.push(studyCycleSubject);
       } catch (error) {
