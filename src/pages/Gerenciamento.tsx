@@ -16,6 +16,262 @@ export default function Gerenciamento() {
   const [userModalTitle, setUserModalTitle] = useState('')
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false)
 
+  // Seções de Conteúdo (movidas para dentro do componente)
+  const UsuariosSection = () => (
+    <div>
+      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>👥 Gerenciar Usuários</h2>
+      <p style={{ color: '#64748b', marginBottom: '24px' }}>
+        Gerencie usuários, roles e permissões do sistema.
+      </p>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <ActionCard
+          icon="👤"
+          title="Listar Usuários"
+          description="Ver todos os usuários cadastrados"
+          onClick={() => {
+            setUserModalMode('list')
+            setUserModalTitle('📋 Lista de Usuários')
+            setUserModalOpen(true)
+          }}
+        />
+        <ActionCard
+          icon="🔧"
+          title="Atribuir Permissões"
+          description="Dar roles aos usuários"
+          onClick={() => {
+            setUserModalMode('assign')
+            setUserModalTitle('➕ Atribuir Permissões')
+            setUserModalOpen(true)
+          }}
+        />
+        <ActionCard
+          icon="⚙️"
+          title="Gerenciar Permissões"
+          description="Alterar/remover roles dos usuários"
+          onClick={() => {
+            setUserModalMode('manage')
+            setUserModalTitle('🔧 Gerenciar Permissões')
+            setUserModalOpen(true)
+          }}
+        />
+      </div>
+    </div>
+  )
+
+  const AssinaturasSection = () => (
+    <div>
+      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>💳 Gerenciar Assinaturas</h2>
+      <p style={{ color: '#64748b', marginBottom: '24px' }}>
+        Gerencie os tipos de conta dos usuários (Free, Mensal, Anual).
+      </p>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <ActionCard
+          icon="💳"
+          title="Gerenciar Assinaturas"
+          description="Ativar/desativar planos dos usuários"
+          onClick={() => setSubscriptionModalOpen(true)}
+        />
+        <ActionCard
+          icon="📊"
+          title="Estatísticas"
+          description="Ver estatísticas de assinaturas"
+          onClick={() => setSubscriptionModalOpen(true)}
+        />
+        <ActionCard
+          icon="🆓"
+          title="Usuários Free"
+          description="Ver usuários com conta gratuita"
+          onClick={() => setSubscriptionModalOpen(true)}
+        />
+        <ActionCard
+          icon="💎"
+          title="Usuários Premium"
+          description="Ver usuários com planos pagos"
+          onClick={() => setSubscriptionModalOpen(true)}
+        />
+      </div>
+    </div>
+  )
+
+  const RelatoriosSection = () => (
+    <div>
+      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>📊 Relatórios</h2>
+      <p style={{ color: '#64748b', marginBottom: '24px' }}>
+        Visualize estatísticas e relatórios do sistema.
+      </p>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <ActionCard
+          icon="📈"
+          title="Usuários Ativos"
+          description="Relatório de atividade"
+          onClick={() => alert('📊 Função: Usuários Ativos')}
+        />
+        <ActionCard
+          icon="📋"
+          title="Logs do Sistema"
+          description="Visualizar logs de auditoria"
+          onClick={() => alert('📊 Função: Logs do Sistema')}
+        />
+        <ActionCard
+          icon="💾"
+          title="Exportar Dados"
+          description="Exportar relatórios"
+          onClick={() => alert('📊 Função: Exportar Dados')}
+        />
+      </div>
+    </div>
+  )
+
+  const ConfiguracoesSection = () => (
+    <div>
+      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>🔧 Configurações</h2>
+      <p style={{ color: '#64748b', marginBottom: '24px' }}>
+        Configure parâmetros gerais do sistema.
+      </p>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <ActionCard
+          icon="⚙️"
+          title="Configurações Gerais"
+          description="Parâmetros do sistema"
+          onClick={() => alert('🔧 Função: Configurações Gerais')}
+        />
+        <ActionCard
+          icon="🔐"
+          title="Segurança"
+          description="Configurações de segurança"
+          onClick={() => alert('🔧 Função: Segurança')}
+        />
+        <ActionCard
+          icon="📧"
+          title="Notificações"
+          description="Configurar notificações"
+          onClick={() => alert('🔧 Função: Notificações')}
+        />
+      </div>
+    </div>
+  )
+
+  const RolesSection = () => (
+    <OwnerOnly>
+      <div>
+        <h2 style={{ margin: '0 0 16px 0', color: '#7c3aed' }}>🔑 Gerenciar Roles</h2>
+        <p style={{ color: '#64748b', marginBottom: '24px' }}>
+          Controle total sobre roles e permissões do sistema.
+        </p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+          <ActionCard
+            icon="👑"
+            title="Atribuir Owner"
+            description="Tornar usuário proprietário"
+            onClick={() => {
+              setUserModalMode('assign')
+              setUserModalTitle('👑 Atribuir Owner')
+              setUserModalOpen(true)
+            }}
+            isOwnerOnly={true}
+          />
+          <ActionCard
+            icon="🛡️"
+            title="Gerenciar Admins"
+            description="Adicionar/remover admins"
+            onClick={() => {
+              setUserModalMode('manage')
+              setUserModalTitle('🛡️ Gerenciar Admins')
+              setUserModalOpen(true)
+            }}
+            isOwnerOnly={true}
+          />
+          <ActionCard
+            icon="📋"
+            title="Histórico de Roles"
+            description="Ver mudanças de permissões"
+            onClick={() => {
+              setUserModalMode('list')
+              setUserModalTitle('📋 Histórico de Roles')
+              setUserModalOpen(true)
+            }}
+            isOwnerOnly={true}
+          />
+        </div>
+      </div>
+    </OwnerOnly>
+  )
+
+  const SistemaSection = () => (
+    <OwnerOnly>
+      <div>
+        <h2 style={{ margin: '0 0 16px 0', color: '#7c3aed' }}>⚙️ Sistema</h2>
+        <p style={{ color: '#64748b', marginBottom: '24px' }}>
+          Configurações críticas do sistema (apenas proprietário).
+        </p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+          <ActionCard
+            icon="🔧"
+            title="Configurações Avançadas"
+            description="Parâmetros críticos"
+            onClick={() => alert('⚙️ Função: Configurações Avançadas')}
+            isOwnerOnly={true}
+          />
+          <ActionCard
+            icon="🗄️"
+            title="Banco de Dados"
+            description="Gerenciar banco de dados"
+            onClick={() => alert('⚙️ Função: Banco de Dados')}
+            isOwnerOnly={true}
+          />
+          <ActionCard
+            icon="🔒"
+            title="Segurança Avançada"
+            description="Configurações de segurança"
+            onClick={() => alert('⚙️ Função: Segurança Avançada')}
+            isOwnerOnly={true}
+          />
+        </div>
+      </div>
+    </OwnerOnly>
+  )
+
+  const BackupSection = () => (
+    <OwnerOnly>
+      <div>
+        <h2 style={{ margin: '0 0 16px 0', color: '#7c3aed' }}>🗄️ Backup</h2>
+        <p style={{ color: '#64748b', marginBottom: '24px' }}>
+          Gerenciar backups e restauração do sistema.
+        </p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+          <ActionCard
+            icon="💾"
+            title="Criar Backup"
+            description="Fazer backup completo"
+            onClick={() => alert('🗄️ Função: Criar Backup')}
+            isOwnerOnly={true}
+          />
+          <ActionCard
+            icon="📥"
+            title="Restaurar Backup"
+            description="Restaurar sistema"
+            onClick={() => alert('🗄️ Função: Restaurar Backup')}
+            isOwnerOnly={true}
+          />
+          <ActionCard
+            icon="📅"
+            title="Backups Automáticos"
+            description="Configurar backups automáticos"
+            onClick={() => alert('🗄️ Função: Backups Automáticos')}
+            isOwnerOnly={true}
+          />
+        </div>
+      </div>
+    </OwnerOnly>
+  )
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -220,275 +476,7 @@ function SidebarItem({ icon, label, active, onClick, isOwnerOnly = false }: Side
   )
 }
 
-// Seções de Conteúdo
-function UsuariosSection() {
-  return (
-    <div>
-      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>👥 Gerenciar Usuários</h2>
-      <p style={{ color: '#64748b', marginBottom: '24px' }}>
-        Gerencie usuários, roles e permissões do sistema.
-      </p>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        <ActionCard
-          icon="👤"
-          title="Listar Usuários"
-          description="Ver todos os usuários cadastrados"
-          onClick={() => {
-            setUserModalMode('list')
-            setUserModalTitle('📋 Lista de Usuários')
-            setUserModalOpen(true)
-          }}
-        />
-        <ActionCard
-          icon="🔧"
-          title="Atribuir Permissões"
-          description="Dar roles aos usuários"
-          onClick={() => {
-            setUserModalMode('assign')
-            setUserModalTitle('➕ Atribuir Permissões')
-            setUserModalOpen(true)
-          }}
-        />
-        <ActionCard
-          icon="⚙️"
-          title="Gerenciar Permissões"
-          description="Alterar/remover roles dos usuários"
-          onClick={() => {
-            setUserModalMode('manage')
-            setUserModalTitle('🔧 Gerenciar Permissões')
-            setUserModalOpen(true)
-          }}
-        />
-      </div>
-    </div>
-  )
-}
 
-function AssinaturasSection() {
-  return (
-    <div>
-      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>💳 Gerenciar Assinaturas</h2>
-      <p style={{ color: '#64748b', marginBottom: '24px' }}>
-        Gerencie os tipos de conta dos usuários (Free, Mensal, Anual).
-      </p>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        <ActionCard
-          icon="💳"
-          title="Gerenciar Assinaturas"
-          description="Ativar/desativar planos dos usuários"
-          onClick={() => setSubscriptionModalOpen(true)}
-        />
-        <ActionCard
-          icon="📊"
-          title="Estatísticas"
-          description="Ver estatísticas de assinaturas"
-          onClick={() => {
-            setUserModalMode('list')
-            setUserModalTitle('📊 Estatísticas de Assinaturas')
-            setSubscriptionModalOpen(true)
-          }}
-        />
-        <ActionCard
-          icon="🆓"
-          title="Usuários Free"
-          description="Ver usuários com conta gratuita"
-          onClick={() => {
-            setUserModalMode('list')
-            setUserModalTitle('🆓 Usuários Free')
-            setSubscriptionModalOpen(true)
-          }}
-        />
-        <ActionCard
-          icon="💎"
-          title="Usuários Premium"
-          description="Ver usuários com planos pagos"
-          onClick={() => {
-            setUserModalMode('list')
-            setUserModalTitle('💎 Usuários Premium')
-            setSubscriptionModalOpen(true)
-          }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function RelatoriosSection() {
-  return (
-    <div>
-      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>📊 Relatórios</h2>
-      <p style={{ color: '#64748b', marginBottom: '24px' }}>
-        Visualize estatísticas e relatórios do sistema.
-      </p>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        <ActionCard
-          icon="📈"
-          title="Usuários Ativos"
-          description="Relatório de atividade"
-          onClick={() => alert('📊 Função: Usuários Ativos')}
-        />
-        <ActionCard
-          icon="📋"
-          title="Logs do Sistema"
-          description="Visualizar logs de auditoria"
-          onClick={() => alert('📊 Função: Logs do Sistema')}
-        />
-        <ActionCard
-          icon="💾"
-          title="Exportar Dados"
-          description="Exportar relatórios"
-          onClick={() => alert('📊 Função: Exportar Dados')}
-        />
-      </div>
-    </div>
-  )
-}
-
-function ConfiguracoesSection() {
-  return (
-    <div>
-      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>🔧 Configurações</h2>
-      <p style={{ color: '#64748b', marginBottom: '24px' }}>
-        Configure parâmetros gerais do sistema.
-      </p>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        <ActionCard
-          icon="⚙️"
-          title="Configurações Gerais"
-          description="Parâmetros do sistema"
-          onClick={() => alert('🔧 Função: Configurações Gerais')}
-        />
-        <ActionCard
-          icon="🔐"
-          title="Segurança"
-          description="Configurações de segurança"
-          onClick={() => alert('🔧 Função: Segurança')}
-        />
-        <ActionCard
-          icon="📧"
-          title="Notificações"
-          description="Configurar notificações"
-          onClick={() => alert('🔧 Função: Notificações')}
-        />
-      </div>
-    </div>
-  )
-}
-
-function RolesSection() {
-  return (
-    <OwnerOnly>
-      <div>
-        <h2 style={{ margin: '0 0 16px 0', color: '#7c3aed' }}>🔑 Gerenciar Roles</h2>
-        <p style={{ color: '#64748b', marginBottom: '24px' }}>
-          Controle total sobre roles e permissões do sistema.
-        </p>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          <ActionCard
-            icon="👑"
-            title="Atribuir Owner"
-            description="Tornar usuário proprietário"
-            onClick={() => alert('🔑 Função: Atribuir Owner')}
-            isOwnerOnly={true}
-          />
-          <ActionCard
-            icon="🛡️"
-            title="Gerenciar Admins"
-            description="Adicionar/remover admins"
-            onClick={() => alert('🔑 Função: Gerenciar Admins')}
-            isOwnerOnly={true}
-          />
-          <ActionCard
-            icon="📋"
-            title="Histórico de Roles"
-            description="Ver mudanças de permissões"
-            onClick={() => alert('🔑 Função: Histórico de Roles')}
-            isOwnerOnly={true}
-          />
-        </div>
-      </div>
-    </OwnerOnly>
-  )
-}
-
-function SistemaSection() {
-  return (
-    <OwnerOnly>
-      <div>
-        <h2 style={{ margin: '0 0 16px 0', color: '#7c3aed' }}>⚙️ Sistema</h2>
-        <p style={{ color: '#64748b', marginBottom: '24px' }}>
-          Configurações críticas do sistema (apenas proprietário).
-        </p>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          <ActionCard
-            icon="🔧"
-            title="Configurações Avançadas"
-            description="Parâmetros críticos"
-            onClick={() => alert('⚙️ Função: Configurações Avançadas')}
-            isOwnerOnly={true}
-          />
-          <ActionCard
-            icon="🗄️"
-            title="Banco de Dados"
-            description="Gerenciar banco de dados"
-            onClick={() => alert('⚙️ Função: Banco de Dados')}
-            isOwnerOnly={true}
-          />
-          <ActionCard
-            icon="🔒"
-            title="Segurança Avançada"
-            description="Configurações de segurança"
-            onClick={() => alert('⚙️ Função: Segurança Avançada')}
-            isOwnerOnly={true}
-          />
-        </div>
-      </div>
-    </OwnerOnly>
-  )
-}
-
-function BackupSection() {
-  return (
-    <OwnerOnly>
-      <div>
-        <h2 style={{ margin: '0 0 16px 0', color: '#7c3aed' }}>🗄️ Backup</h2>
-        <p style={{ color: '#64748b', marginBottom: '24px' }}>
-          Gerenciar backups e restauração do sistema.
-        </p>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          <ActionCard
-            icon="💾"
-            title="Criar Backup"
-            description="Fazer backup completo"
-            onClick={() => alert('🗄️ Função: Criar Backup')}
-            isOwnerOnly={true}
-          />
-          <ActionCard
-            icon="📥"
-            title="Restaurar Backup"
-            description="Restaurar sistema"
-            onClick={() => alert('🗄️ Função: Restaurar Backup')}
-            isOwnerOnly={true}
-          />
-          <ActionCard
-            icon="📅"
-            title="Backups Automáticos"
-            description="Configurar backups automáticos"
-            onClick={() => alert('🗄️ Função: Backups Automáticos')}
-            isOwnerOnly={true}
-          />
-        </div>
-      </div>
-    </OwnerOnly>
-  )
-}
 
 // Componente para cards de ação
 interface ActionCardProps {
