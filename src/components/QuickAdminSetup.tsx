@@ -26,10 +26,22 @@ export function QuickAdminSetup() {
 
       console.log('🔧 Tentando tornar owner:', user.email)
 
+      // Verificar se já tem role primeiro
+      const { data: existingRole, error: checkError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single()
+
+      if (existingRole) {
+        setResult(`✅ Você já é ${existingRole.role.toUpperCase()}! Nenhuma alteração necessária.`)
+        return
+      }
+
       // Método 1: Inserir diretamente na tabela user_roles
       const { data: insertData, error: insertError } = await supabase
         .from('user_roles')
-        .upsert({
+        .insert({
           user_id: user.id,
           role: 'owner',
           assigned_by: user.id,
