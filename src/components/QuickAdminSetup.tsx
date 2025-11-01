@@ -31,7 +31,11 @@ export function QuickAdminSetup() {
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
+
+      if (checkError) {
+        console.error('❌ Erro ao verificar role existente:', checkError)
+      }
 
       if (existingRole) {
         setResult(`✅ Você já é ${existingRole.role.toUpperCase()}! Nenhuma alteração necessária.`)
@@ -57,14 +61,14 @@ export function QuickAdminSetup() {
       console.log('✅ Role inserida:', insertData)
 
       // Verificar se funcionou
-      const { data: checkData, error: checkError } = await supabase
+      const { data: checkData, error: checkError2 } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
-      if (checkError) {
-        setResult(`⚠️ Role inserida mas erro na verificação: ${checkError.message}`)
+      if (checkError2) {
+        setResult(`⚠️ Role inserida mas erro na verificação: ${checkError2.message}`)
         return
       }
 
