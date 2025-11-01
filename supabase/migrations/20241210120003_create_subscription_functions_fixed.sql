@@ -2,9 +2,64 @@
 -- Data: 2024-12-10
 -- Objetivo: Implementar todas as funções necessárias para o sistema administrativo
 
--- 1. Função para obter informações de assinatura
+-- 1. Criar tabela user_subscriptions se não existir
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  plan TEXT NOT NULL DEFAULT 'free_trial' CHECK (plan IN ('free_trial', 'monthly', 'annual')),
+  status TEXT NOT NULL DEFAULT 'trial' CHECK (status IN ('trial', 'active', 'expired', 'canceled', 'suspended')),
+  
+  -- Datas do trial
+  trial_started_at TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ,
+  
+  -- Datas da assinatura paga
+  subscription_started_at TIMESTAMPTZ,
+  subscription_ends_at TIMESTAMPTZ,
+  
+  -- Metadados
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. RLS para user_subscriptions
+ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Usuários podem ver suas próprias assinaturas
+CREATE POLICY "Users can view own subscriptions" ON user_subscriptions
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Admins podem ver todas as assinaturas
+CREATE POLICY "Admins can view all subscriptions" ON user_subscriptions
+  FOR SELECT USING (
+    EXISTS(SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'owner'))
+  );
+
+-- Usuários podem inserir/atualizar suas próprias assinaturas
+CREATE POLICY "Users can manage own subscriptions" ON user_subscriptions
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Admins podem gerenciar todas as assinaturas
+CREATE POLICY "Admins can manage all subscriptions" ON user_subscriptions
+  FOR ALL USING (
+    EXISTS(SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'owner'))
+  );
+
+-- 3. Índices para performance
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_plan 
+  ON user_subscriptions(status, plan);
+
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_trial_ends 
+  ON user_subscriptions(trial_ends_at) WHERE status = 'trial';
+
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_subscription_ends 
+  ON user_subscriptions(subscription_ends_at) WHERE status = 'active';
+
+-- 4. Função para obter informações de assinatura
 CREATE OR REPLACE FUNCTION get_subscription_info(check_user_id UUID DEFAULT NULL)
-RETURNS JSON AS $$
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
   target_user_id UUID;
   subscription_record RECORD;
@@ -77,14 +132,17 @@ BEGIN
   
   RETURN result;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
--- 2. Função para ativar assinatura paga
+-- 5. Função para ativar assinatura paga
 CREATE OR REPLACE FUNCTION activate_paid_subscription(
   target_user_id UUID,
   plan_type TEXT DEFAULT 'monthly'
 )
-RETURNS JSON AS $
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
   end_date TIMESTAMPTZ;
   result JSON;
@@ -142,14 +200,17 @@ BEGIN
   
   RETURN result;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
--- 3. Função para ativar trial
+-- 6. Função para ativar trial
 CREATE OR REPLACE FUNCTION activate_trial_subscription(
   target_user_id UUID,
   trial_days INTEGER DEFAULT 7
 )
-RETURNS JSON AS $
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
   end_date TIMESTAMPTZ;
   result JSON;
@@ -203,11 +264,14 @@ BEGIN
   
   RETURN result;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
--- 4. Função para cancelar assinatura
+-- 7. Função para cancelar assinatura
 CREATE OR REPLACE FUNCTION cancel_subscription(target_user_id UUID)
-RETURNS JSON AS $
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
   result JSON;
 BEGIN
@@ -240,130 +304,4 @@ BEGIN
   
   RETURN result;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 5. Função para obter estatísticas de assinaturas (admin only)
-CREATE OR REPLACE FUNCTION get_subscription_stats()
-RETURNS JSON AS $
-DECLARE
-  stats JSON;
-BEGIN
-  -- Verificar se é admin
-  IF NOT EXISTS(SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'owner')) THEN
-    RETURN json_build_object('error', 'Permissão negada');
-  END IF;
-  
-  -- Calcular estatísticas
-  WITH subscription_counts AS (
-    SELECT 
-      COUNT(*) FILTER (WHERE status = 'trial' AND trial_ends_at > NOW()) as free_active,
-      COUNT(*) FILTER (WHERE status = 'active' AND plan = 'monthly' AND subscription_ends_at > NOW()) as monthly_active,
-      COUNT(*) FILTER (WHERE status = 'active' AND plan = 'annual' AND subscription_ends_at > NOW()) as annual_active,
-      COUNT(*) FILTER (WHERE status IN ('expired', 'canceled') OR 
-        (status = 'trial' AND trial_ends_at <= NOW()) OR
-        (status = 'active' AND subscription_ends_at <= NOW())) as expired_total,
-      COUNT(*) as total_subscriptions
-    FROM user_subscriptions
-  ),
-  user_counts AS (
-    SELECT COUNT(*) as total_users FROM auth.users
-  )
-  SELECT json_build_object(
-    'freeActiveUsers', COALESCE(sc.free_active, 0),
-    'monthlyUsers', COALESCE(sc.monthly_active, 0),
-    'annualUsers', COALESCE(sc.annual_active, 0),
-    'expiredUsers', COALESCE(sc.expired_total, 0),
-    'totalUsers', COALESCE(uc.total_users, 0),
-    'totalSubscriptions', COALESCE(sc.total_subscriptions, 0)
-  )
-  INTO stats
-  FROM subscription_counts sc
-  CROSS JOIN user_counts uc;
-  
-  RETURN stats;
-END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 6. Função para atualizar assinaturas expiradas (manutenção)
-CREATE OR REPLACE FUNCTION update_expired_subscriptions()
-RETURNS JSON AS $
-DECLARE
-  updated_count INTEGER;
-BEGIN
-  -- Atualizar trials expirados
-  UPDATE user_subscriptions 
-  SET status = 'expired', updated_at = NOW()
-  WHERE status = 'trial' 
-    AND trial_ends_at IS NOT NULL 
-    AND trial_ends_at <= NOW();
-  
-  GET DIAGNOSTICS updated_count = ROW_COUNT;
-  
-  -- Atualizar assinaturas pagas expiradas
-  UPDATE user_subscriptions 
-  SET status = 'expired', updated_at = NOW()
-  WHERE status = 'active' 
-    AND subscription_ends_at IS NOT NULL 
-    AND subscription_ends_at <= NOW();
-  
-  GET DIAGNOSTICS updated_count = updated_count + ROW_COUNT;
-  
-  RETURN json_build_object(
-    'success', true,
-    'message', 'Assinaturas expiradas atualizadas',
-    'updated_count', updated_count
-  );
-END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 7. Criar tabela user_subscriptions se não existir
-CREATE TABLE IF NOT EXISTS user_subscriptions (
-  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  plan TEXT NOT NULL DEFAULT 'free_trial' CHECK (plan IN ('free_trial', 'monthly', 'annual')),
-  status TEXT NOT NULL DEFAULT 'trial' CHECK (status IN ('trial', 'active', 'expired', 'canceled', 'suspended')),
-  
-  -- Datas do trial
-  trial_started_at TIMESTAMPTZ,
-  trial_ends_at TIMESTAMPTZ,
-  
-  -- Datas da assinatura paga
-  subscription_started_at TIMESTAMPTZ,
-  subscription_ends_at TIMESTAMPTZ,
-  
-  -- Metadados
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 8. RLS para user_subscriptions
-ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
-
--- Usuários podem ver suas próprias assinaturas
-CREATE POLICY "Users can view own subscriptions" ON user_subscriptions
-  FOR SELECT USING (auth.uid() = user_id);
-
--- Admins podem ver todas as assinaturas
-CREATE POLICY "Admins can view all subscriptions" ON user_subscriptions
-  FOR SELECT USING (
-    EXISTS(SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'owner'))
-  );
-
--- Usuários podem inserir/atualizar suas próprias assinaturas
-CREATE POLICY "Users can manage own subscriptions" ON user_subscriptions
-  FOR ALL USING (auth.uid() = user_id);
-
--- Admins podem gerenciar todas as assinaturas
-CREATE POLICY "Admins can manage all subscriptions" ON user_subscriptions
-  FOR ALL USING (
-    EXISTS(SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'owner'))
-  );
-
--- 9. Índices para performance
-CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_plan 
-  ON user_subscriptions(status, plan);
-
-CREATE INDEX IF NOT EXISTS idx_user_subscriptions_trial_ends 
-  ON user_subscriptions(trial_ends_at) WHERE status = 'trial';
-
-CREATE INDEX IF NOT EXISTS idx_user_subscriptions_subscription_ends 
-  ON user_subscriptions(subscription_ends_at) WHERE status = 'active';
+$$;
