@@ -26,19 +26,27 @@ export function QuickAdminSetup() {
 
       console.log('🔧 Tentando tornar owner:', user.email)
 
-      // Verificar se já tem role primeiro
-      const { data: existingRole, error: checkError } = await supabase
+      // Verificar se já tem role primeiro (pode ter múltiplas)
+      const { data: existingRoles, error: checkError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .maybeSingle()
 
       if (checkError) {
         console.error('❌ Erro ao verificar role existente:', checkError)
+        setResult(`❌ Erro ao verificar roles: ${checkError.message}`)
+        return
       }
 
-      if (existingRole) {
-        setResult(`✅ Você já é ${existingRole.role.toUpperCase()}! Nenhuma alteração necessária.`)
+      if (existingRoles && existingRoles.length > 0) {
+        const roles = existingRoles.map(r => r.role).join(', ')
+        const hasOwner = existingRoles.some(r => r.role === 'owner')
+        
+        if (hasOwner) {
+          setResult(`✅ Você já é OWNER! Roles atuais: ${roles}`)
+        } else {
+          setResult(`⚠️ Você já tem roles: ${roles}. Para ser owner, use o gerenciamento de usuários.`)
+        }
         return
       }
 
@@ -156,12 +164,11 @@ export function QuickAdminSetup() {
         return
       }
 
-      // Verificar role
+      // Verificar roles (pode ter múltiplas)
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .maybeSingle()
 
       // Verificar assinatura
       const { data: subData } = await supabase
@@ -170,15 +177,84 @@ export function QuickAdminSetup() {
         .eq('user_id', user.id)
         .maybeSingle()
 
+      const roles = roleData && roleData.length > 0 
+        ? roleData.map(r => r.role).join(', ')
+        : 'Nenhuma'
+
       const status = `
 📧 Email: ${user.email}
-🔑 Role: ${roleData?.role || 'Nenhuma'}
+🔑 Roles: ${roles} ${roleData && roleData.length > 1 ? '⚠️ (MÚLTIPLAS!)' : ''}
 💳 Plano: ${subData?.plan || 'Nenhum'}
 📊 Status: ${subData?.status || 'Inativo'}
 📅 Expira: ${subData?.subscription_ends_at ? new Date(subData.subscription_ends_at).toLocaleDateString('pt-BR') : 'N/A'}
       `
 
       setResult(status)
+
+    } catch (error) {
+      setResult(`❌ Erro: ${error}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fixDuplicateRoles = async () => {
+    setLoading(true)
+    setResult('')
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        setResult('❌ Você precisa estar logado')
+        return
+      }
+
+      console.log('🔧 Corrigindo roles duplicadas para:', user.email)
+
+      // Buscar todas as roles do usuário
+      const { data: allRoles, error: fetchError } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (fetchError) {
+        setResult(`❌ Erro ao buscar roles: ${fetchError.message}`)
+        return
+      }
+
+      if (!allRoles || allRoles.length <= 1) {
+        setResult('✅ Não há roles duplicadas para corrigir.')
+        return
+      }
+
+      console.log('🔧 Roles encontradas:', allRoles.length)
+
+      // Manter apenas a role mais alta (owner > admin > moderator > user)
+      const roleHierarchy = { owner: 4, admin: 3, moderator: 2, user: 1 }
+      const bestRole = allRoles.reduce((prev, current) => 
+        roleHierarchy[current.role] > roleHierarchy[prev.role] ? current : prev
+      )
+
+      // Deletar todas as outras roles
+      const { error: deleteError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', user.id)
+        .neq('id', bestRole.id)
+
+      if (deleteError) {
+        setResult(`❌ Erro ao deletar roles duplicadas: ${deleteError.message}`)
+        return
+      }
+
+      setResult(`✅ Roles duplicadas removidas! Mantida: ${bestRole.role.toUpperCase()}`)
+
+      // Forçar refresh
+      window.dispatchEvent(new CustomEvent('force-profile-refresh', { 
+        detail: { forceAll: true, timestamp: Date.now() } 
+      }))
 
     } catch (error) {
       setResult(`❌ Erro: ${error}`)
@@ -223,6 +299,14 @@ export function QuickAdminSetup() {
             variant="secondary"
           >
             💎 Ativar Assinatura Anual
+          </Button>
+          
+          <Button 
+            onClick={fixDuplicateRoles}
+            disabled={loading}
+            variant="destructive"
+          >
+            🔧 Corrigir Roles Duplicadas
           </Button>
         </div>
 
