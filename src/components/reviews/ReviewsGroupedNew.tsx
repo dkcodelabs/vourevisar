@@ -226,16 +226,32 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                     const aDaysOverdue = getDaysOverdue(a);
                     const bDaysOverdue = getDaysOverdue(b);
                     
-                    // Se ambos estão atrasados, ordenar pelo mais atrasado primeiro
+                    // Se ambos estão atrasados
                     if (aDaysOverdue > 0 && bDaysOverdue > 0) {
-                        return bDaysOverdue - aDaysOverdue;
+                        // Se têm atrasos diferentes, ordenar pelo mais atrasado primeiro
+                        if (aDaysOverdue !== bDaysOverdue) {
+                            return bDaysOverdue - aDaysOverdue;
+                        }
+                        // Se têm mesmo atraso, ordenar por data/hora de vencimento (mais antigo primeiro)
+                        if (a.nextReview && b.nextReview) {
+                            const aDate = new Date(a.nextReview);
+                            const bDate = new Date(b.nextReview);
+                            return aDate.getTime() - bDate.getTime();
+                        }
                     }
                     
                     // Se apenas um está atrasado, ele vem primeiro
                     if (aDaysOverdue > 0) return -1;
                     if (bDaysOverdue > 0) return 1;
                     
-                    // Se nenhum está atrasado, ordenar alfabeticamente
+                    // Se nenhum está atrasado (ambos vencem hoje), ordenar por hora de vencimento
+                    if (a.nextReview && b.nextReview) {
+                        const aDate = new Date(a.nextReview);
+                        const bDate = new Date(b.nextReview);
+                        return aDate.getTime() - bDate.getTime();
+                    }
+                    
+                    // Fallback: ordenar alfabeticamente
                     return a.name.localeCompare(b.name);
                     
                 } else if (tab === 'futuras') {
