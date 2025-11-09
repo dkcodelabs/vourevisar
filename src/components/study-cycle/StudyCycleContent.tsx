@@ -411,6 +411,7 @@ export const StudyCycleContent: React.FC = () => {
                 onCompleteSession={handleCompleteSessionWithProgress}
                 onOpenNotes={handleOpenNotes}
                 onSubjectNotesClick={() => handleOpenSubjectNotes(subject)}
+                onTopicUpdate={refreshCycleData}
                 isActionable={isActionableSection}
                 isStudyFocus={false}
                 viewMode={viewMode}

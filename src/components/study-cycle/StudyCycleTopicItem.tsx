@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { StudyCycleTopic } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
 import { CheckIcon, EditIcon } from './Icons';
+import { EditableTopicName } from '@/components/EditableTopicName';
 
 interface StudyCycleTopicItemProps {
   topic: StudyCycleTopic;
   isMarkedInSession: boolean;
   onToggleMark: (topicId: string) => void;
   onOpenNotes: () => void;
+  onTopicUpdate?: () => void;
   isSubjectFinished: boolean;
   isActionable: boolean;
 }
@@ -26,9 +28,11 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   isMarkedInSession,
   onToggleMark,
   onOpenNotes,
+  onTopicUpdate,
   isSubjectFinished,
   isActionable
 }) => {
+  const [isEditingName, setIsEditingName] = useState(false);
   const isTopicCompleted = topic.reviewStatus === ReviewInterval.COMPLETED;
   const statusConfig = REVIEW_STATUS_CONFIG[topic.reviewStatus];
 
@@ -59,10 +63,23 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
     <div className={`${baseClasses} ${bgClasses}`}>
       {/* Layout responsivo: desktop = horizontal, mobile = vertical */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
-        {/* Texto do tópico */}
-        <span className="text-sm text-zinc-800 dark:text-zinc-200 flex-1">
-          {topic.name}
-        </span>
+        {/* Texto do tópico - Editável */}
+        <div 
+          className="flex-1 cursor-pointer group"
+          onClick={() => !isEditingName && setIsEditingName(true)}
+          title="Clique para editar o nome"
+        >
+          <EditableTopicName
+            topicId={topic.id}
+            initialName={topic.name}
+            onUpdate={() => {
+              setIsEditingName(false);
+              onTopicUpdate?.();
+            }}
+            isEditing={isEditingName}
+            onEditChange={setIsEditingName}
+          />
+        </div>
         
         {/* Controles: status, anotação e radiobox */}
         <div className="flex items-center gap-3 flex-shrink-0">

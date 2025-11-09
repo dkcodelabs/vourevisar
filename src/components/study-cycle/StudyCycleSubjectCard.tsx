@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { StudyCycleSubject } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
 import { StudyCycleTopicItem } from './StudyCycleTopicItem';
@@ -16,6 +16,7 @@ interface StudyCycleSubjectCardProps {
   onCompleteSession: (subjectId: string) => void;
   onOpenNotes: (subjectId: string, topicId: string) => void;
   onSubjectNotesClick: () => void;
+  onTopicUpdate?: () => void;
   isActionable: boolean;
   isStudyFocus: boolean;
   viewMode: 'grid' | 'list';
@@ -40,6 +41,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   onCompleteSession,
   onOpenNotes,
   onSubjectNotesClick,
+  onTopicUpdate,
   isActionable,
   isStudyFocus,
   viewMode,
@@ -51,6 +53,8 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 }) => {
   const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
   const { user } = useAuth();
+  const [isAddingTopic, setIsAddingTopic] = useState(false);
+  const [newTopicName, setNewTopicName] = useState('');
   const isFullyCompleted = useMemo(() => subject.topics.every(t => t.reviewStatus === ReviewInterval.COMPLETED), [subject.topics]);
 
   // Componente para renderizar a posição no ciclo
@@ -114,6 +118,44 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     }
   };
 
+  const handleAddTopic = async () => {
+    if (!newTopicName.trim() || !user) return;
+
+    try {
+      const originalId = subject.originalId || subject.id;
+      
+      const { error } = await supabase
+        .from('topics')
+        .insert({
+          subject_id: originalId,
+          name: newTopicName.trim(),
+          completed: false,
+          review_count: 0,
+          review_stage: null,
+          next_review: null,
+          first_studied_at: null,
+          last_reviewed_at: null,
+          notes: null
+        });
+
+      if (error) throw error;
+
+      setNewTopicName('');
+      setIsAddingTopic(false);
+      
+      // Disparar evento para atualizar dados
+      window.dispatchEvent(new CustomEvent('topicUpdated', { 
+        detail: { action: 'add', subjectId: originalId } 
+      }));
+      
+      onTopicUpdate?.();
+      toast.success('Tópico adicionado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar tópico:', error);
+      toast.error('Erro ao adicionar tópico');
+    }
+  };
+
 
 
   const cardBaseClasses = "bg-card rounded-2xl shadow-md overflow-hidden transition-all duration-300";
@@ -127,16 +169,27 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 flex-1 min-w-0">
-              <CyclePositionBadges />
+              <CyclePositionBadge />
               <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
             </div>
-            <button
-              onClick={onSubjectNotesClick}
-              className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
-              title="Anotações da matéria"
-            >
-              <NotebookPen className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsAddingTopic(true)}
+                className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                title="Adicionar novo tópico"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+              <button
+                onClick={onSubjectNotesClick}
+                className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                title="Anotações da matéria"
+              >
+                <NotebookPen className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-4 mt-4">
             <div className="w-full bg-muted rounded-full h-2.5">
@@ -158,10 +211,51 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                 isMarkedInSession={false}
                 onToggleMark={() => { }}
                 onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
+                onTopicUpdate={onTopicUpdate}
                 isSubjectFinished={true}
                 isActionable={false}
               />
             ))}
+            {isAddingTopic && (
+              <div className="flex items-center gap-2 p-3 bg-white dark:bg-slate-700/50 rounded-lg">
+                <input
+                  type="text"
+                  value={newTopicName}
+                  onChange={(e) => setNewTopicName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddTopic();
+                    if (e.key === 'Escape') {
+                      setIsAddingTopic(false);
+                      setNewTopicName('');
+                    }
+                  }}
+                  placeholder="Nome do novo tópico..."
+                  className="flex-1 text-sm bg-transparent border-none outline-none text-zinc-800 dark:text-zinc-200"
+                  autoFocus
+                />
+                <button
+                  onClick={handleAddTopic}
+                  className="p-1 text-green-600 hover:text-green-700"
+                  title="Salvar"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAddingTopic(false);
+                    setNewTopicName('');
+                  }}
+                  className="p-1 text-red-600 hover:text-red-700"
+                  title="Cancelar"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -233,10 +327,51 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                     isMarkedInSession={markedTopicIds.has(topic.id)}
                     onToggleMark={onToggleMark}
                     onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
+                    onTopicUpdate={onTopicUpdate}
                     isSubjectFinished={false}
                     isActionable={isActionable}
                   />
                 ))}
+                {isAddingTopic && (
+                  <div className="flex items-center gap-2 p-3 bg-white dark:bg-slate-700/50 rounded-lg">
+                    <input
+                      type="text"
+                      value={newTopicName}
+                      onChange={(e) => setNewTopicName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAddTopic();
+                        if (e.key === 'Escape') {
+                          setIsAddingTopic(false);
+                          setNewTopicName('');
+                        }
+                      }}
+                      placeholder="Nome do novo tópico..."
+                      className="flex-1 text-sm bg-transparent border-none outline-none text-zinc-800 dark:text-zinc-200"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleAddTopic}
+                      className="p-1 text-green-600 hover:text-green-700"
+                      title="Salvar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsAddingTopic(false);
+                        setNewTopicName('');
+                      }}
+                      className="p-1 text-red-600 hover:text-red-700"
+                      title="Cancelar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
               {isActionable && (
                 <div className="mt-4 pt-4 border-t border-border flex justify-end">
@@ -279,7 +414,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
       <div className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 flex-1 min-w-0">
-            <CyclePositionBadges />
+            <CyclePositionBadge />
             <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
           </div>
           <button
@@ -307,10 +442,51 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               isMarkedInSession={markedTopicIds.has(topic.id)}
               onToggleMark={onToggleMark}
               onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
+              onTopicUpdate={onTopicUpdate}
               isSubjectFinished={false}
               isActionable={isActionable}
             />
           ))}
+          {isAddingTopic && (
+            <div className="flex items-center gap-2 p-3 bg-white dark:bg-slate-700/50 rounded-lg">
+              <input
+                type="text"
+                value={newTopicName}
+                onChange={(e) => setNewTopicName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddTopic();
+                  if (e.key === 'Escape') {
+                    setIsAddingTopic(false);
+                    setNewTopicName('');
+                  }
+                }}
+                placeholder="Nome do novo tópico..."
+                className="flex-1 text-sm bg-transparent border-none outline-none text-zinc-800 dark:text-zinc-200"
+                autoFocus
+              />
+              <button
+                onClick={handleAddTopic}
+                className="p-1 text-green-600 hover:text-green-700"
+                title="Salvar"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  setIsAddingTopic(false);
+                  setNewTopicName('');
+                }}
+                className="p-1 text-red-600 hover:text-red-700"
+                title="Cancelar"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
