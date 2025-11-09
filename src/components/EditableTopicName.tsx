@@ -78,41 +78,52 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
 
   if (isEditingState) {
     return (
-      <div className="flex items-center gap-2 flex-1">
-        <Input
+      <div className="flex items-start gap-2 flex-1">
+        <textarea
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="text-base font-normal"
+          className="flex-1 text-sm font-normal bg-white dark:bg-slate-800 border border-blue-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[60px]"
           autoFocus
+          rows={3}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSave();
-            if (e.key === 'Escape') handleCancel();
+            if (e.key === 'Enter' && e.ctrlKey) {
+              e.preventDefault();
+              handleSave();
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              handleCancel();
+            }
           }}
         />
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleSave}
-          disabled={isSaving}
-          className="h-6 w-6 p-0"
-        >
-          <Check className="h-3 w-3" />
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleCancel}
-          disabled={isSaving}
-          className="h-6 w-6 p-0"
-        >
-          <X className="h-3 w-3" />
-        </Button>
+        <div className="flex flex-col gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+            title="Salvar (Ctrl+Enter)"
+          >
+            <Check className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleCancel}
+            disabled={isSaving}
+            className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+            title="Cancelar (Esc)"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <h3 className="text-base font-normal text-zinc-800 dark:text-zinc-200 truncate">
+    <h3 className="text-sm font-normal text-zinc-800 dark:text-zinc-200 break-words leading-tight">
       {name}
     </h3>
   );

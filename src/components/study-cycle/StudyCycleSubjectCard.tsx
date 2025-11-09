@@ -118,6 +118,15 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     }
   };
 
+  const handleStartAddingTopic = () => {
+    // Se não estiver expandido, expandir primeiro
+    if (!isExpanded) {
+      onToggleExpand();
+    }
+    // Ativar modo de adição
+    setIsAddingTopic(true);
+  };
+
   const handleAddTopic = async () => {
     if (!newTopicName.trim() || !user) return;
 
@@ -174,13 +183,14 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setIsAddingTopic(true)}
-                className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                onClick={handleStartAddingTopic}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
                 title="Adicionar novo tópico"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
+                <span>Tópico</span>
               </button>
               <button
                 onClick={onSubjectNotesClick}
@@ -289,13 +299,25 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                 <CyclePositionBadge />
                 <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
               </div>
-              <button
-                onClick={onSubjectNotesClick}
-                className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
-                title="Anotações da matéria"
-              >
-                <NotebookPen className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleStartAddingTopic}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
+                  title="Adicionar novo tópico"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Tópico</span>
+                </button>
+                <button
+                  onClick={onSubjectNotesClick}
+                  className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                  title="Anotações da matéria"
+                >
+                  <NotebookPen className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
               <div className="w-full bg-muted rounded-full h-2">
@@ -417,13 +439,25 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             <CyclePositionBadge />
             <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
           </div>
-          <button
-            onClick={onSubjectNotesClick}
-            className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
-            title="Anotações da matéria"
-          >
-            <NotebookPen className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleStartAddingTopic}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
+              title="Adicionar novo tópico"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Tópico</span>
+            </button>
+            <button
+              onClick={onSubjectNotesClick}
+              className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+              title="Anotações da matéria"
+            >
+              <NotebookPen className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-4 mt-4">
           <div className="w-full bg-muted rounded-full h-2.5">

@@ -39,7 +39,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   if (isSubjectFinished) {
     return (
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full px-4 py-2 gap-2">
-        <span className="text-sm text-zinc-800 dark:text-zinc-200 flex-1">{topic.name}</span>
+        <span className="text-sm text-zinc-800 dark:text-zinc-200 flex-1 break-words leading-tight">{topic.name}</span>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="font-semibold text-emerald-600 dark:text-emerald-400">Revisado</span>
           <div className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500 text-white shadow-md">
