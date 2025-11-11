@@ -12,6 +12,8 @@ interface StudyCycleTopicItemProps {
   onTopicUpdate?: () => void;
   isSubjectFinished: boolean;
   isActionable: boolean;
+  isEditing?: boolean;
+  onEditingChange?: (topicId: string | null) => void;
 }
 
 const REVIEW_STATUS_CONFIG: Record<ReviewInterval, { text: string; className: string }> = {
@@ -30,11 +32,21 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   onOpenNotes,
   onTopicUpdate,
   isSubjectFinished,
-  isActionable
+  isActionable,
+  isEditing = false,
+  onEditingChange
 }) => {
-  const [isEditingName, setIsEditingName] = useState(false);
   const isTopicCompleted = topic.reviewStatus === ReviewInterval.COMPLETED;
   const statusConfig = REVIEW_STATUS_CONFIG[topic.reviewStatus];
+
+  const handleStartEditing = () => {
+    onEditingChange?.(topic.id);
+  };
+
+  const handleStopEditing = () => {
+    onEditingChange?.(null);
+    onTopicUpdate?.();
+  };
 
   if (isSubjectFinished) {
     return (
@@ -66,18 +78,19 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         {/* Texto do tópico - Editável */}
         <div 
           className="flex-1 cursor-pointer group"
-          onClick={() => !isEditingName && setIsEditingName(true)}
+          onClick={() => !isEditing && handleStartEditing()}
           title="Clique para editar o nome"
         >
           <EditableTopicName
             topicId={topic.id}
             initialName={topic.name}
-            onUpdate={() => {
-              setIsEditingName(false);
-              onTopicUpdate?.();
+            onUpdate={handleStopEditing}
+            isEditing={isEditing}
+            onEditChange={(editing) => {
+              if (!editing) {
+                handleStopEditing();
+              }
             }}
-            isEditing={isEditingName}
-            onEditChange={setIsEditingName}
           />
         </div>
         

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
@@ -23,6 +23,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
   const [internalEditing, setInternalEditing] = useState(false);
   const [name, setName] = useState(initialName);
   const [isSaving, setIsSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isEditingState = isEditing || internalEditing;
 
@@ -33,8 +34,23 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
   useEffect(() => {
     if (isEditing) {
       setInternalEditing(true);
+    } else {
+      setInternalEditing(false);
     }
   }, [isEditing]);
+
+  // Focar no textarea quando entrar em modo de edição
+  useEffect(() => {
+    if (isEditingState && textareaRef.current) {
+      // Usar setTimeout para garantir que o DOM foi atualizado
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        // Colocar cursor no final do texto
+        const length = textareaRef.current?.value.length || 0;
+        textareaRef.current?.setSelectionRange(length, length);
+      }, 0);
+    }
+  }, [isEditingState]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -80,10 +96,10 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
     return (
       <div className="flex items-start gap-2 flex-1">
         <textarea
+          ref={textareaRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="flex-1 text-sm font-normal bg-white dark:bg-slate-800 border border-blue-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[60px]"
-          autoFocus
           rows={3}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && e.ctrlKey) {

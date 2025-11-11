@@ -55,6 +55,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   const { user } = useAuth();
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopicName, setNewTopicName] = useState('');
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const isFullyCompleted = useMemo(() => subject.topics.every(t => t.reviewStatus === ReviewInterval.COMPLETED), [subject.topics]);
 
   // Componente para renderizar a posição no ciclo
@@ -224,6 +225,8 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                 onTopicUpdate={onTopicUpdate}
                 isSubjectFinished={true}
                 isActionable={false}
+                isEditing={editingTopicId === topic.id}
+                onEditingChange={setEditingTopicId}
               />
             ))}
             {isAddingTopic && (
@@ -352,6 +355,8 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                     onTopicUpdate={onTopicUpdate}
                     isSubjectFinished={false}
                     isActionable={isActionable}
+                    isEditing={editingTopicId === topic.id}
+                    onEditingChange={setEditingTopicId}
                   />
                 ))}
                 {isAddingTopic && (
@@ -479,6 +484,8 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               onTopicUpdate={onTopicUpdate}
               isSubjectFinished={false}
               isActionable={isActionable}
+              isEditing={editingTopicId === topic.id}
+              onEditingChange={setEditingTopicId}
             />
           ))}
           {isAddingTopic && (
