@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useApp } from '@/contexts/AppContext';
+import { TopicReviewHistorySection } from '@/components/TopicReviewHistorySection';
 
 interface NotesModalProps {
   isOpen: boolean;
@@ -364,6 +365,11 @@ const NotesModal: React.FC<NotesModalProps> = ({
                   hideHeader={true}
                 />
               </div>
+
+              {/* Histórico de Revisões */}
+              {!topicId.startsWith('temp-') && (
+                <TopicReviewHistorySection topicId={topicId} />
+              )}
 
               {/* Seção de Nível de Dificuldade removida - usando sistema de estrelas */}
 

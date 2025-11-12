@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, Save, ThumbsUp, Minus, ThumbsDown, Plus } from 'lucide-react';
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
+import { TopicReviewHistorySection } from '@/components/TopicReviewHistorySection';
 import { TopicNotes } from '@/types';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -267,6 +268,11 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
                   hideHeader={true}
                 />
               </div>
+
+              {/* Histórico de Revisões */}
+              <TopicReviewHistorySection 
+                topicId={topicId}
+              />
 
               {/* Seção de Nível de Dificuldade removida - usando sistema de estrelas */}
 

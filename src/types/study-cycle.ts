@@ -22,6 +22,8 @@ export interface StudyCycleTopic {
   id: string;
   name: string;
   reviewStatus: ReviewInterval;
+  nextReviewDate?: string;
+  lastReviewedAt?: string;
   notes?: string;
   difficulty?: Difficulty;
   subTopics?: SubTopic[];

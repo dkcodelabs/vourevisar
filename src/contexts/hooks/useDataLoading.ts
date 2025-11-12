@@ -27,7 +27,8 @@ export const useDataLoading = (
           *,
           topics (
             *,
-            difficulty_level
+            difficulty_level,
+            next_review
           )
         `)
         .eq('user_id', user.id)

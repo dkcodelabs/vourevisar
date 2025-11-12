@@ -76,14 +76,22 @@ const mapDifficultyLevel = (level?: number | string): Difficulty => {
   }
 };
 
-const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => ({
-  id: topic.id,
-  name: topic.name,
-  reviewStatus: mapReviewStageToInterval((topic as any).review_stage || topic.reviewStage, topic.completed),
-  notes: topic.notes?.content || '',
-  difficulty: mapDifficultyLevel(topic.difficulty_level),
-  subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || []
-});
+const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
+  // Pegar campos diretamente do objeto (vem do banco como snake_case)
+  const nextReviewRaw = (topic as any).next_review;
+  const lastReviewedAtRaw = (topic as any).last_reviewed_at;
+  
+  return {
+    id: topic.id,
+    name: topic.name,
+    reviewStatus: mapReviewStageToInterval((topic as any).review_stage || topic.reviewStage, topic.completed),
+    nextReviewDate: nextReviewRaw || undefined,
+    lastReviewedAt: lastReviewedAtRaw || undefined,
+    notes: topic.notes?.content || '',
+    difficulty: mapDifficultyLevel(topic.difficulty_level),
+    subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || []
+  };
+};
 
 const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
   const mappedTopics = subject.topics
@@ -144,11 +152,16 @@ export const useStudyCycleData = () => {
     if (!user) return;
 
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('subjects')
-        .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at)`)
+        .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at)`)
         .eq('user_id', user.id)
         .order('priority', { ascending: true });
+
+      if (error) {
+        console.error('Erro ao carregar matérias:', error);
+        return;
+      }
 
       setSubjects((data as any) || []);
     } catch (error) {

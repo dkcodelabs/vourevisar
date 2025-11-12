@@ -17,12 +17,12 @@ interface StudyCycleTopicItemProps {
 }
 
 const REVIEW_STATUS_CONFIG: Record<ReviewInterval, { text: string; className: string }> = {
-  [ReviewInterval.NOT_STARTED]: { text: 'Não estudado', className: 'bg-gray-200 text-gray-600 dark:bg-slate-600 dark:text-slate-300' },
-  [ReviewInterval.REVISED_24H]: { text: 'Próxima: 24h', className: 'bg-blue-200 text-blue-800 dark:bg-blue-800/50 dark:text-blue-300' },
-  [ReviewInterval.REVISED_7D]: { text: 'Próxima: 7d', className: 'bg-purple-200 text-purple-800 dark:bg-purple-800/50 dark:text-purple-300' },
-  [ReviewInterval.REVISED_15D]: { text: 'Próxima: 15d', className: 'bg-purple-200 text-purple-800 dark:bg-purple-800/50 dark:text-purple-300' },
-  [ReviewInterval.REVISED_30D]: { text: 'Próxima: 30d', className: 'bg-red-200 text-red-800 dark:bg-red-800/50 dark:text-red-300' },
-  [ReviewInterval.COMPLETED]: { text: 'Concluído', className: 'bg-emerald-200 text-emerald-800 dark:bg-emerald-800/50 dark:text-emerald-300' },
+  [ReviewInterval.NOT_STARTED]: { text: 'Não estudado', className: 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-slate-300' },
+  [ReviewInterval.REVISED_24H]: { text: 'Próxima: 24h', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  [ReviewInterval.REVISED_7D]: { text: 'Próxima: 7d', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  [ReviewInterval.REVISED_15D]: { text: 'Próxima: 15d', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  [ReviewInterval.REVISED_30D]: { text: 'Próxima: 30d', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  [ReviewInterval.COMPLETED]: { text: 'Concluído', className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
 };
 
 export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
@@ -37,7 +37,86 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   onEditingChange
 }) => {
   const isTopicCompleted = topic.reviewStatus === ReviewInterval.COMPLETED;
-  const statusConfig = REVIEW_STATUS_CONFIG[topic.reviewStatus];
+  
+  // Calcular status baseado na data de próxima revisão
+  const getTopicStatus = () => {
+    
+    if (isTopicCompleted) {
+      // Para tópicos concluídos, mostrar a data da última revisão
+      const completedDate = topic.lastReviewedAt 
+        ? new Date(topic.lastReviewedAt).toLocaleDateString('pt-BR', { 
+            day: '2-digit', 
+            month: '2-digit',
+            year: 'numeric'
+          })
+        : null;
+      
+      return {
+        text: 'Concluído',
+        className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+        dateInfo: completedDate ? `Em: ${completedDate}` : null
+      };
+    }
+
+    if (topic.reviewStatus === ReviewInterval.NOT_STARTED) {
+      return {
+        text: 'Não estudado',
+        className: 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-slate-300',
+        dateInfo: null
+      };
+    }
+
+    // Verificar se tem data de próxima revisão
+    if (!topic.nextReviewDate) {
+      return {
+        text: REVIEW_STATUS_CONFIG[topic.reviewStatus].text,
+        className: REVIEW_STATUS_CONFIG[topic.reviewStatus].className,
+        dateInfo: null
+      };
+    }
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const nextReview = new Date(topic.nextReviewDate);
+    const nextReviewDate = new Date(nextReview.getFullYear(), nextReview.getMonth(), nextReview.getDate());
+    
+    const diffTime = nextReviewDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    const formattedDate = nextReview.toLocaleDateString('pt-BR', { 
+      day: '2-digit', 
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    // Atrasada (vermelho)
+    if (diffDays < 0) {
+      const daysOverdue = Math.abs(diffDays);
+      return {
+        text: `${daysOverdue} dia${daysOverdue !== 1 ? 's' : ''} atraso`,
+        className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+        dateInfo: `Em: ${formattedDate}`
+      };
+    }
+    
+    // Hoje (laranja)
+    if (diffDays === 0) {
+      return {
+        text: 'Hoje',
+        className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+        dateInfo: `Em: ${formattedDate}`
+      };
+    }
+    
+    // Futura (azul)
+    return {
+      text: `Em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
+      className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+      dateInfo: `Em: ${formattedDate}`
+    };
+  };
+
+  const statusConfig = getTopicStatus();
 
   const handleStartEditing = () => {
     onEditingChange?.(topic.id);
@@ -96,9 +175,16 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         
         {/* Controles: status, anotação e radiobox */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusConfig.className}`}>
-            {statusConfig.text}
-          </span>
+          <div className="flex flex-col items-end">
+            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusConfig.className}`}>
+              {statusConfig.text}
+            </span>
+            {statusConfig.dateInfo && (
+              <span className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                {statusConfig.dateInfo}
+              </span>
+            )}
+          </div>
           <button
             onClick={onOpenNotes}
             className="p-1 text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400 transition-colors"
