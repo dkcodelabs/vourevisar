@@ -87,8 +87,8 @@ export const useTopicReview = () => {
         
         console.log('🔵 Primeiro contato registrado - próxima revisão em', nextInterval, 'dia(s)');
       }
-      // REVISÕES: review_count >= 1
-      else if (newReviewCount <= intervals.length) {
+      // REVISÕES: review_count >= 1 (já passou do primeiro contato)
+      else if (topic.review_count >= 1 && newReviewCount <= intervals.length) {
         // O reviewStage indica qual revisão foi FEITA (não a próxima)
         // review_count=1 (acabou de fazer primeira revisão) → reviewStage = '24h'
         // review_count=2 (acabou de fazer segunda revisão) → reviewStage = '7d'
