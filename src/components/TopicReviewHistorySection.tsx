@@ -156,14 +156,7 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
         </div>
       </div>
 
-      {/* Próximas Revisões */}
-      {history.nextReviews.length > 0 && (
-        <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-medium">{history.nextReviews.length}</span> revisão(ões) pendente(s)
-          </p>
-        </div>
-      )}
+
     </div>
   );
 };

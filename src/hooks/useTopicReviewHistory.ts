@@ -49,12 +49,7 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
 
         if (topicError) throw topicError;
 
-        console.log('🔍 DEBUG - Dados do tópico:', {
-          topicId,
-          review_stage: topicData?.review_stage,
-          first_studied_at: topicData?.first_studied_at,
-          historyCount: historyData?.length
-        });
+
 
         // Processar histórico
         const processedHistory = processTopicHistory(

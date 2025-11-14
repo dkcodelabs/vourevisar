@@ -67,29 +67,65 @@ export const useTopicReview = () => {
       let completed = false;
 
       console.log('🔵 Calculando próximo estágio:', {
+        currentReviewCount: topic.review_count,
         newReviewCount,
         maxReviews,
         intervalsLength: intervals.length,
         intervals
       });
 
-      // Calcular próximo estágio de revisão usando maxReviews
-      if (newReviewCount <= maxReviews) {
-        const nextInterval = intervals[newReviewCount - 1];
-
+      // PRIMEIRO CONTATO: review_count vai de 0 para 1
+      if (topic.review_count === 0) {
+        reviewStage = 'Primeiro Contato';
         
-        reviewStage = nextInterval === 1 ? '24h' : `${nextInterval}d`;
+        // Agendar primeira revisão para 24h (intervals[0])
+        const nextInterval = intervals[0]; // 1 dia (24h)
         const nextReviewDate = new Date();
         nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
         nextReview = nextReviewDate.toISOString();
+        completed = false;
         
-        // Se excedeu o número máximo de revisões, marcar como concluído
-        completed = (newReviewCount > maxReviews);
+        console.log('🔵 Primeiro contato registrado - próxima revisão em', nextInterval, 'dia(s)');
+      }
+      // REVISÕES: review_count >= 1
+      else if (newReviewCount <= intervals.length) {
+        // O reviewStage indica qual revisão foi FEITA (não a próxima)
+        // review_count=1 (acabou de fazer primeira revisão) → reviewStage = '24h'
+        // review_count=2 (acabou de fazer segunda revisão) → reviewStage = '7d'
+        const completedReviewIndex = topic.review_count - 1;
+        const completedInterval = intervals[completedReviewIndex];
+        reviewStage = completedInterval === 1 ? '24h' : `${completedInterval}d`;
+        
+        // Agendar próxima revisão usando newReviewCount (já incrementado)
+        // newReviewCount=2 (acabou primeira revisão) → próxima é intervals[1] = 7d
+        // newReviewCount=3 (acabou segunda revisão) → próxima é intervals[2] = 15d
+        if (newReviewCount < intervals.length) {
+          const nextInterval = intervals[newReviewCount - 1];
+          const nextReviewDate = new Date();
+          nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
+          nextReview = nextReviewDate.toISOString();
+          completed = false;
+          
+          console.log('🔵 Revisão registrada:', { 
+            reviewStage,
+            completedInterval,
+            nextInterval,
+            currentReviewCount: topic.review_count,
+            newReviewCount 
+          });
+        } else {
+          // Última revisão - marcar como concluído
+          reviewStage = 'Concluído';
+          nextReview = null;
+          completed = true;
+          console.log('🔵 Última revisão concluída');
+        }
       } else {
-        // Quando excede o número máximo de revisões, marca como concluído
+        // Todas as revisões concluídas
         reviewStage = 'Concluído';
         nextReview = null;
         completed = true;
+        console.log('🔵 Todas as revisões concluídas - tópico finalizado');
       }
 
       console.log('🔵 Resultado do cálculo:', {
@@ -118,14 +154,17 @@ export const useTopicReview = () => {
       console.log('🔵 Dados para atualização:', updateData);
 
       // Atualizar o tópico no banco
-      const { error: updateError } = await supabase
+      const { data: updatedTopic, error: updateError } = await supabase
         .from('topics')
         .update(updateData)
-        .eq('id', topicId);
+        .eq('id', topicId)
+        .select('id, review_count, review_stage, next_review, completed')
+        .single();
 
       if (updateError) throw updateError;
 
-      console.log('✅ Tópico atualizado com sucesso');
+      console.log('✅ Tópico atualizado com sucesso:', updatedTopic);
+      console.log('✅ next_review salvo no banco:', updatedTopic?.next_review);
 
       // Registrar sessão de estudo
       try {
@@ -150,27 +189,27 @@ export const useTopicReview = () => {
         // Não falhar a operação principal por causa do tracking
       }
 
-      // VERIFICAÇÃO CRÍTICA: Modal aparece apenas na PRIMEIRA revisão E se não tem dificuldade
-      const isFirstReview = topic.review_count === 1; // Primeira revisão = review_count atual é 1 (antes de incrementar)
+      // VERIFICAÇÃO CRÍTICA: Modal aparece apenas no PRIMEIRO CONTATO (review_count era 0) E se não tem dificuldade
+      const isFirstContact = topic.review_count === 0; // Primeiro contato = review_count atual é 0 (antes de incrementar)
       const hasNoDifficulty = !topic.difficulty_level;
-      const shouldShowModal = isFirstReview && hasNoDifficulty;
+      const shouldShowModal = isFirstContact && hasNoDifficulty;
       
       console.log('🔍 VERIFICANDO MODAL DE DIFICULDADE:', {
         topicId,
         topicName: topic.name,
         review_count_atual: topic.review_count,
         newReviewCount,
-        isFirstReview: `${isFirstReview} (review_count atual é 1)`,
+        isFirstContact: `${isFirstContact} (review_count atual é 0)`,
         difficulty_level: topic.difficulty_level,
         hasNoDifficulty,
         shouldShowModal
       });
 
       if (shouldShowModal) {
-        console.log('🌟 CONDIÇÃO ATENDIDA - Primeira revisão sem dificuldade, mostrando modal:', {
+        console.log('🌟 CONDIÇÃO ATENDIDA - Primeiro contato sem dificuldade, mostrando modal:', {
           topicId,
           topicName: topic.name,
-          isFirstReview,
+          isFirstContact,
           completed,
           difficulty_level: topic.difficulty_level
         });
@@ -199,7 +238,8 @@ export const useTopicReview = () => {
             topicId: topicId,
             topicName: topic.name,
             subjectId: topic.subject_id,
-            subjectName: subjectData.name
+            subjectName: subjectData.name,
+            currentDifficulty: null
           });
 
           console.log('🌟 MODAL STATE UPDATED - Verificar se modal aparece na tela');
@@ -211,10 +251,10 @@ export const useTopicReview = () => {
           topicId,
           completed,
           review_count_atual: topic.review_count,
-          isFirstReview: `${isFirstReview} (precisa ser true)`,
+          isFirstContact: `${isFirstContact} (precisa ser true)`,
           difficulty_level: topic.difficulty_level,
           hasNoDifficulty,
-          reason: !isFirstReview ? `não é primeira revisão (review_count=${topic.review_count}, precisa ser 1)` : 'já tem dificuldade definida'
+          reason: !isFirstContact ? `não é primeiro contato (review_count=${topic.review_count}, precisa ser 0)` : 'já tem dificuldade definida'
         });
       }
 
@@ -296,9 +336,13 @@ export const useTopicReview = () => {
         }
       }
 
-      // Não chamar refreshData aqui se usado dentro de uma sessão
-      // O refresh será feito pelo componente que gerencia a sessão
-      console.log('🔵 Revisão processada - disparando evento de atualização');
+      console.log('🔵 Revisão processada - atualizando dados');
+      
+      // Aguardar um pouco para garantir que o banco processou tudo
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Atualizar dados imediatamente para refletir mudanças
+      await refreshData();
       
       // Disparar evento para atualizar estatísticas imediatamente com detalhes específicos
       window.dispatchEvent(new CustomEvent('cycleUpdated', {
@@ -355,7 +399,7 @@ export const useTopicReview = () => {
       const { error } = await supabase
         .from('topics')
         .update({
-          difficulty_level: difficulty,
+          difficulty_level: difficulty !== null ? difficulty : null,
           difficulty_set_at: difficulty ? new Date().toISOString() : null
         })
         .eq('id', difficultyModalData.topicId);
@@ -363,7 +407,7 @@ export const useTopicReview = () => {
       if (error) throw error;
 
       if (difficulty) {
-        const difficultyLabels = {
+        const difficultyLabels: Record<number, string> = {
           1: 'Muito Fácil',
           2: 'Fácil', 
           3: 'Médio',
@@ -372,7 +416,7 @@ export const useTopicReview = () => {
         };
         
         const stars = '⭐'.repeat(difficulty);
-        toastManager.success(`Dificuldade: ${difficultyLabels[difficulty as keyof typeof difficultyLabels]} ${stars}`);
+        toastManager.success(`Dificuldade: ${difficultyLabels[difficulty]} ${stars}`);
       } else {
         toastManager.info('Avaliação de dificuldade pulada');
       }

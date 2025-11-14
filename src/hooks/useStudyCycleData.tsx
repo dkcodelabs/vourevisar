@@ -25,6 +25,8 @@ const mapReviewStageToInterval = (reviewStage?: string, completed?: boolean): Re
   if (completed || reviewStage === 'Concluído') return 'COMPLETED' as ReviewInterval;
 
   switch (reviewStage) {
+    case 'Primeiro Contato':
+      return 'FIRST_CONTACT' as ReviewInterval; // Primeiro contato -> aguardando primeira revisão
     case '24h':
     case '1d':
       return 'REVISED_24H' as ReviewInterval; // Primeira revisão (24h) -> mostra como "Revisado (24h)"
@@ -80,11 +82,13 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
   // Pegar campos diretamente do objeto (vem do banco como snake_case)
   const nextReviewRaw = (topic as any).next_review;
   const lastReviewedAtRaw = (topic as any).last_reviewed_at;
+  const reviewStageRaw = (topic as any).review_stage || topic.reviewStage;
   
+
   return {
     id: topic.id,
     name: topic.name,
-    reviewStatus: mapReviewStageToInterval((topic as any).review_stage || topic.reviewStage, topic.completed),
+    reviewStatus: mapReviewStageToInterval(reviewStageRaw, topic.completed),
     nextReviewDate: nextReviewRaw || undefined,
     lastReviewedAt: lastReviewedAtRaw || undefined,
     notes: topic.notes?.content || '',

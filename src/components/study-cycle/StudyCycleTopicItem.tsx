@@ -18,6 +18,7 @@ interface StudyCycleTopicItemProps {
 
 const REVIEW_STATUS_CONFIG: Record<ReviewInterval, { text: string; className: string }> = {
   [ReviewInterval.NOT_STARTED]: { text: 'Não estudado', className: 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-slate-300' },
+  [ReviewInterval.FIRST_CONTACT]: { text: 'Primeiro Contato', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
   [ReviewInterval.REVISED_24H]: { text: 'Próxima: 24h', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
   [ReviewInterval.REVISED_7D]: { text: 'Próxima: 7d', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
   [ReviewInterval.REVISED_15D]: { text: 'Próxima: 15d', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
@@ -66,11 +67,62 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
       };
     }
 
+    if (topic.reviewStatus === ReviewInterval.FIRST_CONTACT) {
+      // Para primeiro contato, calcular dias até a primeira revisão
+      if (topic.nextReviewDate) {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const nextReview = new Date(topic.nextReviewDate);
+        const nextReviewDate = new Date(nextReview.getFullYear(), nextReview.getMonth(), nextReview.getDate());
+        
+        const diffTime = nextReviewDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        const formattedDate = nextReview.toLocaleDateString('pt-BR', { 
+          day: '2-digit', 
+          month: '2-digit',
+          year: 'numeric'
+        });
+
+        // Atrasada (vermelho)
+        if (diffDays < 0) {
+          const daysOverdue = Math.abs(diffDays);
+          return {
+            text: `${daysOverdue} dia${daysOverdue !== 1 ? 's' : ''} atraso`,
+            className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+            dateInfo: `Em: ${formattedDate}`
+          };
+        }
+        
+        // Hoje (laranja)
+        if (diffDays === 0) {
+          return {
+            text: 'Hoje',
+            className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+            dateInfo: `Em: ${formattedDate}`
+          };
+        }
+        
+        // Futura (roxo para primeiro contato)
+        return {
+          text: `Em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
+          className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+          dateInfo: `Em: ${formattedDate}`
+        };
+      }
+      
+      return {
+        text: 'Primeiro Contato',
+        className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+        dateInfo: null
+      };
+    }
+
     // Verificar se tem data de próxima revisão
     if (!topic.nextReviewDate) {
       return {
         text: REVIEW_STATUS_CONFIG[topic.reviewStatus].text,
-        className: REVIEW_STATUS_CONFIG[topic.reviewStatus].className,
+        className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
         dateInfo: null
       };
     }
@@ -175,19 +227,28 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         
         {/* Controles: status, anotação e radiobox */}
         <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Badge com data em tooltip */}
           <div className="flex flex-col items-end">
-            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusConfig.className}`}>
+            <div 
+              className={`px-2 py-1 rounded-full ${statusConfig.className} relative group cursor-help text-xs font-semibold`}
+              title={statusConfig.dateInfo || ''}
+            >
               {statusConfig.text}
-            </span>
-            {statusConfig.dateInfo && (
-              <span className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-                {statusConfig.dateInfo}
-              </span>
-            )}
+              {/* Tooltip para desktop - aparece no hover */}
+              {statusConfig.dateInfo && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                  {statusConfig.dateInfo}
+                </div>
+              )}
+            </div>
           </div>
           <button
             onClick={onOpenNotes}
-            className="p-1 text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400 transition-colors"
+            className={`p-1 transition-colors ${
+              topic.notes && topic.notes.trim() !== '' && topic.notes !== '<p><br></p>'
+                ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
+                : 'text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400'
+            }`}
             aria-label={`Anotações para ${topic.name}`}
           >
             <EditIcon />

@@ -224,10 +224,10 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <DialogTitle className="text-lg font-semibold text-foreground">
-                Anotações - {topicName}
+                {subjectName}
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground mt-1">
-                Matéria: {subjectName}
+                {topicName}
               </DialogDescription>
             </div>
             {isMobile && (
@@ -326,14 +326,54 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
 
         {/* Footer */}
         <div className={`${isMobile ? 'p-4 border-t border-border' : 'p-6 pt-4 border-t border-border'} bg-card`}>
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center gap-3">
             <Button
-              variant="default"
+              onClick={async () => {
+                try {
+                  setIsSaving(true);
+                  
+                  // Capturar conteúdo atual do editor
+                  const editorElement = document.querySelector('.ql-editor');
+                  const content = editorElement ? editorElement.innerHTML : notes?.content || '';
+                  
+                  // Salvar apenas as anotações
+                  const { error } = await supabase
+                    .from('topics')
+                    .update({ 
+                      notes: {
+                        content: content.trim(),
+                        updatedAt: new Date().toISOString(),
+                        createdAt: notes?.createdAt || new Date().toISOString()
+                      } as any,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', topicId);
+
+                  if (error) {
+                    console.error('Erro ao salvar:', error);
+                    throw error;
+                  }
+                  
+                  setHasUnsavedChanges(false);
+                  toast.success('Anotações salvas!');
+                } catch (error) {
+                  console.error('Erro ao salvar:', error);
+                  toast.error('Erro ao salvar anotações');
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+              disabled={isSaving || !hasUnsavedChanges}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isSaving ? 'Salvando...' : 'Salvar'}
+            </Button>
+            
+            <Button
               onClick={handleSaveAndClose}
-              className="flex items-center gap-2"
               disabled={isSaving}
             >
-              <Save className="h-4 w-4" />
+              <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Salvando...' : 'Salvar e Fechar'}
             </Button>
           </div>
