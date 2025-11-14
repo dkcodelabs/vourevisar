@@ -89,18 +89,21 @@ export const useTopicReview = () => {
       }
       // REVISÕES: review_count >= 1 (já passou do primeiro contato)
       else if (topic.review_count >= 1 && newReviewCount <= intervals.length) {
-        // O reviewStage indica qual revisão foi FEITA (não a próxima)
-        // review_count=1 (acabou de fazer primeira revisão) → reviewStage = '24h'
-        // review_count=2 (acabou de fazer segunda revisão) → reviewStage = '7d'
-        const completedReviewIndex = topic.review_count - 1;
-        const completedInterval = intervals[completedReviewIndex];
-        reviewStage = completedInterval === 1 ? '24h' : `${completedInterval}d`;
+        // O reviewStage indica qual revisão ESTÁ FAZENDO AGORA
+        // topic.review_count=1 → fazendo revisão 24h (intervals[0]) → reviewStage = '24h'
+        // topic.review_count=2 → fazendo revisão 7d (intervals[1]) → reviewStage = '7d'
+        // topic.review_count=3 → fazendo revisão 15d (intervals[2]) → reviewStage = '15d'
+        const currentReviewIndex = topic.review_count - 1; // Índice da revisão que está fazendo agora
+        const currentInterval = intervals[currentReviewIndex];
+        reviewStage = currentInterval === 1 ? '24h' : `${currentInterval}d`;
         
-        // Agendar próxima revisão usando newReviewCount (já incrementado)
-        // newReviewCount=2 (acabou primeira revisão) → próxima é intervals[1] = 7d
-        // newReviewCount=3 (acabou segunda revisão) → próxima é intervals[2] = 15d
-        if (newReviewCount < intervals.length) {
-          const nextInterval = intervals[newReviewCount - 1];
+        // Agendar próxima revisão
+        // newReviewCount=2 (acabou revisão 24h) → próxima é intervals[1] = 7d
+        // newReviewCount=3 (acabou revisão 7d) → próxima é intervals[2] = 15d
+        // newReviewCount=4 (acabou revisão 15d) → próxima é intervals[3] = 30d
+        if (newReviewCount < intervals.length + 1) {
+          const nextReviewIndex = newReviewCount - 1;
+          const nextInterval = intervals[nextReviewIndex];
           const nextReviewDate = new Date();
           nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
           nextReview = nextReviewDate.toISOString();
@@ -108,7 +111,7 @@ export const useTopicReview = () => {
           
           console.log('🔵 Revisão registrada:', { 
             reviewStage,
-            completedInterval,
+            currentInterval,
             nextInterval,
             currentReviewCount: topic.review_count,
             newReviewCount 
