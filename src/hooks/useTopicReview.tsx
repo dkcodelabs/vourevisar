@@ -117,14 +117,14 @@ export const useTopicReview = () => {
             newReviewCount 
           });
         } else {
-          // Última revisão - marcar como concluído
-          reviewStage = 'Concluído';
+          // Última revisão - marcar como concluído mas manter o stage da revisão
+          // reviewStage já foi definido acima (ex: '30d')
           nextReview = null;
           completed = true;
-          console.log('🔵 Última revisão concluída');
+          console.log('🔵 Última revisão concluída:', { reviewStage, completed });
         }
       } else {
-        // Todas as revisões concluídas
+        // Todas as revisões já foram concluídas anteriormente
         reviewStage = 'Concluído';
         nextReview = null;
         completed = true;
