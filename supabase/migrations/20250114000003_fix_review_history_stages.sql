@@ -73,7 +73,12 @@ CROSS JOIN LATERAL (
   FROM unnest(td.completed_stages) as stage
 ) stage_data
 WHERE stage_data.estimated_reviewed_at IS NOT NULL
-ON CONFLICT (topic_id, review_stage) DO NOTHING;
+  -- Evitar duplicatas verificando se já existe
+  AND NOT EXISTS (
+    SELECT 1 FROM public.topic_review_history trh
+    WHERE trh.topic_id = td.topic_id
+      AND trh.review_stage = stage_data.stage
+  );
 
 -- Limpar função auxiliar
 DROP FUNCTION IF EXISTS get_completed_review_stages(TEXT, INTEGER);
