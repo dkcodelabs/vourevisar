@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, CheckCircle2, Clock, TrendingUp, AlertCircle } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, TrendingUp, AlertCircle, ChevronRight } from 'lucide-react';
 import { useTopicReviewHistory } from '@/hooks/useTopicReviewHistory';
 import { ReviewProfile } from '@/types/study';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,7 +35,7 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
     : 0;
 
   return (
-    <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+    <div className="space-y-3 p-4 bg-slate-50/50 dark:bg-slate-900/20 rounded-lg">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -62,101 +62,121 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
         </div>
       </div>
 
-      {/* Primeiro Contato */}
-      {history.firstContact && (
-        <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
-              Primeiro Contato
-            </p>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              {format(history.firstContact, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Lista de Revisões */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-slate-600 dark:text-slate-400 px-1">
-          Revisões Programadas
-        </p>
-        <div className="space-y-1.5">
-          {history.reviews.map((review, index) => (
-            <div
-              key={`${review.stage}-${index}`}
-              className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border transition-all ${
-                review.isCompleted
-                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                  : review.isOverdue
-                  ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              {/* Lado esquerdo: Ícone + Nome */}
-              <div className="flex items-center gap-2.5">
-                {/* Ícone */}
-                {review.isCompleted ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                ) : review.isOverdue ? (
-                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                ) : (
-                  <Clock className="w-5 h-5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
-                )}
-                
-                {/* Nome da revisão */}
-                <p className={`text-sm ${
-                  review.isCompleted
-                    ? 'text-green-900 dark:text-green-100'
-                    : review.isOverdue
-                    ? 'text-red-900 dark:text-red-100'
-                    : 'text-slate-600 dark:text-slate-400'
-                }`}>
-                  {review.stageLabel}
+      {/* Grid de Cards com Setas */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2">
+        {/* Primeiro Estudo */}
+        {history.firstContact && (
+          <>
+            <div className="flex flex-col items-center justify-center p-2.5 bg-white dark:bg-slate-800 rounded-md border-l-4 border-l-blue-500 dark:border-l-blue-400 border-y border-r border-slate-200 dark:border-slate-700 shadow-md hover:shadow-lg transition-all flex-1 min-w-[100px] h-[70px]">
+              <div className="flex items-center gap-1 mb-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <p className="text-xs font-medium text-slate-900 dark:text-slate-100">
+                  1º Estudo
                 </p>
               </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                {format(history.firstContact, 'dd/MM/yy', { locale: ptBR })}
+              </p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-500">
+                {format(history.firstContact, 'HH:mm', { locale: ptBR })}
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-600 flex-shrink-0" />
+          </>
+        )}
 
-              {/* Lado direito: Data e Hora */}
-              <div className="text-right">
+        {/* Revisões */}
+        {history.reviews.map((review, index) => {
+          const isCompleted = review.isCompleted;
+          const isOverdue = review.isOverdue;
+          const isToday = review.isToday;
+          
+          // Definir cores baseado no estado
+          const borderColor = isCompleted
+            ? 'border-l-green-500 dark:border-l-green-400'
+            : isOverdue
+            ? 'border-l-red-500 dark:border-l-red-400'
+            : isToday
+            ? 'border-l-orange-500 dark:border-l-orange-400'
+            : 'border-l-slate-300 dark:border-l-slate-600';
+          
+          const textColor = isCompleted
+            ? 'text-slate-900 dark:text-slate-100'
+            : isOverdue
+            ? 'text-slate-900 dark:text-slate-100'
+            : isToday
+            ? 'text-slate-900 dark:text-slate-100'
+            : 'text-slate-600 dark:text-slate-400';
+          
+          const iconColor = isCompleted
+            ? 'text-green-600 dark:text-green-400'
+            : isOverdue
+            ? 'text-red-600 dark:text-red-400'
+            : isToday
+            ? 'text-orange-600 dark:text-orange-400'
+            : 'text-slate-400 dark:text-slate-500';
+
+          return (
+            <React.Fragment key={`${review.stage}-${index}`}>
+              <div className={`flex flex-col items-center justify-center p-2.5 bg-white dark:bg-slate-800 rounded-md border-l-4 ${borderColor} border-y border-r border-slate-200 dark:border-slate-700 shadow-md hover:shadow-lg transition-all flex-1 min-w-[100px] h-[70px]`}>
+                <div className="flex items-center gap-1 mb-1">
+                  {isCompleted ? (
+                    <CheckCircle2 className={`w-3.5 h-3.5 ${iconColor}`} />
+                  ) : isOverdue ? (
+                    <AlertCircle className={`w-3.5 h-3.5 ${iconColor}`} />
+                  ) : isToday ? (
+                    <AlertCircle className={`w-3.5 h-3.5 ${iconColor}`} />
+                  ) : (
+                    <Clock className={`w-3.5 h-3.5 ${iconColor}`} />
+                  )}
+                  <p className="text-xs font-medium text-slate-900 dark:text-slate-100">
+                    Rev {review.stage}
+                  </p>
+                </div>
+                
                 {review.reviewedAt ? (
                   <>
-                    <p className={`text-sm font-semibold ${
-                      review.isCompleted
-                        ? 'text-green-700 dark:text-green-300'
-                        : 'text-slate-700 dark:text-slate-300'
-                    }`}>
-                      {format(review.reviewedAt, 'dd/MM/yyyy', { locale: ptBR })}
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                      {format(review.reviewedAt, 'dd/MM/yy', { locale: ptBR })}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-500">
                       {format(review.reviewedAt, 'HH:mm', { locale: ptBR })}
                     </p>
                   </>
-                ) : review.isOverdue ? (
+                ) : isOverdue ? (
                   <>
-                    <p className="text-sm font-semibold text-red-700 dark:text-red-300">
-                      {review.daysOverdue} dia{review.daysOverdue !== 1 ? 's' : ''} atraso
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                      {review.daysOverdue}d atraso
                     </p>
                     {review.expectedDate && (
-                      <p className="text-xs text-red-600 dark:text-red-400">
-                        Era: {format(review.expectedDate, 'dd/MM/yyyy', { locale: ptBR })}
+                      <p className="text-[10px] text-slate-500 dark:text-slate-500">
+                        Era: {format(review.expectedDate, 'dd/MM/yy', { locale: ptBR })}
                       </p>
                     )}
                   </>
+                ) : isToday ? (
+                  <>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                      Hoje
+                    </p>
+                    <p className="text-[10px] text-transparent">--:--</p>
+                  </>
                 ) : (
-                  <p className="text-sm text-slate-400 dark:text-slate-500">
-                    Pendente
-                  </p>
+                  <>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                      Pendente
+                    </p>
+                    <p className="text-[10px] text-transparent">--:--</p>
+                  </>
                 )}
               </div>
-            </div>
-          ))}
-        </div>
+              {index < history.reviews.length - 1 && (
+                <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-600 flex-shrink-0" />
+              )}
+            </React.Fragment>
+          );
+        })}
       </div>
-
-
     </div>
   );
 };

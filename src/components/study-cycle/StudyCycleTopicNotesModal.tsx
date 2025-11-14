@@ -255,6 +255,11 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
             </div>
           ) : (
             <div className="space-y-6">
+              {/* Histórico de Revisões */}
+              <TopicReviewHistorySection 
+                topicId={topicId}
+              />
+
               {/* Anotações */}
               <div>
                 <Label className="text-sm font-medium mb-3 block">
@@ -268,11 +273,6 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
                   hideHeader={true}
                 />
               </div>
-
-              {/* Histórico de Revisões */}
-              <TopicReviewHistorySection 
-                topicId={topicId}
-              />
 
               {/* Seção de Nível de Dificuldade removida - usando sistema de estrelas */}
 
