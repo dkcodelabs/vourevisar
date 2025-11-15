@@ -87,7 +87,7 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
     
     console.log('📊 Resultado:', { firstContacts, reviewsCompleted });
     
-    // Contar revisões agendadas (futuras + atrasadas + hoje)
+    // Contar revisões agendadas APENAS DO MÊS ATUAL
     let overdueCount = 0;
     let todayReviewCount = 0;
     let futureReviewCount = 0;
@@ -97,12 +97,15 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
         if (!topic.nextReview) return;
         const reviewDate = startOfDay(new Date(topic.nextReview));
         
-        if (reviewDate < today) {
-          overdueCount++;
-        } else if (isSameDay(reviewDate, today)) {
-          todayReviewCount++;
-        } else {
-          futureReviewCount++;
+        // Filtrar apenas revisões do mês atual
+        if (reviewDate >= monthStart && reviewDate <= monthEnd) {
+          if (reviewDate < today) {
+            overdueCount++;
+          } else if (isSameDay(reviewDate, today)) {
+            todayReviewCount++;
+          } else {
+            futureReviewCount++;
+          }
         }
       });
     });
