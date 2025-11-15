@@ -12,7 +12,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CompactOverview } from '@/components/dashboard/CompactOverview';
 import { SubjectOverview } from '@/components/dashboard/SubjectOverview';
 import { CalendarAndStats } from '@/components/dashboard/CalendarAndStats';
-import { StreakVisualBar } from '@/components/dashboard/StreakVisualBar';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
 import { CompactSubjectAccordion } from '@/components/dashboard/CompactSubjectAccordion';
 import GeneralNotesModal from '@/components/GeneralNotesModal';
@@ -213,12 +212,11 @@ const Dashboard = () => {
               futureCount={futureCount}
             />
 
-            <StreakVisualBar
-              subjects={subjects}
+            <CalendarAndStats 
+              subjects={subjects} 
+              reviewData={reviewData}
               onDayClick={(date) => setSelectedCalendarDate(date)}
             />
-
-            <CalendarAndStats subjects={subjects} reviewData={reviewData} />
 
             <CompactSubjectAccordion subjects={subjects} />
           </div>
