@@ -31,9 +31,9 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
   
   // Calcular estatísticas do mês
   const calculateMonthStats = () => {
-    let firstContacts = 0;
     let reviewsCompleted = 0; // Revisões já realizadas (não conta primeiro contato)
     const activeDaysSet = new Set<string>();
+    const firstContactTopicIds = new Set<string>(); // IDs dos tópicos com first_contact no histórico
     
     console.log('📊 Debug - reviewData total:', reviewData.length);
     console.log('📊 Debug - Mês atual:', format(monthStart, 'yyyy-MM'), 'até', format(monthEnd, 'yyyy-MM-dd'));
@@ -51,12 +51,38 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
         });
         
         if (review.review_stage === 'first_contact' || review.review_stage === 'Primeiro Contato') {
-          firstContacts++;
+          firstContactTopicIds.add(review.topic_id);
         } else {
           // Qualquer revisão que não seja primeiro contato (24h, 7d, 15d, 30d, Concluído)
           reviewsCompleted++;
         }
       }
+    });
+    
+    // HÍBRIDO: Contar tópicos com first_studied_at no mês que NÃO estão no histórico
+    let firstContactsFromTopics = 0;
+    subjects.forEach(subject => {
+      subject.topics.forEach(topic => {
+        if (topic.first_studied_at || topic.firstStudiedAt) {
+          const firstStudyDate = new Date(topic.first_studied_at || topic.firstStudiedAt);
+          const firstStudyDay = startOfDay(firstStudyDate);
+          
+          // Se está no mês E não está no histórico, contar
+          if (firstStudyDay >= monthStart && firstStudyDay <= monthEnd) {
+            if (!firstContactTopicIds.has(topic.id)) {
+              console.log('📚 First contact do tópico (não no histórico):', topic.name, format(firstStudyDate, 'yyyy-MM-dd'));
+              firstContactsFromTopics++;
+            }
+          }
+        }
+      });
+    });
+    
+    const firstContacts = firstContactTopicIds.size + firstContactsFromTopics;
+    console.log('📊 First contacts:', {
+      doHistorico: firstContactTopicIds.size,
+      dosTopicos: firstContactsFromTopics,
+      total: firstContacts
     });
     
     console.log('📊 Resultado:', { firstContacts, reviewsCompleted });
@@ -153,9 +179,9 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
 
   // Calcular estatísticas gerais (todos os tempos)
   const calculateAllTimeStats = () => {
-    let firstContacts = 0;
     let reviewsCompleted = 0;
     const allDaysSet = new Set<string>();
+    const firstContactTopicIds = new Set<string>(); // IDs dos tópicos com first_contact no histórico
     
     console.log('📊 GERAL - reviewData total:', reviewData.length);
     
@@ -165,13 +191,34 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
       
       if (review.review_stage === 'first_contact' || review.review_stage === 'Primeiro Contato') {
         console.log('📚 First contact encontrado:', review.topic_name, format(reviewDate, 'yyyy-MM-dd'));
-        firstContacts++;
+        firstContactTopicIds.add(review.topic_id);
       } else {
         reviewsCompleted++;
       }
     });
     
-    console.log('📊 GERAL - Resultado:', { firstContacts, reviewsCompleted, totalReviews: reviewData.length });
+    // HÍBRIDO: Contar tópicos com first_studied_at que NÃO estão no histórico
+    let firstContactsFromTopics = 0;
+    subjects.forEach(subject => {
+      subject.topics.forEach(topic => {
+        if (topic.first_studied_at || topic.firstStudiedAt) {
+          // Se não está no histórico, contar
+          if (!firstContactTopicIds.has(topic.id)) {
+            console.log('📚 First contact do tópico (não no histórico):', topic.name);
+            firstContactsFromTopics++;
+          }
+        }
+      });
+    });
+    
+    const firstContacts = firstContactTopicIds.size + firstContactsFromTopics;
+    console.log('📊 GERAL - Resultado:', {
+      doHistorico: firstContactTopicIds.size,
+      dosTopicos: firstContactsFromTopics,
+      total: firstContacts,
+      reviewsCompleted,
+      totalReviews: reviewData.length
+    });
     
     // Contar revisões agendadas (futuras + atrasadas)
     let overdueCount = 0;
