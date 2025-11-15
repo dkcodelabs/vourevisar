@@ -23,13 +23,15 @@ interface StreakCalendarModalProps {
   onClose: () => void;
   subjects: any[];
   selectedDate?: Date;
+  reviewData?: any[];
 }
 
 export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   isOpen,
   onClose,
   subjects,
-  selectedDate
+  selectedDate,
+  reviewData = []
 }) => {
   const [currentMonth, setCurrentMonth] = useState(selectedDate || new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(selectedDate || null);
@@ -42,7 +44,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
     }
   }, [selectedDate]);
 
-  // Gerar dados do mês atual
+  // Gerar dados do mês atual usando reviewData
   const generateMonthData = (month: Date): DayDetail[] => {
     const start = startOfMonth(month);
     const end = endOfMonth(month);
@@ -53,44 +55,21 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
       let pomodoroSessions = 0;
       let totalMinutes = 0;
 
-      // Verificar atividades do dia
-      subjects.forEach(subject => {
-        subject.topics.forEach((topic: any) => {
-          // Verificar primeiro contato
-          if (topic.first_studied_at || topic.firstStudiedAt) {
-            const firstStudyDate = startOfDay(new Date(topic.first_studied_at || topic.firstStudiedAt));
-            if (isSameDay(firstStudyDate, date)) {
-              activities.push({
-                subject: subject.name,
-                topic: topic.name,
-                reviewStage: 'Primeiro Contato',
-                time: format(new Date(topic.first_studied_at || topic.firstStudiedAt), 'HH:mm')
-              });
-            }
-          }
+      // Buscar revisões do dia no reviewData
+      reviewData.forEach(review => {
+        const reviewDate = startOfDay(new Date(review.reviewed_at));
+        if (isSameDay(reviewDate, date)) {
+          // Encontrar o subject name
+          const subject = subjects.find(s => s.id === review.subject_id);
+          const subjectName = subject?.name || 'Matéria desconhecida';
           
-          // Verificar revisões
-          if (topic.lastReviewedAt || topic.last_reviewed_at) {
-            const reviewDate = startOfDay(new Date(topic.lastReviewedAt || topic.last_reviewed_at));
-            if (isSameDay(reviewDate, date)) {
-              // Não adicionar se já foi adicionado como primeiro contato no mesmo dia
-              const alreadyAdded = activities.some(a => 
-                a.subject === subject.name && 
-                a.topic === topic.name &&
-                a.reviewStage === 'Primeiro Contato'
-              );
-              
-              if (!alreadyAdded) {
-                activities.push({
-                  subject: subject.name,
-                  topic: topic.name,
-                  reviewStage: topic.reviewStage || topic.review_stage || 'Revisão',
-                  time: format(new Date(topic.lastReviewedAt || topic.last_reviewed_at), 'HH:mm')
-                });
-              }
-            }
-          }
-        });
+          activities.push({
+            subject: subjectName,
+            topic: review.topic_name || 'Tópico desconhecido',
+            reviewStage: review.review_stage,
+            time: format(new Date(review.reviewed_at), 'HH:mm')
+          });
+        }
       });
 
       // TODO: Adicionar dados do Pomodoro quando implementado
@@ -128,17 +107,43 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
 
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-  // Calcular estatísticas do mês
-  const monthStats = {
-    firstContacts: monthData.reduce((sum, day) => 
-      sum + day.activities.filter(a => a.reviewStage === 'Primeiro Contato').length, 0
-    ),
-    reviews: monthData.reduce((sum, day) => 
-      sum + day.activities.filter(a => a.reviewStage !== 'Primeiro Contato').length, 0
-    ),
-    activeDays: monthData.filter(d => d.hasActivity).length,
-    totalDays: monthData.length
+  // Calcular estatísticas do mês usando reviewData
+  const calculateMonthStats = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    let firstContacts = 0;
+    let reviews = 0;
+    const activeDaysSet = new Set<string>();
+    
+    reviewData.forEach(review => {
+      const reviewDate = new Date(review.reviewed_at);
+      if (reviewDate >= monthStart && reviewDate <= monthEnd) {
+        activeDaysSet.add(format(reviewDate, 'yyyy-MM-dd'));
+        
+        // Verificar se é primeiro contato
+        const isFirstContact = 
+          review.review_stage === 'first_contact' || 
+          review.review_stage === 'Primeiro Contato' ||
+          review.review_stage?.toLowerCase() === 'primeiro contato';
+        
+        if (isFirstContact) {
+          firstContacts++;
+        } else {
+          // Qualquer outro estágio é uma revisão (24h, 7d, 15d, 30d, Concluído, etc.)
+          reviews++;
+        }
+      }
+    });
+    
+    return {
+      firstContacts,
+      reviews,
+      activeDays: activeDaysSet.size,
+      totalDays: monthData.length
+    };
   };
+  
+  const monthStats = calculateMonthStats();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronLeft, ChevronRight, Target, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Calendar, ChevronLeft, ChevronRight, Target, AlertCircle, CheckCircle2, Award, Users, RotateCcw } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfDay, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Subject } from '@/types';
+import { useUserSettings } from '@/hooks/useUserSettings';
 
 interface CalendarAndStatsProps {
   subjects: Subject[];
@@ -18,6 +20,8 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
   onDayClick
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'month' | 'all'>('month');
+  const { settings, getProfileInfo, getCycleStats } = useUserSettings();
   
   // Gerar dias do calendário
   const monthStart = startOfMonth(currentMonth);
@@ -27,43 +31,29 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
   
   // Calcular estatísticas do mês
   const calculateMonthStats = () => {
-    // Contar revisões feitas no mês (histórico)
     let firstContacts = 0;
-    let totalReviews = 0;
-    let activeTopicReviews = 0;
+    let reviewsCompleted = 0; // Revisões já realizadas (não conta primeiro contato)
     const activeDaysSet = new Set<string>();
     
-    subjects.forEach(subject => {
-      subject.topics.forEach(topic => {
-        const isCompleted = topic.reviewStage === 'Concluído' || topic.completed;
+    // Contar usando reviewData (histórico real de revisões)
+    reviewData.forEach(review => {
+      const reviewDate = new Date(review.reviewed_at);
+      if (reviewDate >= monthStart && reviewDate <= monthEnd) {
+        activeDaysSet.add(format(reviewDate, 'yyyy-MM-dd'));
         
-        // Primeiro contato
-        if (topic.first_studied_at || topic.firstStudiedAt) {
-          const firstDate = new Date(topic.first_studied_at || topic.firstStudiedAt);
-          if (firstDate >= monthStart && firstDate <= monthEnd) {
-            firstContacts++;
-            activeDaysSet.add(format(firstDate, 'yyyy-MM-dd'));
-          }
+        if (review.review_stage === 'first_contact' || review.review_stage === 'Primeiro Contato') {
+          firstContacts++;
+        } else {
+          // Qualquer revisão que não seja primeiro contato (24h, 7d, 15d, 30d, Concluído)
+          reviewsCompleted++;
         }
-        
-        // Revisões feitas
-        if (topic.lastReviewedAt || topic.last_reviewed_at) {
-          const reviewDate = new Date(topic.lastReviewedAt || topic.last_reviewed_at);
-          if (reviewDate >= monthStart && reviewDate <= monthEnd) {
-            totalReviews++;
-            activeDaysSet.add(format(reviewDate, 'yyyy-MM-dd'));
-            
-            if (!isCompleted) {
-              activeTopicReviews++;
-            }
-          }
-        }
-      });
+      }
     });
     
-    // Contar revisões agendadas (futuro)
+    // Contar revisões agendadas (futuras + atrasadas + hoje)
     let overdueCount = 0;
     let todayReviewCount = 0;
+    let futureReviewCount = 0;
     
     subjects.forEach(subject => {
       subject.topics.forEach(topic => {
@@ -74,6 +64,8 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
           overdueCount++;
         } else if (isSameDay(reviewDate, today)) {
           todayReviewCount++;
+        } else {
+          futureReviewCount++;
         }
       });
     });
@@ -84,10 +76,11 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
     
     return {
       firstContacts,
-      totalReviews,
-      activeTopicReviews,
+      reviewsCompleted,
       overdueCount,
       todayReviewCount,
+      futureReviewCount,
+      totalReviews: overdueCount + todayReviewCount + futureReviewCount, // Apenas revisões agendadas
       activeDays,
       totalDaysInMonth,
       activityRate
@@ -96,54 +89,45 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
   
   const monthStats = calculateMonthStats();
   
-  // Função para determinar o status e contagem de um dia
+  // Obter informações do perfil e ciclo
+  const profileInfo = getProfileInfo();
+  const cycleStats = getCycleStats();
+  
+  // Função para determinar o status de um dia
   const getDayInfo = (day: Date) => {
     const dayStart = startOfDay(day);
-    let reviewsCount = 0;
     let hasActivity = false;
     let overdueCount = 0;
     let todayCount = 0;
     let futureCount = 0;
     
-    // Verificar histórico (passado)
-    subjects.forEach(subject => {
-      subject.topics.forEach(topic => {
-        // Primeiro contato
-        if (topic.first_studied_at || topic.firstStudiedAt) {
-          const firstDate = startOfDay(new Date(topic.first_studied_at || topic.firstStudiedAt));
-          if (isSameDay(firstDate, dayStart)) {
-            reviewsCount++;
-            hasActivity = true;
-          }
-        }
-        
-        // Revisões
-        if (topic.lastReviewedAt || topic.last_reviewed_at) {
-          const reviewDate = startOfDay(new Date(topic.lastReviewedAt || topic.last_reviewed_at));
-          if (isSameDay(reviewDate, dayStart)) {
-            reviewsCount++;
-            hasActivity = true;
-          }
-        }
-      });
+    // Verificar se teve atividade (histórico)
+    reviewData.forEach(review => {
+      const reviewDate = startOfDay(new Date(review.reviewed_at));
+      if (isSameDay(reviewDate, dayStart)) {
+        hasActivity = true;
+      }
     });
     
-    // Verificar revisões agendadas (futuro)
+    // Verificar revisões agendadas
     subjects.forEach(subject => {
       subject.topics.forEach(topic => {
         if (!topic.nextReview) return;
         const reviewDate = startOfDay(new Date(topic.nextReview));
         
         if (isSameDay(reviewDate, dayStart)) {
-          if (reviewDate < today) overdueCount++;
-          else if (isSameDay(reviewDate, today)) todayCount++;
-          else if (reviewDate > today) futureCount++;
+          if (dayStart < today) {
+            overdueCount++;
+          } else if (isSameDay(dayStart, today)) {
+            todayCount++;
+          } else {
+            futureCount++;
+          }
         }
       });
     });
     
     return {
-      reviewsCount,
       hasActivity,
       overdueCount,
       todayCount,
@@ -156,19 +140,69 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
     setCurrentMonth(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
   };
 
+  // Calcular estatísticas gerais (todos os tempos)
+  const calculateAllTimeStats = () => {
+    let firstContacts = 0;
+    let reviewsCompleted = 0;
+    const allDaysSet = new Set<string>();
+    
+    reviewData.forEach(review => {
+      const reviewDate = new Date(review.reviewed_at);
+      allDaysSet.add(format(reviewDate, 'yyyy-MM-dd'));
+      
+      if (review.review_stage === 'first_contact' || review.review_stage === 'Primeiro Contato') {
+        firstContacts++;
+      } else {
+        reviewsCompleted++;
+      }
+    });
+    
+    // Contar revisões agendadas (futuras + atrasadas)
+    let overdueCount = 0;
+    let todayReviewCount = 0;
+    let futureReviewCount = 0;
+    
+    subjects.forEach(subject => {
+      subject.topics.forEach(topic => {
+        if (!topic.nextReview) return;
+        const reviewDate = startOfDay(new Date(topic.nextReview));
+        
+        if (reviewDate < today) {
+          overdueCount++;
+        } else if (isSameDay(reviewDate, today)) {
+          todayReviewCount++;
+        } else {
+          futureReviewCount++;
+        }
+      });
+    });
+    
+    return { 
+      firstContacts, 
+      reviewsCompleted,
+      overdueCount,
+      futureReviewCount,
+      totalReviews: overdueCount + todayReviewCount + futureReviewCount, // Apenas revisões agendadas
+      totalActiveDays: allDaysSet.size
+    };
+  };
+  
+  const allTimeStats = calculateAllTimeStats();
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-blue-600" />
-          Visão Geral do Mês
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 lg:grid-cols-[1.4fr,1fr] gap-6">
-          {/* Calendário */}
-          <div className="bg-white rounded-xl p-6 border border-gray-200">
-            {/* Header */}
+      <CardContent className="p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.3fr,1fr] gap-4">
+          {/* Card do Calendário */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Calendar className="h-4 w-4 text-blue-600" />
+                Visão Geral
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <Button
                 variant="ghost"
@@ -213,8 +247,10 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
               {days.map((day) => {
                 const dayInfo = getDayInfo(day);
                 const isToday = isSameDay(day, today);
-                const isPast = day < today;
                 const isFuture = day > today;
+                
+                // Só marcar como "estudou" se teve atividade E não é futuro
+                const showAsStudied = dayInfo.hasActivity && !isFuture;
                 
                 return (
                   <button
@@ -224,36 +260,25 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
                       aspect-square rounded-lg flex flex-col items-center justify-center text-sm font-medium transition-all duration-200 relative
                       ${isToday 
                         ? 'bg-blue-50 text-blue-700 border-2 border-blue-500 font-semibold shadow-sm' 
-                        : isPast && dayInfo.hasActivity
+                        : showAsStudied
                         ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 hover:shadow-sm'
-                        : isPast && !dayInfo.hasActivity
-                        ? 'bg-gray-50 text-gray-400 border border-gray-100'
-                        : isFuture && dayInfo.hasFutureReviews
-                        ? 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100'
-                        : 'bg-gray-50 text-gray-300 border border-gray-100'
+                        : 'bg-gray-50 text-gray-400 border border-gray-100'
                       }
                     `}
                   >
                     <span>{format(day, 'd')}</span>
                     
-                    {/* Mostrar contagem de revisões feitas (passado) */}
-                    {isPast && dayInfo.reviewsCount > 0 && (
-                      <span className="text-[10px] text-green-600 font-semibold mt-0.5">
-                        {dayInfo.reviewsCount}
-                      </span>
-                    )}
-                    
-                    {/* Mostrar bolinhas para revisões agendadas (futuro) */}
-                    {(isFuture || isToday) && dayInfo.hasFutureReviews && (
-                      <div className="flex gap-0.5 mt-0.5">
+                    {/* Mostrar bolinhas para revisões agendadas */}
+                    {dayInfo.hasFutureReviews && (
+                      <div className="flex gap-0.5 mt-1">
                         {dayInfo.overdueCount > 0 && (
                           <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
                         )}
                         {dayInfo.todayCount > 0 && (
-                          <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span>
+                          <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
                         )}
                         {dayInfo.futureCount > 0 && (
-                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
                         )}
                       </div>
                     )}
@@ -265,82 +290,273 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
             {/* Legenda */}
             <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-gray-100 text-xs">
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-green-50 border border-green-200 rounded flex items-center justify-center text-[8px] font-bold text-green-600">3</div>
-                <span className="text-gray-600">Revisões feitas</span>
+                <div className="w-3 h-3 bg-green-50 border border-green-200 rounded"></div>
+                <span className="text-gray-600">Estudou</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-blue-50 border border-blue-200 rounded flex items-center justify-center">
-                  <span className="w-1 h-1 bg-blue-500 rounded-full"></span>
-                </div>
-                <span className="text-gray-600">Agendadas</span>
+                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                <span className="text-gray-600">Atrasada</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                <span className="text-gray-600">Hoje</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                <span className="text-gray-600">Futura</span>
               </div>
             </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          {/* Estatísticas */}
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Target className="h-5 w-5 text-blue-600" />
+          {/* Card de Estatísticas */}
+          <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Target className="h-4 w-4 text-blue-600" />
               Estatísticas
-            </h3>
+            </CardTitle>
             
-            {/* Primeiros Contatos */}
-            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">📚</span>
-                <span className="text-sm font-medium text-gray-700">Primeiros Contatos</span>
-              </div>
-              <span className="text-2xl font-bold text-blue-600">{monthStats.firstContacts}</span>
-            </div>
-            
-            {/* Revisões Feitas */}
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-100">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">🔄</span>
-                <span className="text-sm font-medium text-gray-700">Revisões Feitas</span>
-              </div>
-              <span className="text-2xl font-bold text-green-600">{monthStats.totalReviews}</span>
-            </div>
-            
-            {/* Revisões Ativas */}
-            <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-100">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">⏳</span>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-700">Revisões Ativas</span>
-                  <span className="text-xs text-gray-500">Tópicos não concluídos</span>
-                </div>
-              </div>
-              <span className="text-2xl font-bold text-orange-600">{monthStats.activeTopicReviews}</span>
-            </div>
-            
-            {/* Revisões Atrasadas */}
-            <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-100">
-              <div className="flex items-center gap-2.5">
-                <AlertCircle className="h-5 w-5 text-red-600" />
-                <span className="text-sm font-medium text-gray-700">Atrasadas</span>
-              </div>
-              <span className="text-2xl font-bold text-red-600">{monthStats.overdueCount}</span>
-            </div>
-            
-            {/* Revisões Hoje */}
-            <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-100">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="h-5 w-5 text-yellow-600" />
-                <span className="text-sm font-medium text-gray-700">Para Hoje</span>
-              </div>
-              <span className="text-2xl font-bold text-yellow-600">{monthStats.todayReviewCount}</span>
-            </div>
-            
-            {/* Dias Ativos */}
-            <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-100">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">✅</span>
-                <span className="text-sm font-medium text-gray-700">Dias Ativos</span>
-              </div>
-              <span className="text-2xl font-bold text-purple-600">{monthStats.activeDays}/{monthStats.totalDaysInMonth}</span>
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('month')}
+                className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${
+                  viewMode === 'month'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Mês
+              </button>
+              <button
+                onClick={() => setViewMode('all')}
+                className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${
+                  viewMode === 'all'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Geral
+              </button>
             </div>
           </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="space-y-2">
+            {viewMode === 'month' ? (
+              <>
+                {/* Aba Mês */}
+                {/* 1. Tópicos Iniciados */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📚</span>
+                    <span className="text-xs font-medium text-gray-700">Tópicos Iniciados</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-600">{monthStats.firstContacts}</span>
+                </div>
+                
+                {/* 2. Revisões Realizadas */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-green-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-medium text-gray-700">Revisões Realizadas</span>
+                  </div>
+                  <span className="text-lg font-bold text-green-600">{monthStats.reviewsCompleted}</span>
+                </div>
+                
+                {/* 3. Revisões para Hoje */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-yellow-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📅</span>
+                    <span className="text-xs font-medium text-gray-700">Revisões para Hoje</span>
+                  </div>
+                  <span className="text-lg font-bold text-yellow-600">{monthStats.todayReviewCount}</span>
+                </div>
+                
+                {/* 4. Revisões Atrasadas */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-red-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <span className="text-xs font-medium text-gray-700">Revisões Atrasadas</span>
+                  </div>
+                  <span className="text-lg font-bold text-red-600">{monthStats.overdueCount}</span>
+                </div>
+                
+                {/* 5. Revisões Futuras */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-purple-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🔮</span>
+                    <span className="text-xs font-medium text-gray-700">Revisões Futuras</span>
+                  </div>
+                  <span className="text-lg font-bold text-purple-600">{monthStats.futureReviewCount}</span>
+                </div>
+                
+                {/* 6. Total de Revisões */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📊</span>
+                    <span className="text-xs font-medium text-gray-700">Total de Revisões</span>
+                  </div>
+                  <span className="text-lg font-bold text-indigo-600">{monthStats.totalReviews}</span>
+                </div>
+                
+                {/* 7. Dias Ativos */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-teal-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">✅</span>
+                    <span className="text-xs font-medium text-gray-700">Dias Ativos</span>
+                  </div>
+                  <span className="text-lg font-bold text-teal-600">{monthStats.activeDays}/{monthStats.totalDaysInMonth}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Aba Geral */}
+                {/* 1. Tópicos Iniciados */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📚</span>
+                    <span className="text-xs font-medium text-gray-700">Tópicos Iniciados</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-600">{allTimeStats.firstContacts}</span>
+                </div>
+                
+                {/* 2. Revisões Realizadas */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-green-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-medium text-gray-700">Revisões Realizadas</span>
+                  </div>
+                  <span className="text-lg font-bold text-green-600">{allTimeStats.reviewsCompleted}</span>
+                </div>
+                
+                {/* 3. Revisões Atrasadas */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-red-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <span className="text-xs font-medium text-gray-700">Revisões Atrasadas</span>
+                  </div>
+                  <span className="text-lg font-bold text-red-600">{allTimeStats.overdueCount}</span>
+                </div>
+                
+                {/* 4. Revisões Futuras */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-purple-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🔮</span>
+                    <span className="text-xs font-medium text-gray-700">Revisões Futuras</span>
+                  </div>
+                  <span className="text-lg font-bold text-purple-600">{allTimeStats.futureReviewCount}</span>
+                </div>
+                
+                {/* 5. Total de Revisões */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📊</span>
+                    <span className="text-xs font-medium text-gray-700">Total de Revisões</span>
+                  </div>
+                  <span className="text-lg font-bold text-indigo-600">{allTimeStats.totalReviews}</span>
+                </div>
+                
+                {/* 6. Dias Ativos */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-teal-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">✅</span>
+                    <span className="text-xs font-medium text-gray-700">Dias Ativos</span>
+                  </div>
+                  <span className="text-lg font-bold text-teal-600">{allTimeStats.totalActiveDays}</span>
+                </div>
+              </>
+            )}
+            
+            {/* Performance */}
+            <div className="pt-4 border-t border-gray-200">
+              <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-1">
+                📈 Performance
+              </h4>
+              <div className="space-y-2">
+                {/* Esta semana */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Esta semana:</span>
+                  <span className="text-xs font-semibold text-gray-900">
+                    {(() => {
+                      const weekAgo = new Date(today);
+                      weekAgo.setDate(weekAgo.getDate() - 7);
+                      const weekReviews = reviewData.filter(r => new Date(r.reviewed_at) >= weekAgo).length;
+                      return `${weekReviews} revisões`;
+                    })()}
+                  </span>
+                </div>
+                
+                {/* Média diária */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Média diária:</span>
+                  <span className="text-xs font-semibold text-gray-900">
+                    {(() => {
+                      if (allTimeStats.totalActiveDays === 0) return '0 tópicos';
+                      const avgPerDay = (allTimeStats.firstContacts + allTimeStats.reviewsCompleted) / allTimeStats.totalActiveDays;
+                      return `${avgPerDay.toFixed(1)} tópicos`;
+                    })()}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Informações Adicionais */}
+            <div className="pt-4 border-t border-gray-200 space-y-2.5">
+              {/* Perfil */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">Perfil:</span>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Award className="h-3 w-3" />
+                  {profileInfo?.profileName || 'Carregando...'}
+                </Badge>
+              </div>
+              
+              {/* Matérias por dia */}
+              {cycleStats && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600">Matérias por dia:</span>
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {settings?.subjects_per_day || 3}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600">Ciclos completos:</span>
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <RotateCcw className="h-3 w-3" />
+                      {cycleStats.completedCycles}
+                    </Badge>
+                  </div>
+                </>
+              )}
+              
+              {/* Intervalos de Revisão */}
+              {profileInfo && (
+                <div className="pt-2 border-t border-gray-100">
+                  <div className="text-xs text-gray-600 mb-1">
+                    <strong>Intervalos:</strong>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {profileInfo.intervals.map((interval, index) => (
+                      <span key={index}>
+                        {interval === 1 ? '24h' : `${interval}d`}
+                        {index < profileInfo.intervals.length - 1 ? ' → ' : ''}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {profileInfo.profileDescription}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
         </div>
       </CardContent>
     </Card>

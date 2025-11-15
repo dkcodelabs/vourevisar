@@ -203,15 +203,17 @@ export function ResetCycleConfirmDialog({
               </div>
 
               <div className="space-y-4 pt-2">
-                <div className="flex items-start space-x-2">
-                  <Checkbox
+                <div className="flex items-start space-x-3">
+                  <input
+                    type="checkbox"
                     id="understood"
                     checked={understood}
-                    onCheckedChange={(checked) => setUnderstood(checked as boolean)}
+                    onChange={(e) => setUnderstood(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-destructive focus:ring-destructive cursor-pointer"
                   />
                   <Label
                     htmlFor="understood"
-                    className="text-sm font-normal leading-tight cursor-pointer"
+                    className="text-sm font-normal leading-tight cursor-pointer flex-1"
                   >
                     Eu entendo que esta ação é <strong>irreversível</strong> e que todos os
                     meus dados de revisão, anotações e progresso serão permanentemente
@@ -226,10 +228,10 @@ export function ResetCycleConfirmDialog({
                   <Input
                     id="confirm-text"
                     value={confirmText}
-                    onChange={(e) => setConfirmText(e.target.value)}
+                    onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
                     placeholder="RESETAR"
-                    className="font-mono"
-                    disabled={!understood}
+                    className="font-mono uppercase"
+                    autoComplete="off"
                   />
                 </div>
               </div>

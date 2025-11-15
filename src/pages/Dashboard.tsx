@@ -228,6 +228,7 @@ const Dashboard = () => {
           onClose={() => setSelectedCalendarDate(null)}
           subjects={subjects}
           selectedDate={selectedCalendarDate || undefined}
+          reviewData={reviewData || []}
         />
 
         <GeneralNotesModal
