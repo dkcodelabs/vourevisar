@@ -115,33 +115,15 @@ function processTopicHistory(
     const reviewedAt = completedReviewsMap.get(stageKey);
     
     // Calcular data esperada da revisão
-    // Se a revisão já foi feita, usar a data que foi feita
-    // Se não foi feita e é a próxima, usar next_review do banco
+    // Para revisões pendentes, usar next_review do banco se for a próxima
     // Caso contrário, estimar baseado no primeiro contato
     let expectedDate: Date | null = null;
     
-    if (reviewedAt) {
-      // Revisão já foi feita, usar a data real
-      expectedDate = reviewedAt;
-    } else if (topicData?.next_review && topicData.review_stage) {
-      // Verificar se esta é a próxima revisão pendente
-      const currentStageIndex = reviewStages.findIndex((d: number) => {
-        const key = d === 1 ? '24h' : `${d}d`;
-        return key === topicData.review_stage;
-      });
-      
-      // Se esta revisão é a próxima após a atual, usar next_review do banco
-      if (index === currentStageIndex + 1) {
-        expectedDate = new Date(topicData.next_review);
-      } else if (index > currentStageIndex + 1) {
-        // Revisões futuras: estimar baseado na última revisão + intervalo
-        const lastReviewedAt = topicData.last_reviewed_at ? new Date(topicData.last_reviewed_at) : firstContact;
-        if (lastReviewedAt) {
-          expectedDate = new Date(lastReviewedAt.getTime() + days * 24 * 60 * 60 * 1000);
-        }
-      }
+    if (!reviewedAt && topicData?.next_review && index === topicData.review_count - 1) {
+      // Esta é a próxima revisão pendente, usar next_review do banco
+      expectedDate = new Date(topicData.next_review);
     } else if (firstContact) {
-      // Fallback: calcular baseado no primeiro contato
+      // Calcular baseado no primeiro contato
       expectedDate = new Date(firstContact.getTime() + days * 24 * 60 * 60 * 1000);
     }
     
