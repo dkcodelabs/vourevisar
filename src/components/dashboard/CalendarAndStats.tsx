@@ -497,7 +497,21 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
                   <span className="text-lg font-bold text-green-600">{allTimeStats.reviewsCompleted}</span>
                 </div>
                 
-                {/* 3. Revisões Atrasadas */}
+                {/* 3. Média diária */}
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📈</span>
+                    <span className="text-xs font-medium text-gray-700">Média diária</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-600">
+                    {allTimeStats.totalActiveDays === 0 
+                      ? '0' 
+                      : Math.round((allTimeStats.firstContacts + allTimeStats.reviewsCompleted) / allTimeStats.totalActiveDays)
+                    }
+                  </span>
+                </div>
+                
+                {/* 5. Revisões Atrasadas */}
                 <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-red-300 transition-colors">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="h-4 w-4 text-red-600" />
@@ -506,7 +520,7 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
                   <span className="text-lg font-bold text-red-600">{allTimeStats.overdueCount}</span>
                 </div>
                 
-                {/* 4. Revisões Futuras */}
+                {/* 6. Revisões Futuras */}
                 <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-purple-300 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🔮</span>
@@ -515,7 +529,7 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
                   <span className="text-lg font-bold text-purple-600">{allTimeStats.futureReviewCount}</span>
                 </div>
                 
-                {/* 5. Total de Revisões */}
+                {/* 7. Total de Revisões */}
                 <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="text-base">📊</span>
@@ -524,7 +538,7 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
                   <span className="text-lg font-bold text-indigo-600">{allTimeStats.totalReviews}</span>
                 </div>
                 
-                {/* 6. Dias Ativos */}
+                {/* 8. Dias Ativos */}
                 <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 hover:border-teal-300 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="text-base">✅</span>
@@ -534,39 +548,6 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
                 </div>
               </>
             )}
-            
-            {/* Performance */}
-            <div className="pt-4 border-t border-gray-200">
-              <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-1">
-                📈 Performance
-              </h4>
-              <div className="space-y-2">
-                {/* Esta semana */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Esta semana:</span>
-                  <span className="text-xs font-semibold text-gray-900">
-                    {(() => {
-                      const weekAgo = new Date(today);
-                      weekAgo.setDate(weekAgo.getDate() - 7);
-                      const weekReviews = reviewData.filter(r => new Date(r.reviewed_at) >= weekAgo).length;
-                      return `${weekReviews} revisões`;
-                    })()}
-                  </span>
-                </div>
-                
-                {/* Média diária */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Média diária:</span>
-                  <span className="text-xs font-semibold text-gray-900">
-                    {(() => {
-                      if (allTimeStats.totalActiveDays === 0) return '0 tópicos';
-                      const avgPerDay = (allTimeStats.firstContacts + allTimeStats.reviewsCompleted) / allTimeStats.totalActiveDays;
-                      return `${avgPerDay.toFixed(1)} tópicos`;
-                    })()}
-                  </span>
-                </div>
-              </div>
-            </div>
             
             {/* Informações Adicionais */}
             <div className="pt-4 border-t border-gray-200 space-y-2.5">
@@ -580,25 +561,22 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
               </div>
               
               {/* Matérias por dia */}
-              {cycleStats && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600">Matérias por dia:</span>
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      {settings?.subjects_per_day || 3}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600">Ciclos completos:</span>
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      <RotateCcw className="h-3 w-3" />
-                      {cycleStats.completedCycles}
-                    </Badge>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">Matérias por dia:</span>
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  {settings?.subjects_per_day || 3}
+                </Badge>
+              </div>
+              
+              {/* Ciclos completos */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">Ciclos completos:</span>
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <RotateCcw className="h-3 w-3" />
+                  {cycleStats?.completedCycles || 0}
+                </Badge>
+              </div>
               
               {/* Intervalos de Revisão */}
               {profileInfo && (
