@@ -35,11 +35,20 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
     let reviewsCompleted = 0; // Revisões já realizadas (não conta primeiro contato)
     const activeDaysSet = new Set<string>();
     
+    console.log('📊 Debug - reviewData total:', reviewData.length);
+    console.log('📊 Debug - Mês atual:', format(monthStart, 'yyyy-MM'), 'até', format(monthEnd, 'yyyy-MM-dd'));
+    
     // Contar usando reviewData (histórico real de revisões)
     reviewData.forEach(review => {
       const reviewDate = new Date(review.reviewed_at);
       if (reviewDate >= monthStart && reviewDate <= monthEnd) {
         activeDaysSet.add(format(reviewDate, 'yyyy-MM-dd'));
+        
+        console.log('📊 Review:', {
+          stage: review.review_stage,
+          date: format(reviewDate, 'yyyy-MM-dd HH:mm'),
+          topic: review.topic_name
+        });
         
         if (review.review_stage === 'first_contact' || review.review_stage === 'Primeiro Contato') {
           firstContacts++;
@@ -49,6 +58,8 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
         }
       }
     });
+    
+    console.log('📊 Resultado:', { firstContacts, reviewsCompleted });
     
     // Contar revisões agendadas (futuras + atrasadas + hoje)
     let overdueCount = 0;
@@ -146,16 +157,21 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
     let reviewsCompleted = 0;
     const allDaysSet = new Set<string>();
     
+    console.log('📊 GERAL - reviewData total:', reviewData.length);
+    
     reviewData.forEach(review => {
       const reviewDate = new Date(review.reviewed_at);
       allDaysSet.add(format(reviewDate, 'yyyy-MM-dd'));
       
       if (review.review_stage === 'first_contact' || review.review_stage === 'Primeiro Contato') {
+        console.log('📚 First contact encontrado:', review.topic_name, format(reviewDate, 'yyyy-MM-dd'));
         firstContacts++;
       } else {
         reviewsCompleted++;
       }
     });
+    
+    console.log('📊 GERAL - Resultado:', { firstContacts, reviewsCompleted, totalReviews: reviewData.length });
     
     // Contar revisões agendadas (futuras + atrasadas)
     let overdueCount = 0;
