@@ -56,15 +56,38 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
       // Verificar atividades do dia
       subjects.forEach(subject => {
         subject.topics.forEach((topic: any) => {
-          if (topic.lastReviewedAt) {
-            const reviewDate = startOfDay(new Date(topic.lastReviewedAt));
-            if (isSameDay(reviewDate, date)) {
+          // Verificar primeiro contato
+          if (topic.first_studied_at || topic.firstStudiedAt) {
+            const firstStudyDate = startOfDay(new Date(topic.first_studied_at || topic.firstStudiedAt));
+            if (isSameDay(firstStudyDate, date)) {
               activities.push({
                 subject: subject.name,
                 topic: topic.name,
-                reviewStage: topic.reviewStage || '1ª Revisão',
-                time: format(new Date(topic.lastReviewedAt), 'HH:mm')
+                reviewStage: 'Primeiro Contato',
+                time: format(new Date(topic.first_studied_at || topic.firstStudiedAt), 'HH:mm')
               });
+            }
+          }
+          
+          // Verificar revisões
+          if (topic.lastReviewedAt || topic.last_reviewed_at) {
+            const reviewDate = startOfDay(new Date(topic.lastReviewedAt || topic.last_reviewed_at));
+            if (isSameDay(reviewDate, date)) {
+              // Não adicionar se já foi adicionado como primeiro contato no mesmo dia
+              const alreadyAdded = activities.some(a => 
+                a.subject === subject.name && 
+                a.topic === topic.name &&
+                a.reviewStage === 'Primeiro Contato'
+              );
+              
+              if (!alreadyAdded) {
+                activities.push({
+                  subject: subject.name,
+                  topic: topic.name,
+                  reviewStage: topic.reviewStage || topic.review_stage || 'Revisão',
+                  time: format(new Date(topic.lastReviewedAt || topic.last_reviewed_at), 'HH:mm')
+                });
+              }
             }
           }
         });
@@ -105,9 +128,21 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
 
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+  // Calcular estatísticas do mês
+  const monthStats = {
+    firstContacts: monthData.reduce((sum, day) => 
+      sum + day.activities.filter(a => a.reviewStage === 'Primeiro Contato').length, 0
+    ),
+    reviews: monthData.reduce((sum, day) => 
+      sum + day.activities.filter(a => a.reviewStage !== 'Primeiro Contato').length, 0
+    ),
+    activeDays: monthData.filter(d => d.hasActivity).length,
+    totalDays: monthData.length
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="calendar-description">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" aria-describedby="calendar-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -119,8 +154,10 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
         </div>
 
         <div className="space-y-6">
-          {/* Calendário Compacto - Fixo no topo */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          {/* Grid: Calendário + Estatísticas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Calendário Compacto */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             {/* Header do calendário */}
             <div className="flex items-center justify-between mb-3">
               <Button
@@ -172,10 +209,10 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                         : status === 'today'
                         ? 'bg-blue-100 text-blue-700 border border-blue-300'
                         : status === 'active'
-                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                        ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200'
                         : status === 'future'
-                        ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                        : 'bg-red-50 text-red-600 hover:bg-red-100'
+                        ? 'bg-white text-gray-400 border border-gray-200 cursor-not-allowed'
+                        : 'bg-white text-red-600 border border-red-200 hover:bg-red-50'
                       }
                     `}
                     onClick={() => status !== 'future' ? setSelectedDay(day.date) : null}
@@ -204,6 +241,39 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
             </div>
           </div>
 
+          {/* Estatísticas do Mês */}
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Target className="h-5 w-5 text-blue-600" />
+              Estatísticas do Mês
+            </h3>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                <span className="text-sm text-gray-600">📚 Primeiros Contatos</span>
+                <span className="text-lg font-bold text-blue-600">{monthStats.firstContacts}</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                <span className="text-sm text-gray-600">🔄 Revisões Feitas</span>
+                <span className="text-lg font-bold text-green-600">{monthStats.reviews}</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                <span className="text-sm text-gray-600">✅ Dias Ativos</span>
+                <span className="text-lg font-bold text-purple-600">{monthStats.activeDays}/{monthStats.totalDays}</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                <span className="text-sm text-gray-600">📈 Taxa de Atividade</span>
+                <span className="text-lg font-bold text-orange-600">
+                  {Math.round((monthStats.activeDays / monthStats.totalDays) * 100)}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
           {/* Lista de Revisões - Rolável */}
           <div className="bg-white rounded-lg border border-gray-200">
             <div className="p-4 border-b border-gray-200">
@@ -226,25 +296,31 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                         </h5>
                         <div className="space-y-2">
                           {selectedDayData.activities.map((activity, i) => (
-                            <div key={i} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                            <div key={i} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                               {/* Nome da matéria */}
-                              <div className="font-medium text-gray-900 text-sm mb-1">
+                              <div className="font-semibold text-gray-900 text-sm mb-2">
                                 {activity.subject}
                               </div>
                               
-                              {/* Nome do tópico + revisão + hora na mesma linha */}
+                              {/* Nome do tópico */}
+                              <div className="text-gray-600 text-sm mb-3">
+                                {activity.topic}
+                              </div>
+                              
+                              {/* Badge em cima, hora embaixo */}
                               <div className="flex items-center justify-between">
-                                <div className="text-gray-600 text-sm">
-                                  {activity.topic}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {activity.reviewStage}
-                                  </span>
-                                  <div className="text-gray-500 flex items-center gap-1 text-xs">
-                                    <Clock className="h-3 w-3" />
-                                    {activity.time}
-                                  </div>
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                  activity.reviewStage === 'Primeiro Contato' 
+                                    ? 'bg-blue-100 text-blue-800' 
+                                    : activity.reviewStage === 'Concluído'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-purple-100 text-purple-800'
+                                }`}>
+                                  {activity.reviewStage}
+                                </span>
+                                <div className="text-gray-500 flex items-center gap-1 text-sm">
+                                  <Clock className="h-4 w-4" />
+                                  {activity.time}
                                 </div>
                               </div>
                             </div>

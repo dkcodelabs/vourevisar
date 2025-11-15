@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, Plus, Flame, Notebook } from 'lucide-react';
+import { BookOpen, TrendingUp, Plus, Notebook } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useNavigate } from 'react-router-dom';
@@ -47,48 +47,51 @@ const Dashboard = () => {
     }
   }, [shouldReopenGeneralNotes]);
 
-  // Buscar dados de revisões para o calendário
+  // Buscar histórico de revisões para estatísticas
   const { data: reviewData } = useQuery({
-    queryKey: ['dashboard-reviews', user?.id],
+    queryKey: ['dashboard-review-history', user?.id],
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
 
-      const { data: topicsData, error: topicsError } = await supabase
-        .from('topics')
-        .select(`
-          id,
-          name,
-          review_stage,
-          next_review,
-          subject_id
-        `)
-        .not('next_review', 'is', null);
-
-      if (topicsError) throw topicsError;
-      if (!topicsData || topicsData.length === 0) return [];
-
+      // Buscar matérias do usuário
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
         .select('id, name')
         .eq('user_id', user.id);
 
       if (subjectsError) throw subjectsError;
+      if (!subjectsData || subjectsData.length === 0) return [];
 
-      const userSubjectIds = (subjectsData || []).map(s => s.id);
-      const filteredTopics = topicsData.filter(topic =>
-        userSubjectIds.includes(topic.subject_id)
-      );
+      const userSubjectIds = subjectsData.map(s => s.id);
 
-      return filteredTopics.map(topic => {
-        const subject = subjectsData?.find(s => s.id === topic.subject_id);
-        return {
-          id: topic.id,
-          name: topic.name,
-          subject_name: subject?.name || 'Sem disciplina',
-          review_stage: topic.review_stage,
-          next_review: topic.next_review,
-        };
-      });
+      // Buscar histórico de revisões dos tópicos do usuário
+      const { data: historyData, error: historyError } = await supabase
+        .from('topic_review_history')
+        .select(`
+          id,
+          topic_id,
+          review_stage,
+          reviewed_at,
+          topics!inner (
+            id,
+            name,
+            subject_id
+          )
+        `)
+        .in('topics.subject_id', userSubjectIds)
+        .order('reviewed_at', { ascending: false });
+
+      if (historyError) throw historyError;
+      if (!historyData) return [];
+
+      return historyData.map(review => ({
+        id: review.id,
+        topic_id: review.topic_id,
+        review_stage: review.review_stage,
+        reviewed_at: review.reviewed_at,
+        topic_name: review.topics.name,
+        subject_id: review.topics.subject_id
+      }));
     },
     enabled: !!user
   });
@@ -154,13 +157,10 @@ const Dashboard = () => {
   );
   const progressPercentage = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
-  // Calcular streak simples
-  const currentStreak = 2; // Valor fixo por enquanto
-
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4">
-        {/* Header com saudação e streak */}
+        {/* Header com saudação */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -172,15 +172,6 @@ const Dashboard = () => {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${currentStreak > 0
-                ? 'bg-orange-100 text-orange-700'
-                : 'bg-gray-100 text-gray-600'
-                }`}>
-                <Flame className="h-4 w-4" />
-                <span className="font-medium">
-                  Streak: {currentStreak} dias
-                </span>
-              </div>
               <div className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg">
                 <TrendingUp className="h-4 w-4" />
                 <span className="font-medium">Progresso: {progressPercentage}%</span>

@@ -43,15 +43,38 @@ export const StreakVisualBar: React.FC<StreakVisualBarProps> = ({
       // Verificar atividades do dia
       subjects.forEach(subject => {
         subject.topics.forEach((topic: any) => {
-          if (topic.lastReviewedAt) {
-            const reviewDate = startOfDay(new Date(topic.lastReviewedAt));
-            if (isSameDay(reviewDate, date)) {
+          // Verificar primeiro contato (first_studied_at)
+          if (topic.first_studied_at || topic.firstStudiedAt) {
+            const firstStudyDate = startOfDay(new Date(topic.first_studied_at || topic.firstStudiedAt));
+            if (isSameDay(firstStudyDate, date)) {
               activities.push({
                 subject: subject.name,
                 topic: topic.name,
-                reviewStage: topic.reviewStage || '1ª Revisão',
-                time: format(new Date(topic.lastReviewedAt), 'HH:mm')
+                reviewStage: 'Primeiro Contato',
+                time: format(new Date(topic.first_studied_at || topic.firstStudiedAt), 'HH:mm')
               });
+            }
+          }
+          
+          // Verificar revisões (lastReviewedAt)
+          if (topic.lastReviewedAt || topic.last_reviewed_at) {
+            const reviewDate = startOfDay(new Date(topic.lastReviewedAt || topic.last_reviewed_at));
+            if (isSameDay(reviewDate, date)) {
+              // Não adicionar se já foi adicionado como primeiro contato no mesmo dia
+              const alreadyAdded = activities.some(a => 
+                a.subject === subject.name && 
+                a.topic === topic.name &&
+                a.reviewStage === 'Primeiro Contato'
+              );
+              
+              if (!alreadyAdded) {
+                activities.push({
+                  subject: subject.name,
+                  topic: topic.name,
+                  reviewStage: topic.reviewStage || topic.review_stage || 'Revisão',
+                  time: format(new Date(topic.lastReviewedAt || topic.last_reviewed_at), 'HH:mm')
+                });
+              }
             }
           }
         });

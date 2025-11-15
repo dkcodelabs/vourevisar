@@ -63,7 +63,7 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
       </div>
 
       {/* Grid de Cards com Setas */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
         {/* Primeiro Estudo */}
         {history.firstContact && (
           <>

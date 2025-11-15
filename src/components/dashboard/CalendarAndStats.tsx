@@ -27,29 +27,31 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
   
   const progressPercentage = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
   
-  // Calcular revisões desta semana (baseado nos dados reais)
+  // Calcular revisões desta semana usando reviewData (topic_review_history)
   const calculateWeeklyStats = () => {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    oneWeekAgo.setHours(0, 0, 0, 0);
     
-    let weeklyReviews = 0;
-    let totalReviews = 0;
+    // Contar apenas revisões reais (excluir 'first_contact' e 'Primeiro Contato')
+    const realReviews = reviewData.filter(review => 
+      review.review_stage !== 'first_contact' && 
+      review.review_stage !== 'Primeiro Contato'
+    );
     
-    subjects.forEach(subject => {
-      subject.topics.forEach(topic => {
-        if (topic.lastReviewedAt || topic.last_reviewed_at) {
-          const reviewDate = new Date(topic.lastReviewedAt || topic.last_reviewed_at!);
-          totalReviews++;
-          if (reviewDate >= oneWeekAgo) {
-            weeklyReviews++;
-          }
-        }
-      });
-    });
+    // Contar revisões da última semana
+    const weeklyReviews = realReviews.filter(review => {
+      const reviewDate = new Date(review.reviewed_at);
+      return reviewDate >= oneWeekAgo;
+    }).length;
     
     const dailyAverage = weeklyReviews > 0 ? (weeklyReviews / 7).toFixed(1) : '0.0';
     
-    return { weeklyReviews, dailyAverage: parseFloat(dailyAverage), totalReviews };
+    return { 
+      weeklyReviews, 
+      dailyAverage: parseFloat(dailyAverage),
+      totalReviews: realReviews.length 
+    };
   };
   
   const weeklyStats = calculateWeeklyStats();
@@ -65,62 +67,48 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   
-  // Função para determinar o status do dia
+  // Função para determinar o status do dia e contar revisões por tipo
   const getDayStatus = (day: Date) => {
     const today = startOfDay(new Date());
     const dayStart = startOfDay(day);
     
-    // Verificar se há revisões atrasadas para este dia
-    const hasOverdueReviews = subjects.some(subject =>
-      subject.topics.some(topic => {
-        if (!topic.nextReview) return false;
+    let overdueCount = 0;
+    let todayCount = 0;
+    let futureCount = 0;
+    
+    // Contar revisões por tipo
+    subjects.forEach(subject =>
+      subject.topics.forEach(topic => {
+        if (!topic.nextReview) return;
         const reviewDate = startOfDay(new Date(topic.nextReview));
-        return isSameDay(reviewDate, dayStart) && reviewDate < today;
+        if (isSameDay(reviewDate, dayStart)) {
+          if (reviewDate < today) overdueCount++;
+          else if (isSameDay(reviewDate, today)) todayCount++;
+          else if (reviewDate > today) futureCount++;
+        }
       })
     );
     
-    // Verificar se há revisões para hoje
-    const hasTodayReviews = subjects.some(subject =>
-      subject.topics.some(topic => {
-        if (!topic.nextReview) return false;
-        const reviewDate = startOfDay(new Date(topic.nextReview));
-        return isSameDay(reviewDate, dayStart) && isSameDay(reviewDate, today);
-      })
-    );
+    const totalReviews = overdueCount + todayCount + futureCount;
     
-    // Verificar se há revisões futuras
-    const hasFutureReviews = subjects.some(subject =>
-      subject.topics.some(topic => {
-        if (!topic.nextReview) return false;
-        const reviewDate = startOfDay(new Date(topic.nextReview));
-        return isSameDay(reviewDate, dayStart) && reviewDate > today;
-      })
-    );
-    
-    if (hasOverdueReviews) return 'overdue';
-    if (hasTodayReviews) return 'today';
-    if (hasFutureReviews) return 'future';
-    return 'normal';
+    return { 
+      overdueCount, 
+      todayCount, 
+      futureCount, 
+      totalReviews,
+      hasReviews: totalReviews > 0
+    };
   };
   
-  const getDayClassName = (day: Date, status: string) => {
-    const baseClass = "w-8 h-8 flex items-center justify-center text-sm rounded cursor-pointer transition-colors";
-    const today = isSameDay(day, new Date());
+  const getDayClassName = (day: Date, isToday: boolean, hasReviews: boolean) => {
+    const baseClass = "w-8 h-8 flex flex-col items-center rounded cursor-pointer transition-colors bg-white border";
+    const justifyClass = hasReviews ? "justify-between py-1" : "justify-center";
     
-    if (today) {
-      return `${baseClass} bg-blue-500 text-white font-bold`;
+    if (isToday) {
+      return `${baseClass} ${justifyClass} border-blue-500 border-2 font-bold text-gray-900`;
     }
     
-    switch (status) {
-      case 'overdue':
-        return `${baseClass} bg-red-100 text-red-700 hover:bg-red-200`;
-      case 'today':
-        return `${baseClass} bg-yellow-100 text-yellow-700 hover:bg-yellow-200`;
-      case 'future':
-        return `${baseClass} bg-green-100 text-green-700 hover:bg-green-200`;
-      default:
-        return `${baseClass} hover:bg-gray-100`;
-    }
+    return `${baseClass} ${justifyClass} border-gray-200 hover:border-gray-300 text-gray-700`;
   };
 
   return (
@@ -158,7 +146,7 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
             {/* Cabeçalho dos dias da semana */}
             <div className="grid grid-cols-7 gap-1 mb-2">
               {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, index) => (
-                <div key={index} className="text-center text-xs font-medium text-gray-500 p-1">
+                <div key={index} className="w-8 h-8 flex items-center justify-center text-xs font-medium text-gray-500">
                   {day}
                 </div>
               ))}
@@ -167,14 +155,29 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
             {/* Dias do mês */}
             <div className="grid grid-cols-7 gap-1">
               {days.map((day) => {
-                const status = getDayStatus(day);
+                const { overdueCount, todayCount, futureCount, totalReviews } = getDayStatus(day);
+                const isToday = isSameDay(day, new Date());
+                
                 return (
                   <div
                     key={day.toISOString()}
-                    className={getDayClassName(day, status)}
-                    title={format(day, 'dd/MM/yyyy')}
+                    className={getDayClassName(day, isToday, totalReviews > 0)}
+                    title={`${format(day, 'dd/MM/yyyy')}${totalReviews > 0 ? `\n${overdueCount > 0 ? `${overdueCount} atrasada(s)\n` : ''}${todayCount > 0 ? `${todayCount} hoje\n` : ''}${futureCount > 0 ? `${futureCount} futura(s)` : ''}` : ''}`}
                   >
-                    {format(day, 'd')}
+                    <span className="text-xs leading-none">{format(day, 'd')}</span>
+                    {totalReviews > 0 && (
+                      <div className="flex gap-0.5">
+                        {overdueCount > 0 && (
+                          <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                        )}
+                        {todayCount > 0 && (
+                          <span className="w-1 h-1 bg-yellow-500 rounded-full"></span>
+                        )}
+                        {futureCount > 0 && (
+                          <span className="w-1 h-1 bg-green-500 rounded-full"></span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
