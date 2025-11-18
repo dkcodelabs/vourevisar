@@ -217,6 +217,20 @@ export const StudyCycleContent: React.FC = () => {
   const { getCycleStats } = useCycleStatus();
   const { user } = useAuth();
 
+  // Função para normalizar texto (remover acentos)
+  const normalizeText = useCallback((text: string) => 
+    text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(), []);
+
+  // Função para filtrar tópicos baseado na busca
+  const filterTopicsBySearch = useCallback((topics: StudyCycleTopic[]) => {
+    if (!searchQuery.trim()) return topics;
+    
+    const normalizedQuery = normalizeText(searchQuery);
+    return topics.filter(topic => 
+      normalizeText(topic.name).includes(normalizedQuery)
+    );
+  }, [searchQuery, normalizeText]);
+
   // REMOVIDO hook de progresso diário - estava causando loops
 
   // Função para obter a posição no ciclo
@@ -422,6 +436,8 @@ export const StudyCycleContent: React.FC = () => {
                 markedTopicIds={sessionMarks[subject.id] || new Set()}
                 onToggleMark={(topicId) => handleToggleMark(subject.id, topicId)}
                 cyclePosition={cyclePosition}
+                searchQuery={searchQuery}
+                filterTopicsBySearch={filterTopicsBySearch}
               />
             );
           })}

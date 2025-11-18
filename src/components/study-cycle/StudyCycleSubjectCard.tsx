@@ -25,6 +25,8 @@ interface StudyCycleSubjectCardProps {
   markedTopicIds: Set<string>;
   onToggleMark: (topicId: string) => void;
   cyclePosition?: number | null;
+  searchQuery?: string;
+  filterTopicsBySearch?: (topics: any[]) => any[];
 }
 
 const reviewProgression = [
@@ -49,7 +51,9 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   onToggleExpand,
   markedTopicIds,
   onToggleMark,
-  cyclePosition
+  cyclePosition,
+  searchQuery = '',
+  filterTopicsBySearch
 }) => {
   const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
   const { user } = useAuth();
@@ -215,7 +219,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         <div className="p-4 bg-muted/30 flex-grow">
           <h4 className="text-xs font-medium text-muted-foreground mb-3 px-2">Tópicos concluídos:</h4>
           <div className="space-y-1 max-h-48 overflow-y-auto pr-2">
-            {subject.topics.map(topic => (
+            {(filterTopicsBySearch ? filterTopicsBySearch(subject.topics) : subject.topics).map(topic => (
               <StudyCycleTopicItem
                 key={topic.id}
                 topic={topic}
@@ -227,6 +231,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                 isActionable={false}
                 isEditing={editingTopicId === topic.id}
                 onEditingChange={setEditingTopicId}
+                searchQuery={searchQuery}
               />
             ))}
             {isAddingTopic && (
@@ -345,7 +350,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div id={`topics-${subject.id}`} className="p-4 pt-0">
             <div className="p-4 bg-muted/30 rounded-lg">
               <div className="space-y-2">
-                {subject.topics.map(topic => (
+                {(filterTopicsBySearch ? filterTopicsBySearch(subject.topics) : subject.topics).map(topic => (
                   <StudyCycleTopicItem
                     key={topic.id}
                     topic={topic}
@@ -357,6 +362,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                     isActionable={isActionable}
                     isEditing={editingTopicId === topic.id}
                     onEditingChange={setEditingTopicId}
+                    searchQuery={searchQuery}
                   />
                 ))}
                 {isAddingTopic && (

@@ -11,14 +11,45 @@ interface EditableTopicNameProps {
   onUpdate: () => void;
   isEditing?: boolean;
   onEditChange?: (isEditing: boolean) => void;
+  searchQuery?: string;
 }
+
+// Componente para destacar texto da busca
+const HighlightText: React.FC<{ text: string; searchQuery: string }> = ({ text, searchQuery }) => {
+  if (!searchQuery.trim()) return <>{text}</>;
+  
+  const normalizeText = (str: string) => 
+    str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  
+  const normalizedText = normalizeText(text);
+  const normalizedQuery = normalizeText(searchQuery);
+  
+  const index = normalizedText.indexOf(normalizedQuery);
+  
+  if (index === -1) return <>{text}</>;
+  
+  const beforeMatch = text.substring(0, index);
+  const match = text.substring(index, index + searchQuery.length);
+  const afterMatch = text.substring(index + searchQuery.length);
+  
+  return (
+    <>
+      {beforeMatch}
+      <mark className="bg-yellow-200 dark:bg-yellow-600 text-gray-900 dark:text-gray-100 px-0.5 rounded">
+        {match}
+      </mark>
+      {afterMatch}
+    </>
+  );
+};
 
 export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
   topicId,
   initialName,
   onUpdate,
   isEditing = false,
-  onEditChange
+  onEditChange,
+  searchQuery = ''
 }) => {
   const [internalEditing, setInternalEditing] = useState(false);
   const [name, setName] = useState(initialName);
@@ -140,7 +171,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
 
   return (
     <h3 className="text-sm font-normal text-zinc-800 dark:text-zinc-200 break-words leading-tight">
-      {name}
+      <HighlightText text={name} searchQuery={searchQuery} />
     </h3>
   );
 };

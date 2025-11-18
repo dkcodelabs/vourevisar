@@ -14,7 +14,37 @@ interface StudyCycleTopicItemProps {
   isActionable: boolean;
   isEditing?: boolean;
   onEditingChange?: (topicId: string | null) => void;
+  searchQuery?: string;
 }
+
+// Componente para destacar texto da busca
+const HighlightText: React.FC<{ text: string; searchQuery: string }> = ({ text, searchQuery }) => {
+  if (!searchQuery.trim()) return <>{text}</>;
+  
+  const normalizeText = (str: string) => 
+    str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  
+  const normalizedText = normalizeText(text);
+  const normalizedQuery = normalizeText(searchQuery);
+  
+  const index = normalizedText.indexOf(normalizedQuery);
+  
+  if (index === -1) return <>{text}</>;
+  
+  const beforeMatch = text.substring(0, index);
+  const match = text.substring(index, index + searchQuery.length);
+  const afterMatch = text.substring(index + searchQuery.length);
+  
+  return (
+    <>
+      {beforeMatch}
+      <mark className="bg-yellow-200 dark:bg-yellow-600 text-gray-900 dark:text-gray-100 px-0.5 rounded">
+        {match}
+      </mark>
+      {afterMatch}
+    </>
+  );
+};
 
 const REVIEW_STATUS_CONFIG: Record<ReviewInterval, { text: string; className: string }> = {
   [ReviewInterval.NOT_STARTED]: { text: 'Não estudado', className: 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-slate-300' },
@@ -35,7 +65,8 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   isSubjectFinished,
   isActionable,
   isEditing = false,
-  onEditingChange
+  onEditingChange,
+  searchQuery = ''
 }) => {
   const isTopicCompleted = topic.reviewStatus === ReviewInterval.COMPLETED;
   
@@ -182,7 +213,9 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   if (isSubjectFinished) {
     return (
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full px-4 py-2 gap-2">
-        <span className="text-sm text-zinc-800 dark:text-zinc-200 flex-1 break-words leading-tight">{topic.name}</span>
+        <span className="text-sm text-zinc-800 dark:text-zinc-200 flex-1 break-words leading-tight">
+          <HighlightText text={topic.name} searchQuery={searchQuery} />
+        </span>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="font-semibold text-emerald-600 dark:text-emerald-400">Revisado</span>
           <div className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500 text-white shadow-md">
@@ -222,6 +255,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
                 handleStopEditing();
               }
             }}
+            searchQuery={searchQuery}
           />
         </div>
         
