@@ -144,6 +144,29 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   };
   
   const monthStats = calculateMonthStats();
+  
+  // Calcular estatísticas do dia selecionado
+  const calculateDayStats = () => {
+    if (!selectedDay) return { firstContacts: 0, reviews: 0 };
+    
+    let firstContacts = 0;
+    let reviews = 0;
+    
+    reviewData.forEach(review => {
+      const reviewDate = startOfDay(new Date(review.reviewed_at));
+      if (isSameDay(reviewDate, selectedDay)) {
+        if (review.review_stage === 'first_contact' || review.review_stage === 'Primeiro Contato') {
+          firstContacts++;
+        } else {
+          reviews++;
+        }
+      }
+    });
+    
+    return { firstContacts, reviews };
+  };
+  
+  const dayStats = selectedDay ? calculateDayStats() : monthStats;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -246,35 +269,39 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
             </div>
           </div>
 
-          {/* Estatísticas do Mês */}
+          {/* Estatísticas do Mês ou Dia */}
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Target className="h-5 w-5 text-blue-600" />
-              Estatísticas do Mês
+              {selectedDay ? `Estatísticas do Dia ${format(selectedDay, 'dd/MM')}` : 'Estatísticas do Mês'}
             </h3>
             
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
                 <span className="text-sm text-gray-600">📚 Primeiros Contatos</span>
-                <span className="text-lg font-bold text-blue-600">{monthStats.firstContacts}</span>
+                <span className="text-lg font-bold text-blue-600">{dayStats.firstContacts}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
                 <span className="text-sm text-gray-600">🔄 Revisões Feitas</span>
-                <span className="text-lg font-bold text-green-600">{monthStats.reviews}</span>
+                <span className="text-lg font-bold text-green-600">{dayStats.reviews}</span>
               </div>
               
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
-                <span className="text-sm text-gray-600">✅ Dias Ativos</span>
-                <span className="text-lg font-bold text-purple-600">{monthStats.activeDays}/{monthStats.totalDays}</span>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
-                <span className="text-sm text-gray-600">📈 Taxa de Atividade</span>
-                <span className="text-lg font-bold text-orange-600">
-                  {Math.round((monthStats.activeDays / monthStats.totalDays) * 100)}%
-                </span>
-              </div>
+              {!selectedDay && (
+                <>
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                    <span className="text-sm text-gray-600">✅ Dias Ativos</span>
+                    <span className="text-lg font-bold text-purple-600">{monthStats.activeDays}/{monthStats.totalDays}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                    <span className="text-sm text-gray-600">📈 Taxa de Atividade</span>
+                    <span className="text-lg font-bold text-orange-600">
+                      {Math.round((monthStats.activeDays / monthStats.totalDays) * 100)}%
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
