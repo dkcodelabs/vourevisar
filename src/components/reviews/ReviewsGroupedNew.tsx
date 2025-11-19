@@ -9,6 +9,7 @@ import { ReviewConfirmDialog } from './ReviewConfirmDialog';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
+import { EditableTopicName } from '@/components/EditableTopicName';
 
 interface ReviewsGroupedNewProps {
     subjects: Subject[];
@@ -48,6 +49,8 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
         topicId: '',
         topicName: ''
     });
+
+    const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
 
     const { settings } = useUserSettings();
     const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
@@ -459,13 +462,21 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                     {/* Coluna 1: Nome do tópico + Subtópicos */}
                                     <div className="min-w-0 ml-7">
                                         <div 
-                                            className={`font-medium text-sm leading-tight mb-1 break-words cursor-pointer hover:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors ${
-                                                isHighlighted ? 'text-yellow-900' : 'text-gray-800'
-                                            }`}
-                                            onClick={() => onEditTopic(subject.id, topic.id)}
-                                            title="Clique para editar o nome"
+                                            className={`mb-1 ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
+                                            onClick={() => !editingTopicId && setEditingTopicId(topic.id)}
                                         >
-                                            {topic.name}
+                                            <EditableTopicName
+                                                topicId={topic.id}
+                                                initialName={topic.name}
+                                                onUpdate={() => {
+                                                    setEditingTopicId(null);
+                                                    // Opcional: adicionar callback para atualizar dados
+                                                }}
+                                                isEditing={editingTopicId === topic.id}
+                                                onEditChange={(isEditing) => {
+                                                    setEditingTopicId(isEditing ? topic.id : null);
+                                                }}
+                                            />
                                         </div>
                                         {topic.subtopics && topic.subtopics.length > 0 && (
                                             <div className="mt-1">
@@ -554,13 +565,20 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                     <div className="md:hidden border-b border-gray-100 pb-3 pt-3 last:border-b-0">
                                                         {/* Nome do tópico */}
                                                         <div 
-                                                            className={`font-medium text-sm leading-tight mb-3 break-words cursor-pointer hover:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors ${
-                                                                isHighlighted ? 'text-yellow-900' : 'text-gray-800'
-                                                            }`}
-                                                            onClick={() => onEditTopic(subject.id, topic.id)}
-                                                            title="Clique para editar o nome"
+                                                            className={`mb-3 ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
+                                                            onClick={() => !editingTopicId && setEditingTopicId(topic.id)}
                                                         >
-                                                            {topic.name}
+                                                            <EditableTopicName
+                                                                topicId={topic.id}
+                                                                initialName={topic.name}
+                                                                onUpdate={() => {
+                                                                    setEditingTopicId(null);
+                                                                }}
+                                                                isEditing={editingTopicId === topic.id}
+                                                                onEditChange={(isEditing) => {
+                                                                    setEditingTopicId(isEditing ? topic.id : null);
+                                                                }}
+                                                            />
                                                         </div>
                                                         
                                                         {/* Grid de informações */}
