@@ -192,27 +192,28 @@ export const useTopicReview = () => {
         // Não falhar a operação principal por causa do tracking
       }
 
-      // VERIFICAÇÃO CRÍTICA: Modal aparece apenas no PRIMEIRO CONTATO (review_count era 0) E se não tem dificuldade
-      const isFirstContact = topic.review_count === 0; // Primeiro contato = review_count atual é 0 (antes de incrementar)
+      // VERIFICAÇÃO: Modal aparece sempre que não tem dificuldade definida
       const hasNoDifficulty = !topic.difficulty_level;
-      const shouldShowModal = isFirstContact && hasNoDifficulty;
+      const shouldShowModal = hasNoDifficulty;
       
       console.log('🔍 VERIFICANDO MODAL DE DIFICULDADE:', {
         topicId,
         topicName: topic.name,
         review_count_atual: topic.review_count,
         newReviewCount,
-        isFirstContact: `${isFirstContact} (review_count atual é 0)`,
         difficulty_level: topic.difficulty_level,
+        difficulty_level_type: typeof topic.difficulty_level,
         hasNoDifficulty,
-        shouldShowModal
+        shouldShowModal,
+        'topic.difficulty_level === null': topic.difficulty_level === null,
+        'topic.difficulty_level === undefined': topic.difficulty_level === undefined
       });
 
       if (shouldShowModal) {
-        console.log('🌟 CONDIÇÃO ATENDIDA - Primeiro contato sem dificuldade, mostrando modal:', {
+        console.log('🌟 CONDIÇÃO ATENDIDA - Tópico sem dificuldade, mostrando modal:', {
           topicId,
           topicName: topic.name,
-          isFirstContact,
+          review_count: topic.review_count,
           completed,
           difficulty_level: topic.difficulty_level
         });
@@ -236,15 +237,20 @@ export const useTopicReview = () => {
             modalState: 'SETTING TO OPEN'
           });
           
-          setDifficultyModalData({
+          const newModalData = {
             isOpen: true,
             topicId: topicId,
             topicName: topic.name,
             subjectId: topic.subject_id,
             subjectName: subjectData.name,
             currentDifficulty: null
-          });
-
+          };
+          
+          console.log('🌟 DEFININDO MODAL DATA:', newModalData);
+          setDifficultyModalData(newModalData);
+          
+          // Aguardar um pouco para garantir que o estado foi atualizado
+          await new Promise(resolve => setTimeout(resolve, 100));
           console.log('🌟 MODAL STATE UPDATED - Verificar se modal aparece na tela');
         } else {
           console.error('❌ Dados da matéria não encontrados para o modal');
