@@ -21,9 +21,17 @@ const loadStateFromStorage = () => {
         };
       }
 
+      // Se estava rodando, recalcular o tempo baseado no timestamp
+      let adjustedTimeLeft = parsed.timeLeft;
+      if (parsed.isRunning && parsed.lastSaveTime) {
+        const elapsedSeconds = Math.floor((Date.now() - parsed.lastSaveTime) / 1000);
+        adjustedTimeLeft = Math.max(0, parsed.timeLeft - elapsedSeconds);
+      }
+
       return {
         ...parsed,
-        isRunning: false, // Sempre pausar quando recarregar a página
+        timeLeft: adjustedTimeLeft,
+        isRunning: parsed.isRunning && adjustedTimeLeft > 0, // Continuar rodando se ainda tem tempo
         isBlinking: false,
         listeners: new Set<() => void>()
       };
@@ -51,7 +59,8 @@ const saveStateToStorage = (state: any) => {
       isRunning: state.isRunning,
       sessionsToday: state.sessionsToday,
       initialTime: state.initialTime,
-      lastDate: state.lastDate
+      lastDate: state.lastDate,
+      lastSaveTime: Date.now() // Salvar timestamp para recalcular depois
     };
     localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
   } catch (error) {
@@ -62,18 +71,28 @@ const saveStateToStorage = (state: any) => {
 // Estado global compartilhado
 let globalState = loadStateFromStorage();
 
-// Timer global único
+// Timer global único com timestamp para precisão
 let globalInterval: NodeJS.Timeout | null = null;
+let lastTickTime: number | null = null;
 
 const startGlobalTimer = () => {
   if (globalInterval) return;
 
+  lastTickTime = Date.now();
+
   globalInterval = setInterval(() => {
+    const now = Date.now();
+    const elapsed = lastTickTime ? Math.floor((now - lastTickTime) / 1000) : 1;
+    lastTickTime = now;
+
     if (globalState.isRunning && globalState.timeLeft > 0) {
-      globalState.timeLeft -= 1;
+      // Subtrair o tempo real decorrido, não apenas 1 segundo
+      globalState.timeLeft = Math.max(0, globalState.timeLeft - elapsed);
       saveStateToStorage(globalState);
       globalState.listeners.forEach(listener => listener());
-    } else if (globalState.timeLeft === 0 && globalState.isRunning) {
+    }
+    
+    if (globalState.timeLeft === 0 && globalState.isRunning) {
       globalState.isRunning = false;
       globalState.sessionsToday += 1;
       globalState.isBlinking = true;
@@ -96,8 +115,43 @@ const stopGlobalTimer = () => {
   if (globalInterval) {
     clearInterval(globalInterval);
     globalInterval = null;
+    lastTickTime = null;
   }
 };
+
+// Listener para quando a aba volta a ficar ativa
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && globalState.isRunning) {
+      // Recalcular tempo quando a aba volta a ficar ativa
+      const saved = localStorage.getItem('pomodoroState');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.isRunning && parsed.lastSaveTime) {
+          const elapsedSeconds = Math.floor((Date.now() - parsed.lastSaveTime) / 1000);
+          globalState.timeLeft = Math.max(0, parsed.timeLeft - elapsedSeconds);
+          
+          if (globalState.timeLeft === 0) {
+            globalState.isRunning = false;
+            globalState.sessionsToday += 1;
+            globalState.isBlinking = true;
+            
+            setTimeout(() => {
+              globalState.isBlinking = false;
+              globalState.timeLeft = globalState.initialTime;
+              saveStateToStorage(globalState);
+              globalState.listeners.forEach(listener => listener());
+            }, 3000);
+          }
+          
+          saveStateToStorage(globalState);
+          globalState.listeners.forEach(listener => listener());
+          lastTickTime = Date.now(); // Resetar o timestamp
+        }
+      }
+    }
+  });
+}
 
 export const useSharedPomodoroTimer = () => {
   const [, forceUpdate] = useState({});
