@@ -462,8 +462,9 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                     {/* Coluna 1: Nome do tópico + Subtópicos */}
                                     <div className="min-w-0 ml-7">
                                         <div 
-                                            className={`mb-1 ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
+                                            className={`mb-1 cursor-pointer group ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
                                             onClick={() => !editingTopicId && setEditingTopicId(topic.id)}
+                                            title="Clique para editar o nome"
                                         >
                                             <EditableTopicName
                                                 topicId={topic.id}
@@ -565,8 +566,9 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                     <div className="md:hidden border-b border-gray-100 pb-3 pt-3 last:border-b-0">
                                                         {/* Nome do tópico */}
                                                         <div 
-                                                            className={`mb-3 ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
+                                                            className={`mb-3 cursor-pointer group ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
                                                             onClick={() => !editingTopicId && setEditingTopicId(topic.id)}
+                                                            title="Clique para editar o nome"
                                                         >
                                                             <EditableTopicName
                                                                 topicId={topic.id}
