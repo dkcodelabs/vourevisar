@@ -8,6 +8,7 @@ import { AppProvider } from "@/contexts/AppContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import LandingPage from "@/pages/LandingPage";
 import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
 import Profile from "@/pages/Profile";
@@ -25,7 +26,6 @@ import { SimpleRoleTest } from "@/components/SimpleRoleTest";
 
 import { ProfileOnboardingGate } from "@/components/ProfileOnboardingGate";
 import { useBrowserCompatibility } from "@/hooks/useBrowserCompatibility";
-import { FontDiagnostic } from "@/components/FontDiagnostic";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,7 +39,7 @@ const queryClient = new QueryClient({
 const App = () => {
   // Apply browser compatibility fixes
   useBrowserCompatibility();
-  
+
   return (
     <div className="font-sans">
       <QueryClientProvider client={queryClient}>
@@ -48,36 +48,36 @@ const App = () => {
             <BrowserRouter>
               <AuthProvider>
                 <AppProvider>
-                <Sonner />
-                <ProfileOnboardingGate />
-                {process.env.NODE_ENV === 'development' && <FontDiagnostic />}
-                <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/*" element={<ProtectedRoute />}>
-                  <Route path="" element={<AppLayout />}>
-                    <Route index element={<Dashboard />} />
-                    <Route path="materias" element={<Subjects />} />
-                    <Route path="estatisticas" element={<Statistics />} />
-                    <Route path="materias/:subjectId/topicos" element={<Topics />} />
-                    <Route path="topicos" element={<Topics />} />
-                    <Route path="revisoes" element={<Revisoes />} />
-                    <Route path="ciclo-estudos" element={<StudyCycle />} />
-                    <Route path="gerenciamento" element={<Gerenciamento />} />
-                    <Route path="test-roles" element={<SimpleRoleTest />} />
-                    <Route path="perfil" element={<Profile />} />
-                    <Route path="configuracoes" element={<Settings />} />
-                  </Route>
-                </Route>
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              </AppProvider>
-            </AuthProvider>
-          </BrowserRouter>
-        </ThemeProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+                  <Sonner />
+                  <ProfileOnboardingGate />
+                  <Routes>
+                    <Route path="/" element={<LandingPage />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
+                    <Route path="/auth/callback" element={<AuthCallback />} />
+                    <Route path="/*" element={<ProtectedRoute />}>
+                      <Route path="" element={<AppLayout />}>
+                        <Route path="dashboard" element={<Dashboard />} />
+                        <Route path="materias" element={<Subjects />} />
+                        <Route path="estatisticas" element={<Statistics />} />
+                        <Route path="materias/:subjectId/topicos" element={<Topics />} />
+                        <Route path="topicos" element={<Topics />} />
+                        <Route path="revisoes" element={<Revisoes />} />
+                        <Route path="ciclo-estudos" element={<StudyCycle />} />
+                        <Route path="gerenciamento" element={<Gerenciamento />} />
+                        <Route path="test-roles" element={<SimpleRoleTest />} />
+                        <Route path="perfil" element={<Profile />} />
+                        <Route path="configuracoes" element={<Settings />} />
+                      </Route>
+                    </Route>
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </AppProvider>
+              </AuthProvider>
+            </BrowserRouter>
+          </ThemeProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
     </div>
   );
 };

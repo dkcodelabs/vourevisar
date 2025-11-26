@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export const ProtectedRoute = () => {
   const { user, loading } = useAuth();
   const location = useLocation();
-  
+
   // Show loading spinner while checking authentication
   if (loading) {
     return (
@@ -18,12 +18,17 @@ export const ProtectedRoute = () => {
       </div>
     );
   }
-  
+
   // If no user authenticated, redirect to login preserving the intended path
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
+
   // If user is authenticated, render protected content
+  // If accessing root path while authenticated, redirect to dashboard
+  if (location.pathname === '/' && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <Outlet />;
 };

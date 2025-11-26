@@ -35,7 +35,7 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      const from = location.state?.from?.pathname || '/';
+      const from = location.state?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
     }
   }, [user, navigate, location]);
@@ -74,7 +74,7 @@ const Login = () => {
       } else {
         const result = await signIn(email, password);
         if (result.success) {
-          const from = location.state?.from?.pathname || '/';
+          const from = location.state?.from?.pathname || '/dashboard';
           navigate(from, { replace: true });
         }
       }
@@ -90,7 +90,7 @@ const Login = () => {
       setIsLoading(true);
       const result = await signInWithGoogle();
       if (result.success) {
-        const from = location.state?.from?.pathname || '/';
+        const from = location.state?.from?.pathname || '/dashboard';
         navigate(from, { replace: true });
       }
     } catch (error: any) {
@@ -117,14 +117,14 @@ const Login = () => {
     try {
       console.log('🔐 Solicitando recuperação de senha para:', email);
       console.log('🔗 URL de redirecionamento:', `${window.location.origin}/reset-password`);
-      
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       });
 
       if (error) {
         console.error('❌ Erro ao enviar email:', error);
-        
+
         // Mensagens de erro mais específicas
         if (error.message.includes('Email not confirmed')) {
           toast.error('Email não confirmado. Verifique sua caixa de entrada primeiro.');

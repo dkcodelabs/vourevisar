@@ -47,8 +47,8 @@ const getBadgeClasses = (badgeColor: string) => {
 
 const UserProfileNavComponent = () => {
   const { user, signOut } = useAuth();
-  const { 
-    profile, 
+  const {
+    profile,
     loading: profileLoading
   } = useUserProfile();
   const {
@@ -59,7 +59,7 @@ const UserProfileNavComponent = () => {
   } = useSimpleSubscription();
   const [firstName, setFirstName] = useState<string>('');
   const [isSigningOut, setIsSigningOut] = useState(false);
-  
+
   const loading = profileLoading || subscriptionLoading;
 
   useEffect(() => {
@@ -80,7 +80,7 @@ const UserProfileNavComponent = () => {
   // Usar o novo sistema integrado
   const AccountIcon = getBadgeIcon(displayBadge, badgeColor);
   const badgeClasses = getBadgeClasses(badgeColor);
-  
+
   // Log removido para otimização
 
   const handleSignOut = async () => {
@@ -97,26 +97,28 @@ const UserProfileNavComponent = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
-          className="flex items-center gap-3 px-3 py-2 h-auto hover:bg-gray-100 rounded-lg"
+        <Button
+          variant="ghost"
+          className="flex items-center gap-2 px-2 py-2 h-auto hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
           disabled={loading || isSigningOut}
         >
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-sm font-medium text-gray-900">{firstName || 'Usuário'}</span>
-            <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${badgeClasses}`}>
-              <AccountIcon className="h-2.5 w-2.5" />
-              <span>{displayBadge}</span>
-            </div>
-          </div>
-          
-          <Avatar className="h-8 w-8">
+          {/* Avatar first */}
+          <Avatar className="h-10 w-10">
             <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.name || 'Avatar do usuário'} />
             <AvatarFallback className="bg-app-blue text-white text-sm font-medium">
               {userInitials}
             </AvatarFallback>
           </Avatar>
-          
+
+          {/* Name and badge to the right */}
+          <div className="hidden sm:flex flex-col items-start">
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{firstName || 'Usuário'}</span>
+            <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${badgeClasses}`}>
+              <AccountIcon className="h-2.5 w-2.5" />
+              <span>{displayBadge}</span>
+            </div>
+          </div>
+
           <ChevronDown className="h-4 w-4 text-gray-500" />
         </Button>
       </DropdownMenuTrigger>
@@ -133,7 +135,7 @@ const UserProfileNavComponent = () => {
             <AccountIcon className="h-3 w-3" />
             <span>{displayBadge}</span>
           </div>
-          
+
           {/* Informações da assinatura se ativa */}
           {hasActiveSubscription && profile?.subscription?.subscription_ends_at && (
             <div className="text-xs text-gray-400 mt-1">
@@ -155,8 +157,8 @@ const UserProfileNavComponent = () => {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
-            onClick={handleSignOut} 
+          <DropdownMenuItem
+            onClick={handleSignOut}
             className="cursor-pointer px-2 py-2 text-sm text-red-600 focus:text-red-600"
             disabled={isSigningOut}
           >

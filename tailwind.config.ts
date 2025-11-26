@@ -21,12 +21,12 @@ export default {
 		extend: {
 			fontFamily: {
 				sans: [
-					'ui-sans-serif', 
-					'system-ui', 
-					'sans-serif', 
-					'"Apple Color Emoji"', 
-					'"Segoe UI Emoji"', 
-					'"Segoe UI Symbol"', 
+					'ui-sans-serif',
+					'system-ui',
+					'sans-serif',
+					'"Apple Color Emoji"',
+					'"Segoe UI Emoji"',
+					'"Segoe UI Symbol"',
 					'"Noto Color Emoji"'
 				],
 			},
@@ -86,6 +86,12 @@ export default {
 					'danger': '#F44336',
 					'pending': '#FFD700',
 					'progress': '#4CAF50'
+				},
+				brand: {
+					blue: '#2563EB',
+					dark: '#1E293B',
+					green: '#16A34A',
+					light: '#F8FAFC'
 				}
 			},
 			borderRadius: {

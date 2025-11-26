@@ -4,17 +4,17 @@ import { Outlet } from 'react-router-dom';
 import { TopHeader } from './TopHeader';
 
 export const AppLayout = () => {
-  
+
   return (
-    <div className="min-h-screen bg-background transition-colors duration-200">
-      <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+      <div className="fixed top-0 left-0 right-0 z-50 transition-colors duration-200">
         <TopHeader />
       </div>
-      
-      <main className="pt-16 container mx-auto px-4 py-6">
+
+      <main className="pt-20 container mx-auto px-4 py-6">
         <Outlet />
       </main>
-      
+
       <style>
         {`
           /* Evitar transições indesejadas no layout */
