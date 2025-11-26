@@ -11,16 +11,11 @@ export function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        console.log('AuthCallback: Iniciando processamento...');
-        console.log('AuthCallback: URL atual:', window.location.href);
-
         // Verificar parâmetros da URL
         const urlParams = new URLSearchParams(window.location.search);
         const error = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
         const authCode = urlParams.get('code');
-
-        console.log('AuthCallback: Parâmetros:', { error, errorDescription, hasAuthCode: !!authCode });
 
         // Se há erro nos parâmetros, exibir e redirecionar
         if (error) {
@@ -36,39 +31,30 @@ export function AuthCallback() {
           }
 
           toast.error(errorMessage);
-          console.log('AuthCallback: Redirecionando para /login devido a erro');
           setRedirectPath('/login');
           return;
         }
 
         // Verificar se já há uma sessão ativa
-        console.log('AuthCallback: Verificando sessão existente...');
         const { data: { session: existingSession } } = await supabase.auth.getSession();
 
         if (existingSession) {
-          console.log('AuthCallback: Sessão já ativa encontrada:', existingSession.user.email);
-          console.log('AuthCallback: Redirecionando para /dashboard');
           setRedirectPath('/dashboard');
           return;
         }
 
         // Se há código de autorização, aguardar processamento automático do Supabase
         if (authCode) {
-          console.log('AuthCallback: Código de autorização encontrado, aguardando processamento do Supabase...');
-
           // Aguardar processamento automático
           let attempts = 0;
           const maxAttempts = 10;
 
           while (attempts < maxAttempts) {
-            console.log(`AuthCallback: Tentativa de verificação de sessão ${attempts + 1}/${maxAttempts}...`);
             await new Promise(resolve => setTimeout(resolve, 500));
 
             const { data: { session: newSession } } = await supabase.auth.getSession();
 
             if (newSession) {
-              console.log('AuthCallback: Sessão estabelecida com sucesso:', newSession.user.email);
-              console.log('AuthCallback: Redirecionando para /dashboard');
               setRedirectPath('/dashboard');
               return;
             }
@@ -77,12 +63,10 @@ export function AuthCallback() {
           }
 
           // Se não conseguiu estabelecer sessão após tentativas
-          console.log('AuthCallback: Timeout - Não foi possível estabelecer sessão após várias tentativas');
           toast.error('Erro na autenticação. Tente novamente.');
           setRedirectPath('/login');
         } else {
           // Sem código de autorização
-          console.log('AuthCallback: Nenhum código de autorização encontrado e nenhuma sessão ativa');
           setRedirectPath('/login');
         }
 
@@ -95,7 +79,6 @@ export function AuthCallback() {
 
         // Limpar a URL
         if (window.location.search) {
-          console.log('AuthCallback: Limpando URL');
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       }
