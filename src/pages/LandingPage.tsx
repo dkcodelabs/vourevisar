@@ -6,11 +6,7 @@ const LandingPage = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && user) {
-      navigate('/dashboard');
-    }
-  }, [user, loading, navigate]);
+
 
   if (loading) return null;
 
@@ -29,10 +25,19 @@ const LandingPage = () => {
             <div className="hidden md:flex space-x-8 items-center">
               <a href="#funcionalidades" className="text-slate-600 hover:text-brand-blue font-medium transition">Como funciona</a>
               <a href="#precos" className="text-slate-600 hover:text-brand-blue font-medium transition">Planos</a>
-              <Link to="/login" className="text-slate-900 font-bold hover:text-brand-blue transition">Entrar</Link>
-              <Link to="/login" className="bg-brand-blue hover:bg-blue-700 text-white px-5 py-2.5 rounded-full font-bold transition shadow-lg shadow-blue-500/30">
-                Começar Grátis
-              </Link>
+
+              {user ? (
+                <Link to="/dashboard" className="bg-brand-blue hover:bg-blue-700 text-white px-5 py-2.5 rounded-full font-bold transition shadow-lg shadow-blue-500/30">
+                  Ir para o Painel
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login" className="text-slate-900 font-bold hover:text-brand-blue transition">Entrar</Link>
+                  <Link to="/login" className="bg-brand-blue hover:bg-blue-700 text-white px-5 py-2.5 rounded-full font-bold transition shadow-lg shadow-blue-500/30">
+                    Começar Grátis
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* MENU MOBILE BUTTON */}
@@ -73,10 +78,17 @@ const LandingPage = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-forwards">
-              <Link to="/login" className="bg-brand-blue hover:bg-blue-700 text-white text-lg px-8 py-4 rounded-xl font-bold transition shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2">
-                Criar conta grátis
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-              </Link>
+              {user ? (
+                <Link to="/dashboard" className="bg-brand-blue hover:bg-blue-700 text-white text-lg px-8 py-4 rounded-xl font-bold transition shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2">
+                  Acessar meu Painel
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </Link>
+              ) : (
+                <Link to="/login" className="bg-brand-blue hover:bg-blue-700 text-white text-lg px-8 py-4 rounded-xl font-bold transition shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2">
+                  Criar conta grátis
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </Link>
+              )}
               <button className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-lg px-8 py-4 rounded-xl font-semibold transition flex items-center justify-center gap-2">
                 <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 Ver demonstração
