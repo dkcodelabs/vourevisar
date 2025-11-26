@@ -74,7 +74,7 @@ const LandingPage = () => {
             </h1>
 
             <p className="text-xl text-slate-600 mb-10 leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200 fill-mode-forwards">
-              O <strong>vouRevisar</strong> organiza os seus estudos automaticamente. Use repetição espaçada e flashcards para garantir que nunca mais esquece o que aprendeu.
+              O <strong>vouRevisar</strong> organiza os seus estudos automaticamente. Use a repetição espaçada para garantir que nunca mais esquece o que aprendeu.
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-forwards">
@@ -138,43 +138,74 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-slate-900">Tudo o que precisa para passar</h2>
-            <p className="text-slate-500 mt-4 max-w-2xl mx-auto">O método cientificamente comprovado para transformar informação em memória de longo prazo.</p>
+            <p className="text-slate-500 mt-4 max-w-2xl mx-auto">Uma suíte completa de ferramentas desenhada para maximizar sua retenção e consistência.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-12">
-            {/* Feature 1 */}
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Feature 1: Ciclo de Repetição */}
             <div className="group p-8 rounded-2xl bg-slate-50 hover:bg-blue-50 transition duration-300 border border-slate-100 hover:border-blue-100">
               <div className="w-14 h-14 bg-blue-100 text-brand-blue rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition">
-                {/* Ícone Ciclo */}
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Ciclo de Repetição</h3>
-              <p className="text-slate-600">O nosso algoritmo sabe exatamente quando você está prestes a esquecer e agenda a revisão no momento certo.</p>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Ciclo Automático</h3>
+              <p className="text-slate-600">O sistema gera automaticamente as revisões para cada tópico estudado. Nunca mais perca tempo planejando o que revisar.</p>
             </div>
 
-            {/* Feature 2 */}
+            {/* Feature 2: Consistência (Revisões do Dia) */}
             <div className="group p-8 rounded-2xl bg-slate-50 hover:bg-green-50 transition duration-300 border border-slate-100 hover:border-green-100">
               <div className="w-14 h-14 bg-green-100 text-brand-green rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition">
-                {/* Ícone Check */}
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Consistência Diária</h3>
+              <p className="text-slate-600">Saiba exatamente o que revisar hoje. O sistema destaca pendências e organiza sua fila para manter o ritmo constante.</p>
+            </div>
+
+            {/* Feature 3: Estatísticas Avançadas */}
+            <div className="group p-8 rounded-2xl bg-slate-50 hover:bg-purple-50 transition duration-300 border border-slate-100 hover:border-purple-100">
+              <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Estatísticas Avançadas</h3>
+              <p className="text-slate-600">Acompanhe sua evolução com gráficos detalhados. Identifique pontos fortes e onde precisa focar mais energia.</p>
+            </div>
+
+            {/* Feature 4: Anotações e Resumos */}
+            <div className="group p-8 rounded-2xl bg-slate-50 hover:bg-orange-50 transition duration-300 border border-slate-100 hover:border-orange-100">
+              <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Caderno Digital</h3>
+              <p className="text-slate-600">Adicione anotações e resumos diretamente em cada matéria. Centralize seu conhecimento em um só lugar.</p>
+            </div>
+
+            {/* Feature 5: Visualização de Progresso */}
+            <div className="group p-8 rounded-2xl bg-slate-50 hover:bg-pink-50 transition duration-300 border border-slate-100 hover:border-pink-100">
+              <div className="w-14 h-14 bg-pink-100 text-pink-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Check de Progresso</h3>
-              <p className="text-slate-600">Visualize o seu avanço. Cada matéria revisada é um "check" verde no seu painel de conquistas.</p>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Progresso Visual</h3>
+              <p className="text-slate-600">O sistema registra visualmente seus dias de estudo e revisão. Transforme sua disciplina em uma corrente de conquistas.</p>
             </div>
 
-            {/* Feature 3 */}
-            <div className="group p-8 rounded-2xl bg-slate-50 hover:bg-purple-50 transition duration-300 border border-slate-100 hover:border-purple-100">
-              <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            {/* Feature 6: Calendário */}
+            <div className="group p-8 rounded-2xl bg-slate-50 hover:bg-indigo-50 transition duration-300 border border-slate-100 hover:border-indigo-100">
+              <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Biblioteca Inteligente</h3>
-              <p className="text-slate-600">Organize os seus resumos, PDFs e notas num único lugar, integrados diretamente com o seu calendário.</p>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Calendário Inteligente</h3>
+              <p className="text-slate-600">Tenha uma visão clara do seu mês. Acompanhe atividades diárias e o panorama geral do seu progresso.</p>
             </div>
           </div>
         </div>

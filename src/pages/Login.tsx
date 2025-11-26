@@ -10,12 +10,11 @@ import {
   Mail,
   Eye,
   EyeOff,
-  LogIn,
-  UserPlus,
-  Phone
+  Phone,
+  ArrowRight,
+  UserPlus
 } from 'lucide-react';
 import PageContainer from '@/components/layout/PageContainer';
-import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -35,7 +34,11 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      const from = location.state?.from?.pathname || '/dashboard';
+      let from = location.state?.from?.pathname || '/dashboard';
+      // If redirecting to landing page (root), force dashboard instead
+      if (from === '/') {
+        from = '/dashboard';
+      }
       navigate(from, { replace: true });
     }
   }, [user, navigate, location]);
@@ -74,7 +77,11 @@ const Login = () => {
       } else {
         const result = await signIn(email, password);
         if (result.success) {
-          const from = location.state?.from?.pathname || '/dashboard';
+          let from = location.state?.from?.pathname || '/dashboard';
+          // If redirecting to landing page (root), force dashboard instead
+          if (from === '/') {
+            from = '/dashboard';
+          }
           navigate(from, { replace: true });
         }
       }
@@ -90,7 +97,11 @@ const Login = () => {
       setIsLoading(true);
       const result = await signInWithGoogle();
       if (result.success) {
-        const from = location.state?.from?.pathname || '/dashboard';
+        let from = location.state?.from?.pathname || '/dashboard';
+        // If redirecting to landing page (root), force dashboard instead
+        if (from === '/') {
+          from = '/dashboard';
+        }
         navigate(from, { replace: true });
       }
     } catch (error: any) {
@@ -115,23 +126,16 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      console.log('🔐 Solicitando recuperação de senha para:', email);
-      console.log('🔗 URL de redirecionamento:', `${window.location.origin}/reset-password`);
-
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       });
 
       if (error) {
-        console.error('❌ Erro ao enviar email:', error);
-
-        // Mensagens de erro mais específicas
         if (error.message.includes('Email not confirmed')) {
           toast.error('Email não confirmado. Verifique sua caixa de entrada primeiro.');
         } else if (error.message.includes('rate limit')) {
           toast.error('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
         } else if (error.message.includes('User not found')) {
-          // Não revela se o usuário existe por segurança
           toast.success('Se este email estiver cadastrado, você receberá um link para redefinir sua senha.');
           setShowForgotPassword(false);
         } else {
@@ -140,7 +144,6 @@ const Login = () => {
         return;
       }
 
-      console.log('✅ Email de recuperação enviado com sucesso!');
       toast.success(
         'Email enviado! Verifique sua caixa de entrada (e spam) para redefinir sua senha.',
         { duration: 6000 }
@@ -155,223 +158,254 @@ const Login = () => {
   };
 
   return (
-    <div className="light">
-      <PageContainer className="bg-background">
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <GlassCard className="w-full max-w-md p-8 bg-card border border-border shadow-lg">
-            <AnimatedTitle
-              icon={isRegistering ? <UserPlus size={32} /> : <LogIn size={32} />}
-              className="mb-8 text-center"
-            >
-              {isRegistering ? 'Criar Conta' : 'Entrar'}
-            </AnimatedTitle>
+    <div className="min-h-screen bg-brand-light flex items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-[480px] bg-white rounded-3xl shadow-xl border border-slate-100 p-8 md:p-10 relative overflow-hidden">
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {isRegistering && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Nome</label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 z-10" size={18} />
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900"
-                        placeholder="Seu nome completo"
-                        required
-                      />
-                    </div>
-                  </div>
+        {/* Header com Logo e Título */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-6">
+            {/* Ícone ou Logo Pequeno se necessário, mas o design pede título com ícone */}
+            {isRegistering ? (
+              <div className="w-10 h-10 rounded-xl bg-brand-light flex items-center justify-center text-slate-900">
+                <UserPlus size={24} />
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-brand-light flex items-center justify-center text-slate-900">
+                <ArrowRight size={24} />
+              </div>
+            )}
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Telefone (opcional)</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 z-10" size={18} />
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900"
-                        placeholder="(11) 99999-9999"
-                      />
-                    </div>
-                  </div>
-                </>
+            <h1 className="text-3xl font-bold">
+              {isRegistering ? (
+                <span className="text-brand-blue">Criar Conta</span>
+              ) : (
+                <span className="bg-gradient-to-r from-slate-900 to-brand-blue bg-clip-text text-transparent">Entrar</span>
               )}
+            </h1>
+          </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Email</label>
+          {/* Logo Centralizada (Opcional, baseada no pedido do usuário) */}
+          {/* O usuário pediu "colocar minha logo", então vamos adicionar */}
+          <div className="flex justify-center mb-6">
+            <img src="/logo.png" alt="vouRevisar" className="h-12 w-auto" />
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
+          {isRegistering && (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-slate-700 ml-1">Nome</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 z-10" size={18} />
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900"
-                    placeholder="seu@email.com"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all text-slate-900 placeholder:text-slate-400 outline-none"
+                    placeholder="Seu nome completo"
                     required
+                    autoComplete="name"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Senha</label>
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-slate-700 ml-1">Telefone (opcional)</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 z-10" size={18} />
+                  <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
                   <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900"
-                    placeholder="••••••••"
-                    required
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all text-slate-900 placeholder:text-slate-400 outline-none"
+                    placeholder="(11) 99999-9999"
+                    autoComplete="tel"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-slate-700 ml-1">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all text-slate-900 placeholder:text-slate-400 outline-none"
+                placeholder="seu@email.com"
+                required
+                autoComplete="email"
+                name="email"
+                readOnly={!isRegistering} // Hack: prevent autofill on load
+                onFocus={(e) => e.target.removeAttribute('readonly')}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-slate-700 ml-1">Senha</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-12 pr-12 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all text-slate-900 placeholder:text-slate-400 outline-none"
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+                name="password"
+                readOnly={!isRegistering} // Hack: prevent autofill on load
+                onFocus={(e) => e.target.removeAttribute('readonly')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
+
+          {isRegistering && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-slate-700 ml-1">Confirmar Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-12 pr-12 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all text-slate-900 placeholder:text-slate-400 outline-none"
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-4 rounded-xl bg-brand-blue hover:bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            {isLoading ? (
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+              />
+            ) : (
+              isRegistering ? 'Criar Conta' : 'Entrar'
+            )}
+          </button>
+
+          {!isRegistering && !showForgotPassword && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm font-medium text-brand-blue hover:text-blue-700 transition-colors"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+          )}
+
+          {!isRegistering && !showForgotPassword && (
+            <>
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-4 text-slate-400 font-medium tracking-wider">Ou</span>
                 </div>
               </div>
 
-              {isRegistering && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Confirmar Senha</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 z-10" size={18} />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-gray-900"
-                      placeholder="••••••••"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <GradientButton
-                type="submit"
-                className="w-full py-3"
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
                 disabled={isLoading}
+                className="w-full flex items-center justify-center px-4 py-3.5 border border-slate-200 rounded-xl shadow-sm text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all"
+              >
+                <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                Continuar com Google
+              </button>
+            </>
+          )}
+
+          {showForgotPassword ? (
+            <div className="space-y-6 pt-2">
+              <div className="bg-blue-50 p-4 rounded-xl text-sm text-blue-800 border border-blue-100">
+                Digite seu email acima e clique no botão abaixo para receber um link de recuperação.
+              </div>
+
+              <button
+                onClick={handleForgotPassword}
+                className="w-full py-4 rounded-xl bg-brand-blue hover:bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center"
+                disabled={isLoading || !email}
               >
                 {isLoading ? (
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                    className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
                   />
                 ) : (
-                  isRegistering ? 'Criar Conta' : 'Entrar'
+                  'Enviar email de recuperação'
                 )}
-              </GradientButton>
+              </button>
 
-              {!isRegistering && !showForgotPassword && (
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(true)}
-                    className="text-sm text-primary hover:text-primary/80 transition-colors"
-                  >
-                    Esqueci minha senha
-                  </button>
-                </div>
-              )}
-
-              {!isRegistering && !showForgotPassword && (
-                <>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-gray-300" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-gray-500">Ou</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={isLoading}
-                    className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all"
-                  >
-                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                      <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                    </svg>
-                    Continuar com Google
-                  </button>
-                </>
-              )}
-
-              {showForgotPassword ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600 text-center">
-                    Clique no botão abaixo para receber um email de recuperação no endereço: <strong>{email}</strong>
-                  </p>
-
-                  <GradientButton
-                    onClick={handleForgotPassword}
-                    className="w-full py-3"
-                    disabled={isLoading || !email}
-                  >
-                    {isLoading ? (
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                      />
-                    ) : (
-                      'Enviar email de recuperação'
-                    )}
-                  </GradientButton>
-
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotPassword(false)}
-                      className="text-sm text-primary hover:text-primary/80 transition-colors"
-                    >
-                      Voltar ao login
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsRegistering(!isRegistering);
-                      // Reset form when switching modes
-                      setName('');
-                      setPhone('');
-                      setEmail('');
-                      setPassword('');
-                      setConfirmPassword('');
-                    }}
-                    className="text-sm text-primary hover:text-primary/80 transition-colors"
-                  >
-                    {isRegistering ? 'Já tem uma conta? Entre aqui' : 'Não tem uma conta? Registre-se'}
-                  </button>
-                </div>
-              )}
-            </form>
-          </GlassCard>
-        </div>
-      </PageContainer>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(false)}
+                  className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  Voltar ao login
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegistering(!isRegistering);
+                  // Reset form when switching modes
+                  setName('');
+                  setPhone('');
+                  setEmail('');
+                  setPassword('');
+                  setConfirmPassword('');
+                }}
+                className="text-sm text-slate-600 hover:text-brand-blue transition-colors"
+              >
+                {isRegistering ? 'Já tem uma conta? ' : 'Não tem uma conta? '}
+                <span className="font-bold text-brand-blue">{isRegistering ? 'Entre aqui' : 'Registre-se'}</span>
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
     </div>
   );
 };
