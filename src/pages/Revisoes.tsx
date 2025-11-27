@@ -165,8 +165,8 @@ const Revisoes = () => {
     } else {
       const targetStatuses: string[] = [];
       if (activeTab === 'FOCUS') {
-        targetStatuses.push(RevisionStatus.OVERDUE); // Show overdue first
-        targetStatuses.push(RevisionStatus.TODAY);
+        targetStatuses.push(RevisionStatus.TODAY); // Show today first
+        targetStatuses.push(RevisionStatus.OVERDUE);
       } else if (activeTab === 'FUTURE') {
         targetStatuses.push(RevisionStatus.FUTURE);
       } else if (activeTab === 'COMPLETED') {
@@ -262,44 +262,34 @@ const Revisoes = () => {
               <p className="text-gray-500 text-xs">Painel de controle de repetição espaçada</p>
             </div>
             <div className="flex w-full md:w-auto items-center gap-3">
-              <div className="relative w-full md:w-auto">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Pesquisar..."
-                  className="w-full md:w-48 pl-9 pr-4 py-1.5 border border-gray-300 rounded-full text-xs focus:outline-none focus:border-blue-500 transition-all"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <button
-                onClick={() => {
-                  const allKeys = Object.keys(groupedItems);
-                  const isAnyCollapsed = allKeys.some(key => collapsedGroups[key]);
-
-                  if (isAnyCollapsed) {
-                    // Se tem algum colapsado, expandir tudo
-                    setCollapsedGroups({});
-                  } else {
-                    // Se está tudo expandido, colapsar tudo
-                    const newCollapsedState = allKeys.reduce((acc, key) => ({ ...acc, [key]: true }), {});
-                    setCollapsedGroups(newCollapsedState);
-                  }
-                }}
-                className="p-2 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded-full transition-colors"
-                title={Object.keys(groupedItems).some(key => collapsedGroups[key]) ? "Expandir Tudo" : "Recolher Tudo"}
-              >
-                {Object.keys(groupedItems).some(key => collapsedGroups[key]) ? (
-                  <ChevronDown size={20} />
-                ) : (
-                  <ChevronRight size={20} className="-rotate-90" />
-                )}
-              </button>
+              {/* Controls moved to tabs row */}
             </div>
           </div>
 
           {/* Navigation Tabs */}
           <div className="flex items-center gap-2 mt-4 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+            <button
+              onClick={() => {
+                const allKeys = Object.keys(groupedItems);
+                const isAnyCollapsed = allKeys.some(key => collapsedGroups[key]);
+
+                if (isAnyCollapsed) {
+                  setCollapsedGroups({});
+                } else {
+                  const newCollapsedState = allKeys.reduce((acc, key) => ({ ...acc, [key]: true }), {});
+                  setCollapsedGroups(newCollapsedState);
+                }
+              }}
+              className="p-2 mr-2 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded-full transition-colors shrink-0"
+              title={Object.keys(groupedItems).some(key => collapsedGroups[key]) ? "Expandir Tudo" : "Recolher Tudo"}
+            >
+              {Object.keys(groupedItems).some(key => collapsedGroups[key]) ? (
+                <ChevronDown size={20} />
+              ) : (
+                <ChevronRight size={20} className="-rotate-90" />
+              )}
+            </button>
+
             <button
               onClick={() => setActiveTab('FOCUS')}
               className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'FOCUS'
@@ -355,6 +345,17 @@ const Revisoes = () => {
             >
               <span>Por Matéria</span>
             </button>
+
+            <div className="relative w-full md:w-auto ml-2 shrink-0">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Pesquisar..."
+                className="w-full md:w-48 pl-9 pr-4 py-1.5 border border-gray-300 rounded-full text-xs focus:outline-none focus:border-blue-500 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
         </header>
 
