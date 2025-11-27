@@ -12,7 +12,7 @@ export const useTopicReview = () => {
   const { refreshData } = useApp();
   const [isLoading, setIsLoading] = useState(false);
   const { recordTopicCompletion } = useStudySessionTracking();
-  
+
   // Estado para controlar o modal de dificuldade
   const [difficultyModalData, setDifficultyModalData] = useState<{
     isOpen: boolean;
@@ -32,7 +32,7 @@ export const useTopicReview = () => {
 
   const markTopicAsReviewed = async (topicId: string) => {
     if (!user) return;
-    
+
     setIsLoading(true);
     try {
       console.log('🔵 markTopicAsReviewed iniciado para topicId:', topicId);
@@ -77,14 +77,14 @@ export const useTopicReview = () => {
       // PRIMEIRO CONTATO: review_count vai de 0 para 1
       if (topic.review_count === 0) {
         reviewStage = 'Primeiro Contato';
-        
+
         // Agendar primeira revisão para 24h (intervals[0])
         const nextInterval = intervals[0]; // 1 dia (24h)
         const nextReviewDate = new Date();
         nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
         nextReview = nextReviewDate.toISOString();
         completed = false;
-        
+
         console.log('🔵 Primeiro contato registrado - próxima revisão em', nextInterval, 'dia(s)');
       }
       // REVISÕES: review_count >= 1 (já passou do primeiro contato)
@@ -96,7 +96,7 @@ export const useTopicReview = () => {
         const currentReviewIndex = topic.review_count - 1; // Índice da revisão que está fazendo agora
         const currentInterval = intervals[currentReviewIndex];
         reviewStage = currentInterval === 1 ? '24h' : `${currentInterval}d`;
-        
+
         // Agendar próxima revisão
         // newReviewCount=2 (acabou revisão 24h) → próxima é intervals[1] = 7d
         // newReviewCount=3 (acabou revisão 7d) → próxima é intervals[2] = 15d
@@ -108,13 +108,13 @@ export const useTopicReview = () => {
           nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
           nextReview = nextReviewDate.toISOString();
           completed = false;
-          
-          console.log('🔵 Revisão registrada:', { 
+
+          console.log('🔵 Revisão registrada:', {
             reviewStage,
             currentInterval,
             nextInterval,
             currentReviewCount: topic.review_count,
-            newReviewCount 
+            newReviewCount
           });
         } else {
           // Última revisão - marcar como concluído mas manter o stage da revisão
@@ -195,7 +195,7 @@ export const useTopicReview = () => {
       // VERIFICAÇÃO: Modal aparece sempre que não tem dificuldade definida
       const hasNoDifficulty = !topic.difficulty_level;
       const shouldShowModal = hasNoDifficulty;
-      
+
       console.log('🔍 VERIFICANDO MODAL DE DIFICULDADE:', {
         topicId,
         topicName: topic.name,
@@ -217,7 +217,7 @@ export const useTopicReview = () => {
           completed,
           difficulty_level: topic.difficulty_level
         });
-        
+
         // Buscar informações da matéria para o modal
         const { data: subjectData, error: subjectError } = await supabase
           .from('subjects')
@@ -236,7 +236,7 @@ export const useTopicReview = () => {
             subjectName: subjectData.name,
             modalState: 'SETTING TO OPEN'
           });
-          
+
           const newModalData = {
             isOpen: true,
             topicId: topicId,
@@ -245,10 +245,10 @@ export const useTopicReview = () => {
             subjectName: subjectData.name,
             currentDifficulty: null
           };
-          
+
           console.log('🌟 DEFININDO MODAL DATA:', newModalData);
           setDifficultyModalData(newModalData);
-          
+
           // Aguardar um pouco para garantir que o estado foi atualizado
           await new Promise(resolve => setTimeout(resolve, 100));
           console.log('🌟 MODAL STATE UPDATED - Verificar se modal aparece na tela');
@@ -260,10 +260,9 @@ export const useTopicReview = () => {
           topicId,
           completed,
           review_count_atual: topic.review_count,
-          isFirstContact: `${isFirstContact} (precisa ser true)`,
           difficulty_level: topic.difficulty_level,
           hasNoDifficulty,
-          reason: !isFirstContact ? `não é primeiro contato (review_count=${topic.review_count}, precisa ser 0)` : 'já tem dificuldade definida'
+          reason: 'Condição não atendida'
         });
       }
 
@@ -277,17 +276,17 @@ export const useTopicReview = () => {
 
       if (allTopicsOfSubject && allTopicsOfSubject.length > 0) {
         const allCompleted = allTopicsOfSubject.every(t => t.completed);
-        
+
         if (allCompleted) {
           console.log('🔵 Todas as revisões da matéria concluídas, atualizando status da matéria');
           await supabase
             .from('subjects')
             .update({ status: 'Concluída' })
             .eq('id', topic.subject_id);
-          
+
           // VERIFICAÇÃO CRÍTICA: Após atualizar a matéria, verificar se TODOS os estudos foram concluídos
           console.log('🔍 Verificando se todos os estudos foram concluídos...');
-          
+
           const { data: allUserSubjects, error: subjectsError } = await supabase
             .from('subjects')
             .select(`
@@ -297,38 +296,38 @@ export const useTopicReview = () => {
               topics:topics(id, completed, review_stage)
             `)
             .eq('user_id', user?.id);
-          
+
           if (!subjectsError && allUserSubjects) {
             // Verificar se TODAS as matérias estão 100% concluídas
             const totalSubjects = allUserSubjects.length;
             const fullyCompletedSubjects = allUserSubjects.filter(subject => {
               if (!subject.topics || subject.topics.length === 0) return false;
-              
+
               // Uma matéria está 100% concluída se TODOS os tópicos estão completed: true
               const allTopicsCompleted = subject.topics.every(topic => topic.completed === true);
-              
+
               console.log(`🔍 Matéria ${subject.name}:`, {
                 totalTopics: subject.topics.length,
                 completedTopics: subject.topics.filter(t => t.completed).length,
                 allTopicsCompleted
               });
-              
+
               return allTopicsCompleted;
             });
-            
+
             const areAllStudiesCompleted = fullyCompletedSubjects.length === totalSubjects && totalSubjects > 0;
-            
+
             console.log('🔍 Análise final dos estudos:', {
               totalSubjects,
               fullyCompletedSubjects: fullyCompletedSubjects.length,
               areAllStudiesCompleted,
               completedSubjectNames: fullyCompletedSubjects.map(s => s.name)
             });
-            
+
             if (areAllStudiesCompleted) {
               console.log('🎊 TODOS OS ESTUDOS FORAM CONCLUÍDOS!');
               console.log('🔔 DISPARANDO MENSAGEM DE ESTUDOS CONCLUÍDOS');
-              
+
               // Disparar evento para mostrar mensagem de estudos concluídos
               setTimeout(() => {
                 window.dispatchEvent(new CustomEvent('studiesCompleted', {
@@ -338,7 +337,7 @@ export const useTopicReview = () => {
                   detail: { reason: 'allTopicsCompleted', timestamp: Date.now() }
                 }));
               }, 100);
-              
+
               return; // Sair aqui para não disparar evento de ciclo
             }
           }
@@ -346,17 +345,17 @@ export const useTopicReview = () => {
       }
 
       console.log('🔵 Revisão processada - atualizando dados');
-      
+
       // Aguardar um pouco para garantir que o banco processou tudo
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Atualizar dados imediatamente para refletir mudanças
       await refreshData();
-      
+
       // Disparar evento para atualizar estatísticas imediatamente com detalhes específicos
       window.dispatchEvent(new CustomEvent('cycleUpdated', {
-        detail: { 
-          source: 'topicReview', 
+        detail: {
+          source: 'topicReview',
           type: 'topicReview',
           topicId,
           reviewStage,
@@ -364,12 +363,12 @@ export const useTopicReview = () => {
           timestamp: Date.now()
         }
       }));
-      
+
       toastManager.success('Revisão registrada com sucesso!', {
         duration: 3000,
         id: 'review-success'
       });
-      
+
     } catch (error) {
       console.error('❌ Erro ao marcar tópico como revisado:', error);
       toastManager.error('Erro ao registrar revisão');
@@ -402,7 +401,9 @@ export const useTopicReview = () => {
   };
 
   const submitDifficultyRating = async (difficulty: number | null) => {
-    if (!difficultyModalData.topicId) return;
+    if (!difficultyModalData.topicId) {
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -413,17 +414,19 @@ export const useTopicReview = () => {
         })
         .eq('id', difficultyModalData.topicId);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       if (difficulty) {
         const difficultyLabels: Record<number, string> = {
           1: 'Muito Fácil',
-          2: 'Fácil', 
+          2: 'Fácil',
           3: 'Médio',
           4: 'Difícil',
           5: 'Muito Difícil'
         };
-        
+
         const stars = '⭐'.repeat(difficulty);
         toastManager.success(`Dificuldade: ${difficultyLabels[difficulty]} ${stars}`);
       } else {

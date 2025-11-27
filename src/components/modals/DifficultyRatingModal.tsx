@@ -22,16 +22,16 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   initialDifficulty = null
 }) => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null);
-  
+
   // Definir dificuldade inicial quando o modal abrir
   React.useEffect(() => {
     if (isOpen) {
       setSelectedDifficulty(initialDifficulty);
     }
   }, [isOpen, initialDifficulty]);
-  
 
-  
+
+
 
 
   const handleSubmit = () => {
@@ -72,13 +72,17 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
             transition={{ type: "spring", stiffness: 200, damping: 15 }}
             className="mx-auto mb-4 p-3 rounded-full bg-green-100 w-fit"
           >
-            <Trophy className="h-8 w-8 text-green-600" />
+            {initialDifficulty !== null ? (
+              <Star className="h-8 w-8 text-yellow-500" />
+            ) : (
+              <Trophy className="h-8 w-8 text-green-600" />
+            )}
           </motion.div>
-          
-          <h2 className="text-xl font-bold text-green-900 mb-2">
-            Tópico Concluído! 🎉
+
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            {initialDifficulty !== null ? 'Avaliar Dificuldade' : 'Tópico Concluído! 🎉'}
           </h2>
-          
+
           <div className="space-y-1">
             <div className="font-medium text-gray-900">
               {topicName}

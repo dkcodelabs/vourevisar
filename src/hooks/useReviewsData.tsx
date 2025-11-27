@@ -45,6 +45,7 @@ export const useReviewsData = () => {
           first_studied_at,
           last_reviewed_at,
           completed,
+          difficulty_level,
           subjects (
             id,
             name,
@@ -95,17 +96,17 @@ export const useReviewsData = () => {
     const handleFocus = () => {
       refetch();
     };
-    
+
     // Listener para mudanças de dados vindas de outras páginas
     const handleDataUpdate = (event?: CustomEvent) => {
       // Evento recebido, recarregando dados
       refetch();
     };
-    
+
     window.addEventListener('focus', handleFocus);
     window.addEventListener('topicUpdated', handleDataUpdate);
     window.addEventListener('subjectUpdated', handleDataUpdate);
-    
+
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('topicUpdated', handleDataUpdate);
@@ -121,7 +122,7 @@ export const useReviewsData = () => {
 
   // CORREÇÃO: Usar comparação de strings de data para evitar problemas de timezone
   const todayDateString = format(startOfDay(new Date()), 'yyyy-MM-dd');
-  
+
   // Log removido para otimização
 
   // Otimização: classificar tópicos em uma única iteração
@@ -135,7 +136,7 @@ export const useReviewsData = () => {
       if (!topic.next_review) return acc;
 
       const reviewDateString = format(startOfDay(new Date(topic.next_review)), 'yyyy-MM-dd');
-      
+
       if (reviewDateString < todayDateString) {
         acc.delayedTopics.push(topic);
       } else if (reviewDateString === todayDateString) {

@@ -18,11 +18,11 @@ interface ReviewsGroupedNewProps {
     searchTerm?: string;
     highlightedTopic?: string | null;
     onToggleExpanded: (subjectId: string) => void;
-  onMarkReviewed: (subjectId: string, topicId: string) => void;
-  onAddNote: (subjectId: string, topicId: string) => void;
-  onEditTopic: (subjectId: string, topicId: string) => void;
-  onSubjectNote: (subjectId: string) => void;
-  onRateDifficulty: (subjectId: string, topicId: string, topicName: string, subjectName: string) => void;
+    onMarkReviewed: (subjectId: string, topicId: string) => void;
+    onAddNote: (subjectId: string, topicId: string) => void;
+    onEditTopic: (subjectId: string, topicId: string) => void;
+    onSubjectNote: (subjectId: string) => void;
+    onRateDifficulty: (subjectId: string, topicId: string, topicName: string, subjectName: string) => void;
 }
 
 export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
@@ -32,11 +32,11 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
     searchTerm = '',
     highlightedTopic = null,
     onToggleExpanded,
-  onMarkReviewed,
-  onAddNote,
-  onEditTopic,
-  onSubjectNote,
-  onRateDifficulty
+    onMarkReviewed,
+    onAddNote,
+    onEditTopic,
+    onSubjectNote,
+    onRateDifficulty
 }) => {
     const [confirmDialog, setConfirmDialog] = useState<{
         isOpen: boolean;
@@ -139,7 +139,8 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
         if (topic.reviewStage === 'Concluído') return maxReviews;
 
         // Retornar o número real de revisões feitas, limitado pelo máximo do perfil
-        return Math.min(actualReviewCount, maxReviews);
+        // Subtraímos 1 porque o review_count inclui o primeiro estudo (0->1), mas queremos mostrar apenas REVISÕES
+        return Math.min(Math.max(0, actualReviewCount - 1), maxReviews);
     };
 
     const getMaxReviews = () => {
@@ -156,7 +157,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
             if (hasOverdueTopics) {
                 return '#ef4444'; // Vermelho para atrasadas
             }
-            
+
             // Se não há atrasados, mas há tópicos para hoje
             const hasTodayTopics = topics.some(topic => getTopicStatus(topic) === 'today');
             if (hasTodayTopics) {
@@ -169,7 +170,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
             // Aba concluído: cor verde
             return '#22c55e'; // Verde para concluídas
         }
-        
+
         // Para outros casos padrão, usar as cores do array
         return colors[index % colors.length];
     };
@@ -195,7 +196,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
             .filter(topic => topic.nextReview)
             .map(topic => new Date(topic.nextReview))
             .sort((a, b) => a.getTime() - b.getTime());
-        
+
         return validDates.length > 0 ? validDates[0] : null;
     };
 
@@ -205,7 +206,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
             .filter(topic => topic.updatedAt)
             .map(topic => new Date(topic.updatedAt))
             .sort((a, b) => b.getTime() - a.getTime());
-        
+
         return validDates.length > 0 ? validDates[0] : null;
     };
 
@@ -228,7 +229,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                     // Aba hoje: ordenar por atraso (mais atrasado primeiro)
                     const aDaysOverdue = getDaysOverdue(a);
                     const bDaysOverdue = getDaysOverdue(b);
-                    
+
                     // Se ambos estão atrasados
                     if (aDaysOverdue > 0 && bDaysOverdue > 0) {
                         // Se têm atrasos diferentes, ordenar pelo mais atrasado primeiro
@@ -242,43 +243,43 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                             return aDate.getTime() - bDate.getTime();
                         }
                     }
-                    
+
                     // Se apenas um está atrasado, ele vem primeiro
                     if (aDaysOverdue > 0) return -1;
                     if (bDaysOverdue > 0) return 1;
-                    
+
                     // Se nenhum está atrasado (ambos vencem hoje), ordenar por hora de vencimento
                     if (a.nextReview && b.nextReview) {
                         const aDate = new Date(a.nextReview);
                         const bDate = new Date(b.nextReview);
                         return aDate.getTime() - bDate.getTime();
                     }
-                    
+
                     // Fallback: ordenar alfabeticamente
                     return a.name.localeCompare(b.name);
-                    
+
                 } else if (tab === 'futuras') {
                     // Aba futuras: ordenar do mais próximo para o mais distante
                     if (!a.nextReview && !b.nextReview) return a.name.localeCompare(b.name);
                     if (!a.nextReview) return 1;
                     if (!b.nextReview) return -1;
-                    
+
                     const aDate = new Date(a.nextReview);
                     const bDate = new Date(b.nextReview);
                     return aDate.getTime() - bDate.getTime(); // Mais próximo primeiro
-                    
+
                 } else if (tab === 'concluido') {
                     // Aba concluído: ordenar pela sequência que foi concluído (mais recente primeiro)
                     // Assumindo que tópicos concluídos mais recentemente têm last_reviewed_at mais recente
                     if (!a.last_reviewed_at && !b.last_reviewed_at) return a.name.localeCompare(b.name);
                     if (!a.last_reviewed_at) return 1;
                     if (!b.last_reviewed_at) return -1;
-                    
+
                     const aDate = new Date(a.last_reviewed_at);
                     const bDate = new Date(b.last_reviewed_at);
                     return bDate.getTime() - aDate.getTime(); // Mais recente primeiro
                 }
-                
+
                 // Ordenação padrão alfabética
                 return a.name.localeCompare(b.name);
             });
@@ -298,28 +299,28 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                 // Aba hoje: ordenar por atraso (matéria mais atrasada primeiro)
                 if (a.maxOverdue > 0 && b.maxOverdue === 0) return -1;
                 if (a.maxOverdue === 0 && b.maxOverdue > 0) return 1;
-                
+
                 if (a.maxOverdue > 0 && b.maxOverdue > 0) {
                     return b.maxOverdue - a.maxOverdue;
                 }
-                
+
             } else if (tab === 'futuras') {
                 // Aba futuras: ordenar pela próxima revisão mais próxima
                 if (!a.nextReview && !b.nextReview) return a.subject.name.localeCompare(b.subject.name);
                 if (!a.nextReview) return 1;
                 if (!b.nextReview) return -1;
-                
+
                 return a.nextReview.getTime() - b.nextReview.getTime();
-                
+
             } else if (tab === 'concluido') {
                 // Aba concluído: ordenar pela conclusão mais recente
                 if (!a.latestCompletion && !b.latestCompletion) return a.subject.name.localeCompare(b.subject.name);
                 if (!a.latestCompletion) return 1;
                 if (!b.latestCompletion) return -1;
-                
+
                 return b.latestCompletion.getTime() - a.latestCompletion.getTime();
             }
-            
+
             // Ordenação padrão por nome da matéria
             return a.subject.name.localeCompare(b.subject.name);
         });
@@ -392,35 +393,35 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                         <Card key={subject.id} className="bg-white/80 backdrop-blur-md border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 mb-4">
                             <CardContent className="p-4">
                                 {/* Cabeçalho da matéria com seta de expandir/recolher */}
-                                 <div className="flex items-center justify-between mb-2">
-                                     <div 
-                                       className="flex items-center gap-2 cursor-pointer flex-1" 
-                                       onClick={() => onToggleExpanded(subject.id)}
-                                     >
-                                         {isExpanded ? (
-                                             <ChevronDown className="h-5 w-5 text-gray-600" />
-                                         ) : (
-                                             <ChevronRight className="h-5 w-5 text-gray-600" />
-                                         )}
-                                         <div className="w-1.5 h-6 rounded bg-gray-300" style={{ backgroundColor: color }} />
-                                         <span className="font-bold text-gray-800 text-base uppercase">{subject.name}</span>
-                                     </div>
-                                     <div className="flex items-center gap-3">
-                                         <button
-                                             onClick={(e) => {
-                                                 e.stopPropagation();
-                                                 onSubjectNote(subject.id);
-                                             }}
-                                             className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
-                                             title="Anotações da matéria"
-                                         >
-                                             <NotebookPen className="w-4 h-4" />
-                                         </button>
-                                         <div className="text-xs text-gray-500">
-                                             {topics.length} {topics.length === 1 ? 'tópico' : 'tópicos'}
-                                         </div>
-                                     </div>
-                                 </div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <div
+                                        className="flex items-center gap-2 cursor-pointer flex-1"
+                                        onClick={() => onToggleExpanded(subject.id)}
+                                    >
+                                        {isExpanded ? (
+                                            <ChevronDown className="h-5 w-5 text-gray-600" />
+                                        ) : (
+                                            <ChevronRight className="h-5 w-5 text-gray-600" />
+                                        )}
+                                        <div className="w-1.5 h-6 rounded bg-gray-300" style={{ backgroundColor: color }} />
+                                        <span className="font-bold text-gray-800 text-base uppercase">{subject.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSubjectNote(subject.id);
+                                            }}
+                                            className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                                            title="Anotações da matéria"
+                                        >
+                                            <NotebookPen className="w-4 h-4" />
+                                        </button>
+                                        <div className="text-xs text-gray-500">
+                                            {topics.length} {topics.length === 1 ? 'tópico' : 'tópicos'}
+                                        </div>
+                                    </div>
+                                </div>
 
                                 {/* Tópicos (expandido) */}
                                 {isExpanded && (
@@ -434,238 +435,237 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                             <div className="text-center">Status</div>
                                             <div className="text-center">Ações</div>
                                         </div>
-                                        
+
                                         {/* Lista de tópicos */}
                                         <div className="space-y-0">
-                                        {topics.map((topic) => {
-                                            const status = getTopicStatus(topic);
-                                            const statusText = getStatusText(topic);
-                                            const reviewCount = getReviewCount(topic);
-                                            const isHighlighted = highlightedTopic === topic.id;
+                                            {topics.map((topic) => {
+                                                const status = getTopicStatus(topic);
+                                                const statusText = getStatusText(topic);
+                                                const reviewCount = getReviewCount(topic);
+                                                const isHighlighted = highlightedTopic === topic.id;
 
-                                            return (
-                                                <div 
-                                                    key={topic.id} 
-                                                    className={`transition-all duration-300 ${
-                                                        isHighlighted 
-                                                            ? 'animate-pulse bg-yellow-100 border-yellow-300 rounded-lg px-3 -mx-3' 
-                                                            : ''
-                                                    }`}
-                                                    style={{
-                                                        animation: isHighlighted 
-                                                            ? 'highlight-blink 2s ease-in-out 3' 
-                                                            : undefined
-                                                    }}
-                                                >
-                                                    {/* Layout Desktop */}
-                                                    <div className="hidden md:grid grid-cols-[1fr_120px_100px_100px_120px_120px] gap-4 items-center border-b border-gray-100 pb-3 pt-3 last:border-b-0">
-                                    {/* Coluna 1: Nome do tópico + Subtópicos */}
-                                    <div className="min-w-0 ml-7">
-                                        <div 
-                                            className={`mb-1 cursor-pointer group ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
-                                            onClick={() => !editingTopicId && setEditingTopicId(topic.id)}
-                                            title="Clique para editar o nome"
-                                        >
-                                            <EditableTopicName
-                                                topicId={topic.id}
-                                                initialName={topic.name}
-                                                onUpdate={() => {
-                                                    setEditingTopicId(null);
-                                                    // Opcional: adicionar callback para atualizar dados
-                                                }}
-                                                isEditing={editingTopicId === topic.id}
-                                                onEditChange={(isEditing) => {
-                                                    setEditingTopicId(isEditing ? topic.id : null);
-                                                }}
-                                            />
-                                        </div>
-                                        {topic.subtopics && topic.subtopics.length > 0 && (
-                                            <div className="mt-1">
-                                                <SubtopicsList subtopics={topic.subtopics} style="badges" />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Coluna 2: Estrelas de dificuldade (clicável) */}
-                                    <div 
-                                        className="flex justify-center cursor-pointer hover:bg-gray-50 rounded-lg p-2 transition-colors group"
-                                        onClick={() => onRateDifficulty(subject.id, topic.id, topic.name, subject.name)}
-                                        title={topic.difficulty_level ? "Clique para editar dificuldade" : "Clique para avaliar dificuldade"}
-                                    >
-                                        {topic.difficulty_level ? (
-                                            <DifficultyRating
-                                                value={topic.difficulty_level}
-                                                readonly={true}
-                                                size="sm"
-                                                className="flex-shrink-0 group-hover:scale-105 transition-transform"
-                                            />
-                                        ) : (
-                                            <span className="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap group-hover:underline">
-                                                + Avaliar
-                                            </span>
-                                        )}
-                                    </div>
-
-                                                    {/* Coluna 3: Revisões */}
-                                                    <div className="flex justify-center text-xs font-medium">
-                                                        <span className={getRevisionsColor(status)}>{reviewCount}/{getMaxReviews()}</span>
-                                                    </div>
-
-                                                    {/* Coluna 4: Próxima */}
-                                                    <div className="flex justify-center text-xs font-medium">
-                                                        <span className={getStatusColor(status)}>{topic.reviewStage || '1ª Revisão'}</span>
-                                                    </div>
-
-                                                    {/* Coluna 5: Status */}
-                                                    <div className="flex justify-center text-xs font-medium">
-                                                        <span className={getStatusColor(status)}>{statusText}</span>
-                                                    </div>
-
-                                                    {/* Coluna 6: Ações */}
-                                                    <div className="flex items-center gap-1 justify-end">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => onAddNote(subject.id, topic.id)}
-                                                            title="Adicionar nota"
-                                                            className="h-8 w-8 p-0"
-                                                        >
-                                                            <FileText className="h-4 w-4" />
-                                                        </Button>
-
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => onEditTopic(subject.id, topic.id)}
-                                                            title="Editar tópico"
-                                                            className="h-8 w-8 p-0"
-                                                        >
-                                                            <Edit3 className="h-4 w-4" />
-                                                        </Button>
-
-                                                        {status !== 'completed' && (
-                                                            <Button
-                                                                variant="default"
-                                                                size="sm"
-                                                                onClick={() => setConfirmDialog({
-                                                                    isOpen: true,
-                                                                    subjectId: subject.id,
-                                                                    topicId: topic.id,
-                                                                    topicName: topic.name
-                                                                })}
-                                                                className="bg-green-600 hover:bg-green-700 h-8 px-3"
-                                                            >
-                                                                <CheckCircle className="h-4 w-4 mr-1" />
-                                                                Revisei
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                    </div>
-
-                                                    {/* Layout Mobile */}
-                                                    <div className="md:hidden border-b border-gray-100 pb-3 pt-3 last:border-b-0">
-                                                        {/* Nome do tópico */}
-                                                        <div 
-                                                            className={`mb-3 cursor-pointer group ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
-                                                            onClick={() => !editingTopicId && setEditingTopicId(topic.id)}
-                                                            title="Clique para editar o nome"
-                                                        >
-                                                            <EditableTopicName
-                                                                topicId={topic.id}
-                                                                initialName={topic.name}
-                                                                onUpdate={() => {
-                                                                    setEditingTopicId(null);
-                                                                }}
-                                                                isEditing={editingTopicId === topic.id}
-                                                                onEditChange={(isEditing) => {
-                                                                    setEditingTopicId(isEditing ? topic.id : null);
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        
-                                                        {/* Grid de informações */}
-                                                        <div className="grid grid-cols-2 gap-3 text-xs">
-                                                            {/* Dificuldade */}
-                                                            <div className="flex flex-col items-center">
-                                                                <span className="text-gray-500 mb-1">Dificuldade</span>
-                                                                <div 
-                                                                    className="cursor-pointer hover:bg-gray-50 rounded-lg p-1 transition-colors"
-                                                                    onClick={() => onRateDifficulty(subject.id, topic.id, topic.name, subject.name)}
+                                                return (
+                                                    <div
+                                                        key={topic.id}
+                                                        className={`transition-all duration-300 ${isHighlighted
+                                                                ? 'animate-pulse bg-yellow-100 border-yellow-300 rounded-lg px-3 -mx-3'
+                                                                : ''
+                                                            }`}
+                                                        style={{
+                                                            animation: isHighlighted
+                                                                ? 'highlight-blink 2s ease-in-out 3'
+                                                                : undefined
+                                                        }}
+                                                    >
+                                                        {/* Layout Desktop */}
+                                                        <div className="hidden md:grid grid-cols-[1fr_120px_100px_100px_120px_120px] gap-4 items-center border-b border-gray-100 pb-3 pt-3 last:border-b-0">
+                                                            {/* Coluna 1: Nome do tópico + Subtópicos */}
+                                                            <div className="min-w-0 ml-7">
+                                                                <div
+                                                                    className={`mb-1 cursor-pointer group ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
+                                                                    onClick={() => !editingTopicId && setEditingTopicId(topic.id)}
+                                                                    title="Clique para editar o nome"
                                                                 >
-                                                                    {topic.difficulty_level ? (
-                                                                        <DifficultyRating
-                                                                            value={topic.difficulty_level}
-                                                                            readonly={true}
-                                                                            size="sm"
-                                                                        />
-                                                                    ) : (
-                                                                        <span className="text-blue-600 font-medium">+ Avaliar</span>
-                                                                    )}
+                                                                    <EditableTopicName
+                                                                        topicId={topic.id}
+                                                                        initialName={topic.name}
+                                                                        onUpdate={() => {
+                                                                            setEditingTopicId(null);
+                                                                            // Opcional: adicionar callback para atualizar dados
+                                                                        }}
+                                                                        isEditing={editingTopicId === topic.id}
+                                                                        onEditChange={(isEditing) => {
+                                                                            setEditingTopicId(isEditing ? topic.id : null);
+                                                                        }}
+                                                                    />
                                                                 </div>
+                                                                {topic.subtopics && topic.subtopics.length > 0 && (
+                                                                    <div className="mt-1">
+                                                                        <SubtopicsList subtopics={topic.subtopics} style="badges" />
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                            
-                                                            {/* Revisões */}
-                                                            <div className="flex flex-col items-center">
-                                                                <span className="text-gray-500 mb-1">Revisões</span>
+
+                                                            {/* Coluna 2: Estrelas de dificuldade (clicável) */}
+                                                            <div
+                                                                className="flex justify-center cursor-pointer hover:bg-gray-50 rounded-lg p-2 transition-colors group"
+                                                                onClick={() => onRateDifficulty(subject.id, topic.id, topic.name, subject.name)}
+                                                                title={topic.difficulty_level ? "Clique para editar dificuldade" : "Clique para avaliar dificuldade"}
+                                                            >
+                                                                {topic.difficulty_level ? (
+                                                                    <DifficultyRating
+                                                                        value={topic.difficulty_level}
+                                                                        readonly={true}
+                                                                        size="sm"
+                                                                        className="flex-shrink-0 group-hover:scale-105 transition-transform"
+                                                                    />
+                                                                ) : (
+                                                                    <span className="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap group-hover:underline">
+                                                                        + Avaliar
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Coluna 3: Revisões */}
+                                                            <div className="flex justify-center text-xs font-medium">
                                                                 <span className={getRevisionsColor(status)}>{reviewCount}/{getMaxReviews()}</span>
                                                             </div>
-                                                            
-                                                            {/* Próxima */}
-                                                            <div className="flex flex-col items-center">
-                                                                <span className="text-gray-500 mb-1">Próxima</span>
+
+                                                            {/* Coluna 4: Próxima */}
+                                                            <div className="flex justify-center text-xs font-medium">
                                                                 <span className={getStatusColor(status)}>{topic.reviewStage || '1ª Revisão'}</span>
                                                             </div>
-                                                            
-                                                            {/* Status */}
-                                                            <div className="flex flex-col items-center">
-                                                                <span className="text-gray-500 mb-1">Status</span>
+
+                                                            {/* Coluna 5: Status */}
+                                                            <div className="flex justify-center text-xs font-medium">
                                                                 <span className={getStatusColor(status)}>{statusText}</span>
                                                             </div>
-                                                        </div>
-                                                        
-                                                        {/* Ações */}
-                                                        <div className="flex items-center justify-center gap-2 mt-3">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => onAddNote(subject.id, topic.id)}
-                                                                title="Adicionar nota"
-                                                                className="h-8 w-8 p-0"
-                                                            >
-                                                                <FileText className="h-4 w-4" />
-                                                            </Button>
 
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => onEditTopic(subject.id, topic.id)}
-                                                                title="Editar tópico"
-                                                                className="h-8 w-8 p-0"
-                                                            >
-                                                                <Edit3 className="h-4 w-4" />
-                                                            </Button>
-
-                                                            {status !== 'completed' && (
+                                                            {/* Coluna 6: Ações */}
+                                                            <div className="flex items-center gap-1 justify-end">
                                                                 <Button
-                                                                    variant="default"
+                                                                    variant="ghost"
                                                                     size="sm"
-                                                                    onClick={() => setConfirmDialog({
-                                                                        isOpen: true,
-                                                                        subjectId: subject.id,
-                                                                        topicId: topic.id,
-                                                                        topicName: topic.name
-                                                                    })}
-                                                                    className="bg-green-600 hover:bg-green-700 h-8 px-3"
+                                                                    onClick={() => onAddNote(subject.id, topic.id)}
+                                                                    title="Adicionar nota"
+                                                                    className="h-8 w-8 p-0"
                                                                 >
-                                                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                                                    Revisei
+                                                                    <FileText className="h-4 w-4" />
                                                                 </Button>
-                                                            )}
+
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => onEditTopic(subject.id, topic.id)}
+                                                                    title="Editar tópico"
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    <Edit3 className="h-4 w-4" />
+                                                                </Button>
+
+                                                                {status !== 'completed' && (
+                                                                    <Button
+                                                                        variant="default"
+                                                                        size="sm"
+                                                                        onClick={() => setConfirmDialog({
+                                                                            isOpen: true,
+                                                                            subjectId: subject.id,
+                                                                            topicId: topic.id,
+                                                                            topicName: topic.name
+                                                                        })}
+                                                                        className="bg-green-600 hover:bg-green-700 h-8 px-3"
+                                                                    >
+                                                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                                                        Revisei
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Layout Mobile */}
+                                                        <div className="md:hidden border-b border-gray-100 pb-3 pt-3 last:border-b-0">
+                                                            {/* Nome do tópico */}
+                                                            <div
+                                                                className={`mb-3 cursor-pointer group ${isHighlighted ? 'text-yellow-900' : 'text-gray-800'}`}
+                                                                onClick={() => !editingTopicId && setEditingTopicId(topic.id)}
+                                                                title="Clique para editar o nome"
+                                                            >
+                                                                <EditableTopicName
+                                                                    topicId={topic.id}
+                                                                    initialName={topic.name}
+                                                                    onUpdate={() => {
+                                                                        setEditingTopicId(null);
+                                                                    }}
+                                                                    isEditing={editingTopicId === topic.id}
+                                                                    onEditChange={(isEditing) => {
+                                                                        setEditingTopicId(isEditing ? topic.id : null);
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            {/* Grid de informações */}
+                                                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                                                {/* Dificuldade */}
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="text-gray-500 mb-1">Dificuldade</span>
+                                                                    <div
+                                                                        className="cursor-pointer hover:bg-gray-50 rounded-lg p-1 transition-colors"
+                                                                        onClick={() => onRateDifficulty(subject.id, topic.id, topic.name, subject.name)}
+                                                                    >
+                                                                        {topic.difficulty_level ? (
+                                                                            <DifficultyRating
+                                                                                value={topic.difficulty_level}
+                                                                                readonly={true}
+                                                                                size="sm"
+                                                                            />
+                                                                        ) : (
+                                                                            <span className="text-blue-600 font-medium">+ Avaliar</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Revisões */}
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="text-gray-500 mb-1">Revisões</span>
+                                                                    <span className={getRevisionsColor(status)}>{reviewCount}/{getMaxReviews()}</span>
+                                                                </div>
+
+                                                                {/* Próxima */}
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="text-gray-500 mb-1">Próxima</span>
+                                                                    <span className={getStatusColor(status)}>{topic.reviewStage || '1ª Revisão'}</span>
+                                                                </div>
+
+                                                                {/* Status */}
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="text-gray-500 mb-1">Status</span>
+                                                                    <span className={getStatusColor(status)}>{statusText}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Ações */}
+                                                            <div className="flex items-center justify-center gap-2 mt-3">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => onAddNote(subject.id, topic.id)}
+                                                                    title="Adicionar nota"
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    <FileText className="h-4 w-4" />
+                                                                </Button>
+
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => onEditTopic(subject.id, topic.id)}
+                                                                    title="Editar tópico"
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    <Edit3 className="h-4 w-4" />
+                                                                </Button>
+
+                                                                {status !== 'completed' && (
+                                                                    <Button
+                                                                        variant="default"
+                                                                        size="sm"
+                                                                        onClick={() => setConfirmDialog({
+                                                                            isOpen: true,
+                                                                            subjectId: subject.id,
+                                                                            topicId: topic.id,
+                                                                            topicName: topic.name
+                                                                        })}
+                                                                        className="bg-green-600 hover:bg-green-700 h-8 px-3"
+                                                                    >
+                                                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                                                        Revisei
+                                                                    </Button>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
