@@ -30,6 +30,7 @@ interface RichTextNotesEditorProps {
   onChange?: (content: string) => void;
   hideHeader?: boolean;
   hideToolbar?: boolean;
+  toolbarTopOffset?: number;
 }
 
 const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
@@ -38,7 +39,8 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   isLoading = false,
   onChange,
   hideHeader = false,
-  hideToolbar = false
+  hideToolbar = false,
+  toolbarTopOffset = 0
 }) => {
   const [content, setContent] = useState(notes?.content || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -51,7 +53,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
     const originalContent = notes?.content || '';
     const hasChanges = content !== originalContent;
     setHasChanges(hasChanges);
-    
+
     // Chamar callback quando houver mudanças
     if (onChange) {
       onChange(content);
@@ -67,18 +69,18 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
         const editor = quillRef.current.getEditor();
         const container = editor.root;
         const editorElement = container.querySelector('.ql-editor') as HTMLElement;
-        
+
         if (editorElement) {
           // Resetar altura para calcular a altura necessária
           editorElement.style.height = 'auto';
-          
+
           // Definir altura mínima menor
           const minHeight = 60;
           const scrollHeight = editorElement.scrollHeight;
           const newHeight = Math.max(minHeight, scrollHeight + 10); // +10px para margem
-          
+
           editorElement.style.height = `${newHeight}px`;
-          
+
           // Ajustar também o container
           const containerElement = container.querySelector('.ql-container') as HTMLElement;
           if (containerElement) {
@@ -90,10 +92,10 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
 
     // Ajustar altura imediatamente
     adjustHeight();
-    
+
     // Ajustar altura após um pequeno delay para garantir que o DOM foi atualizado
     const timeoutId = setTimeout(adjustHeight, 100);
-    
+
     return () => clearTimeout(timeoutId);
   }, [content]);
 
@@ -127,13 +129,13 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
 
   const handleContentChange = (value: string) => {
     setContent(value);
-    
+
     // Ajustar altura após mudança de conteúdo
     setTimeout(() => {
       if (quillRef.current) {
         const editor = quillRef.current.getEditor();
         const editorElement = editor.root.querySelector('.ql-editor') as HTMLElement;
-        
+
         if (editorElement) {
           editorElement.style.height = 'auto';
           const minHeight = 60;
@@ -151,7 +153,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
       [{ 'header': [1, 2, 3, false] }],
       ['bold', 'italic', 'underline', 'strike'],
       [{ 'background': [] }], // highlight
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
       ['link'],
       ['clean']
     ],
@@ -171,56 +173,46 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   // Estilo customizado para o highlight amarelo
   const customStyles = `
     .ql-editor {
-      min-height: 60px;
-      max-height: none;
-      height: auto !important;
-      font-size: 14px;
-      line-height: 1.6;
-      overflow-y: visible !important;
-      padding: 12px 15px !important;
-      resize: none;
-    }
-    .ql-container {
-      height: auto !important;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-    }
-    .ql-container.ql-snow {
-      border: 1px solid #e2e8f0;
-    }
-    .ql-toolbar {
-      border-top: 1px solid #e2e8f0;
-      border-left: 1px solid #e2e8f0;
-      border-right: 1px solid #e2e8f0;
-      border-bottom: none;
-      border-radius: 6px 6px 0 0;
-    }
-    .ql-container:not(.ql-toolbar + .ql-container) {
-      border-radius: 6px;
-    }
-    .ql-toolbar + .ql-container {
-      border-top: none;
-      border-radius: 0 0 6px 6px;
-    }
-    .ql-editor.ql-blank::before {
-      color: #9ca3af;
-      font-style: normal;
-      content: 'Comece a escrever suas anotações... Use a barra de ferramentas para formatação.';
-    }
-    
-    /* Força altura dinâmica */
-    .quill {
-      height: auto !important;
-    }
-    
-    .ql-container .ql-editor {
-      height: auto !important;
-      min-height: 60px !important;
-    }
-  `;
+  min-height: 150px;
+  max-height: 50vh;
+  overflow-y: auto!important;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 12px 15px!important;
+  resize: vertical;
+}
+    .ql - container {
+  border: 1px solid #e2e8f0;
+  border - radius: 6px;
+  background: white;
+}
+    .ql - container.ql - snow {
+  border: 1px solid #e2e8f0;
+}
+    .ql - toolbar {
+  border - top: 1px solid #e2e8f0;
+  border - left: 1px solid #e2e8f0;
+  border - right: 1px solid #e2e8f0;
+  border - bottom: none;
+  border - radius: 6px 6px 0 0;
+  background: white;
+}
+    .ql - container: not(.ql - toolbar + .ql - container) {
+  border - radius: 6px;
+}
+    .ql - toolbar + .ql - container {
+  border - top: none;
+  border - radius: 0 0 6px 6px;
+}
+    .ql - editor.ql - blank::before {
+  color: #9ca3af;
+  font - style: normal;
+  content: 'Comece a escrever suas anotações... Use a barra de ferramentas para formatação.';
+}
+`;
 
   return (
-    <motion.div 
+    <motion.div
       className={hideHeader ? "space-y-2" : "space-y-4 p-4 bg-white/50 rounded-lg border border-gray-200"}
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: "auto" }}
@@ -228,7 +220,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
       transition={{ duration: 0.3 }}
     >
       <style>{customStyles}</style>
-      
+
       {/* Header com controles - apenas se não estiver oculto */}
       {!hideHeader && (
         <div className="flex items-center justify-between">
@@ -247,7 +239,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
                 Salvo
               </span>
             )}
-            
+
             {/* Botão salvar */}
             <Button
               onClick={handleSave}

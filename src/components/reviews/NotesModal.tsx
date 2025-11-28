@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X, Save, ThumbsUp, Minus, ThumbsDown, Plus } from 'lucide-react';
+import { X, Save, ThumbsUp, Minus, ThumbsDown, Plus, MessageSquareText } from 'lucide-react';
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
 import { TopicNotes, TopicSubtopic } from '@/types';
 // import { DifficultyLevel } from '@/types'; // Removido - usando sistema de estrelas
@@ -84,7 +84,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
         setNotes(undefined);
         setCurrentTopicContent('');
       }
-      
+
       // setDifficulty((topicData?.difficulty_level as DifficultyLevel) || null); // Removido - usando sistema de estrelas
       setSubtopics((topicData?.subtopics as unknown as TopicSubtopic[]) || []);
 
@@ -142,7 +142,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       };
 
       // Log removido para otimização
-      
+
       const { error } = await supabase
         .from('topics')
         .update(updates)
@@ -154,7 +154,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       setNotes(updatedNotes);
       setHasUnsavedChanges(false);
       toast.success('Dados salvos com sucesso!');
-      
+
       // Não atualizar dados - evitar refresh da página
     } catch (error) {
       console.error('Erro ao salvar anotações:', error);
@@ -168,7 +168,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
   const handleSaveAndClose = async () => {
     try {
       setIsSaving(true);
-      
+
       // Salvar anotações da matéria se houver conteúdo e showSubjectNotes for true
       if (showSubjectNotes && currentSubjectContent && currentSubjectContent.trim() !== '<p><br></p>' && currentSubjectContent.trim() !== '') {
         const subjectNotesToSave: TopicNotes = {
@@ -205,9 +205,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
         if (error) throw error;
       }
-      
+
       toast.success('Dados salvos com sucesso!');
-      
+
       // Fechar modal após sucesso
       if (onSave) {
         onSave();
@@ -227,7 +227,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
     try {
       const { error } = await supabase
         .from('subjects')
-        .update({ 
+        .update({
           notes: updatedNotes as any,
           updated_at: new Date().toISOString()
         })
@@ -274,14 +274,14 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent 
-        className={isMobile ? 
-          "fixed inset-0 w-full h-full max-w-none m-0 rounded-none p-0 bg-white z-50" : 
-          "max-w-4xl w-full max-h-[90vh] overflow-hidden"
+      <DialogContent
+        className={isMobile ?
+          "fixed inset-0 w-full h-full max-w-none m-0 rounded-none p-0 bg-white z-50" :
+          "max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden border-blue-100 !p-0 !gap-0"
         }
-        hideCloseButton={isMobile}
+        hideCloseButton={true}
         aria-describedby="notes-modal-description"
-        style={isMobile ? { 
+        style={isMobile ? {
           position: 'fixed',
           top: 0,
           left: 0,
@@ -291,35 +291,48 @@ const NotesModal: React.FC<NotesModalProps> = ({
           margin: 0
         } : undefined}
       >
-        <DialogHeader className={`${isMobile ? 'p-4 border-b' : 'p-6 pb-4'} bg-white`}>
+        <div className={`${isMobile ? 'p-4 border-b bg-white' : 'p-6 bg-gradient-to-r from-blue-100/50 to-white border-b border-blue-100 sm:rounded-t-lg'}`}>
           <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <DialogTitle className="text-lg font-semibold text-gray-900">
-                Anotações - {topicName}
-              </DialogTitle>
-              <DialogDescription className="text-sm text-gray-600 mt-1">
-                {subjectName}
-              </DialogDescription>
+            <div className="flex items-center gap-3">
+              {!isMobile && (
+                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                  <MessageSquareText size={24} />
+                </div>
+              )}
+              <div>
+                <DialogTitle className="text-lg font-bold text-gray-800">
+                  {isMobile ? `Anotações - ${topicName}` : subjectName}
+                </DialogTitle>
+                {!isMobile && (
+                  <div className="text-sm text-gray-600 font-light">
+                    {topicName}
+                  </div>
+                )}
+                <DialogDescription className="sr-only">
+                  Editor de anotações para {topicName}
+                </DialogDescription>
+              </div>
             </div>
-            {isMobile && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" strokeWidth={3} />
+            </Button>
           </div>
-        </DialogHeader>
-        
+          {isMobile && (
+            <p className="text-sm text-gray-600 mt-1">{subjectName}</p>
+          )}
+        </div>
+
         <div id="notes-modal-description" className="sr-only">
           Editor de anotações para o tópico. Use o editor de texto rico para criar e editar suas anotações de estudo.
         </div>
 
         {/* Content */}
-        <div className={`${isMobile ? 'flex-1 overflow-y-auto p-4' : 'p-6 pt-2 overflow-y-auto max-h-[calc(90vh-8rem)]'} bg-background`}>
+        <div className={`${isMobile ? 'flex-1 overflow-y-auto p-4' : 'flex-1 min-h-0 overflow-y-auto p-6 pt-2'} bg-background`}>
           {isLoading ? (
             <div className="flex justify-center items-center h-32">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -355,17 +368,14 @@ const NotesModal: React.FC<NotesModalProps> = ({
               {/* Anotações do Tópico */}
               <div>
                 <Label className="text-sm font-medium mb-3 block">
-                  📖 Anotações do Tópico ({topicName})
+                  📖 Anotações
                 </Label>
                 <RichTextNotesEditor
                   key={`topic-${topicId}`}
                   notes={notes}
                   onSave={saveNotes}
                   isLoading={isLoading || isSaving}
-                  onChange={(content) => {
-                    handleNotesChange();
-                    setCurrentTopicContent(content);
-                  }}
+                  onChange={handleNotesChange}
                   hideHeader={true}
                 />
               </div>
@@ -375,9 +385,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
               {/* Subtópicos */}
               <div>
                 <Label className="text-sm font-medium mb-3 block">
-                  📋 Subtópicos Estudados
+                  📋 Subtópicos
                 </Label>
-                
+
                 <div className="flex gap-2 mb-3">
                   <Input
                     value={newSubtopic}
@@ -423,7 +433,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className={`${isMobile ? 'p-4 border-t' : 'p-6 pt-4 border-t'} bg-white`}>
+        <div className={`${isMobile ? 'p-4 border-t' : 'p-6 pt-4 border-t'} bg-white flex-none`}>
           <div className="flex justify-between items-center gap-3">
             <Button
               onClick={async () => {
@@ -444,7 +454,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Salvando...' : 'Salvar'}
             </Button>
-            
+
             <Button
               onClick={handleSaveAndClose}
               disabled={isSaving}

@@ -386,12 +386,12 @@ const Revisoes = () => {
                 {!isCollapsed && (
                   <>
                     {/* Table Header - HIDDEN ON MOBILE */}
-                    <div className="hidden md:grid grid-cols-12 gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
-                      <div className="col-span-6 pl-8">Tópico</div>
-                      <div className="col-span-2 text-center">Matéria</div>
-                      <div className="col-span-1 text-center">Dificuldade</div>
-                      <div className="col-span-2 text-center">Status</div>
-                      <div className="col-span-1 text-center">Ações</div>
+                    <div className="hidden md:grid grid-cols-[1fr_120px_100px_125px_120px] gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                      <div className="pl-8">Tópico</div>
+                      <div className="text-center">Matéria</div>
+                      <div className="text-center">Dificuldade</div>
+                      <div className="text-center">Status</div>
+                      <div className="text-center">Ações</div>
                     </div>
 
                     {/* Rows */}
@@ -399,14 +399,14 @@ const Revisoes = () => {
                       {groupItems.map((item) => (
                         <div key={item.id} className="
                           group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-                          flex flex-col md:grid md:grid-cols-12
+                          flex flex-col md:grid md:grid-cols-[1fr_120px_100px_125px_120px] md:gap-0
                         ">
                           {/* Sticky Left Color Bar */}
                           <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${style.color.replace('border-', 'bg-')}`}></div>
 
                           {/* Topic Column */}
                           <div className="
-                              md:col-span-6 md:p-3 flex items-center gap-3 pl-4 md:pl-8
+                              md:p-3 flex items-center gap-3 pl-4 md:pl-8
                               pt-4 md:pt-3 md:border-r border-gray-100
                             ">
                             <div className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs">{item.topic}</div>
@@ -415,14 +415,14 @@ const Revisoes = () => {
                           {/* Subject & Difficulty */}
                           <div className="flex items-center px-4 pb-2 md:p-0 md:contents">
                             {/* Subject */}
-                            <div className="md:col-span-2 md:p-3 flex items-center md:justify-center md:border-r border-gray-100 mr-4 md:mr-0">
+                            <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100 mr-4 md:mr-0">
                               <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-medium truncate max-w-[200px] md:max-w-full">
                                 {item.subject}
                               </span>
                             </div>
 
                             {/* Difficulty */}
-                            <div className="md:col-span-1 md:p-3 flex items-center md:justify-center md:border-r border-gray-100 cursor-pointer"
+                            <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100 cursor-pointer"
                               onClick={() => {
                                 console.log('⭐ Star clicked:', {
                                   id: item.id,
@@ -441,14 +441,14 @@ const Revisoes = () => {
                           {/* Status & Actions */}
                           <div className="flex items-center gap-3 px-4 pb-4 md:p-0 md:contents">
                             {/* Status/Date */}
-                            <div className="md:col-span-2 md:px-1 md:py-1 flex items-center justify-center md:border-r border-gray-100">
-                              <div className="w-[160px]">
+                            <div className="md:px-1 md:py-1 flex items-center justify-center md:border-r border-gray-100">
+                              <div className="w-[115px]">
                                 <StatusBadge status={item.status} daysDiff={getDaysDiff(item.dueDate)} />
                               </div>
                             </div>
 
                             {/* Actions */}
-                            <div className="md:col-span-1 md:p-2 flex items-center justify-end md:justify-center gap-2">
+                            <div className="md:p-2 flex items-center justify-end md:justify-center gap-2">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
