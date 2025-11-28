@@ -46,6 +46,7 @@ export const useReviewsData = () => {
           last_reviewed_at,
           completed,
           difficulty_level,
+          notes,
           subjects (
             id,
             name,

@@ -21,16 +21,113 @@ export const useTopicReview = () => {
     subjectId: string;
     subjectName: string;
     currentDifficulty: number | null;
+    reviewStage: string;
+    reviewCount: number;
+    isCompleting: boolean;
   }>({
     isOpen: false,
     topicId: '',
     topicName: '',
     subjectId: '',
     subjectName: '',
-    currentDifficulty: null
+    currentDifficulty: null,
+    reviewStage: '',
+    reviewCount: 0,
+    isCompleting: false
   });
 
-  const markTopicAsReviewed = async (topicId: string) => {
+  // Nova função para abrir o modal de revisão (SEM marcar ainda)
+  const openReviewModal = async (topicId: string) => {
+    if (!user) return;
+
+    try {
+      console.log('🔵 openReviewModal chamado para topicId:', topicId);
+
+      // Buscar o tópico atual
+      const { data: topic, error: topicError } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('id', topicId)
+        .single();
+
+      if (topicError) throw topicError;
+      if (!topic) throw new Error('Tópico não encontrado');
+
+      // Buscar configurações do usuário
+      const { data: settings, error: settingsError } = await supabase
+        .from('user_settings')
+        .select('review_profile')
+        .eq('user_id', user.id)
+        .single();
+
+      if (settingsError) throw settingsError;
+
+      const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
+      const { intervals, maxReviews } = REVIEW_PROFILES[profile];
+
+      // Calcular PREVIEW do que seria o próximo estágio
+      const currentReviewCount = topic.review_count;
+      const nextReviewCount = currentReviewCount + 1;
+      let reviewStage = '';
+      let isCompleting = false;
+
+      // Determinar o stage que está FAZENDO AGORA
+      if (currentReviewCount === 0) {
+        reviewStage = 'Primeiro Contato';
+      } else if (currentReviewCount >= 1 && nextReviewCount <= intervals.length + 1) {
+        const currentReviewIndex = currentReviewCount - 1;
+        const currentInterval = intervals[currentReviewIndex];
+        reviewStage = currentInterval === 1 ? '24h' : `${currentInterval}d`;
+
+        if (nextReviewCount === intervals.length + 1) {
+          isCompleting = true;
+        }
+      } else {
+        reviewStage = 'Concluído';
+        isCompleting = true;
+      }
+
+      // Buscar informações da matéria
+      const { data: subjectData, error: subjectError } = await supabase
+        .from('subjects')
+        .select('name')
+        .eq('id', topic.subject_id)
+        .single();
+
+      if (subjectError) {
+        console.error('❌ Erro ao buscar dados da matéria:', subjectError);
+        throw subjectError;
+      }
+
+      console.log('🌟 ABRINDO MODAL DE REVISÃO:', {
+        topicId,
+        topicName: topic.name,
+        subjectName: subjectData.name,
+        reviewStage,
+        reviewCount: nextReviewCount,
+        isCompleting
+      });
+
+      // Abrir o modal COM as informações de preview
+      setDifficultyModalData({
+        isOpen: true,
+        topicId: topicId,
+        topicName: topic.name,
+        subjectId: topic.subject_id,
+        subjectName: subjectData.name,
+        currentDifficulty: topic.difficulty_level || null,
+        reviewStage,
+        reviewCount: nextReviewCount,
+        isCompleting
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao abrir modal de revisão:', error);
+      toastManager.error('Erro ao abrir modal de revisão');
+    }
+  };
+
+  const markTopicAsReviewed = async (topicId: string, difficulty?: number | null) => {
     if (!user) return;
 
     setIsLoading(true);
@@ -192,78 +289,15 @@ export const useTopicReview = () => {
         // Não falhar a operação principal por causa do tracking
       }
 
-      // VERIFICAÇÃO: Modal aparece sempre que não tem dificuldade definida
-      const hasNoDifficulty = !topic.difficulty_level;
-      const shouldShowModal = hasNoDifficulty;
-
-      console.log('🔍 VERIFICANDO MODAL DE DIFICULDADE:', {
-        topicId,
-        topicName: topic.name,
-        review_count_atual: topic.review_count,
-        newReviewCount,
-        difficulty_level: topic.difficulty_level,
-        difficulty_level_type: typeof topic.difficulty_level,
-        hasNoDifficulty,
-        shouldShowModal,
-        'topic.difficulty_level === null': topic.difficulty_level === null,
-        'topic.difficulty_level === undefined': topic.difficulty_level === undefined
-      });
-
-      if (shouldShowModal) {
-        console.log('🌟 CONDIÇÃO ATENDIDA - Tópico sem dificuldade, mostrando modal:', {
-          topicId,
-          topicName: topic.name,
-          review_count: topic.review_count,
-          completed,
-          difficulty_level: topic.difficulty_level
-        });
-
-        // Buscar informações da matéria para o modal
-        const { data: subjectData, error: subjectError } = await supabase
-          .from('subjects')
-          .select('name')
-          .eq('id', topic.subject_id)
-          .single();
-
-        if (subjectError) {
-          console.error('❌ Erro ao buscar dados da matéria:', subjectError);
-        }
-
-        if (subjectData) {
-          console.log('🌟 ABRINDO MODAL DE DIFICULDADE:', {
-            topicId,
-            topicName: topic.name,
-            subjectName: subjectData.name,
-            modalState: 'SETTING TO OPEN'
-          });
-
-          const newModalData = {
-            isOpen: true,
-            topicId: topicId,
-            topicName: topic.name,
-            subjectId: topic.subject_id,
-            subjectName: subjectData.name,
-            currentDifficulty: null
-          };
-
-          console.log('🌟 DEFININDO MODAL DATA:', newModalData);
-          setDifficultyModalData(newModalData);
-
-          // Aguardar um pouco para garantir que o estado foi atualizado
-          await new Promise(resolve => setTimeout(resolve, 100));
-          console.log('🌟 MODAL STATE UPDATED - Verificar se modal aparece na tela');
-        } else {
-          console.error('❌ Dados da matéria não encontrados para o modal');
-        }
-      } else {
-        console.log('🔍 MODAL NÃO SERÁ EXIBIDO:', {
-          topicId,
-          completed,
-          review_count_atual: topic.review_count,
-          difficulty_level: topic.difficulty_level,
-          hasNoDifficulty,
-          reason: 'Condição não atendida'
-        });
+      // Salvar dificuldade se fornecida
+      if (difficulty !== undefined) {
+        await supabase
+          .from('topics')
+          .update({
+            difficulty_level: difficulty,
+            difficulty_set_at: difficulty ? new Date().toISOString() : null
+          })
+          .eq('id', topicId);
       }
 
       // Verificar se todas as revisões da matéria foram concluídas
@@ -385,7 +419,10 @@ export const useTopicReview = () => {
       topicName,
       subjectId,
       subjectName,
-      currentDifficulty
+      currentDifficulty,
+      reviewStage: '',
+      reviewCount: 0,
+      isCompleting: false
     });
   };
 
@@ -396,7 +433,10 @@ export const useTopicReview = () => {
       topicName: '',
       subjectId: '',
       subjectName: '',
-      currentDifficulty: null
+      currentDifficulty: null,
+      reviewStage: '',
+      reviewCount: 0,
+      isCompleting: false
     });
   };
 
@@ -443,6 +483,7 @@ export const useTopicReview = () => {
 
   return {
     markTopicAsReviewed,
+    openReviewModal,
     isLoading,
     difficultyModalData,
     openDifficultyModal,

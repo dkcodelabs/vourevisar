@@ -38,6 +38,7 @@ const Revisoes = () => {
   const { subjects, refreshData } = useApp();
   const {
     markTopicAsReviewed,
+    openReviewModal,
     difficultyModalData,
     openDifficultyModal,
     closeDifficultyModal,
@@ -218,14 +219,11 @@ const Revisoes = () => {
   // Actions
   const handleMarkCompleted = async (id: string) => {
     try {
-      await markTopicAsReviewed(id);
-      setTimeout(async () => {
-        await refreshData();
-        refetch();
-      }, 500);
+      // Novo fluxo: abrir modal primeiro (n\u00e3o marca ainda)
+      await openReviewModal(id);
     } catch (error) {
-      console.error('Erro ao marcar tópico como revisado:', error);
-      toast.error('Erro ao marcar tópico como revisado');
+      console.error('Erro ao abrir modal de revis\u00e3o:', error);
+      toast.error('Erro ao abrir modal de revis\u00e3o');
     }
   };
 
@@ -389,9 +387,9 @@ const Revisoes = () => {
                   <>
                     {/* Table Header - HIDDEN ON MOBILE */}
                     <div className="hidden md:grid grid-cols-12 gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
-                      <div className="col-span-5 pl-8">Tópico</div>
+                      <div className="col-span-6 pl-8">Tópico</div>
                       <div className="col-span-2 text-center">Matéria</div>
-                      <div className="col-span-2 text-center">Dificuldade</div>
+                      <div className="col-span-1 text-center">Dificuldade</div>
                       <div className="col-span-2 text-center">Status</div>
                       <div className="col-span-1 text-center">Ações</div>
                     </div>
@@ -408,7 +406,7 @@ const Revisoes = () => {
 
                           {/* Topic Column */}
                           <div className="
-                              md:col-span-5 md:p-3 flex items-center gap-3 pl-4 md:pl-8
+                              md:col-span-6 md:p-3 flex items-center gap-3 pl-4 md:pl-8
                               pt-4 md:pt-3 md:border-r border-gray-100
                             ">
                             <div className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs">{item.topic}</div>
@@ -424,7 +422,7 @@ const Revisoes = () => {
                             </div>
 
                             {/* Difficulty */}
-                            <div className="md:col-span-2 md:p-3 flex items-center md:justify-center md:border-r border-gray-100 cursor-pointer"
+                            <div className="md:col-span-1 md:p-3 flex items-center md:justify-center md:border-r border-gray-100 cursor-pointer"
                               onClick={() => {
                                 console.log('⭐ Star clicked:', {
                                   id: item.id,
@@ -443,8 +441,10 @@ const Revisoes = () => {
                           {/* Status & Actions */}
                           <div className="flex items-center gap-3 px-4 pb-4 md:p-0 md:contents">
                             {/* Status/Date */}
-                            <div className="flex-1 md:col-span-2 md:p-1 flex items-center md:justify-center md:border-r border-gray-100">
-                              <StatusBadge status={item.status} daysDiff={getDaysDiff(item.dueDate)} />
+                            <div className="md:col-span-2 md:px-1 md:py-1 flex items-center justify-center md:border-r border-gray-100">
+                              <div className="w-[160px]">
+                                <StatusBadge status={item.status} daysDiff={getDaysDiff(item.dueDate)} />
+                              </div>
                             </div>
 
                             {/* Actions */}
@@ -452,6 +452,13 @@ const Revisoes = () => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  console.log('🔍 DEBUG NOTE ICON:', {
+                                    topicId: item.id,
+                                    topic: item.topic,
+                                    notes: item.notes,
+                                    notesType: typeof item.notes,
+                                    hasNotes: !!item.notes
+                                  });
                                   setNotesModalData({
                                     isOpen: true,
                                     topicId: item.id,
@@ -459,10 +466,13 @@ const Revisoes = () => {
                                     subjectName: item.subject
                                   });
                                 }}
-                                className={`p-1.5 rounded transition-colors ${item.notes ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
-                                title={item.notes ? "Ver/Editar Nota" : "Adicionar Nota"}
+                                className={`p-1.5 rounded transition-colors ${(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ?
+                                  'text-blue-600 hover:bg-blue-100' :
+                                  'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                  }`}
+                                title={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "Ver/Editar Nota" : "Adicionar Nota"}
                               >
-                                <MessageSquareText size={14} className={item.notes ? "fill-blue-200" : ""} />
+                                <MessageSquareText size={18} className={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "fill-blue-200" : ""} />
                               </button>
 
                               {item.status !== RevisionStatus.COMPLETED ? (
@@ -474,7 +484,7 @@ const Revisoes = () => {
                                   className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
                                   title="Marcar como Revisado"
                                 >
-                                  <CheckCircle2 size={16} />
+                                  <CheckCircle2 size={20} />
                                 </button>
                               ) : (
                                 <Check size={16} className="text-green-500" />
@@ -592,9 +602,21 @@ const Revisoes = () => {
           await submitDifficultyRating(difficulty);
           refetch();
         }}
+        onConfirmReview={difficultyModalData.reviewCount > 0 ? async (difficulty) => {
+          // Novo fluxo: marcar revisão + salvar dificuldade
+          await markTopicAsReviewed(difficultyModalData.topicId, difficulty);
+          closeDifficultyModal();
+          setTimeout(async () => {
+            await refreshData();
+            refetch();
+          }, 500);
+        } : undefined}
         topicName={difficultyModalData.topicName}
         subjectName={difficultyModalData.subjectName}
         initialDifficulty={difficultyModalData.currentDifficulty}
+        reviewStage={difficultyModalData.reviewStage}
+        reviewCount={difficultyModalData.reviewCount}
+        isCompleting={difficultyModalData.isCompleting}
       />
     </div>
   );

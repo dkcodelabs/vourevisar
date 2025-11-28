@@ -427,7 +427,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                 {isExpanded && (
                                     <div className="mt-2">
                                         {/* Cabeçalho das colunas - apenas desktop */}
-                                        <div className="hidden md:grid grid-cols-[1fr_120px_100px_100px_120px_120px] gap-4 items-center pb-2 mb-2 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                        <div className="hidden md:grid grid-cols-[1fr_auto_90px_90px_90px_120px] gap-4 items-center pb-2 mb-2 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide">
                                             <div className="ml-7">Tópico</div>
                                             <div className="text-center">Dificuldade</div>
                                             <div className="text-center">Revisões</div>
@@ -448,8 +448,8 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                     <div
                                                         key={topic.id}
                                                         className={`transition-all duration-300 ${isHighlighted
-                                                                ? 'animate-pulse bg-yellow-100 border-yellow-300 rounded-lg px-3 -mx-3'
-                                                                : ''
+                                                            ? 'animate-pulse bg-yellow-100 border-yellow-300 rounded-lg px-3 -mx-3'
+                                                            : ''
                                                             }`}
                                                         style={{
                                                             animation: isHighlighted
@@ -458,7 +458,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                         }}
                                                     >
                                                         {/* Layout Desktop */}
-                                                        <div className="hidden md:grid grid-cols-[1fr_120px_100px_100px_120px_120px] gap-4 items-center border-b border-gray-100 pb-3 pt-3 last:border-b-0">
+                                                        <div className="hidden md:grid grid-cols-[1fr_auto_90px_90px_90px_120px] gap-4 items-center border-b border-gray-100 pb-3 pt-3 last:border-b-0">
                                                             {/* Coluna 1: Nome do tópico + Subtópicos */}
                                                             <div className="min-w-0 ml-7">
                                                                 <div
@@ -528,9 +528,9 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                                     size="sm"
                                                                     onClick={() => onAddNote(subject.id, topic.id)}
                                                                     title="Adicionar nota"
-                                                                    className="h-8 w-8 p-0"
+                                                                    className={`h-8 w-8 p-0 ${topic.notes?.content && topic.notes.content.trim() !== '' ? 'text-blue-600 bg-blue-50' : ''}`}
                                                                 >
-                                                                    <FileText className="h-4 w-4" />
+                                                                    <FileText className="h-5 w-5" />
                                                                 </Button>
 
                                                                 <Button
@@ -540,7 +540,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                                     title="Editar tópico"
                                                                     className="h-8 w-8 p-0"
                                                                 >
-                                                                    <Edit3 className="h-4 w-4" />
+                                                                    <Edit3 className="h-5 w-5" />
                                                                 </Button>
 
                                                                 {status !== 'completed' && (

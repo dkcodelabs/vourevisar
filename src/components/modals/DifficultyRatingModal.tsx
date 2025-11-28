@@ -8,18 +8,26 @@ interface DifficultyRatingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (difficulty: number | null) => void;
+  onConfirmReview?: (difficulty: number | null) => void;
   topicName: string;
   subjectName: string;
   initialDifficulty?: number | null;
+  reviewStage?: string;
+  reviewCount?: number;
+  isCompleting?: boolean;
 }
 
 export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  onConfirmReview,
   topicName,
   subjectName,
-  initialDifficulty = null
+  initialDifficulty = null,
+  reviewStage,
+  reviewCount,
+  isCompleting = false
 }) => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null);
 
@@ -35,7 +43,13 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
 
 
   const handleSubmit = () => {
-    onSubmit(selectedDifficulty);
+    if (onConfirmReview) {
+      // Novo fluxo: confirmar revisão + salvar dificuldade
+      onConfirmReview(selectedDifficulty);
+    } else {
+      // Fluxo antigo: apenas salvar dificuldade
+      onSubmit(selectedDifficulty);
+    }
     onClose();
     setSelectedDifficulty(null);
   };
@@ -80,15 +94,23 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
           </motion.div>
 
           <h2 className="text-xl font-bold text-gray-900 mb-2">
-            {initialDifficulty !== null ? 'Avaliar Dificuldade' : 'Tópico Concluído! 🎉'}
+            {reviewCount ? (
+              reviewCount === 1 ? '1ª Revisão! 🎉' :
+                reviewCount === 2 ? '2ª Revisão! 🎉' :
+                  reviewCount === 3 ? '3ª Revisão! 🎉' :
+                    reviewCount === 4 ? '4ª Revisão! 🎉' :
+                      isCompleting ? 'Tópico Concluído! 🎉' : 'Revisar Tópico'
+            ) : (
+              initialDifficulty !== null ? 'Avaliar Dificuldade' : 'Tópico Concluído! 🎉'
+            )}
           </h2>
 
           <div className="space-y-1">
             <div className="font-medium text-gray-900">
-              {topicName}
+              {subjectName}
             </div>
             <div className="text-sm text-gray-600">
-              {subjectName}
+              {topicName}
             </div>
           </div>
         </div>
@@ -134,23 +156,26 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
         <div className="flex gap-2 mt-6">
           <Button
             variant="outline"
-            onClick={handleSkip}
+            onClick={onClose}
             className="flex-1"
           >
-            {initialDifficulty ? 'Remover' : 'Pular'}
+            Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
             className="flex-1 bg-green-600 hover:bg-green-700"
-            disabled={!selectedDifficulty}
+            disabled={onConfirmReview && !selectedDifficulty}
           >
-            {initialDifficulty ? 'Atualizar' : (selectedDifficulty ? 'Confirmar' : 'Avaliar')}
+            {onConfirmReview ? 'Confirmar Revisão' : 'Salvar'}
           </Button>
         </div>
 
         <div className="text-center mt-4">
           <p className="text-xs text-gray-500">
-            Você pode alterar esta avaliação depois nas configurações do tópico
+            {initialDifficulty ?
+              'Você pode alterar a dificuldade a qualquer momento' :
+              'Sua avaliação nos ajuda a personalizar suas próximas sessões'
+            }
           </p>
         </div>
       </motion.div>
