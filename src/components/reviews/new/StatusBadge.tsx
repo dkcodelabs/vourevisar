@@ -31,15 +31,14 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, daysDiff, revi
             break;
     }
 
-    // Exibir em duas linhas se houver contador
-    const hasCounter = reviewCount !== undefined && maxReviews !== undefined && status !== RevisionStatus.COMPLETED;
+    // Formato inline: "3/4 - texto"
+    const displayText = (reviewCount !== undefined && maxReviews !== undefined && status !== RevisionStatus.COMPLETED)
+        ? `${reviewCount}/${maxReviews} - ${text}`
+        : text;
 
     return (
-        <div className={`w-full flex flex-col items-center justify-center px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${bgClass}`}>
-            {hasCounter && (
-                <div className="font-semibold text-[10px] leading-tight">{reviewCount}/{maxReviews}</div>
-            )}
-            <div className={hasCounter ? 'text-[10px] leading-tight' : ''}>{text}</div>
+        <div className={`w-full flex items-center justify-center px-2 py-1 rounded-full text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap ${bgClass}`}>
+            {displayText}
         </div>
     );
 };
