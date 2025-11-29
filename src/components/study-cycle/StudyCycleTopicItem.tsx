@@ -6,8 +6,7 @@ import { EditableTopicName } from '@/components/EditableTopicName';
 
 interface StudyCycleTopicItemProps {
   topic: StudyCycleTopic;
-  isMarkedInSession: boolean;
-  onToggleMark: (topicId: string) => void;
+  onCheckboxClick: () => void;
   onOpenNotes: () => void;
   onTopicUpdate?: () => void;
   isSubjectFinished: boolean;
@@ -20,21 +19,21 @@ interface StudyCycleTopicItemProps {
 // Componente para destacar texto da busca
 const HighlightText: React.FC<{ text: string; searchQuery: string }> = ({ text, searchQuery }) => {
   if (!searchQuery.trim()) return <>{text}</>;
-  
-  const normalizeText = (str: string) => 
+
+  const normalizeText = (str: string) =>
     str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  
+
   const normalizedText = normalizeText(text);
   const normalizedQuery = normalizeText(searchQuery);
-  
+
   const index = normalizedText.indexOf(normalizedQuery);
-  
+
   if (index === -1) return <>{text}</>;
-  
+
   const beforeMatch = text.substring(0, index);
   const match = text.substring(index, index + searchQuery.length);
   const afterMatch = text.substring(index + searchQuery.length);
-  
+
   return (
     <>
       {beforeMatch}
@@ -58,8 +57,7 @@ const REVIEW_STATUS_CONFIG: Record<ReviewInterval, { text: string; className: st
 
 export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   topic,
-  isMarkedInSession,
-  onToggleMark,
+  onCheckboxClick,
   onOpenNotes,
   onTopicUpdate,
   isSubjectFinished,
@@ -69,20 +67,20 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   searchQuery = ''
 }) => {
   const isTopicCompleted = topic.reviewStatus === ReviewInterval.COMPLETED;
-  
+
   // Calcular status baseado na data de próxima revisão
   const getTopicStatus = () => {
-    
+
     if (isTopicCompleted) {
       // Para tópicos concluídos, mostrar a data da última revisão
-      const completedDate = topic.lastReviewedAt 
-        ? new Date(topic.lastReviewedAt).toLocaleDateString('pt-BR', { 
-            day: '2-digit', 
-            month: '2-digit',
-            year: 'numeric'
-          })
+      const completedDate = topic.lastReviewedAt
+        ? new Date(topic.lastReviewedAt).toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
         : null;
-      
+
       return {
         text: 'Concluído',
         className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
@@ -105,12 +103,12 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const nextReview = new Date(topic.nextReviewDate);
         const nextReviewDate = new Date(nextReview.getFullYear(), nextReview.getMonth(), nextReview.getDate());
-        
+
         const diffTime = nextReviewDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        const formattedDate = nextReview.toLocaleDateString('pt-BR', { 
-          day: '2-digit', 
+        const formattedDate = nextReview.toLocaleDateString('pt-BR', {
+          day: '2-digit',
           month: '2-digit',
           year: 'numeric'
         });
@@ -124,7 +122,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
             dateInfo: `Em: ${formattedDate}`
           };
         }
-        
+
         // Hoje (laranja)
         if (diffDays === 0) {
           return {
@@ -133,7 +131,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
             dateInfo: `Em: ${formattedDate}`
           };
         }
-        
+
         // Futura (roxo para primeiro contato)
         return {
           text: `Em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
@@ -141,7 +139,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
           dateInfo: `Em: ${formattedDate}`
         };
       }
-      
+
       return {
         text: 'Primeiro Contato',
         className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
@@ -162,12 +160,12 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const nextReview = new Date(topic.nextReviewDate);
     const nextReviewDate = new Date(nextReview.getFullYear(), nextReview.getMonth(), nextReview.getDate());
-    
+
     const diffTime = nextReviewDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    const formattedDate = nextReview.toLocaleDateString('pt-BR', { 
-      day: '2-digit', 
+    const formattedDate = nextReview.toLocaleDateString('pt-BR', {
+      day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
@@ -181,7 +179,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         dateInfo: `Em: ${formattedDate}`
       };
     }
-    
+
     // Hoje (laranja)
     if (diffDays === 0) {
       return {
@@ -190,7 +188,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         dateInfo: `Em: ${formattedDate}`
       };
     }
-    
+
     // Futura (azul)
     return {
       text: `Em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
@@ -230,17 +228,13 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   const bgClasses = 'bg-white dark:bg-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700';
 
   const buttonBaseClasses = "flex-shrink-0 w-8 h-8 min-w-[2rem] min-h-[2rem] max-w-[2rem] max-h-[2rem] rounded-full flex items-center justify-center border-2 transition-all duration-200";
-  const buttonStateClasses = isMarkedInSession
-    ? "bg-blue-600 border-blue-700 text-white shadow-md"
-    : "border-gray-300 dark:border-slate-400 shadow-sm dark:bg-slate-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-500"
-    + " bg-[#F1F5F9] hover:bg-[#DBEAFE] hover:border-blue-400";
 
   return (
     <div className={`${baseClasses} ${bgClasses}`}>
       {/* Layout responsivo: desktop = horizontal, mobile = vertical */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
         {/* Texto do tópico - Editável */}
-        <div 
+        <div
           className="flex-1 cursor-pointer group"
           onClick={() => !isEditing && handleStartEditing()}
           title="Clique para editar o nome"
@@ -258,12 +252,12 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
             searchQuery={searchQuery}
           />
         </div>
-        
+
         {/* Controles: status, anotação e radiobox */}
         <div className="flex items-center gap-3 flex-shrink-0">
           {/* Badge com data em tooltip */}
           <div className="flex flex-col items-end">
-            <div 
+            <div
               className={`px-2 py-1 rounded-full ${statusConfig.className} relative group cursor-help text-xs font-semibold`}
               title={statusConfig.dateInfo || ''}
             >
@@ -278,22 +272,20 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
           </div>
           <button
             onClick={onOpenNotes}
-            className={`p-1 transition-colors ${
-              topic.notes && topic.notes.trim() !== '' && topic.notes !== '<p><br></p>'
-                ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
-                : 'text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400'
-            }`}
+            className={`p-1 transition-colors ${topic.notes && topic.notes.trim() !== '' && topic.notes !== '<p><br></p>'
+              ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
+              : 'text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400'
+              }`}
             aria-label={`Anotações para ${topic.name}`}
           >
             <EditIcon />
           </button>
           <button
-            onClick={() => onToggleMark(topic.id)}
+            onClick={onCheckboxClick}
             disabled={isTopicCompleted || !isActionable}
-            className={`${buttonBaseClasses} ${buttonStateClasses} ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`${buttonBaseClasses} border-gray-300 dark:border-slate-400 shadow-sm dark:bg-slate-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-500 bg-[#F1F5F9] hover:bg-[#DBEAFE] hover:border-blue-400 ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
             aria-label={`Marcar ${topic.name} como revisado`}
           >
-            {isMarkedInSession && <CheckIcon />}
           </button>
         </div>
       </div>

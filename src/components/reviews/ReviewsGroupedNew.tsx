@@ -516,9 +516,15 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                                 <span className={getStatusColor(status)}>{topic.reviewStage || '1ª Revisão'}</span>
                                                             </div>
 
-                                                            {/* Coluna 5: Status */}
+                                                            {/* Coluna 5: Status com contador de revisão */}
                                                             <div className="flex justify-center text-xs font-medium">
-                                                                <span className={getStatusColor(status)}>{statusText}</span>
+                                                                {status === 'completed' ? (
+                                                                    <span className={getStatusColor(status)}>Concluído</span>
+                                                                ) : (
+                                                                    <span className={getStatusColor(status)}>
+                                                                        {reviewCount}/{getMaxReviews()} - {statusText}
+                                                                    </span>
+                                                                )}
                                                             </div>
 
                                                             {/* Coluna 6: Ações */}

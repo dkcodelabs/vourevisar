@@ -83,7 +83,7 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
   const nextReviewRaw = (topic as any).next_review;
   const lastReviewedAtRaw = (topic as any).last_reviewed_at;
   const reviewStageRaw = (topic as any).review_stage || topic.reviewStage;
-  
+
 
   return {
     id: topic.id,
@@ -197,7 +197,6 @@ export const useStudyCycleData = () => {
   };
   const { markTopicAsReviewed } = useTopicReview();
   const [studyFocusSubjectIds, setStudyFocusSubjectIds] = useState<Set<string>>(new Set());
-  const [sessionMarks, setSessionMarks] = useState<Record<string, Set<string>>>({});
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
 
   // Debug removido
@@ -482,47 +481,15 @@ export const useStudyCycleData = () => {
     }
   }, [user, subjects, refreshData]);
 
-  // Handle topic marking for review
-  const handleToggleMark = useCallback((subjectId: string, topicId: string) => {
-    setSessionMarks(prev => {
-      const currentMarks = prev[subjectId] ? new Set(prev[subjectId]) : new Set<string>();
-      if (currentMarks.has(topicId)) {
-        currentMarks.delete(topicId);
-      } else {
-        currentMarks.add(topicId);
-      }
-      return {
-        ...prev,
-        [subjectId]: currentMarks,
-      };
-    });
-  }, []);
 
-  // Handle completing a study session
+  // Handle completing a study session - simplified for internal cycle management
   const handleCompleteSession = useCallback(async (subjectId: string) => {
-    const revisedTopicIds = Array.from(sessionMarks[subjectId] || []);
-    if (revisedTopicIds.length === 0) return;
-
     try {
-      console.log('🔵 handleCompleteSession - Processando revisões:', {
-        subjectId,
-        revisedTopicIds
+      console.log('🔵 handleCompleteSession - Completando sessão:', {
+        subjectId
       });
 
-      // Update each revised topic using the same logic as the study plan
-      for (const topicId of revisedTopicIds) {
-        console.log('🔵 Marcando tópico como revisado:', topicId);
-        await markTopicAsReviewed(topicId);
-      }
-
-      // Clear session marks for this subject
-      setSessionMarks(prev => {
-        const newMarks = { ...prev };
-        delete newMarks[subjectId];
-        return newMarks;
-      });
-
-      // Recarregar dados dos subjects para mostrar próxima revisão
+      // Recarregar dados dos subjects
       await refreshData();
 
       // Recarregar dados do ciclo
@@ -544,12 +511,11 @@ export const useStudyCycleData = () => {
 
       console.log('✅ handleCompleteSession - Sessão completada com sucesso');
 
-      // Disparar evento para atualizar estatísticas imediatamente
+      // Disparar evento para atualizar estatísticas
       window.dispatchEvent(new CustomEvent('cycleUpdated', {
         detail: {
-          subjectId: revisedTopicIds[0], // Usar primeiro tópico como referência
-          completed: true,
-          topicsCount: revisedTopicIds.length
+          subjectId,
+          completed: true
         }
       }));
 
@@ -557,7 +523,7 @@ export const useStudyCycleData = () => {
       console.error('❌ Error completing session:', error);
       throw error;
     }
-  }, [sessionMarks, markTopicAsReviewed, refreshData, user]);
+  }, [refreshData, user]);
 
   // Handle saving topic notes
   const handleSaveNotes = useCallback(async (subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
@@ -626,11 +592,9 @@ export const useStudyCycleData = () => {
     completedCycleSubjects,
     areAllStudiesCompleted,
 
-    sessionMarks,
     userCycle,
     dailySubjectsWithViews,
     handleStartNewCycle,
-    handleToggleMark,
     handleCompleteSession,
     handleSaveNotes,
     refreshCycleData

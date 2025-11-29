@@ -22,8 +22,7 @@ interface StudyCycleSubjectCardProps {
   viewMode: 'grid' | 'list';
   isExpanded: boolean;
   onToggleExpand: () => void;
-  markedTopicIds: Set<string>;
-  onToggleMark: (topicId: string) => void;
+  onCheckboxClick: (topicId: string) => void;
   cyclePosition?: number | null;
   searchQuery?: string;
   filterTopicsBySearch?: (topics: any[]) => any[];
@@ -49,8 +48,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   viewMode,
   isExpanded,
   onToggleExpand,
-  markedTopicIds,
-  onToggleMark,
+  onCheckboxClick,
   cyclePosition,
   searchQuery = '',
   filterTopicsBySearch
@@ -65,10 +63,10 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   // Componente para renderizar a posição no ciclo
   const CyclePositionBadge = () => {
     if (!cyclePosition) return null;
-    
+
     return (
-      <Badge 
-        variant="secondary" 
+      <Badge
+        variant="secondary"
         className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-semibold"
         title={`Posição ${cyclePosition} na sequência do ciclo`}
       >
@@ -106,13 +104,13 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
       if (success) {
         console.log('✅ Matéria marcada como estudada com sucesso');
-        
+
         // Disparar apenas um evento para evitar loops infinitos
         window.dispatchEvent(new CustomEvent('cycleUpdated', {
-          detail: { 
-            subjectId: originalId, 
+          detail: {
+            subjectId: originalId,
             subjectName: subject.name,
-            completed: true 
+            completed: true
           }
         }));
       }
@@ -137,7 +135,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
     try {
       const originalId = subject.originalId || subject.id;
-      
+
       const { error } = await supabase
         .from('topics')
         .insert({
@@ -156,12 +154,12 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
       setNewTopicName('');
       setIsAddingTopic(false);
-      
+
       // Disparar evento para atualizar dados
-      window.dispatchEvent(new CustomEvent('topicUpdated', { 
-        detail: { action: 'add', subjectId: originalId } 
+      window.dispatchEvent(new CustomEvent('topicUpdated', {
+        detail: { action: 'add', subjectId: originalId }
       }));
-      
+
       onTopicUpdate?.();
       toast.success('Tópico adicionado com sucesso!');
     } catch (error) {
@@ -223,8 +221,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               <StudyCycleTopicItem
                 key={topic.id}
                 topic={topic}
-                isMarkedInSession={false}
-                onToggleMark={() => { }}
+                onCheckboxClick={() => onCheckboxClick(topic.id)}
                 onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
                 onTopicUpdate={onTopicUpdate}
                 isSubjectFinished={true}
@@ -354,8 +351,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                   <StudyCycleTopicItem
                     key={topic.id}
                     topic={topic}
-                    isMarkedInSession={markedTopicIds.has(topic.id)}
-                    onToggleMark={onToggleMark}
+                    onCheckboxClick={() => onCheckboxClick(topic.id)}
                     onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
                     onTopicUpdate={onTopicUpdate}
                     isSubjectFinished={false}
@@ -406,17 +402,6 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                   </div>
                 )}
               </div>
-              {isActionable && (
-                <div className="mt-4 pt-4 border-t border-border flex justify-end">
-                  <button
-                    onClick={handleComplete}
-                    disabled={markedTopicIds.size === 0}
-                    className="bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 hover:bg-sky-700 disabled:bg-muted disabled:cursor-not-allowed disabled:text-muted-foreground text-sm"
-                  >
-                    Concluir Sessão ({markedTopicIds.size})
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -484,8 +469,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             <StudyCycleTopicItem
               key={topic.id}
               topic={topic}
-              isMarkedInSession={markedTopicIds.has(topic.id)}
-              onToggleMark={onToggleMark}
+              onCheckboxClick={() => onCheckboxClick(topic.id)}
               onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
               onTopicUpdate={onTopicUpdate}
               isSubjectFinished={false}
@@ -536,18 +520,6 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           )}
         </div>
       </div>
-
-      {isActionable && (
-        <div className="p-4 bg-card border-t border-border mt-auto flex justify-end">
-          <button
-            onClick={handleComplete}
-            disabled={markedTopicIds.size === 0}
-            className="bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 hover:bg-sky-700 disabled:bg-muted disabled:cursor-not-allowed disabled:text-muted-foreground text-sm"
-          >
-            Concluir Sessão ({markedTopicIds.size})
-          </button>
-        </div>
-      )}
     </div>
   );
 };

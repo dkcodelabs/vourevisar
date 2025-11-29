@@ -30,13 +30,21 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   isCompleting = false
 }) => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null);
+  const [hasUserChanged, setHasUserChanged] = useState(false);
 
   // Definir dificuldade inicial quando o modal abrir
   React.useEffect(() => {
     if (isOpen) {
       setSelectedDifficulty(initialDifficulty);
+      setHasUserChanged(false); // Resetar flag quando modal abre
     }
   }, [isOpen, initialDifficulty]);
+
+  // Handler para mudança de dificuldade
+  const handleDifficultyChange = (value: number) => {
+    setSelectedDifficulty(value);
+    setHasUserChanged(true); // Marcar que usuário fez uma mudança
+  };
 
 
 
@@ -73,40 +81,43 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
         {/* Botão de fechar */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100"
+          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 z-10"
         >
           <X className="h-4 w-4" />
         </button>
 
-        {/* Header */}
+        {/* Header com ícone inline */}
         <div className="text-center mb-6">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 15 }}
-            className="mx-auto mb-4 p-3 rounded-full bg-green-100 w-fit"
-          >
-            {initialDifficulty !== null ? (
-              <Star className="h-8 w-8 text-yellow-500" />
-            ) : (
-              <Trophy className="h-8 w-8 text-green-600" />
-            )}
-          </motion.div>
+          {/* Título com ícone inline */}
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+              className="p-2 rounded-full bg-green-100"
+            >
+              {initialDifficulty !== null ? (
+                <Star className="h-6 w-6 text-yellow-500" />
+              ) : (
+                <Trophy className="h-6 w-6 text-green-600" />
+              )}
+            </motion.div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+              {reviewCount ? (
+                reviewCount === 1 ? '1ª Revisão' :
+                  reviewCount === 2 ? '2ª Revisão' :
+                    reviewCount === 3 ? '3ª Revisão' :
+                      reviewCount === 4 ? '4ª Revisão' :
+                        isCompleting ? 'Tópico Concluído' : 'Revisar Tópico'
+              ) : (
+                initialDifficulty !== null ? 'Avaliar Dificuldade' : 'Tópico Concluído'
+              )}
+            </h2>
+          </div>
 
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
-            {reviewCount ? (
-              reviewCount === 1 ? '1ª Revisão! 🎉' :
-                reviewCount === 2 ? '2ª Revisão! 🎉' :
-                  reviewCount === 3 ? '3ª Revisão! 🎉' :
-                    reviewCount === 4 ? '4ª Revisão! 🎉' :
-                      isCompleting ? 'Tópico Concluído! 🎉' : 'Revisar Tópico'
-            ) : (
-              initialDifficulty !== null ? 'Avaliar Dificuldade' : 'Tópico Concluído! 🎉'
-            )}
-          </h2>
-
+          {/* Matéria e Tópico */}
           <div className="space-y-1">
-            <div className="font-medium text-gray-900">
+            <div className="font-medium text-gray-900 text-base sm:text-lg">
               {subjectName}
             </div>
             <div className="text-sm text-gray-600">
@@ -116,67 +127,51 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
         </div>
 
         {/* Conteúdo */}
-        <div className="space-y-6">
+        <div className="space-y-4">
+          {/* Seletor de dificuldade */}
           <div className="text-center">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <Star className="h-5 w-5 text-yellow-500" />
-              <h3 className="text-lg font-semibold text-gray-900">
-                Como foi a dificuldade?
-              </h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Sua avaliação nos ajuda a personalizar suas próximas sessões
-            </p>
-          </div>
-
-          <div className="flex justify-center">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
+              Como foi a dificuldade?
+            </h3>
             <DifficultyRating
               value={selectedDifficulty}
-              onChange={setSelectedDifficulty}
+              onChange={handleDifficultyChange}
               size="lg"
               showLabel={true}
             />
           </div>
 
-          {selectedDifficulty && (
+          {/* Feedback condicional - só aparece quando usuário ALTERA ativamente */}
+          {hasUserChanged && selectedDifficulty && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-center p-3 bg-blue-50 rounded-lg"
             >
-              <CheckCircle2 className="h-5 w-5 text-blue-600 mx-auto mb-2" />
+              <CheckCircle2 className="h-5 w-5 text-blue-600 mx-auto mb-1" />
               <p className="text-sm text-blue-800">
-                Perfeito! Isso nos ajuda a estimar melhor seus tempos de estudo.
+                Perfeito! Isso nos ajuda a personalizar suas próximas sessões.
               </p>
             </motion.div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex gap-2 mt-6">
+        {/* Footer - Botões */}
+        <div className="flex flex-col sm:flex-row gap-2 mt-6">
           <Button
             variant="outline"
             onClick={onClose}
-            className="flex-1"
+            className="flex-1 order-2 sm:order-1"
           >
             Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
-            className="flex-1 bg-green-600 hover:bg-green-700"
+            className="flex-1 bg-green-600 hover:bg-green-700 order-1 sm:order-2"
             disabled={onConfirmReview && !selectedDifficulty}
           >
             {onConfirmReview ? 'Confirmar Revisão' : 'Salvar'}
           </Button>
-        </div>
-
-        <div className="text-center mt-4">
-          <p className="text-xs text-gray-500">
-            {initialDifficulty ?
-              'Você pode alterar a dificuldade a qualquer momento' :
-              'Sua avaliação nos ajuda a personalizar suas próximas sessões'
-            }
-          </p>
         </div>
       </motion.div>
     </div>

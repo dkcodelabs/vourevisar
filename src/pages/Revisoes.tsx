@@ -2,17 +2,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar,
-  CheckCircle2,
-  Plus,
   Search,
   MessageSquareText,
   Check,
   Sparkles,
-  Home,
   Star,
   ChevronDown,
   ChevronRight,
-  Loader2
+  Loader2,
+  PlayCircle
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -20,7 +18,9 @@ import { toast } from 'sonner';
 import { useApp } from '@/contexts/AppContext';
 import { useReviewsData } from '@/hooks/useReviewsData';
 import { useTopicReview } from '@/hooks/useTopicReview';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { RevisionItem, RevisionStatus } from '@/types/revision';
+import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
 import { StatusBadge } from '@/components/reviews/new/StatusBadge';
 
@@ -56,6 +56,8 @@ const Revisoes = () => {
     futureTopics,
     completedTopics
   } = useReviewsData();
+
+  const { settings } = useUserSettings();
 
   // New Layout State
   const [activeTab, setActiveTab] = useState<ViewTab>('FOCUS');
@@ -114,6 +116,15 @@ const Revisoes = () => {
     // Helper to map topic to item
     const mapTopicToItem = (topic: any, status: RevisionStatus): RevisionItem => {
       const subject = subjects.find(s => s.id === topic.subject_id);
+
+      // Calculate review count and max reviews
+      const userProfile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
+      const maxReviews = REVIEW_PROFILES[userProfile].maxReviews;
+      const actualReviewCount = topic.reviewCount || topic.review_count || 0;
+      const reviewCount = status === 'COMPLETED'
+        ? maxReviews
+        : Math.min(actualReviewCount, maxReviews); // Removido o -1
+
       return {
         id: topic.id,
         topic: topic.name,
@@ -123,7 +134,9 @@ const Revisoes = () => {
         dueDate: topic.next_review || new Date().toISOString(),
         notes: topic.notes || '',
         status: status,
-        ownerImage: '' // Placeholder
+        ownerImage: '', // Placeholder
+        reviewCount,
+        maxReviews
       };
     };
 
@@ -443,7 +456,12 @@ const Revisoes = () => {
                             {/* Status/Date */}
                             <div className="md:px-1 md:py-1 flex items-center justify-center md:border-r border-gray-100">
                               <div className="w-[115px]">
-                                <StatusBadge status={item.status} daysDiff={getDaysDiff(item.dueDate)} />
+                                <StatusBadge
+                                  status={item.status}
+                                  daysDiff={getDaysDiff(item.dueDate)}
+                                  reviewCount={item.reviewCount}
+                                  maxReviews={item.maxReviews}
+                                />
                               </div>
                             </div>
 
@@ -482,9 +500,9 @@ const Revisoes = () => {
                                     handleMarkCompleted(item.id);
                                   }}
                                   className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
-                                  title="Marcar como Revisado"
+                                  title="Iniciar Revisão"
                                 >
-                                  <CheckCircle2 size={20} />
+                                  <PlayCircle size={20} />
                                 </button>
                               ) : (
                                 <Check size={16} className="text-green-500" />

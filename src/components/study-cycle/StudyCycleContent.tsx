@@ -12,6 +12,8 @@ import { CycleStatsModal } from './CycleStatsModal';
 // REMOVIDO DailyStudyProgress - estava causando loops infinitos
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTopicReview } from '@/hooks/useTopicReview';
+import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { toast } from 'sonner';
 // Removido hook de visibilidade que causava recarregamentos
 
@@ -50,9 +52,7 @@ export const StudyCycleContent: React.FC = () => {
     studyCycleSubjects: subjects,
     groupedSubjects,
     areAllStudiesCompleted,
-    sessionMarks,
     userCycle,
-    handleToggleMark,
     handleCompleteSession: handleCompleteSessionData,
     handleSaveNotes,
     refreshCycleData
@@ -67,7 +67,7 @@ export const StudyCycleContent: React.FC = () => {
       const now = Date.now();
       const eventDetail = event?.detail;
 
-      console.log('🔄 MODAL: handleCycleUpdate disparado', { 
+      console.log('🔄 MODAL: handleCycleUpdate disparado', {
         eventDetail,
         timestamp: new Date().toISOString()
       });
@@ -169,18 +169,18 @@ export const StudyCycleContent: React.FC = () => {
     // Sempre iniciar com visualização lista por padrão
     // Se o usuário já escolheu uma preferência, respeitar a escolha
     const savedViewMode = localStorage.getItem(LOCAL_STORAGE_VIEW_KEY);
-    
+
     // Se não há preferência salva, definir 'list' como padrão e salvar
     if (!savedViewMode) {
       localStorage.setItem(LOCAL_STORAGE_VIEW_KEY, 'list');
       return 'list';
     }
-    
+
     return (savedViewMode === 'grid' || savedViewMode === 'list') ? savedViewMode : 'list';
   });
 
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
-  
+
   // Modal de tópicos - usando o mesmo padrão do modal de matérias
   const [topicNotesModal, setTopicNotesModal] = useState<{
     isOpen: boolean;
@@ -217,16 +217,26 @@ export const StudyCycleContent: React.FC = () => {
   const { getCycleStats } = useCycleStatus();
   const { user } = useAuth();
 
+  // Hook para review de tópicos (modal de dificuldade)
+  const {
+    openReviewModal,
+    difficultyModalData,
+    openDifficultyModal,
+    closeDifficultyModal,
+    submitDifficultyRating,
+    markTopicAsReviewed
+  } = useTopicReview();
+
   // Função para normalizar texto (remover acentos)
-  const normalizeText = useCallback((text: string) => 
+  const normalizeText = useCallback((text: string) =>
     text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(), []);
 
   // Função para filtrar tópicos baseado na busca
   const filterTopicsBySearch = useCallback((topics: StudyCycleTopic[]) => {
     if (!searchQuery.trim()) return topics;
-    
+
     const normalizedQuery = normalizeText(searchQuery);
-    return topics.filter(topic => 
+    return topics.filter(topic =>
       normalizeText(topic.name).includes(normalizedQuery)
     );
   }, [searchQuery, normalizeText]);
@@ -256,45 +266,18 @@ export const StudyCycleContent: React.FC = () => {
       // 1. Preparar dados da sessão ANTES de executar a lógica original
       const subject = subjects.find(s => s.id === subjectId);
       const cyclePosition = getCyclePosition(subjectId);
-      const topicsStudied = Array.from(sessionMarks[subjectId] || []);
 
       console.log('📊 Dados da sessão preparados:', {
         subject: subject?.name,
         cyclePosition,
-        topicsStudied: topicsStudied.length,
         user: !!user
       });
 
-      // 2. Salvar sessão no sistema de progresso diário SEMPRE (mesmo se pulou)
-      if (subject && user) {
-        const sessionData = {
-          subjectId: subject.id,
-          subjectName: subject.name,
-          cyclePosition: cyclePosition?.[0] || 1,
-          topicsStudied, // Pode ser vazio se pulou a matéria
-          completedAt: new Date().toISOString()
-        };
-
-        console.log('💾 Salvando sessão no progresso diário:', {
-          ...sessionData,
-          topicsCount: topicsStudied.length,
-          isPulada: topicsStudied.length === 0
-        });
-
-        // TODO: Implementar saveStudySession quando necessário
-        console.log('💾 Dados da sessão preparados para salvar:', sessionData);
-      } else {
-        console.warn('⚠️ Sessão não salva - dados insuficientes:', {
-          subject: !!subject,
-          user: !!user
-        });
-      }
-
-      // 3. Executar lógica original do sistema (que limpa os marks)
+      // 2. Executar lógica original do sistema
       await handleCompleteSessionData(subjectId);
       console.log('✅ handleCompleteSessionData concluído');
 
-      // 4. Disparar eventos para atualizar componentes
+      // 3. Disparar eventos para atualizar componentes
       window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
         detail: { subjectId, subjectName: subject?.name || 'Matéria' }
       }));
@@ -303,7 +286,6 @@ export const StudyCycleContent: React.FC = () => {
         detail: {
           subjectId,
           subjectName: subject?.name || 'Matéria',
-          topicsStudied: topicsStudied.length,
           completed: true
         }
       }));
@@ -312,7 +294,23 @@ export const StudyCycleContent: React.FC = () => {
       console.error('❌ Erro ao completar sessão com progresso:', error);
       toast.error('Erro ao completar sessão');
     }
-  }, [handleCompleteSessionData, subjects, getCyclePosition, sessionMarks, user]);
+  }, [handleCompleteSessionData, subjects, getCyclePosition, user]);
+
+  // Handler para quando o checkbox é clicado - abre o modal de dificuldade
+  const handleCheckboxClick = useCallback(async (topicId: string) => {
+    try {
+      console.log('📦 Abrindo modal de revisão via checkbox:', {
+        topicId
+      });
+
+      // Usar openReviewModal ao invés de openDifficultyModal para garantir
+      // que reviewCount seja calculado corretamente
+      await openReviewModal(topicId);
+    } catch (error) {
+      console.error('Erro ao abrir modal de revisão:', error);
+      toast.error('Erro ao abrir modal de revisão');
+    }
+  }, [openReviewModal]);
 
 
 
@@ -350,11 +348,11 @@ export const StudyCycleContent: React.FC = () => {
 
   const handleOpenNotes = useCallback((subjectId: string, topicId: string) => {
     console.log('🔵 MODAL: handleOpenNotes chamado', { subjectId, topicId });
-    
+
     // Encontrar subject e topic para pegar os nomes
     const subject = subjects.find(s => s.id === subjectId);
     const topic = subject?.topics.find(t => t.id === topicId);
-    
+
     if (subject && topic) {
       setTopicNotesModal({
         isOpen: true,
@@ -433,8 +431,7 @@ export const StudyCycleContent: React.FC = () => {
                 viewMode={viewMode}
                 isExpanded={expandedSubjects.has(subject.id)}
                 onToggleExpand={() => handleToggleExpand(subject.id)}
-                markedTopicIds={sessionMarks[subject.id] || new Set()}
-                onToggleMark={(topicId) => handleToggleMark(subject.id, topicId)}
+                onCheckboxClick={handleCheckboxClick}
                 cyclePosition={cyclePosition}
                 searchQuery={searchQuery}
                 filterTopicsBySearch={filterTopicsBySearch}
@@ -480,20 +477,20 @@ export const StudyCycleContent: React.FC = () => {
                   const query = e.target.value;
                   const previousQuery = searchQuery;
                   setSearchQuery(query);
-                  
+
                   // Se está começando a buscar (antes estava vazio), salvar estado atual
                   if (!previousQuery && query.trim()) {
                     setExpandedBeforeSearch(new Set(expandedSubjects));
                   }
-                  
+
                   // Se há busca, expandir matérias que têm tópicos correspondentes
                   if (query.trim()) {
-                    const normalizeText = (text: string) => 
+                    const normalizeText = (text: string) =>
                       text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-                    
+
                     const normalizedQuery = normalizeText(query);
                     const newExpanded = new Set<string>();
-                    
+
                     subjects.forEach(subject => {
                       const hasMatchingTopic = subject.topics?.some(topic =>
                         normalizeText(topic.name).includes(normalizedQuery)
@@ -502,7 +499,7 @@ export const StudyCycleContent: React.FC = () => {
                         newExpanded.add(subject.id);
                       }
                     });
-                    
+
                     setExpandedSubjects(newExpanded);
                   } else {
                     // Se apagou tudo, restaurar estado anterior
@@ -611,6 +608,27 @@ export const StudyCycleContent: React.FC = () => {
         isOpen={showStatsModal}
         onClose={() => setShowStatsModal(false)}
         stats={currentStats}
+      />
+
+      {/* Difficulty Rating Modal */}
+      <DifficultyRatingModal
+        isOpen={difficultyModalData.isOpen}
+        onClose={closeDifficultyModal}
+        onSubmit={async (difficulty) => {
+          await submitDifficultyRating(difficulty);
+          setTimeout(() => refreshCycleData(), 500);
+        }}
+        onConfirmReview={difficultyModalData.reviewCount > 0 ? async (difficulty) => {
+          await markTopicAsReviewed(difficultyModalData.topicId, difficulty);
+          closeDifficultyModal();
+          setTimeout(() => refreshCycleData(), 500);
+        } : undefined}
+        topicName={difficultyModalData.topicName}
+        subjectName={difficultyModalData.subjectName}
+        initialDifficulty={difficultyModalData.currentDifficulty}
+        reviewStage={difficultyModalData.reviewStage}
+        reviewCount={difficultyModalData.reviewCount}
+        isCompleting={difficultyModalData.isCompleting}
       />
 
     </div>

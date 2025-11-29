@@ -20,6 +20,8 @@ export interface RevisionItem {
     notes: string;
     status: RevisionStatus;
     ownerImage: string; // Placeholder for UI consistency
+    reviewCount?: number; // Number of reviews completed
+    maxReviews?: number; // Maximum reviews for user profile
 }
 
 export interface GroupedData {
