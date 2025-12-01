@@ -17,21 +17,21 @@ interface EditableTopicNameProps {
 // Componente para destacar texto da busca
 const HighlightText: React.FC<{ text: string; searchQuery: string }> = ({ text, searchQuery }) => {
   if (!searchQuery.trim()) return <>{text}</>;
-  
-  const normalizeText = (str: string) => 
+
+  const normalizeText = (str: string) =>
     str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  
+
   const normalizedText = normalizeText(text);
   const normalizedQuery = normalizeText(searchQuery);
-  
+
   const index = normalizedText.indexOf(normalizedQuery);
-  
+
   if (index === -1) return <>{text}</>;
-  
+
   const beforeMatch = text.substring(0, index);
   const match = text.substring(index, index + searchQuery.length);
   const afterMatch = text.substring(index + searchQuery.length);
-  
+
   return (
     <>
       {beforeMatch}
@@ -101,13 +101,13 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
       setInternalEditing(false);
       onEditChange?.(false);
       onUpdate();
-      
+
       // Disparar evento para sincronizar outras páginas
       // Evento disparado para sincronização
-      window.dispatchEvent(new CustomEvent('topicUpdated', { 
-        detail: { action: 'update', topicId } 
+      window.dispatchEvent(new CustomEvent('topicUpdated', {
+        detail: { action: 'update', topicId }
       }));
-      
+
       toast.success("Nome do tópico atualizado com sucesso");
     } catch (error) {
       console.error('Erro ao atualizar nome do tópico:', error);
@@ -125,46 +125,42 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
 
   if (isEditingState) {
     return (
-      <div className="flex items-start gap-2 flex-1">
-        <textarea
-          ref={textareaRef}
+      <div className="flex items-center gap-2 flex-1">
+        <Input
+          ref={textareaRef as any} // Cast to any since Input ref might expect HTMLInputElement
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="flex-1 text-sm font-normal bg-white dark:bg-slate-800 border border-blue-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[60px]"
-          rows={3}
+          className="h-8 text-sm flex-1"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.ctrlKey) {
-              e.preventDefault();
+            if (e.key === 'Enter') {
               handleSave();
             }
             if (e.key === 'Escape') {
-              e.preventDefault();
               handleCancel();
             }
           }}
+          autoFocus
         />
-        <div className="flex flex-col gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-            title="Salvar (Ctrl+Enter)"
-          >
-            <Check className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleCancel}
-            disabled={isSaving}
-            className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-            title="Cancelar (Esc)"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleSave}
+          disabled={isSaving}
+          className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+          title="Salvar (Enter)"
+        >
+          <Check className="h-4 w-4" />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleCancel}
+          disabled={isSaving}
+          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+          title="Cancelar (Esc)"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
     );
   }

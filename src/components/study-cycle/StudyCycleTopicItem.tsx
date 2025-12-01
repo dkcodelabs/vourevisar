@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { StudyCycleTopic } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
-import { CheckIcon, EditIcon } from './Icons';
+import { CheckIcon } from './Icons';
+import { FileText } from 'lucide-react';
 import { EditableTopicName } from '@/components/EditableTopicName';
 
 interface StudyCycleTopicItemProps {
@@ -224,7 +225,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
     );
   }
 
-  const baseClasses = "flex items-center justify-between w-full p-3 text-left transition-colors duration-200 rounded-lg";
+  const baseClasses = "flex items-center justify-between w-full py-2 px-3 text-left transition-colors duration-200 rounded-lg";
   const bgClasses = 'bg-white dark:bg-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700';
 
   const buttonBaseClasses = "flex-shrink-0 w-8 h-8 min-w-[2rem] min-h-[2rem] max-w-[2rem] max-h-[2rem] rounded-full flex items-center justify-center border-2 transition-all duration-200";
@@ -232,25 +233,30 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   return (
     <div className={`${baseClasses} ${bgClasses}`}>
       {/* Layout responsivo: desktop = horizontal, mobile = vertical */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
         {/* Texto do tópico - Editável */}
-        <div
-          className="flex-1 cursor-pointer group"
-          onClick={() => !isEditing && handleStartEditing()}
-          title="Clique para editar o nome"
-        >
-          <EditableTopicName
-            topicId={topic.id}
-            initialName={topic.name}
-            onUpdate={handleStopEditing}
-            isEditing={isEditing}
-            onEditChange={(editing) => {
-              if (!editing) {
-                handleStopEditing();
-              }
+        <div className="flex-1 group">
+          <div
+            className="inline-block cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isEditing) handleStartEditing();
             }}
-            searchQuery={searchQuery}
-          />
+            title="Clique no texto para editar"
+          >
+            <EditableTopicName
+              topicId={topic.id}
+              initialName={topic.name}
+              onUpdate={handleStopEditing}
+              isEditing={isEditing}
+              onEditChange={(editing) => {
+                if (!editing) {
+                  handleStopEditing();
+                }
+              }}
+              searchQuery={searchQuery}
+            />
+          </div>
         </div>
 
         {/* Controles: status, anotação e radiobox */}
@@ -258,7 +264,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
           {/* Badge com data em tooltip */}
           <div className="flex flex-col items-end">
             <div
-              className={`px-2 py-1 rounded-full ${statusConfig.className} relative group cursor-help text-xs font-semibold`}
+              className={`px-2 py-0.5 rounded-full ${statusConfig.className} relative group cursor-help text-[11px] font-semibold`}
               title={statusConfig.dateInfo || ''}
             >
               {statusConfig.text}
@@ -278,12 +284,12 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
               }`}
             aria-label={`Anotações para ${topic.name}`}
           >
-            <EditIcon />
+            <FileText size={18} />
           </button>
           <button
             onClick={onCheckboxClick}
             disabled={isTopicCompleted || !isActionable}
-            className={`${buttonBaseClasses} border-gray-300 dark:border-slate-400 shadow-sm dark:bg-slate-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-500 bg-[#F1F5F9] hover:bg-[#DBEAFE] hover:border-blue-400 ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`flex-shrink-0 w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] max-w-[1.5rem] max-h-[1.5rem] rounded-full flex items-center justify-center border-2 transition-all duration-200 border-gray-300 dark:border-slate-400 shadow-sm dark:bg-slate-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-500 bg-[#F1F5F9] hover:bg-[#DBEAFE] hover:border-blue-400 ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
             aria-label={`Marcar ${topic.name} como revisado`}
           >
           </button>

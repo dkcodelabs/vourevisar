@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, BookOpen, Calendar, List, Clock, TrendingUp, Timer, Menu, Target, Settings, LucideIcon
+  LayoutDashboard, BookOpen, Calendar, List, Clock, TrendingUp, Timer, Menu, Target, Settings, LucideIcon, Notebook
 } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,11 +62,31 @@ const useNavigation = () => {
   return { isItemActive, location };
 };
 
+import GeneralNotesModal from '@/components/GeneralNotesModal';
+import NotesModal from '@/components/reviews/NotesModal';
+import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
+
+// ... (imports remain the same)
+
 export const TopHeader = () => {
   const { user } = useAuth();
   const { isItemActive } = useNavigation();
   const { timeLeft, isRunning, getProgress, formatTime, getState, isBlinking } = useSharedPomodoroTimer();
   const { isAdmin } = useUserRole();
+
+  // Modal States
+  const [isGeneralNotesModalOpen, setIsGeneralNotesModalOpen] = React.useState(false);
+  const [topicNotesModal, setTopicNotesModal] = React.useState({
+    isOpen: false,
+    topicId: '',
+    topicName: '',
+    subjectName: ''
+  });
+  const [subjectNotesModal, setSubjectNotesModal] = React.useState({
+    isOpen: false,
+    subjectId: '',
+    subjectName: ''
+  });
 
   // Memoizar cálculos para evitar re-renders desnecessários
   const state = React.useMemo(() => getState(), [getState]);
@@ -76,7 +96,7 @@ export const TopHeader = () => {
 
   return (
     <header className="w-full py-3">
-      <div className="container mx-auto px-4">
+      <div className="w-full max-w-[1920px] mx-auto px-4">
         <div className="flex items-center justify-between gap-4">
 
           {/* Left Side: Logo (separate) + Navigation Menu */}
@@ -91,7 +111,7 @@ export const TopHeader = () => {
               <img
                 src="/logo.png"
                 alt="vouRevisar"
-                className="h-8 w-auto"
+                className="h-10 w-auto" // Increased size
               />
             </div>
 
@@ -119,10 +139,18 @@ export const TopHeader = () => {
 
           {/* Right Side: Utility Icons - separated */}
           <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Annotations Button */}
+            <button
+              onClick={() => setIsGeneralNotesModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+              title="Anotações Gerais"
+            >
+              <Notebook className="w-4 h-4" />
+              <span className="hidden sm:inline">Anotações</span>
+            </button>
+
             {/* Theme Toggle */}
             <ThemeToggle />
-
-
 
             {/* Pomodoro Timer Icon */}
             {user && (
@@ -213,7 +241,41 @@ export const TopHeader = () => {
         </div>
       </div>
 
+      {/* Modals */}
+      <GeneralNotesModal
+        isOpen={isGeneralNotesModalOpen}
+        onClose={() => setIsGeneralNotesModalOpen(false)}
+        onOpenTopicNotes={(topicId, topicName, subjectName) => {
+          setTopicNotesModal({
+            isOpen: true,
+            topicId,
+            topicName,
+            subjectName
+          });
+        }}
+        onOpenSubjectNotes={(subjectId, subjectName) => {
+          setSubjectNotesModal({
+            isOpen: true,
+            subjectId,
+            subjectName
+          });
+        }}
+      />
 
+      <NotesModal
+        isOpen={topicNotesModal.isOpen}
+        onClose={() => setTopicNotesModal({ isOpen: false, topicId: '', topicName: '', subjectName: '' })}
+        topicId={topicNotesModal.topicId}
+        topicName={topicNotesModal.topicName}
+        subjectName={topicNotesModal.subjectName}
+      />
+
+      <SubjectNotesModal
+        isOpen={subjectNotesModal.isOpen}
+        onClose={() => setSubjectNotesModal({ isOpen: false, subjectId: '', subjectName: '' })}
+        subjectId={subjectNotesModal.subjectId}
+        subjectName={subjectNotesModal.subjectName}
+      />
     </header>
   );
 };

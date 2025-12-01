@@ -148,6 +148,8 @@ const mapDifficultyToLevel = (difficulty: Difficulty): number => {
 export const useStudyCycleData = () => {
   const { user } = useAuth();
 
+  // Estado de loading
+  const [isLoading, setIsLoading] = useState(true);
   // Estado local simples - SEM useApp()
   const [subjects, setSubjects] = useState<Subject[]>([]);
 
@@ -204,7 +206,10 @@ export const useStudyCycleData = () => {
   // Load user cycle data
   useEffect(() => {
     const loadUserCycle = async () => {
-      if (!user) return;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const { data, error } = await supabase
@@ -260,6 +265,8 @@ export const useStudyCycleData = () => {
         setUserCycle(data);
       } catch (error) {
         console.error('Erro ao carregar ciclo:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -476,6 +483,14 @@ export const useStudyCycleData = () => {
         }
       }));
 
+      window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
+        detail: {
+          isReset: true,
+          reason: 'newCycleStarted',
+          timestamp: Date.now()
+        }
+      }));
+
     } catch (error) {
       console.error('Error starting new cycle:', error);
     }
@@ -597,7 +612,8 @@ export const useStudyCycleData = () => {
     handleStartNewCycle,
     handleCompleteSession,
     handleSaveNotes,
-    refreshCycleData
+    refreshCycleData,
+    isLoading
   };
 };
 

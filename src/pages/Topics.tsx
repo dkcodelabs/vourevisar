@@ -17,6 +17,7 @@ import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
 import NotesModal from '@/components/reviews/NotesModal';
 import { EditableTopicName } from '@/components/EditableTopicName';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
+import TopicListItem from '@/components/topics/TopicListItem';
 
 const Topics = () => {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ const Topics = () => {
     subjectName: string;
   }>({ isOpen: false, topicId: '', topicName: '', subjectName: '' });
 
-  const allTopics = subjects.flatMap(subject => 
+  const allTopics = subjects.flatMap(subject =>
     subject.topics.map(topic => ({
       ...topic,
       subjectId: subject.id,
@@ -59,7 +60,7 @@ const Topics = () => {
     // Aplicar filtro de pesquisa (apenas pelo nome do tópico)
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(topic => 
+      filtered = filtered.filter(topic =>
         topic.name.toLowerCase().includes(searchLower)
       );
     }
@@ -67,13 +68,13 @@ const Topics = () => {
     // Aplicar filtro de status
     if (statusFilter !== 'all') {
       const today = startOfDay(new Date());
-      
+
       filtered = filtered.filter(topic => {
         if (topic.completed) return statusFilter === 'upcoming';
         if (!topic.nextReview) return statusFilter === 'upcoming';
-        
+
         const reviewDate = startOfDay(new Date(topic.nextReview));
-        
+
         if (statusFilter === 'delayed') {
           return reviewDate < today;
         } else if (statusFilter === 'today') {
@@ -81,7 +82,7 @@ const Topics = () => {
         } else if (statusFilter === 'upcoming') {
           return reviewDate > today;
         }
-        
+
         return true;
       });
     }
@@ -108,7 +109,7 @@ const Topics = () => {
           if (!a.nextReview && !b.nextReview) return 0;
           if (!a.nextReview) return 1;
           if (!b.nextReview) return -1;
-          
+
           return new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime();
       }
     });
@@ -118,7 +119,7 @@ const Topics = () => {
 
   const stats = useMemo(() => {
     const today = startOfDay(new Date());
-    
+
     const delayed = allTopics.filter(topic => {
       if (topic.completed || !topic.nextReview) return false;
       const reviewDate = startOfDay(new Date(topic.nextReview));
@@ -169,18 +170,18 @@ const Topics = () => {
 
     if (reviewDate < today) {
       const daysLate = Math.floor((today.getTime() - reviewDate.getTime()) / (1000 * 60 * 60 * 24));
-      return { 
-        status: `Atrasado (${String(daysLate).padStart(2, '0')}/${String(reviewDate.getDate()).padStart(2, '0')})`, 
-        color: 'red', 
-        border: 'border-l-red-400' 
+      return {
+        status: `Atrasado (${String(daysLate).padStart(2, '0')}/${String(reviewDate.getDate()).padStart(2, '0')})`,
+        color: 'red',
+        border: 'border-l-red-400'
       };
     } else if (reviewDate.getTime() === today.getTime()) {
       return { status: 'Hoje', color: 'blue', border: 'border-l-blue-400' };
     } else {
-      return { 
-        status: `Futuro (${String(reviewDate.getDate()).padStart(2, '0')}/${String(reviewDate.getMonth() + 1).padStart(2, '0')})`, 
-        color: 'green', 
-        border: 'border-l-green-400' 
+      return {
+        status: `Futuro (${String(reviewDate.getDate()).padStart(2, '0')}/${String(reviewDate.getMonth() + 1).padStart(2, '0')})`,
+        color: 'green',
+        border: 'border-l-green-400'
       };
     }
   };
@@ -253,291 +254,216 @@ const Topics = () => {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto p-4">
-          {/* Header com Pesquisa e Filtros */}
-          <div className="mb-8">
-            <div className="flex flex-col gap-3">
-              {/* Campo de Pesquisa e Filtros na mesma linha */}
-              <div className="flex flex-col lg:flex-row gap-3">
-                {/* Campo de Pesquisa */}
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
-                  <Input
-                    placeholder="Pesquisar tópicos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-11 h-11 bg-card border-input text-foreground shadow-sm focus:ring-2 focus:ring-primary/20"
-                  />
+      <div className="space-y-6">
+        {/* Header com Pesquisa e Filtros */}
+        <div className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Tópicos</h1>
+            <p className="text-sm text-gray-500 mb-2">Visualize e gerencie todos os seus tópicos de estudo</p>
+            <div className="h-1 w-full bg-blue-500 rounded-full"></div>
+          </div>
+          <div className="flex flex-col gap-3">
+            {/* Campo de Pesquisa e Filtros na mesma linha */}
+            <div className="flex flex-col lg:flex-row gap-3">
+              {/* Campo de Pesquisa */}
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+                <Input
+                  placeholder="Pesquisar tópicos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-11 h-11 bg-card border-input text-foreground shadow-sm focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              {/* Filtros na mesma linha */}
+              <div className="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
+                {/* Subject Filter */}
+                <div className="w-full sm:w-48">
+                  <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                    <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
+                      <SelectValue placeholder="Disciplina" />
+                    </SelectTrigger>
+                    <SelectContent className="z-50 bg-popover">
+                      <SelectItem value="all">Todas as disciplinas</SelectItem>
+                      {subjects.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                
-                {/* Filtros na mesma linha */}
-                <div className="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
-                  {/* Subject Filter */}
-                  <div className="w-full sm:w-48">
-                    <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                      <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
-                        <SelectValue placeholder="Disciplina" />
-                      </SelectTrigger>
-                      <SelectContent className="z-50 bg-popover">
-                        <SelectItem value="all">Todas as disciplinas</SelectItem>
-                        {subjects.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  {/* Status Filter */}
-                  <div className="w-full sm:w-40">
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent className="z-50 bg-popover">
-                        <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="delayed">Atrasados</SelectItem>
-                        <SelectItem value="today">Hoje</SelectItem>
-                        <SelectItem value="upcoming">Futuros</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Status Filter */}
+                <div className="w-full sm:w-40">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent className="z-50 bg-popover">
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="delayed">Atrasados</SelectItem>
+                      <SelectItem value="today">Hoje</SelectItem>
+                      <SelectItem value="upcoming">Futuros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                  {/* Difficulty Filter */}
-                  <div className="w-full sm:w-52">
-                    <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                      <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
-                        <SelectValue placeholder="Dificuldade" />
-                      </SelectTrigger>
-                      <SelectContent className="z-50 bg-popover">
-                        <SelectItem value="all">Todas Dificuldades</SelectItem>
-                        <SelectItem value="1">
-                          <div className="flex items-center gap-2">
-                            <Star className="h-4 w-4 fill-green-500 text-green-500" />
-                            <span>1 Estrela ({stats.stars1})</span>
+                {/* Difficulty Filter */}
+                <div className="w-full sm:w-52">
+                  <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                    <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
+                      <SelectValue placeholder="Dificuldade" />
+                    </SelectTrigger>
+                    <SelectContent className="z-50 bg-popover">
+                      <SelectItem value="all">Todas Dificuldades</SelectItem>
+                      <SelectItem value="1">
+                        <div className="flex items-center gap-2">
+                          <Star className="h-4 w-4 fill-green-500 text-green-500" />
+                          <span>1 Estrela ({stats.stars1})</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex">
+                            <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
+                            <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
                           </div>
-                        </SelectItem>
-                        <SelectItem value="2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex">
-                              <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
-                              <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
-                            </div>
-                            <span>2 Estrelas ({stats.stars2})</span>
+                          <span>2 Estrelas ({stats.stars2})</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex">
+                            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
                           </div>
-                        </SelectItem>
-                        <SelectItem value="3">
-                          <div className="flex items-center gap-2">
-                            <div className="flex">
-                              <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                              <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                              <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                            </div>
-                            <span>3 Estrelas ({stats.stars3})</span>
+                          <span>3 Estrelas ({stats.stars3})</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="4">
+                        <div className="flex items-center gap-2">
+                          <div className="flex">
+                            <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                            <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                            <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                            <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
                           </div>
-                        </SelectItem>
-                        <SelectItem value="4">
-                          <div className="flex items-center gap-2">
-                            <div className="flex">
-                              <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
-                              <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
-                              <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
-                              <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
-                            </div>
-                            <span>4 Estrelas ({stats.stars4})</span>
+                          <span>4 Estrelas ({stats.stars4})</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex">
+                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
                           </div>
-                        </SelectItem>
-                        <SelectItem value="5">
-                          <div className="flex items-center gap-2">
-                            <div className="flex">
-                              <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                              <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                              <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                              <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                              <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                            </div>
-                            <span>5 Estrelas ({stats.stars5})</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                          <span>5 Estrelas ({stats.stars5})</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                  {/* Sort Filter */}
-                  <div className="w-full sm:w-44">
-                    <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
-                        <SelectValue placeholder="Ordenar" />
-                      </SelectTrigger>
-                      <SelectContent className="z-50 bg-popover">
-                        <SelectItem value="date">Data de Revisão</SelectItem>
-                        <SelectItem value="subject">Disciplina</SelectItem>
-                        <SelectItem value="name">Nome</SelectItem>
-                        <SelectItem value="difficulty">Dificuldade</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Sort Filter */}
+                <div className="w-full sm:w-44">
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
+                      <SelectValue placeholder="Ordenar" />
+                    </SelectTrigger>
+                    <SelectContent className="z-50 bg-popover">
+                      <SelectItem value="date">Data de Revisão</SelectItem>
+                      <SelectItem value="subject">Disciplina</SelectItem>
+                      <SelectItem value="name">Nome</SelectItem>
+                      <SelectItem value="difficulty">Dificuldade</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Topics List */}
-          <div className="pb-8">
-            {filteredAndSortedTopics.length === 0 ? (
-              <Card className="bg-card shadow-sm border">
-                <CardContent className="text-center py-12">
-                  <p className="text-muted-foreground mb-4">
-                    {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
-                      ? 'Nenhum tópico encontrado para os filtros aplicados.' 
-                      : 'Nenhum tópico cadastrado ainda.'
-                    }
-                  </p>
-                  {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && subjectFilter === 'all' && (
-                    <Button onClick={() => navigate('/materias')} className="bg-blue-600 hover:bg-blue-700">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Primeira Matéria
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="bg-card shadow-sm border rounded-lg overflow-hidden">
-                <AnimatePresence>
-                  {filteredAndSortedTopics.map((topic) => {
-                    const topicStatus = getTopicStatus(topic);
-                    const stageDisplay = getStageDisplay(topic);
-                    
-                    return (
-                      <motion.div
-                        key={topic.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className={`${topicStatus.border} border-l-4 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors`}
-                      >
-                        <div className="px-4 sm:px-6 py-4">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                            {/* Topic Name and Subject */}
-                            <div className="flex-1 min-w-0">
-                              <EditableTopicName
-                                topicId={topic.id}
-                                initialName={topic.name}
-                                onUpdate={() => {}}
-                                isEditing={editingTopicId === topic.id}
-                                onEditChange={(isEditing) => {
-                                  setEditingTopicId(isEditing ? topic.id : null);
-                                }}
-                              />
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mt-1">
-                                {topic.subjectName}
-                              </p>
-                            </div>
-                            
-                            {/* Badges and Actions */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <div className="flex items-center gap-3">
-                                {/* Difficulty Stars - Fixed Width, Right Aligned */}
-                                <div className="w-24 flex justify-end">
-                                  {topic.difficulty_level && (
-                                    <DifficultyRating 
-                                      value={topic.difficulty_level} 
-                                      readonly={true} 
-                                      size="sm" 
-                                    />
-                                  )}
-                                </div>
-                                
-                                {/* Stage Badge - Fixed Width, Left Aligned */}
-                                <div className="w-20 flex justify-start">
-                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
-                                    ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
-                                      topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
-                                      topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
-                                      'bg-gray-100 text-gray-700'}`}>
-                                    {stageDisplay}
-                                  </span>
-                                </div>
-                                
-                                {/* Status Badge - Fixed Width, Right Aligned */}
-                                <div className="w-36 flex justify-end">
-                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
-                                    ${topicStatus.color === 'red' ? 'bg-red-100 text-red-700' :
-                                      topicStatus.color === 'blue' ? 'bg-blue-100 text-blue-700' :
-                                      topicStatus.color === 'green' ? 'bg-green-100 text-green-700' :
-                                      'bg-gray-100 text-gray-700'}`}>
-                                    {topicStatus.status}
-                                  </span>
-                                </div>
-                              </div>
-                              
-                              {/* Action Icons */}
-                              <div className="flex items-center gap-1">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleOpenNotes(topic.id, topic.name, topic.subjectName)}
-                                      className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground"
-                                    >
-                                      <FileText className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Anotações</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                                
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setEditingTopicId(topic.id)}
-                                      className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Alterar nome</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                                
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDeleteTopic(topic.id)}
-                                      className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Excluir tópico</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
+        {/* Topics List */}
+        <div className="pb-8">
+          {filteredAndSortedTopics.length === 0 ? (
+            <Card className="bg-card shadow-sm border">
+              <CardContent className="text-center py-12">
+                <p className="text-muted-foreground mb-4">
+                  {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
+                    ? 'Nenhum tópico encontrado para os filtros aplicados.'
+                    : 'Nenhum tópico cadastrado ainda.'
+                  }
+                </p>
+                {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && subjectFilter === 'all' && (
+                  <Button onClick={() => navigate('/materias')} className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Primeira Matéria
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Table Header - HIDDEN ON MOBILE */}
+              <div className="hidden md:grid grid-cols-[1fr_120px_100px_125px_120px] gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                <div className="pl-8">Tópico</div>
+                <div className="text-center">Matéria</div>
+                <div className="text-center">Dificuldade</div>
+                <div className="text-center">Status</div>
+                <div className="text-center">Ações</div>
               </div>
-            )}
-          </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                {filteredAndSortedTopics.map((topic) => (
+                  <TopicListItem
+                    key={topic.id}
+                    topic={{
+                      ...topic,
+                      subjectName: topic.subjectName,
+                      subjectColor: topic.subjectColor,
+                      nextReview: topic.nextReview ? new Date(topic.nextReview).toISOString() : null,
+                      // Ensure difficulty_level is passed if it exists in topic, else 0
+                      difficulty_level: topic.difficulty_level || 0
+                    }}
+                    onEdit={(id, newName) => {
+                      updateTopic(id, { name: newName });
+                    }}
+                    onDelete={(id) => {
+                      const topicToDelete = allTopics.find(t => t.id === id);
+                      if (topicToDelete) {
+                        setDeleteModal({ isOpen: true, topic: topicToDelete });
+                      }
+                    }}
+                    onOpenNotes={(topicId, topicName, subjectName) => {
+                      setNotesModal({
+                        isOpen: true,
+                        topicId,
+                        topicName,
+                        subjectName
+                      });
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Modals */}
         <ConfirmDeleteModal
           isOpen={deleteModal.isOpen}
           onClose={() => setDeleteModal({ isOpen: false, topic: null })}
-          onConfirm={confirmDelete}
+          onConfirm={() => {
+            if (deleteModal.topic) {
+              deleteTopic(deleteModal.topic.id);
+              setDeleteModal({ isOpen: false, topic: null });
+              toast.success("Tópico excluído com sucesso!");
+            }
+          }}
           topicName={deleteModal.topic?.name || ''}
           subjectName={deleteModal.topic?.subjectName || ''}
         />

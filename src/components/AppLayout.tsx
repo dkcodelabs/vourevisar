@@ -7,11 +7,11 @@ export const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      <div className="fixed top-0 left-0 right-0 z-50 transition-colors duration-200">
+      <div className="fixed top-0 left-0 right-0 z-50 transition-colors duration-200 bg-white/80 backdrop-blur-md border-b border-gray-200 dark:bg-gray-900/80 dark:border-gray-800">
         <TopHeader />
       </div>
 
-      <main className="pt-20 container mx-auto px-4 py-6">
+      <main className="pt-20 w-full max-w-[1920px] mx-auto px-4 pb-6">
         <Outlet />
       </main>
 

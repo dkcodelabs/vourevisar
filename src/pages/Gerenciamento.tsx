@@ -23,7 +23,7 @@ export default function Gerenciamento() {
       <p style={{ color: '#64748b', marginBottom: '24px' }}>
         Gerencie usuários, roles e permissões do sistema.
       </p>
-      
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <ActionCard
           icon="👤"
@@ -65,7 +65,7 @@ export default function Gerenciamento() {
       <p style={{ color: '#64748b', marginBottom: '24px' }}>
         Gerencie os tipos de conta dos usuários (Free, Mensal, Anual).
       </p>
-      
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <ActionCard
           icon="💳"
@@ -101,7 +101,7 @@ export default function Gerenciamento() {
       <p style={{ color: '#64748b', marginBottom: '24px' }}>
         Visualize estatísticas e relatórios do sistema.
       </p>
-      
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <ActionCard
           icon="📈"
@@ -131,7 +131,7 @@ export default function Gerenciamento() {
       <p style={{ color: '#64748b', marginBottom: '24px' }}>
         Configure parâmetros gerais do sistema.
       </p>
-      
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <ActionCard
           icon="⚙️"
@@ -162,7 +162,7 @@ export default function Gerenciamento() {
         <p style={{ color: '#64748b', marginBottom: '24px' }}>
           Controle total sobre roles e permissões do sistema.
         </p>
-        
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
           <ActionCard
             icon="👑"
@@ -209,7 +209,7 @@ export default function Gerenciamento() {
         <p style={{ color: '#64748b', marginBottom: '24px' }}>
           Configurações críticas do sistema (apenas proprietário).
         </p>
-        
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
           <ActionCard
             icon="🔧"
@@ -244,7 +244,7 @@ export default function Gerenciamento() {
         <p style={{ color: '#64748b', marginBottom: '24px' }}>
           Gerenciar backups e restauração do sistema.
         </p>
-        
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
           <ActionCard
             icon="💾"
@@ -291,14 +291,12 @@ export default function Gerenciamento() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
+    <div>
       {/* Header */}
-      <div style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #e2e8f0',
-        padding: '16px 0'
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+      {/* Header */}
+      {/* Header */}
+      <div className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
+        <div style={{ margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h1 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: '700', color: '#1e293b' }}>
@@ -318,7 +316,7 @@ export default function Gerenciamento() {
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '24px' }}>
-          
+
           {/* Sidebar de Navegação */}
           <div style={{
             background: '#ffffff',
@@ -334,7 +332,7 @@ export default function Gerenciamento() {
             }}>
               📋 Seções
             </div>
-            
+
             <div style={{ padding: '8px' }}>
               {/* Seções para Admins */}
               <AdminOnly>
@@ -463,8 +461,8 @@ function SidebarItem({ icon, label, active, onClick, isOwnerOnly = false }: Side
         borderRadius: '6px',
         cursor: 'pointer',
         fontSize: '14px',
-        color: active 
-          ? (isOwnerOnly ? '#7c3aed' : '#0369a1') 
+        color: active
+          ? (isOwnerOnly ? '#7c3aed' : '#0369a1')
           : (isOwnerOnly ? '#7c3aed' : '#374151'),
         textAlign: 'left',
         margin: '2px 0'
@@ -511,18 +509,18 @@ function ActionCard({ icon, title, description, onClick, isOwnerOnly = false }: 
       }}
     >
       <div style={{ fontSize: '24px', marginBottom: '8px' }}>{icon}</div>
-      <h3 style={{ 
-        margin: '0 0 4px 0', 
-        fontSize: '16px', 
+      <h3 style={{
+        margin: '0 0 4px 0',
+        fontSize: '16px',
         fontWeight: '600',
         color: isOwnerOnly ? '#7c3aed' : '#1e293b'
       }}>
         {title}
       </h3>
-      <p style={{ 
-        margin: 0, 
-        fontSize: '14px', 
-        color: '#64748b' 
+      <p style={{
+        margin: 0,
+        fontSize: '14px',
+        color: '#64748b'
       }}>
         {description}
       </p>

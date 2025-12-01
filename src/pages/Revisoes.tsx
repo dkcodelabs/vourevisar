@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar,
   Search,
-  MessageSquareText,
+  FileText,
   Check,
   Sparkles,
   Star,
@@ -247,7 +246,7 @@ const Revisoes = () => {
 
     // Simulate AI delay since we don't have the service yet
     setTimeout(() => {
-      setAiExplanation(`Esta é uma explicação simulada para o tópico: **${item.topic}**.\n\nO recurso de IA será integrado em breve para fornecer resumos detalhados e dicas de estudo personalizadas.`);
+      setAiExplanation(`Esta é uma explicação simulada para o tópico: ** ${item.topic}**.\n\nO recurso de IA será integrado em breve para fornecer resumos detalhados e dicas de estudo personalizadas.`);
       setIsAiLoading(false);
     }, 1500);
   };
@@ -261,16 +260,18 @@ const Revisoes = () => {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] w-full bg-[#f5f6f8] text-[#323338] overflow-hidden">
+    <div className="flex h-[calc(100vh-7rem)] w-full bg-gray-50 text-gray-900 overflow-hidden">
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
 
         {/* Header Section */}
-        <header className="bg-white px-4 md:px-8 pt-6 pb-2 border-b border-gray-200 shrink-0">
+        {/* Header Section */}
+        <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div>
-              <h1 className="text-xl md:text-2xl font-bold text-[#323338] mb-1">Processo de Revisão</h1>
-              <p className="text-gray-500 text-xs">Painel de controle de repetição espaçada</p>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">Processo de Revisão</h1>
+              <p className="text-gray-500 text-xs mb-2">Painel de controle de repetição espaçada</p>
+              <div className="h-1 w-full bg-blue-500 rounded-full"></div>
             </div>
             <div className="flex w-full md:w-auto items-center gap-3">
               {/* Controls moved to tabs row */}
@@ -278,7 +279,7 @@ const Revisoes = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-2 mt-4 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="flex items-center gap-2 mt-4 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 md:-mx-8 md:px-8">
             <button
               onClick={() => {
                 const allKeys = Object.keys(groupedItems);
@@ -306,15 +307,15 @@ const Revisoes = () => {
               className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'FOCUS'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
+                } `}
             >
               <span>Hoje</span>
               {stats.today > 0 && (
-                <span className="bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full">{stats.today}</span>
+                <span className="bg-orange-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">{stats.today}</span>
               )}
               <span className="mx-1">&</span>
               <span>Atrasadas</span>
-              <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{stats.overdue}</span>
+              <span className="bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">{stats.overdue}</span>
             </button>
 
             <div className="h-4 w-px bg-gray-300 mx-1 shrink-0"></div>
@@ -324,23 +325,25 @@ const Revisoes = () => {
               className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'FUTURE'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
+                } `}
             >
               <span>Futuras</span>
-              <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full">
+              <span className="bg-blue-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
                 {stats.future}
               </span>
             </button>
+
+            <div className="h-4 w-px bg-gray-300 mx-1 shrink-0"></div>
 
             <button
               onClick={() => setActiveTab('COMPLETED')}
               className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'COMPLETED'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
+                } `}
             >
               <span>Concluídas</span>
-              <span className="bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full">
+              <span className="bg-green-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
                 {stats.completed}
               </span>
             </button>
@@ -352,7 +355,7 @@ const Revisoes = () => {
               className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'SUBJECTS'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
+                } `}
             >
               <span>Por Matéria</span>
             </button>
@@ -385,10 +388,10 @@ const Revisoes = () => {
                   className="flex items-center mb-3 group cursor-pointer select-none"
                   onClick={() => toggleGroup(key)}
                 >
-                  <div className={`mr-2 p-1 rounded-sm text-gray-400 hover:bg-gray-200 transition-colors`}>
+                  <div className={`mr - 2 p - 1 rounded - sm text - gray - 400 hover: bg - gray - 200 transition - colors`}>
                     {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
                   </div>
-                  <h2 className={`text-lg font-bold ${style.text} flex items-center`}>
+                  <h2 className={`text - lg font - bold ${style.text} flex items - center`}>
                     {style.title}
                   </h2>
                   <span className="ml-3 px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-[10px] font-semibold">{groupItems.length}</span>
@@ -415,7 +418,7 @@ const Revisoes = () => {
                           flex flex-col md:grid md:grid-cols-[1fr_120px_100px_125px_120px] md:gap-0
                         ">
                           {/* Sticky Left Color Bar */}
-                          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${style.color.replace('border-', 'bg-')}`}></div>
+                          <div className={`absolute left - 0 top - 0 bottom - 0 w - 1.5 ${style.color.replace('border-', 'bg-')} `}></div>
 
                           {/* Topic Column */}
                           <div className="
@@ -429,7 +432,7 @@ const Revisoes = () => {
                           <div className="flex items-center px-4 pb-2 md:p-0 md:contents">
                             {/* Subject */}
                             <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100 mr-4 md:mr-0">
-                              <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-medium truncate max-w-[200px] md:max-w-full">
+                              <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-medium whitespace-nowrap">
                                 {item.subject}
                               </span>
                             </div>
@@ -484,13 +487,13 @@ const Revisoes = () => {
                                     subjectName: item.subject
                                   });
                                 }}
-                                className={`p-1.5 rounded transition-colors ${(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ?
+                                className={`p - 1.5 rounded transition - colors ${(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ?
                                   'text-blue-600 hover:bg-blue-100' :
                                   'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
-                                  }`}
+                                  } `}
                                 title={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "Ver/Editar Nota" : "Adicionar Nota"}
                               >
-                                <MessageSquareText size={18} className={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "fill-blue-200" : ""} />
+                                <FileText size={18} className={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "fill-blue-200" : ""} />
                               </button>
 
                               {item.status !== RevisionStatus.COMPLETED ? (

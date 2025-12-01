@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 // Removido hook de visibilidade que causava recarregamentos
 
 
@@ -55,8 +56,11 @@ export const StudyCycleContent: React.FC = () => {
     userCycle,
     handleCompleteSession: handleCompleteSessionData,
     handleSaveNotes,
-    refreshCycleData
+    refreshCycleData,
+    isLoading
   } = useStudyCycleData();
+
+
 
   // Sistema controlado de eventos para evitar loops infinitos
   useEffect(() => {
@@ -408,12 +412,14 @@ export const StudyCycleContent: React.FC = () => {
 
     return (
       <section key={status} className="mb-12">
-        <div className="flex items-center mb-6">
-          <span className={`mr-4 text-${config.borderColor.split('-')[1]}-500`}>{config.icon}</span>
-          <h2 className={`text-xl font-bold text-foreground border-b-2 ${config.borderColor} pb-2`}>
-            {config.title}
-          </h2>
-        </div>
+        {status !== SubjectStatus.ACTIVE && (
+          <div className="flex items-center mb-6">
+            <span className={`mr-4 text-${config.borderColor.split('-')[1]}-500`}>{config.icon}</span>
+            <h2 className={`text-xl font-bold text-foreground border-b-2 ${config.borderColor} pb-2`}>
+              {config.title}
+            </h2>
+          </div>
+        )}
         <div className={containerClasses}>
           {sectionSubjects.map((subject, index) => {
             // Cada subject deve ter sua posição específica, não todas as posições
@@ -443,157 +449,174 @@ export const StudyCycleContent: React.FC = () => {
     );
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-[#f5f6f8]">
+        <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
-      <main className="container mx-auto p-4 md:p-8 pr-[calc(1rem+15px)] md:pr-[calc(2rem+15px)]">
-        {/* Banner de Estudos Concluídos - Sempre visível quando todos estudos estão concluídos */}
-        {areAllStudiesCompleted && (
-          <AllStudiesCompletedBanner
-            onResetComplete={() => {
-              refreshCycleData(); // Refresh para reset
-            }}
-          />
-        )}
+    <div className="">
+      {/* Banner de Estudos Concluídos - Sempre visível quando todos estudos estão concluídos */}
+      {areAllStudiesCompleted && (
+        <AllStudiesCompletedBanner
+          onResetComplete={() => {
+            refreshCycleData(); // Refresh para reset
+          }}
+        />
+      )}
 
 
 
-        {/* Card de Progresso Diário REMOVIDO - estava causando loops */}
+      {/* Card de Progresso Diário REMOVIDO - estava causando loops */}
 
 
 
 
 
-        <div className="flex justify-between items-center mb-6">
-          {/* Campo de Busca */}
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  const query = e.target.value;
-                  const previousQuery = searchQuery;
-                  setSearchQuery(query);
-
-                  // Se está começando a buscar (antes estava vazio), salvar estado atual
-                  if (!previousQuery && query.trim()) {
-                    setExpandedBeforeSearch(new Set(expandedSubjects));
-                  }
-
-                  // Se há busca, expandir matérias que têm tópicos correspondentes
-                  if (query.trim()) {
-                    const normalizeText = (text: string) =>
-                      text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
-                    const normalizedQuery = normalizeText(query);
-                    const newExpanded = new Set<string>();
-
-                    subjects.forEach(subject => {
-                      const hasMatchingTopic = subject.topics?.some(topic =>
-                        normalizeText(topic.name).includes(normalizedQuery)
-                      );
-                      if (hasMatchingTopic) {
-                        newExpanded.add(subject.id);
-                      }
-                    });
-
-                    setExpandedSubjects(newExpanded);
-                  } else {
-                    // Se apagou tudo, restaurar estado anterior
-                    setExpandedSubjects(expandedBeforeSearch);
-                    setExpandedBeforeSearch(new Set());
-                  }
-                }}
-                placeholder="Buscar tópico..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    // Restaurar estado anterior
-                    setExpandedSubjects(expandedBeforeSearch);
-                    setExpandedBeforeSearch(new Set());
-                  }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
+      <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Ciclo de Estudos</h1>
+            <p className="text-sm text-gray-500">Gerencie seu progresso e metas diárias</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            {viewMode === 'list' && (
-              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+            {/* Campo de Busca */}
+            <div className="w-full md:w-64 lg:w-80">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    const query = e.target.value;
+                    const previousQuery = searchQuery;
+                    setSearchQuery(query);
+
+                    // Se está começando a buscar (antes estava vazio), salvar estado atual
+                    if (!previousQuery && query.trim()) {
+                      setExpandedBeforeSearch(new Set(expandedSubjects));
+                    }
+
+                    // Se há busca, expandir matérias que têm tópicos correspondentes
+                    if (query.trim()) {
+                      const normalizeText = (text: string) =>
+                        text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+                      const normalizedQuery = normalizeText(query);
+                      const newExpanded = new Set<string>();
+
+                      subjects.forEach(subject => {
+                        const hasMatchingTopic = subject.topics?.some(topic =>
+                          normalizeText(topic.name).includes(normalizedQuery)
+                        );
+                        if (hasMatchingTopic) {
+                          newExpanded.add(subject.id);
+                        }
+                      });
+
+                      setExpandedSubjects(newExpanded);
+                    } else {
+                      // Se apagou tudo, restaurar estado anterior
+                      setExpandedSubjects(expandedBeforeSearch);
+                      setExpandedBeforeSearch(new Set());
+                    }
+                  }}
+                  placeholder="Buscar tópico..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      // Restaurar estado anterior
+                      setExpandedSubjects(expandedBeforeSearch);
+                      setExpandedBeforeSearch(new Set());
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end md:self-auto">
+              {viewMode === 'list' && (
+                <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
+                  <button
+                    onClick={handleExpandAll}
+                    className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Expandir Todos"
+                  >
+                    <ChevronsDownIcon />
+                  </button>
+                  <button
+                    onClick={handleCollapseAll}
+                    className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Recolher Todos"
+                  >
+                    <ChevronsUpIcon />
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
                 <button
-                  onClick={handleExpandAll}
-                  className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Expandir Todos"
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
+                  aria-label="Visualização em Grade"
                 >
-                  <ChevronsDownIcon />
+                  <GridIcon />
                 </button>
                 <button
-                  onClick={handleCollapseAll}
-                  className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Recolher Todos"
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
+                  aria-label="Visualização em Lista"
                 >
-                  <ChevronsUpIcon />
+                  <ListIcon />
                 </button>
               </div>
-            )}
-            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
-                aria-label="Visualização em Grade"
-              >
-                <GridIcon />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
-                aria-label="Visualização em Lista"
-              >
-                <ListIcon />
-              </button>
             </div>
           </div>
         </div>
+      </header>
 
-        <>
-          {/* Verificar se todas as matérias ativas foram estudadas no ciclo atual */}
-          {/* Mensagem removida para evitar confusão */}
+      <>
+        {/* Verificar se todas as matérias ativas foram estudadas no ciclo atual */}
+        {/* Mensagem removida para evitar confusão */}
 
-          {renderSection(SubjectStatus.ACTIVE)}
-          {renderSection(SubjectStatus.COMPLETED_CYCLE)}
-          {renderSection(SubjectStatus.FINISHED)}
-        </>
+        {renderSection(SubjectStatus.ACTIVE)}
+        {renderSection(SubjectStatus.COMPLETED_CYCLE)}
+        {renderSection(SubjectStatus.FINISHED)}
+      </>
 
-      </main>
 
       {/* Topic Notes Modal */}
-      {topicNotesModal.isOpen && topicNotesModal.subjectId && topicNotesModal.topicId && (
-        <StudyCycleTopicNotesModal
-          isOpen={topicNotesModal.isOpen}
-          onClose={handleCloseNotes}
-          onSave={() => {
-            // Refresh data after save
-            setTimeout(() => {
-              refreshCycleData(); // Refresh para salvamento
-            }, 200);
-          }}
-          subjectId={topicNotesModal.subjectId}
-          topicId={topicNotesModal.topicId}
-          subjectName={topicNotesModal.subjectName}
-          topicName={topicNotesModal.topicName}
-        />
-      )}
+      {
+        topicNotesModal.isOpen && topicNotesModal.subjectId && topicNotesModal.topicId && (
+          <StudyCycleTopicNotesModal
+            isOpen={topicNotesModal.isOpen}
+            onClose={handleCloseNotes}
+            onSave={() => {
+              // Refresh data after save
+              setTimeout(() => {
+                refreshCycleData(); // Refresh para salvamento
+              }, 200);
+            }}
+            subjectId={topicNotesModal.subjectId}
+            topicId={topicNotesModal.topicId}
+            subjectName={topicNotesModal.subjectName}
+            topicName={topicNotesModal.topicName}
+          />
+        )
+      }
 
       {/* Subject Notes Modal */}
       <SubjectNotesModal
@@ -631,7 +654,7 @@ export const StudyCycleContent: React.FC = () => {
         isCompleting={difficultyModalData.isCompleting}
       />
 
-    </div>
+    </div >
   );
 };
 

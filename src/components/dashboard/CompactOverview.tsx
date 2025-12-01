@@ -53,206 +53,220 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
     const hasUrgentItems = overdueCount > 0 || todayCount > 0;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {/* Card de Urgente - Design Moderno */}
-            <Card className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
-                <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-1 h-8 rounded-full bg-green-500"></div>
-                            <div className="flex items-center gap-2">
-                                <AlertTriangle className="h-5 w-5 text-orange-500" />
-                                <span className="font-semibold text-gray-900 text-sm">Revisão</span>
+            <Card className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col">
+                <CardContent className="p-6 flex-1 flex flex-col">
+                    <div className="flex-1">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1 h-8 rounded-full bg-green-500"></div>
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                                    <span className="font-semibold text-gray-900 text-sm">Revisão</span>
+                                </div>
+                            </div>
+                            {hasUrgentItems && (
+                                <div className="bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                                    {overdueCount + todayCount}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-0.5 mb-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-600">• Atrasados</span>
+                                <span className={`font-semibold text-sm ${overdueCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                    {overdueCount}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-600">• Hoje</span>
+                                <span className={`font-semibold text-sm ${todayCount > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
+                                    {todayCount}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-600">• Futuras (7 dias)</span>
+                                <span className={`font-semibold text-sm ${futureCount > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                                    {futureCount}
+                                </span>
                             </div>
                         </div>
-                        {hasUrgentItems && (
-                            <div className="bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                                {overdueCount + todayCount}
-                            </div>
-                        )}
                     </div>
 
-                    <div className="space-y-0.5 mb-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-600">• Atrasados</span>
-                            <span className={`font-semibold text-sm ${overdueCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                                {overdueCount}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-600">• Hoje</span>
-                            <span className={`font-semibold text-sm ${todayCount > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
-                                {todayCount}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-600">• Futuras (7 dias)</span>
-                            <span className={`font-semibold text-sm ${futureCount > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
-                                {futureCount}
-                            </span>
-                        </div>
+                    <div className="mt-auto pt-4">
+                        <Button
+                            size="sm"
+                            className="w-full sm:w-auto sm:min-w-[200px] mx-auto flex justify-center items-center bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                            onClick={() => navigate('/revisoes')}
+                        >
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ver Revisões
+                        </Button>
                     </div>
-
-                    <Button
-                        size="sm"
-                        className="w-full bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
-                        onClick={() => navigate('/revisoes')}
-                    >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Ver Revisões
-                    </Button>
                 </CardContent>
             </Card>
 
             {/* Card de Matérias - Design Moderno */}
-            <Card className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
-                <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-1 h-8 rounded-full bg-green-500"></div>
-                            <div className="flex items-center gap-2">
-                                <BookOpen className="h-5 w-5 text-blue-500" />
-                                <span className="font-semibold text-gray-900 text-sm">Matérias</span>
+            <Card className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col">
+                <CardContent className="p-6 flex-1 flex flex-col">
+                    <div className="flex-1">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1 h-8 rounded-full bg-green-500"></div>
+                                <div className="flex items-center gap-2">
+                                    <BookOpen className="h-5 w-5 text-blue-500" />
+                                    <span className="font-semibold text-gray-900 text-sm">Matérias</span>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-gray-500">Progresso</div>
+                                <div className="text-lg font-bold text-gray-900">{subjectsProgress}%</div>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <div className="text-xs text-gray-500">Progresso</div>
-                            <div className="text-lg font-bold text-gray-900">{subjectsProgress}%</div>
+
+                        <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm text-gray-600">
+                                    {completedSubjects}/{totalSubjects} Concluídas
+                                </span>
+                            </div>
+
+                            {/* Barra de Progresso Verde Unificada */}
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                    className="h-2 rounded-full bg-green-500 transition-all duration-500"
+                                    style={{ width: `${subjectsProgress}%` }}
+                                ></div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-gray-600">
-                                {completedSubjects}/{totalSubjects} Concluídas
-                            </span>
-                        </div>
-
-                        {/* Barra de Progresso Verde Unificada */}
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                                className="h-2 rounded-full bg-green-500 transition-all duration-500"
-                                style={{ width: `${subjectsProgress}%` }}
-                            ></div>
-                        </div>
+                    <div className="mt-auto pt-4">
+                        <Button
+                            size="sm"
+                            className="w-full sm:w-auto sm:min-w-[200px] mx-auto flex justify-center items-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                            onClick={() => navigate('/materias')}
+                        >
+                            <BookOpen className="h-4 w-4 mr-2" />
+                            Ver Matérias
+                        </Button>
                     </div>
-
-                    <Button
-                        size="sm"
-                        className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
-                        onClick={() => navigate('/materias')}
-                    >
-                        <BookOpen className="h-4 w-4 mr-2" />
-                        Ver Matérias
-                    </Button>
                 </CardContent>
             </Card>
 
             {/* Card de Tópicos - Design Moderno */}
-            <Card className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
-                <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-1 h-8 rounded-full bg-green-500"></div>
-                            <div className="flex items-center gap-2">
-                                <Target className="h-5 w-5 text-green-600" />
-                                <span className="font-semibold text-gray-900 text-sm">Tópicos</span>
+            <Card className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col">
+                <CardContent className="p-6 flex-1 flex flex-col">
+                    <div className="flex-1">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1 h-8 rounded-full bg-green-500"></div>
+                                <div className="flex items-center gap-2">
+                                    <Target className="h-5 w-5 text-green-600" />
+                                    <span className="font-semibold text-gray-900 text-sm">Tópicos</span>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-gray-500">Progresso</div>
+                                <div className="text-lg font-bold text-gray-900">{topicsProgress}%</div>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <div className="text-xs text-gray-500">Progresso</div>
-                            <div className="text-lg font-bold text-gray-900">{topicsProgress}%</div>
+
+                        <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm text-gray-600">
+                                    {completedTopics}/{totalTopics} Concluídos
+                                </span>
+                            </div>
+
+                            {/* Barra de Progresso Verde Unificada */}
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                    className="h-2 rounded-full bg-green-500 transition-all duration-500"
+                                    style={{ width: `${topicsProgress}%` }}
+                                ></div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-gray-600">
-                                {completedTopics}/{totalTopics} Concluídos
-                            </span>
-                        </div>
-
-                        {/* Barra de Progresso Verde Unificada */}
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                                className="h-2 rounded-full bg-green-500 transition-all duration-500"
-                                style={{ width: `${topicsProgress}%` }}
-                            ></div>
-                        </div>
+                    <div className="mt-auto pt-4">
+                        <Button
+                            size="sm"
+                            className="w-full sm:w-auto sm:min-w-[200px] mx-auto flex justify-center items-center bg-green-500 hover:bg-green-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                            onClick={() => navigate('/topicos')}
+                        >
+                            <Target className="h-4 w-4 mr-2" />
+                            Ver Tópicos
+                        </Button>
                     </div>
-
-                    <Button
-                        size="sm"
-                        className="w-full bg-green-500 hover:bg-green-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
-                        onClick={() => navigate('/topicos')}
-                    >
-                        <Target className="h-4 w-4 mr-2" />
-                        Ver Tópicos
-                    </Button>
                 </CardContent>
             </Card>
 
             {/* Card do Pomodoro Timer - Funcional */}
-            <Card className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
-                <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-1 h-8 rounded-full bg-green-500"></div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-5 h-5 flex items-center justify-center">
-                                    {isRunning ? '🔥' : '⏰'}
+            <Card className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col">
+                <CardContent className="p-6 flex-1 flex flex-col">
+                    <div className="flex-1">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1 h-8 rounded-full bg-green-500"></div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 flex items-center justify-center">
+                                        {isRunning ? '🔥' : '⏰'}
+                                    </div>
+                                    <span className="font-semibold text-gray-900 text-sm">Pomodoro</span>
                                 </div>
-                                <span className="font-semibold text-gray-900 text-sm">Pomodoro</span>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-gray-500">Timer</div>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 hover:bg-gray-100"
+                                        onClick={() => adjustTime(-5)}
+                                        disabled={isRunning}
+                                    >
+                                        <Minus className="h-3 w-3" />
+                                    </Button>
+                                    <div className="text-lg font-bold text-gray-900 min-w-[60px] text-center">
+                                        {formatTime(timeLeft)}
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 hover:bg-gray-100"
+                                        onClick={() => adjustTime(5)}
+                                        disabled={isRunning}
+                                    >
+                                        <Plus className="h-3 w-3" />
+                                    </Button>
+                                </div>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <div className="text-xs text-gray-500">Timer</div>
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-gray-100"
-                                    onClick={() => adjustTime(-5)}
-                                    disabled={isRunning}
-                                >
-                                    <Minus className="h-3 w-3" />
-                                </Button>
-                                <div className="text-lg font-bold text-gray-900 min-w-[60px] text-center">
-                                    {formatTime(timeLeft)}
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-gray-100"
-                                    onClick={() => adjustTime(5)}
-                                    disabled={isRunning}
-                                >
-                                    <Plus className="h-3 w-3" />
-                                </Button>
+
+                        <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm text-gray-600">
+                                    Sessões hoje {sessionsToday}
+                                </span>
+                            </div>
+
+                            {/* Barra de Progresso Verde Unificada */}
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                    className="h-2 rounded-full bg-green-500 transition-all duration-500"
+                                    style={{ width: `${getProgress()}%` }}
+                                ></div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-gray-600">
-                                Sessões hoje {sessionsToday}
-                            </span>
-                        </div>
-
-                        {/* Barra de Progresso Verde Unificada */}
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                                className="h-2 rounded-full bg-green-500 transition-all duration-500"
-                                style={{ width: `${getProgress()}%` }}
-                            ></div>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-2 mt-auto pt-4">
                         <Button
                             size="sm"
-                            className={`flex-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-white ${isRunning
+                            className={`w-full sm:w-auto sm:min-w-[200px] rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-white flex justify-center items-center ${isRunning
                                 ? 'bg-red-500 hover:bg-red-600'
                                 : 'bg-purple-500 hover:bg-purple-600'
                                 }`}
