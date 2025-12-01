@@ -150,6 +150,22 @@ export const useStudyCycleData = () => {
 
   // Estado de loading
   const [isLoading, setIsLoading] = useState(true);
+
+  // Safety timeout to prevent infinite loading
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setIsLoading((prev) => {
+        if (prev) {
+          console.warn('⚠️ Force stopping loading state after timeout');
+          return false;
+        }
+        return prev;
+      });
+    }, 10000); // 10 seconds
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
   // Estado local simples - SEM useApp()
   const [subjects, setSubjects] = useState<Subject[]>([]);
 

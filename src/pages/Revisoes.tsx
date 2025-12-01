@@ -402,7 +402,7 @@ const Revisoes = () => {
                 {!isCollapsed && (
                   <>
                     {/* Table Header - HIDDEN ON MOBILE */}
-                    <div className="hidden md:grid grid-cols-[1fr_120px_100px_125px_120px] gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                    <div className="hidden md:grid grid-cols-[1fr_120px_100px_160px_120px] gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
                       <div className="pl-8">Tópico</div>
                       <div className="text-center">Matéria</div>
                       <div className="text-center">Dificuldade</div>
@@ -415,7 +415,7 @@ const Revisoes = () => {
                       {groupItems.map((item) => (
                         <div key={item.id} className="
                           group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-                          flex flex-col md:grid md:grid-cols-[1fr_120px_100px_125px_120px] md:gap-0
+                          flex flex-col md:grid md:grid-cols-[1fr_120px_100px_160px_120px] md:gap-0
                         ">
                           {/* Sticky Left Color Bar */}
                           <div className={`absolute left - 0 top - 0 bottom - 0 w - 1.5 ${style.color.replace('border-', 'bg-')} `}></div>

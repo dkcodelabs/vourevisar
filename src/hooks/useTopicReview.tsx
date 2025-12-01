@@ -115,7 +115,7 @@ export const useTopicReview = () => {
         topicName: topic.name,
         subjectId: topic.subject_id,
         subjectName: subjectData.name,
-        currentDifficulty: topic.difficulty_level || null,
+        currentDifficulty: topic.difficulty_level ? Number(topic.difficulty_level) : null,
         reviewStage,
         reviewCount: nextReviewCount,
         isCompleting
@@ -294,7 +294,7 @@ export const useTopicReview = () => {
         await supabase
           .from('topics')
           .update({
-            difficulty_level: difficulty,
+            difficulty_level: difficulty ? String(difficulty) : null,
             difficulty_set_at: difficulty ? new Date().toISOString() : null
           })
           .eq('id', topicId);

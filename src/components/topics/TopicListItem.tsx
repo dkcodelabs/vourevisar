@@ -87,7 +87,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
   return (
     <div className="
       group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-      flex flex-col md:grid md:grid-cols-[1fr_120px_100px_125px_120px] md:gap-0
+      flex flex-col md:grid md:grid-cols-[1fr_120px_100px_160px_120px] md:gap-0
     ">
       {/* Sticky Left Color Bar */}
       <div
