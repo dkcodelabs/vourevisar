@@ -87,7 +87,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
   return (
     <div className="
       group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-      flex flex-col md:grid md:grid-cols-[1fr_120px_100px_160px_120px] md:gap-0
+      flex flex-col md:grid md:grid-cols-[1fr_340px_100px_160px_120px] md:gap-0
     ">
       {/* Sticky Left Color Bar */}
       <div
@@ -156,7 +156,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
       <div className="flex items-center px-4 pb-2 md:p-0 md:contents">
         {/* Subject */}
         <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100 mr-4 md:mr-0">
-          <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-medium whitespace-nowrap">
+          <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-medium text-center max-w-full block line-clamp-2">
             {topic.subjectName}
           </span>
         </div>

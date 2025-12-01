@@ -409,7 +409,7 @@ const Topics = () => {
           ) : (
             <>
               {/* Table Header - HIDDEN ON MOBILE */}
-              <div className="hidden md:grid grid-cols-[1fr_120px_100px_160px_120px] gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+              <div className="hidden md:grid grid-cols-[1fr_340px_100px_160px_120px] gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
                 <div className="pl-8">Tópico</div>
                 <div className="text-center">Matéria</div>
                 <div className="text-center">Dificuldade</div>
