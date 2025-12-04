@@ -458,35 +458,30 @@ export const StudyCycleContent: React.FC = () => {
   }
 
   return (
-    <div className="">
-      {/* Banner de Estudos Concluídos - Sempre visível quando todos estudos estão concluídos */}
-      {areAllStudiesCompleted && (
-        <AllStudiesCompletedBanner
-          onResetComplete={() => {
-            refreshCycleData(); // Refresh para reset
-          }}
-        />
-      )}
+    <div className="flex h-[calc(100vh-7rem)] w-full bg-gray-50 text-gray-900 overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Banner de Estudos Concluídos - Sempre visível quando todos estudos estão concluídos */}
+        {areAllStudiesCompleted && (
+          <div className="shrink-0">
+            <AllStudiesCompletedBanner
+              onResetComplete={() => {
+                refreshCycleData(); // Refresh para reset
+              }}
+            />
+          </div>
+        )}
 
-
-
-      {/* Card de Progresso Diário REMOVIDO - estava causando loops */}
-
-
-
-
-
-      <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
+        <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md mx-4 md:mx-8">
+          <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Ciclo de Estudos</h1>
-            <p className="text-sm text-gray-500">Gerencie seu progresso e metas diárias</p>
+            <p className="text-sm text-gray-500 mb-2">Gerencie seu progresso e metas diárias</p>
+            <div className="h-1 w-full bg-blue-500 rounded-full"></div>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-            {/* Campo de Busca */}
-            <div className="w-full md:w-64 lg:w-80">
-              <div className="relative">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col lg:flex-row gap-3 justify-between items-start lg:items-center">
+              {/* Campo de Busca */}
+              <div className="w-full lg:w-96 relative">
                 <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -546,57 +541,53 @@ export const StudyCycleContent: React.FC = () => {
                   </button>
                 )}
               </div>
-            </div>
 
-            <div className="flex items-center gap-2 self-end md:self-auto">
-              {viewMode === 'list' && (
-                <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
+              <div className="flex items-center gap-2 self-end lg:self-auto">
+                {viewMode === 'list' && (
+                  <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
+                    <button
+                      onClick={handleExpandAll}
+                      className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Expandir Todos"
+                    >
+                      <ChevronsDownIcon />
+                    </button>
+                    <button
+                      onClick={handleCollapseAll}
+                      className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Recolher Todos"
+                    >
+                      <ChevronsUpIcon />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
                   <button
-                    onClick={handleExpandAll}
-                    className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Expandir Todos"
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
+                    aria-label="Visualização em Grade"
                   >
-                    <ChevronsDownIcon />
+                    <GridIcon />
                   </button>
                   <button
-                    onClick={handleCollapseAll}
-                    className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Recolher Todos"
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
+                    aria-label="Visualização em Lista"
                   >
-                    <ChevronsUpIcon />
+                    <ListIcon />
                   </button>
                 </div>
-              )}
-              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
-                  aria-label="Visualização em Grade"
-                >
-                  <GridIcon />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
-                  aria-label="Visualização em Lista"
-                >
-                  <ListIcon />
-                </button>
               </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <>
-        {/* Verificar se todas as matérias ativas foram estudadas no ciclo atual */}
-        {/* Mensagem removida para evitar confusão */}
-
-        {renderSection(SubjectStatus.ACTIVE)}
-        {renderSection(SubjectStatus.COMPLETED_CYCLE)}
-        {renderSection(SubjectStatus.FINISHED)}
-      </>
-
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pt-0">
+          {renderSection(SubjectStatus.ACTIVE)}
+          {renderSection(SubjectStatus.COMPLETED_CYCLE)}
+          {renderSection(SubjectStatus.FINISHED)}
+        </main>
+      </div>
 
       {/* Topic Notes Modal */}
       {

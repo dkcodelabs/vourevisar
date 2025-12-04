@@ -237,7 +237,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         {/* Texto do tópico - Editável */}
         <div className="flex-1 group">
           <div
-            className="inline-block cursor-pointer"
+            className={`${isEditing ? 'w-full' : 'inline-block'} cursor-pointer`}
             onClick={(e) => {
               e.stopPropagation();
               if (!isEditing) handleStartEditing();

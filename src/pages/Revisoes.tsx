@@ -9,8 +9,12 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
-  PlayCircle
+  PlayCircle,
+  RotateCw,
+  Clock,
+  BookOpen
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -64,6 +68,7 @@ const Revisoes = () => {
   const [selectedItemForAI, setSelectedItemForAI] = useState<RevisionItem | null>(null);
   const [aiExplanation, setAiExplanation] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [reviewStageFilter, setReviewStageFilter] = useState<string>('all');
 
   // Modal States
   const [notesModalData, setNotesModalData] = useState<{
@@ -151,6 +156,27 @@ const Revisoes = () => {
         item.topic.toLowerCase().includes(lowerTerm) ||
         item.subject.toLowerCase().includes(lowerTerm)
       );
+    }
+
+    // Filter by review stage
+    if (reviewStageFilter !== 'all') {
+      const targetStage = parseInt(reviewStageFilter);
+      // Filter items that match the review count (current review number)
+      // Note: reviewCount is 0-indexed in some contexts, but displayed as 1st, 2nd, etc.
+      // logic: if item.reviewCount is 0, it's the 1st review (or new).
+      // Let's assume the user wants to see items that are at a specific stage.
+      // If reviewCount is 0, it means 0 reviews done, so it's waiting for 1st review.
+      // So if filter is '1', we want reviewCount === 0.
+      // If filter is '2', we want reviewCount === 1.
+      // Wait, let's check how it's displayed.
+      // In TopicListItem (Topics.tsx): topic.reviewStage || `${topic.reviewCount}º revisão`
+      // In StatusBadge: reviewCount is passed.
+      // Let's stick to: Filter '1' -> reviewCount 0 (going to 1st review)
+      // Actually, usually "1ª Revisão" means it's the first time you are reviewing it.
+      // So reviewCount 0.
+      // Let's align with the UI display.
+      // If I select "1ª Revisão", I expect items that have 0 reviews done.
+      return allItems.filter(item => item.reviewCount === targetStage - 1);
     }
 
     return allItems;
@@ -279,7 +305,7 @@ const Revisoes = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-2 mt-4 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 md:-mx-8 md:px-8">
+          <div className="flex items-center gap-2 mt-4 overflow-x-auto no-scrollbar py-1 -mx-4 px-4 md:-mx-8 md:px-8">
             <button
               onClick={() => {
                 const allKeys = Object.keys(groupedItems);
@@ -336,7 +362,10 @@ const Revisoes = () => {
             <div className="h-4 w-px bg-gray-300 mx-1 shrink-0"></div>
 
             <button
-              onClick={() => setActiveTab('COMPLETED')}
+              onClick={() => {
+                setActiveTab('COMPLETED');
+                setReviewStageFilter('all');
+              }}
               className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'COMPLETED'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -357,18 +386,45 @@ const Revisoes = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
             >
+              <BookOpen size={14} />
               <span>Por Matéria</span>
             </button>
 
-            <div className="relative w-full md:w-auto ml-2 shrink-0">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Pesquisar..."
-                className="w-full md:w-48 pl-9 pr-4 py-1.5 border border-gray-300 rounded-full text-xs focus:outline-none focus:border-blue-500 transition-all"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex items-center gap-2 ml-2 shrink-0">
+              {/* Review Stage Filter */}
+              {/* Review Stage Filter */}
+              {activeTab !== 'COMPLETED' && (
+                <div className="w-[130px]">
+                  <Select value={reviewStageFilter} onValueChange={setReviewStageFilter}>
+                    <SelectTrigger className="h-8 text-xs font-medium border-gray-200 bg-white shadow-sm rounded-lg focus:ring-blue-500/20">
+                      <div className="flex items-center gap-2 text-gray-600 whitespace-nowrap">
+                        <Clock size={12} className="text-blue-500 shrink-0" />
+                        <SelectValue placeholder="Status" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">Status</SelectItem>
+                      {Array.from({ length: REVIEW_PROFILES[settings?.review_profile || ReviewProfile.INTERMEDIATE].maxReviews }).map((_, i) => (
+                        <SelectItem key={i + 1} value={String(i + 1)} className="text-xs">
+                          {i + 1}ª Revisão
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Search Bar */}
+              <div className="relative w-full md:w-auto">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar..."
+                  className="w-full md:w-48 pl-9 pr-4 py-1.5 bg-white border border-gray-200 rounded-lg text-xs shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all placeholder:text-gray-400"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </header>

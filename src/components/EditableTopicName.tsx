@@ -130,7 +130,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
           ref={textareaRef as any} // Cast to any since Input ref might expect HTMLInputElement
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="h-8 text-sm flex-1"
+          className="h-8 text-sm flex-1 min-w-0"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               handleSave();
