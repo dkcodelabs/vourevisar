@@ -408,7 +408,7 @@ export const StudyCycleContent: React.FC = () => {
 
     const containerClasses = viewMode === 'grid'
       ? "grid grid-cols-1 md:grid-cols-2 gap-8"
-      : "flex flex-col items-center gap-4";
+      : "flex flex-col w-full gap-4";
 
     return (
       <section key={status} className="mb-12">
@@ -479,10 +479,10 @@ export const StudyCycleContent: React.FC = () => {
           </div>
 
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col lg:flex-row gap-3 justify-between items-start lg:items-center">
+            <div className="flex flex-row gap-2 items-center">
               {/* Campo de Busca */}
-              <div className="w-full lg:w-96 relative">
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="relative flex-1 min-w-0">
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -522,8 +522,8 @@ export const StudyCycleContent: React.FC = () => {
                       setExpandedBeforeSearch(new Set());
                     }
                   }}
-                  placeholder="Buscar tópico..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Buscar..."
+                  className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {searchQuery && (
                   <button
@@ -533,45 +533,45 @@ export const StudyCycleContent: React.FC = () => {
                       setExpandedSubjects(expandedBeforeSearch);
                       setExpandedBeforeSearch(new Set());
                     }}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 self-end lg:self-auto">
+              <div className="flex items-center gap-1 shrink-0">
                 {viewMode === 'list' && (
-                  <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mr-2">
+                  <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg mr-1">
                     <button
                       onClick={handleExpandAll}
-                      className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground transition-colors"
                       aria-label="Expandir Todos"
                     >
                       <ChevronsDownIcon />
                     </button>
                     <button
                       onClick={handleCollapseAll}
-                      className="p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground transition-colors"
                       aria-label="Recolher Todos"
                     >
                       <ChevronsUpIcon />
                     </button>
                   </div>
                 )}
-                <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+                <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
                     aria-label="Visualização em Grade"
                   >
                     <GridIcon />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
                     aria-label="Visualização em Lista"
                   >
                     <ListIcon />

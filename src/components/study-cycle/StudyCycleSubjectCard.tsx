@@ -182,7 +182,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 flex-1 min-w-0">
               <CyclePositionBadge />
-              <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
+              <h3 className="text-base text-card-foreground line-clamp-2" style={{ fontWeight: 700 }}>{subject.name}</h3>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -302,7 +302,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                   variant="dot"
                 />
                 <CyclePositionBadge />
-                <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
+                <h3 className="text-base text-card-foreground break-words leading-tight" style={{ fontWeight: 700 }}>{subject.name}</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -433,7 +433,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <CyclePositionBadge />
-            <h3 className="text-base text-card-foreground truncate" style={{ fontWeight: 700 }}>{subject.name}</h3>
+            <h3 className="text-base text-card-foreground break-words leading-tight" style={{ fontWeight: 700 }}>{subject.name}</h3>
           </div>
           <div className="flex items-center gap-2">
             <button

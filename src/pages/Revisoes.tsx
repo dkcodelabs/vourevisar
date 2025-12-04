@@ -162,21 +162,10 @@ const Revisoes = () => {
     if (reviewStageFilter !== 'all') {
       const targetStage = parseInt(reviewStageFilter);
       // Filter items that match the review count (current review number)
-      // Note: reviewCount is 0-indexed in some contexts, but displayed as 1st, 2nd, etc.
-      // logic: if item.reviewCount is 0, it's the 1st review (or new).
-      // Let's assume the user wants to see items that are at a specific stage.
-      // If reviewCount is 0, it means 0 reviews done, so it's waiting for 1st review.
-      // So if filter is '1', we want reviewCount === 0.
-      // If filter is '2', we want reviewCount === 1.
-      // Wait, let's check how it's displayed.
-      // In TopicListItem (Topics.tsx): topic.reviewStage || `${topic.reviewCount}º revisão`
-      // In StatusBadge: reviewCount is passed.
-      // Let's stick to: Filter '1' -> reviewCount 0 (going to 1st review)
-      // Actually, usually "1ª Revisão" means it's the first time you are reviewing it.
-      // So reviewCount 0.
-      // Let's align with the UI display.
-      // If I select "1ª Revisão", I expect items that have 0 reviews done.
-      return allItems.filter(item => item.reviewCount === targetStage - 1);
+      // User expects "4ª Revisão" to show items labeled "4/4".
+      // Previous logic (targetStage - 1) showed "3/4" for "4ª Revisão".
+      // So we align strictly: Stage 4 -> reviewCount 4.
+      return allItems.filter(item => item.reviewCount === targetStage);
     }
 
     return allItems;
@@ -330,7 +319,7 @@ const Revisoes = () => {
 
             <button
               onClick={() => setActiveTab('FOCUS')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'FOCUS'
+              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FOCUS'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
@@ -348,7 +337,7 @@ const Revisoes = () => {
 
             <button
               onClick={() => setActiveTab('FUTURE')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'FUTURE'
+              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FUTURE'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
@@ -366,7 +355,7 @@ const Revisoes = () => {
                 setActiveTab('COMPLETED');
                 setReviewStageFilter('all');
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'COMPLETED'
+              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'COMPLETED'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
@@ -381,7 +370,7 @@ const Revisoes = () => {
 
             <button
               onClick={() => setActiveTab('SUBJECTS')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'SUBJECTS'
+              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'SUBJECTS'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
