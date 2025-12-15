@@ -8,7 +8,7 @@ import { BookOpen, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 interface SubjectReactivationModalProps {
   isOpen: boolean;

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { X, Save, Plus } from 'lucide-react';
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
 import { TopicNotes } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface StudyCycleNotesModalProps {

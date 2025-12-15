@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from '@/lib/toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, TrendingUp, Plus, Loader2 } from 'lucide-react';
@@ -152,14 +153,15 @@ const Dashboard = () => {
       <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+            <h1 className="text-xl font-semibold text-foreground flex items-center gap-3">
               Olá, {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}! 👋
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Aqui está um resumo dos seus estudos
             </p>
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg">
               <TrendingUp className="h-4 w-4" />
               <span className="font-medium">Progresso: {progressPercentage}%</span>

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const AddTopicForm: React.FC = () => {
   const { subjects, addTopic } = useApp();
@@ -15,7 +15,7 @@ const AddTopicForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedSubjectId || !topicName.trim()) {
       toast.error('Selecione uma matéria e digite o nome do tópico');
       return;
@@ -38,7 +38,7 @@ const AddTopicForm: React.FC = () => {
         is_completed: false,
         notes: undefined
       };
-      
+
       await addTopic(selectedSubjectId, topicData);
       toast.success('Tópico adicionado com sucesso!');
       setTopicName('');
@@ -63,7 +63,7 @@ const AddTopicForm: React.FC = () => {
               {subjects.map(subject => (
                 <SelectItem key={subject.id} value={subject.id}>
                   <div className="flex items-center gap-2">
-                    <div 
+                    <div
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: subject.color }}
                     />
@@ -74,7 +74,7 @@ const AddTopicForm: React.FC = () => {
             </SelectContent>
           </Select>
         </div>
-        
+
         <div className="flex-1">
           <Input
             placeholder="Nome do tópico..."
@@ -83,9 +83,9 @@ const AddTopicForm: React.FC = () => {
             className="bg-white/70 border-white/30 h-10"
           />
         </div>
-        
-        <Button 
-          type="submit" 
+
+        <Button
+          type="submit"
           disabled={isAdding || !selectedSubjectId || !topicName.trim()}
           className="bg-blue-600 hover:bg-blue-700 h-10 px-4"
         >

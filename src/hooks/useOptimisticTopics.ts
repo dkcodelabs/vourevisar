@@ -1,8 +1,8 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Topic, TopicNotes } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 export const useOptimisticTopics = (
   initialTopics: Topic[],
@@ -12,6 +12,12 @@ export const useOptimisticTopics = (
   const [localTopics, setLocalTopics] = useState<Topic[]>(initialTopics);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Sincronizar com props quando elas mudarem (ex: após refresh do pai)
+  // Usamos JSON.stringify para evitar loops se as referências mudarem mas o conteúdo for igual
+  useEffect(() => {
+    setLocalTopics(initialTopics);
+  }, [JSON.stringify(initialTopics)]);
+
   const addTopic = useCallback(async (name: string) => {
     if (!name.trim()) {
       toast.error('Digite o nome do tópico');
@@ -19,7 +25,7 @@ export const useOptimisticTopics = (
     }
 
     setIsLoading(true);
-    
+
     // Criar tópico temporário para atualização otimista
     const tempTopic: Topic = {
       id: `temp-${Date.now()}`,
@@ -40,7 +46,9 @@ export const useOptimisticTopics = (
     // Atualização otimista
     const updatedTopics = [...localTopics, tempTopic];
     setLocalTopics(updatedTopics);
-    onTopicsUpdate(updatedTopics);
+    // REMOVIDO: onTopicsUpdate(updatedTopics) para evitar race condition com refreshData
+    // O pai só será notificado após a confirmação do banco
+
 
     try {
       const { data, error } = await supabase
@@ -79,13 +87,13 @@ export const useOptimisticTopics = (
       };
 
       // Substituir tópico temporário pelo real
-      const finalTopics = updatedTopics.map(t => 
+      const finalTopics = updatedTopics.map(t =>
         t.id === tempTopic.id ? mappedTopic : t
       );
-      
+
       setLocalTopics(finalTopics);
       onTopicsUpdate(finalTopics);
-      
+
       toast.success('Tópico adicionado com sucesso!');
       return mappedTopic;
     } catch (error) {
@@ -102,27 +110,27 @@ export const useOptimisticTopics = (
 
   const updateTopic = useCallback(async (topicId: string, updates: Partial<Topic>) => {
     // Atualização otimista
-    const updatedTopics = localTopics.map(t => 
+    const updatedTopics = localTopics.map(t =>
       t.id === topicId ? { ...t, ...updates } : t
     );
-    
+
     setLocalTopics(updatedTopics);
     onTopicsUpdate(updatedTopics);
 
     try {
       // Converter campos de Date para string para o Supabase
       const supabaseUpdates: any = { ...updates };
-      
+
       if (updates.firstStudiedAt) {
         supabaseUpdates.first_studied_at = updates.firstStudiedAt.toISOString();
         delete supabaseUpdates.firstStudiedAt;
       }
-      
+
       if (updates.lastReviewedAt) {
         supabaseUpdates.last_reviewed_at = updates.lastReviewedAt.toISOString();
         delete supabaseUpdates.lastReviewedAt;
       }
-      
+
       if (updates.nextReview) {
         supabaseUpdates.next_review = updates.nextReview.toISOString();
         delete supabaseUpdates.nextReview;
@@ -137,11 +145,8 @@ export const useOptimisticTopics = (
         supabaseUpdates.is_completed = updates.completed;
       }
 
-      // Remover campos que não existem no banco
-      delete supabaseUpdates.review_count;
-      delete supabaseUpdates.first_studied_at;
-      delete supabaseUpdates.last_reviewed_at;
-      delete supabaseUpdates.is_completed;
+      // Campos camelCase já foram removidos/convertidos acima
+      // Campos snake_case prontos para envio ao Supabase
 
       const { error } = await supabase
         .from('topics')
@@ -149,7 +154,7 @@ export const useOptimisticTopics = (
         .eq('id', topicId);
 
       if (error) throw error;
-      
+
       toast.success('Tópico atualizado com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar tópico:', error);
@@ -174,7 +179,7 @@ export const useOptimisticTopics = (
         .eq('id', topicId);
 
       if (error) throw error;
-      
+
       toast.success('Tópico excluído com sucesso!');
     } catch (error) {
       console.error('Erro ao deletar tópico:', error);

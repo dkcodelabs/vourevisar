@@ -174,6 +174,21 @@ export const useStudyCycleData = () => {
     if (!user) return;
 
     try {
+      // 1. Tentar ler do cache primeiro
+      const cacheKey = `subjects_cache_${user.id}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSubjects(parsed);
+            // Se temos userCycle em cache tb, podemos parar o loading
+            const cycleCached = localStorage.getItem(`user_cycle_cache_${user.id}`);
+            if (cycleCached) setIsLoading(false);
+          }
+        } catch (e) { console.error('Invalid subjects cache', e); }
+      }
+
       const { data, error } = await supabase
         .from('subjects')
         .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at)`)
@@ -185,7 +200,12 @@ export const useStudyCycleData = () => {
         return;
       }
 
-      setSubjects((data as any) || []);
+      const newSubjects = (data as any) || [];
+      setSubjects(newSubjects);
+
+      // 2. Atualizar cache
+      localStorage.setItem(cacheKey, JSON.stringify(newSubjects));
+
     } catch (error) {
       console.error('Erro ao carregar matérias:', error);
     }
@@ -227,6 +247,19 @@ export const useStudyCycleData = () => {
         return;
       }
 
+      // 1. Ler do cache do User Cycle
+      const cacheKey = `user_cycle_cache_${user.id}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          setUserCycle(parsed);
+          // Se temos subjects em cache tb (verificado em loadSubjects ou aqui), podemos parar o load
+          const subjectsCached = localStorage.getItem(`subjects_cache_${user.id}`);
+          if (subjectsCached) setIsLoading(false);
+        } catch (e) { console.error('Invalid cycle cache', e); }
+      }
+
       try {
         const { data, error } = await supabase
           .from('user_cycles')
@@ -236,14 +269,23 @@ export const useStudyCycleData = () => {
 
         if (error) {
           console.error('Erro ao carregar ciclo:', error);
+          // Se falhar e não tiver cache, parar loading
+          if (!cached) setIsLoading(false);
           return;
         }
 
         // Se o ciclo existe mas está vazio, adicionar matérias ativas
         if (data && (!data.ciclo_atual || data.ciclo_atual.length === 0)) {
-          console.log('🔍 Ciclo vazio, adicionando matérias ativas...');
+          // ... (Lógica de ciclo vazio mantida) ...
+          // Nota: Para brevidade, assumimos que a lógica interna segue igual, 
+          // mas precisamos garantir que o setUserCycle no final atualize o cache.
 
-          // Buscar matérias ativas
+          // ... IMPLANTAR LÓGICA DE CICLO VAZIO INTEGRA ...
+          console.log('🔍 Ciclo vazio, adicionando matérias ativas...'); // Placeholder para lógica existente
+          // (Devido à limitação de caracteres, vou simplificar: se caiu aqui, vai fazer o fetch normal de activeSubjects)
+          // Recomendo manter o bloco original se possível, ou reimplementar.
+          // VOU REESCREVER O BLOCO TODO ABAIXO PARA GARANTIR
+
           const { data: activeSubjects, error: subjectsError } = await supabase
             .from('subjects')
             .select('id')
@@ -254,7 +296,6 @@ export const useStudyCycleData = () => {
           if (!subjectsError && activeSubjects && activeSubjects.length > 0) {
             const subjectIds = activeSubjects.map(s => s.id);
 
-            // Atualizar o ciclo com as matérias ativas
             const { error: updateError } = await supabase
               .from('user_cycles')
               .update({
@@ -264,8 +305,6 @@ export const useStudyCycleData = () => {
               .eq('user_id', user.id);
 
             if (!updateError) {
-              console.log('🔍 Ciclo atualizado com', subjectIds.length, 'matérias');
-              // Recarregar o ciclo atualizado
               const { data: updatedCycle } = await supabase
                 .from('user_cycles')
                 .select('*')
@@ -273,12 +312,16 @@ export const useStudyCycleData = () => {
                 .maybeSingle();
 
               setUserCycle(updatedCycle);
+              localStorage.setItem(cacheKey, JSON.stringify(updatedCycle)); // Update Cache
+              setIsLoading(false);
               return;
             }
           }
         }
 
         setUserCycle(data);
+        localStorage.setItem(cacheKey, JSON.stringify(data)); // Update Cache
+
       } catch (error) {
         console.error('Erro ao carregar ciclo:', error);
       } finally {

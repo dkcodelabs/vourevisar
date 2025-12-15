@@ -14,7 +14,7 @@ import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Loader2 } from 'lucide-react';
 // Removido hook de visibilidade que causava recarregamentos
 
@@ -423,7 +423,9 @@ export const StudyCycleContent: React.FC = () => {
         <div className={containerClasses}>
           {sectionSubjects.map((subject, index) => {
             // Cada subject deve ter sua posição específica, não todas as posições
-            const cyclePosition = subject.cyclePosition || null;
+            // Posição no ciclo: Usar do objeto ou fallback para o índice + 1 se for seção ativa
+            const cyclePosition = subject.cyclePosition || (status === SubjectStatus.ACTIVE ? index + 1 : null);
+
             return (
               <StudyCycleSubjectCard
                 key={`${subject.id}-${subject.status}-${forceRenderKey}`}
@@ -472,17 +474,17 @@ export const StudyCycleContent: React.FC = () => {
         )}
 
         <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md mx-4 md:mx-8">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Ciclo de Estudos</h1>
-            <p className="text-sm text-gray-500 mb-2">Gerencie seu progresso e metas diárias</p>
-            <div className="h-1 w-full bg-blue-500 rounded-full"></div>
+          <div className="mb-4">
+            <h1 className="text-xl font-semibold text-gray-900">Ciclo de Estudos</h1>
+            <p className="text-xs text-muted-foreground mt-1">Gerencie seu progresso e metas diárias</p>
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
           </div>
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-row gap-2 items-center">
               {/* Campo de Busca */}
-              <div className="relative flex-1 min-w-0">
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200">
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -523,7 +525,7 @@ export const StudyCycleContent: React.FC = () => {
                     }
                   }}
                   placeholder="Buscar..."
-                  className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-8 py-2 text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400"
                 />
                 {searchQuery && (
                   <button
@@ -533,7 +535,7 @@ export const StudyCycleContent: React.FC = () => {
                       setExpandedSubjects(expandedBeforeSearch);
                       setExpandedBeforeSearch(new Set());
                     }}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors"
                   >
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

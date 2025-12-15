@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Topic } from '@/types';
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { format, isToday, isPast, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
@@ -30,7 +30,7 @@ const Topics = () => {
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
-    topic: (Topic & { subjectName: string }) | null;
+    topic: (Topic & { subjectName: string; subjectId: string }) | null;
   }>({ isOpen: false, topic: null });
   const [notesModal, setNotesModal] = useState<{
     isOpen: boolean;
@@ -257,22 +257,22 @@ const Topics = () => {
       <div className="space-y-6">
         {/* Header com Pesquisa e Filtros */}
         <div className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Tópicos</h1>
-            <p className="text-sm text-gray-500 mb-2">Visualize e gerencie todos os seus tópicos de estudo</p>
-            <div className="h-1 w-full bg-blue-500 rounded-full"></div>
+          <div className="mb-4">
+            <h1 className="text-xl font-semibold text-gray-900">Tópicos</h1>
+            <p className="text-xs text-muted-foreground mt-1">Visualize e gerencie todos os seus tópicos de estudo</p>
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
           </div>
           <div className="flex flex-col gap-3">
             {/* Campo de Pesquisa e Filtros na mesma linha */}
             <div className="flex flex-col lg:flex-row gap-3">
               {/* Campo de Pesquisa */}
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+              <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   placeholder="Pesquisar tópicos..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-11 h-11 bg-card border-input text-foreground shadow-sm focus:ring-2 focus:ring-primary/20"
+                  className="pl-10 h-10 w-full bg-transparent border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400 text-sm"
                 />
               </div>
 
@@ -408,46 +408,47 @@ const Topics = () => {
             </Card>
           ) : (
             <>
-              {/* Table Header - HIDDEN ON MOBILE */}
-              <div className="hidden md:grid grid-cols-[1fr_340px_100px_160px_120px] gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
-                <div className="pl-8">Tópico</div>
-                <div className="text-center">Matéria</div>
-                <div className="text-center">Dificuldade</div>
-                <div className="text-center">Status</div>
-                <div className="text-center">Ações</div>
-              </div>
-
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {filteredAndSortedTopics.map((topic) => (
-                  <TopicListItem
-                    key={topic.id}
-                    topic={{
-                      ...topic,
-                      subjectName: topic.subjectName,
-                      subjectColor: topic.subjectColor,
-                      nextReview: topic.nextReview ? new Date(topic.nextReview).toISOString() : null,
-                      // Ensure difficulty_level is passed if it exists in topic, else 0
-                      difficulty_level: topic.difficulty_level || 0
-                    }}
-                    onEdit={(id, newName) => {
-                      updateTopic(id, { name: newName });
-                    }}
-                    onDelete={(id) => {
-                      const topicToDelete = allTopics.find(t => t.id === id);
-                      if (topicToDelete) {
-                        setDeleteModal({ isOpen: true, topic: topicToDelete });
-                      }
-                    }}
-                    onOpenNotes={(topicId, topicName, subjectName) => {
-                      setNotesModal({
-                        isOpen: true,
-                        topicId,
-                        topicName,
-                        subjectName
-                      });
-                    }}
-                  />
-                ))}
+                {/* Table Header - INTEGRATED */}
+                <div className="hidden md:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                  <div className="pl-8">Tópico / Matéria</div>
+                  <div className="text-center">Dificuldade</div>
+                  <div className="text-center">Status</div>
+                  <div className="text-center">Ações</div>
+                </div>
+
+                <div>
+                  {filteredAndSortedTopics.map((topic) => (
+                    <TopicListItem
+                      key={topic.id}
+                      topic={{
+                        ...topic,
+                        subjectName: topic.subjectName,
+                        subjectColor: topic.subjectColor,
+                        nextReview: topic.nextReview ? new Date(topic.nextReview).toISOString() : null,
+                        // Ensure difficulty_level is passed if it exists in topic, else 0
+                        difficulty_level: topic.difficulty_level || 0
+                      }}
+                      onEdit={(id, newName) => {
+                        updateTopic(topic.subjectId, id, { name: newName });
+                      }}
+                      onDelete={(id) => {
+                        const topicToDelete = allTopics.find(t => t.id === id);
+                        if (topicToDelete) {
+                          setDeleteModal({ isOpen: true, topic: topicToDelete });
+                        }
+                      }}
+                      onOpenNotes={(topicId, topicName, subjectName) => {
+                        setNotesModal({
+                          isOpen: true,
+                          topicId,
+                          topicName,
+                          subjectName
+                        });
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </>
           )}
@@ -459,7 +460,7 @@ const Topics = () => {
           onClose={() => setDeleteModal({ isOpen: false, topic: null })}
           onConfirm={() => {
             if (deleteModal.topic) {
-              deleteTopic(deleteModal.topic.id);
+              deleteTopic(deleteModal.topic.subjectId, deleteModal.topic.id);
               setDeleteModal({ isOpen: false, topic: null });
               toast.success("Tópico excluído com sucesso!");
             }

@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Topic, TopicNotes } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
 
 export const useTopicOperations = (

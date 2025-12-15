@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject, UserCycle } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { loadUserCycle } from '@/utils/cycleUtils';
 
 export const useNewCycleManagement = (

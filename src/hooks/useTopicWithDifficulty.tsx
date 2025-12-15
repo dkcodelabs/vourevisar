@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Topic } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 interface TopicCompletionData {
   topicId: string;

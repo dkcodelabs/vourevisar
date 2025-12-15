@@ -5,33 +5,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Edit2, Trash2, Check, X, BookOpen } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+
 import { Subject, Topic } from '@/types';
-import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from '@/lib/toast';
+
 import { useOptimisticTopics } from '@/hooks/useOptimisticTopics';
 
 interface TopicsModalProps {
   isOpen: boolean;
   onClose: () => void;
   subject: Subject;
+  onUpdate?: () => void;
 }
 
-const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) => {
-  const { setSubjects } = useApp();
+const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onUpdate }) => {
+  // const { setSubjects } = useApp(); // Context removed
   const [newTopicName, setNewTopicName] = useState('');
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
   // Callback para atualizar os tópicos no contexto global
   const handleTopicsUpdate = (updatedTopics: Topic[]) => {
-    setSubjects(prevSubjects => 
-      prevSubjects.map(s => 
-        s.id === subject.id 
-          ? { ...s, topics: updatedTopics }
-          : s
-      )
-    );
+    // Apenas notificamos o pai para recarregar
+    if (onUpdate) {
+      onUpdate();
+    }
   };
 
   const {
@@ -90,12 +88,12 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
 
   const getStatusBadge = (topic: Topic) => {
     if (topic.completed || topic.reviewStage === 'Concluído') {
-      return <Badge className="bg-green-100 text-green-800 border-green-300">Concluído</Badge>;
+      return <Badge className="bg-green-100 text-green-800 border-green-300 w-[90px] justify-center shadow-none font-medium">Concluído</Badge>;
     }
     if (topic.reviewCount > 0 || topic.reviewStage) {
-      return <Badge className="bg-blue-100 text-blue-800 border-blue-300">Em Revisão</Badge>;
+      return <Badge className="bg-blue-100 text-blue-800 border-blue-300 w-[90px] justify-center shadow-none font-medium">Em Revisão</Badge>;
     }
-    return <Badge className="bg-gray-100 text-gray-800 border-gray-300">Novo</Badge>;
+    return <Badge className="bg-gray-100 text-gray-800 border-gray-300 w-[90px] justify-center shadow-none font-medium">Novo</Badge>;
   };
 
   // Auto-focus no campo de adição quando o modal abre
@@ -136,7 +134,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
                 }}
                 className="flex-1"
               />
-              <Button 
+              <Button
                 onClick={handleAddTopic}
                 disabled={isAdding || !newTopicName.trim()}
                 className="bg-blue-600 hover:bg-blue-700"
@@ -156,18 +154,15 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
                 <p className="text-sm">Adicione o primeiro tópico acima.</p>
               </div>
             ) : (
-              <AnimatePresence>
+              <div className="space-y-2">
                 {localTopics.map((topic) => (
-                  <motion.div
+                  <div
                     key={topic.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
                     className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1">
-                        
+
                         {editingTopicId === topic.id ? (
                           <div className="flex items-center gap-2 flex-1">
                             <Input
@@ -200,18 +195,22 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
                         ) : (
                           <>
                             {/* Espaço fixo para a marcação de status */}
-                            <div className="w-20 flex-shrink-0">
+                            <div className="flex-shrink-0 mr-4">
                               {getStatusBadge(topic)}
                             </div>
-                            
-                            <div className="flex-1">
-                              <h4 className="text-base text-zinc-800 dark:text-zinc-200">{topic.name}</h4>
-                              <div className="flex items-center gap-2 mt-1">
-                                {topic.reviewCount > 0 && (
-                                  <span className="text-xs text-gray-500">
-                                    {topic.reviewCount} revisões
-                                  </span>
-                                )}
+
+                            <div className="flex-1 min-w-0 mr-4">
+                              <h4
+                                className="text-base font-medium text-zinc-800 dark:text-zinc-200 cursor-pointer hover:text-blue-600 transition-colors truncate"
+                                onClick={() => handleStartEdit(topic)}
+                                title="Clique para editar"
+                              >
+                                {topic.name}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-gray-500">
+                                  {topic.reviewCount || 0} revisões
+                                </span>
                               </div>
                             </div>
                           </>
@@ -223,25 +222,17 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject }) =
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleStartEdit(topic)}
-                            className="hover:bg-gray-100"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
                             onClick={() => handleDeleteTopic(topic.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       )}
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
-              </AnimatePresence>
+              </div>
             )}
           </div>
 

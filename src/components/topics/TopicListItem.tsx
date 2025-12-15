@@ -87,7 +87,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
   return (
     <div className="
       group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-      flex flex-col md:grid md:grid-cols-[1fr_340px_100px_160px_120px] md:gap-0
+      flex flex-col md:grid md:grid-cols-[1fr_100px_160px_120px] md:gap-0
     ">
       {/* Sticky Left Color Bar */}
       <div
@@ -136,7 +136,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
               title="Clique no texto para editar"
             >
               <h3
-                className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs truncate group-hover/topic:text-blue-600 transition-colors cursor-pointer"
+                className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs truncate group-hover/topic:text-blue-600 transition-colors cursor-pointer first-letter:uppercase"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditing(true);
@@ -149,19 +149,15 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
               )}
             </div>
           )}
+
+          <div className="text-xs text-gray-500 font-normal mt-0.5 md:mt-1 truncate capitalize">
+            {topic.subjectName.toLowerCase()}
+          </div>
         </div>
       </div>
 
-      {/* Subject & Difficulty */}
+      {/* Difficulty */}
       <div className="flex items-center px-4 pb-2 md:p-0 md:contents">
-        {/* Subject */}
-        <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100 mr-4 md:mr-0">
-          <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-medium text-center max-w-full block line-clamp-2">
-            {topic.subjectName}
-          </span>
-        </div>
-
-        {/* Difficulty */}
         <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100">
           <DifficultyRating value={topic.difficulty_level || 0} readonly size="sm" />
         </div>
@@ -208,7 +204,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

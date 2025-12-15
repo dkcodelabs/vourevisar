@@ -1,5 +1,7 @@
 
-import { Toaster as Sonner } from "@/components/ui/sonner";
+
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -48,7 +50,20 @@ const App = () => {
             <BrowserRouter>
               <AuthProvider>
                 <AppProvider>
-                  <Sonner />
+                  <ToastContainer
+                    position="bottom-right"
+                    autoClose={4000}
+                    hideProgressBar={false}
+                    newestOnTop={false}
+                    closeOnClick
+                    rtl={false}
+                    pauseOnFocusLoss
+                    draggable
+                    pauseOnHover
+                    theme="colored"
+                    stacked={false}
+                    toastClassName="!rounded-xl !shadow-lg !font-medium"
+                  />
                   <ProfileOnboardingGate />
                   <Routes>
                     <Route path="/" element={<LandingPage />} />

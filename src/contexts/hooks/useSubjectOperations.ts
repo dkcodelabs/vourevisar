@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 export const useSubjectOperations = (
   user: any,

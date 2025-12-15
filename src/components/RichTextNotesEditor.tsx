@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Save, Check, AlertCircle } from 'lucide-react';
 import { TopicNotes } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 

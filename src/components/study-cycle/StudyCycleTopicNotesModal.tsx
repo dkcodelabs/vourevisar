@@ -7,7 +7,7 @@ import { X, Save, ThumbsUp, Minus, ThumbsDown, Plus, MessageSquareText } from 'l
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
 import { TopicReviewHistorySection } from '@/components/TopicReviewHistorySection';
 import { TopicNotes } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 // import { Difficulty } from '@/types/study-cycle'; // Removido - usando sistema de estrelas
 import { supabase } from '@/integrations/supabase/client';

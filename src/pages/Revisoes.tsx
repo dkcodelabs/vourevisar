@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 import { useApp } from '@/contexts/AppContext';
 import { useReviewsData } from '@/hooks/useReviewsData';
@@ -284,9 +284,9 @@ const Revisoes = () => {
         <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">Processo de Revisão</h1>
-              <p className="text-gray-500 text-xs mb-2">Painel de controle de repetição espaçada</p>
-              <div className="h-1 w-full bg-blue-500 rounded-full"></div>
+              <h1 className="text-xl font-semibold text-gray-900">Processo de Revisão</h1>
+              <p className="text-xs text-muted-foreground mt-1">Painel de controle de repetição espaçada</p>
+              <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
             </div>
             <div className="flex w-full md:w-auto items-center gap-3">
               {/* Controls moved to tabs row */}
@@ -404,12 +404,12 @@ const Revisoes = () => {
               )}
 
               {/* Search Bar */}
-              <div className="relative w-full md:w-auto">
+              <div className="relative w-full md:w-auto bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Pesquisar..."
-                  className="w-full md:w-48 pl-9 pr-4 py-1.5 bg-white border border-gray-200 rounded-lg text-xs shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all placeholder:text-gray-400"
+                  className="w-full md:w-48 pl-9 pr-4 py-1.5 bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 text-xs"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -419,7 +419,7 @@ const Revisoes = () => {
         </header>
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar mr-1">
 
           {Object.entries(groupedItems).map(([key, groupItems]: [string, RevisionItem[]]) => {
             if (groupItems.length === 0) return null;
@@ -445,43 +445,35 @@ const Revisoes = () => {
 
                 {/* Collapsible Content */}
                 {!isCollapsed && (
-                  <>
-                    {/* Table Header - HIDDEN ON MOBILE */}
-                    <div className="hidden md:grid grid-cols-[1fr_340px_100px_160px_120px] gap-0 border-b border-gray-200 pb-2 mb-1 px-2 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
-                      <div className="pl-8">Tópico</div>
-                      <div className="text-center">Matéria</div>
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    {/* Table Header - INTEGRATED */}
+                    <div className="hidden md:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                      <div className="pl-8">Tópico / Matéria</div>
                       <div className="text-center">Dificuldade</div>
                       <div className="text-center">Status</div>
                       <div className="text-center">Ações</div>
                     </div>
 
                     {/* Rows */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div>
                       {groupItems.map((item) => (
                         <div key={item.id} className="
                           group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-                          flex flex-col md:grid md:grid-cols-[1fr_340px_100px_160px_120px] md:gap-0
+                          flex flex-col md:grid md:grid-cols-[1fr_100px_160px_120px] md:gap-0
                         ">
                           {/* Sticky Left Color Bar */}
                           <div className={`absolute left - 0 top - 0 bottom - 0 w - 1.5 ${style.color.replace('border-', 'bg-')} `}></div>
 
-                          {/* Topic Column */}
                           <div className="
-                              md:p-3 flex items-center gap-3 pl-4 md:pl-8
+                              md:p-3 flex flex-col justify-center pl-4 md:pl-8
                               pt-4 md:pt-3 md:border-r border-gray-100
                             ">
-                            <div className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs">{item.topic}</div>
+                            <div className="font-semibold text-gray-900 text-sm md:text-sm leading-tight">{item.topic}</div>
+                            <div className="text-xs text-gray-500 font-normal mt-0.5 md:mt-1 truncate">{item.subject}</div>
                           </div>
 
-                          {/* Subject & Difficulty */}
+                          {/* Difficulty */}
                           <div className="flex items-center px-4 pb-2 md:p-0 md:contents">
-                            {/* Subject */}
-                            <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100 mr-4 md:mr-0">
-                              <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-medium text-center max-w-full block line-clamp-2">
-                                {item.subject}
-                              </span>
-                            </div>
-
                             {/* Difficulty */}
                             <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100 cursor-pointer"
                               onClick={() => {
@@ -571,7 +563,7 @@ const Revisoes = () => {
                         </div>
                       ))}
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             );

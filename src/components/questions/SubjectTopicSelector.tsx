@@ -4,7 +4,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { useSubjectsAndTopics } from '@/hooks/useSubjectsAndTopics';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { subjectNameSchema, topicNameSchema } from '@/lib/validation';
 
 interface SubjectTopicSelectorProps {

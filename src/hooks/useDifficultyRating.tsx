@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 interface DifficultyRatingState {
   isModalOpen: boolean;

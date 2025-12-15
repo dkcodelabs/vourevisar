@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { useAuthOperations } from '@/hooks/useAuthOperations';
 import { Database } from '@/integrations/supabase/types';
 

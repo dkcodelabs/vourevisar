@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const LandingPage = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
 
 
@@ -42,14 +43,77 @@ const LandingPage = () => {
 
             {/* MENU MOBILE BUTTON */}
             <div className="md:hidden flex items-center">
-              <button className="text-slate-600 hover:text-slate-900 focus:outline-none">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="text-slate-600 hover:text-slate-900 focus:outline-none"
+              >
+                {isMobileMenuOpen ? (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
         </div>
+
+        {/* MOBILE MENU DROPDOWN */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-slate-100 animate-in slide-in-from-top-5 duration-200">
+            <div className="px-4 pt-2 pb-6 space-y-2 shadow-xl">
+              <a
+                href="#funcionalidades"
+                className="block px-3 py-3 rounded-md text-base font-medium text-slate-700 hover:text-brand-blue hover:bg-blue-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Como funciona
+              </a>
+              <a
+                href="#precos"
+                className="block px-3 py-3 rounded-md text-base font-medium text-slate-700 hover:text-brand-blue hover:bg-blue-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Planos
+              </a>
+
+              <div className="pt-4 mt-2 border-t border-slate-100 flex flex-col items-center gap-3">
+                {user ? (
+                  <Link
+                    to="/dashboard"
+                    className="bg-brand-blue hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Ir para o Painel
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className="w-fit mx-auto text-center text-slate-700 font-bold border border-slate-200 px-8 py-4 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Entrar
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                    </Link>
+                    <Link
+                      to="/login"
+                      className="bg-brand-blue hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Começar Grátis
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* HERO SECTION */}
@@ -77,7 +141,7 @@ const LandingPage = () => {
               O <strong>vouRevisar</strong> organiza os seus estudos automaticamente. Use a repetição espaçada para garantir que nunca mais esquece o que aprendeu.
             </p>
 
-            <div className="flex flex-col sm:flex-row justify-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-forwards">
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-forwards">
               {user ? (
                 <Link to="/dashboard" className="bg-brand-blue hover:bg-blue-700 text-white text-lg px-8 py-4 rounded-xl font-bold transition shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2">
                   Acessar meu Painel
@@ -89,10 +153,7 @@ const LandingPage = () => {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
                 </Link>
               )}
-              <button className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-lg px-8 py-4 rounded-xl font-semibold transition flex items-center justify-center gap-2">
-                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Ver demonstração
-              </button>
+
             </div>
           </div>
 
