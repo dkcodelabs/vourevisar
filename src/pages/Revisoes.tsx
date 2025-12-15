@@ -468,8 +468,8 @@ const Revisoes = () => {
                               md:p-3 flex flex-col justify-center pl-4 md:pl-8
                               pt-4 md:pt-3 md:border-r border-gray-100
                             ">
-                            <div className="font-semibold text-gray-900 text-sm md:text-sm leading-tight">{item.topic}</div>
-                            <div className="text-xs text-gray-500 font-normal mt-0.5 md:mt-1 truncate">{item.subject}</div>
+                            <div className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs truncate transition-colors first-letter:uppercase">{item.topic}</div>
+                            <div className="text-xs text-gray-500 font-normal mt-0.5 md:mt-1 truncate capitalize">{item.subject.toLowerCase()}</div>
                           </div>
 
                           {/* Difficulty */}

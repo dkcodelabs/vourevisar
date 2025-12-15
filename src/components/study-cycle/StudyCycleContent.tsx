@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { toast } from '@/lib/toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle, X } from 'lucide-react';
 // Removido hook de visibilidade que causava recarregamentos
 
 
@@ -244,6 +244,12 @@ export const StudyCycleContent: React.FC = () => {
       normalizeText(topic.name).includes(normalizedQuery)
     );
   }, [searchQuery, normalizeText]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setExpandedSubjects(expandedBeforeSearch);
+    setExpandedBeforeSearch(new Set());
+  }, [expandedBeforeSearch]);
 
   // REMOVIDO hook de progresso diário - estava causando loops
 
@@ -529,17 +535,10 @@ export const StudyCycleContent: React.FC = () => {
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => {
-                      setSearchQuery('');
-                      // Restaurar estado anterior
-                      setExpandedSubjects(expandedBeforeSearch);
-                      setExpandedBeforeSearch(new Set());
-                    }}
+                    onClick={handleClearSearch}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors"
                   >
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X size={14} />
                   </button>
                 )}
               </div>
@@ -584,7 +583,36 @@ export const StudyCycleContent: React.FC = () => {
           </div>
         </header>
 
+        {searchQuery && (
+          <div className="px-4 md:px-8 mb-4 shrink-0 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-full text-amber-600">
+                  <AlertCircle size={18} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-amber-900">
+                    Filtrando por: <span className="font-bold">"{searchQuery}"</span>
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    O filtro é aplicado nos nomes dos tópicos.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleClearSearch}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 shadow-sm rounded-md text-xs font-medium text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
+                title="Limpar e mostrar tudo"
+              >
+                <X size={14} />
+                Limpar
+              </button>
+            </div>
+          </div>
+        )}
+
         <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pt-0">
+
           {renderSection(SubjectStatus.ACTIVE)}
           {renderSection(SubjectStatus.COMPLETED_CYCLE)}
           {renderSection(SubjectStatus.FINISHED)}
