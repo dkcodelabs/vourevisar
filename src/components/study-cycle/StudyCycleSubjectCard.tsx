@@ -70,22 +70,25 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-semibold"
         title={`Posição ${cyclePosition} na sequência do ciclo`}
       >
-        #{cyclePosition}
+        {cyclePosition}
       </Badge>
     );
   };
 
-  const progress = useMemo(() => {
-    if (subject.topics.length === 0) return 0;
-    if (isFullyCompleted) return 100;
+  const progressStats = useMemo(() => {
+    const total = subject.topics.length;
+    if (total === 0) return { started: 0, completed: 0 };
 
-    const totalSteps = subject.topics.length * (reviewProgression.length - 1);
-    const completedSteps = subject.topics.reduce((acc, topic) => {
-      const index = reviewProgression.indexOf(topic.reviewStatus);
-      return acc + (index > -1 ? index : 0);
-    }, 0);
-    return totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
-  }, [subject.topics, isFullyCompleted]);
+    // Topics that have moved beyond NOT_STARTED
+    const startedCount = subject.topics.filter(t => t.reviewStatus !== ReviewInterval.NOT_STARTED).length;
+    // Topics that are fully COMPLETED
+    const completedCount = subject.topics.filter(t => t.reviewStatus === ReviewInterval.COMPLETED).length;
+
+    return {
+      started: Math.round((startedCount / total) * 100),
+      completed: Math.round((completedCount / total) * 100)
+    };
+  }, [subject.topics]);
 
   const handleComplete = async () => {
     try {
@@ -168,8 +171,6 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     }
   };
 
-
-
   const cardBaseClasses = "bg-card rounded-2xl shadow-md overflow-hidden transition-all duration-300";
   const focusClasses = isStudyFocus
     ? 'relative transform scale-[1.03] shadow-[0_0_20px_rgba(14,165,233,0.2)] dark:shadow-[0_0_20px_rgba(56,189,248,0.15)] z-10'
@@ -184,34 +185,51 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               <CyclePositionBadge />
               <h3 className="text-base text-card-foreground line-clamp-2" style={{ fontWeight: 700 }}>{subject.name}</h3>
             </div>
-            <div className="flex items-center gap-2">
+          </div>
+          <div className="flex items-center gap-4 mt-4 relative">
+            <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden relative">
+              {/* Layer 1: Started (Gray/Phantom) - "In Pipeline" */}
+              <div
+                className="absolute top-0 left-0 h-full bg-gray-300 dark:bg-gray-600 transition-all duration-700 ease-out rounded-r-full"
+                style={{ width: `${progressStats.started}%` }}
+              />
+
+              {/* Layer 2: Completed (Emerald) - "Done" */}
+              <div
+                className="absolute top-0 left-0 h-full bg-emerald-600 transition-all duration-700 ease-out rounded-r-full"
+                style={{ width: `${progressStats.completed}%` }}
+              />
+            </div>
+
+            {/* Stats */}
+            <div className="flex flex-col items-end min-w-[3rem]">
+              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{progressStats.completed}%</span>
+              {progressStats.started > progressStats.completed && (
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">
+                  {progressStats.started}% iniciado
+                </span>
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-700">
               <button
                 onClick={handleStartAddingTopic}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
+                className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                 title="Adicionar novo tópico"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span>Tópico</span>
               </button>
               <button
                 onClick={onSubjectNotesClick}
-                className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
                 title="Anotações da matéria"
               >
                 <NotebookPen className="w-4 h-4" />
               </button>
             </div>
-          </div>
-          <div className="flex items-center gap-4 mt-4">
-            <div className="w-full bg-muted rounded-full h-2.5">
-              <div
-                className="bg-emerald-500 h-2.5 rounded-full"
-                style={{ width: '100%' }}
-              ></div>
-            </div>
-            <span className="text-sm font-semibold text-emerald-500">100%</span>
           </div>
         </div>
         <div className="p-4 bg-muted/30 flex-grow">
@@ -284,51 +302,56 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div className="flex-grow">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 flex-1 min-w-0">
-                <CycleStatusIndicator
-                  key={`${subject.id}-${Date.now()}`} // CRÍTICO: Forçar re-render com timestamp
-                  isStudied={(() => {
-                    const id = subject.originalId || subject.id;
-
-                    // Se a matéria está 100% concluída, sempre verde
-                    const isFullyCompleted = subject.topics.length > 0 && subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
-                    if (isFullyCompleted) return true;
-
-                    // Senão, verificar se foi estudada no ciclo atual
-                    const studied = isSubjectStudied(id);
-                    // Log removido para evitar spam
-                    return studied;
-                  })()}
-                  isNextSuggested={isNextSuggested(subject.originalId || subject.id)}
-                  variant="dot"
-                />
                 <CyclePositionBadge />
                 <h3 className="text-base text-card-foreground break-words leading-tight" style={{ fontWeight: 700 }}>{subject.name}</h3>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleStartAddingTopic}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
-                  title="Adicionar novo tópico"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>Tópico</span>
-                </button>
-                <button
-                  onClick={onSubjectNotesClick}
-                  className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
-                  title="Anotações da matéria"
-                >
-                  <NotebookPen className="w-4 h-4" />
-                </button>
-              </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-emerald-500 h-2 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+              <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden relative">
+                {/* Layer 1: Started (Gray) */}
+                <div
+                  className="absolute top-0 left-0 h-full bg-gray-300 dark:bg-gray-600 transition-all duration-700 ease-out rounded-r-full"
+                  style={{ width: `${progressStats.started}%` }}
+                />
+
+                {/* Layer 2: Completed (Emerald) */}
+                <div
+                  className="absolute top-0 left-0 h-full bg-emerald-600 transition-all duration-700 ease-out rounded-r-full"
+                  style={{ width: `${progressStats.completed}%` }}
+                />
               </div>
-              <span className="text-xs font-semibold text-muted-foreground">{progress}%</span>
+
+              {/* Stats moved here alongside buttons */}
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col items-end min-w-[2.5rem]">
+                  <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{progressStats.completed}%</span>
+                  {progressStats.started > progressStats.completed && (
+                    <span className="text-[9px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap leading-none mt-0.5">
+                      {progressStats.started}% ini.
+                    </span>
+                  )}
+                </div>
+
+                {/* Action Buttons in List View Footer */}
+                <div className="flex items-center gap-1 pl-2 border-l border-gray-200 dark:border-gray-700 ml-1">
+                  <button
+                    onClick={handleStartAddingTopic}
+                    className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                    title="Adicionar novo tópico"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={onSubjectNotesClick}
+                    className="p-1 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                    title="Anotações da matéria"
+                  >
+                    <NotebookPen className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <button
@@ -411,55 +434,57 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
   return (
     <div className={`${cardBaseClasses} flex flex-col ${focusClasses} relative`}>
-      <CycleStatusIndicator
-        key={`${subject.id}-${Date.now()}`} // CRÍTICO: Forçar re-render com timestamp
-        isStudied={(() => {
-          const id = subject.originalId || subject.id;
-
-          // Se a matéria está 100% concluída, sempre verde
-          const isFullyCompleted = subject.topics.length > 0 && subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
-          if (isFullyCompleted) return true;
-
-          // Senão, verificar se foi estudada no ciclo atual
-          const studied = isSubjectStudied(id);
-          console.log(`🔍 Status de ${subject.name}:`, { id, studied, isFullyCompleted });
-          return studied;
-        })()}
-        isNextSuggested={isNextSuggested(subject.originalId || subject.id)}
-        variant="badge"
-        className="absolute top-2 right-2 z-10"
-      />
       <div className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <CyclePositionBadge />
             <h3 className="text-base text-card-foreground break-words leading-tight" style={{ fontWeight: 700 }}>{subject.name}</h3>
           </div>
-          <div className="flex items-center gap-2">
+        </div>
+        <div className="flex items-center gap-4 mt-4 relative">
+          <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden relative">
+            {/* Layer 1: Started (Gray/Phantom) - "In Pipeline" */}
+            <div
+              className="absolute top-0 left-0 h-full bg-gray-300 dark:bg-gray-600 transition-all duration-700 ease-out rounded-r-full"
+              style={{ width: `${progressStats.started}%` }}
+            />
+
+            {/* Layer 2: Completed (Emerald) - "Done" */}
+            <div
+              className="absolute top-0 left-0 h-full bg-emerald-600 transition-all duration-700 ease-out rounded-r-full"
+              style={{ width: `${progressStats.completed}%` }}
+            />
+          </div>
+
+          {/* Stats */}
+          <div className="flex flex-col items-end min-w-[3rem]">
+            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{progressStats.completed}%</span>
+            {progressStats.started > progressStats.completed && (
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">
+                {progressStats.started}% iniciado
+              </span>
+            )}
+          </div>
+
+          {/* Buttons */}
+          <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-700">
             <button
               onClick={handleStartAddingTopic}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
+              className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
               title="Adicionar novo tópico"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span>Tópico</span>
             </button>
             <button
               onClick={onSubjectNotesClick}
-              className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+              className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
               title="Anotações da matéria"
             >
               <NotebookPen className="w-4 h-4" />
             </button>
           </div>
-        </div>
-        <div className="flex items-center gap-4 mt-4">
-          <div className="w-full bg-muted rounded-full h-2.5">
-            <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
-          </div>
-          <span className="text-sm font-semibold text-muted-foreground">{progress}%</span>
         </div>
       </div>
 

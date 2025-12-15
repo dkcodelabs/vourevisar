@@ -923,19 +923,19 @@ const Subjects = () => {
 
                                     {/* Mobile: Top Row with Status and Menu */}
                                     <div className="flex md:hidden justify-between items-center w-full mb-1">
-                                      <div className="flex items-center gap-2">
-                                        <span className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-bold px-2 py-0.5 rounded-md flex-shrink-0">
+                                      <div className="flex items-center gap-1">
+                                        <div className="cursor-move p-2 text-slate-400 -ml-2" {...listeners} {...attributes}>
+                                          <GripVertical size={20} />
+                                        </div>
+                                        <span className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-bold px-2 py-0.5 rounded-md flex-shrink-0 ml-1">
                                           #{position}
-                                        </span>
-                                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${getStatusColor(calculatedStatus)}`}>
-                                          {calculatedStatus}
                                         </span>
                                       </div>
 
-                                      <div className="flex items-center">
-                                        <div className="cursor-move p-2 text-slate-400" {...listeners} {...attributes}>
-                                          <GripVertical size={20} />
-                                        </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${getStatusColor(calculatedStatus)}`}>
+                                          {calculatedStatus}
+                                        </span>
                                         <Button variant="ghost" className="p-1 h-8 w-8 text-slate-400" onClick={() => toggleExpand(subject.id)}>
                                           {expandedSubjectIds.includes(subject.id) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                         </Button>
@@ -948,12 +948,7 @@ const Subjects = () => {
                                     </div>
 
                                     {/* Expand Toggle (Desktop) */}
-                                    <button
-                                      onClick={() => toggleExpand(subject.id)}
-                                      className="hidden md:flex p-1 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-                                    >
-                                      {expandedSubjectIds.includes(subject.id) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                    </button>
+                                    {/* Expand Toggle (Desktop) - Moved to right */}
 
                                     {/* Main Content */}
                                     <div className="flex-1 min-w-0" onClick={() => window.innerWidth < 768 && toggleExpand(subject.id)}>
@@ -1075,6 +1070,13 @@ const Subjects = () => {
                                           </AlertDialog>
                                         </>
                                       )}
+                                      {/* Expand Toggle (Desktop) - New Position */}
+                                      <button
+                                        onClick={() => toggleExpand(subject.id)}
+                                        className="hidden md:flex p-1 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors ml-2"
+                                      >
+                                        {expandedSubjectIds.includes(subject.id) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                      </button>
                                     </div>
                                   </div>
 
