@@ -84,6 +84,16 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
 
   const hasNotes = topic.notes && topic.notes.content && topic.notes.content.trim().length > 0;
 
+  const getStatusColor = () => {
+    switch (status) {
+      case RevisionStatus.COMPLETED: return '#22c55e'; // green-500
+      case RevisionStatus.OVERDUE: return '#ef4444'; // red-500
+      case RevisionStatus.TODAY: return '#f97316'; // orange-500
+      case RevisionStatus.FUTURE: return '#3b82f6'; // blue-500
+      default: return '#cbd5e1'; // slate-300
+    }
+  };
+
   return (
     <div className="
       group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
@@ -92,7 +102,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
       {/* Sticky Left Color Bar */}
       <div
         className="absolute left-0 top-0 bottom-0 w-1.5"
-        style={{ backgroundColor: topic.subjectColor || '#e5e7eb' }}
+        style={{ backgroundColor: getStatusColor() }}
       ></div>
 
       {/* Topic Column */}

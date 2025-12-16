@@ -36,6 +36,8 @@ const Dashboard = () => {
     subjectName: ''
   });
 
+  // ... (useQuery and loading checks remain same)
+
   // Buscar histórico de revisões para estatísticas
   const { data: reviewData } = useQuery({
     queryKey: ['dashboard-review-history', user?.id],
