@@ -98,40 +98,6 @@ const TempNotesModal: React.FC<TempNotesModalProps> = ({
             />
           </div>
 
-          {/* Dificuldade */}
-          <div className="bg-white dark:bg-slate-900/50 p-4 rounded-xl">
-            <div className="flex items-center gap-2 mb-3">
-              <svg className="w-5 h-5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                Dificuldade
-              </h3>
-            </div>
-            <div className="flex gap-2">
-              {[
-                { value: 'facil', label: 'Fácil', icon: '😊', color: 'emerald' },
-                { value: 'medio', label: 'Médio', icon: '😐', color: 'amber' },
-                { value: 'dificil', label: 'Difícil', icon: '😰', color: 'red' }
-              ].map((option) => {
-                const isSelected = difficulty === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    onClick={() => setDifficulty(option.value as any)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-all duration-200 ${
-                      isSelected 
-                        ? `bg-${option.color}-500 text-white border-${option.color}-500` 
-                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
-                    }`}
-                  >
-                    <span className="text-lg">{option.icon}</span>
-                    <span className="font-medium">{option.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Subtópicos */}
           <div className="bg-white dark:bg-slate-900/50 p-4 rounded-xl">

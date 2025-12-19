@@ -153,9 +153,9 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
       console.log(`Changing subscription for user ${userId} to ${action}`)
 
       if (action === 'deactivate') {
-        // Desativar assinatura - usar cancel_subscription
+        // Desativar assinatura - usar deactivate_subscription
         const { data, error } = await supabase
-          .rpc('cancel_subscription', {
+          .rpc('deactivate_subscription', {
             target_user_id: userId
           })
 
