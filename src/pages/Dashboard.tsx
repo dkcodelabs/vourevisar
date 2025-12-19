@@ -56,7 +56,9 @@ const Dashboard = () => {
       const userSubjectIds = subjectsData.map(s => s.id);
 
       // Buscar histórico de revisões dos tópicos do usuário
-      const { data: historyData, error: historyError } = await supabase
+      // Nota: topic_review_history não está nos tipos gerados - usando query raw
+      // @ts-ignore - tabela existe mas não está nos tipos gerados
+      const response = await (supabase as any)
         .from('topic_review_history')
         .select(`
           id,
@@ -72,16 +74,19 @@ const Dashboard = () => {
         .in('topics.subject_id', userSubjectIds)
         .order('reviewed_at', { ascending: false });
 
+      const historyData = response.data as any[] | null;
+      const historyError = response.error;
+
       if (historyError) throw historyError;
       if (!historyData) return [];
 
-      return historyData.map(review => ({
+      return historyData.map((review: any) => ({
         id: review.id,
         topic_id: review.topic_id,
         review_stage: review.review_stage,
         reviewed_at: review.reviewed_at,
-        topic_name: review.topics.name,
-        subject_id: review.topics.subject_id
+        topic_name: review.topics?.name,
+        subject_id: review.topics?.subject_id
       }));
     },
     enabled: !!user

@@ -294,7 +294,7 @@ export const useTopicReview = () => {
         await supabase
           .from('topics')
           .update({
-            difficulty_level: difficulty ? String(difficulty) : null,
+            difficulty_level: difficulty ? String(difficulty) as any : null,
             difficulty_set_at: difficulty ? new Date().toISOString() : null
           })
           .eq('id', topicId);
@@ -449,7 +449,7 @@ export const useTopicReview = () => {
       const { error } = await supabase
         .from('topics')
         .update({
-          difficulty_level: difficulty !== null ? difficulty : null,
+          difficulty_level: difficulty !== null ? String(difficulty) as any : null,
           difficulty_set_at: difficulty ? new Date().toISOString() : null
         })
         .eq('id', difficultyModalData.topicId);

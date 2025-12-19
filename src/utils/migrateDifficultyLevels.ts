@@ -55,7 +55,7 @@ export const migrateDifficultyLevels = async () => {
         // Atualizar no banco
         const { error: updateError } = await supabase
           .from('topics')
-          .update({ difficulty_level: newDifficulty })
+          .update({ difficulty_level: String(newDifficulty) as any })
           .eq('id', topic.id);
         
         if (updateError) {

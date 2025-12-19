@@ -50,7 +50,7 @@ export type Database = {
           changes: Json | null
           created_at: string | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           new_values: Json | null
           old_values: Json | null
           record_id: string | null
@@ -63,7 +63,7 @@ export type Database = {
           changes?: Json | null
           created_at?: string | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           record_id?: string | null
@@ -76,7 +76,7 @@ export type Database = {
           changes?: Json | null
           created_at?: string | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           record_id?: string | null
@@ -527,69 +527,68 @@ export type Database = {
       }
       study_sessions: {
         Row: {
-          completed_at: string | null
-          created_at: string
+          completed_at: string
+          created_at: string | null
           cycle_position: number | null
-          day_of_week: number | null
-          hour_of_day: number | null
+          day_of_week: number
+          hour_of_day: number
           id: string
-          is_weekend: boolean | null
-          session_date: string
+          is_weekend: boolean
           session_duration_minutes: number | null
           started_at: string | null
-          study_date: string | null
+          study_date: string
           subject_id: string | null
-          subject_name: string | null
-          subjects_worked: Json | null
+          subject_name: string
           topics_count: number | null
-          topics_studied: number
-          topics_studied_array: string[] | null
-          updated_at: string
+          topics_studied: string[] | null
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
-          completed_at?: string | null
-          created_at?: string
+          completed_at?: string
+          created_at?: string | null
           cycle_position?: number | null
-          day_of_week?: number | null
-          hour_of_day?: number | null
+          day_of_week?: number
+          hour_of_day?: number
           id?: string
-          is_weekend?: boolean | null
-          session_date?: string
+          is_weekend?: boolean
           session_duration_minutes?: number | null
           started_at?: string | null
-          study_date?: string | null
+          study_date?: string
           subject_id?: string | null
-          subject_name?: string | null
-          subjects_worked?: Json | null
+          subject_name: string
           topics_count?: number | null
-          topics_studied?: number
-          topics_studied_array?: string[] | null
-          updated_at?: string
+          topics_studied?: string[] | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
-          completed_at?: string | null
-          created_at?: string
+          completed_at?: string
+          created_at?: string | null
           cycle_position?: number | null
-          day_of_week?: number | null
-          hour_of_day?: number | null
+          day_of_week?: number
+          hour_of_day?: number
           id?: string
-          is_weekend?: boolean | null
-          session_date?: string
+          is_weekend?: boolean
           session_duration_minutes?: number | null
           started_at?: string | null
-          study_date?: string | null
+          study_date?: string
           subject_id?: string | null
-          subject_name?: string | null
-          subjects_worked?: Json | null
+          subject_name?: string
           topics_count?: number | null
-          topics_studied?: number
-          topics_studied_array?: string[] | null
-          updated_at?: string
+          topics_studied?: string[] | null
+          updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "study_sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subjects: {
         Row: {
@@ -663,11 +662,43 @@ export type Database = {
         }
         Relationships: []
       }
+      topic_review_history: {
+        Row: {
+          created_at: string | null
+          id: string
+          review_stage: string
+          reviewed_at: string
+          topic_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          review_stage: string
+          reviewed_at?: string
+          topic_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          review_stage?: string
+          reviewed_at?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_review_history_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topics: {
         Row: {
           completed: boolean
           created_at: string
-          difficulty_level: string | null
+          difficulty_level: number | null
           difficulty_set_at: string | null
           first_studied_at: string | null
           id: string
@@ -687,7 +718,7 @@ export type Database = {
         Insert: {
           completed?: boolean
           created_at?: string
-          difficulty_level?: string | null
+          difficulty_level?: number | null
           difficulty_set_at?: string | null
           first_studied_at?: string | null
           id?: string
@@ -707,7 +738,7 @@ export type Database = {
         Update: {
           completed?: boolean
           created_at?: string
-          difficulty_level?: string | null
+          difficulty_level?: number | null
           difficulty_set_at?: string | null
           first_studied_at?: string | null
           id?: string
@@ -972,9 +1003,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_difficulty_overview: {
+        Row: {
+          avg_difficulty: number | null
+          easy_count: number | null
+          hard_count: number | null
+          hard_topics_mastered: number | null
+          medium_count: number | null
+          rated_topics: number | null
+          total_topics: number | null
+          user_id: string | null
+          very_easy_count: number | null
+          very_hard_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      activate_paid_subscription: {
+        Args: { plan_type: string; target_user_id: string }
+        Returns: Json
+      }
+      activate_trial_subscription: {
+        Args: { target_user_id: string; trial_days?: number }
+        Returns: Json
+      }
       assign_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -989,9 +1042,18 @@ export type Database = {
         }
         Returns: boolean
       }
-      cancel_subscription: {
-        Args: { immediate?: boolean; target_user_id: string }
-        Returns: boolean
+      calculate_difficulty_points: {
+        Args: { p_start_date?: string; p_user_id: string }
+        Returns: {
+          avg_difficulty: number
+          points_breakdown: Json
+          topics_completed: number
+          total_points: number
+        }[]
+      }
+      calculate_user_analytics: {
+        Args: { p_user_id: string }
+        Returns: undefined
       }
       check_email_exists: {
         Args: { email_to_check: string }
@@ -1008,12 +1070,30 @@ export type Database = {
         Args: { _days_to_keep?: number }
         Returns: number
       }
+      deactivate_subscription: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
       get_all_user_roles_admin: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }[]
+      }
+      get_daily_progress: {
+        Args: { p_user_id: string }
+        Returns: {
+          daily_goal: number
+          progress_percentage: number
+          remaining_count: number
+          studied_count: number
+          studied_subjects: string[]
+        }[]
+      }
+      get_estimated_time_by_difficulty: {
+        Args: { p_difficulty: number }
+        Returns: number
       }
       get_highest_user_role: {
         Args: { target_user_id: string }
@@ -1022,6 +1102,10 @@ export type Database = {
       get_organization_role: {
         Args: { _org_id: string; _user_id?: string }
         Returns: string
+      }
+      get_points_by_difficulty: {
+        Args: { p_difficulty: number }
+        Returns: number
       }
       get_role_audit_log: {
         Args: { _limit?: number }
@@ -1034,9 +1118,16 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_subscription_info: {
-        Args: { check_user_id?: string }
-        Returns: Json
+      get_subscription_info: { Args: { check_user_id?: string }; Returns: Json }
+      get_user_difficulty_stats: {
+        Args: { p_user_id: string }
+        Returns: {
+          avg_difficulty: number
+          difficulty_distribution: Json
+          estimated_study_time: number
+          topics_with_difficulty: number
+          total_topics: number
+        }[]
       }
       get_user_info: {
         Args: { _user_id: string }
@@ -1060,37 +1151,43 @@ export type Database = {
         Args: { check_user_id?: string }
         Returns: boolean
       }
-      has_role: {
-        Args:
-          | { _role: Database["public"]["Enums"]["app_role"]; _user_id: string }
-          | {
+      has_role:
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
               check_role: Database["public"]["Enums"]["app_role"]
               check_user_id?: string
             }
-        Returns: boolean
-      }
-      has_role_or_higher: {
-        Args:
-          | {
+            Returns: boolean
+          }
+      has_role_or_higher:
+        | {
+            Args: {
               _min_role: Database["public"]["Enums"]["app_role"]
               _user_id: string
             }
-          | {
+            Returns: boolean
+          }
+        | {
+            Args: {
               check_user_id?: string
               min_role: Database["public"]["Enums"]["app_role"]
             }
-        Returns: boolean
-      }
+            Returns: boolean
+          }
       is_organization_member: {
         Args: { _org_id: string; _user_id?: string }
         Returns: boolean
       }
-      is_owner: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_owner: { Args: { _user_id: string }; Returns: boolean }
       list_users_with_roles: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           email: string
@@ -1127,6 +1224,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      reset_daily_progress: { Args: never; Returns: undefined }
       set_user_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1134,21 +1232,22 @@ export type Database = {
         }
         Returns: undefined
       }
-      start_paid_subscription: {
-        Args: {
-          duration_months?: number
-          new_plan: Database["public"]["Enums"]["subscription_plan"]
-          target_user_id: string
-        }
-        Returns: boolean
+      suggest_topics_by_time: {
+        Args: { p_available_minutes?: number; p_user_id: string }
+        Returns: {
+          difficulty_level: number
+          estimated_minutes: number
+          priority_score: number
+          subject_name: string
+          topic_id: string
+          topic_name: string
+        }[]
       }
-      test_owner_access: {
-        Args: Record<PropertyKey, never>
+      test_difficulty_system: { Args: never; Returns: string }
+      test_owner_access: { Args: never; Returns: boolean }
+      update_daily_progress: {
+        Args: { p_subject_id: string; p_user_id: string }
         Returns: boolean
-      }
-      update_expired_subscriptions: {
-        Args: Record<PropertyKey, never>
-        Returns: number
       }
     }
     Enums: {

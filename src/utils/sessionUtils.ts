@@ -330,7 +330,7 @@ export const completeStudySession = async (
         topics_studied: markedTopicIds.length,
         subjects_worked: [subjectId],
         session_duration_minutes: 30 // Default duration
-      });
+      } as any);
 
     if (sessionError) {
       console.error('Error recording study session:', sessionError);

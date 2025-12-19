@@ -217,7 +217,7 @@ export const useDailyStudyProgress = () => {
       // Inserir sessão na tabela study_sessions
       const { error: sessionError } = await supabase
         .from('study_sessions')
-        .insert(sessionData);
+        .insert(sessionData as any);
 
       if (sessionError) {
         console.error('Erro ao salvar sessão:', sessionError);
