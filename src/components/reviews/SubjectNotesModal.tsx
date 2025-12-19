@@ -7,6 +7,7 @@ import { TopicNotes } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 interface SubjectNotesModalProps {
   isOpen: boolean;
@@ -87,10 +88,10 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
 
   const handleSaveAndClose = async () => {
     try {
-      // Forçar salvamento e fechar modal
+      // Forçar salvamento e fechar modal (conteúdo sanitizado para segurança)
       const editorComponent = document.querySelector('.ql-editor');
       if (editorComponent) {
-        const content = editorComponent.innerHTML;
+        const content = sanitizeHtml(editorComponent.innerHTML);
         const notesToSave: TopicNotes = {
           content: content.trim(),
           updatedAt: new Date().toISOString(),

@@ -10,6 +10,7 @@ import RichTextNotesEditor from '@/components/RichTextNotesEditor';
 import { TopicNotes } from '@/types';
 import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 interface StudyCycleNotesModalProps {
   isOpen: boolean;
@@ -70,9 +71,10 @@ const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ isOpen, sub
     try {
       setIsSaving(true);
 
-      // Capturar conteúdo atual do editor
+      // Capturar conteúdo atual do editor (sanitizado para segurança)
       const editorElement = document.querySelector('.ql-editor');
-      const content = editorElement ? editorElement.innerHTML : notes?.content || '';
+      const rawContent = editorElement ? editorElement.innerHTML : notes?.content || '';
+      const content = sanitizeHtml(rawContent);
 
       // Salvar tudo
       onSave(subject.id, topic.id, {

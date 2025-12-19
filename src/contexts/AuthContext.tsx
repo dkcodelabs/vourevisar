@@ -189,12 +189,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       
       await authOps.signOut();
+      
+      // Clear all sensitive data from localStorage on logout
+      clearSensitiveLocalStorage(user?.id);
+      
       setUser(null);
       setProfile(null);
-      
-      // Clear sensitive data from localStorage on logout
-      localStorage.removeItem('contentUpload_content');
-      localStorage.removeItem('contentUpload_chatGptResult');
       
       navigate('/login');
       return { success: true };
@@ -203,6 +203,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Helper function to clear sensitive localStorage data on logout
+  const clearSensitiveLocalStorage = (userId?: string) => {
+    // Clear content upload data
+    localStorage.removeItem('contentUpload_content');
+    localStorage.removeItem('contentUpload_chatGptResult');
+    
+    // Clear user-specific caches
+    if (userId) {
+      localStorage.removeItem(`subjects_cache_${userId}`);
+      localStorage.removeItem(`user_cycle_cache_${userId}`);
+    }
+    
+    // Clear all draft keys
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('draft_')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // Clear pomodoro state
+    localStorage.removeItem('pomodoroState');
   };
 
   const updateProfile = async (profileData: Partial<Profile>) => {
