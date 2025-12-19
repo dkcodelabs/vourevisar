@@ -32,7 +32,8 @@ export const useDataLoading = (
           )
         `)
         .eq('user_id', user.id)
-        .order('priority', { ascending: true });
+        .order('priority', { ascending: true })
+        .order('created_at', { foreignTable: 'topics', ascending: true });
 
       if (subjectsError) throw subjectsError;
 
@@ -53,7 +54,7 @@ export const useDataLoading = (
       setStudyProgress(progress);
       setUserSettings(settingsData || { subjects_per_day: 3 });
       setIsDataLoaded(true);
-      
+
     } catch (error) {
       setError('Erro ao carregar dados');
     } finally {

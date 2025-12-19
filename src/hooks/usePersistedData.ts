@@ -24,7 +24,7 @@ export const usePersistedData = () => {
       if (!cached || !user) return null;
 
       const data: CacheData = JSON.parse(cached);
-      
+
       // Verificar se é do mesmo usuário e não expirou
       if (data.userId === user.id && Date.now() - data.timestamp < CACHE_EXPIRY) {
         return data.subjects;
@@ -37,7 +37,7 @@ export const usePersistedData = () => {
 
   const saveToCache = (subjects: Subject[]) => {
     if (!user) return;
-    
+
     try {
       const data: CacheData = {
         subjects,
@@ -67,7 +67,8 @@ export const usePersistedData = () => {
         .from('subjects')
         .select(`*, topics (*, difficulty_level)`)
         .eq('user_id', user.id)
-        .order('priority', { ascending: true });
+        .order('priority', { ascending: true })
+        .order('created_at', { foreignTable: 'topics', ascending: true });
 
       const transformedSubjects = transformSubjectsData(data || []);
       setSubjects(transformedSubjects);
@@ -81,17 +82,18 @@ export const usePersistedData = () => {
 
   const refreshData = async () => {
     if (!user) return;
-    
+
     // Limpar cache e recarregar
     localStorage.removeItem(CACHE_KEY);
     setIsLoading(true);
-    
+
     try {
       const { data } = await supabase
         .from('subjects')
         .select(`*, topics (*, difficulty_level)`)
         .eq('user_id', user.id)
-        .order('priority', { ascending: true });
+        .order('priority', { ascending: true })
+        .order('created_at', { foreignTable: 'topics', ascending: true });
 
       const transformedSubjects = transformSubjectsData(data || []);
       setSubjects(transformedSubjects);

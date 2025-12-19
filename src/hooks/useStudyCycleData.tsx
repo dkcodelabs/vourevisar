@@ -99,11 +99,7 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
 
 const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
   const mappedTopics = subject.topics
-    .map(mapTopicToStudyCycleTopic)
-    .sort((a, b) => {
-      // Ordenar por ID para manter ordem de inserção no banco
-      return a.id.localeCompare(b.id);
-    });
+    .map(mapTopicToStudyCycleTopic);
 
   // Verificar se todos os tópicos estão concluídos para determinar o status correto
   const isFullyCompleted = mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === 'COMPLETED');
@@ -193,7 +189,8 @@ export const useStudyCycleData = () => {
         .from('subjects')
         .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at)`)
         .eq('user_id', user.id)
-        .order('priority', { ascending: true });
+        .order('priority', { ascending: true })
+        .order('created_at', { foreignTable: 'topics', ascending: true });
 
       if (error) {
         console.error('Erro ao carregar matérias:', error);
@@ -428,11 +425,7 @@ export const useStudyCycleData = () => {
 
       // Verificar se está 100% concluída
       const mappedTopics = subject.topics
-        .map(mapTopicToStudyCycleTopic)
-        .sort((a, b) => {
-          // Ordenar por ID para manter ordem de inserção no banco
-          return a.id.localeCompare(b.id);
-        });
+        .map(mapTopicToStudyCycleTopic);
 
       const isFullyCompleted = mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === 'COMPLETED');
       return isFullyCompleted;

@@ -23,7 +23,7 @@ export const StaticDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const loadData = async () => {
     if (!user || isLoadingGlobal) return;
-    
+
     // Verificar cache primeiro
     if (globalData[user.id]) {
       setSubjects(globalData[user.id]);
@@ -38,10 +38,11 @@ export const StaticDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         .from('subjects')
         .select(`*, topics (*, difficulty_level)`)
         .eq('user_id', user.id)
-        .order('priority', { ascending: true });
+        .order('priority', { ascending: true })
+        .order('created_at', { foreignTable: 'topics', ascending: true });
 
       const transformedSubjects = transformSubjectsData(data || []);
-      
+
       // Salvar no cache
       globalData[user.id] = transformedSubjects;
       setSubjects(transformedSubjects);
