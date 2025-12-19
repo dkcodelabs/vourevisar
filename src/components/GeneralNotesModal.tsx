@@ -177,7 +177,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
     const [notes, setNotes] = useState<TopicNotes | undefined>();
     const [currentContent, setCurrentContent] = useState('');
     const [reminders, setReminders] = useState<Reminder[]>([]);
-    
+
     const [newReminderText, setNewReminderText] = useState('');
     const [newReminderDate, setNewReminderDate] = useState<Date>(new Date());
     const [showCalendar, setShowCalendar] = useState(false);
@@ -298,7 +298,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                 setIsTemporarilyHidden(false);
                 onRequestReopen();
             }, 100);
-            
+
             return () => clearTimeout(timer);
         }
     }, [isTemporarilyHidden, onRequestReopen]);
@@ -396,14 +396,14 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                     .filter(topic => {
                         const hasNotes = !!topic.notes;
                         let notesContent = '';
-                        
+
                         console.log(`🔍 Debug tópico ${topic.name}:`, {
                             hasNotes,
                             notesType: typeof topic.notes,
                             notesValue: topic.notes,
                             notesKeys: topic.notes && typeof topic.notes === 'object' ? Object.keys(topic.notes) : null
                         });
-                        
+
                         if (typeof topic.notes === 'string') {
                             notesContent = topic.notes;
                         } else if (topic.notes && typeof topic.notes === 'object') {
@@ -414,17 +414,17 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
                         // Remover tags HTML e verificar se há conteúdo real
                         const cleanContent = notesContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-                        
+
                         // Verificar se não é apenas um objeto vazio serializado
                         const isEmptyObject = notesContent === '{}' || notesContent === 'null' || notesContent === 'undefined';
                         const contentNotEmpty = hasNotes && cleanContent && cleanContent !== '' && !isEmptyObject;
-                        
-                        console.log(`🔍 Tópico ${topic.name}:`, { 
-                            hasNotes, 
+
+                        console.log(`🔍 Tópico ${topic.name}:`, {
+                            hasNotes,
                             notesContent: notesContent.substring(0, 100),
                             cleanContent: cleanContent.substring(0, 100),
                             isEmptyObject,
-                            contentNotEmpty 
+                            contentNotEmpty
                         });
                         return contentNotEmpty;
                     })
@@ -457,14 +457,14 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                     .filter(subject => {
                         const hasNotes = !!subject.notes;
                         let notesContent = '';
-                        
+
                         console.log(`🔍 Debug matéria ${subject.name}:`, {
                             hasNotes,
                             notesType: typeof subject.notes,
                             notesValue: subject.notes,
                             notesKeys: subject.notes && typeof subject.notes === 'object' ? Object.keys(subject.notes) : null
                         });
-                        
+
                         if (typeof subject.notes === 'string') {
                             notesContent = subject.notes;
                         } else if (subject.notes && typeof subject.notes === 'object') {
@@ -475,17 +475,17 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
                         // Remover tags HTML e verificar se há conteúdo real
                         const cleanContent = notesContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-                        
+
                         // Verificar se não é apenas um objeto vazio serializado
                         const isEmptyObject = notesContent === '{}' || notesContent === 'null' || notesContent === 'undefined';
                         const contentNotEmpty = hasNotes && cleanContent && cleanContent !== '' && !isEmptyObject;
-                        
-                        console.log(`🔍 Matéria ${subject.name}:`, { 
-                            hasNotes, 
+
+                        console.log(`🔍 Matéria ${subject.name}:`, {
+                            hasNotes,
                             notesContent: notesContent.substring(0, 100),
                             cleanContent: cleanContent.substring(0, 100),
                             isEmptyObject,
-                            contentNotEmpty 
+                            contentNotEmpty
                         });
                         return contentNotEmpty;
                     })
@@ -636,7 +636,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         }
 
         const textToSave = newReminderText.trim();
-        
+
         // Limpar o input imediatamente para evitar problemas de estado
         setNewReminderText('');
 
@@ -838,6 +838,26 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
             await saveNotes(notesToSave);
             toastManager.success('Anotações salvas com sucesso!');
+        } catch (error) {
+            console.error('Erro ao salvar:', error);
+            toastManager.error('Erro ao salvar anotações');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSaveAndClose = async () => {
+        setIsSaving(true);
+        try {
+            // Criar objeto de notas com o conteúdo atual
+            const notesToSave: TopicNotes = {
+                content: currentContent,
+                updatedAt: new Date().toISOString(),
+                createdAt: notes?.createdAt || new Date().toISOString()
+            };
+
+            await saveNotes(notesToSave);
+            onClose();
         } catch (error) {
             console.error('Erro ao salvar:', error);
             toastManager.error('Erro ao salvar anotações');
@@ -1405,10 +1425,10 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                         </Button>
                         <Button
                             variant="outline"
-                            onClick={onClose}
+                            onClick={handleSaveAndClose}
                             className="border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:border-gray-400 dark:bg-gray-800"
                         >
-                            Fechar
+                            Salvar e Fechar
                         </Button>
                     </div>
                 </DialogContent>

@@ -82,7 +82,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
       // Buscar dados do tópico via API
       const { data: topicData, error } = await supabase
         .from('topics')
-        .select('notes')
+        .select('notes, subtopics')
         .eq('id', topicId)
         .single();
 
@@ -96,10 +96,12 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
         setNotes(topicData.notes as TopicNotes);
       }
 
-      // Dificuldade removida - usando sistema de estrelas
-
-      // Sub-tópicos serão gerenciados localmente por enquanto
-      setSubTopics([]);
+      // Sub-tópicos
+      if (topicData?.subtopics) {
+        setSubTopics(topicData.subtopics as any[]);
+      } else {
+        setSubTopics([]);
+      }
 
     } catch (error) {
       console.error('Erro ao carregar dados do tópico:', error);
@@ -157,7 +159,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
             updatedAt: new Date().toISOString(),
             createdAt: notes?.createdAt || new Date().toISOString()
           } as any,
-          // difficulty_level: difficulty, // Removido - usando sistema de estrelas
+          subtopics: subTopics as any,
           updated_at: new Date().toISOString()
         })
         .eq('id', topicId);
@@ -349,7 +351,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
                   const editorElement = document.querySelector('.ql-editor');
                   const content = editorElement ? editorElement.innerHTML : notes?.content || '';
 
-                  // Salvar apenas as anotações
+                  // Salvar apenas as anotações e subtópicos
                   const { error } = await supabase
                     .from('topics')
                     .update({
@@ -358,6 +360,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
                         updatedAt: new Date().toISOString(),
                         createdAt: notes?.createdAt || new Date().toISOString()
                       } as any,
+                      subtopics: subTopics as any,
                       updated_at: new Date().toISOString()
                     })
                     .eq('id', topicId);
