@@ -9,6 +9,7 @@ import { TopicReviewHistorySection } from '@/components/TopicReviewHistorySectio
 import { TopicNotes } from '@/types';
 import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { sanitizeHtml } from '@/lib/sanitize';
 // import { Difficulty } from '@/types/study-cycle'; // Removido - usando sistema de estrelas
 import { supabase } from '@/integrations/supabase/client';
 
@@ -146,9 +147,10 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
     try {
       setIsSaving(true);
 
-      // Capturar conteúdo atual do editor
+      // Capturar conteúdo atual do editor (sanitizado para segurança)
       const editorElement = document.querySelector('.ql-editor');
-      const content = editorElement ? editorElement.innerHTML : notes?.content || '';
+      const rawContent = editorElement ? editorElement.innerHTML : notes?.content || '';
+      const content = sanitizeHtml(rawContent);
 
       // Salvar tudo no banco
       const { error } = await supabase
@@ -347,9 +349,10 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
                 try {
                   setIsSaving(true);
 
-                  // Capturar conteúdo atual do editor
+                  // Capturar conteúdo atual do editor (sanitizado para segurança)
                   const editorElement = document.querySelector('.ql-editor');
-                  const content = editorElement ? editorElement.innerHTML : notes?.content || '';
+                  const rawContent = editorElement ? editorElement.innerHTML : notes?.content || '';
+                  const content = sanitizeHtml(rawContent);
 
                   // Salvar apenas as anotações e subtópicos
                   const { error } = await supabase
