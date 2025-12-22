@@ -3,7 +3,9 @@ import type { StudyCycleSubject } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
 import { StudyCycleTopicItem } from './StudyCycleTopicItem';
 import { ChevronDownIcon } from './Icons';
-import { NotebookPen } from 'lucide-react';
+import { NotebookPen, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { CycleStatusIndicator } from '@/components/CycleStatusIndicator';
 import { Badge } from '@/components/ui/badge';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
@@ -334,25 +336,17 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
                 {/* Action Buttons in List View Footer */}
                 <div className="flex items-center gap-1 pl-2 border-l border-gray-200 dark:border-gray-700 ml-1">
-                  <button
-                    onClick={handleStartAddingTopic}
-                    className="h-7 w-7 flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                    title="Adicionar novo tópico"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
+
                   <button
                     onClick={onSubjectNotesClick}
-                    className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                    className="h-7 w-7 flex-none shrink-0 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
                     title="Anotações da matéria"
                   >
                     <NotebookPen className="w-4 h-4" />
                   </button>
                   <button
                     onClick={onToggleExpand}
-                    className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                    className="h-7 w-7 flex-none shrink-0 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
                     aria-expanded={isExpanded}
                     aria-controls={`topics-${subject.id}`}
                     title={isExpanded ? 'Recolher tópicos' : 'Expandir tópicos'}
@@ -370,6 +364,28 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div id={`topics-${subject.id}`} className="p-4 pt-0">
             <div className="p-4 bg-muted/30 rounded-lg">
               <div className="space-y-2">
+                {/* New Inline Topic Input (Flex Style) */}
+                <div className="flex items-center gap-2 mb-3 bg-white p-1 pl-3 rounded-lg border border-slate-200 shadow-sm" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="text"
+                    placeholder="Novo tópico..."
+                    value={newTopicName}
+                    onChange={(e) => setNewTopicName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleAddTopic();
+                    }}
+                    className="flex-1 !h-7 !text-sm border-none bg-transparent outline-none !p-0 text-zinc-800 dark:text-zinc-200 placeholder:text-muted-foreground mr-2"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleAddTopic}
+                    className="!h-7 !w-7 !min-h-0 !min-w-0 !p-0 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-md shrink-0"
+                    title="Adicionar Tópico"
+                  >
+                    <Plus size={16} />
+                  </Button>
+                </div>
+
                 {(filterTopicsBySearch ? filterTopicsBySearch(subject.topics) : subject.topics).map(topic => (
                   <StudyCycleTopicItem
                     key={topic.id}
@@ -384,46 +400,6 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                     searchQuery={searchQuery}
                   />
                 ))}
-                {isAddingTopic && (
-                  <div className="flex items-center gap-2 p-3 bg-white dark:bg-slate-700/50 rounded-lg">
-                    <input
-                      type="text"
-                      value={newTopicName}
-                      onChange={(e) => setNewTopicName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleAddTopic();
-                        if (e.key === 'Escape') {
-                          setIsAddingTopic(false);
-                          setNewTopicName('');
-                        }
-                      }}
-                      placeholder="Nome do novo tópico..."
-                      className="flex-1 text-sm bg-transparent border-none outline-none text-zinc-800 dark:text-zinc-200"
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleAddTopic}
-                      className="p-1 text-green-600 hover:text-green-700"
-                      title="Salvar"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsAddingTopic(false);
-                        setNewTopicName('');
-                      }}
-                      className="p-1 text-red-600 hover:text-red-700"
-                      title="Cancelar"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -468,18 +444,10 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
           {/* Buttons */}
           <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-700">
-            <button
-              onClick={handleStartAddingTopic}
-              className="h-7 w-7 flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-              title="Adicionar novo tópico"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
+
             <button
               onClick={onSubjectNotesClick}
-              className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+              className="h-7 w-7 flex-none shrink-0 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
               title="Anotações da matéria"
             >
               <NotebookPen className="w-4 h-4" />
@@ -490,6 +458,28 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
       <div className="p-4 bg-muted/30 flex-grow flex flex-col">
         <div className="space-y-2 overflow-y-auto pr-2 flex-grow" style={{ maxHeight: '12rem' }}>
+          {/* New Inline Topic Input for Grid View (Flex Style) */}
+          <div className="flex items-center gap-2 mb-3 bg-white p-1 pl-3 rounded-lg border border-slate-200 shadow-sm flex-none shrink-0" onClick={e => e.stopPropagation()}>
+            <input
+              type="text"
+              placeholder="Novo tópico..."
+              value={newTopicName}
+              onChange={(e) => setNewTopicName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAddTopic();
+              }}
+              className="flex-1 !h-7 !text-sm border-none bg-transparent outline-none !p-0 text-zinc-800 dark:text-zinc-200 placeholder:text-muted-foreground mr-2"
+            />
+            <Button
+              size="sm"
+              onClick={handleAddTopic}
+              className="!h-7 !w-7 !min-h-0 !min-w-0 !p-0 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-md shrink-0"
+              title="Adicionar Tópico"
+            >
+              <Plus size={16} />
+            </Button>
+          </div>
+
           {subject.topics.map(topic => (
             <StudyCycleTopicItem
               key={topic.id}
@@ -503,46 +493,6 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               onEditingChange={setEditingTopicId}
             />
           ))}
-          {isAddingTopic && (
-            <div className="flex items-center gap-2 p-3 bg-white dark:bg-slate-700/50 rounded-lg">
-              <input
-                type="text"
-                value={newTopicName}
-                onChange={(e) => setNewTopicName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddTopic();
-                  if (e.key === 'Escape') {
-                    setIsAddingTopic(false);
-                    setNewTopicName('');
-                  }
-                }}
-                placeholder="Nome do novo tópico..."
-                className="flex-1 text-sm bg-transparent border-none outline-none text-zinc-800 dark:text-zinc-200"
-                autoFocus
-              />
-              <button
-                onClick={handleAddTopic}
-                className="p-1 text-green-600 hover:text-green-700"
-                title="Salvar"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-              <button
-                onClick={() => {
-                  setIsAddingTopic(false);
-                  setNewTopicName('');
-                }}
-                className="p-1 text-red-600 hover:text-red-700"
-                title="Cancelar"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>

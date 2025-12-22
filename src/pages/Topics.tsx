@@ -258,7 +258,6 @@ const Topics = () => {
         {/* Header com Pesquisa e Filtros */}
         <div className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
           <div className="mb-4">
-            <h1 className="text-xl font-semibold text-gray-900">Tópicos</h1>
             <p className="text-xs text-muted-foreground mt-1">Visualize e gerencie todos os seus tópicos de estudo</p>
             <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
           </div>
@@ -272,7 +271,7 @@ const Topics = () => {
                   placeholder="Pesquisar tópicos..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10 w-full bg-transparent border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400 text-sm"
+                  className="pl-10 h-8 py-0.5 w-full bg-transparent border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400 text-sm"
                 />
               </div>
 
@@ -281,13 +280,13 @@ const Topics = () => {
                 {/* Subject Filter */}
                 <div className="w-full sm:w-48">
                   <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                    <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
+                    <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
                       <SelectValue placeholder="Disciplina" />
                     </SelectTrigger>
-                    <SelectContent className="z-50 bg-popover">
-                      <SelectItem value="all">Todas as disciplinas</SelectItem>
+                    <SelectContent className="z-50 bg-popover max-w-[calc(100vw-2rem)]">
+                      <SelectItem value="all" className="text-xs">Todas as disciplinas</SelectItem>
                       {subjects.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        <SelectItem key={s.id} value={s.id} className="text-xs whitespace-normal break-words">{s.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -296,7 +295,7 @@ const Topics = () => {
                 {/* Status Filter */}
                 <div className="w-full sm:w-40">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
+                    <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent className="z-50 bg-popover">
@@ -311,7 +310,7 @@ const Topics = () => {
                 {/* Difficulty Filter */}
                 <div className="w-full sm:w-52">
                   <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                    <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
+                    <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
                       <SelectValue placeholder="Dificuldade" />
                     </SelectTrigger>
                     <SelectContent className="z-50 bg-popover">
@@ -371,7 +370,7 @@ const Topics = () => {
                 {/* Sort Filter */}
                 <div className="w-full sm:w-44">
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="bg-card border-input text-foreground h-11 shadow-sm">
+                    <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
                       <SelectValue placeholder="Ordenar" />
                     </SelectTrigger>
                     <SelectContent className="z-50 bg-popover">
@@ -410,7 +409,7 @@ const Topics = () => {
             <>
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 {/* Table Header - INTEGRATED */}
-                <div className="hidden md:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                <div className="hidden lg:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
                   <div className="pl-8">Tópico / Matéria</div>
                   <div className="text-center">Dificuldade</div>
                   <div className="text-center">Status</div>

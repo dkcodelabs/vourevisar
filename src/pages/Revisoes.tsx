@@ -338,10 +338,10 @@ const Revisoes = () => {
 
           {/* Navigation Tabs */}
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-2 mt-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4 md:-mx-8 md:px-8">
+          <div className="flex items-center gap-1 md:gap-2 mt-2 overflow-x-auto scrollbar-hide py-1 -mx-4 px-4 md:-mx-8 md:px-8">
             <button
               onClick={() => setActiveTab('FOCUS')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FOCUS'
+              className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FOCUS'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
@@ -359,7 +359,7 @@ const Revisoes = () => {
 
             <button
               onClick={() => setActiveTab('FUTURE')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FUTURE'
+              className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FUTURE'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
@@ -377,7 +377,7 @@ const Revisoes = () => {
                 setActiveTab('COMPLETED');
                 setReviewStageFilter('all');
               }}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'COMPLETED'
+              className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'COMPLETED'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
@@ -389,11 +389,23 @@ const Revisoes = () => {
             </button>
           </div>
 
-          {/* Controls Row: Toggle, Search, Subject, Status */}
-          <div className="mt-4 flex flex-wrap items-center gap-4">
-            {/* Group Toggle & Search to keep them on same line in mobile */}
-            <div className="flex w-full md:w-auto items-center gap-2">
-              {/* 1. Toggle Button - Before Search */}
+          {/* Controls: Reorganized for mobile */}
+          <div className="mt-4 flex flex-col gap-3">
+            {/* Line 1: Search only */}
+            <div className="relative w-full md:w-auto md:max-w-md bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-9">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Pesquisar..."
+                className="w-full pl-9 pr-4 text-xs bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Line 2: Toggle + Por Matéria + Status */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Toggle Button */}
               <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg h-9 shrink-0">
                 <button
                   onClick={handleToggleAll}
@@ -405,56 +417,41 @@ const Revisoes = () => {
                 </button>
               </div>
 
-              {/* 2. Search Bar */}
-              <div className="relative flex-1 md:w-[300px] bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-9">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Pesquisar..."
-                  className="w-full pl-9 pr-4 text-xs bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+              {/* Por Matéria Button */}
+              <button
+                onClick={toggleSubjectView}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all whitespace-nowrap h-9 shrink-0 ${activeTab === 'SUBJECTS'
+                  ? 'border-blue-200 text-blue-700 bg-blue-50'
+                  : 'border-gray-200 text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                title="Agrupar por Matéria"
+              >
+                <BookOpen size={14} />
+                <span>Por Matéria</span>
+              </button>
+
+              {/* Status Filter */}
+              {activeTab !== 'COMPLETED' && (
+                <div className="w-auto min-w-[140px]">
+                  <Select value={reviewStageFilter} onValueChange={setReviewStageFilter}>
+                    <SelectTrigger className="h-9 text-xs font-medium border-gray-200 bg-white shadow-sm rounded-lg focus:ring-blue-500/20">
+                      <div className="flex items-center gap-2 text-gray-600 whitespace-nowrap">
+                        <Clock size={12} className="text-blue-500 shrink-0" />
+                        <SelectValue placeholder="Status" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">Status</SelectItem>
+                      {Array.from({ length: REVIEW_PROFILES[settings?.review_profile || ReviewProfile.INTERMEDIATE].maxReviews }).map((_, i) => (
+                        <SelectItem key={i + 1} value={String(i + 1)} className="text-xs">
+                          {i + 1}ª Revisão
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-
-            {/* 3. Por Matéria Button - After Search */}
-            <div className="h-9 w-px bg-gray-200 mx-1 shrink-0 hidden md:block"></div> {/* Separator */}
-
-            <button
-              onClick={toggleSubjectView}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all whitespace-nowrap h-9 ${activeTab === 'SUBJECTS'
-                ? 'border-blue-200 text-blue-700 bg-blue-50'
-                : 'border-gray-200 text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                } `}
-              title="Agrupar por Matéria"
-            >
-              <BookOpen size={14} />
-              <span>Por Matéria</span>
-            </button>
-
-            {/* 4. Status Filter - After Por Matéria */}
-            {activeTab !== 'COMPLETED' && (
-              <div className="w-[140px]">
-                <Select value={reviewStageFilter} onValueChange={setReviewStageFilter}>
-                  <SelectTrigger className="h-9 text-xs font-medium border-gray-200 bg-white shadow-sm rounded-lg focus:ring-blue-500/20">
-                    <div className="flex items-center gap-2 text-gray-600 whitespace-nowrap">
-                      <Clock size={12} className="text-blue-500 shrink-0" />
-                      <SelectValue placeholder="Status" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">Status</SelectItem>
-                    {Array.from({ length: REVIEW_PROFILES[settings?.review_profile || ReviewProfile.INTERMEDIATE].maxReviews }).map((_, i) => (
-                      <SelectItem key={i + 1} value={String(i + 1)} className="text-xs">
-                        {i + 1}ª Revisão
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
           </div>
         </header>
 
@@ -515,18 +512,17 @@ const Revisoes = () => {
                   <div className={`mr - 2 p - 1 rounded - sm text - gray - 400 hover: bg - gray - 200 transition - colors`}>
                     {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
                   </div>
-                  <h2 className={`text - lg font - bold ${style.text} flex items - center`}>
+                  <h2 className={`text-xs font - bold ${style.text} flex items - center`}>
                     {style.title}
                   </h2>
                   <span className="ml-3 px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-[10px] font-semibold">{groupItems.length}</span>
-                  <div className="flex-1 h-px bg-gray-200 ml-4 group-hover:bg-gray-300 transition-colors"></div>
                 </div>
 
                 {/* Collapsible Content */}
                 {!isCollapsed && (
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     {/* Table Header - INTEGRATED */}
-                    <div className="hidden md:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                    <div className="hidden lg:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
                       <div className="pl-8">Tópico / Matéria</div>
                       <div className="text-center">Dificuldade</div>
                       <div className="text-center">Status</div>
@@ -538,35 +534,98 @@ const Revisoes = () => {
                       {groupItems.map((item) => (
                         <div key={item.id} className="
                           group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-                          flex flex-col md:grid md:grid-cols-[1fr_100px_160px_120px] md:gap-0
+                          flex flex-col lg:grid lg:grid-cols-[1fr_100px_160px_120px] lg:gap-0
                         ">
                           {/* Sticky Left Color Bar */}
-                          <div className={`absolute left - 0 top - 0 bottom - 0 w - 1.5 ${style.color.replace('border-', 'bg-')} `}></div>
+                          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${style.color.replace('border-', 'bg-')}`}></div>
 
-                          <div className="
-                              md:p-3 flex flex-col justify-center pl-4 md:pl-8
-                              pt-4 md:pt-3 md:border-r border-gray-100
-                            ">
-                            <div className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs truncate transition-colors first-letter:uppercase">
+                          {/* Mobile: Vertical layout */}
+                          <div className="lg:hidden px-4 pt-4">
+                            {/* Line 1: Subject name */}
+                            <div className="text-[11px] text-gray-500 font-normal capitalize mb-1">
+                              {highlightText(item.subject.toLowerCase(), searchTerm)}
+                            </div>
+                            {/* Line 2: Topic name */}
+                            <div className="font-semibold text-gray-800 text-sm break-words whitespace-normal leading-tight transition-colors first-letter:uppercase mb-3">
                               {highlightText(item.topic, searchTerm)}
                             </div>
-                            <div className="text-xs text-gray-500 font-normal mt-0.5 md:mt-1 truncate capitalize">
+                          </div>
+
+                          {/* Desktop: Topic and Subject in same column */}
+                          <div className="hidden lg:flex lg:p-3 lg:flex-col lg:justify-center lg:pl-8 lg:border-r border-gray-100 min-w-0">
+                            <div className="font-semibold lg:font-medium text-gray-800 text-sm lg:text-xs break-words whitespace-normal leading-tight transition-colors first-letter:uppercase">
+                              {highlightText(item.topic, searchTerm)}
+                            </div>
+                            <div className="text-xs text-gray-500 font-normal mt-0.5 lg:mt-1 break-words whitespace-normal capitalize">
                               {highlightText(item.subject.toLowerCase(), searchTerm)}
                             </div>
                           </div>
 
-                          {/* Difficulty */}
-                          <div className="flex items-center px-4 pb-2 md:p-0 md:contents">
-                            {/* Difficulty */}
-                            <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100 cursor-pointer"
+                          {/* Mobile: Line 3 - All controls in one row, aligned right */}
+                          <div className="flex items-center justify-end gap-2 px-4 pb-4 lg:hidden">
+                            <div className="cursor-pointer"
                               onClick={() => {
-                                console.log('⭐ Star clicked:', {
-                                  id: item.id,
-                                  topic: item.topic,
-                                  subjectId: item.subjectId,
-                                  subject: item.subject,
-                                  difficulty: item.difficulty
+                                openDifficultyModal(item.id, item.topic, item.subjectId, item.subject, item.difficulty);
+                              }}
+                            >
+                              <DifficultyRating value={item.difficulty} readonly size="sm" />
+                            </div>
+                            <div className="w-[115px]">
+                              <StatusBadge
+                                status={item.status}
+                                daysDiff={getDaysDiff(item.dueDate)}
+                                reviewCount={item.reviewCount}
+                                maxReviews={item.maxReviews}
+                              />
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNotesModalData({
+                                  isOpen: true,
+                                  topicId: item.id,
+                                  topicName: item.topic,
+                                  subjectName: item.subject
                                 });
+                              }}
+                              className={`p-1.5 rounded transition-colors ${(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes)
+                                ? 'text-blue-600 hover:bg-blue-100'
+                                : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                }`}
+                              title={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "Ver/Editar Nota" : "Adicionar Nota"}
+                            >
+                              <FileText size={18} className={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "fill-blue-200" : ""} />
+                            </button>
+                            {item.status !== RevisionStatus.COMPLETED ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMarkCompleted(item.id);
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                                title="Iniciar Revisão"
+                              >
+                                <PlayCircle size={20} />
+                              </button>
+                            ) : (
+                              <Check size={16} className="text-green-500" />
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAiAssist(item);
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                              title="Explicação com IA"
+                            >
+                              <Sparkles size={14} />
+                            </button>
+                          </div>
+
+                          {/* Desktop: Difficulty */}
+                          <div className="hidden lg:flex lg:p-0 lg:contents">
+                            <div className="lg:p-3 flex items-center lg:justify-center lg:border-r border-gray-100 cursor-pointer"
+                              onClick={() => {
                                 openDifficultyModal(item.id, item.topic, item.subjectId, item.subject, item.difficulty);
                               }}
                             >
@@ -574,8 +633,8 @@ const Revisoes = () => {
                             </div>
                           </div>
 
-                          {/* Status & Actions */}
-                          <div className="flex items-center gap-3 px-4 pb-4 md:p-0 md:contents">
+                          {/* Desktop: Status & Actions */}
+                          <div className="hidden lg:flex lg:items-center lg:gap-3 lg:p-0 lg:contents">
                             {/* Status/Date */}
                             <div className="md:px-1 md:py-1 flex items-center justify-center md:border-r border-gray-100">
                               <div className="w-[115px]">

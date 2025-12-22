@@ -232,12 +232,12 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
 
   return (
     <div className={`${baseClasses} ${bgClasses}`}>
-      {/* Layout responsivo: desktop = horizontal, mobile = vertical */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
+      {/* Layout responsivo: mobile/tablet = vertical (texto em cima, controles embaixo), desktop = horizontal */}
+      <div className="flex flex-col lg:flex-row lg:items-start justify-between w-full gap-2">
         {/* Texto do tópico - Editável */}
-        <div className="flex-1 group">
+        <div className="flex-1 group min-w-0">
           <div
-            className={`${isEditing ? 'w-full' : 'inline-block'} cursor-pointer`}
+            className={`${isEditing ? 'w-full' : 'block'} cursor-pointer`}
             onClick={(e) => {
               e.stopPropagation();
               if (!isEditing) handleStartEditing();
@@ -260,7 +260,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         </div>
 
         {/* Controles: status, anotação e radiobox */}
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-3 flex-shrink-0 self-end lg:self-auto">
           {/* Badge com data em tooltip */}
           <div className="flex flex-col items-end">
             <div

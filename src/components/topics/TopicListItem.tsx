@@ -22,7 +22,7 @@ interface TopicListItemProps {
     notes?: any;
     isMarkedForReview?: boolean;
     difficulty_level?: number;
-    maxReviews?: number; // Add maxReviews to props if not present, or assume default
+    maxReviews?: number;
   };
   onEdit: (topicId: string, newName: string) => void;
   onDelete: (topicId: string) => void;
@@ -40,7 +40,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
 
   const getStatus = (): RevisionStatus => {
     if (topic.completed) return RevisionStatus.COMPLETED;
-    if (!topic.nextReview) return RevisionStatus.FUTURE; // Or handle 'No Review' separately if needed, but StatusBadge might expect enum
+    if (!topic.nextReview) return RevisionStatus.FUTURE;
 
     const reviewDate = new Date(topic.nextReview);
     if (isPast(reviewDate) && !isToday(reviewDate)) return RevisionStatus.OVERDUE;
@@ -59,8 +59,6 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
 
   const status = getStatus();
   const daysDiff = getDaysDiff();
-
-  // Default maxReviews if not provided (assuming 4 based on typical spaced repetition)
   const maxReviews = topic.maxReviews || 4;
 
   const handleSaveEdit = () => {
@@ -86,18 +84,18 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
 
   const getStatusColor = () => {
     switch (status) {
-      case RevisionStatus.COMPLETED: return '#22c55e'; // green-500
-      case RevisionStatus.OVERDUE: return '#ef4444'; // red-500
-      case RevisionStatus.TODAY: return '#f97316'; // orange-500
-      case RevisionStatus.FUTURE: return '#3b82f6'; // blue-500
-      default: return '#cbd5e1'; // slate-300
+      case RevisionStatus.COMPLETED: return '#22c55e';
+      case RevisionStatus.OVERDUE: return '#ef4444';
+      case RevisionStatus.TODAY: return '#f97316';
+      case RevisionStatus.FUTURE: return '#3b82f6';
+      default: return '#cbd5e1';
     }
   };
 
   return (
     <div className="
       group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-      flex flex-col md:grid md:grid-cols-[1fr_100px_160px_120px] md:gap-0
+      flex flex-col lg:grid lg:grid-cols-[1fr_100px_160px_120px] lg:gap-0
     ">
       {/* Sticky Left Color Bar */}
       <div
@@ -105,12 +103,14 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
         style={{ backgroundColor: getStatusColor() }}
       ></div>
 
-      {/* Topic Column */}
-      <div className="
-          md:p-3 flex items-center gap-3 pl-4 md:pl-8
-          pt-4 md:pt-3 md:border-r border-gray-100
-        ">
-        <div className="flex-1 min-w-0">
+      {/* Mobile: Vertical layout */}
+      <div className="lg:hidden px-4 pt-4">
+        {/* Line 1: Subject name */}
+        <div className="text-[11px] text-gray-500 font-normal capitalize mb-1">
+          {topic.subjectName.toLowerCase()}
+        </div>
+        {/* Line 2: Topic name */}
+        <div className="font-semibold text-gray-800 text-sm break-words whitespace-normal leading-tight transition-colors first-letter:uppercase mb-3">
           {isEditing ? (
             <div className="flex items-center gap-2">
               <Input
@@ -142,42 +142,124 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
             </div>
           ) : (
             <div
-              className="flex items-center gap-2 group/topic"
-              title="Clique no texto para editar"
+              className="flex items-center gap-2 group/topic cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              title="Clique para editar"
             >
-              <h3
-                className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs truncate group-hover/topic:text-blue-600 transition-colors cursor-pointer first-letter:uppercase"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditing(true);
-                }}
-              >
-                {topic.name}
-              </h3>
+              <span>{topic.name}</span>
               {topic.isMarkedForReview && (
                 <Bookmark className="h-3 w-3 text-yellow-600" />
               )}
             </div>
           )}
-
-          <div className="text-xs text-gray-500 font-normal mt-0.5 md:mt-1 truncate capitalize">
-            {topic.subjectName.toLowerCase()}
-          </div>
         </div>
       </div>
 
-      {/* Difficulty */}
-      <div className="flex items-center px-4 pb-2 md:p-0 md:contents">
-        <div className="md:p-3 flex items-center md:justify-center md:border-r border-gray-100">
+      {/* Desktop: Topic and Subject in same column */}
+      <div className="hidden lg:flex lg:p-3 lg:flex-col lg:justify-center lg:pl-8 lg:border-r border-gray-100 min-w-0">
+        {isEditing ? (
+          <div className="flex items-center gap-2">
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="h-8 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveEdit();
+                if (e.key === 'Escape') handleCancelEdit();
+              }}
+              autoFocus
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleSaveEdit}
+              className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancelEdit}
+              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div
+              className="font-semibold lg:font-medium text-gray-800 text-sm lg:text-xs break-words whitespace-normal leading-tight transition-colors first-letter:uppercase cursor-pointer hover:text-blue-600 flex items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              title="Clique para editar"
+            >
+              <span>{topic.name}</span>
+              {topic.isMarkedForReview && (
+                <Bookmark className="h-3 w-3 text-yellow-600" />
+              )}
+            </div>
+            <div className="text-xs text-gray-500 font-normal mt-0.5 lg:mt-1 break-words whitespace-normal capitalize">
+              {topic.subjectName.toLowerCase()}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Mobile: Line 3 - All controls in one row, aligned right */}
+      <div className="flex items-center justify-end gap-2 px-4 pb-4 lg:hidden">
+        <div className="cursor-pointer">
+          <DifficultyRating value={topic.difficulty_level || 0} readonly size="sm" />
+        </div>
+        <div className="w-[115px]">
+          <StatusBadge
+            status={status}
+            daysDiff={daysDiff}
+            reviewCount={topic.reviewCount}
+            maxReviews={maxReviews}
+          />
+        </div>
+        {!isEditing && (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleNotesClick}
+              className={`h-8 w-8 p-0 ${hasNotes ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 hover:text-gray-600'}`}
+              title={hasNotes ? "Ver/Editar Nota" : "Adicionar Nota"}
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onDelete(topic.id)}
+              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+              title="Excluir Tópico"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* Desktop: Difficulty */}
+      <div className="hidden lg:flex lg:p-0 lg:contents">
+        <div className="lg:p-3 flex items-center lg:justify-center lg:border-r border-gray-100 cursor-pointer">
           <DifficultyRating value={topic.difficulty_level || 0} readonly size="sm" />
         </div>
       </div>
 
-      {/* Status & Actions */}
-      <div className="flex items-center gap-3 px-4 pb-4 md:p-0 md:contents">
+      {/* Desktop: Status & Actions */}
+      <div className="hidden lg:flex lg:items-center lg:gap-3 lg:p-0 lg:contents">
         {/* Status */}
         <div className="md:px-1 md:py-1 flex items-center justify-center md:border-r border-gray-100">
-          <div className="w-[115px] flex justify-center">
+          <div className="w-[115px]">
             <StatusBadge
               status={status}
               daysDiff={daysDiff}
@@ -188,7 +270,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="md:p-2 flex items-center justify-end md:justify-center gap-2">
+        <div className="md:p-2 flex items-center justify-center gap-2">
           {!isEditing && (
             <>
               <Button
@@ -214,7 +296,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
           )}
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 

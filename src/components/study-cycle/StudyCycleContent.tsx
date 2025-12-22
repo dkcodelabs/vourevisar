@@ -485,8 +485,8 @@ export const StudyCycleContent: React.FC = () => {
           </div>
         )}
 
-        <header className="mt-4 px-4 py-4 mb-4 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md mx-4 md:mx-6">
-          <div className="mb-3">
+        <header className="mt-4 px-4 py-3 mb-4 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md mx-4 md:mx-6">
+          <div className="mb-2">
             <h1 className="text-lg font-semibold text-gray-900">Ciclo de Estudos</h1>
             <p className="text-xs text-muted-foreground mt-0.5">Gerencie seu progresso e metas diárias</p>
           </div>
@@ -494,8 +494,8 @@ export const StudyCycleContent: React.FC = () => {
           <div className="flex flex-col gap-2">
             <div className="flex flex-row gap-2 items-center">
               {/* Campo de Busca */}
-              <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-9">
-                <svg className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-8">
+                <svg className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -536,45 +536,45 @@ export const StudyCycleContent: React.FC = () => {
                     }
                   }}
                   placeholder="Buscar..."
-                  className="w-full pl-8 pr-8 py-1.5 text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full"
+                  className="w-full pl-8 pr-8 py-1 text-xs md:text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full"
                 />
                 {searchQuery && (
                   <button
                     onClick={handleClearSearch}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 hover:bg-gray-100 rounded-full transition-colors"
                   >
-                    <X size={14} />
+                    <X size={13} />
                   </button>
                 )}
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
                 {viewMode === 'list' && (
-                  <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg mr-1 h-9">
+                  <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg mr-1 h-8">
                     <button
                       onClick={handleToggleAll}
                       className="p-1 px-3 h-full rounded-md text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center min-w-[3rem]"
                       aria-label={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
                       title={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
                     >
-                      {areAllExpanded ? <ChevronsUpIcon className="w-4 h-4" /> : <ChevronsDownIcon className="w-4 h-4" />}
+                      {areAllExpanded ? <ChevronsUpIcon className="w-3.5 h-3.5" /> : <ChevronsDownIcon className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 )}
-                <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg h-9">
+                <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg h-8">
                   <button
                     onClick={() => setViewMode('grid')}
                     className={`p-1 px-2 h-full rounded-md transition-colors flex items-center justify-center ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
                     aria-label="Visualização em Grade"
                   >
-                    <GridIcon className="w-4 h-4" />
+                    <GridIcon className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
                     className={`p-1 px-2 h-full rounded-md transition-colors flex items-center justify-center ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
                     aria-label="Visualização em Lista"
                   >
-                    <ListIcon className="w-4 h-4" />
+                    <ListIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
