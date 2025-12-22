@@ -40,6 +40,7 @@ import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
+import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 
 const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) {
@@ -207,6 +208,43 @@ const Subjects = () => {
   // Estados para edição inline de tópicos
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [editingTopicName, setEditingTopicName] = useState('');
+  const [newTopicTexts, setNewTopicTexts] = useState<Record<string, string>>({});
+
+  const handleSaveNewTopic = async (subjectId: string) => {
+    const text = newTopicTexts[subjectId]?.trim();
+    if (!text) return;
+
+    try {
+      // Encontrar a matéria para calcular prioridade
+      const subject = localSubjects.find(s => s.id === subjectId);
+      const currentTopicsCount = subject?.topics?.length || 0;
+
+      const { error } = await supabase
+        .from('topics')
+        .insert({
+          subject_id: subjectId,
+          name: text,
+          completed: false,
+          review_count: 0,
+          review_stage: null,
+          next_review: null,
+          first_studied_at: null,
+          last_reviewed_at: null,
+          notes: null
+        });
+
+      if (error) throw error;
+
+      await refreshData();
+
+      // Limpar input
+      setNewTopicTexts(prev => ({ ...prev, [subjectId]: '' }));
+      toast.success('Tópico adicionado!');
+    } catch (error) {
+      console.error('Erro ao adicionar tópico:', error);
+      toast.error('Erro ao adicionar tópico');
+    }
+  };
 
   // Hook para gerenciar visualizações duplicadas no ciclo
   const { addSubjectView, removeSubjectView, getSubjectViewCount } = useCycleViewManagement();
@@ -672,11 +710,11 @@ const Subjects = () => {
     navigate(`/materias/${subject.id}/topicos`);
   };
 
-  const toggleExpand = (subjectId: string) => {
+  const toggleExpand = (itemId: string) => {
     setExpandedSubjectIds(prev =>
-      prev.includes(subjectId)
-        ? prev.filter(id => id !== subjectId)
-        : [...prev, subjectId]
+      prev.includes(itemId)
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
     );
   };
 
@@ -744,7 +782,7 @@ const Subjects = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-[#f5f6f8]">
+      <div className="flex justify-center items-center h-screen">
         <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
       </div>
     );
@@ -753,7 +791,7 @@ const Subjects = () => {
 
 
   return (
-    <div className="flex h-[calc(100vh-2rem)] w-full bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
+    <div className="flex h-[calc(100vh-2rem)] w-full text-slate-900 overflow-hidden font-sans">
       <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
 
         {/* Header Outside Card */}
@@ -761,58 +799,51 @@ const Subjects = () => {
           <div className="space-y-6 w-full"> {/* Changed space-y-4 to 6 to match Topics */}
 
             {/* Unified Header Card */}
-            <div className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
+            <div className="mt-2 px-4 md:px-6 pt-4 pb-4 mb-4 bg-white rounded-2xl border border-gray-200 shadow-md">
               <div className="mb-4">
-                <h1 className="text-xl font-semibold text-gray-900">Matérias</h1>
                 <p className="text-xs text-muted-foreground mt-1">Gerencie suas matérias e acompanhe seu progresso detalhado.</p>
-                <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
               </div>
 
               {/* Add Subject Section */}
               <div className="mb-6">
-                <div className="flex gap-4 items-start">
-                  <div className="flex-1 relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300">
-                      <Search size={18} />
+                <div className="flex gap-2 items-center h-9">
+                  <div
+                    className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-full"
+                  >
+                    <div className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">
+                      <Search size={14} />
                     </div>
-                    <Input
+                    <input
                       placeholder="Ex: Direito Constitucional, Matemática Financeira..."
                       value={newSubjectName}
                       onChange={(e) => setNewSubjectName(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSaveSubject()}
-                      className="pl-10 h-10 w-full text-base bg-white border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm rounded-lg hover:border-slate-300"
+                      className="w-full pl-8 pr-8 py-1.5 text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full !outline-none"
                     />
                   </div>
-                  <Button
+                  <button
                     onClick={handleSaveSubject}
                     disabled={isAddingSubject || !newSubjectName.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 h-10 shadow-sm shadow-indigo-200 transition-all rounded-lg shrink-0"
+                    className="flex items-center justify-center gap-2 rounded-lg text-xs font-medium px-4 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-full whitespace-nowrap !min-h-[36px] !h-[36px]"
                   >
                     {isAddingSubject ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
                       <>
-                        <Plus className="h-4 w-4 mr-2" />
+                        <Plus className="h-3 w-3" />
                         Adicionar
                       </>
                     )}
-                  </Button>
+                  </button>
                 </div>
 
-                <div className="mt-3 flex items-center flex-wrap gap-2 text-xs text-slate-500">
-                  <Badge variant="secondary" className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-100 rounded text-[10px] h-5 px-1.5 font-bold">
-                    DICA
-                  </Badge>
-                  <span>
-                    Adicione uma matéria e use o botão "Gerar Tópicos" para criar um roteiro de estudos automático com IA. Ou{' '}
-                    <button
-                      onClick={() => setContentUploadModal(true)}
-                      className="text-indigo-500 hover:text-indigo-700 font-medium underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-500 transition-all"
-                    >
-                      Carregar Conteúdo Programático
-                    </button>
-                    .
-                  </span>
+                <div className="mt-2 flex items-center flex-wrap gap-2 text-xs text-slate-500">
+                  <button
+                    onClick={() => setContentUploadModal(true)}
+                    className="text-indigo-500 hover:text-indigo-700 font-medium underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-500 transition-all"
+                  >
+                    Carregar Conteúdo Programático
+                  </button>
                 </div>
               </div>
 
@@ -821,27 +852,27 @@ const Subjects = () => {
                 <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto no-scrollbar">
                   <button
                     onClick={() => setActiveTab('all')}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'all'
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'all'
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                       }`}
                   >
                     Todas
                   </button>
                   <button
                     onClick={() => setActiveTab('in_progress')}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'in_progress'
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'in_progress'
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                       }`}
                   >
                     Em Estudo
                   </button>
                   <button
                     onClick={() => setActiveTab('completed')}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'completed'
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'completed'
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                       }`}
                   >
                     Concluídas
@@ -917,266 +948,248 @@ const Subjects = () => {
                               <div
                                 className="w-full max-w-full"
                               >
-                                <Card className={`group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 mb-4 overflow-hidden border-l-4 ${getStatusBorderColor(calculatedStatus)}`}>
-                                  {/* Main Header / Summary Row */}
-                                  <div className="p-3 flex flex-col md:flex-row md:items-center gap-3">
+                                <Card className="group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 mb-4 overflow-hidden relative">
+                                  {/* Interactive Status Border (Left) */}
+                                  <div
+                                    className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBorderColor(calculatedStatus).replace('border-l-', 'bg-')}`}
+                                    title={`Status: ${calculatedStatus}`}
+                                  />
 
-                                    {/* Mobile: Top Row with Status and Menu */}
-                                    <div className="flex md:hidden justify-between items-center w-full mb-1">
-                                      <div className="flex items-center gap-1">
-                                        <div className="cursor-move p-2 text-slate-400 -ml-2" {...listeners} {...attributes}>
-                                          <GripVertical size={20} />
-                                        </div>
-                                        <span className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-bold px-2 py-0.5 rounded-md flex-shrink-0 ml-1">
-                                          #{position}
-                                        </span>
+                                  <div className="p-3 pl-5 flex flex-col gap-3">
+
+                                    {/* Row 1: Badge #Position + Name */}
+                                    <div className="flex items-center gap-3 w-full">
+                                      {/* Drag Handle (Mobile/Desktop Unified) */}
+                                      <div className="cursor-move text-slate-400 hover:text-slate-600 -ml-1" {...listeners} {...attributes}>
+                                        <GripVertical size={20} />
                                       </div>
 
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${getStatusColor(calculatedStatus)}`}>
-                                          {calculatedStatus}
-                                        </span>
-                                        <Button variant="ghost" className="p-1 h-8 w-8 text-slate-400" onClick={() => toggleExpand(subject.id)}>
-                                          {expandedSubjectIds.includes(subject.id) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                        </Button>
-                                      </div>
-                                    </div>
+                                      {/* Position Badge */}
+                                      <span className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono min-w-[1.5rem] text-center font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 text-[10px]">
+                                        #{position}
+                                      </span>
 
-                                    {/* Drag Handle (Desktop) */}
-                                    <div className="hidden md:flex text-slate-300 cursor-move hover:text-slate-500" {...listeners} {...attributes}>
-                                      <GripVertical size={20} />
-                                    </div>
-
-                                    {/* Expand Toggle (Desktop) */}
-                                    {/* Expand Toggle (Desktop) - Moved to right */}
-
-                                    {/* Main Content */}
-                                    <div className="flex-1 min-w-0" onClick={() => window.innerWidth < 768 && toggleExpand(subject.id)}>
-                                      <div className="flex items-center gap-3 mb-1">
-                                        {/* Desktop Badges */}
-                                        <div className="hidden md:flex items-center gap-2">
-                                          <span className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-bold px-2 py-0.5 rounded-md flex-shrink-0">
-                                            #{position}
-                                          </span>
-                                          <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-bold border ${getStatusColor(calculatedStatus)}`}>
-                                            {calculatedStatus}
-                                          </span>
+                                      {/* Subject Name */}
+                                      {isEditing ? (
+                                        <div className="flex items-center gap-2 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+                                          <Input
+                                            value={editingName}
+                                            onChange={(e) => setEditingName(e.target.value)}
+                                            className="h-8 text-sm flex-1 min-w-0"
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') handleSaveEdit();
+                                              if (e.key === 'Escape') handleCancelEdit();
+                                            }}
+                                            autoFocus
+                                          />
+                                          <Button size="sm" variant="ghost" onClick={handleSaveEdit} className="h-8 w-8 p-0 text-green-600">
+                                            <Check className="h-4 w-4" />
+                                          </Button>
+                                          <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 p-0 text-red-600">
+                                            <X className="h-4 w-4" />
+                                          </Button>
                                         </div>
-
-                                        {isEditing ? (
-                                          <div className="flex items-center gap-2 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
-                                            <Input
-                                              value={editingName}
-                                              onChange={(e) => setEditingName(e.target.value)}
-                                              className="h-8 text-sm flex-1 min-w-0"
-                                              onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleSaveEdit();
-                                                if (e.key === 'Escape') handleCancelEdit();
-                                              }}
-                                              autoFocus
-                                            />
-                                            <Button size="sm" variant="ghost" onClick={handleSaveEdit} className="h-8 w-8 p-0 text-green-600">
-                                              <Check className="h-4 w-4" />
-                                            </Button>
-                                            <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 p-0 text-red-600">
-                                              <X className="h-4 w-4" />
-                                            </Button>
-                                          </div>
-                                        ) : (
-                                          <h3
-                                            className="text-base md:text-lg font-bold text-slate-800 truncate cursor-pointer hover:text-indigo-600 transition-colors capitalize"
-                                            onClick={(e) => { e.stopPropagation(); handleStartEdit(subject); }}
-                                            title="Clique para editar"
-                                          >
-                                            {subject.name.toLowerCase()}
-                                          </h3>
-                                        )}
-
-                                        {isView && (
-                                          <span className="hidden md:inline-flex bg-blue-50 text-blue-700 border border-blue-200 text-[10px] px-2 py-0.5 rounded-full">
-                                            {viewIndex + 1}ª vis.
-                                          </span>
-                                        )}
-                                      </div>
-
-                                      {!isEditing && (
-                                        <div className="flex items-center gap-4 text-xs md:text-sm text-slate-500">
-                                          <div className="flex items-center gap-1.5">
-                                            <BookOpen size={14} className="text-slate-400" />
-                                            <span>{subject.topics.length} tópicos</span>
-                                          </div>
-
-                                          {subject.topics.length > 0 && (
-                                            <div className="flex items-center gap-2 flex-1 max-w-[140px]">
-                                              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                <div
-                                                  className="h-full bg-indigo-500 rounded-full transition-all duration-500"
-                                                  style={{ width: `${progress}%` }}
-                                                />
-                                              </div>
-                                              <span className="font-medium">{progress}%</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Desktop Actions */}
-                                    <div className="hidden md:flex items-center gap-2">
-                                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenTopicsModal(subject); }} title="Gerenciar Tópicos">
-                                        <List size={18} className="text-slate-400 hover:text-indigo-600" />
-                                      </Button>
-                                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSubjectNotesModal({ isOpen: true, subjectId: subject.id, subjectName: subject.name }); }} title="Anotações">
-                                        <NotebookPen size={18} className="text-slate-400 hover:text-indigo-600" />
-                                      </Button>
-
-                                      {/* Action Buttons Logic */}
-                                      {isView ? (
-                                        <Button variant="ghost" size="sm" title="Remover Visualização" onClick={(e) => { e.stopPropagation(); handleRemoveSubjectView(subject.id, viewIndex, subject.name); }}>
-                                          <Trash size={18} className="text-red-400 hover:text-red-600" />
-                                        </Button>
                                       ) : (
-                                        <>
-                                          {calculatedStatus !== 'Concluída' && (
-                                            <div className="relative">
-                                              <Button variant="ghost" size="sm" title="Duplicar" onClick={(e) => { e.stopPropagation(); handleAddSubjectView(subject); }}>
-                                                <Copy size={18} className="text-slate-400 hover:text-indigo-600" />
-                                              </Button>
-                                              {!isView && viewCount > 1 && (
-                                                <Badge className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px] bg-blue-600 text-white">
-                                                  {viewCount - 1}
-                                                </Badge>
-                                              )}
-                                            </div>
-                                          )}
-                                          <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                              <Button variant="ghost" size="sm" title="Excluir Matéria">
-                                                <Trash2 size={18} className="text-slate-400 hover:text-red-600" />
-                                              </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                              <AlertDialogHeader>
-                                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                  Tem certeza que deseja excluir a matéria "{subject.name}"?
-                                                </AlertDialogDescription>
-                                              </AlertDialogHeader>
-                                              <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDelete(subject.id)} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
-                                              </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                          </AlertDialog>
-                                        </>
+                                        <h3
+                                          className="text-[14px] font-semibold leading-[20px] text-slate-800 cursor-pointer hover:text-indigo-600 transition-colors capitalize flex-1 min-w-0 flex items-center gap-2"
+                                          onClick={(e) => { e.stopPropagation(); handleStartEdit(subject); }}
+                                        >
+                                          <span className="whitespace-normal break-words">{subject.name.toLowerCase()}</span>
+                                        </h3>
                                       )}
-                                      {/* Expand Toggle (Desktop) - New Position */}
-                                      <button
-                                        onClick={() => toggleExpand(subject.id)}
-                                        className="hidden md:flex p-1 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors ml-2"
-                                      >
-                                        {expandedSubjectIds.includes(subject.id) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                      </button>
+                                    </div>
+
+                                    {/* Row 2: Responsive (Progress -> Icons on ALL screens) */}
+                                    <div className="flex flex-row items-center gap-4 w-full">
+
+                                      {/* Progress Group (Left) */}
+                                      <div className="flex items-center gap-3 flex-1 min-w-0 max-w-[50%] xl:max-w-[40%] xl:justify-start" onClick={() => toggleExpand(subject.id)}>
+                                        <span className="whitespace-nowrap text-[12px] font-normal leading-[16px] text-slate-500">{subject.topics.length} tópicos</span>
+                                        {subject.topics.length > 0 && (
+                                          <div className="flex items-center gap-2 flex-1 min-w-[60px]">
+                                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                              <div
+                                                className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                                                style={{ width: `${progress}%` }}
+                                              />
+                                            </div>
+                                            <span className="text-[10px] font-medium text-slate-600">{progress}%</span>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Right on Mobile / Left on Desktop -> Actions Group */}
+                                      <div className="flex items-center gap-1 w-fit flex-none ml-auto">
+                                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSubjectNotesModal({ isOpen: true, subjectId: subject.id, subjectName: subject.name }); }} className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600" title="Anotações">
+                                          <NotebookPen size={16} />
+                                        </Button>
+
+                                        {isView ? (
+                                          <>
+                                            <div className="flex items-center justify-center w-7 h-7 flex-none" title="Matéria Duplicada (Cópia)">
+                                              <span className="flex items-center justify-center w-5 h-5 rounded-full border border-slate-300 text-[10px] font-bold text-slate-400 bg-slate-50 select-none">
+                                                C
+                                              </span>
+                                            </div>
+                                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleRemoveSubjectView(subject.id, viewIndex, subject.name); }} className="h-7 w-7 p-0 text-red-400 hover:text-red-600">
+                                              <Trash size={16} />
+                                            </Button>
+                                          </>
+                                        ) : (
+                                          <>
+                                            {calculatedStatus !== 'Concluída' && (
+                                              <div className="relative w-7 h-7 flex-none flex items-center justify-center">
+                                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleAddSubjectView(subject); }} className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600">
+                                                  <Copy size={16} />
+                                                </Button>
+                                                {!isView && viewCount > 1 && (
+                                                  <Badge className="absolute -top-1 -right-1 h-3 w-3 flex items-center justify-center p-0 text-[8px] bg-blue-600 text-white">
+                                                    {viewCount - 1}
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                            )}
+                                            <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-red-600">
+                                                  <Trash2 size={16} />
+                                                </Button>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                  <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                                  <AlertDialogDescription>
+                                                    Tem certeza que deseja excluir a matéria "{subject.name}"?
+                                                  </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                  <AlertDialogAction onClick={() => handleDelete(subject.id)} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                            </AlertDialog>
+                                          </>
+                                        )}
+
+                                        <div className="h-4 w-px bg-slate-200 mx-1"></div>
+
+                                        <Button variant="ghost" className="p-0 h-7 w-7 text-slate-400 hover:text-slate-600" onClick={(e) => { e.stopPropagation(); toggleExpand(item.id); }}>
+                                          {expandedSubjectIds.includes(item.id) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                        </Button>
+                                      </div>
+
                                     </div>
                                   </div>
 
                                   {/* Expanded Content (Topics List) */}
-                                  {expandedSubjectIds.includes(subject.id) && (
-                                    <div className="border-t border-slate-100 bg-slate-50/50 p-4 md:pl-16">
+                                  {
+                                    expandedSubjectIds.includes(item.id) && (
+                                      <div className="border-t border-slate-100 bg-slate-50/50 p-4 md:pl-5">
 
-                                      {subject.topics.length === 0 ? (
-                                        <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg">
-                                          <p className="text-slate-500 text-sm mb-2">Nenhum tópico cadastrado.</p>
-                                          <Button variant="ghost" onClick={() => handleOpenTopicsModal(subject)} className="text-indigo-600 text-sm hover:bg-indigo-50">
-                                            Adicionar Tópicos
+                                        {/* Inline Topic Input */}
+                                        <div className="flex items-center gap-2 mb-3 bg-white p-1 pl-3 rounded-lg border border-slate-200 shadow-sm" onClick={e => e.stopPropagation()}>
+                                          <Input
+                                            placeholder="Novo tópico..."
+                                            value={newTopicTexts[subject.id] || ''}
+                                            onChange={(e) => setNewTopicTexts(prev => ({ ...prev, [subject.id]: e.target.value }))}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') handleSaveNewTopic(subject.id);
+                                            }}
+                                            className="h-7 text-sm border-0 focus-visible:ring-0 bg-transparent"
+                                          />
+                                          <Button
+                                            size="sm"
+                                            onClick={() => handleSaveNewTopic(subject.id)}
+                                            className="h-7 w-7 p-0 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-md shrink-0"
+                                            title="Adicionar Tópico"
+                                          >
+                                            <Plus size={16} />
                                           </Button>
                                         </div>
-                                      ) : (
-                                        <ul className="space-y-0.5">
-                                          {subject.topics.map(topic => {
-                                            const isCompleted = topic.completed || topic.reviewStage === 'Concluído';
-                                            const iconClass = getTopicIconClass(topic);
 
-                                            return (
-                                              <li key={topic.id} className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-slate-50 transition-colors group/topic relative">
-                                                <div className={`flex-shrink-0 transition-colors ${iconClass}`}>
-                                                  {isCompleted ? <CheckCircle2 size={18} className="fill-green-100" /> : <Circle size={18} />}
-                                                </div>
-                                                {editingTopicId === topic.id ? (
-                                                  <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
-                                                    <Input
-                                                      value={editingTopicName}
-                                                      onChange={(e) => setEditingTopicName(e.target.value)}
-                                                      onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') handleSaveTopicEdit();
-                                                        if (e.key === 'Escape') handleCancelTopicEdit();
-                                                        e.stopPropagation();
-                                                      }}
-                                                      className="h-7 text-sm py-1 px-2"
-                                                      autoFocus
-                                                      onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                    <Button
-                                                      size="sm"
-                                                      variant="ghost"
-                                                      onClick={(e) => { e.stopPropagation(); handleSaveTopicEdit(); }}
-                                                      className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                    >
-                                                      <Check size={14} />
-                                                    </Button>
-                                                    <Button
-                                                      size="sm"
-                                                      variant="ghost"
-                                                      onClick={(e) => { e.stopPropagation(); handleCancelTopicEdit(); }}
-                                                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                    >
-                                                      <X size={14} />
-                                                    </Button>
+
+
+                                        {subject.topics.length === 0 ? (
+                                          <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg">
+                                            <p className="text-slate-500 text-sm">Nenhum tópico cadastrado.</p>
+                                          </div>
+                                        ) : (
+                                          <ul className="space-y-1.5">
+                                            {subject.topics.map(topic => {
+                                              const isCompleted = topic.completed || topic.reviewStage === 'Concluído';
+                                              const iconClass = getTopicIconClass(topic);
+
+                                              return (
+                                                <li key={topic.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group/topic relative">
+                                                  <div className={`flex-shrink-0 transition-colors ${iconClass}`}>
+                                                    {isCompleted ? <CheckCircle2 size={18} className="fill-green-100" /> : <Circle size={18} />}
                                                   </div>
-                                                ) : (
-                                                  <span
-                                                    className={`text-sm md:text-base flex-1 ${isCompleted ? 'text-slate-400 line-through' : 'text-slate-700'}`}
-                                                    onClick={(e) => { e.stopPropagation(); handleStartTopicEdit(topic); }}
-                                                    title="Clique para editar"
+                                                  {editingTopicId === topic.id ? (
+                                                    <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
+                                                      <Input
+                                                        value={editingTopicName}
+                                                        onChange={(e) => setEditingTopicName(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                          if (e.key === 'Enter') handleSaveTopicEdit();
+                                                          if (e.key === 'Escape') handleCancelTopicEdit();
+                                                          e.stopPropagation();
+                                                        }}
+                                                        className="h-7 text-sm py-1 px-2"
+                                                        autoFocus
+                                                        onClick={(e) => e.stopPropagation()}
+                                                      />
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={(e) => { e.stopPropagation(); handleSaveTopicEdit(); }}
+                                                        className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                      >
+                                                        <Check size={14} />
+                                                      </Button>
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={(e) => { e.stopPropagation(); handleCancelTopicEdit(); }}
+                                                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                      >
+                                                        <X size={14} />
+                                                      </Button>
+                                                    </div>
+                                                  ) : (
+                                                    <div className="flex flex-col flex-1" onClick={(e) => { e.stopPropagation(); handleStartTopicEdit(topic); }} title="Clique para editar">
+                                                      <span
+                                                        className={`text-sm md:text-base font-medium ${isCompleted ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                                                      >
+                                                        {topic.name}
+                                                      </span>
+                                                      <span className="text-[10px] text-slate-400">
+                                                        {(topic.reviewCount || 0) + (topic.review_count || 0)} de {REVIEW_PROFILES[ReviewProfile.INTERMEDIATE].maxReviews} revisões feitas
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic, subject.name); }}
+                                                    className="opacity-0 group-hover/topic:opacity-100 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
+                                                    title="Excluir tópico"
                                                   >
-                                                    {topic.name}
-                                                  </span>
-                                                )}
-                                                <button
-                                                  onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic, subject.name); }}
-                                                  className="opacity-0 group-hover/topic:opacity-100 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
-                                                  title="Excluir tópico"
-                                                >
-                                                  <Trash2 size={14} />
-                                                </button>
-                                              </li>
-                                            );
-                                          })}
-                                        </ul>
-                                      )}
-
-                                      {/* Mobile Only: Bottom Actions */}
-                                      <div className="flex md:hidden border-t border-slate-200 mt-6 pt-4 justify-end gap-2 flex-wrap">
-                                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenTopicsModal(subject); }}>
-                                          <List size={16} className="mr-2" /> Tópicos
-                                        </Button>
-                                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setSubjectNotesModal({ isOpen: true, subjectId: subject.id, subjectName: subject.name }); }}>
-                                          <NotebookPen size={16} className="mr-2" /> Notas
-                                        </Button>
-                                        <Button variant="outline" size="sm" className="text-red-500 border-red-200" onClick={() => handleDelete(subject.id)}>
-                                          <Trash2 size={16} className="mr-2" /> Excluir
-                                        </Button>
+                                                    <Trash2 size={14} />
+                                                  </button>
+                                                </li>
+                                              );
+                                            })}
+                                          </ul>
+                                        )}
                                       </div>
-                                    </div>
-                                  )}
+                                    )
+                                  }
                                 </Card>
                               </div>
-                            )
-                            }
+                            )}
                           </SortableItem>
                         );
                       })
                   )}
+
 
                 </div>
               </SortableContext>

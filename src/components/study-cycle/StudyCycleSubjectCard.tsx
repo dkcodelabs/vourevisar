@@ -183,7 +183,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 flex-1 min-w-0">
               <CyclePositionBadge />
-              <h3 className="text-base text-card-foreground line-clamp-2" style={{ fontWeight: 700 }}>{subject.name}</h3>
+              <h3 className="text-sm font-semibold text-card-foreground line-clamp-2">{subject.name.replace(/(\d+ª) visualização/g, '$1')}</h3>
             </div>
           </div>
           <div className="flex items-center gap-4 mt-4 relative">
@@ -301,9 +301,9 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         <div className="w-full flex items-center p-4 gap-4">
           <div className="flex-grow">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 flex-1 min-w-0">
+              <div className="flex items-center space-x-2 flex-1 min-w-0 pr-4">
                 <CyclePositionBadge />
-                <h3 className="text-base text-card-foreground break-words leading-tight" style={{ fontWeight: 700 }}>{subject.name}</h3>
+                <h3 className="text-sm font-semibold text-card-foreground break-words leading-tight">{subject.name.replace(/(\d+ª) visualização/g, '$1')}</h3>
               </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
@@ -336,7 +336,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                 <div className="flex items-center gap-1 pl-2 border-l border-gray-200 dark:border-gray-700 ml-1">
                   <button
                     onClick={handleStartAddingTopic}
-                    className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                    className="h-7 w-7 flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                     title="Adicionar novo tópico"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,26 +345,26 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                   </button>
                   <button
                     onClick={onSubjectNotesClick}
-                    className="p-1 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                    className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
                     title="Anotações da matéria"
                   >
                     <NotebookPen className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={onToggleExpand}
+                    className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                    aria-expanded={isExpanded}
+                    aria-controls={`topics-${subject.id}`}
+                    title={isExpanded ? 'Recolher tópicos' : 'Expandir tópicos'}
+                  >
+                    <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                      <ChevronDownIcon className="w-4 h-4" />
+                    </div>
                   </button>
                 </div>
               </div>
             </div>
           </div>
-          <button
-            onClick={onToggleExpand}
-            className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
-            aria-expanded={isExpanded}
-            aria-controls={`topics-${subject.id}`}
-            title={isExpanded ? 'Recolher tópicos' : 'Expandir tópicos'}
-          >
-            <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-              <ChevronDownIcon />
-            </div>
-          </button>
         </div>
         {isExpanded && (
           <div id={`topics-${subject.id}`} className="p-4 pt-0">
@@ -438,7 +438,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <CyclePositionBadge />
-            <h3 className="text-base text-card-foreground break-words leading-tight" style={{ fontWeight: 700 }}>{subject.name}</h3>
+            <h3 className="text-sm font-semibold text-card-foreground break-words leading-tight">{subject.name.replace(/(\d+ª) visualização/g, '$1')}</h3>
           </div>
         </div>
         <div className="flex items-center gap-4 mt-4 relative">
@@ -470,7 +470,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-700">
             <button
               onClick={handleStartAddingTopic}
-              className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+              className="h-7 w-7 flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
               title="Adicionar novo tópico"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -479,7 +479,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             </button>
             <button
               onClick={onSubjectNotesClick}
-              className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+              className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
               title="Anotações da matéria"
             >
               <NotebookPen className="w-4 h-4" />

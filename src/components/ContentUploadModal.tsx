@@ -34,7 +34,7 @@ const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenCha
     if (open) {
       const savedContent = localStorage.getItem('contentUpload_content');
       const savedChatGptResult = localStorage.getItem('contentUpload_chatGptResult');
-      
+
       if (savedContent) setContent(savedContent);
       if (savedChatGptResult) setChatGptResult(savedChatGptResult);
     }
@@ -75,10 +75,10 @@ ${content}`;
       await navigator.clipboard.writeText(generatePrompt());
       setPromptCopied(true);
       toast.success('Prompt copiado! Abrindo ChatGPT...');
-      
+
       // Open ChatGPT in new tab
       window.open('https://chat.openai.com/', '_blank', 'noopener,noreferrer');
-      
+
       // Reset the copied state after 3 seconds
       setTimeout(() => setPromptCopied(false), 3000);
     } catch (error) {
@@ -99,9 +99,9 @@ ${content}`;
       .split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0);
-    
+
     console.log('Cleaned lines:', lines);
-    
+
     if (lines.length === 0) {
       toast.error('Resultado deve ter pelo menos uma linha de dados');
       return;
@@ -111,28 +111,28 @@ ${content}`;
     let currentMateria = '';
     let materiaCount = 0;
     let topicCount = 0;
-    
+
     console.log('Starting to process lines:', lines.length);
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      
+
       // Check if line contains a subject in brackets [Subject]
       if (line.startsWith('[') && line.endsWith(']')) {
         const materia = line.slice(1, -1).trim();
-        
+
         if (materia) {
           currentMateria = materia.toUpperCase();
           materiaCount++;
           console.log(`Found subject ${materiaCount}: ${currentMateria}`);
-          
+
           // Process all following lines until next subject or end
           let j = i + 1;
           let subjectTopicsCount = 0;
-          
+
           while (j < lines.length && !lines[j].startsWith('[')) {
             const topicLine = lines[j].trim();
-            
+
             if (topicLine) {
               // If line contains semicolons, split it
               if (topicLine.includes(';')) {
@@ -140,13 +140,13 @@ ${content}`;
                   .split(';')
                   .map(topic => topic.trim())
                   .filter(topic => topic.length > 0);
-                
+
                 console.log(`Topics with semicolons for ${currentMateria}:`, topics);
-                
+
                 for (const topic of topics) {
-                  data.push({ 
-                    materia: currentMateria, 
-                    topico: topic 
+                  data.push({
+                    materia: currentMateria,
+                    topico: topic
                   });
                   topicCount++;
                   subjectTopicsCount++;
@@ -154,9 +154,9 @@ ${content}`;
               } else {
                 // Single topic line
                 console.log(`Single topic for ${currentMateria}:`, topicLine);
-                data.push({ 
-                  materia: currentMateria, 
-                  topico: topicLine 
+                data.push({
+                  materia: currentMateria,
+                  topico: topicLine
                 });
                 topicCount++;
                 subjectTopicsCount++;
@@ -164,15 +164,15 @@ ${content}`;
             }
             j++;
           }
-          
+
           console.log(`Finished ${currentMateria}: ${subjectTopicsCount} topics`);
-          
+
           // Skip to the last processed line
           i = j - 1;
         }
       }
     }
-    
+
     console.log(`Final count: ${materiaCount} subjects, ${topicCount} topics`);
 
     console.log('Final parsed data:', data);
@@ -183,15 +183,15 @@ ${content}`;
     }
 
     // Remove duplicates
-    const uniqueData = data.filter((item, index, self) => 
+    const uniqueData = data.filter((item, index, self) =>
       index === self.findIndex(t => t.materia === item.materia && t.topico === item.topico)
     );
 
     setParsedData(uniqueData);
-    
+
     const uniqueSubjectsCount = [...new Set(uniqueData.map(item => item.materia))].length;
     toast.success(`${uniqueData.length} tópicos de ${uniqueSubjectsCount} matérias processados e prontos para importar!`);
-    
+
     // Auto scroll to processed data section
     setTimeout(() => {
       const element = document.querySelector('[data-scroll-target="processed-data"]');
@@ -327,7 +327,7 @@ ${content}`;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95%] sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -342,6 +342,9 @@ ${content}`;
                 <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-blue-800">
                   <p className="font-medium mb-2">Como funciona:</p>
+                  <p className="mb-3 text-blue-700">
+                    Adicione uma matéria e use o botão "Gerar Tópicos" para criar um roteiro de estudos automático com IA. Ou, se preferir importar manualmente:
+                  </p>
                   <ol className="list-decimal list-inside space-y-1 ml-4">
                     <li>Cole o conteúdo programático completo</li>
                     <li>Clique em "Copiar Prompt" e cole no ChatGPT</li>
@@ -367,7 +370,7 @@ ${content}`;
               />
             </div>
 
-            <Button 
+            <Button
               onClick={handleCopyPromptAndOpenChatGPT}
               disabled={!content.trim()}
               className="w-full"
@@ -404,7 +407,7 @@ PORTUGUÊS: Gramática; Literatura; Interpretação de Texto"
             </div>
 
             {chatGptResult.trim() && (
-              <Button 
+              <Button
                 onClick={handleProcessResult}
                 disabled={!chatGptResult.trim()}
                 className="w-full"
@@ -450,7 +453,7 @@ PORTUGUÊS: Gramática; Literatura; Interpretação de Texto"
                   </table>
                 </div>
 
-                <Button 
+                <Button
                   onClick={handleImport}
                   disabled={isProcessing}
                   className="w-full"

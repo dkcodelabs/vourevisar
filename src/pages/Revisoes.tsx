@@ -12,11 +12,14 @@ import {
   PlayCircle,
   RotateCw,
   Clock,
-  BookOpen
+  BookOpen,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
+import { ChevronsDownIcon, ChevronsUpIcon } from '@/components/study-cycle/Icons';
 
 import { useApp } from '@/contexts/AppContext';
 import { useReviewsData } from '@/hooks/useReviewsData';
@@ -149,10 +152,12 @@ const Revisoes = () => {
     futureTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.FUTURE)));
     completedTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.COMPLETED)));
 
+    let result = allItems;
+
     // Filter by search term
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
-      return allItems.filter(item =>
+      result = result.filter(item =>
         item.topic.toLowerCase().includes(lowerTerm) ||
         item.subject.toLowerCase().includes(lowerTerm)
       );
@@ -161,15 +166,11 @@ const Revisoes = () => {
     // Filter by review stage
     if (reviewStageFilter !== 'all') {
       const targetStage = parseInt(reviewStageFilter);
-      // Filter items that match the review count (current review number)
-      // User expects "4ª Revisão" to show items labeled "4/4".
-      // Previous logic (targetStage - 1) showed "3/4" for "4ª Revisão".
-      // So we align strictly: Stage 4 -> reviewCount 4.
-      return allItems.filter(item => item.reviewCount === targetStage);
+      result = result.filter(item => item.reviewCount === targetStage);
     }
 
-    return allItems;
-  }, [delayedTopics, todayTopics, futureTopics, completedTopics, subjects, searchTerm]);
+    return result;
+  }, [delayedTopics, todayTopics, futureTopics, completedTopics, subjects, searchTerm, reviewStageFilter]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -226,11 +227,54 @@ const Revisoes = () => {
     setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const expandAll = () => setCollapsedGroups({});
-  const collapseAll = () => {
-    const allKeys = Object.keys(groupedItems);
-    const newCollapsedState = allKeys.reduce((acc, key) => ({ ...acc, [key]: true }), {});
-    setCollapsedGroups(newCollapsedState);
+  const highlightText = (text: string, highlight: string) => {
+    if (!highlight.trim()) return text;
+    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, i) =>
+          part.toLowerCase() === highlight.toLowerCase() ? (
+            <span key={i} className="bg-yellow-200 text-gray-900 rounded-[2px] px-0.5">{part}</span>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
+  };
+
+  // Auto-expand on filter
+  useEffect(() => {
+    if (searchTerm || reviewStageFilter !== 'all') {
+      setCollapsedGroups({});
+    }
+  }, [searchTerm, reviewStageFilter]);
+
+  // Logic for Single Expand Toggle
+  const allKeys = Object.keys(groupedItems || {});
+  // Check if ALL keys are present in collapsedGroups and are true (collapsed)
+  // Note: The logic in StudyCycle is "areAllExpanded". Here we track "collapsed".
+  // "Expanded" means NOT collapsed.
+  // So areAllExpanded = every key is NOT in collapsedGroups OR is false.
+  const areAllExpanded = allKeys.length > 0 && allKeys.every(key => !collapsedGroups[key]);
+
+  const handleToggleAll = () => {
+    if (areAllExpanded) {
+      // Collapse all
+      const newCollapsedState = allKeys.reduce((acc, key) => ({ ...acc, [key]: true }), {});
+      setCollapsedGroups(newCollapsedState);
+    } else {
+      // Expand all (clear collapsed state)
+      setCollapsedGroups({});
+    }
+  };
+
+  const toggleSubjectView = () => {
+    if (activeTab === 'SUBJECTS') {
+      setActiveTab('FOCUS'); // Toggle off -> go to default Focus
+    } else {
+      setActiveTab('SUBJECTS');
+    }
   };
 
   const getGroupStyle = (groupKey: string) => {
@@ -268,25 +312,24 @@ const Revisoes = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-[#f5f6f8]">
+      <div className="flex justify-center items-center h-screen">
         <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] w-full bg-gray-50 text-gray-900 overflow-hidden">
+    <div className="flex h-[calc(100vh-7rem)] w-full text-gray-900 overflow-hidden">
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
 
         {/* Header Section */}
         {/* Header Section */}
-        <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-4 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-4">
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">Processo de Revisão</h1>
               <p className="text-xs text-muted-foreground mt-1">Painel de controle de repetição espaçada</p>
-              <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
+              <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-2"></div>
             </div>
             <div className="flex w-full md:w-auto items-center gap-3">
               {/* Controls moved to tabs row */}
@@ -294,56 +337,35 @@ const Revisoes = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-2 mt-4 overflow-x-auto no-scrollbar py-1 -mx-4 px-4 md:-mx-8 md:px-8">
-            <button
-              onClick={() => {
-                const allKeys = Object.keys(groupedItems);
-                const isAnyCollapsed = allKeys.some(key => collapsedGroups[key]);
-
-                if (isAnyCollapsed) {
-                  setCollapsedGroups({});
-                } else {
-                  const newCollapsedState = allKeys.reduce((acc, key) => ({ ...acc, [key]: true }), {});
-                  setCollapsedGroups(newCollapsedState);
-                }
-              }}
-              className="p-2 mr-2 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded-full transition-colors shrink-0"
-              title={Object.keys(groupedItems).some(key => collapsedGroups[key]) ? "Expandir Tudo" : "Recolher Tudo"}
-            >
-              {Object.keys(groupedItems).some(key => collapsedGroups[key]) ? (
-                <ChevronDown size={20} />
-              ) : (
-                <ChevronRight size={20} className="-rotate-90" />
-              )}
-            </button>
-
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-2 mt-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4 md:-mx-8 md:px-8">
             <button
               onClick={() => setActiveTab('FOCUS')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FOCUS'
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FOCUS'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
             >
               <span>Hoje</span>
               {stats.today > 0 && (
-                <span className="bg-orange-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">{stats.today}</span>
+                <span className="bg-orange-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full">{stats.today}</span>
               )}
               <span className="mx-1">&</span>
               <span>Atrasadas</span>
-              <span className="bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">{stats.overdue}</span>
+              <span className="bg-red-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full">{stats.overdue}</span>
             </button>
 
             <div className="h-4 w-px bg-gray-300 mx-1 shrink-0"></div>
 
             <button
               onClick={() => setActiveTab('FUTURE')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FUTURE'
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FUTURE'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
             >
               <span>Futuras</span>
-              <span className="bg-blue-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+              <span className="bg-blue-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
                 {stats.future}
               </span>
             </button>
@@ -355,68 +377,125 @@ const Revisoes = () => {
                 setActiveTab('COMPLETED');
                 setReviewStageFilter('all');
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'COMPLETED'
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'COMPLETED'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 } `}
             >
               <span>Concluídas</span>
-              <span className="bg-green-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+              <span className="bg-green-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
                 {stats.completed}
               </span>
             </button>
+          </div>
 
-            <div className="h-4 w-px bg-gray-300 mx-1 shrink-0"></div>
+          {/* Controls Row: Toggle, Search, Subject, Status */}
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            {/* Group Toggle & Search to keep them on same line in mobile */}
+            <div className="flex w-full md:w-auto items-center gap-2">
+              {/* 1. Toggle Button - Before Search */}
+              <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg h-9 shrink-0">
+                <button
+                  onClick={handleToggleAll}
+                  className="p-1 px-3 h-full rounded-md text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center min-w-[3rem]"
+                  aria-label={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
+                  title={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
+                >
+                  {areAllExpanded ? <ChevronsUpIcon className="w-4 h-4" /> : <ChevronsDownIcon className="w-4 h-4" />}
+                </button>
+              </div>
 
-            <button
-              onClick={() => setActiveTab('SUBJECTS')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'SUBJECTS'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                } `}
-            >
-              <BookOpen size={14} />
-              <span>Por Matéria</span>
-            </button>
-
-            <div className="flex items-center gap-2 ml-2 shrink-0">
-              {/* Review Stage Filter */}
-              {/* Review Stage Filter */}
-              {activeTab !== 'COMPLETED' && (
-                <div className="w-[130px]">
-                  <Select value={reviewStageFilter} onValueChange={setReviewStageFilter}>
-                    <SelectTrigger className="h-8 text-xs font-medium border-gray-200 bg-white shadow-sm rounded-lg focus:ring-blue-500/20">
-                      <div className="flex items-center gap-2 text-gray-600 whitespace-nowrap">
-                        <Clock size={12} className="text-blue-500 shrink-0" />
-                        <SelectValue placeholder="Status" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-xs">Status</SelectItem>
-                      {Array.from({ length: REVIEW_PROFILES[settings?.review_profile || ReviewProfile.INTERMEDIATE].maxReviews }).map((_, i) => (
-                        <SelectItem key={i + 1} value={String(i + 1)} className="text-xs">
-                          {i + 1}ª Revisão
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Search Bar */}
-              <div className="relative w-full md:w-auto bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200">
+              {/* 2. Search Bar */}
+              <div className="relative flex-1 md:w-[300px] bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-9">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Pesquisar..."
-                  className="w-full md:w-48 pl-9 pr-4 py-1.5 bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 text-xs"
+                  className="w-full pl-9 pr-4 text-xs bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
+
+            {/* 3. Por Matéria Button - After Search */}
+            <div className="h-9 w-px bg-gray-200 mx-1 shrink-0 hidden md:block"></div> {/* Separator */}
+
+            <button
+              onClick={toggleSubjectView}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all whitespace-nowrap h-9 ${activeTab === 'SUBJECTS'
+                ? 'border-blue-200 text-blue-700 bg-blue-50'
+                : 'border-gray-200 text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                } `}
+              title="Agrupar por Matéria"
+            >
+              <BookOpen size={14} />
+              <span>Por Matéria</span>
+            </button>
+
+            {/* 4. Status Filter - After Por Matéria */}
+            {activeTab !== 'COMPLETED' && (
+              <div className="w-[140px]">
+                <Select value={reviewStageFilter} onValueChange={setReviewStageFilter}>
+                  <SelectTrigger className="h-9 text-xs font-medium border-gray-200 bg-white shadow-sm rounded-lg focus:ring-blue-500/20">
+                    <div className="flex items-center gap-2 text-gray-600 whitespace-nowrap">
+                      <Clock size={12} className="text-blue-500 shrink-0" />
+                      <SelectValue placeholder="Status" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">Status</SelectItem>
+                    {Array.from({ length: REVIEW_PROFILES[settings?.review_profile || ReviewProfile.INTERMEDIATE].maxReviews }).map((_, i) => (
+                      <SelectItem key={i + 1} value={String(i + 1)} className="text-xs">
+                        {i + 1}ª Revisão
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
           </div>
         </header>
+
+        {(searchTerm || reviewStageFilter !== 'all') && (
+          <div className="px-4 md:px-8 mb-4 shrink-0 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-full text-amber-600">
+                  <AlertCircle size={18} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-amber-900">
+                    Filtrando por:
+                    {searchTerm && <span className="font-bold ml-1">"{searchTerm}"</span>}
+                    {searchTerm && reviewStageFilter !== 'all' && <span className="mx-1">+</span>}
+                    {reviewStageFilter !== 'all' && <span className="font-bold ml-1">{reviewStageFilter}ª Revisão</span>}
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    {searchTerm && reviewStageFilter !== 'all'
+                      ? "Filtro no nome do tópico e status da revisão."
+                      : searchTerm
+                        ? "Filtro no nome do tópico."
+                        : "Filtro por status da revisão."
+                    }
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setReviewStageFilter('all');
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 shadow-sm rounded-md text-xs font-medium text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
+                title="Limpar e mostrar tudo"
+              >
+                <X size={14} />
+                Limpar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar mr-1">
@@ -468,8 +547,12 @@ const Revisoes = () => {
                               md:p-3 flex flex-col justify-center pl-4 md:pl-8
                               pt-4 md:pt-3 md:border-r border-gray-100
                             ">
-                            <div className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs truncate transition-colors first-letter:uppercase">{item.topic}</div>
-                            <div className="text-xs text-gray-500 font-normal mt-0.5 md:mt-1 truncate capitalize">{item.subject.toLowerCase()}</div>
+                            <div className="font-semibold md:font-medium text-gray-800 text-sm md:text-xs truncate transition-colors first-letter:uppercase">
+                              {highlightText(item.topic, searchTerm)}
+                            </div>
+                            <div className="text-xs text-gray-500 font-normal mt-0.5 md:mt-1 truncate capitalize">
+                              {highlightText(item.subject.toLowerCase(), searchTerm)}
+                            </div>
                           </div>
 
                           {/* Difficulty */}

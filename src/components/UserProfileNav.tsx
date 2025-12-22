@@ -99,7 +99,7 @@ const UserProfileNavComponent = () => {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="flex items-center gap-2 px-2 py-2 h-auto hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+          className="flex items-center gap-2 px-2 py-2 h-auto hover:bg-white/10 rounded-lg w-full"
           disabled={loading || isSigningOut}
         >
           {/* Avatar first */}
@@ -111,15 +111,15 @@ const UserProfileNavComponent = () => {
           </Avatar>
 
           {/* Name and badge to the right */}
-          <div className="hidden sm:flex flex-col items-start">
-            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{firstName || 'Usuário'}</span>
+          <div className="hidden sm:flex flex-col items-start flex-1">
+            <span className="text-sm font-medium text-white">{firstName || 'Usuário'}</span>
             <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${badgeClasses}`}>
               <AccountIcon className="h-2.5 w-2.5" />
               <span>{displayBadge}</span>
             </div>
           </div>
 
-          <ChevronDown className="h-4 w-4 text-gray-500" />
+          <ChevronDown className="hidden sm:block h-4 w-4 text-white/70" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64" align="end" forceMount>
