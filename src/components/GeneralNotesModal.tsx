@@ -1050,10 +1050,10 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                 console.log('Dialog onOpenChange chamado com:', open);
                 if (!open) onClose();
             }}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col general-notes-modal">
-                    <DialogHeader className="flex-shrink-0">
-                        <DialogTitle className="text-xl font-semibold">Anotações Gerais</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="w-[95vw] max-w-4xl h-[90vh] max-h-[90vh] overflow-hidden flex flex-col general-notes-modal p-4 sm:p-6 z-[9999]">
+                    <DialogHeader className="flex-shrink-0 pb-2">
+                        <DialogTitle className="text-lg sm:text-xl font-semibold">Anotações Gerais</DialogTitle>
+                        <DialogDescription className="text-xs sm:text-sm">
                             Gerencie suas anotações de estudo e lembretes importantes
                         </DialogDescription>
                     </DialogHeader>
@@ -1065,14 +1065,14 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                             onValueChange={setActiveTab}
                             className="h-full flex flex-col"
                         >
-                            <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
-                                <TabsTrigger value="notes">📝 Anotações</TabsTrigger>
-                                <TabsTrigger value="reminders">🔔 Lembretes</TabsTrigger>
-                                <TabsTrigger value="condensed">📋 Visão Condensada</TabsTrigger>
+                            <TabsList className="grid w-full grid-cols-3 flex-shrink-0 h-10 sm:h-11">
+                                <TabsTrigger value="notes" className="text-[11px] sm:text-sm px-1 sm:px-3 whitespace-nowrap">📝 Anotações</TabsTrigger>
+                                <TabsTrigger value="reminders" className="text-[11px] sm:text-sm px-1 sm:px-3 whitespace-nowrap">🔔 Lembretes</TabsTrigger>
+                                <TabsTrigger value="condensed" className="text-[10px] sm:text-sm px-0.5 sm:px-3 whitespace-nowrap">📋 Visão Condensada</TabsTrigger>
                             </TabsList>
 
-                            <TabsContent value="notes" className="flex-1 overflow-hidden mt-4">
-                                <div className="h-full max-h-[400px]">
+                            <TabsContent value="notes" className="flex-1 overflow-hidden mt-2 sm:mt-4">
+                                <div className="h-full max-h-[300px] sm:max-h-[400px]">
                                     <div className="bg-white dark:bg-slate-800 rounded-lg h-full">
                                         <ReactQuill
                                             ref={quillRef}
@@ -1080,10 +1080,14 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                                             value={currentContent}
                                             onChange={handleContentChange}
                                             readOnly={isLoading || isSaving}
-                                            className="h-full"
-                                            style={{ height: '400px' }}
+                                            className="h-full text-sm sm:text-base"
+                                            style={{ height: window.innerWidth < 640 ? '300px' : '400px' }}
                                             modules={{
-                                                toolbar: [
+                                                toolbar: window.innerWidth < 640 ? [
+                                                    ['bold', 'italic', 'underline'],
+                                                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                                                    ['link']
+                                                ] : [
                                                     [{ 'header': [1, 2, 3, false] }],
                                                     ['bold', 'italic', 'underline', 'strike'],
                                                     [{ 'background': [] }],
@@ -1409,8 +1413,8 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                         </Tabs>
                     </div>
 
-                    <div className="flex justify-between gap-2 pt-4 border-t flex-shrink-0">
-                        <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <div className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t flex-shrink-0">
+                        <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base h-9 sm:h-10">
                             {isSaving ? (
                                 <>
                                     <Save className="h-4 w-4 mr-2 animate-spin" />
@@ -1426,7 +1430,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                         <Button
                             variant="outline"
                             onClick={handleSaveAndClose}
-                            className="border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:border-gray-400 dark:bg-gray-800"
+                            className="border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:border-gray-400 dark:bg-gray-800 text-sm sm:text-base h-9 sm:h-10"
                         >
                             Salvar e Fechar
                         </Button>

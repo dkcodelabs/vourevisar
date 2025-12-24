@@ -46,11 +46,13 @@
 
   .dark {
     /* Blue theme dark mode - matching study cycle background */
-    --background: 217 33% 17%;  /* Blue dark background */
+    --background: 217 33% 17%;
+    /* Blue dark background */
     --foreground: 220 15% 95%;
 
     /* Cards - #1E293B (slate-800 equivalent in HSL) */
-    --card: 215 28% 17%;  /* #1E293B in HSL */
+    --card: 215 28% 17%;
+    /* #1E293B in HSL */
     --card-foreground: 220 15% 95%;
 
     --popover: 215 28% 17%;
@@ -74,7 +76,7 @@
     --border: 220 13% 30%;
     --input: 215 28% 20%;
     --ring: 195 89% 49%;
-    
+
     --sidebar-background: 217 33% 17%;
     --sidebar-foreground: 220 15% 95%;
     --sidebar-primary: 195 89% 49%;
@@ -87,8 +89,11 @@
 }
 
 @layer base {
+
   /* CSS Reset for cross-browser consistency */
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
@@ -111,7 +116,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
+
   body {
     @apply bg-background text-foreground font-sans;
     /* Prevent horizontal scroll */
@@ -123,9 +128,14 @@
     /* Smooth transitions */
     transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
   }
-  
+
   /* Reset all heading styles for consistent cross-browser rendering */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-size: inherit;
     font-weight: inherit;
     line-height: inherit;
@@ -133,13 +143,18 @@
     padding: 0;
     font-family: inherit;
   }
-  
+
   /* Reset other elements */
-  p, ul, ol, li, blockquote, pre {
+  p,
+  ul,
+  ol,
+  li,
+  blockquote,
+  pre {
     margin: 0;
     padding: 0;
   }
-  
+
   /* Button reset */
   button {
     font-family: inherit;
@@ -151,9 +166,11 @@
     background: none;
     cursor: pointer;
   }
-  
+
   /* Input reset */
-  input, textarea, select {
+  input,
+  textarea,
+  select {
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
@@ -162,13 +179,13 @@
     border: none;
     background: none;
   }
-  
+
   /* Link reset */
   a {
     color: inherit;
     text-decoration: none;
   }
-  
+
   /* Image reset */
   img {
     max-width: 100%;
@@ -247,9 +264,11 @@
   0% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-10px);
   }
+
   100% {
     transform: translateY(0px);
   }
@@ -272,36 +291,37 @@
 
 /* Global Responsive Rules */
 @media (max-width: 768px) {
+
   /* Force container to be mobile-friendly */
   .container {
     @apply px-4 max-w-full;
   }
-  
+
   /* Prevent horizontal scroll */
   body {
     overflow-x: hidden;
   }
-  
+
   /* Auto-stacking layout */
   .responsive-grid {
     @apply grid-cols-1 !important;
   }
-  
+
   /* Improve glassmorphism for mobile */
   .glass {
     @apply bg-white/90;
   }
-  
+
   /* Mobile-first card spacing */
   .mobile-card {
     @apply p-4 mx-2;
   }
-  
+
   /* Responsive text sizes */
   .responsive-title {
     @apply text-xl;
   }
-  
+
   .responsive-subtitle {
     @apply text-lg;
   }
@@ -309,17 +329,21 @@
 
 /* Touch-friendly elements */
 @media (max-width: 768px) {
+
   /* Minimum touch target size */
-  button, .touch-target {
+  button,
+  .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Form elements */
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     @apply py-3 px-4 text-base;
   }
-  
+
   /* Better mobile buttons */
   .mobile-button {
     @apply w-full py-3 text-base;
@@ -327,7 +351,8 @@
 }
 
 /* Image and media responsiveness */
-img, video {
+img,
+video {
   max-width: 100%;
   height: auto;
 }
@@ -347,7 +372,7 @@ img, video {
   .desktop-nav {
     display: none;
   }
-  
+
   .mobile-nav {
     display: block;
   }
@@ -357,7 +382,7 @@ img, video {
   .desktop-nav {
     display: block;
   }
-  
+
   .mobile-nav {
     display: none;
   }
@@ -450,18 +475,18 @@ img, video {
 
 /* Responsive spacing */
 @media (max-width: 768px) {
-  .space-y-6 > * + * {
+  .space-y-6>*+* {
     margin-top: 1rem !important;
   }
-  
-  .space-y-4 > * + * {
+
+  .space-y-4>*+* {
     margin-top: 0.75rem !important;
   }
-  
+
   .gap-6 {
     gap: 1rem !important;
   }
-  
+
   .gap-4 {
     gap: 0.75rem !important;
   }
@@ -492,17 +517,28 @@ img, video {
 @media (max-width: 639px) {
   .responsive-grid {
     grid-template-columns: 1fr;
-    grid-template-areas: 
+    grid-template-areas:
       "overview"
       "stats"
       "calendar"
       "reviews";
   }
-  
-  .grid-overview { grid-area: overview; }
-  .grid-stats { grid-area: stats; }
-  .grid-calendar { grid-area: calendar; }
-  .grid-reviews { grid-area: reviews; }
+
+  .grid-overview {
+    grid-area: overview;
+  }
+
+  .grid-stats {
+    grid-area: stats;
+  }
+
+  .grid-calendar {
+    grid-area: calendar;
+  }
+
+  .grid-reviews {
+    grid-area: reviews;
+  }
 }
 
 /* Small tablets: 2 columns with intelligent grouping */
@@ -510,19 +546,30 @@ img, video {
   .responsive-container {
     padding: 0 1.5rem;
   }
-  
+
   .responsive-grid {
     grid-template-columns: 1fr 1fr;
-    grid-template-areas: 
+    grid-template-areas:
       "overview stats"
       "calendar reviews";
     gap: 1.5rem;
   }
-  
-  .grid-overview { grid-area: overview; }
-  .grid-stats { grid-area: stats; }
-  .grid-calendar { grid-area: calendar; }
-  .grid-reviews { grid-area: reviews; }
+
+  .grid-overview {
+    grid-area: overview;
+  }
+
+  .grid-stats {
+    grid-area: stats;
+  }
+
+  .grid-calendar {
+    grid-area: calendar;
+  }
+
+  .grid-reviews {
+    grid-area: reviews;
+  }
 }
 
 /* Large tablets and desktop: 3 columns balanced */
@@ -531,28 +578,31 @@ img, video {
     padding: 0 2rem;
     max-width: 1200px;
   }
-  
+
   .responsive-grid {
     grid-template-columns: 1fr 1fr 1fr;
-    grid-template-areas: 
+    grid-template-areas:
       "overview stats calendar"
       "overview stats reviews";
     gap: 2rem;
   }
-  
-  .grid-overview { 
+
+  .grid-overview {
     grid-area: overview;
     align-self: start;
   }
-  .grid-stats { 
+
+  .grid-stats {
     grid-area: stats;
     align-self: start;
   }
-  .grid-calendar { 
+
+  .grid-calendar {
     grid-area: calendar;
     align-self: start;
   }
-  .grid-reviews { 
+
+  .grid-reviews {
     grid-area: reviews;
     align-self: start;
   }
@@ -575,6 +625,7 @@ img, video {
     max-width: 100%;
   }
 }
+
 /* Minimal cross-browser compatibility */
 
 /* Font smoothing only */
@@ -591,7 +642,9 @@ button {
 }
 
 /* Input consistency */
-input, textarea, select {
+input,
+textarea,
+select {
   font-synthesis: none !important;
   -webkit-font-feature-settings: "kern" 1 !important;
   font-feature-settings: "kern" 1 !important;
@@ -686,13 +739,18 @@ input, textarea, select {
 
 /* Animação para destacar tópicos */
 @keyframes highlight-blink {
-  0%, 100% {
+
+  0%,
+  100% {
     background-color: transparent;
     border-color: transparent;
   }
+
   50% {
-    background-color: rgb(254 240 138); /* yellow-200 */
-    border-color: rgb(253 224 71); /* yellow-300 */
+    background-color: rgb(254 240 138);
+    /* yellow-200 */
+    border-color: rgb(253 224 71);
+    /* yellow-300 */
   }
 }
 
@@ -708,6 +766,106 @@ input, textarea, select {
 
 .general-notes-modal .ql-editor {
   transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out !important;
+}
+
+/* Global toolbar button sizing - applies to all resolutions */
+.general-notes-modal .ql-toolbar.ql-snow button,
+.general-notes-modal .ql-toolbar button {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  line-height: 1 !important;
+  flex: 0 0 32px !important;
+}
+
+.general-notes-modal .ql-toolbar button svg {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
+  min-height: 16px !important;
+  max-height: 16px !important;
+  display: block !important;
+  margin: auto !important;
+}
+
+.general-notes-modal .ql-toolbar .ql-formats {
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: middle !important;
+  margin-right: 8px !important;
+  margin-bottom: 0 !important;
+}
+
+
+/* Mobile-specific ReactQuill toolbar fixes */
+@media (max-width: 640px) {
+  .general-notes-modal .ql-toolbar.ql-snow {
+    padding: 10px !important;
+    border: 1px solid #d1d5db !important;
+    background: #f9fafb !important;
+    display: block !important;
+  }
+
+  .general-notes-modal .ql-toolbar.ql-snow button,
+  .general-notes-modal .ql-toolbar button.ql-bold,
+  .general-notes-modal .ql-toolbar button.ql-italic,
+  .general-notes-modal .ql-toolbar button.ql-underline,
+  .general-notes-modal .ql-toolbar button.ql-link {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    margin: 2px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    vertical-align: middle !important;
+    line-height: 1 !important;
+    flex: 0 0 32px !important;
+  }
+
+  .general-notes-modal .ql-toolbar button svg,
+  .general-notes-modal .ql-toolbar button.ql-bold svg,
+  .general-notes-modal .ql-toolbar button.ql-italic svg,
+  .general-notes-modal .ql-toolbar button.ql-underline svg {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    max-width: 16px !important;
+    display: block !important;
+    margin: auto !important;
+  }
+
+  .general-notes-modal .ql-toolbar .ql-formats {
+    display: inline-flex !important;
+    align-items: center !important;
+    vertical-align: middle !important;
+    margin-right: 8px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .general-notes-modal .ql-container.ql-snow {
+    border: 1px solid #d1d5db !important;
+    border-top: none !important;
+  }
+
+  .general-notes-modal .ql-editor {
+    font-size: 15px !important;
+    padding: 16px 12px !important;
+    min-height: 250px !important;
+  }
 }
 
 /* Button consistency improvements */
