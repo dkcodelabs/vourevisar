@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
 import { format, startOfDay, isBefore } from 'date-fns';
@@ -372,12 +373,7 @@ const Settings = () => {
   };
 
   if (isLoading || isCycleLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-app-blue" />
-        <span className="ml-2">Carregando configurações...</span>
-      </div>
-    );
+    return <LoadingSpinner message="Carregando configurações..." />;
   }
 
   function agruparPorMateria(topics) {
@@ -548,7 +544,7 @@ const Settings = () => {
                         >
                           {isResettingCycle ? (
                             <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                               Resetando...
                             </>
                           ) : (
@@ -970,11 +966,11 @@ const Settings = () => {
                     </p>
                   </div>
                   <SystemStatusTest />
-                  
+
                   <div className="mt-6">
                     <QuickAdminSetup />
                   </div>
-                  
+
                   <div className="mt-6">
                     <FinalSystemCheck />
                   </div>

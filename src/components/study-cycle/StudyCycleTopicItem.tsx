@@ -231,7 +231,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   const buttonBaseClasses = "flex-shrink-0 w-8 h-8 min-w-[2rem] min-h-[2rem] max-w-[2rem] max-h-[2rem] rounded-full flex items-center justify-center border-2 transition-all duration-200";
 
   return (
-    <div className={`${baseClasses} ${bgClasses}`}>
+    <div data-topic-item className={`${baseClasses} ${bgClasses}`}>
       {/* Layout responsivo: mobile/tablet = vertical (texto em cima, controles embaixo), desktop = horizontal */}
       <div className="flex flex-col lg:flex-row lg:items-start justify-between w-full gap-2">
         {/* Texto do tópico - Editável */}

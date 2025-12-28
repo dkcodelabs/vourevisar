@@ -25,9 +25,9 @@ import {
   Activity,
   TrendingUp,
   Lightbulb,
-  Loader2,
   Star
 } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 const Statistics = () => {
   const navigate = useNavigate();
@@ -56,17 +56,7 @@ const Statistics = () => {
   }, [fetchSubjects]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto p-4">
-          <div className="flex flex-col items-center justify-center h-96 space-y-4">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-700">Carregando estatísticas...</h2>
-            <p className="text-gray-500">Analisando seus dados de estudo</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Analisando seus dados de estudo" />;
   }
 
   if (hasError) {

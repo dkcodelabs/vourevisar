@@ -167,6 +167,15 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
       onTopicUpdate?.();
       toast.success('Tópico adicionado com sucesso!');
+
+      // Scroll para o último tópico adicionado
+      setTimeout(() => {
+        const topicItems = document.querySelectorAll(`[data-subject-id="${subject.id}"] [data-topic-item]`);
+        const lastTopic = topicItems[topicItems.length - 1];
+        if (lastTopic) {
+          lastTopic.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 300);
     } catch (error) {
       console.error('Erro ao adicionar tópico:', error);
       toast.error('Erro ao adicionar tópico');
@@ -180,7 +189,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
   if (isFullyCompleted && viewMode === 'grid') {
     return (
-      <div className="bg-card rounded-2xl shadow-md overflow-hidden flex flex-col">
+      <div data-subject-id={subject.id} className="bg-card rounded-2xl shadow-md overflow-hidden flex flex-col">
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -299,7 +308,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
   if (viewMode === 'list') {
     return (
-      <div className={`${cardBaseClasses} w-full ${focusClasses}`}>
+      <div data-subject-id={subject.id} className={`${cardBaseClasses} w-full ${focusClasses}`}>
         <div className="w-full flex items-center p-4 gap-4">
           <div className="flex-grow">
             <div className="flex items-center justify-between">
@@ -409,7 +418,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   }
 
   return (
-    <div className={`${cardBaseClasses} flex flex-col ${focusClasses} relative`}>
+    <div data-subject-id={subject.id} className={`${cardBaseClasses} flex flex-col ${focusClasses} relative`}>
       <div className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 flex-1 min-w-0">

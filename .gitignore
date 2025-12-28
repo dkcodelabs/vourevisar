@@ -30,3 +30,5 @@ temp-files/
 # Arquivos de desenvolvimento
 *.backup.*
 *.original.*
+
+src/backups/

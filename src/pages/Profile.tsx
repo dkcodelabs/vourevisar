@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Mail, Calendar, Phone, Lock, Loader2 } from 'lucide-react';
+import { User, Mail, Calendar, Phone, Lock, } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from '@/lib/toast';
 import { z } from 'zod';
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -59,10 +60,10 @@ const Profile = () => {
     consecutiveDays: 0
   });
   const navigate = useNavigate();
-  
+
   // Check if user is from Google provider
   const isGoogleUser = user?.app_metadata?.provider === 'google';
-  
+
   // Populate form with profile data when it becomes available
   useEffect(() => {
     if (profile) {
@@ -72,7 +73,7 @@ const Profile = () => {
       });
     }
   }, [profile]);
-  
+
   // Fetch statistics data
   useEffect(() => {
     let isMounted = true;
@@ -96,24 +97,24 @@ const Profile = () => {
       isMounted = false;
     };
   }, [user]);
-  
+
   const fetchStatsData = async () => {
     if (!user) return;
-    
+
     setIsLoadingStats(true);
     setError(null);
-    
+
     try {
       // Buscar total de matérias
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
         .select('id')
         .eq('user_id', user.id);
-      
+
       if (subjectsError) throw subjectsError;
-      
+
       const subjectIds = subjectsData?.map(subject => subject.id) || [];
-      
+
       // Se não houver matérias, retorna estatísticas zeradas
       if (subjectIds.length === 0) {
         setStatsData({
@@ -124,25 +125,25 @@ const Profile = () => {
         });
         return;
       }
-      
+
       // Buscar total de tópicos
       const { data: topicsData, error: topicsError } = await supabase
         .from('topics')
         .select('id, review_count')
         .in('subject_id', subjectIds);
-      
+
       if (topicsError) throw topicsError;
-      
+
       // Calcular total de revisões
       const totalReviews = topicsData?.reduce((sum, topic) => sum + (topic.review_count || 0), 0) || 0;
-      
+
       setStatsData({
         totalSubjects: subjectsData?.length || 0,
         totalTopics: topicsData?.length || 0,
         totalReviews: totalReviews,
         consecutiveDays: 0 // Placeholder
       });
-      
+
     } catch (err: any) {
       console.error('Erro ao buscar estatísticas do perfil:', err);
       setStatsData({
@@ -156,7 +157,7 @@ const Profile = () => {
       setIsLoadingStats(false);
     }
   };
-  
+
   const profileForm = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -181,13 +182,13 @@ const Profile = () => {
       confirmPassword: '',
     },
   });
-  
+
   const handleSaveProfile = async (values) => {
     if (!user) return;
-    
+
     setIsSaving(true);
     setError(null);
-    
+
     try {
       await updateProfile({
         name: values.name,
@@ -215,7 +216,7 @@ const Profile = () => {
 
   const handleResetPassword = async (values) => {
     setError(null);
-    
+
     // Verificar se o email é o mesmo do usuário logado
     if (values.email !== user?.email) {
       setError('O email deve ser o mesmo da sua conta atual');
@@ -235,10 +236,10 @@ const Profile = () => {
       setIsSaving(false);
     }
   };
-  
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
-    
+
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit',
@@ -246,18 +247,13 @@ const Profile = () => {
       year: 'numeric'
     }).format(date);
   };
-  
+
   const createdAt = user?.created_at ? formatDate(user.created_at) : '';
-  
+
   if (!user) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-app-blue" />
-        <span className="ml-2">Carregando perfil...</span>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
-  
+
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
@@ -278,11 +274,11 @@ const Profile = () => {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          
+
           <GlassCard className="max-w-xl p-6">
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Informações Pessoais</h2>
-              
+
               <Form {...profileForm}>
                 <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-4">
                   <FormField
@@ -301,7 +297,7 @@ const Profile = () => {
                       </FormItem>
                     )}
                   />
-                  
+
                   <div className="grid gap-2">
                     <Label htmlFor="email" className="flex items-center text-sm">
                       <Mail className="h-4 w-4 mr-2" />
@@ -314,7 +310,7 @@ const Profile = () => {
                       type="email"
                     />
                   </div>
-                  
+
                   <FormField
                     control={profileForm.control}
                     name="phone"
@@ -331,7 +327,7 @@ const Profile = () => {
                       </FormItem>
                     )}
                   />
-                  
+
                   <div className="grid gap-2">
                     <Label htmlFor="joined" className="flex items-center text-sm">
                       <Calendar className="h-4 w-4 mr-2" />
@@ -343,20 +339,20 @@ const Profile = () => {
                       readOnly
                     />
                   </div>
-                  
+
                   <div className="flex gap-4 pt-4">
-                    <GradientButton 
+                    <GradientButton
                       type="submit"
                       className="flex-1"
                       disabled={isSaving}
                     >
                       {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                     </GradientButton>
-                    
+
                     {!isGoogleUser && (
                       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
                         <DialogTrigger asChild>
-                          <GradientButton 
+                          <GradientButton
                             type="button"
                             variant="outline"
                             className="flex-1"
@@ -381,17 +377,17 @@ const Profile = () => {
                                   <FormItem>
                                     <FormLabel className="text-sm">Nova Senha</FormLabel>
                                     <FormControl>
-                                      <Input 
+                                      <Input
                                         type="password"
-                                        {...field} 
-                                        placeholder="Digite sua nova senha" 
+                                        {...field}
+                                        placeholder="Digite sua nova senha"
                                       />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
-                              
+
                               <FormField
                                 control={passwordForm.control}
                                 name="confirmPassword"
@@ -399,17 +395,17 @@ const Profile = () => {
                                   <FormItem>
                                     <FormLabel className="text-sm">Confirme a Senha</FormLabel>
                                     <FormControl>
-                                      <Input 
+                                      <Input
                                         type="password"
-                                        {...field} 
-                                        placeholder="Confirme sua nova senha" 
+                                        {...field}
+                                        placeholder="Confirme sua nova senha"
                                       />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
-                              
+
                               <DialogFooter>
                                 <GradientButton type="submit">
                                   Alterar Senha
@@ -433,10 +429,10 @@ const Profile = () => {
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Receba um email com link para redefinir sua senha
               </p>
-              
+
               <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
                 <DialogTrigger asChild>
-                  <GradientButton 
+                  <GradientButton
                     type="button"
                     className="w-full"
                   >
@@ -463,10 +459,10 @@ const Profile = () => {
                               Confirme seu email
                             </FormLabel>
                             <FormControl>
-                              <Input 
+                              <Input
                                 type="email"
-                                {...field} 
-                                placeholder="Digite seu email atual" 
+                                {...field}
+                                placeholder="Digite seu email atual"
                               />
                             </FormControl>
                             <FormMessage />
@@ -476,9 +472,9 @@ const Profile = () => {
                           </FormItem>
                         )}
                       />
-                      
+
                       <DialogFooter>
-                        <GradientButton 
+                        <GradientButton
                           type="submit"
                           disabled={isSaving}
                         >

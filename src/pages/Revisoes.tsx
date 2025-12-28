@@ -20,11 +20,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { ChevronsDownIcon, ChevronsUpIcon } from '@/components/study-cycle/Icons';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 import { useApp } from '@/contexts/AppContext';
 import { useReviewsData } from '@/hooks/useReviewsData';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { ReviewsTrendChart } from '@/components/reviews/ReviewsTrendChart';
 import { RevisionItem, RevisionStatus } from '@/types/revision';
 import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
@@ -33,6 +37,8 @@ import { StatusBadge } from '@/components/reviews/new/StatusBadge';
 import NotesModal from '@/components/reviews/NotesModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
+import { ReviewsStatsCard } from '@/components/reviews/ReviewsStatsCard';
+import { WeeklyEngagementChart } from '@/components/reviews/WeeklyEngagementChart';
 
 type ViewTab = 'FOCUS' | 'FUTURE' | 'COMPLETED' | 'SUBJECTS';
 
@@ -64,6 +70,45 @@ const Revisoes = () => {
   } = useReviewsData();
 
   const { settings } = useUserSettings();
+  const { user } = useAuth();
+
+  // Fetch review history for weekly engagement chart
+  const { data: reviewData } = useQuery({
+    queryKey: ['reviews-page-history', user?.id],
+    queryFn: async () => {
+      if (!user) throw new Error('User not authenticated');
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('id')
+        .eq('user_id', user.id);
+
+      if (subjectsError) throw subjectsError;
+      if (!subjectsData || subjectsData.length === 0) return [];
+
+      const userSubjectIds = subjectsData.map(s => s.id);
+
+      // @ts-ignore - existing table
+      const response = await (supabase as any)
+        .from('topic_review_history')
+        .select(`
+          id, topic_id, review_stage, reviewed_at,
+          topics!inner (id, name, subject_id)
+        `)
+        .in('topics.subject_id', userSubjectIds)
+        .order('reviewed_at', { ascending: false });
+
+      if (response.error) throw response.error;
+      return response.data?.map((review: any) => ({
+        id: review.id,
+        topic_id: review.topic_id,
+        review_stage: review.review_stage,
+        reviewed_at: review.reviewed_at,
+        topic_name: review.topics?.name,
+        subject_id: review.topics?.subject_id
+      })) || [];
+    },
+    enabled: !!user
+  });
 
   // New Layout State
   const [activeTab, setActiveTab] = useState<ViewTab>('FOCUS');
@@ -173,14 +218,46 @@ const Revisoes = () => {
   }, [delayedTopics, todayTopics, futureTopics, completedTopics, subjects, searchTerm, reviewStageFilter]);
 
   // Statistics
+  const userProfile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
+  const maxReviews = REVIEW_PROFILES[userProfile].maxReviews;
+
   const stats = useMemo(() => {
+    // Todos os tópicos (incluindo concluídos)
+    const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics];
+
+    // 1. Total de tópicos
+    const totalTopics = allTopics.length;
+
+    // 2. Total de revisões programadas = tópicos × maxReviews
+    const totalScheduledReviews = totalTopics * maxReviews;
+
+    // 3. Tópicos iniciados (com review_count >= 1 OU first_studied_at)
+    const startedTopicsCount = allTopics.filter(t =>
+      (t.review_count >= 1 || t.first_studied_at)
+    ).length;
+
+    // 4. Revisões de tópicos iniciados = tópicos iniciados × maxReviews
+    const startedReviews = startedTopicsCount * maxReviews;
+
+    // 5. Total de revisões FEITAS = soma de todos os review_count
+    const completedReviews = allTopics.reduce((sum, t) => sum + (t.review_count || 0), 0);
+
+    // 6. Revisões pendentes no total (atrasadas + hoje + futuras)
+    const pendingTotal = delayedTopics.length + todayTopics.length + futureTopics.length;
+
     return {
       today: todayTopics.length,
       overdue: delayedTopics.length,
       future: futureTopics.length,
-      completed: completedTopics.length,
+      completedTopicsCount: completedTopics.length,
+      totalTopics,
+      totalScheduledReviews,
+      startedTopicsCount,
+      startedReviews,
+      completedReviews,
+      pendingTotal,
     };
-  }, [todayTopics, delayedTopics, futureTopics, completedTopics]);
+  }, [todayTopics, delayedTopics, futureTopics, completedTopics, maxReviews]);
 
   // Grouping Logic
   const groupedItems = useMemo(() => {
@@ -191,12 +268,20 @@ const Revisoes = () => {
         if (!groups[item.subject]) groups[item.subject] = [];
         groups[item.subject].push(item);
       });
+    } else if (activeTab === 'FOCUS') {
+      // Merge Today & Overdue
+      const mergedItems: RevisionItem[] = [];
+      // Push Today first
+      items.filter(i => i.status === RevisionStatus.TODAY).forEach(i => mergedItems.push(i));
+      // Push Overdue second
+      items.filter(i => i.status === RevisionStatus.OVERDUE).forEach(i => mergedItems.push(i));
+
+      if (mergedItems.length > 0) {
+        groups['FOCUS_MERGED'] = mergedItems;
+      }
     } else {
       const targetStatuses: string[] = [];
-      if (activeTab === 'FOCUS') {
-        targetStatuses.push(RevisionStatus.TODAY); // Show today first
-        targetStatuses.push(RevisionStatus.OVERDUE);
-      } else if (activeTab === 'FUTURE') {
+      if (activeTab === 'FUTURE') {
         targetStatuses.push(RevisionStatus.FUTURE);
       } else if (activeTab === 'COMPLETED') {
         targetStatuses.push(RevisionStatus.COMPLETED);
@@ -279,6 +364,24 @@ const Revisoes = () => {
 
   const getGroupStyle = (groupKey: string) => {
     switch (groupKey) {
+      case 'FOCUS_MERGED':
+        return {
+          title: (
+            <div className="flex items-center gap-1.5">
+              <span>Hoje</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 text-[10px] font-bold min-w-[16px] flex items-center justify-center">
+                {stats.today}
+              </span>
+              <span className="mx-0.5">&</span>
+              <span>Atrasadas</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 text-[10px] font-bold min-w-[16px] flex items-center justify-center">
+                {stats.overdue}
+              </span>
+            </div>
+          ),
+          color: 'border-red-400',
+          text: 'text-red-600 dark:text-red-400'
+        };
       case RevisionStatus.OVERDUE: return { title: 'Atrasadas', color: 'border-red-400', text: 'text-red-500' };
       case RevisionStatus.TODAY: return { title: 'Hoje', color: 'border-orange-500', text: 'text-orange-600' };
       case RevisionStatus.FUTURE: return { title: 'Futuras', color: 'border-blue-500', text: 'text-blue-600' };
@@ -321,128 +424,58 @@ const Revisoes = () => {
   return (
     <div className="flex h-[calc(100vh-7rem)] w-full text-gray-900 overflow-hidden">
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+      <div className="flex-1 flex flex-col h-full lg:overflow-hidden overflow-y-auto relative">
 
-        {/* Header Section */}
-        {/* Header Section */}
-        <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-4 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-4">
-            <div>
-              <p className="text-xs text-muted-foreground mt-1">Painel de controle de repetição espaçada</p>
-              <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-2"></div>
-            </div>
-            <div className="flex w-full md:w-auto items-center gap-3">
-              {/* Controls moved to tabs row */}
-            </div>
-          </div>
+        {/* Header Section with Chart and Stats Card */}
+        <div className="mt-[15px] grid grid-cols-1 xl:grid-cols-[1fr,380px,380px] gap-4 mb-4 shrink-0 items-stretch">
+          {/* Left: Controls Header */}
+          <header className="px-4 md:px-6 pt-5 pb-5 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col h-full">
 
-          {/* Navigation Tabs */}
-          {/* Navigation Tabs */}
-          <div className="flex items-center gap-1 md:gap-2 mt-2 overflow-x-auto scrollbar-hide py-1 -mx-4 px-4 md:-mx-8 md:px-8">
-            <button
-              onClick={() => setActiveTab('FOCUS')}
-              className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FOCUS'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                } `}
-            >
-              <span>Hoje</span>
-              {stats.today > 0 && (
-                <span className="bg-orange-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full">{stats.today}</span>
-              )}
-              <span className="mx-1">&</span>
-              <span>Atrasadas</span>
-              <span className="bg-red-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full">{stats.overdue}</span>
-            </button>
-
-            <div className="h-4 w-px bg-gray-300 mx-1 shrink-0"></div>
-
-            <button
-              onClick={() => setActiveTab('FUTURE')}
-              className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'FUTURE'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                } `}
-            >
-              <span>Futuras</span>
-              <span className="bg-blue-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
-                {stats.future}
-              </span>
-            </button>
-
-            <div className="h-4 w-px bg-gray-300 mx-1 shrink-0"></div>
-
-            <button
-              onClick={() => {
-                setActiveTab('COMPLETED');
-                setReviewStageFilter('all');
-              }}
-              className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded-t-lg text-xs font-medium border-b-2 transition-all whitespace-nowrap shrink-0 ${activeTab === 'COMPLETED'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                } `}
-            >
-              <span>Concluídas</span>
-              <span className="bg-green-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
-                {stats.completed}
-              </span>
-            </button>
-          </div>
-
-          {/* Controls: Reorganized for mobile */}
-          <div className="mt-4 flex flex-col gap-3">
-            {/* Line 1: Search only */}
-            <div className="relative w-full md:w-auto md:max-w-md bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-9">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Pesquisar..."
-                className="w-full pl-9 pr-4 text-xs bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            {/* Line 2: Toggle + Por Matéria + Status */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Toggle Button */}
-              <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg h-9 shrink-0">
-                <button
-                  onClick={handleToggleAll}
-                  className="p-1 px-3 h-full rounded-md text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center min-w-[3rem]"
-                  aria-label={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
-                  title={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
-                >
-                  {areAllExpanded ? <ChevronsUpIcon className="w-4 h-4" /> : <ChevronsDownIcon className="w-4 h-4" />}
-                </button>
+            {/* Row 1: Search + Controls */}
+            <div className="flex flex-col xl:flex-row items-center justify-between gap-4 mb-6">
+              {/* Search */}
+              <div className="w-full xl:flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Pesquisar por disciplina ou tópico..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                  />
+                </div>
               </div>
 
-              {/* Por Matéria Button */}
-              <button
-                onClick={toggleSubjectView}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all whitespace-nowrap h-9 shrink-0 ${activeTab === 'SUBJECTS'
-                  ? 'border-blue-200 text-blue-700 bg-blue-50'
-                  : 'border-gray-200 text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                  }`}
-                title="Agrupar por Matéria"
-              >
-                <BookOpen size={14} />
-                <span>Por Matéria</span>
-              </button>
+              {/* Right Controls: Por Matéria + Status */}
+              <div className="flex items-center gap-3 w-full xl:w-auto">
+                {/* Por Matéria Button */}
+                <button
+                  onClick={toggleSubjectView}
+                  className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-3 h-10 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${activeTab === 'SUBJECTS'
+                    ? 'border-indigo-200 text-indigo-700 bg-indigo-50'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  title="Agrupar por Matéria"
+                >
+                  <BookOpen size={14} className="text-indigo-500" />
+                  <span>Por Matéria</span>
+                </button>
 
-              {/* Status Filter */}
-              {activeTab !== 'COMPLETED' && (
-                <div className="w-auto min-w-[140px]">
-                  <Select value={reviewStageFilter} onValueChange={setReviewStageFilter}>
-                    <SelectTrigger className="h-9 text-xs font-medium border-gray-200 bg-white shadow-sm rounded-lg focus:ring-blue-500/20">
-                      <div className="flex items-center gap-2 text-gray-600 whitespace-nowrap">
-                        <Clock size={12} className="text-blue-500 shrink-0" />
-                        <SelectValue placeholder="Status" />
+                {/* Status Filter */}
+                <div className="flex-1 xl:flex-none xl:w-[140px]">
+                  <Select value={reviewStageFilter} onValueChange={setReviewStageFilter} disabled={activeTab === 'COMPLETED'}>
+                    <SelectTrigger className="h-10 text-xs font-medium border-slate-200 bg-white shadow-sm rounded-lg focus:ring-indigo-500/20 w-full justify-between px-2">
+                      <div className="flex items-center gap-2 flex-1 justify-center">
+                        <Clock size={14} className="text-amber-500 shrink-0" />
+                        <span className="text-slate-600 truncate">
+                          {reviewStageFilter === 'all' ? 'Status' : `${reviewStageFilter}ª Revisão`}
+                        </span>
                       </div>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all" className="text-xs">Status</SelectItem>
-                      {Array.from({ length: REVIEW_PROFILES[settings?.review_profile || ReviewProfile.INTERMEDIATE].maxReviews }).map((_, i) => (
+                      <SelectItem value="all" className="text-xs">Todos Status</SelectItem>
+                      {Array.from({ length: maxReviews }).map((_, i) => (
                         <SelectItem key={i + 1} value={String(i + 1)} className="text-xs">
                           {i + 1}ª Revisão
                         </SelectItem>
@@ -450,52 +483,177 @@ const Revisoes = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {(searchTerm || reviewStageFilter !== 'all') && (
-          <div className="px-4 md:px-8 mb-4 shrink-0 animate-in fade-in slide-in-from-top-2">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-full text-amber-600">
-                  <AlertCircle size={18} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-amber-900">
-                    Filtrando por:
-                    {searchTerm && <span className="font-bold ml-1">"{searchTerm}"</span>}
-                    {searchTerm && reviewStageFilter !== 'all' && <span className="mx-1">+</span>}
-                    {reviewStageFilter !== 'all' && <span className="font-bold ml-1">{reviewStageFilter}ª Revisão</span>}
-                  </p>
-                  <p className="text-xs text-amber-700 mt-0.5">
-                    {searchTerm && reviewStageFilter !== 'all'
-                      ? "Filtro no nome do tópico e status da revisão."
-                      : searchTerm
-                        ? "Filtro no nome do tópico."
-                        : "Filtro por status da revisão."
-                    }
-                  </p>
-                </div>
               </div>
+            </div>
+
+            {/* Row 2: Tabs */}
+            <div className="flex items-center gap-3 w-full overflow-x-auto scrollbar-hide mb-6">
+              {/* Hoje & Atrasadas */}
+              <button
+                onClick={() => setActiveTab('FOCUS')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'FOCUS'
+                  ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400'
+                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>Hoje</span>
+                  <span className={`text-[10px] font-bold px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FOCUS' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-slate-200 text-slate-600'}`}>
+                    {stats.today}
+                  </span>
+                  <span>&</span>
+                  <span>Atrasadas</span>
+                  <span className={`text-[10px] font-bold px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FOCUS' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-slate-200 text-slate-600'}`}>
+                    {stats.overdue}
+                  </span>
+                </div>
+              </button>
+
+              {/* Futuras */}
+              <button
+                onClick={() => setActiveTab('FUTURE')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'FUTURE'
+                  ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+              >
+                <span>Futuras</span>
+                <span className={`text-[10px] font-bold px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FUTURE' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-slate-200 text-slate-600'}`}>
+                  {stats.future}
+                </span>
+              </button>
+
+              {/* Concluídas */}
               <button
                 onClick={() => {
-                  setSearchTerm('');
+                  setActiveTab('COMPLETED');
                   setReviewStageFilter('all');
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 shadow-sm rounded-md text-xs font-medium text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
-                title="Limpar e mostrar tudo"
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'COMPLETED'
+                  ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
               >
-                <X size={14} />
-                Limpar
+                <span>Concluídas</span>
+                <span className={`text-[10px] font-bold px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-slate-200 text-slate-600'}`}>
+                  {stats.completedTopicsCount}
+                </span>
               </button>
             </div>
+
+            {/* Row 3: Trend Chart */}
+            <div className="mt-auto">
+              <ReviewsTrendChart topics={topics} reviewData={reviewData || []} />
+            </div>
+          </header>
+
+          {/* Middle: Weekly Engagement Chart */}
+          <div className="hidden lg:block">
+            <WeeklyEngagementChart
+              reviewData={reviewData || []}
+              subjects={subjects}
+            />
           </div>
-        )}
+
+          {/* Right: Stats Card */}
+          <div className="hidden xl:block h-full">
+            <ReviewsStatsCard
+              totalTopics={stats.totalTopics}
+              totalScheduledReviews={stats.totalScheduledReviews}
+              startedTopicsCount={stats.startedTopicsCount}
+              startedReviews={stats.startedReviews}
+              completedReviews={stats.completedReviews}
+              overdue={stats.overdue}
+              today={stats.today}
+              future={stats.future}
+              reviewProfile={userProfile}
+              maxReviews={maxReviews}
+              className="h-full"
+            />
+          </div>
+        </div>
+
+        {/* Mobile Stats Card */}
+        <div className="lg:hidden mb-4">
+          <ReviewsStatsCard
+            totalTopics={stats.totalTopics}
+            totalScheduledReviews={stats.totalScheduledReviews}
+            startedTopicsCount={stats.startedTopicsCount}
+            startedReviews={stats.startedReviews}
+            completedReviews={stats.completedReviews}
+            overdue={stats.overdue}
+            today={stats.today}
+            future={stats.future}
+            reviewProfile={userProfile}
+            maxReviews={maxReviews}
+          />
+        </div>
+
+        {/* Mobile Weekly Chart */}
+        <div className="lg:hidden mb-4">
+          <WeeklyEngagementChart
+            reviewData={reviewData || []}
+            subjects={subjects}
+          />
+        </div>
+        {
+          (searchTerm || reviewStageFilter !== 'all') && (
+            <div className="mb-6 flex justify-between items-center bg-amber-50/50 dark:bg-slate-900 p-3 rounded-lg border border-amber-100 dark:border-amber-500/20 shadow-sm">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                <div className="p-1.5 bg-amber-100 dark:bg-amber-500/10 rounded-full">
+                  <AlertCircle size={14} className="text-amber-600 dark:text-amber-400" />
+                </div>
+                <span className="text-xs font-medium">
+                  {searchTerm && `Pesquisando por "${searchTerm}"`}
+                  {searchTerm && reviewStageFilter !== 'all' && ' • '}
+                  {reviewStageFilter !== 'all' && `Filtrando por ${reviewStageFilter}ª Revisão`}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-xs text-amber-600 dark:text-amber-400/80 flex flex-col items-end">
+                  <span>Encontrados {Object.values(groupedItems).reduce((acc, curr) => acc + curr.length, 0)} tópicos</span>
+                  <span className="text-[10px] text-amber-500 dark:text-amber-500/60">
+                    Mostrando top 50
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setReviewStageFilter('all');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-amber-200 dark:border-slate-700 shadow-sm rounded-md text-xs font-medium text-amber-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors"
+                  title="Limpar e mostrar tudo"
+                >
+                  <X size={14} />
+                  Limpar
+                </button>
+              </div>
+            </div>
+          )
+        }
+
+        {/* Divider Line */}
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 dark:via-slate-600 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] mb-0 shrink-0"></div>
+
+        {/* Global Toolbar (Toggle All Only) */}
+        <div className="px-4 md:px-8 py-3 flex items-center justify-start shrink-0">
+          <div
+            onClick={handleToggleAll}
+            className="flex items-center gap-3 cursor-pointer group"
+          >
+            <button
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:border-indigo-200 dark:group-hover:border-indigo-900 transition-all"
+            >
+              {areAllExpanded ? <ChevronsUpIcon className="w-4 h-4" /> : <ChevronsDownIcon className="w-4 h-4" />}
+            </button>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors select-none">
+              {areAllExpanded ? "Recolher Todas as Revisões" : "Expandir Todas as Revisões"}
+            </span>
+          </div>
+        </div>
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar mr-1">
+        <main className="flex-1 lg:overflow-y-auto p-4 md:p-8 custom-scrollbar mr-1 shrink-0 pb-24 lg:pb-8">
 
           {Object.entries(groupedItems).map(([key, groupItems]: [string, RevisionItem[]]) => {
             if (groupItems.length === 0) return null;
@@ -509,13 +667,15 @@ const Revisoes = () => {
                   className="flex items-center mb-3 group cursor-pointer select-none"
                   onClick={() => toggleGroup(key)}
                 >
-                  <div className={`mr - 2 p - 1 rounded - sm text - gray - 400 hover: bg - gray - 200 transition - colors`}>
-                    {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                  <div className="mr-3 flex items-center justify-center w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 transition-all shadow-sm">
+                    {isCollapsed ? <ChevronRight size={14} className="ml-0.5" /> : <ChevronDown size={14} />}
                   </div>
-                  <h2 className={`text-xs font - bold ${style.text} flex items - center`}>
+                  <div className={`text-xs font - bold ${style.text} flex items - center`}>
                     {style.title}
-                  </h2>
-                  <span className="ml-3 px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-[10px] font-semibold">{groupItems.length}</span>
+                  </div>
+                  {key !== 'FOCUS_MERGED' && (
+                    <span className="ml-3 px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-[10px] font-semibold">{groupItems.length}</span>
+                  )}
                 </div>
 
                 {/* Collapsible Content */}
@@ -711,51 +871,53 @@ const Revisoes = () => {
             );
           })}
         </main>
-      </div>
+      </div >
 
       {/* AI Assistant Modal */}
-      {selectedItemForAI && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-purple-100">
-            <div className="p-6 bg-gradient-to-r from-purple-50 to-white rounded-t-xl border-b border-purple-100">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
-                  <Sparkles size={24} />
+      {
+        selectedItemForAI && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-purple-100">
+              <div className="p-6 bg-gradient-to-r from-purple-50 to-white rounded-t-xl border-b border-purple-100">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                    <Sparkles size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">Assistente de Revisão</h3>
+                    <p className="text-xs text-purple-600 font-medium">Powered by Gemini 2.5</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800">Assistente de Revisão</h3>
-                  <p className="text-xs text-purple-600 font-medium">Powered by Gemini 2.5</p>
-                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  Explicando: <span className="font-semibold">{selectedItemForAI.topic}</span>
+                </p>
               </div>
-              <p className="text-sm text-gray-600 mt-2">
-                Explicando: <span className="font-semibold">{selectedItemForAI.topic}</span>
-              </p>
-            </div>
 
-            <div className="p-6">
-              {isAiLoading ? (
-                <div className="flex flex-col items-center justify-center py-8 gap-3">
-                  <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
-                  <p className="text-sm text-gray-500 animate-pulse">Gerando explicação inteligente...</p>
-                </div>
-              ) : (
-                <div className="text-gray-700 text-sm leading-relaxed whitespace-pre-line bg-gray-50 p-4 rounded-lg border border-gray-100">
-                  {aiExplanation}
-                </div>
-              )}
-            </div>
+              <div className="p-6">
+                {isAiLoading ? (
+                  <div className="flex flex-col items-center justify-center py-8 gap-3">
+                    <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+                    <p className="text-sm text-gray-500 animate-pulse">Gerando explicação inteligente...</p>
+                  </div>
+                ) : (
+                  <div className="text-gray-700 text-sm leading-relaxed whitespace-pre-line bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    {aiExplanation}
+                  </div>
+                )}
+              </div>
 
-            <div className="p-4 border-t border-gray-100 flex justify-end">
-              <button
-                onClick={() => setSelectedItemForAI(null)}
-                className="px-5 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Fechar
-              </button>
+              <div className="p-4 border-t border-gray-100 flex justify-end">
+                <button
+                  onClick={() => setSelectedItemForAI(null)}
+                  className="px-5 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Notes Modal */}
       <NotesModal
@@ -818,7 +980,7 @@ const Revisoes = () => {
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
       />
-    </div>
+    </div >
   );
 };
 

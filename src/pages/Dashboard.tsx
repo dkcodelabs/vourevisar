@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
-import { toast } from '@/lib/toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, Plus, Loader2 } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
-import { useNavigate } from 'react-router-dom';
-import { startOfDay } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { CompactOverview } from '@/components/dashboard/CompactOverview';
-import { SubjectOverview } from '@/components/dashboard/SubjectOverview';
-import { CalendarAndStats } from '@/components/dashboard/CalendarAndStats';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+// Novos componentes V2
+import { DashboardHeader } from '@/components/dashboard-v2/DashboardHeader';
+import { KeyMetricsGrid } from '@/components/dashboard-v2/KeyMetricsGrid';
+import { DashboardCalendar } from '@/components/dashboard-v2/DashboardCalendar';
+import { DashboardStatsCard } from '@/components/dashboard-v2/DashboardStatsCard';
+import { DashboardInsights } from '@/components/dashboard-v2/DashboardInsights';
+
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
-import { CompactSubjectAccordion } from '@/components/dashboard/CompactSubjectAccordion';
-import NotesModal from '@/components/reviews/NotesModal';
-import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 
 const Dashboard = () => {
   const { subjects, isDataLoaded, isLoading, error } = useApp();
@@ -24,30 +26,15 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
-  const [topicNotesModal, setTopicNotesModal] = useState({
-    isOpen: false,
-    topicId: '',
-    topicName: '',
-    subjectName: ''
-  });
-  const [subjectNotesModal, setSubjectNotesModal] = useState({
-    isOpen: false,
-    subjectId: '',
-    subjectName: ''
-  });
 
-  // ... (useQuery and loading checks remain same)
-
-  // Buscar histórico de revisões para estatísticas
+  // Buscar histórico de revisões (Mantido do original)
   const { data: reviewData } = useQuery({
     queryKey: ['dashboard-review-history', user?.id],
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
-
-      // Buscar matérias do usuário
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
-        .select('id, name')
+        .select('id')
         .eq('user_id', user.id);
 
       if (subjectsError) throw subjectsError;
@@ -55,178 +42,140 @@ const Dashboard = () => {
 
       const userSubjectIds = subjectsData.map(s => s.id);
 
-      // Buscar histórico de revisões dos tópicos do usuário
-      // Nota: topic_review_history não está nos tipos gerados - usando query raw
-      // @ts-ignore - tabela existe mas não está nos tipos gerados
+      // @ts-ignore - tabela existente no banco
       const response = await (supabase as any)
         .from('topic_review_history')
         .select(`
-          id,
-          topic_id,
-          review_stage,
-          reviewed_at,
-          topics!inner (
-            id,
-            name,
-            subject_id
-          )
+          id, topic_id, review_stage, reviewed_at,
+          topics!inner (id, name, subject_id)
         `)
         .in('topics.subject_id', userSubjectIds)
         .order('reviewed_at', { ascending: false });
 
-      const historyData = response.data as any[] | null;
-      const historyError = response.error;
-
-      if (historyError) throw historyError;
-      if (!historyData) return [];
-
-      return historyData.map((review: any) => ({
+      if (response.error) throw response.error;
+      return response.data?.map((review: any) => ({
         id: review.id,
         topic_id: review.topic_id,
         review_stage: review.review_stage,
         reviewed_at: review.reviewed_at,
         topic_name: review.topics?.name,
         subject_id: review.topics?.subject_id
-      }));
+      })) || [];
     },
     enabled: !!user
   });
 
-  // Estados de loading e erro simplificados
-  if (isLoading || cycleLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-[#f5f6f8]">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
-      </div>
-    );
-  }
+  // Hooks de estatísticas
+  const dashboardStats = useDashboardStats(
+    subjects,
+    reviewData || []
+  );
 
-  if (error) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card className="text-center">
-          <CardHeader>
-            <CardTitle className="text-red-600">Erro ao carregar dados</CardTitle>
-            <CardDescription>{error}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => window.location.reload()}>
-              Tentar Novamente
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Calcular dados básicos
-  const today = startOfDay(new Date());
-  const overdueCount = subjects.reduce((count, subject) => {
-    return count + subject.topics.filter(topic => {
-      if (!topic.nextReview) return false;
-      const reviewDate = startOfDay(new Date(topic.nextReview));
-      return reviewDate < today;
-    }).length;
-  }, 0);
-
-  const todayCount = subjects.reduce((count, subject) => {
-    return count + subject.topics.filter(topic => {
-      if (!topic.nextReview) return false;
-      const reviewDate = startOfDay(new Date(topic.nextReview));
-      return reviewDate.getTime() === today.getTime();
-    }).length;
-  }, 0);
-
-  const futureCount = subjects.reduce((count, subject) => {
-    return count + subject.topics.filter(topic => {
-      if (!topic.nextReview) return false;
-      const reviewDate = startOfDay(new Date(topic.nextReview));
-      const nextWeek = new Date(today);
-      nextWeek.setDate(nextWeek.getDate() + 7);
-      return reviewDate > today && reviewDate <= nextWeek;
-    }).length;
-  }, 0);
-
+  // Cálculos para cards do topo (KeyMetrics)
   const totalTopics = subjects.reduce((total, subject) => total + subject.topics.length, 0);
   const completedTopics = subjects.reduce((total, subject) =>
     total + subject.topics.filter(topic => topic.reviewStage === 'Concluído').length, 0
   );
   const progressPercentage = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
+  // Cálculo de Matérias Concluídas (Considerando concluída se todos os tópicos estiverem concluídos)
+  const totalSubjects = subjects.length;
+  const completedSubjects = subjects.filter(subject =>
+    subject.topics.length > 0 && subject.topics.every(topic => topic.reviewStage === 'Concluído')
+  ).length;
+  const subjectProgressPercentage = totalSubjects > 0 ? Math.round((completedSubjects / totalSubjects) * 100) : 0;
+
+  // Calculo simples de streak (pode ser melhorado com useAdvancedStatistics se necessário)
+  // Por enquanto, usando activeDays do mês como proxy ou 0
+  const currentStreak = dashboardStats.general.totalActiveDays > 0 ? dashboardStats.month.activeDays : 0;
+
+  if (isLoading || cycleLoading) return <LoadingSpinner />;
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="text-center border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-600">Erro ao carregar dados</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.reload()}>Tentar Novamente</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Header com saudação */}
-      {/* Header com saudação */}
-      <header className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground flex items-center gap-3">
-              Olá, {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}! 👋
-            </h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              Aqui está um resumo dos seus estudos
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
+      <div className="container mx-auto p-4 md:p-8 max-w-7xl">
+
+        <DashboardHeader />
+
+        {subjects.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 shadow-sm border border-slate-200 dark:border-slate-800 text-center">
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">Comece sua jornada!</h2>
+            <p className="text-slate-500 mb-8 max-w-md mx-auto">
+              Adicione suas primeiras matérias para desbloquear o painel de estatísticas.
             </p>
+            <Button onClick={() => navigate('/foco')} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              <Plus className="mr-2 h-4 w-4" /> Adicionar Matéria
+            </Button>
           </div>
+        ) : (
+          <div className="space-y-8 animate-in fade-in duration-500 slide-in-from-bottom-4">
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg">
-              <TrendingUp className="h-4 w-4" />
-              <span className="font-medium">Progresso: {progressPercentage}%</span>
+            {/* 1. Métricas Vitais do Topo */}
+            <KeyMetricsGrid
+              reviews={{
+                overdue: dashboardStats.general.overdueCount,
+                today: dashboardStats.general.todayReviewCount,
+                future: dashboardStats.general.futureReviewCount
+              }}
+              progress={{
+                topics: { completed: completedTopics, total: totalTopics, percentage: progressPercentage },
+                subjects: { completed: completedSubjects, total: totalSubjects, percentage: subjectProgressPercentage }
+              }}
+              activeDays={{ current: dashboardStats.month.activeDays, total: dashboardStats.month.totalDaysInMonth }}
+            />
+
+            {/* 2. Insights Rápidos (New Section) */}
+            <DashboardInsights />
+
+            {/* 3. Área Principal: Calendário e Estatísticas */}(Layout solicitado) */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1.5fr,1fr] gap-6 items-start">
+              <div className="h-full">
+                <DashboardCalendar
+                  subjects={subjects}
+                  reviewData={reviewData}
+                  onDayClick={(date) => setSelectedCalendarDate(date)}
+                  className="h-full min-h-[500px]"
+                />
+              </div>
+
+              <div className="h-full">
+                <DashboardStatsCard
+                  stats={dashboardStats}
+                  className="h-full min-h-[500px]"
+                />
+              </div>
             </div>
+
+            {/* Breve espaçamento final */}
+            <div className="h-8"></div>
           </div>
-        </div>
-      </header>
+        )}
 
-      {/* Se não há matérias, mostrar estado vazio */}
-      {subjects.length === 0 ? (
-        <div className="bg-card rounded-2xl p-12 shadow-sm border text-center">
-          <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-6" />
-          <h2 className="text-2xl font-bold text-card-foreground mb-3">Bem-vindo ao Sistema de Estudos!</h2>
-          <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-            Comece adicionando suas primeiras matérias para organizar seus estudos e acompanhar seu progresso.
-          </p>
-          <Button
-            onClick={() => navigate('/foco')}
-            className="w-full sm:w-auto sm:min-w-[200px] mx-auto block bg-purple-500 hover:bg-purple-600 text-white font-semibold"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Adicionar Primeira Matéria
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <CompactOverview
-            subjects={subjects}
-            overdueCount={overdueCount}
-            todayCount={todayCount}
-            futureCount={futureCount}
-          />
-
-          <CalendarAndStats
-            subjects={subjects}
-            reviewData={reviewData}
-            onDayClick={(date) => setSelectedCalendarDate(date)}
-          />
-
-          <CompactSubjectAccordion subjects={subjects} />
-        </div>
-      )}
-
-      {/* Modals */}
-      <StreakCalendarModal
-        isOpen={!!selectedCalendarDate}
-        onClose={() => setSelectedCalendarDate(null)}
-        subjects={subjects}
-        selectedDate={selectedCalendarDate || undefined}
-        reviewData={reviewData || []}
-      />
-
-      <SubjectNotesModal
-        isOpen={subjectNotesModal.isOpen}
-        onClose={() => setSubjectNotesModal({ isOpen: false, subjectId: '', subjectName: '' })}
-        subjectId={subjectNotesModal.subjectId}
-        subjectName={subjectNotesModal.subjectName}
-      />
+        {/* Modals Utilitários */}
+        <StreakCalendarModal
+          isOpen={!!selectedCalendarDate}
+          onClose={() => setSelectedCalendarDate(null)}
+          subjects={subjects}
+          selectedDate={selectedCalendarDate || undefined}
+          reviewData={reviewData || []}
+        />
+      </div>
     </div>
   );
 };

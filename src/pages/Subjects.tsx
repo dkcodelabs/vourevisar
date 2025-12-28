@@ -240,6 +240,18 @@ const Subjects = () => {
       // Limpar input
       setNewTopicTexts(prev => ({ ...prev, [subjectId]: '' }));
       toast.success('Tópico adicionado!');
+
+      // Scroll para o novo tópico após um pequeno delay para garantir que o DOM foi atualizado
+      setTimeout(() => {
+        const subjectCard = document.querySelector(`[data-subject-id="${subjectId}"]`);
+        if (subjectCard) {
+          const topicItems = subjectCard.querySelectorAll('[data-topic-item]');
+          const lastTopic = topicItems[topicItems.length - 1];
+          if (lastTopic) {
+            lastTopic.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }, 300);
     } catch (error) {
       console.error('Erro ao adicionar tópico:', error);
       toast.error('Erro ao adicionar tópico');
@@ -948,7 +960,7 @@ const Subjects = () => {
                               <div
                                 className="w-full max-w-full"
                               >
-                                <Card className="group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 mb-4 overflow-hidden relative">
+                                <Card data-subject-id={subject.id} className="group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 mb-4 overflow-hidden relative">
                                   {/* Interactive Status Border (Left) */}
                                   <div
                                     className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBorderColor(calculatedStatus).replace('border-l-', 'bg-')}`}
@@ -1120,7 +1132,7 @@ const Subjects = () => {
                                               const iconClass = getTopicIconClass(topic);
 
                                               return (
-                                                <li key={topic.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group/topic relative">
+                                                <li key={topic.id} data-topic-item className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group/topic relative">
                                                   <div className={`flex-shrink-0 transition-colors ${iconClass}`}>
                                                     {isCompleted ? <CheckCircle2 size={18} className="fill-green-100" /> : <Circle size={18} />}
                                                   </div>
