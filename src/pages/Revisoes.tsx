@@ -14,7 +14,9 @@ import {
   Clock,
   BookOpen,
   AlertCircle,
-  X
+  X,
+  CalendarOff,
+  CheckCircle2
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -655,7 +657,92 @@ const Revisoes = () => {
         {/* Scrollable Content */}
         <main className="flex-1 lg:overflow-y-auto p-4 md:p-8 custom-scrollbar mr-1 shrink-0 pb-24 lg:pb-8">
 
-          {Object.entries(groupedItems).map(([key, groupItems]: [string, RevisionItem[]]) => {
+          {Object.values(groupedItems).reduce((acc, curr) => acc + curr.length, 0) === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center py-20 px-4">
+              {/* FOCUS TAB EMPTY STATE */}
+              {activeTab === 'FOCUS' && (
+                <>
+                  <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50 dark:ring-emerald-900/10">
+                    <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Parabéns! Tudo em dia!</h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                    Você zerou suas revisões de hoje e atrasadas. <br /> Seu foco e disciplina estão rendendo frutos.
+                  </p>
+
+                  {(stats.totalTopics - stats.startedTopicsCount > 0) && (
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo')}>
+                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Sparkles size={80} />
+                      </div>
+                      <div className="flex items-start gap-4 relative z-10">
+                        <div className="p-2.5 bg-indigo-100 dark:bg-indigo-800/50 rounded-xl shrink-0">
+                          <Sparkles size={20} className="text-indigo-600 dark:text-indigo-400 fill-indigo-200 dark:fill-indigo-900" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-1">Mantenha o progresso!</p>
+                          <p className="text-xs text-indigo-700 dark:text-indigo-400/90 mb-3 leading-relaxed">
+                            Você tem <span className="font-bold bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded text-indigo-800 dark:text-indigo-200">{stats.totalTopics - stats.startedTopicsCount} tópicos</span> ainda não iniciados. Que tal começar um agora?
+                          </p>
+                          <div className="flex items-center text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">
+                            Ir para o Ciclo <ChevronRight size={14} className="ml-0.5" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* FUTURE TAB EMPTY STATE */}
+              {activeTab === 'FUTURE' && (
+                <>
+                  <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-blue-50 dark:ring-blue-900/10">
+                    <CalendarOff size={32} className="text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Sem revisões futuras</h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                    Não há revisões agendadas para os próximos dias.
+                  </p>
+
+                  {(stats.totalTopics - stats.startedTopicsCount > 0) && (
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo')}>
+                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Sparkles size={80} />
+                      </div>
+                      <div className="flex items-start gap-4 relative z-10">
+                        <div className="p-2.5 bg-indigo-100 dark:bg-indigo-800/50 rounded-xl shrink-0">
+                          <BookOpen size={20} className="text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-1">Explore novos conteúdos</p>
+                          <p className="text-xs text-indigo-700 dark:text-indigo-400/90 mb-3 leading-relaxed">
+                            Existem <span className="font-bold bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded text-indigo-800 dark:text-indigo-200">{stats.totalTopics - stats.startedTopicsCount} tópicos</span> aguardando início. Ótima oportunidade para avançar.
+                          </p>
+                          <div className="flex items-center text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">
+                            Ver Matérias <ChevronRight size={14} className="ml-0.5" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* COMPLETED TAB EMPTY STATE */}
+              {activeTab === 'COMPLETED' && (
+                <>
+                  <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                    <CheckCircle2 size={32} className="text-slate-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Construindo sua jornada</h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                    Você tem <span className="font-bold text-slate-700 dark:text-slate-300">{stats.startedTopicsCount} tópicos</span> em fase de estudos. <br /> Continue revisando com consistência para vê-los aqui em breve.
+                  </p>
+                </>
+              )}
+            </div>
+          ) : Object.entries(groupedItems).map(([key, groupItems]: [string, RevisionItem[]]) => {
             if (groupItems.length === 0) return null;
             const style = getGroupStyle(key);
             const isCollapsed = collapsedGroups[key];
