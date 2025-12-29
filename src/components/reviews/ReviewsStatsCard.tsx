@@ -76,7 +76,7 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
 
     return (
         <Card className={`border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 overflow-hidden flex flex-col ${className}`}>
-            <CardContent className="p-6 h-full flex flex-col justify-between gap-6">
+            <CardContent className="p-4 md:p-6 h-full flex flex-col justify-between gap-4 md:gap-6">
 
                 {/* Top Section */}
                 <div className="space-y-6">
@@ -120,19 +120,19 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                         </div>
 
                         {/* Legend */}
-                        <div className="flex items-center justify-between mt-3 text-[11px]">
-                            <div className="flex items-center gap-4">
+                        <div className="flex flex-wrap items-center justify-between mt-3 text-[10px] md:text-[11px] gap-y-2">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700 ring-1 ring-slate-300 dark:ring-slate-600" />
                                     <span className="text-slate-500">Total: {totalScheduledReviews}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                    <span className="text-blue-700 dark:text-blue-400 font-medium">Iniciadas: {startedReviews}</span>
+                                    <span className="text-blue-700 dark:text-blue-400 font-medium whitespace-nowrap">Iniciadas: {startedReviews}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                    <span className="text-emerald-700 dark:text-emerald-400 font-medium">Feitas: {completedReviews}</span>
+                                    <span className="text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Feitas: {completedReviews}</span>
                                 </div>
                             </div>
                         </div>

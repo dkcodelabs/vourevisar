@@ -16,7 +16,11 @@ import {
   AlertCircle,
   X,
   CalendarOff,
-  CheckCircle2
+  CheckCircle2,
+  Settings,
+  Layers,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -43,6 +47,23 @@ import { ReviewsStatsCard } from '@/components/reviews/ReviewsStatsCard';
 import { WeeklyEngagementChart } from '@/components/reviews/WeeklyEngagementChart';
 
 type ViewTab = 'FOCUS' | 'FUTURE' | 'COMPLETED' | 'SUBJECTS';
+
+const DifficultyStars = ({ rating }: { rating: number }) => {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          size={12}
+          className={`${star <= rating
+            ? 'fill-amber-400 text-amber-400'
+            : 'fill-slate-200 dark:fill-slate-700 text-slate-200 dark:text-slate-700'
+            }`}
+        />
+      ))}
+    </div>
+  );
+};
 
 const Revisoes = () => {
   const navigate = useNavigate();
@@ -429,122 +450,15 @@ const Revisoes = () => {
       <div className="flex-1 flex flex-col h-full lg:overflow-hidden overflow-y-auto relative">
 
         {/* Header Section with Chart and Stats Card */}
-        <div className="mt-[15px] grid grid-cols-1 xl:grid-cols-[1fr,380px,380px] gap-4 mb-4 shrink-0 items-stretch">
+        <div className="mt-[15px] grid grid-cols-1 xl:grid-cols-3 gap-4 mb-4 shrink-0 items-stretch">
           {/* Left: Controls Header */}
           <header className="px-4 md:px-6 pt-5 pb-5 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col h-full">
-
-            {/* Row 1: Search + Controls */}
-            <div className="flex flex-col xl:flex-row items-center justify-between gap-4 mb-6">
-              {/* Search */}
-              <div className="w-full xl:flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Pesquisar por disciplina ou tópico..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              {/* Right Controls: Por Matéria + Status */}
-              <div className="flex items-center gap-3 w-full xl:w-auto">
-                {/* Por Matéria Button */}
-                <button
-                  onClick={toggleSubjectView}
-                  className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-3 h-10 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${activeTab === 'SUBJECTS'
-                    ? 'border-indigo-200 text-indigo-700 bg-indigo-50'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  title="Agrupar por Matéria"
-                >
-                  <BookOpen size={14} className="text-indigo-500" />
-                  <span>Por Matéria</span>
-                </button>
-
-                {/* Status Filter */}
-                <div className="flex-1 xl:flex-none xl:w-[140px]">
-                  <Select value={reviewStageFilter} onValueChange={setReviewStageFilter} disabled={activeTab === 'COMPLETED'}>
-                    <SelectTrigger className="h-10 text-xs font-medium border-slate-200 bg-white shadow-sm rounded-lg focus:ring-indigo-500/20 w-full justify-between px-2">
-                      <div className="flex items-center gap-2 flex-1 justify-center">
-                        <Clock size={14} className="text-amber-500 shrink-0" />
-                        <span className="text-slate-600 truncate">
-                          {reviewStageFilter === 'all' ? 'Status' : `${reviewStageFilter}ª Revisão`}
-                        </span>
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-xs">Todos Status</SelectItem>
-                      {Array.from({ length: maxReviews }).map((_, i) => (
-                        <SelectItem key={i + 1} value={String(i + 1)} className="text-xs">
-                          {i + 1}ª Revisão
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles size={16} className="text-indigo-500 fill-indigo-200" />
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Tendência de Estudos</h2>
             </div>
-
-            {/* Row 2: Tabs */}
-            <div className="flex items-center gap-3 w-full overflow-x-auto scrollbar-hide mb-6">
-              {/* Hoje & Atrasadas */}
-              <button
-                onClick={() => setActiveTab('FOCUS')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'FOCUS'
-                  ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400'
-                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span>Hoje</span>
-                  <span className={`text-[10px] font-bold px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FOCUS' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-slate-200 text-slate-600'}`}>
-                    {stats.today}
-                  </span>
-                  <span>&</span>
-                  <span>Atrasadas</span>
-                  <span className={`text-[10px] font-bold px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FOCUS' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-slate-200 text-slate-600'}`}>
-                    {stats.overdue}
-                  </span>
-                </div>
-              </button>
-
-              {/* Futuras */}
-              <button
-                onClick={() => setActiveTab('FUTURE')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'FUTURE'
-                  ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20 text-blue-600 dark:text-blue-400'
-                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-              >
-                <span>Futuras</span>
-                <span className={`text-[10px] font-bold px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FUTURE' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-slate-200 text-slate-600'}`}>
-                  {stats.future}
-                </span>
-              </button>
-
-              {/* Concluídas */}
-              <button
-                onClick={() => {
-                  setActiveTab('COMPLETED');
-                  setReviewStageFilter('all');
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'COMPLETED'
-                  ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-              >
-                <span>Concluídas</span>
-                <span className={`text-[10px] font-bold px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-slate-200 text-slate-600'}`}>
-                  {stats.completedTopicsCount}
-                </span>
-              </button>
-            </div>
-
-            {/* Row 3: Trend Chart */}
-            <div className="mt-auto">
+            {/* Trend Chart */}
+            <div className="mt-auto flex-1">
               <ReviewsTrendChart topics={topics} reviewData={reviewData || []} />
             </div>
           </header>
@@ -637,25 +551,111 @@ const Revisoes = () => {
         {/* Divider Line */}
         <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 dark:via-slate-600 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] mb-0 shrink-0"></div>
 
-        {/* Global Toolbar (Toggle All Only) */}
-        <div className="px-4 md:px-8 py-3 flex items-center justify-start shrink-0">
-          <div
-            onClick={handleToggleAll}
-            className="flex items-center gap-3 cursor-pointer group"
-          >
+        {/* Global Toolbar */}
+        <div className="px-4 md:px-8 py-3 shrink-0">
+          <section className="flex flex-wrap items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            {/* 1. Botão Recolher/Expandir (SÓ ÍCONE) */}
             <button
-              className="flex items-center justify-center w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:border-indigo-200 dark:group-hover:border-indigo-900 transition-all"
+              onClick={handleToggleAll}
+              className="flex items-center justify-center w-10 h-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all group shrink-0"
+              title={areAllExpanded ? 'Recolher Tudo' : 'Expandir Tudo'}
             >
-              {areAllExpanded ? <ChevronsUpIcon className="w-4 h-4" /> : <ChevronsDownIcon className="w-4 h-4" />}
+              {areAllExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
-            <span className="text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors select-none">
-              {areAllExpanded ? "Recolher Todas as Revisões" : "Expandir Todas as Revisões"}
-            </span>
-          </div>
+
+            {/* 2. Campo de Pesquisa Integrado */}
+            <div className="flex-1 min-w-[200px] relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Pesquisar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+              />
+            </div>
+
+            {/* 3. Abas Principais Migradas */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
+              {/* Hoje & Atrasadas */}
+              <button
+                onClick={() => setActiveTab('FOCUS')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'FOCUS'
+                  ? 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/20 text-rose-600 dark:text-rose-400'
+                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+              >
+                <span>Hoje & Atrasadas</span>
+                <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FOCUS' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                  {stats.today + stats.overdue}
+                </span>
+              </button>
+
+              {/* Futuras */}
+              <button
+                onClick={() => setActiveTab('FUTURE')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'FUTURE'
+                  ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+              >
+                <span>Futuras</span>
+                <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FUTURE' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                  {stats.future}
+                </span>
+              </button>
+
+              {/* Concluídas */}
+              <button
+                onClick={() => {
+                  setActiveTab('COMPLETED');
+                  setReviewStageFilter('all');
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'COMPLETED'
+                  ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+              >
+                <span>Concluídas</span>
+                <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                  {stats.completedTopicsCount}
+                </span>
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+
+            {/* 4. Botão Agrupar por Matéria */}
+            <button
+              onClick={toggleSubjectView}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-xl transition-all text-xs font-bold whitespace-nowrap ${activeTab === 'SUBJECTS' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+            >
+              <Layers size={16} />
+              <span>Agrupar por Matéria</span>
+            </button>
+
+            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+
+            {/* 5. Filtro Ciclo */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider whitespace-nowrap">Ciclo:</span>
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200/50 dark:border-slate-700/50">
+                {[1, 2, 3, 4].map(num => (
+                  <button
+                    key={num}
+                    onClick={() => setReviewStageFilter(reviewStageFilter === num.toString() ? 'all' : num.toString())}
+                    className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-black transition-all ${reviewStageFilter === num.toString() ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200 dark:border-slate-600' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 font-bold'}`}
+                  >
+                    R{num}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
         </div>
 
         {/* Scrollable Content */}
-        <main className="flex-1 lg:overflow-y-auto p-4 md:p-8 custom-scrollbar mr-1 shrink-0 pb-24 lg:pb-8">
+        <main className="flex-1 lg:overflow-y-auto p-4 md:p-8 custom-scrollbar mr-1 shrink-0 pb-24 lg:pb-8 space-y-6">
 
           {Object.values(groupedItems).reduce((acc, curr) => acc + curr.length, 0) === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-20 px-4">
@@ -742,223 +742,121 @@ const Revisoes = () => {
                 </>
               )}
             </div>
-          ) : Object.entries(groupedItems).map(([key, groupItems]: [string, RevisionItem[]]) => {
-            if (groupItems.length === 0) return null;
-            const style = getGroupStyle(key);
-            const isCollapsed = collapsedGroups[key];
+          ) : (
+            <div className="space-y-6">
+              {Object.entries(groupedItems).map(([key, groupItems]) => {
+                if (groupItems.length === 0) return null;
 
-            return (
-              <div key={key} className="mb-6 md:mb-8">
-                {/* Group Header */}
-                <div
-                  className="flex items-center mb-3 group cursor-pointer select-none"
-                  onClick={() => toggleGroup(key)}
-                >
-                  <div className="mr-3 flex items-center justify-center w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 transition-all shadow-sm">
-                    {isCollapsed ? <ChevronRight size={14} className="ml-0.5" /> : <ChevronDown size={14} />}
-                  </div>
-                  <div className={`text-xs font - bold ${style.text} flex items - center`}>
-                    {style.title}
-                  </div>
-                  {key !== 'FOCUS_MERGED' && (
-                    <span className="ml-3 px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-[10px] font-semibold">{groupItems.length}</span>
-                  )}
-                </div>
+                const style = getGroupStyle(key);
+                const isCollapsed = collapsedGroups[key];
+                const isGroupExpanded = !isCollapsed;
 
-                {/* Collapsible Content */}
-                {!isCollapsed && (
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    {/* Table Header - INTEGRATED */}
-                    <div className="hidden lg:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
-                      <div className="pl-8">Tópico / Matéria</div>
-                      <div className="text-center">Dificuldade</div>
-                      <div className="text-center">Status</div>
-                      <div className="text-center">Ações</div>
-                    </div>
+                /* Handle Subject View Title Logic if needed, otherwise use style.title */
+                const groupTitle = activeTab === 'SUBJECTS' ? key : style.title;
 
-                    {/* Rows */}
-                    <div>
-                      {groupItems.map((item) => (
-                        <div key={item.id} className="
-                          group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-                          flex flex-col lg:grid lg:grid-cols-[1fr_100px_160px_120px] lg:gap-0
-                        ">
-                          {/* Sticky Left Color Bar */}
-                          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${style.color.replace('border-', 'bg-')}`}></div>
-
-                          {/* Mobile: Vertical layout */}
-                          <div className="lg:hidden px-4 pt-4">
-                            {/* Line 1: Subject name */}
-                            <div className="text-[11px] text-gray-500 font-normal capitalize mb-1">
-                              {highlightText(item.subject.toLowerCase(), searchTerm)}
-                            </div>
-                            {/* Line 2: Topic name */}
-                            <div className="font-semibold text-gray-800 text-sm break-words whitespace-normal leading-tight transition-colors first-letter:uppercase mb-3">
-                              {highlightText(item.topic, searchTerm)}
-                            </div>
-                          </div>
-
-                          {/* Desktop: Topic and Subject in same column */}
-                          <div className="hidden lg:flex lg:p-3 lg:flex-col lg:justify-center lg:pl-8 lg:border-r border-gray-100 min-w-0">
-                            <div className="font-semibold lg:font-medium text-gray-800 text-sm lg:text-xs break-words whitespace-normal leading-tight transition-colors first-letter:uppercase">
-                              {highlightText(item.topic, searchTerm)}
-                            </div>
-                            <div className="text-xs text-gray-500 font-normal mt-0.5 lg:mt-1 break-words whitespace-normal capitalize">
-                              {highlightText(item.subject.toLowerCase(), searchTerm)}
-                            </div>
-                          </div>
-
-                          {/* Mobile: Line 3 - All controls in one row, aligned right */}
-                          <div className="flex items-center justify-end gap-2 px-4 pb-4 lg:hidden">
-                            <div className="cursor-pointer"
-                              onClick={() => {
-                                openDifficultyModal(item.id, item.topic, item.subjectId, item.subject, item.difficulty);
-                              }}
-                            >
-                              <DifficultyRating value={item.difficulty} readonly size="sm" />
-                            </div>
-                            <div className="w-[115px]">
-                              <StatusBadge
-                                status={item.status}
-                                daysDiff={getDaysDiff(item.dueDate)}
-                                reviewCount={item.reviewCount}
-                                maxReviews={item.maxReviews}
-                              />
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setNotesModalData({
-                                  isOpen: true,
-                                  topicId: item.id,
-                                  topicName: item.topic,
-                                  subjectName: item.subject
-                                });
-                              }}
-                              className={`p-1.5 rounded transition-colors ${(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes)
-                                ? 'text-blue-600 hover:bg-blue-100'
-                                : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
-                                }`}
-                              title={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "Ver/Editar Nota" : "Adicionar Nota"}
-                            >
-                              <FileText size={18} className={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "fill-blue-200" : ""} />
-                            </button>
-                            {item.status !== RevisionStatus.COMPLETED ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMarkCompleted(item.id);
-                                }}
-                                className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
-                                title="Iniciar Revisão"
-                              >
-                                <PlayCircle size={20} />
-                              </button>
-                            ) : (
-                              <Check size={16} className="text-green-500" />
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAiAssist(item);
-                              }}
-                              className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                              title="Explicação com IA"
-                            >
-                              <Sparkles size={14} />
-                            </button>
-                          </div>
-
-                          {/* Desktop: Difficulty */}
-                          <div className="hidden lg:flex lg:p-0 lg:contents">
-                            <div className="lg:p-3 flex items-center lg:justify-center lg:border-r border-gray-100 cursor-pointer"
-                              onClick={() => {
-                                openDifficultyModal(item.id, item.topic, item.subjectId, item.subject, item.difficulty);
-                              }}
-                            >
-                              <DifficultyRating value={item.difficulty} readonly size="sm" />
-                            </div>
-                          </div>
-
-                          {/* Desktop: Status & Actions */}
-                          <div className="hidden lg:flex lg:items-center lg:gap-3 lg:p-0 lg:contents">
-                            {/* Status/Date */}
-                            <div className="md:px-1 md:py-1 flex items-center justify-center md:border-r border-gray-100">
-                              <div className="w-[115px]">
-                                <StatusBadge
-                                  status={item.status}
-                                  daysDiff={getDaysDiff(item.dueDate)}
-                                  reviewCount={item.reviewCount}
-                                  maxReviews={item.maxReviews}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="md:p-2 flex items-center justify-end md:justify-center gap-2">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  console.log('🔍 DEBUG NOTE ICON:', {
-                                    topicId: item.id,
-                                    topic: item.topic,
-                                    notes: item.notes,
-                                    notesType: typeof item.notes,
-                                    hasNotes: !!item.notes
-                                  });
-                                  setNotesModalData({
-                                    isOpen: true,
-                                    topicId: item.id,
-                                    topicName: item.topic,
-                                    subjectName: item.subject
-                                  });
-                                }}
-                                className={`p - 1.5 rounded transition - colors ${(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ?
-                                  'text-blue-600 hover:bg-blue-100' :
-                                  'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
-                                  } `}
-                                title={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "Ver/Editar Nota" : "Adicionar Nota"}
-                              >
-                                <FileText size={18} className={(typeof item.notes === 'string' ? item.notes.trim() !== '' : !!item.notes) ? "fill-blue-200" : ""} />
-                              </button>
-
-                              {item.status !== RevisionStatus.COMPLETED ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleMarkCompleted(item.id);
-                                  }}
-                                  className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
-                                  title="Iniciar Revisão"
-                                >
-                                  <PlayCircle size={20} />
-                                </button>
-                              ) : (
-                                <Check size={16} className="text-green-500" />
-                              )}
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAiAssist(item);
-                                }}
-                                className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                                title="Explicação com IA"
-                              >
-                                <Sparkles size={14} />
-                              </button>
-                            </div>
-                          </div>
+                return (
+                  <div key={key} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all duration-300">
+                    {/* Header */}
+                    <button
+                      onClick={() => {
+                        setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+                      }}
+                      className="w-full flex items-center justify-between px-8 py-5 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-slate-100/50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${activeTab === 'SUBJECTS' ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                          <ChevronRight size={18} className={`transition-transform duration-300 ${isGroupExpanded ? 'rotate-90' : ''}`} />
                         </div>
-                      ))}
-                    </div>
+                        <div className={`text-base font-bold ${activeTab === 'SUBJECTS' ? 'text-slate-800 dark:text-slate-200' : style.text}`}>
+                          {groupTitle}
+                        </div>
+                        <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-full">
+                          {groupItems.length} {groupItems.length === 1 ? 'item' : 'itens'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 font-medium italic hidden sm:block">Clique para alternar visão</p>
+                      </div>
+                    </button>
+
+                    {/* Content */}
+                    {isGroupExpanded && (
+                      <div className="overflow-x-auto transition-all duration-500 animate-in fade-in slide-in-from-top-2">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/30 dark:bg-slate-800/20 border-b border-slate-200 dark:border-slate-800">
+                              <th className="px-8 py-5 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-8">Tópico & Disciplina</th>
+                              <th className="px-6 py-5 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Dificuldade</th>
+                              <th className="px-6 py-5 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Progresso</th>
+                              <th className="px-8 py-5 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right pr-8">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {groupItems.map(item => (
+                              <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors group">
+                                <td className="px-8 py-5 pl-8">
+                                  <div className="flex items-center gap-4">
+                                    <div className={`w-1.5 h-10 rounded-full ${item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-500 dark:bg-rose-500' :
+                                      item.status === 'FUTURE' ? 'bg-indigo-500 dark:bg-indigo-500' :
+                                        'bg-emerald-500 dark:bg-emerald-500'
+                                      }`} />
+                                    <div className="max-w-md">
+                                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200 line-clamp-2">{item.topic}</p>
+                                      {item.subject && <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-bold uppercase">{item.subject}</p>}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-5">
+                                  <DifficultyStars rating={item.difficulty || 0} />
+                                </td>
+                                <td className="px-6 py-5">
+                                  <div className="flex flex-col gap-1.5 w-24">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${item.status === 'TODAY' || item.status === 'OVERDUE'
+                                        ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
+                                        : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                                        }`}>
+                                        R{item.reviewCount ? item.reviewCount + 1 : 1}
+                                      </span>
+                                      {(item.status === 'OVERDUE') && (
+                                        <span className="text-rose-600 dark:text-rose-400 text-[10px] font-bold">Atrasada</span>
+                                      )}
+                                    </div>
+                                    <div className="w-full h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full ${item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-400' : 'bg-indigo-400'}`}
+                                        style={{ width: `${((item.reviewCount ? item.reviewCount + 1 : 1) / 4) * 100}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-8 py-5 pr-8">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleMarkCompleted(item.id); }}
+                                      className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-600 hover:text-white transition-all font-bold text-[11px] group-hover:shadow-md border border-transparent"
+                                    >
+                                      <PlayCircle size={14} />
+                                      Iniciar
+                                    </button>
+                                    <button className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg transition-colors">
+                                      <Settings size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </main>
-      </div >
+      </div>
 
       {/* AI Assistant Modal */}
       {

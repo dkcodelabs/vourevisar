@@ -174,7 +174,7 @@ export const AppLayout = () => {
             </div>
           </header>
 
-          <main className="flex-1 w-full max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <main className="flex-1 w-full max-w-[1440px] mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <Outlet />
           </main>
         </SidebarInset>

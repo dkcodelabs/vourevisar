@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -27,6 +27,7 @@ const getNavItems = (isAdmin: boolean): NavItem[] => {
     { to: "/materias", label: "Matérias", icon: BookOpen },
     { to: "/topicos", label: "Tópicos", icon: List },
     { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
+    { to: "/modelo-referencia", label: "Modelo de Referência", icon: LayoutGrid },
   ];
 
   if (isAdmin) {
