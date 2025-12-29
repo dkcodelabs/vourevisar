@@ -143,7 +143,7 @@ const Dashboard = () => {
             {/* 2. Insights Rápidos (New Section) */}
             <DashboardInsights />
 
-            {/* 3. Área Principal: Calendário e Estatísticas */}(Layout solicitado) */}
+            {/* 3. Área Principal: Calendário e Estatísticas */}
             <div className="grid grid-cols-1 lg:grid-cols-[1.5fr,1fr] gap-6 items-start">
               <div className="h-full">
                 <DashboardCalendar
