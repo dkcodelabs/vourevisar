@@ -1,20 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
 import { motion } from 'framer-motion';
-import { Trophy, Star, CheckCircle2, X } from 'lucide-react';
+import { Trophy, Star, CheckCircle2, X, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface DifficultyRatingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (difficulty: number | null) => void;
-  onConfirmReview?: (difficulty: number | null) => void;
+  onConfirmReview?: (difficulty: number | null, duration?: number) => void;
   topicName: string;
   subjectName: string;
   initialDifficulty?: number | null;
   reviewStage?: string;
   reviewCount?: number;
   isCompleting?: boolean;
+  duration?: number;
 }
 
 export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
@@ -27,18 +30,21 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   initialDifficulty = null,
   reviewStage,
   reviewCount,
-  isCompleting = false
+  isCompleting = false,
+  duration = 0
 }) => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null);
   const [hasUserChanged, setHasUserChanged] = useState(false);
+  const [editedDuration, setEditedDuration] = useState<number>(0);
 
-  // Definir dificuldade inicial quando o modal abrir
-  React.useEffect(() => {
+  // Definir dificuldade e duração inicial quando o modal abrir
+  useEffect(() => {
     if (isOpen) {
       setSelectedDifficulty(initialDifficulty);
       setHasUserChanged(false); // Resetar flag quando modal abre
+      setEditedDuration(Math.max(1, duration || 0)); // Garantir mínimo de 1 minuto
     }
-  }, [isOpen, initialDifficulty]);
+  }, [isOpen, initialDifficulty, duration]);
 
   // Handler para mudança de dificuldade
   const handleDifficultyChange = (value: number) => {
@@ -46,14 +52,10 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
     setHasUserChanged(true); // Marcar que usuário fez uma mudança
   };
 
-
-
-
-
   const handleSubmit = () => {
     if (onConfirmReview) {
-      // Novo fluxo: confirmar revisão + salvar dificuldade
-      onConfirmReview(selectedDifficulty);
+      // Novo fluxo: confirmar revisão + salvar dificuldade + duração
+      onConfirmReview(selectedDifficulty, editedDuration);
     } else {
       // Fluxo antigo: apenas salvar dificuldade
       onSubmit(selectedDifficulty);
@@ -128,6 +130,36 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
 
         {/* Conteúdo */}
         <div className="space-y-4">
+
+          {/* Input de Tempo Estudado (Se for fluxo de revisão) */}
+          {onConfirmReview && (
+            <div className="flex items-center justify-center mb-6">
+              <div
+                className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm rounded-full px-5 py-2.5 hover:border-indigo-300 hover:shadow-md transition-all cursor-text group"
+                onClick={() => document.getElementById('duration-input')?.focus()}
+              >
+                <div className="p-1.5 bg-indigo-50 rounded-full group-hover:bg-indigo-100 transition-colors">
+                  <Clock size={16} className="text-indigo-600" />
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-sm font-medium text-slate-500">Tempo:</span>
+                  <Input
+                    id="duration-input"
+                    type="number"
+                    min="1"
+                    value={editedDuration}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      setEditedDuration(isNaN(val) ? 0 : Math.max(1, val));
+                    }}
+                    className="w-14 h-auto text-center px-0 py-0 text-xl font-bold text-indigo-700 bg-transparent border-none focus-visible:ring-0 p-0 m-0 [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span className="text-sm font-medium text-slate-500">min</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Seletor de dificuldade */}
           <div className="text-center">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">

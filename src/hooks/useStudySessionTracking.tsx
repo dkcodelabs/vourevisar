@@ -20,7 +20,7 @@ export const useStudySessionTracking = () => {
 
     const now = new Date();
     const startTime = sessionData.startedAt || now;
-    
+
     try {
       const { data, error } = await supabase
         .from('study_sessions')
@@ -73,18 +73,19 @@ export const useStudySessionTracking = () => {
   }, [user]);
 
   const recordTopicCompletion = useCallback(async (
-    subjectId: string, 
-    subjectName: string, 
-    topicId: string, 
+    subjectId: string,
+    subjectName: string,
+    topicId: string,
     topicName: string,
-    sessionStartTime?: Date
+    sessionStartTime?: Date,
+    durationMinutes?: number
   ) => {
     return await recordStudySession({
       subjectId,
       subjectName,
       topicsStudied: [topicId],
       topicsCount: 1,
-      durationMinutes: sessionStartTime ? Math.round((Date.now() - sessionStartTime.getTime()) / 60000) : 0,
+      durationMinutes: durationMinutes ?? (sessionStartTime ? Math.round((Date.now() - sessionStartTime.getTime()) / 60000) : 0),
       startedAt: sessionStartTime,
     });
   }, [recordStudySession]);

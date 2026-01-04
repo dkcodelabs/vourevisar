@@ -24,6 +24,7 @@ export const useTopicReview = () => {
     reviewStage: string;
     reviewCount: number;
     isCompleting: boolean;
+    duration?: number;
   }>({
     isOpen: false,
     topicId: '',
@@ -33,11 +34,12 @@ export const useTopicReview = () => {
     currentDifficulty: null,
     reviewStage: '',
     reviewCount: 0,
-    isCompleting: false
+    isCompleting: false,
+    duration: 0
   });
 
   // Nova função para abrir o modal de revisão (SEM marcar ainda)
-  const openReviewModal = async (topicId: string) => {
+  const openReviewModal = async (topicId: string, duration?: number) => {
     if (!user) return;
 
     try {
@@ -118,7 +120,8 @@ export const useTopicReview = () => {
         currentDifficulty: topic.difficulty_level ? Number(topic.difficulty_level) : null,
         reviewStage,
         reviewCount: nextReviewCount,
-        isCompleting
+        isCompleting,
+        duration
       });
 
     } catch (error) {
@@ -127,7 +130,7 @@ export const useTopicReview = () => {
     }
   };
 
-  const markTopicAsReviewed = async (topicId: string, difficulty?: number | null) => {
+  const markTopicAsReviewed = async (topicId: string, difficulty?: number | null, durationOverride?: number) => {
     if (!user) return;
 
     setIsLoading(true);
@@ -242,7 +245,9 @@ export const useTopicReview = () => {
         next_review: nextReview,
         review_stage: reviewStage,
         completed,
-        last_reviewed_at: now
+        last_reviewed_at: now,
+        // @ts-ignore - updates trigger history
+        last_session_duration: durationOverride ?? difficultyModalData.duration ?? 0
       };
 
       // Se é a primeira revisão, definir first_studied_at
@@ -280,7 +285,9 @@ export const useTopicReview = () => {
             topic.subject_id,
             subjectData.name,
             topicId,
-            topic.name
+            topic.name,
+            undefined, // sessionStartTime
+            durationOverride ?? difficultyModalData.duration // Prioritize override
           );
           console.log('✅ Sessão de estudo registrada');
         }
@@ -436,7 +443,8 @@ export const useTopicReview = () => {
       currentDifficulty: null,
       reviewStage: '',
       reviewCount: 0,
-      isCompleting: false
+      isCompleting: false,
+      duration: 0
     });
   };
 

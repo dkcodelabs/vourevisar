@@ -21,7 +21,9 @@ import {
   Settings,
   Layers,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Play,
+  Square
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -49,6 +51,11 @@ import { WeeklyEngagementChart } from '@/components/reviews/WeeklyEngagementChar
 
 type ViewTab = 'FOCUS' | 'FUTURE' | 'COMPLETED' | 'SUBJECTS';
 
+interface ActiveTimer {
+  topicId: string;
+  startTime: number;
+}
+
 const DifficultyStars = ({ rating }: { rating: number }) => {
   return (
     <div className="flex gap-0.5">
@@ -66,15 +73,16 @@ const DifficultyStars = ({ rating }: { rating: number }) => {
   );
 };
 
-const Revisoes = () => {
+export const Revisoes = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
 
   // Existing Hooks
   const { subjects, refreshData } = useApp();
   const {
     markTopicAsReviewed,
-    openReviewModal,
+    openReviewModal: openReviewModalHook,
     difficultyModalData,
     openDifficultyModal,
     closeDifficultyModal,
@@ -87,14 +95,21 @@ const Revisoes = () => {
     refetch,
     searchTerm,
     setSearchTerm,
+    selectedDate,
+    setSelectedDate,
+    viewMode,
+    setViewMode,
+    resetFilters,
     delayedTopics,
     todayTopics,
     futureTopics,
     completedTopics
   } = useReviewsData();
 
-  const { settings } = useUserSettings();
-  const { user } = useAuth();
+  const { settings, getProfileInfo } = useUserSettings();
+  const profileInfo = getProfileInfo();
+  const userProfile = profileInfo?.profile || ReviewProfile.INTERMEDIATE;
+  const maxReviews = profileInfo?.maxReviews || 3;
 
   // Fetch review history for weekly engagement chart
   const { data: reviewData } = useQuery({
@@ -134,14 +149,23 @@ const Revisoes = () => {
     enabled: !!user
   });
 
-  // New Layout State
+  // State
   const [activeTab, setActiveTab] = useState<ViewTab>('FOCUS');
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-  const [selectedItemForAI, setSelectedItemForAI] = useState<RevisionItem | null>(null);
-  const [aiExplanation, setAiExplanation] = useState<string>('');
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+
+  // Timer State
+  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(() => {
+    const saved = localStorage.getItem('revisoes-active-timer');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [reviewStageFilter, setReviewStageFilter] = useState<string>('all');
   const [loadingActions, setLoadingActions] = useState<Record<string, string>>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [selectedItemForAI, setSelectedItemForAI] = useState<RevisionItem | null>(null);
+  const [aiExplanation, setAiExplanation] = useState<string>('');
 
   // Header cards visibility state with localStorage persistence
   const [headerCardsCollapsed, setHeaderCardsCollapsed] = useState<boolean>(() => {
@@ -180,6 +204,15 @@ const Revisoes = () => {
     }
   }, [searchParams]);
 
+  // Save timer state whenever it changes
+  useEffect(() => {
+    if (activeTimer) {
+      localStorage.setItem('revisoes-active-timer', JSON.stringify(activeTimer));
+    } else {
+      localStorage.removeItem('revisoes-active-timer');
+    }
+  }, [activeTimer]);
+
   // Effect to reload data on visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -201,8 +234,7 @@ const Revisoes = () => {
       const subject = subjects.find(s => s.id === topic.subject_id);
 
       // Calculate review count and max reviews
-      const userProfile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
-      const maxReviews = REVIEW_PROFILES[userProfile].maxReviews;
+      // userProfile/maxReviews are available in scope
       const actualReviewCount = topic.reviewCount || topic.review_count || 0;
       const reviewCount = status === 'COMPLETED'
         ? maxReviews
@@ -249,9 +281,6 @@ const Revisoes = () => {
   }, [delayedTopics, todayTopics, futureTopics, completedTopics, subjects, searchTerm, reviewStageFilter]);
 
   // Statistics
-  const userProfile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
-  const maxReviews = REVIEW_PROFILES[userProfile].maxReviews;
-
   const stats = useMemo(() => {
     // Todos os tópicos (incluindo concluídos)
     const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics];
@@ -423,20 +452,41 @@ const Revisoes = () => {
 
   // Actions
   const handleMarkCompleted = async (id: string) => {
-    try {
+    // 1. Check if timer is active for this topic
+    if (activeTimer && activeTimer.topicId === id) {
+      // STOP TIMER
+      const endTime = Date.now();
+      const startTime = activeTimer.startTime;
+      const durationMs = endTime - startTime;
+      const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
+
+      setActiveTimer(null); // Clear timer
+
+      toast.success(`Revisão finalizada em ${durationMinutes} min!`);
+
       setLoadingActions(prev => ({ ...prev, [id]: 'review' }));
-      // Novo fluxo: abrir modal primeiro (não marca ainda)
-      await openReviewModal(id);
-    } catch (error) {
-      console.error('Erro ao abrir modal de revisão:', error);
-      toast.error('Erro ao abrir modal de revisão');
-    } finally {
-      setLoadingActions(prev => {
-        const newState = { ...prev };
-        delete newState[id];
-        return newState;
-      });
+      try {
+        await openReviewModalHook(id, durationMinutes);
+      } catch (error) {
+        console.error('Erro ao abrir modal:', error);
+      } finally {
+        setLoadingActions(prev => {
+          const newState = { ...prev };
+          delete newState[id];
+          return newState;
+        });
+      }
+      return;
     }
+
+    // 2. Check if timer is active for ANOTHER topic
+    if (activeTimer && activeTimer.topicId !== id) {
+      return;
+    }
+
+    // 3. START TIMER
+    setActiveTimer({ topicId: id, startTime: Date.now() });
+    toast.success('Cronômetro iniciado! Bons estudos.');
   };
 
   const handleAiAssist = async (item: RevisionItem) => {
@@ -870,99 +920,111 @@ const Revisoes = () => {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {groupItems.map(item => (
-                              <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors group">
-                                <td className="px-8 py-5 pl-8">
-                                  <div className="flex items-center gap-4">
-                                    <div className={`w-1.5 h-10 rounded-full ${item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-500 dark:bg-rose-500' :
-                                      item.status === 'FUTURE' ? 'bg-indigo-500 dark:bg-indigo-500' :
-                                        'bg-emerald-500 dark:bg-emerald-500'
-                                      }`} />
-                                    <div className="max-w-md">
-                                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200 line-clamp-2">{item.topic}</p>
-                                      {item.subject && <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-bold uppercase">{item.subject}</p>}
+                            {groupItems.map(item => {
+                              const isActive = activeTimer?.topicId === item.id;
+                              return (
+                                <tr key={item.id} className={`transition-colors group ${isActive ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/40'}`}>
+                                  <td className="px-8 py-5 pl-8">
+                                    <div className="flex items-center gap-4">
+                                      <div className={`w-1.5 h-10 rounded-full transition-all ${isActive ? 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] scale-y-110' :
+                                        item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-500 dark:bg-rose-500' :
+                                          item.status === 'FUTURE' ? 'bg-indigo-500 dark:bg-indigo-500' :
+                                            'bg-emerald-500 dark:bg-emerald-500'
+                                        }`} />
+                                      <div className="max-w-md">
+                                        <p className={`text-sm font-bold line-clamp-2 ${isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                                          {item.topic}
+                                          {isActive && <span className="ml-2 text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full animate-pulse">Em andamento</span>}
+                                        </p>
+                                        {item.subject && <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-bold uppercase">{item.subject}</p>}
+                                      </div>
                                     </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-5">
-                                  <DifficultyStars rating={item.difficulty || 0} />
-                                </td>
-                                <td className="px-6 py-5">
-                                  <div className="flex flex-col gap-1.5 w-24">
-                                    <div className="flex items-center gap-2">
-                                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${item.status === 'TODAY' || item.status === 'OVERDUE'
-                                        ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
-                                        : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                                        }`}>
-                                        R{item.reviewCount ? item.reviewCount + 1 : 1}
-                                      </span>
-                                      {(item.status === 'OVERDUE') && (
-                                        <span className="text-rose-600 dark:text-rose-400 text-[10px] font-bold">Atrasada</span>
-                                      )}
+                                  </td>
+                                  <td className="px-6 py-5">
+                                    <DifficultyStars rating={item.difficulty || 0} />
+                                  </td>
+                                  <td className="px-6 py-5">
+                                    <div className="flex flex-col gap-1.5 w-24">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${item.status === 'TODAY' || item.status === 'OVERDUE'
+                                          ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
+                                          : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                                          }`}>
+                                          R{item.reviewCount ? item.reviewCount + 1 : 1}
+                                        </span>
+                                        {(item.status === 'OVERDUE') && (
+                                          <span className="text-rose-600 dark:text-rose-400 text-[10px] font-bold">Atrasada</span>
+                                        )}
+                                      </div>
+                                      <div className="w-full h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                          className={`h-full ${item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-400' : 'bg-indigo-400'}`}
+                                          style={{ width: `${((item.reviewCount ? item.reviewCount + 1 : 1) / 4) * 100}%` }}
+                                        />
+                                      </div>
                                     </div>
-                                    <div className="w-full h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                      <div
-                                        className={`h-full ${item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-400' : 'bg-indigo-400'}`}
-                                        style={{ width: `${((item.reviewCount ? item.reviewCount + 1 : 1) / 4) * 100}%` }}
-                                      />
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-8 py-5 pr-8">
-                                  <div className="flex items-center justify-end gap-2">
-                                    {/* Botão IA */}
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleAiAssist(item); }}
-                                      disabled={!!loadingActions[item.id]}
-                                      className="p-2 text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                      title="Assistente de Revisão"
-                                    >
-                                      {loadingActions[item.id] === 'ai' ? (
-                                        <Loader2 size={16} className="animate-spin" />
-                                      ) : (
-                                        <Sparkles size={16} />
-                                      )}
-                                    </button>
+                                  </td>
+                                  <td className="px-8 py-5 pr-8">
+                                    <div className="flex items-center justify-end gap-2">
+                                      {/* Botão IA */}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleAiAssist(item); }}
+                                        disabled={!!loadingActions[item.id]}
+                                        className="p-2 text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Assistente de Revisão"
+                                      >
+                                        {loadingActions[item.id] === 'ai' ? (
+                                          <Loader2 size={16} className="animate-spin" />
+                                        ) : (
+                                          <Sparkles size={16} />
+                                        )}
+                                      </button>
 
-                                    {/* Botão Marcar Revisão */}
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleMarkCompleted(item.id); }}
-                                      disabled={!!loadingActions[item.id]}
-                                      className="p-2 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                      title="Marcar Revisão"
-                                    >
-                                      {loadingActions[item.id] === 'review' ? (
-                                        <Loader2 size={16} className="animate-spin" />
-                                      ) : (
-                                        <Check size={16} />
-                                      )}
-                                    </button>
+                                      {/* Botão Marcar Revisão (PLAY/STOP) */}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleMarkCompleted(item.id); }}
+                                        disabled={!!loadingActions[item.id]}
+                                        className={`p-2 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isActive
+                                          ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200'
+                                          : 'text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                          }`}
+                                        title={isActive ? "Parar e Avaliar" : "Iniciar Cronômetro"}
+                                      >
+                                        {loadingActions[item.id] === 'review' ? (
+                                          <Loader2 size={16} className="animate-spin" />
+                                        ) : isActive ? (
+                                          <Square size={16} className="fill-current" />
+                                        ) : (
+                                          <Play size={16} className="fill-current" />
+                                        )}
+                                      </button>
 
-                                    {/* Botão Ver Nota */}
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setNotesModalData({
-                                          isOpen: true,
-                                          topicId: item.id,
-                                          topicName: item.topic,
-                                          subjectName: item.subject || ''
-                                        });
-                                      }}
-                                      disabled={!!loadingActions[item.id]}
-                                      className="p-2 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                      title="Ver Nota"
-                                    >
-                                      {loadingActions[item.id] === 'notes' ? (
-                                        <Loader2 size={16} className="animate-spin" />
-                                      ) : (
-                                        <FileText size={16} />
-                                      )}
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
+                                      {/* Botão Ver Nota */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setNotesModalData({
+                                            isOpen: true,
+                                            topicId: item.id,
+                                            topicName: item.topic,
+                                            subjectName: item.subject || ''
+                                          });
+                                        }}
+                                        disabled={!!loadingActions[item.id]}
+                                        className="p-2 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Ver Nota"
+                                      >
+                                        {loadingActions[item.id] === 'notes' ? (
+                                          <Loader2 size={16} className="animate-spin" />
+                                        ) : (
+                                          <FileText size={16} />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -1066,9 +1128,9 @@ const Revisoes = () => {
           await submitDifficultyRating(difficulty);
           refetch();
         }}
-        onConfirmReview={difficultyModalData.reviewCount > 0 ? async (difficulty) => {
-          // Novo fluxo: marcar revisão + salvar dificuldade
-          await markTopicAsReviewed(difficultyModalData.topicId, difficulty);
+        onConfirmReview={difficultyModalData.reviewCount > 0 ? async (difficulty, duration) => {
+          // Novo fluxo: marcar revisão + salvar dificuldade + duração editada
+          await markTopicAsReviewed(difficultyModalData.topicId, difficulty, duration);
           closeDifficultyModal();
           setTimeout(async () => {
             await refreshData();
@@ -1081,6 +1143,7 @@ const Revisoes = () => {
         reviewStage={difficultyModalData.reviewStage}
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
+        duration={difficultyModalData.duration}
       />
     </div >
   );
