@@ -33,40 +33,43 @@ export const useReviewsData = () => {
   const { data: topics, isLoading, error, refetch } = useQuery({
     queryKey: ['topics'],
     queryFn: async () => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+
+      // Use the new RPC function for weighted sorting
       const { data, error } = await supabase
-        .from('topics')
-        .select(`
-          id,
-          name,
-          subject_id,
-          review_stage,
-          next_review,
-          review_count,
-          first_studied_at,
-          last_reviewed_at,
-          completed,
-          difficulty_level,
-          notes,
-          subjects (
-            id,
-            name,
-            color,
-            user_id
-          )
-        `)
-        .order('next_review', { ascending: true });
+        .rpc('get_weighted_reviews' as any, {
+          p_user_id: user.id
+        });
 
       if (error) throw error;
 
-      const filtered = data.filter(topic => topic.subjects?.user_id === user?.id);
-
-      return filtered.map(topic => ({
-        ...topic,
+      // Map flat RPC result to existing Topic structure
+      return (data as any[]).map(topic => ({
+        id: topic.id,
+        name: topic.name,
+        subject_id: topic.subject_id,
+        review_stage: topic.review_stage,
+        next_review: topic.next_review,
         review_count: topic.review_count ?? 0,
+        first_studied_at: topic.first_studied_at,
+        last_reviewed_at: topic.last_reviewed_at,
         completed: topic.completed ?? false,
-        subject_name: topic.subjects?.name || 'Sem disciplina'
+        difficulty_level: topic.difficulty_level,
+        notes: topic.notes,
+        // Helper property for filtering
+        subject_name: topic.subject_name || 'Sem disciplina',
+        // Reconstruct nested structure for compatibility
+        subjects: {
+          id: topic.subject_id,
+          name: topic.subject_name,
+          color: topic.subject_color,
+          user_id: user.id
+        },
+        // Optional: keep priority score if needed for debugging
+        priority_score: topic.priority_score
       }));
-    }
+    },
+    enabled: !!user?.id
   });
 
   useEffect(() => {
@@ -124,9 +127,10 @@ export const useReviewsData = () => {
   // CORREÇÃO: Usar comparação de strings de data para evitar problemas de timezone
   const todayDateString = format(startOfDay(new Date()), 'yyyy-MM-dd');
 
-  // Log removido para otimização
-
   // Otimização: classificar tópicos em uma única iteração
+  // NOTA: A ordenação principal já vem do banco (R1/R2 -> Difícil -> Data)
+  // O reduce aqui apenas agrupa para visualização, mas a ordem dentro de 'delayedTopics' e 'todayTopics' 
+  // será preservada conforme veio do banco, mantendo a prioridade desejada.
   const { delayedTopics, todayTopics, futureTopics, completedTopics } = filteredTopics.reduce(
     (acc, topic) => {
       if (topic.completed || topic.review_stage === 'Concluído') {
@@ -155,8 +159,6 @@ export const useReviewsData = () => {
       completedTopics: [] as Topic[]
     }
   );
-
-  // Log removido para otimização
 
   return {
     topics: filteredTopics,
