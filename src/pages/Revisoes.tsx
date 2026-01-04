@@ -8,6 +8,7 @@ import {
   Star,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Loader2,
   PlayCircle,
   RotateCw,
@@ -140,6 +141,13 @@ const Revisoes = () => {
   const [aiExplanation, setAiExplanation] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [reviewStageFilter, setReviewStageFilter] = useState<string>('all');
+  const [loadingActions, setLoadingActions] = useState<Record<string, string>>({});
+
+  // Header cards visibility state with localStorage persistence
+  const [headerCardsCollapsed, setHeaderCardsCollapsed] = useState<boolean>(() => {
+    const saved = localStorage.getItem('revisoes-header-collapsed');
+    return saved === 'true';
+  });
 
   // Modal States
   const [notesModalData, setNotesModalData] = useState<{
@@ -416,11 +424,18 @@ const Revisoes = () => {
   // Actions
   const handleMarkCompleted = async (id: string) => {
     try {
-      // Novo fluxo: abrir modal primeiro (n\u00e3o marca ainda)
+      setLoadingActions(prev => ({ ...prev, [id]: 'review' }));
+      // Novo fluxo: abrir modal primeiro (não marca ainda)
       await openReviewModal(id);
     } catch (error) {
-      console.error('Erro ao abrir modal de revis\u00e3o:', error);
-      toast.error('Erro ao abrir modal de revis\u00e3o');
+      console.error('Erro ao abrir modal de revisão:', error);
+      toast.error('Erro ao abrir modal de revisão');
+    } finally {
+      setLoadingActions(prev => {
+        const newState = { ...prev };
+        delete newState[id];
+        return newState;
+      });
     }
   };
 
@@ -450,67 +465,130 @@ const Revisoes = () => {
       <div className="flex-1 flex flex-col h-full lg:overflow-hidden overflow-y-auto relative">
 
         {/* Header Section with Chart and Stats Card */}
-        <div className="mt-[15px] grid grid-cols-1 xl:grid-cols-3 gap-4 mb-4 shrink-0 items-stretch">
-          {/* Left: Controls Header */}
-          <header className="px-4 md:px-6 pt-5 pb-5 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles size={16} className="text-indigo-500 fill-indigo-200" />
-              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Tendência de Estudos</h2>
-            </div>
-            {/* Trend Chart */}
-            <div className="mt-auto flex-1">
-              <ReviewsTrendChart topics={topics} reviewData={reviewData || []} />
-            </div>
-          </header>
-
-          {/* Middle: Weekly Engagement Chart */}
-          <div className="hidden lg:block">
-            <WeeklyEngagementChart
-              reviewData={reviewData || []}
-              subjects={subjects}
-            />
+        <div className="mt-[15px] mb-4 shrink-0">
+          {/* Toggle Button */}
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Visão Geral
+            </h3>
+            <button
+              onClick={() => {
+                const newState = !headerCardsCollapsed;
+                setHeaderCardsCollapsed(newState);
+                localStorage.setItem('revisoes-header-collapsed', String(newState));
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+              title={headerCardsCollapsed ? 'Expandir cards' : 'Minimizar cards'}
+            >
+              {headerCardsCollapsed ? (
+                <>
+                  <ChevronDown size={14} />
+                  <span>Expandir</span>
+                </>
+              ) : (
+                <>
+                  <ChevronUp size={14} />
+                  <span>Minimizar</span>
+                </>
+              )}
+            </button>
           </div>
 
-          {/* Right: Stats Card */}
-          <div className="hidden xl:block h-full">
-            <ReviewsStatsCard
-              totalTopics={stats.totalTopics}
-              totalScheduledReviews={stats.totalScheduledReviews}
-              startedTopicsCount={stats.startedTopicsCount}
-              startedReviews={stats.startedReviews}
-              completedReviews={stats.completedReviews}
-              overdue={stats.overdue}
-              today={stats.today}
-              future={stats.future}
-              reviewProfile={userProfile}
-              maxReviews={maxReviews}
-              className="h-full"
-            />
-          </div>
-        </div>
+          {/* Collapsed Summary Bar */}
+          {headerCardsCollapsed && (
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-4 mb-4">
+              <div className="flex items-center justify-around gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Hoje & Atrasadas:</span>
+                  <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{stats.today + stats.overdue}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Futuras:</span>
+                  <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{stats.future}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Concluídas:</span>
+                  <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{stats.completedTopicsCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Revisões Feitas:</span>
+                  <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{stats.completedReviews}/{stats.totalScheduledReviews}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
-        {/* Mobile Stats Card */}
-        <div className="lg:hidden mb-4">
-          <ReviewsStatsCard
-            totalTopics={stats.totalTopics}
-            totalScheduledReviews={stats.totalScheduledReviews}
-            startedTopicsCount={stats.startedTopicsCount}
-            startedReviews={stats.startedReviews}
-            completedReviews={stats.completedReviews}
-            overdue={stats.overdue}
-            today={stats.today}
-            future={stats.future}
-            reviewProfile={userProfile}
-            maxReviews={maxReviews}
-          />
-        </div>
+          {/* Expanded Cards */}
+          {!headerCardsCollapsed && (
+            <>
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-stretch animate-in fade-in slide-in-from-top-2 duration-300">
+                {/* Left: Controls Header */}
+                <header className="px-4 md:px-6 pt-5 pb-5 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col h-full">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles size={16} className="text-indigo-500 fill-indigo-200" />
+                    <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Tendência de Estudos</h2>
+                  </div>
+                  {/* Trend Chart */}
+                  <div className="mt-auto flex-1">
+                    <ReviewsTrendChart topics={topics} reviewData={reviewData || []} />
+                  </div>
+                </header>
 
-        {/* Mobile Weekly Chart */}
-        <div className="lg:hidden mb-4">
-          <WeeklyEngagementChart
-            reviewData={reviewData || []}
-            subjects={subjects}
-          />
+                {/* Middle: Weekly Engagement Chart */}
+                <div className="hidden lg:block">
+                  <WeeklyEngagementChart
+                    reviewData={reviewData || []}
+                    subjects={subjects}
+                  />
+                </div>
+
+                {/* Right: Stats Card */}
+                <div className="hidden xl:block h-full">
+                  <ReviewsStatsCard
+                    totalTopics={stats.totalTopics}
+                    totalScheduledReviews={stats.totalScheduledReviews}
+                    startedTopicsCount={stats.startedTopicsCount}
+                    startedReviews={stats.startedReviews}
+                    completedReviews={stats.completedReviews}
+                    overdue={stats.overdue}
+                    today={stats.today}
+                    future={stats.future}
+                    reviewProfile={userProfile}
+                    maxReviews={maxReviews}
+                    className="h-full"
+                  />
+                </div>
+              </div>
+
+              {/* Mobile Stats Card */}
+              <div className="lg:hidden mt-4">
+                <ReviewsStatsCard
+                  totalTopics={stats.totalTopics}
+                  totalScheduledReviews={stats.totalScheduledReviews}
+                  startedTopicsCount={stats.startedTopicsCount}
+                  startedReviews={stats.startedReviews}
+                  completedReviews={stats.completedReviews}
+                  overdue={stats.overdue}
+                  today={stats.today}
+                  future={stats.future}
+                  reviewProfile={userProfile}
+                  maxReviews={maxReviews}
+                />
+              </div>
+
+              {/* Mobile Weekly Chart */}
+              <div className="lg:hidden mt-4">
+                <WeeklyEngagementChart
+                  reviewData={reviewData || []}
+                  subjects={subjects}
+                />
+              </div>
+            </>
+          )}
         </div>
         {
           (searchTerm || reviewStageFilter !== 'all') && (
@@ -551,9 +629,9 @@ const Revisoes = () => {
         {/* Divider Line */}
         <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 dark:via-slate-600 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] mb-0 shrink-0"></div>
 
-        {/* Global Toolbar */}
-        <div className="px-4 md:px-8 py-3 shrink-0">
-          <section className="flex flex-wrap items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        {/* Global Toolbar - Sticky */}
+        <div className="sticky top-0 z-30 bg-white dark:bg-slate-950 px-4 md:px-8 py-3 shrink-0 shadow-sm">
+          <section className="flex flex-wrap items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md">
             {/* 1. Botão Recolher/Expandir (SÓ ÍCONE) */}
             <button
               onClick={handleToggleAll}
@@ -832,15 +910,54 @@ const Revisoes = () => {
                                 </td>
                                 <td className="px-8 py-5 pr-8">
                                   <div className="flex items-center justify-end gap-2">
+                                    {/* Botão IA */}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleAiAssist(item); }}
+                                      disabled={!!loadingActions[item.id]}
+                                      className="p-2 text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="Assistente de Revisão"
+                                    >
+                                      {loadingActions[item.id] === 'ai' ? (
+                                        <Loader2 size={16} className="animate-spin" />
+                                      ) : (
+                                        <Sparkles size={16} />
+                                      )}
+                                    </button>
+
+                                    {/* Botão Marcar Revisão */}
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleMarkCompleted(item.id); }}
-                                      className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-600 hover:text-white transition-all font-bold text-[11px] group-hover:shadow-md border border-transparent"
+                                      disabled={!!loadingActions[item.id]}
+                                      className="p-2 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="Marcar Revisão"
                                     >
-                                      <PlayCircle size={14} />
-                                      Iniciar
+                                      {loadingActions[item.id] === 'review' ? (
+                                        <Loader2 size={16} className="animate-spin" />
+                                      ) : (
+                                        <Check size={16} />
+                                      )}
                                     </button>
-                                    <button className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg transition-colors">
-                                      <Settings size={14} />
+
+                                    {/* Botão Ver Nota */}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setNotesModalData({
+                                          isOpen: true,
+                                          topicId: item.id,
+                                          topicName: item.topic,
+                                          subjectName: item.subject || ''
+                                        });
+                                      }}
+                                      disabled={!!loadingActions[item.id]}
+                                      className="p-2 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="Ver Nota"
+                                    >
+                                      {loadingActions[item.id] === 'notes' ? (
+                                        <Loader2 size={16} className="animate-spin" />
+                                      ) : (
+                                        <FileText size={16} />
+                                      )}
                                     </button>
                                   </div>
                                 </td>

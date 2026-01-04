@@ -375,7 +375,10 @@ const NotesModal: React.FC<NotesModalProps> = ({
                   notes={notes}
                   onSave={saveNotes}
                   isLoading={isLoading || isSaving}
-                  onChange={handleNotesChange}
+                  onChange={(content) => {
+                    handleNotesChange();
+                    setCurrentTopicContent(content);
+                  }}
                   hideHeader={true}
                 />
               </div>
