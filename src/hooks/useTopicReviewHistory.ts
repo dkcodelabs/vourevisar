@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { 
-  TopicReviewHistory, 
-  TopicReviewHistoryEntry, 
-  ReviewEntry 
+import type {
+  TopicReviewHistory,
+  TopicReviewHistoryEntry,
+  ReviewEntry
 } from '@/types/topic-review-history';
-import { 
-  REVIEW_STAGE_LABELS, 
+import {
+  REVIEW_STAGE_LABELS,
   REVIEW_STAGE_ORDER,
-  REVIEW_STAGES 
+  REVIEW_STAGES
 } from '@/types/topic-review-history';
 import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
 
@@ -23,6 +23,7 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
   useEffect(() => {
     const fetchHistory = async () => {
       if (!topicId) {
+        console.warn('⚠️ [useTopicReviewHistory] No topicId provided');
         setIsLoading(false);
         return;
       }
@@ -88,65 +89,106 @@ function processTopicHistory(
   const firstContactEntry = historyData.find(
     entry => entry.review_stage === REVIEW_STAGES.FIRST_CONTACT
   );
-  const firstContact = firstContactEntry 
+  const firstContact = firstContactEntry
     ? new Date(firstContactEntry.reviewed_at)
-    : topicData?.first_studied_at 
+    : topicData?.first_studied_at
       ? new Date(topicData.first_studied_at)
       : null;
 
   // Mapear revisões completadas
-  const completedReviewsMap = new Map<string, Date>();
+  const completedReviewsMap = new Map<string, { date: Date; duration: number }>();
+  let totalStudyTime = 0;
+
   historyData.forEach(entry => {
     if (entry.review_stage !== REVIEW_STAGES.FIRST_CONTACT) {
-      completedReviewsMap.set(entry.review_stage, new Date(entry.reviewed_at));
+      const duration = entry.study_duration_minutes || 0;
+      completedReviewsMap.set(entry.review_stage, {
+        date: new Date(entry.reviewed_at),
+        duration
+      });
+      totalStudyTime += duration;
     }
   });
-
-
 
   // Criar lista de revisões baseada no perfil do usuário
   const reviews: ReviewEntry[] = [];
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Variável para manter a data base para o cálculo da próxima revisão (Lógica Adaptativa)
+  // Inicialmente é o primeiro contato. Conforme as revisões são feitas, a base avança.
+  let currentBaseDate = firstContact ? new Date(firstContact) : null;
+
   reviewStages.forEach((days: number, index: number) => {
     // Converter dias para o formato de stage usado no banco
     const stageKey = days === 1 ? '24h' : `${days}d`;
-    const reviewedAt = completedReviewsMap.get(stageKey);
-    
+    const reviewData = completedReviewsMap.get(stageKey);
+    const reviewedAt = reviewData?.date;
+    const studyDuration = reviewData?.duration;
+
+    // Calcular o intervalo incremental (delta) em relação à etapa anterior
+    // Ex: R1(1d) -> delta 1d. R2(7d) -> delta 6d (7-1).
+    const prevDays = index > 0 ? reviewStages[index - 1] : 0;
+    const intervalDelta = days - prevDays;
+
     // Calcular data esperada da revisão
-    // Para revisões pendentes, usar next_review do banco se for a próxima
-    // Caso contrário, estimar baseado no primeiro contato
     let expectedDate: Date | null = null;
-    
-    if (!reviewedAt && topicData?.next_review && index === topicData.review_count - 1) {
-      // Esta é a próxima revisão pendente, usar next_review do banco
-      expectedDate = new Date(topicData.next_review);
-    } else if (firstContact) {
-      // Calcular baseado no primeiro contato
-      expectedDate = new Date(firstContact.getTime() + days * 24 * 60 * 60 * 1000);
+
+    if (reviewedAt) {
+      // Se a revisão já foi feita, ela é o fato concreto.
+      // Para fins de exibição "Era: ...", poderíamos querer saber a data original,
+      // mas isso exigiria rastrear DUAS linhas do tempo (a ideal e a real).
+      // Simplificação: Se já foi feita, não mostramos "Era:", mostramos a data real.
+      // E a data real se torna a base para a PRÓXIMA revisão.
+    } else {
+      // Se está pendente, calculamos quando DEVERIA ser, baseado na última data base conhecia.
+
+      // EXCEÇÃO: Se for EXATAMENTE a próxima revisão pendente (conforme DB), usamos o next_review do banco.
+      // Isso garante sincronia com o agendamento real do backend.
+      if (topicData?.next_review && index === topicData.review_count - 1) {
+        expectedDate = new Date(topicData.next_review);
+      } else if (currentBaseDate) {
+        // Se não for a imediata (ex: R3 pendente mas estamos em R2), projetamos.
+        expectedDate = new Date(currentBaseDate.getTime() + intervalDelta * 24 * 60 * 60 * 1000);
+      }
     }
-    
-    // Normalizar expectedDate para comparação (sem hora)
-    const expectedDateOnly = expectedDate 
+
+    // Atualizar a base para o próximo loop
+    // Se esta revisão foi feita, a próxima conta a partir DAQUI.
+    // Se não foi feita (pendente), a próxima conta a partir da data QUE ESTA DEVERIA OCORRER (estimada).
+    if (reviewedAt) {
+      currentBaseDate = new Date(reviewedAt);
+    } else if (expectedDate) {
+      currentBaseDate = new Date(expectedDate);
+    }
+
+    // Normalizar expectedDate para comparação visual (sem hora)
+    const expectedDateOnly = expectedDate
       ? new Date(expectedDate.getFullYear(), expectedDate.getMonth(), expectedDate.getDate())
       : null;
-    
-    // Verificar status
+
+    // Verificar status visual
+    const activeIndex = (topicData?.review_count || 1) - 1;
+    const isCurrentStep = index === activeIndex;
+    const isPastStep = index < activeIndex; // Deveria estar feito
+    const isFutureStep = index > activeIndex; // Não pode estar atrasado
+
     const isCompleted = !!reviewedAt;
-    const isToday = !isCompleted && expectedDateOnly && expectedDateOnly.getTime() === today.getTime();
-    const isOverdue = !isCompleted && !isToday && expectedDateOnly && expectedDateOnly < today;
-    const isFuture = !isCompleted && !isToday && !isOverdue;
-    
-    // Calcular dias
+    const isToday = !isCompleted && isCurrentStep && expectedDateOnly && expectedDateOnly.getTime() === today.getTime();
+
+    // SÓ pode estar atrasado se for o passo atual ou anterior (não feito)
+    // Passos futuros (dependentes do atual) não podem estar atrasados, pois o prazo deles nem começou
+    const isOverdue = !isCompleted && !isToday && !isFutureStep && expectedDateOnly && expectedDateOnly < today;
+
+    const isFuture = !isCompleted && !isToday && !isOverdue; // Logicamente isFutureStep cairá aqui ou se for dia posterior
+
+    // Calcular dias de atraso ou futuro
     const daysOverdue = isOverdue && expectedDateOnly
       ? Math.floor((today.getTime() - expectedDateOnly.getTime()) / (24 * 60 * 60 * 1000))
       : 0;
-    
+
     const daysUntil = isFuture && expectedDateOnly
       ? Math.ceil((expectedDateOnly.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
       : 0;
-    
+
     reviews.push({
       stage: stageKey,
       stageLabel: REVIEW_STAGE_LABELS[stageKey] || `Revisão ${days} dia${days > 1 ? 's' : ''}`,
@@ -159,7 +201,8 @@ function processTopicHistory(
       daysOverdue,
       daysUntil,
       expectedDate,
-      order: index + 1
+      order: index + 1,
+      studyDuration: isCompleted ? (studyDuration || 0) : undefined
     });
   });
 
@@ -175,7 +218,8 @@ function processTopicHistory(
     reviews,
     nextReviews,
     totalReviews,
-    completedReviews
+    completedReviews,
+    totalStudyTime
   };
 }
 

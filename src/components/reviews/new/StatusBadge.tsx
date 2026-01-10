@@ -29,6 +29,10 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, daysDiff, revi
             bgClass = 'bg-green-100 text-green-700 hover:bg-green-200';
             text = 'Concluído';
             break;
+        case RevisionStatus.UNSTARTED:
+            bgClass = 'bg-slate-100 text-slate-700 hover:bg-slate-200';
+            text = 'Não Iniciado';
+            break;
     }
 
     // Formato inline: "3/4 - texto"

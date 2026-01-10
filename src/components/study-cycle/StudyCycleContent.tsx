@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { toast } from '@/lib/toast';
-import { Loader2, AlertCircle, X } from 'lucide-react';
+import { Loader2, AlertCircle, X, Target, BookOpen } from 'lucide-react';
 // Removido hook de visibilidade que causava recarregamentos
 
 
@@ -610,10 +610,39 @@ export const StudyCycleContent: React.FC = () => {
         )}
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pt-0">
-
-          {renderSection(SubjectStatus.ACTIVE)}
-          {renderSection(SubjectStatus.COMPLETED_CYCLE)}
-          {renderSection(SubjectStatus.FINISHED)}
+          {subjects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="w-24 h-24 bg-sky-50 dark:bg-sky-900/20 rounded-full flex items-center justify-center mb-8 shadow-inner">
+                <Target className="h-12 w-12 text-sky-600 dark:text-sky-400" />
+              </div>
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Seu Ciclo Está Esperando por Você! 🎯</h2>
+              <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-lg mx-auto leading-relaxed">
+                O Ciclo de Estudos é o coração da sua preparação. Aqui você organiza suas matérias e mantém a constância necessária para a aprovação.
+              </p>
+              <div className="bg-sky-50 dark:bg-sky-900/10 border border-sky-100 dark:border-sky-800 p-6 rounded-2xl mb-10 max-w-md shadow-sm">
+                <p className="text-slate-700 dark:text-slate-300 font-medium">
+                  "O segredo do sucesso é a constância no objetivo."
+                </p>
+                <p className="text-xs text-slate-500 mt-2">— Benjamin Disraeli</p>
+              </div>
+              <p className="text-slate-500 dark:text-slate-500 mb-8 font-medium">
+                Cadastre suas matérias e tópicos para gerar seu primeiro ciclo automático.
+              </p>
+              <button
+                onClick={() => window.location.href = '/materias'}
+                className="px-10 py-4 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 flex items-center gap-2"
+              >
+                <BookOpen className="h-5 w-5" />
+                Começar Agora
+              </button>
+            </div>
+          ) : (
+            <>
+              {renderSection(SubjectStatus.ACTIVE)}
+              {renderSection(SubjectStatus.COMPLETED_CYCLE)}
+              {renderSection(SubjectStatus.FINISHED)}
+            </>
+          )}
         </main>
       </div>
 

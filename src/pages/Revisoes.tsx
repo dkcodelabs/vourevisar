@@ -23,7 +23,8 @@ import {
   Maximize2,
   Minimize2,
   Play,
-  Square
+  Square,
+  HelpCircle
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -48,8 +49,9 @@ import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { ReviewsStatsCard } from '@/components/reviews/ReviewsStatsCard';
 import { WeeklyEngagementChart } from '@/components/reviews/WeeklyEngagementChart';
+import { SpacedRepetitionInfoModal } from '@/components/reviews/SpacedRepetitionInfoModal';
 
-type ViewTab = 'FOCUS' | 'FUTURE' | 'COMPLETED' | 'SUBJECTS';
+type ViewTab = 'FOCUS' | 'FUTURE' | 'COMPLETED' | 'SUBJECTS' | 'ALL';
 
 interface ActiveTimer {
   topicId: string;
@@ -166,6 +168,8 @@ export const Revisoes = () => {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [selectedItemForAI, setSelectedItemForAI] = useState<RevisionItem | null>(null);
   const [aiExplanation, setAiExplanation] = useState<string>('');
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [trendViewMode, setTrendViewMode] = useState<'days' | 'hours'>('days');
 
   // Header cards visibility state with localStorage persistence
   const [headerCardsCollapsed, setHeaderCardsCollapsed] = useState<boolean>(() => {
@@ -235,10 +239,45 @@ export const Revisoes = () => {
 
       // Calculate review count and max reviews
       // userProfile/maxReviews are available in scope
-      const actualReviewCount = topic.reviewCount || topic.review_count || 0;
+      // Logic: 1st Study (Count 1) -> R1 (Index 0).
+      //        R1 (Count 2) -> R2 (Index 1).
+      //        R2 (Count 3) -> R3 (Index 2).
+      //        R3 (Count 4) -> R4 (Index 3) - Only if R4 exists.
+      // But user wants "R3" for pending 15d (Index 2).
+      // So Count 4 -> Index 3? Wait.
+      // If Pending 15d (Index 2). Why Count 4?
+      // Assuming Count 4 in DB is an anomaly or tracks "Next Step".
+      // We will shift -1 to handle standards.
+      const rawCount = topic.reviewCount || topic.review_count || 0;
+      const reviewIndex = Math.max(0, rawCount - 1);
+      // If index is 0 (Pending R1), we want to store 1 (so render is R1).
+      // If index is 3 (Pending R3??), we want to store 3.
+      // Wait. If rawCount=1 -> Index=0. Display R1.
+      //       If rawCount=4 -> Index=3. Display R3? No, R3 is Index 2 (0,1,2).
+      //       So rawCount=4 maps to Index 3. 
+      //       If Index 3 corresponds to R4 (30d). Then R4 is correct.
+      //       If User sees R4 for Pending R3.
+      //       Then rawCount was 4. But Index should be 2.
+      //       This implies rawCount was +2 relative to index?
+      //       Or Pending R3 is actually Index 3??
+      //       [24h, 7d, 15d, 30d].
+      //       Review 1 (24h). Index 0.
+      //       Review 3 (15d). Index 2.
+      //       Users call it "R3".
+      //       So Index 2 == R3.
+      //       Wait. Index 0 == R1.
+      //       So R-Number = Index + 1.
+      //       If User wants R3. They want Index 2.
+      //       So we need R-Number = 3.
+      //       So we need Index = 2.
+      //       If rawCount=4. `rawCount - X = 3`. X=1.
+      //       So `4 - 1 = 3`. Display R3. Correct.
+      //       If rawCount=1. `1 - 1 = 0`. Display R0? No, R1.
+      //       So `count || 1`.
+
       const reviewCount = status === 'COMPLETED'
         ? maxReviews
-        : Math.min(actualReviewCount, maxReviews); // Removido o -1
+        : Math.min(Math.max(1, rawCount), maxReviews);
 
       return {
         id: topic.id,
@@ -255,10 +294,29 @@ export const Revisoes = () => {
       };
     };
 
-    delayedTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.OVERDUE)));
-    todayTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.TODAY)));
-    futureTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.FUTURE)));
-    completedTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.COMPLETED)));
+    if (activeTab === 'ALL') {
+      const todayDateString = new Date().toISOString().split('T')[0];
+
+      topics.forEach(t => {
+        let status = RevisionStatus.UNSTARTED;
+
+        if (t.completed || t.review_stage === 'Concluído') {
+          status = RevisionStatus.COMPLETED;
+        } else if (t.next_review) {
+          const reviewDateString = new Date(t.next_review).toISOString().split('T')[0];
+          if (reviewDateString < todayDateString) status = RevisionStatus.OVERDUE;
+          else if (reviewDateString === todayDateString) status = RevisionStatus.TODAY;
+          else status = RevisionStatus.FUTURE;
+        }
+
+        allItems.push(mapTopicToItem(t, status));
+      });
+    } else {
+      delayedTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.OVERDUE)));
+      todayTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.TODAY)));
+      futureTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.FUTURE)));
+      completedTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.COMPLETED)));
+    }
 
     let result = allItems;
 
@@ -296,14 +354,15 @@ export const Revisoes = () => {
       (t.review_count >= 1 || t.first_studied_at)
     ).length;
 
-    // 4. Revisões de tópicos iniciados = tópicos iniciados × maxReviews
-    const startedReviews = startedTopicsCount * maxReviews;
-
-    // 5. Total de revisões FEITAS = soma de todos os review_count
+    // 4. Revisões FEITAS = soma de review_count de todos os tópicos
     const completedReviews = allTopics.reduce((sum, t) => sum + (t.review_count || 0), 0);
 
-    // 6. Revisões pendentes no total (atrasadas + hoje + futuras)
-    const pendingTotal = delayedTopics.length + todayTopics.length + futureTopics.length;
+    // 5. Revisões pendentes no total (atrasadas + hoje + futuras)
+    const pendingReviews = delayedTopics.length + todayTopics.length + futureTopics.length;
+
+    // 6. Revisões NÃO INICIADAS = Total - Feitas - Pendentes
+    // São revisões de tópicos que você ainda nem começou
+    const notStartedReviews = Math.max(0, totalScheduledReviews - completedReviews - pendingReviews);
 
     return {
       today: todayTopics.length,
@@ -313,9 +372,9 @@ export const Revisoes = () => {
       totalTopics,
       totalScheduledReviews,
       startedTopicsCount,
-      startedReviews,
       completedReviews,
-      pendingTotal,
+      pendingReviews,
+      notStartedReviews,
     };
   }, [todayTopics, delayedTopics, futureTopics, completedTopics, maxReviews]);
 
@@ -340,20 +399,30 @@ export const Revisoes = () => {
         groups['FOCUS_MERGED'] = mergedItems;
       }
     } else {
-      const targetStatuses: string[] = [];
-      if (activeTab === 'FUTURE') {
-        targetStatuses.push(RevisionStatus.FUTURE);
-      } else if (activeTab === 'COMPLETED') {
-        targetStatuses.push(RevisionStatus.COMPLETED);
-      }
+      if (activeTab === 'ALL') {
+        // Initialize groups
+        Object.values(RevisionStatus).forEach(status => groups[status] = []);
 
-      targetStatuses.forEach(status => groups[status] = []);
-
-      items.forEach(item => {
-        if (targetStatuses.includes(item.status)) {
+        items.forEach(item => {
+          if (!groups[item.status]) groups[item.status] = [];
           groups[item.status].push(item);
+        });
+      } else {
+        const targetStatuses: string[] = [];
+        if (activeTab === 'FUTURE') {
+          targetStatuses.push(RevisionStatus.FUTURE);
+        } else if (activeTab === 'COMPLETED') {
+          targetStatuses.push(RevisionStatus.COMPLETED);
         }
-      });
+
+        targetStatuses.forEach(status => groups[status] = []);
+
+        items.forEach(item => {
+          if (targetStatuses.includes(item.status)) {
+            groups[item.status].push(item);
+          }
+        });
+      }
     }
     return groups;
   }, [items, activeTab]);
@@ -446,6 +515,7 @@ export const Revisoes = () => {
       case RevisionStatus.TODAY: return { title: 'Hoje', color: 'border-orange-500', text: 'text-orange-600' };
       case RevisionStatus.FUTURE: return { title: 'Futuras', color: 'border-blue-500', text: 'text-blue-600' };
       case RevisionStatus.COMPLETED: return { title: 'Concluídas', color: 'border-green-500', text: 'text-green-600' };
+      case RevisionStatus.UNSTARTED: return { title: 'Não Iniciados', color: 'border-slate-300', text: 'text-slate-500' };
       default: return { title: groupKey, color: 'border-purple-500', text: 'text-purple-600' };
     }
   };
@@ -458,7 +528,9 @@ export const Revisoes = () => {
       const endTime = Date.now();
       const startTime = activeTimer.startTime;
       const durationMs = endTime - startTime;
-      const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
+
+      // Regra: < 1 min = 0. > 1 min = Arredonda pra cima (ex: 32m40s -> 33m)
+      const durationMinutes = durationMs < 60000 ? 0 : Math.ceil(durationMs / 60000);
 
       setActiveTimer(null); // Clear timer
 
@@ -510,9 +582,9 @@ export const Revisoes = () => {
   }
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] w-full text-gray-900 overflow-hidden">
+    <div className="flex min-h-full w-full text-gray-900">
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full lg:overflow-hidden overflow-y-auto relative">
+      <div className="flex-1 flex flex-col relative">
 
         {/* Header Section with Chart and Stats Card */}
         <div className="mt-[15px] mb-4 shrink-0">
@@ -575,18 +647,65 @@ export const Revisoes = () => {
           {/* Expanded Cards */}
           {!headerCardsCollapsed && (
             <>
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-stretch animate-in fade-in slide-in-from-top-2 duration-300">
-                {/* Left: Controls Header */}
-                <header className="px-4 md:px-6 pt-5 pb-5 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col h-full">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Sparkles size={16} className="text-indigo-500 fill-indigo-200" />
-                    <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Tendência de Estudos</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch animate-in fade-in slide-in-from-top-2 duration-300">
+                {/* Left: Tendência de Estudos */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-5 flex flex-col h-full">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 shrink-0">
+                        <Sparkles size={16} className="text-indigo-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                          Tendência de Estudos
+                        </p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                          Iniciadas vs Revisadas
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+                      <button
+                        onClick={() => setTrendViewMode('days')}
+                        className={`flex items-center gap-1 px-2 py-1 text-[9px] font-medium rounded-md transition-all ${trendViewMode === 'days'
+                          ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                          }`}
+                      >
+                        <Calendar size={10} />
+                        Dias
+                      </button>
+                      <button
+                        onClick={() => setTrendViewMode('hours')}
+                        className={`flex items-center gap-1 px-2 py-1 text-[9px] font-medium rounded-md transition-all ${trendViewMode === 'hours'
+                          ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                          }`}
+                      >
+                        <Clock size={10} />
+                        Horas
+                      </button>
+                    </div>
                   </div>
-                  {/* Trend Chart */}
-                  <div className="mt-auto flex-1">
-                    <ReviewsTrendChart topics={topics} reviewData={reviewData || []} />
+                  {/* Chart */}
+                  <div className="flex-1 flex items-end">
+                    <ReviewsTrendChart topics={topics} reviewData={reviewData || []} viewMode={trendViewMode} />
                   </div>
-                </header>
+                  {/* Footer */}
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                    <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500 dark:text-slate-400">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-violet-500"></div>
+                        <span>Iniciadas</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-cyan-500"></div>
+                        <span>Revisadas</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Middle: Weekly Engagement Chart */}
                 <div className="hidden lg:block">
@@ -597,13 +716,15 @@ export const Revisoes = () => {
                 </div>
 
                 {/* Right: Stats Card */}
-                <div className="hidden xl:block h-full">
+                <div className="hidden lg:block h-full">
                   <ReviewsStatsCard
                     totalTopics={stats.totalTopics}
                     totalScheduledReviews={stats.totalScheduledReviews}
                     startedTopicsCount={stats.startedTopicsCount}
-                    startedReviews={stats.startedReviews}
+                    completedTopicsCount={stats.completedTopicsCount}
                     completedReviews={stats.completedReviews}
+                    pendingReviews={stats.pendingReviews}
+                    notStartedReviews={stats.notStartedReviews}
                     overdue={stats.overdue}
                     today={stats.today}
                     future={stats.future}
@@ -620,8 +741,10 @@ export const Revisoes = () => {
                   totalTopics={stats.totalTopics}
                   totalScheduledReviews={stats.totalScheduledReviews}
                   startedTopicsCount={stats.startedTopicsCount}
-                  startedReviews={stats.startedReviews}
+                  completedTopicsCount={stats.completedTopicsCount}
                   completedReviews={stats.completedReviews}
+                  pendingReviews={stats.pendingReviews}
+                  notStartedReviews={stats.notStartedReviews}
                   overdue={stats.overdue}
                   today={stats.today}
                   future={stats.future}
@@ -679,8 +802,8 @@ export const Revisoes = () => {
         {/* Divider Line */}
         <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 dark:via-slate-600 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] mb-0 shrink-0"></div>
 
-        {/* Global Toolbar - Sticky */}
-        <div className="sticky top-0 z-30 bg-white dark:bg-slate-950 px-4 md:px-8 py-3 shrink-0 shadow-sm">
+        {/* Global Toolbar - Sticky below header */}
+        <div className="sticky top-16 z-20 bg-white dark:bg-slate-950 px-4 md:px-8 py-3 shrink-0 shadow-sm">
           <section className="flex flex-wrap items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md">
             {/* 1. Botão Recolher/Expandir (SÓ ÍCONE) */}
             <button
@@ -689,6 +812,15 @@ export const Revisoes = () => {
               title={areAllExpanded ? 'Recolher Tudo' : 'Expandir Tudo'}
             >
               {areAllExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+
+            {/* 1.5 Botão de Informação */}
+            <button
+              onClick={() => setIsInfoModalOpen(true)}
+              className="flex items-center justify-center w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all group shrink-0"
+              title="Como funciona o agendamento?"
+            >
+              <HelpCircle size={18} />
             </button>
 
             {/* 2. Campo de Pesquisa Integrado */}
@@ -705,6 +837,23 @@ export const Revisoes = () => {
 
             {/* 3. Abas Principais Migradas */}
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
+              {/* Todas */}
+              <button
+                onClick={() => {
+                  setActiveTab('ALL');
+                  setReviewStageFilter('all');
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border shadow-sm ${activeTab === 'ALL'
+                  ? 'bg-slate-800 text-white border-slate-800'
+                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+              >
+                <span>Todas</span>
+                <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'ALL' ? 'bg-slate-700 text-slate-200 shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                  {stats.totalTopics}
+                </span>
+              </button>
+
               {/* Hoje & Atrasadas */}
               <button
                 onClick={() => setActiveTab('FOCUS')}
@@ -799,7 +948,7 @@ export const Revisoes = () => {
                   </p>
 
                   {(stats.totalTopics - stats.startedTopicsCount > 0) && (
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo')}>
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo-estudos')}>
                       <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                         <Sparkles size={80} />
                       </div>
@@ -834,7 +983,7 @@ export const Revisoes = () => {
                   </p>
 
                   {(stats.totalTopics - stats.startedTopicsCount > 0) && (
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo')}>
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo-estudos')}>
                       <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                         <Sparkles size={80} />
                       </div>
@@ -950,7 +1099,7 @@ export const Revisoes = () => {
                                           ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
                                           : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                                           }`}>
-                                          R{item.reviewCount ? item.reviewCount + 1 : 1}
+                                          R{item.reviewCount || 1}
                                         </span>
                                         {(item.status === 'OVERDUE') && (
                                           <span className="text-rose-600 dark:text-rose-400 text-[10px] font-bold">Atrasada</span>
@@ -959,7 +1108,7 @@ export const Revisoes = () => {
                                       <div className="w-full h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                         <div
                                           className={`h-full ${item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-400' : 'bg-indigo-400'}`}
-                                          style={{ width: `${((item.reviewCount ? item.reviewCount + 1 : 1) / 4) * 100}%` }}
+                                          style={{ width: `${((item.reviewCount || 1) / 5) * 100}%` }}
                                         />
                                       </div>
                                     </div>
@@ -1144,6 +1293,14 @@ export const Revisoes = () => {
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
         duration={difficultyModalData.duration}
+        topicId={difficultyModalData.topicId}
+      />
+
+      {/* Modal de Informação sobre Repetição Espaçada */}
+      <SpacedRepetitionInfoModal
+        isOpen={isInfoModalOpen}
+        onClose={() => setIsInfoModalOpen(false)}
+        hasExamDate={!!settings?.data_prova_meta}
       />
     </div >
   );

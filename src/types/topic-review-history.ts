@@ -8,6 +8,7 @@ export interface TopicReviewHistoryEntry {
   review_stage: string;
   reviewed_at: string;
   created_at: string;
+  study_duration_minutes?: number | null;
 }
 
 export interface TopicReviewHistory {
@@ -16,6 +17,7 @@ export interface TopicReviewHistory {
   nextReviews: ReviewEntry[];
   totalReviews: number;
   completedReviews: number;
+  totalStudyTime: number; // New field for accumulated time
 }
 
 export interface ReviewEntry {
@@ -31,7 +33,9 @@ export interface ReviewEntry {
   daysUntil: number;
   expectedDate: Date | null;
   order: number;
+  studyDuration?: number; // New field for frontend
 }
+
 
 export const REVIEW_STAGES = {
   FIRST_CONTACT: 'first_contact',

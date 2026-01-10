@@ -2,7 +2,8 @@ export enum RevisionStatus {
     OVERDUE = 'OVERDUE',
     TODAY = 'TODAY',
     FUTURE = 'FUTURE',
-    COMPLETED = 'COMPLETED'
+    COMPLETED = 'COMPLETED',
+    UNSTARTED = 'UNSTARTED'
 }
 
 export enum GroupingMode {

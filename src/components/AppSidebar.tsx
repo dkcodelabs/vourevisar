@@ -27,7 +27,7 @@ const getNavItems = (isAdmin: boolean): NavItem[] => {
     { to: "/materias", label: "Matérias", icon: BookOpen },
     { to: "/topicos", label: "Tópicos", icon: List },
     { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
-    { to: "/modelo-referencia", label: "Modelo de Referência", icon: LayoutGrid },
+
   ];
 
   if (isAdmin) {

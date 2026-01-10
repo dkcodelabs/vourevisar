@@ -8,6 +8,7 @@ interface UserSettingsData {
   subjects_per_day: number;
   notifications_enabled: boolean;
   notification_time: string;
+  data_prova_meta: string | null;
 }
 
 interface CycleInfo {
@@ -64,19 +65,21 @@ export const useUserSettings = () => {
             .single();
 
           if (insertError) throw insertError;
-          
+
           setSettings({
             review_profile: newSettings.review_profile as ReviewProfile,
             subjects_per_day: newSettings.subjects_per_day,
             notifications_enabled: newSettings.notifications_enabled,
-            notification_time: newSettings.notification_time
+            notification_time: newSettings.notification_time,
+            data_prova_meta: (newSettings as any).data_prova_meta || null
           });
         } else {
           setSettings({
             review_profile: settingsData.review_profile as ReviewProfile || ReviewProfile.INTERMEDIATE,
             subjects_per_day: settingsData.subjects_per_day,
             notifications_enabled: settingsData.notifications_enabled,
-            notification_time: settingsData.notification_time
+            notification_time: settingsData.notification_time,
+            data_prova_meta: (settingsData as any).data_prova_meta || null
           });
         }
 
@@ -113,13 +116,13 @@ export const useUserSettings = () => {
   // Função para obter informações do perfil de revisão
   const getProfileInfo = () => {
     if (!settings) return null;
-    
+
     const profile = settings.review_profile;
     const profileConfig = REVIEW_PROFILES[profile];
-    
+
     let profileName = '';
     let profileDescription = '';
-    
+
     switch (profile) {
       case ReviewProfile.BEGINNER:
         profileName = 'Iniciante';
@@ -134,7 +137,7 @@ export const useUserSettings = () => {
         profileDescription = 'Menos revisões, mais confiança na memória';
         break;
     }
-    
+
     return {
       profile,
       profileName,
@@ -147,11 +150,11 @@ export const useUserSettings = () => {
   // Função para calcular estatísticas do ciclo
   const getCycleStats = () => {
     if (!cycleInfo) return null;
-    
+
     const totalSubjectsInCycle = cycleInfo.ciclo_atual.length;
     const subjectsForToday = cycleInfo.disciplinas_do_dia.length;
     const completedCycles = cycleInfo.ciclos_realizados;
-    
+
     // Calcular dias desde o início do ciclo atual
     let daysInCurrentCycle = 0;
     if (cycleInfo.data_inicio_ciclo) {
@@ -159,7 +162,7 @@ export const useUserSettings = () => {
       const today = new Date();
       daysInCurrentCycle = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     }
-    
+
     return {
       totalSubjectsInCycle,
       subjectsForToday,
@@ -169,12 +172,66 @@ export const useUserSettings = () => {
     };
   };
 
+  // Função para atualizar a data da prova
+  const updateExamDate = async (date: Date | null): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { error: updateError } = await supabase
+        .from('user_settings')
+        .update({ data_prova_meta: date ? date.toISOString().split('T')[0] : null } as any)
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Atualizar estado local
+      setSettings(prev => prev ? { ...prev, data_prova_meta: date ? date.toISOString().split('T')[0] : null } : null);
+      return true;
+    } catch (err) {
+      console.error('Erro ao atualizar data da prova:', err);
+      return false;
+    }
+  };
+
+  // Função para calcular contagem regressiva
+  const getExamCountdown = () => {
+    if (!settings?.data_prova_meta) return null;
+
+    const examDate = new Date(settings.data_prova_meta + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const diffTime = examDate.getTime() - today.getTime();
+    const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // Calcular progresso (assumindo 90 dias como período de estudo ideal)
+    // Quanto mais próximo da prova, maior a porcentagem
+    const totalDays = 90; // Período de referência
+    const progressPercentage = Math.max(0, Math.min(100, ((totalDays - daysRemaining) / totalDays) * 100));
+
+    // Determinar urgência baseada nos dias restantes
+    let urgency: 'low' | 'medium' | 'high' | 'critical' = 'low';
+    if (daysRemaining <= 7) urgency = 'critical';
+    else if (daysRemaining <= 30) urgency = 'high';
+    else if (daysRemaining <= 60) urgency = 'medium';
+
+    return {
+      examDate,
+      daysRemaining,
+      progressPercentage,
+      urgency,
+      isPast: daysRemaining < 0
+    };
+  };
+
   return {
     settings,
     cycleInfo,
     isLoading,
     error,
     getProfileInfo,
-    getCycleStats
+    getCycleStats,
+    updateExamDate,
+    getExamCountdown
   };
 };

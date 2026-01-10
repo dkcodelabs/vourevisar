@@ -49,19 +49,23 @@ const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenCha
   }, [chatGptResult]);
 
   const generatePrompt = () => {
-    return `Crie o conteúdo de um arquivo .CSV com as colunas "Matéria" e "Tópico" a partir do conteúdo abaixo. Forneça o resultado como texto para que eu possa copiar e colar, e não envie um arquivo para download.
+    return `Aja como um extrator de dados. Converta o conteúdo programático abaixo no formato CSV específico detalhado abaixo.
+REGRAS CRÍTICAS:
+1. NÃO escreva nenhuma saudação, introdução ou explicação (ex: "Aqui está seu conteúdo").
+2. Retorne APENAS os dados no formato solicitado.
+3. Não use blocos de código (markdown \`\`\`).
+4. Se o conteúdo for inválido, não responda nada.
 
-Formato esperado:
-
+FORMATO ESPERADO:
 [Matéria1]
 Tópico1; tópico2; tópico3
 
 [Matéria2]
 Tópico1; tópico2; tópico3
 
-Atenção: mantenha o nome da matéria entre colchetes [], sem dois-pontos, e liste todos os tópicos dela separados apenas por ponto e vírgula ;, tudo em uma linha. Não pule linhas entre tópicos. Não coloque numeração nem subitens. Apenas um bloco por matéria.
+ATENÇÃO: mantenha o nome da matéria entre colchetes [], e liste todos os tópicos dela separados apenas por ponto e vírgula ;, tudo em uma linha por matéria. Não coloque numeração nem subitens.
 
-Conteúdo para processar:
+CONTEÚDO PARA PROCESSAR:
 ${content}`;
   };
 
@@ -72,15 +76,20 @@ ${content}`;
     }
 
     try {
-      await navigator.clipboard.writeText(generatePrompt());
+      const prompt = generatePrompt();
+      await navigator.clipboard.writeText(prompt);
       setPromptCopied(true);
-      toast.success('Prompt copiado! Abrindo ChatGPT...');
+      toast.success('Prompt copiado! Cole no ChatGPT');
+
+      // Encoding prompt for URL
+      const encodedPrompt = encodeURIComponent(prompt);
+      const chatGPTUrl = `https://chatgpt.com/?q=${encodedPrompt}`;
 
       // Open ChatGPT in new tab
-      window.open('https://chat.openai.com/', '_blank', 'noopener,noreferrer');
+      window.open(chatGPTUrl, '_blank', 'noopener,noreferrer');
 
-      // Reset the copied state after 3 seconds
-      setTimeout(() => setPromptCopied(false), 3000);
+      // Reset the copied state after 5 seconds
+      setTimeout(() => setPromptCopied(false), 5000);
     } catch (error) {
       toast.error('Erro ao copiar prompt. Tente novamente.');
     }
@@ -114,60 +123,58 @@ ${content}`;
 
     console.log('Starting to process lines:', lines.length);
 
+    // Regex para identificar matérias: procura por texto entre colchetes, ignorando o que vem depois (como dois-pontos)
+    const subjectRegex = /^\[(.*?)\]/;
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      const match = line.match(subjectRegex);
 
-      // Check if line contains a subject in brackets [Subject]
-      if (line.startsWith('[') && line.endsWith(']')) {
-        const materia = line.slice(1, -1).trim();
+      if (match) {
+        const materia = match[1].trim();
 
         if (materia) {
           currentMateria = materia.toUpperCase();
           materiaCount++;
-          console.log(`Found subject ${materiaCount}: ${currentMateria}`);
+          console.log(`Encontrada matéria ${materiaCount}: ${currentMateria}`);
 
-          // Process all following lines until next subject or end
+          // Se houver texto após o colchete na mesma linha, tratá-lo como tópicos
+          const restOfLine = line.replace(subjectRegex, '').trim();
+          let initialTopics: string[] = [];
+
+          if (restOfLine) {
+            // Remover dois-pontos inicial se existir
+            const cleanRest = restOfLine.startsWith(':') ? restOfLine.substring(1).trim() : restOfLine;
+            if (cleanRest) {
+              initialTopics = cleanRest.split(';').map(t => t.trim()).filter(Boolean);
+            }
+          }
+
+          for (const topic of initialTopics) {
+            data.push({ materia: currentMateria, topico: topic });
+            topicCount++;
+          }
+
+          // Processar todas as linhas seguintes até a próxima matéria ou fim
           let j = i + 1;
-          let subjectTopicsCount = 0;
-
-          while (j < lines.length && !lines[j].startsWith('[')) {
+          while (j < lines.length && !lines[j].match(subjectRegex)) {
             const topicLine = lines[j].trim();
 
             if (topicLine) {
-              // If line contains semicolons, split it
-              if (topicLine.includes(';')) {
-                const topics = topicLine
-                  .split(';')
-                  .map(topic => topic.trim())
-                  .filter(topic => topic.length > 0);
+              const topics = topicLine
+                .split(';')
+                .map(topic => topic.trim())
+                .filter(Boolean);
 
-                console.log(`Topics with semicolons for ${currentMateria}:`, topics);
-
-                for (const topic of topics) {
-                  data.push({
-                    materia: currentMateria,
-                    topico: topic
-                  });
-                  topicCount++;
-                  subjectTopicsCount++;
-                }
-              } else {
-                // Single topic line
-                console.log(`Single topic for ${currentMateria}:`, topicLine);
-                data.push({
-                  materia: currentMateria,
-                  topico: topicLine
-                });
+              for (const topic of topics) {
+                data.push({ materia: currentMateria, topico: topic });
                 topicCount++;
-                subjectTopicsCount++;
               }
             }
             j++;
           }
 
-          console.log(`Finished ${currentMateria}: ${subjectTopicsCount} topics`);
-
-          // Skip to the last processed line
+          // Pular para a última linha processada
           i = j - 1;
         }
       }
@@ -218,7 +225,23 @@ ${content}`;
       let totalSubjects = 0;
       let totalTopics = 0;
 
-      for (const [subjectName, topics] of Object.entries(subjectGroups)) {
+      // Buscar a prioridade máxima atual do usuário
+      const { data: priorityData } = await supabase
+        .from('subjects')
+        .select('priority')
+        .eq('user_id', user.id)
+        .order('priority', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let nextPriority = (priorityData?.priority || 0) + 1;
+
+      // Usar a lista de matérias únicas mantendo a ordem original do texto
+      const uniqueSubjectsList = [...new Set(parsedData.map(item => item.materia))];
+
+      for (const subjectName of uniqueSubjectsList) {
+        const topics = subjectGroups[subjectName];
+
         // Validate subject name
         try {
           subjectNameSchema.parse(subjectName);
@@ -240,7 +263,7 @@ ${content}`;
         if (existingSubject) {
           subjectId = existingSubject.id;
         } else {
-          // Criar nova matéria
+          // Criar nova matéria com prioridade incrementada
           const { data: newSubject, error: subjectError } = await supabase
             .from('subjects')
             .insert({
@@ -248,7 +271,7 @@ ${content}`;
               name: subjectName,
               status: 'Nova',
               color: '#3B82F6',
-              priority: 0
+              priority: nextPriority++
             })
             .select('id')
             .single();
@@ -357,66 +380,75 @@ ${content}`;
           </Card>
 
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                1. Conteúdo Programático:
-              </label>
+            {/* Passo 1 */}
+            <div className="space-y-4 p-4 border rounded-xl bg-white shadow-sm hover:border-indigo-200 transition-colors">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">1</div>
+                <label className="text-sm font-semibold text-slate-700">
+                  Conteúdo do Edital:
+                </label>
+              </div>
               <Textarea
                 placeholder="Cole aqui todo o conteúdo programático que você deseja organizar..."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={8}
-                className="resize-none"
+                className="resize-none focus:ring-indigo-500 border-slate-200"
               />
+              <Button
+                onClick={handleCopyPromptAndOpenChatGPT}
+                disabled={!content.trim()}
+                className={`w-full h-11 transition-all duration-300 ${promptCopied ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+              >
+                {promptCopied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Prompt Copiado! Agora cole (Ctrl+V) no ChatGPT
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Gerar e Copiar Prompt p/ ChatGPT
+                  </>
+                )}
+              </Button>
             </div>
 
-            <Button
-              onClick={handleCopyPromptAndOpenChatGPT}
-              disabled={!content.trim()}
-              className="w-full"
-              variant={promptCopied ? "default" : "default"}
-            >
-              {promptCopied ? (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Prompt Copiado! ChatGPT Aberto
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4 mr-2" />
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Copiar Prompt e Abrir ChatGPT
-                </>
-              )}
-            </Button>
+            {/* Passo 2 */}
+            <div className="space-y-4 p-4 border rounded-xl bg-slate-50 shadow-sm border-dashed">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">2</div>
+                <label className="text-sm font-semibold text-slate-700">
+                  Resultado do ChatGPT:
+                </label>
+              </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                2. Resultado do ChatGPT:
-              </label>
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-xs text-amber-800 flex items-start gap-2 mb-4">
+                <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                <p>
+                  No ChatGPT aberto, pressione <strong>Ctrl+V</strong> para colar o comando e gerar o conteúdo. Depois, <strong>copie a resposta dele</strong> e cole abaixo.
+                </p>
+              </div>
+
               <Textarea
-                placeholder="Cole aqui o resultado do ChatGPT...
-Exemplo:
-MATEMÁTICA: Álgebra Linear; Cálculo Diferencial; Geometria
-PORTUGUÊS: Gramática; Literatura; Interpretação de Texto"
+                placeholder="Cole aqui o resultado do ChatGPT que ele gerou..."
                 value={chatGptResult}
                 onChange={(e) => setChatGptResult(e.target.value)}
                 rows={6}
-                className="resize-none font-mono text-sm"
+                className="resize-none font-mono text-sm border-slate-200 bg-white"
               />
-            </div>
 
-            {chatGptResult.trim() && (
-              <Button
-                onClick={handleProcessResult}
-                disabled={!chatGptResult.trim()}
-                className="w-full"
-                variant="secondary"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Processar Resultado
-              </Button>
-            )}
+              {chatGptResult.trim() && (
+                <Button
+                  onClick={handleProcessResult}
+                  disabled={!chatGptResult.trim()}
+                  className="w-full h-11 bg-slate-800 hover:bg-slate-900"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Processar Resultado
+                </Button>
+              )}
+            </div>
 
             {parsedData.length > 0 && (
               <div className="space-y-4" data-scroll-target="processed-data">

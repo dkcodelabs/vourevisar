@@ -111,17 +111,24 @@ const Dashboard = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
       <div className="container mx-auto p-4 md:p-8 max-w-7xl">
 
-        <DashboardHeader />
+        <DashboardHeader subjectsCount={subjects.length} />
 
         {subjects.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 shadow-sm border border-slate-200 dark:border-slate-800 text-center">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">Comece sua jornada!</h2>
-            <p className="text-slate-500 mb-8 max-w-md mx-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 md:p-16 shadow-sm border border-slate-100 dark:border-slate-800 text-center max-w-4xl mx-auto mt-6 animate-in fade-in zoom-in duration-500">
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-3">Comece sua jornada!</h2>
+            <p className="text-base text-slate-500 dark:text-slate-400 mb-8 max-w-md mx-auto leading-relaxed">
               Adicione suas primeiras matérias para desbloquear o painel de estatísticas.
             </p>
-            <Button onClick={() => navigate('/foco')} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-              <Plus className="mr-2 h-4 w-4" /> Adicionar Matéria
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Button
+                onClick={() => navigate('/materias')}
+                size="lg"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 h-12 rounded-xl shadow-md hover:shadow-lg transition-all group font-semibold"
+              >
+                <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform" />
+                Adicionar Matéria
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-8 animate-in fade-in duration-500 slide-in-from-bottom-4">

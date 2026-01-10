@@ -52,7 +52,7 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
         },
         colors: ['#FFD700', '#FFA500', '#FF6347', '#32CD32', '#1E90FF']
       });
-      
+
       // Confetti da direita
       confetti({
         particleCount,
@@ -92,7 +92,7 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
   }, [navigate]);
 
   const handleViewStatistics = useCallback(() => {
-    navigate('/statistics');
+    navigate('/estatisticas');
   }, [navigate]);
 
   const handleCloseModal = useCallback(() => {
@@ -109,7 +109,7 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
       >
         <Card className="bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 border-4 border-yellow-300 shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
-          
+
           <CardHeader className="text-center pb-6 relative z-10">
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
@@ -120,13 +120,13 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
               <div className="relative">
                 <Trophy className="h-20 w-20 text-yellow-500 drop-shadow-lg" />
                 <motion.div
-                  animate={{ 
+                  animate={{
                     rotate: 360,
                     scale: [1, 1.2, 1]
                   }}
-                  transition={{ 
-                    duration: 3, 
-                    repeat: Infinity, 
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
                     ease: "linear"
                   }}
                   className="absolute -top-3 -right-3"
@@ -135,7 +135,7 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
                 </motion.div>
               </div>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -152,7 +152,7 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
               </p>
             </motion.div>
           </CardHeader>
-          
+
           <CardContent className="text-center space-y-6 pb-8 relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -171,7 +171,7 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
                   <div className="text-sm opacity-90">Matérias</div>
                 </div>
               </Button>
-              
+
               <Button
                 onClick={handleAddNewSubjects}
                 className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold px-6 py-4 text-base h-auto"
@@ -183,7 +183,7 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
                   <div className="text-sm opacity-90">Matérias</div>
                 </div>
               </Button>
-              
+
               <Button
                 onClick={handleViewGeneralReview}
                 variant="outline"

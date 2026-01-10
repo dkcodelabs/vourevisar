@@ -807,11 +807,11 @@ const Subjects = () => {
       <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
 
         {/* Header Outside Card */}
-        <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar pt-0">
+        <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar pt-4">
           <div className="space-y-6 w-full"> {/* Changed space-y-4 to 6 to match Topics */}
 
-            {/* Unified Header Card */}
-            <div className="mt-2 px-4 md:px-6 pt-4 pb-4 mb-4 bg-white rounded-2xl border border-gray-200 shadow-md">
+            {/* Unified Header Card - Sticky at top of scroll container */}
+            <div className="sticky top-0 z-20 px-4 md:px-6 pt-4 pb-4 mb-4 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-md">
               <div className="mb-4">
                 <p className="text-xs text-muted-foreground mt-1">Gerencie suas matérias e acompanhe seu progresso detalhado.</p>
               </div>

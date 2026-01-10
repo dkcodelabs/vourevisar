@@ -134,7 +134,7 @@ export const AppLayout = () => {
       <div className="flex min-h-screen w-full bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
         <AppSidebar />
 
-        <SidebarInset className="flex flex-col flex-1 pb-20 md:pb-6 relative min-w-0">
+        <SidebarInset className="flex flex-col flex-1 pb-20 md:pb-6 relative min-w-0 h-screen overflow-y-auto">
           <CustomSidebarToggle />
 
           {/* Top Navbar */}

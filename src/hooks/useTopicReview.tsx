@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { useStudySessionTracking } from './useStudySessionTracking';
+import { calculateNextReview, formatDateForDB, describeCalculation } from '@/utils/calculateNextReview';
 
 export const useTopicReview = () => {
   const { user } = useAuth();
@@ -149,16 +150,19 @@ export const useTopicReview = () => {
 
       console.log('🔵 Tópico encontrado:', topic);
 
-      // Buscar configurações do usuário
+      // Buscar configurações do usuário (incluindo data_prova_meta)
       const { data: settings, error: settingsError } = await supabase
         .from('user_settings')
-        .select('review_profile')
+        .select('review_profile, data_prova_meta')
         .eq('user_id', user.id)
         .single();
 
       if (settingsError) throw settingsError;
 
       const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
+      const examDate = (settings as any)?.data_prova_meta
+        ? new Date((settings as any).data_prova_meta + 'T00:00:00')
+        : null;
       const { intervals, maxReviews } = REVIEW_PROFILES[profile];
 
       let newReviewCount = topic.review_count + 1;
@@ -178,14 +182,13 @@ export const useTopicReview = () => {
       if (topic.review_count === 0) {
         reviewStage = 'Primeiro Contato';
 
-        // Agendar primeira revisão para 24h (intervals[0])
-        const nextInterval = intervals[0]; // 1 dia (24h)
+        // Primeiro contato SEMPRE usa 24h fixo (sem ajuste de dificuldade)
         const nextReviewDate = new Date();
-        nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
+        nextReviewDate.setDate(nextReviewDate.getDate() + 1); // +1 dia = 24h
         nextReview = nextReviewDate.toISOString();
         completed = false;
 
-        console.log('🔵 Primeiro contato registrado - próxima revisão em', nextInterval, 'dia(s)');
+        console.log('🔵 Primeiro contato registrado - próxima revisão em 24h (fixo)');
       }
       // REVISÕES: review_count >= 1 (já passou do primeiro contato)
       else if (topic.review_count >= 1 && newReviewCount <= intervals.length + 1) {
@@ -204,15 +207,24 @@ export const useTopicReview = () => {
         if (newReviewCount < intervals.length + 1) {
           const nextReviewIndex = newReviewCount - 1;
           const nextInterval = intervals[nextReviewIndex];
-          const nextReviewDate = new Date();
-          nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
-          nextReview = nextReviewDate.toISOString();
+
+          // Usar algoritmo inteligente para calcular próxima data
+          const result = calculateNextReview({
+            today: new Date(),
+            intervalDays: nextInterval,
+            difficulty: difficulty ?? 3,
+            examDate: examDate
+          });
+
+          nextReview = formatDateForDB(result.nextReviewDate);
           completed = false;
 
           console.log('🔵 Revisão registrada:', {
             reviewStage,
             currentInterval,
             nextInterval,
+            calculationResult: describeCalculation(result),
+            wasCompressed: result.wasCompressed,
             currentReviewCount: topic.review_count,
             newReviewCount
           });
@@ -269,6 +281,43 @@ export const useTopicReview = () => {
       if (updateError) throw updateError;
 
       console.log('✅ Tópico atualizado com sucesso:', updatedTopic);
+
+      // Aguardar o trigger criar o registro e depois atualizar a duração
+      const sessionDuration = durationOverride ?? difficultyModalData.duration ?? 0;
+      if (sessionDuration > 0) {
+        try {
+          // Aguardar um pouco para o trigger processar
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // Buscar o registro mais recente criado pelo trigger
+          const { data: latestHistory, error: fetchError } = await supabase
+            .from('topic_review_history')
+            .select('id')
+            .eq('topic_id', topicId)
+            .order('reviewed_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (fetchError) {
+            console.warn("⚠️ Erro ao buscar histórico:", fetchError);
+          } else if (latestHistory) {
+            // Atualizar o registro encontrado com a duração
+            // @ts-ignore - coluna adicionada por migration
+            const { error: updateError } = await supabase
+              .from('topic_review_history')
+              .update({ study_duration_minutes: sessionDuration } as any)
+              .eq('id', latestHistory.id);
+
+            if (updateError) {
+              console.warn("⚠️ Erro ao atualizar duração:", updateError);
+            } else {
+              console.log("✅ Duração atualizada no histórico:", sessionDuration, "min");
+            }
+          }
+        } catch (e) {
+          console.warn("⚠️ Erro no fallback de histórico:", e);
+        }
+      }
       console.log('✅ next_review salvo no banco:', updatedTopic?.next_review);
 
       // Registrar sessão de estudo

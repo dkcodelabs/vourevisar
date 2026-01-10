@@ -254,228 +254,234 @@ const Topics = () => {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
-        {/* Header com Pesquisa e Filtros */}
-        <div className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
-          <div className="mb-4">
-            <p className="text-xs text-muted-foreground mt-1">Visualize e gerencie todos os seus tópicos de estudo</p>
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
-          </div>
-          <div className="flex flex-col gap-3">
-            {/* Campo de Pesquisa e Filtros na mesma linha */}
-            <div className="flex flex-col lg:flex-row gap-3">
-              {/* Campo de Pesquisa */}
-              <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Pesquisar tópicos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-8 py-0.5 w-full bg-transparent border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400 text-sm"
-                />
+      <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden">
+        <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
+          <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 pt-4">
+            <div className="space-y-6">
+              {/* Header com Pesquisa e Filtros - Sticky at top of scroll container */}
+              <div className="sticky top-0 z-20 px-4 md:px-8 pt-6 pb-6 mb-6 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-md">
+                <div className="mb-4">
+                  <p className="text-xs text-muted-foreground mt-1">Visualize e gerencie todos os seus tópicos de estudo</p>
+                  <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {/* Campo de Pesquisa e Filtros na mesma linha */}
+                  <div className="flex flex-col lg:flex-row gap-3">
+                    {/* Campo de Pesquisa */}
+                    <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        placeholder="Pesquisar tópicos..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 h-8 py-0.5 w-full bg-transparent border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400 text-sm"
+                      />
+                    </div>
+
+                    {/* Filtros na mesma linha */}
+                    <div className="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
+                      {/* Subject Filter */}
+                      <div className="w-full sm:w-48">
+                        <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                          <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
+                            <SelectValue placeholder="Disciplina" />
+                          </SelectTrigger>
+                          <SelectContent className="z-50 bg-popover max-w-[calc(100vw-2rem)]">
+                            <SelectItem value="all" className="text-xs">Todas as disciplinas</SelectItem>
+                            {subjects.map((s) => (
+                              <SelectItem key={s.id} value={s.id} className="text-xs whitespace-normal break-words">{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Status Filter */}
+                      <div className="w-full sm:w-40">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                          <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
+                            <SelectValue placeholder="Status" />
+                          </SelectTrigger>
+                          <SelectContent className="z-50 bg-popover">
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="delayed">Atrasados</SelectItem>
+                            <SelectItem value="today">Hoje</SelectItem>
+                            <SelectItem value="upcoming">Futuros</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Difficulty Filter */}
+                      <div className="w-full sm:w-52">
+                        <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                          <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
+                            <SelectValue placeholder="Dificuldade" />
+                          </SelectTrigger>
+                          <SelectContent className="z-50 bg-popover">
+                            <SelectItem value="all">Todas Dificuldades</SelectItem>
+                            <SelectItem value="1">
+                              <div className="flex items-center gap-2">
+                                <Star className="h-4 w-4 fill-green-500 text-green-500" />
+                                <span>1 Estrela ({stats.stars1})</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="2">
+                              <div className="flex items-center gap-2">
+                                <div className="flex">
+                                  <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
+                                  <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
+                                </div>
+                                <span>2 Estrelas ({stats.stars2})</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex">
+                                  <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                                  <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                                  <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                                </div>
+                                <span>3 Estrelas ({stats.stars3})</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="4">
+                              <div className="flex items-center gap-2">
+                                <div className="flex">
+                                  <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                                  <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                                  <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                                  <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
+                                </div>
+                                <span>4 Estrelas ({stats.stars4})</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="5">
+                              <div className="flex items-center gap-2">
+                                <div className="flex">
+                                  <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                                  <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                                  <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                                  <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                                  <Star className="h-4 w-4 fill-red-500 text-red-500" />
+                                </div>
+                                <span>5 Estrelas ({stats.stars5})</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Sort Filter */}
+                      <div className="w-full sm:w-44">
+                        <Select value={sortBy} onValueChange={setSortBy}>
+                          <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
+                            <SelectValue placeholder="Ordenar" />
+                          </SelectTrigger>
+                          <SelectContent className="z-50 bg-popover">
+                            <SelectItem value="date">Data de Revisão</SelectItem>
+                            <SelectItem value="subject">Disciplina</SelectItem>
+                            <SelectItem value="name">Nome</SelectItem>
+                            <SelectItem value="difficulty">Dificuldade</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Filtros na mesma linha */}
-              <div className="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
-                {/* Subject Filter */}
-                <div className="w-full sm:w-48">
-                  <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                    <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
-                      <SelectValue placeholder="Disciplina" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50 bg-popover max-w-[calc(100vw-2rem)]">
-                      <SelectItem value="all" className="text-xs">Todas as disciplinas</SelectItem>
-                      {subjects.map((s) => (
-                        <SelectItem key={s.id} value={s.id} className="text-xs whitespace-normal break-words">{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Status Filter */}
-                <div className="w-full sm:w-40">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50 bg-popover">
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="delayed">Atrasados</SelectItem>
-                      <SelectItem value="today">Hoje</SelectItem>
-                      <SelectItem value="upcoming">Futuros</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Difficulty Filter */}
-                <div className="w-full sm:w-52">
-                  <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                    <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
-                      <SelectValue placeholder="Dificuldade" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50 bg-popover">
-                      <SelectItem value="all">Todas Dificuldades</SelectItem>
-                      <SelectItem value="1">
-                        <div className="flex items-center gap-2">
-                          <Star className="h-4 w-4 fill-green-500 text-green-500" />
-                          <span>1 Estrela ({stats.stars1})</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex">
-                            <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
-                            <Star className="h-4 w-4 fill-lime-500 text-lime-500" />
-                          </div>
-                          <span>2 Estrelas ({stats.stars2})</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex">
-                            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                          </div>
-                          <span>3 Estrelas ({stats.stars3})</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="4">
-                        <div className="flex items-center gap-2">
-                          <div className="flex">
-                            <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
-                            <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
-                            <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
-                            <Star className="h-4 w-4 fill-orange-500 text-orange-500" />
-                          </div>
-                          <span>4 Estrelas ({stats.stars4})</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="5">
-                        <div className="flex items-center gap-2">
-                          <div className="flex">
-                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                            <Star className="h-4 w-4 fill-red-500 text-red-500" />
-                          </div>
-                          <span>5 Estrelas ({stats.stars5})</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Sort Filter */}
-                <div className="w-full sm:w-44">
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="bg-card border-input text-foreground h-8 min-h-0 py-0.5 shadow-sm">
-                      <SelectValue placeholder="Ordenar" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50 bg-popover">
-                      <SelectItem value="date">Data de Revisão</SelectItem>
-                      <SelectItem value="subject">Disciplina</SelectItem>
-                      <SelectItem value="name">Nome</SelectItem>
-                      <SelectItem value="difficulty">Dificuldade</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Topics List */}
-        <div className="pb-8">
-          {filteredAndSortedTopics.length === 0 ? (
-            <Card className="bg-card shadow-sm border">
-              <CardContent className="text-center py-12">
-                <p className="text-muted-foreground mb-4">
-                  {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
-                    ? 'Nenhum tópico encontrado para os filtros aplicados.'
-                    : 'Nenhum tópico cadastrado ainda.'
-                  }
-                </p>
-                {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && subjectFilter === 'all' && (
-                  <Button onClick={() => navigate('/materias')} className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Primeira Matéria
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {/* Table Header - INTEGRATED */}
-                <div className="hidden lg:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
-                  <div className="pl-8">Tópico / Matéria</div>
-                  <div className="text-center">Dificuldade</div>
-                  <div className="text-center">Status</div>
-                  <div className="text-center">Ações</div>
-                </div>
-
-                <div>
-                  {filteredAndSortedTopics.map((topic) => (
-                    <TopicListItem
-                      key={topic.id}
-                      topic={{
-                        ...topic,
-                        subjectName: topic.subjectName,
-                        subjectColor: topic.subjectColor,
-                        nextReview: topic.nextReview ? new Date(topic.nextReview).toISOString() : null,
-                        // Ensure difficulty_level is passed if it exists in topic, else 0
-                        difficulty_level: topic.difficulty_level || 0
-                      }}
-                      onEdit={(id, newName) => {
-                        updateTopic(topic.subjectId, id, { name: newName });
-                      }}
-                      onDelete={(id) => {
-                        const topicToDelete = allTopics.find(t => t.id === id);
-                        if (topicToDelete) {
-                          setDeleteModal({ isOpen: true, topic: topicToDelete });
+              {/* Topics List */}
+              <div className="pb-8">
+                {filteredAndSortedTopics.length === 0 ? (
+                  <Card className="bg-card shadow-sm border">
+                    <CardContent className="text-center py-12">
+                      <p className="text-muted-foreground mb-4">
+                        {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
+                          ? 'Nenhum tópico encontrado para os filtros aplicados.'
+                          : 'Nenhum tópico cadastrado ainda.'
                         }
-                      }}
-                      onOpenNotes={(topicId, topicName, subjectName) => {
-                        setNotesModal({
-                          isOpen: true,
-                          topicId,
-                          topicName,
-                          subjectName
-                        });
-                      }}
-                    />
-                  ))}
-                </div>
+                      </p>
+                      {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && subjectFilter === 'all' && (
+                        <Button onClick={() => navigate('/materias')} className="bg-blue-600 hover:bg-blue-700">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Primeira Matéria
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                      {/* Table Header - INTEGRATED */}
+                      <div className="hidden lg:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                        <div className="pl-8">Tópico / Matéria</div>
+                        <div className="text-center">Dificuldade</div>
+                        <div className="text-center">Status</div>
+                        <div className="text-center">Ações</div>
+                      </div>
+
+                      <div>
+                        {filteredAndSortedTopics.map((topic) => (
+                          <TopicListItem
+                            key={topic.id}
+                            topic={{
+                              ...topic,
+                              subjectName: topic.subjectName,
+                              subjectColor: topic.subjectColor,
+                              nextReview: topic.nextReview ? new Date(topic.nextReview).toISOString() : null,
+                              // Ensure difficulty_level is passed if it exists in topic, else 0
+                              difficulty_level: topic.difficulty_level || 0
+                            }}
+                            onEdit={(id, newName) => {
+                              updateTopic(topic.subjectId, id, { name: newName });
+                            }}
+                            onDelete={(id) => {
+                              const topicToDelete = allTopics.find(t => t.id === id);
+                              if (topicToDelete) {
+                                setDeleteModal({ isOpen: true, topic: topicToDelete });
+                              }
+                            }}
+                            onOpenNotes={(topicId, topicName, subjectName) => {
+                              setNotesModal({
+                                isOpen: true,
+                                topicId,
+                                topicName,
+                                subjectName
+                              });
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-            </>
-          )}
+
+              {/* Modals */}
+              <ConfirmDeleteModal
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ isOpen: false, topic: null })}
+                onConfirm={() => {
+                  if (deleteModal.topic) {
+                    deleteTopic(deleteModal.topic.subjectId, deleteModal.topic.id);
+                    setDeleteModal({ isOpen: false, topic: null });
+                    toast.success("Tópico excluído com sucesso!");
+                  }
+                }}
+                topicName={deleteModal.topic?.name || ''}
+                subjectName={deleteModal.topic?.subjectName || ''}
+              />
+
+              <NotesModal
+                isOpen={notesModal.isOpen}
+                onClose={() => setNotesModal({ isOpen: false, topicId: '', topicName: '', subjectName: '' })}
+                topicId={notesModal.topicId}
+                topicName={notesModal.topicName}
+                subjectName={notesModal.subjectName}
+                showSubjectNotes={false}
+              />
+            </div>
+          </main>
         </div>
-
-        {/* Modals */}
-        <ConfirmDeleteModal
-          isOpen={deleteModal.isOpen}
-          onClose={() => setDeleteModal({ isOpen: false, topic: null })}
-          onConfirm={() => {
-            if (deleteModal.topic) {
-              deleteTopic(deleteModal.topic.subjectId, deleteModal.topic.id);
-              setDeleteModal({ isOpen: false, topic: null });
-              toast.success("Tópico excluído com sucesso!");
-            }
-          }}
-          topicName={deleteModal.topic?.name || ''}
-          subjectName={deleteModal.topic?.subjectName || ''}
-        />
-
-        <NotesModal
-          isOpen={notesModal.isOpen}
-          onClose={() => setNotesModal({ isOpen: false, topicId: '', topicName: '', subjectName: '' })}
-          topicId={notesModal.topicId}
-          topicName={notesModal.topicName}
-          subjectName={notesModal.subjectName}
-          showSubjectNotes={false}
-        />
       </div>
     </TooltipProvider>
   );

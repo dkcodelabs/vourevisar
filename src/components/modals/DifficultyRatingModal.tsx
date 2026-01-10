@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
@@ -106,11 +107,12 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
             </motion.div>
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
               {reviewCount ? (
-                reviewCount === 1 ? '1ª Revisão' :
-                  reviewCount === 2 ? '2ª Revisão' :
-                    reviewCount === 3 ? '3ª Revisão' :
-                      reviewCount === 4 ? '4ª Revisão' :
-                        isCompleting ? 'Tópico Concluído' : 'Revisar Tópico'
+                reviewCount === 1 ? '1º Estudo' :
+                  reviewCount === 2 ? '1ª Revisão' :
+                    reviewCount === 3 ? '2ª Revisão' :
+                      reviewCount === 4 ? '3ª Revisão' :
+                        reviewCount === 5 ? '4ª Revisão' :
+                          isCompleting ? 'Tópico Concluído' : 'Revisar Tópico'
               ) : (
                 initialDifficulty !== null ? 'Avaliar Dificuldade' : 'Tópico Concluído'
               )}

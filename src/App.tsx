@@ -23,7 +23,7 @@ import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
 import StudyCycle from "@/pages/StudyCycle";
 import Gerenciamento from "@/pages/Gerenciamento";
-import ReferenceView from "@/pages/reference/ReferenceView";
+
 import { AuthCallback } from "@/components/AuthCallback";
 import { SimpleRoleTest } from "@/components/SimpleRoleTest";
 
@@ -84,7 +84,7 @@ const App = () => {
                         <Route path="test-roles" element={<SimpleRoleTest />} />
                         <Route path="perfil" element={<Profile />} />
                         <Route path="configuracoes" element={<Settings />} />
-                        <Route path="modelo-referencia" element={<ReferenceView />} />
+
                       </Route>
                     </Route>
                     <Route path="*" element={<NotFound />} />

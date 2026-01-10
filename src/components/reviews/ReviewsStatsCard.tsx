@@ -1,5 +1,4 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import {
     BookOpen,
     AlertCircle,
@@ -15,8 +14,10 @@ interface ReviewsStatsCardProps {
     totalTopics: number;
     totalScheduledReviews: number;
     startedTopicsCount: number;
-    startedReviews: number;
+    completedTopicsCount: number;
     completedReviews: number;
+    pendingReviews: number;
+    notStartedReviews: number;
     overdue: number;
     today: number;
     future: number;
@@ -53,8 +54,10 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
     totalTopics,
     totalScheduledReviews,
     startedTopicsCount,
-    startedReviews,
+    completedTopicsCount,
     completedReviews,
+    pendingReviews,
+    notStartedReviews,
     overdue,
     today,
     future,
@@ -64,75 +67,76 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
 }) => {
     const profileColors = PROFILE_COLORS[reviewProfile];
 
-    // Percentages for stacked bar
-    const startedPercentage = totalScheduledReviews > 0
-        ? Math.min(100, (startedReviews / totalScheduledReviews) * 100)
-        : 0;
+    // Percentuais para barra de 3 cores
     const completedPercentage = totalScheduledReviews > 0
         ? Math.min(100, (completedReviews / totalScheduledReviews) * 100)
         : 0;
-
-    const pendingTotal = overdue + today + future;
+    const pendingPercentage = totalScheduledReviews > 0
+        ? Math.min(100, (pendingReviews / totalScheduledReviews) * 100)
+        : 0;
+    const notStartedPercentage = totalScheduledReviews > 0
+        ? Math.min(100, (notStartedReviews / totalScheduledReviews) * 100)
+        : 0;
 
     return (
-        <Card className={`border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 overflow-hidden flex flex-col ${className}`}>
-            <CardContent className="p-4 md:p-6 h-full flex flex-col justify-between gap-4 md:gap-6">
+        <div className={`border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 rounded-2xl overflow-hidden flex flex-col h-full ${className}`}>
+            <div className="p-5 h-full flex flex-col">
 
-                {/* Top Section */}
-                <div className="space-y-6">
-                    {/* Header: Perfil do Usuário */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${profileColors.bg}`}>
-                                <User className={`w-5 h-5 ${profileColors.text}`} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-medium">Perfil</p>
-                                <p className={`text-base font-bold ${profileColors.text}`}>
-                                    {PROFILE_LABELS[reviewProfile]}
-                                </p>
-                            </div>
+                {/* Header: Perfil do Usuário - Estrutura igual aos outros cards */}
+                <div className="flex items-center justify-between mb-4 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                        <div className={`p-2 rounded-lg ${profileColors.bg} shrink-0`}>
+                            <User className={`w-4 h-4 ${profileColors.text}`} />
                         </div>
-                        <div className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${profileColors.bg} ${profileColors.text} border ${profileColors.border}`}>
-                            {maxReviews} revisões/tópico
+                        <div className="min-w-0">
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Perfil</p>
+                            <p className={`text-[10px] font-medium ${profileColors.text}`}>
+                                {PROFILE_LABELS[reviewProfile]}
+                            </p>
                         </div>
                     </div>
+                    <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${profileColors.bg} ${profileColors.text} border ${profileColors.border}`}>
+                        {maxReviews} revisões/tópico
+                    </div>
+                </div>
 
-                    {/* Stacked Progress Bar */}
+                {/* Content */}
+                <div className="flex-1 space-y-4">
                     <div>
                         <div className="flex items-center gap-2 mb-3">
                             <Target className="w-4 h-4 text-slate-500" />
                             <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Progresso de Revisões</span>
                         </div>
 
-                        {/* Stacked Bar Container */}
-                        <div className="relative w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                            {/* Blue bar: Iniciadas */}
+                        {/* Barra de 3 cores empilhadas */}
+                        <div className="relative w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
+                            {/* Cinza (Não iniciadas) - toda a barra como fundo */}
+                            {/* Azul (Pendentes) - parcial */}
                             <div
-                                className="absolute inset-y-0 left-0 bg-blue-500 dark:bg-blue-600 transition-all duration-500"
-                                style={{ width: `${startedPercentage}%` }}
+                                className="absolute inset-y-0 left-0 bg-blue-400 dark:bg-blue-500 transition-all duration-500"
+                                style={{ width: `${completedPercentage + pendingPercentage}%` }}
                             />
-                            {/* Green bar: Concluídas */}
+                            {/* Verde (Feitas) - por cima */}
                             <div
                                 className="absolute inset-y-0 left-0 bg-emerald-500 dark:bg-emerald-500 transition-all duration-500"
                                 style={{ width: `${completedPercentage}%` }}
                             />
                         </div>
 
-                        {/* Legend */}
+                        {/* Legenda */}
                         <div className="flex flex-wrap items-center justify-between mt-3 text-[10px] md:text-[11px] gap-y-2">
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700 ring-1 ring-slate-300 dark:ring-slate-600" />
-                                    <span className="text-slate-500">Total: {totalScheduledReviews}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                    <span className="text-blue-700 dark:text-blue-400 font-medium whitespace-nowrap">Iniciadas: {startedReviews}</span>
-                                </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                                     <span className="text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Feitas: {completedReviews}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-blue-400" />
+                                    <span className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">Pendentes: {pendingReviews}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                                    <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">Não inic.: {notStartedReviews}</span>
                                 </div>
                             </div>
                         </div>
@@ -142,17 +146,17 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                     <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-2.5">
                             <div className="p-1.5 bg-white dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 shadow-sm">
-                                <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             </div>
-                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Cobertura do Edital</span>
+                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Tópicos Completos</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                {startedTopicsCount} <span className="text-slate-400 text-xs font-normal">/ {totalTopics}</span>
+                                {completedTopicsCount} <span className="text-slate-400 text-xs font-normal">/ {totalTopics}</span>
                             </span>
                             {totalTopics > 0 && (
                                 <div className="px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold rounded-md border border-indigo-200 dark:border-indigo-800">
-                                    {Math.round((startedTopicsCount / totalTopics) * 100)}%
+                                    {Math.round((completedTopicsCount / totalTopics) * 100)}%
                                 </div>
                             )}
                         </div>
@@ -197,12 +201,12 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                     <div className="pt-2 text-center border-t border-slate-100 dark:border-slate-800">
                         <div className="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-full">
                             <BookOpen className="w-3.5 h-3.5" />
-                            <span><strong className="text-slate-700 dark:text-slate-200 font-bold">{pendingTotal}</strong> revisões pendentes</span>
+                            <span><strong className="text-slate-700 dark:text-slate-200 font-bold">{pendingReviews}</strong> revisões pendentes</span>
                         </div>
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 };
 
