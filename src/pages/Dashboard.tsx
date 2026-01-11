@@ -16,8 +16,11 @@ import { KeyMetricsGrid } from '@/components/dashboard-v2/KeyMetricsGrid';
 import { DashboardCalendar } from '@/components/dashboard-v2/DashboardCalendar';
 import { DashboardStatsCard } from '@/components/dashboard-v2/DashboardStatsCard';
 import { DashboardInsights } from '@/components/dashboard-v2/DashboardInsights';
+import { ReviewByTypeCard } from '@/components/dashboard-v2/ReviewByTypeCard';
+import { ReviewForecastCard } from '@/components/dashboard-v2/ReviewForecastCard';
 
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useDynamicCapacity } from '@/hooks/useDynamicCapacity';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
 
 const Dashboard = () => {
@@ -70,6 +73,9 @@ const Dashboard = () => {
     subjects,
     reviewData || []
   );
+
+  // Capacidade Dinâmica (Baseada no histórico)
+  const dynamicCapacity = useDynamicCapacity(reviewData || [], 5);
 
   // Cálculos para cards do topo (KeyMetrics)
   const totalTopics = subjects.reduce((total, subject) => total + subject.topics.length, 0);
@@ -151,21 +157,30 @@ const Dashboard = () => {
             <DashboardInsights />
 
             {/* 3. Área Principal: Calendário e Estatísticas */}
+            {/* 3. Área Principal: Calendário e Estatísticas */}
             <div className="grid grid-cols-1 lg:grid-cols-[1.5fr,1fr] gap-6 items-start">
+              {/* Coluna Principal (Esquerda) */}
               <div className="h-full">
-                <DashboardCalendar
+                <ReviewForecastCard
                   subjects={subjects}
-                  reviewData={reviewData}
-                  onDayClick={(date) => setSelectedCalendarDate(date)}
+                  dailyCapacity={dynamicCapacity}
                   className="h-full min-h-[500px]"
                 />
               </div>
 
-              <div className="h-full">
+              {/* Coluna Lateral (Direita) */}
+              <div className="flex flex-col gap-6">
+                <DashboardCalendar
+                  subjects={subjects}
+                  reviewData={reviewData}
+                  onDayClick={(date) => setSelectedCalendarDate(date)}
+                  className="min-h-[400px]"
+                />
                 <DashboardStatsCard
                   stats={dashboardStats}
-                  className="h-full min-h-[500px]"
+                  className="min-h-[400px]"
                 />
+                <ReviewByTypeCard subjects={subjects} />
               </div>
             </div>
 
