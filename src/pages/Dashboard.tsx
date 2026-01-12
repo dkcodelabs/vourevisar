@@ -156,31 +156,35 @@ const Dashboard = () => {
             {/* 2. Insights Rápidos (New Section) */}
             <DashboardInsights />
 
-            {/* 3. Área Principal: Calendário e Estatísticas */}
-            {/* 3. Área Principal: Calendário e Estatísticas */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1.5fr,1fr] gap-6 items-start">
-              {/* Coluna Principal (Esquerda) */}
-              <div className="h-full">
+
+            {/* 3. Área Principal: Calendário e Estatísticas (Layout Simétrico) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              {/* Coluna Esquerda */}
+              <div className="flex flex-col gap-6">
+                {/* Raio‑X das Revisões */}
                 <ReviewForecastCard
                   subjects={subjects}
                   dailyCapacity={dynamicCapacity}
-                  className="h-full min-h-[500px]"
+                  className="h-full min-h-[400px]"
                 />
+                {/* Distribuição por Tipo */}
+                <ReviewByTypeCard subjects={subjects} />
               </div>
 
-              {/* Coluna Lateral (Direita) */}
+              {/* Coluna Direita */}
               <div className="flex flex-col gap-6">
+                {/* Calendário */}
                 <DashboardCalendar
                   subjects={subjects}
                   reviewData={reviewData}
                   onDayClick={(date) => setSelectedCalendarDate(date)}
                   className="min-h-[400px]"
                 />
+                {/* Estatísticas Gerais */}
                 <DashboardStatsCard
                   stats={dashboardStats}
                   className="min-h-[400px]"
                 />
-                <ReviewByTypeCard subjects={subjects} />
               </div>
             </div>
 
