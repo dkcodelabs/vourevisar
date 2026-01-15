@@ -443,6 +443,15 @@ export const useTopicReview = () => {
       await refreshData();
 
       // Disparar evento para atualizar estatísticas imediatamente com detalhes específicos
+      window.dispatchEvent(new CustomEvent('topicUpdated', {
+        detail: {
+          action: 'update',
+          subjectId: topic.subject_id,
+          topicId,
+          source: 'topicReview'
+        }
+      }));
+
       window.dispatchEvent(new CustomEvent('cycleUpdated', {
         detail: {
           source: 'topicReview',

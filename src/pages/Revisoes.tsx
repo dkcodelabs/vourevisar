@@ -114,7 +114,7 @@ export const Revisoes = () => {
   const maxReviews = profileInfo?.maxReviews || 3;
 
   // Fetch review history for weekly engagement chart
-  const { data: reviewData } = useQuery({
+  const { data: reviewData, refetch: refetchHistory } = useQuery({
     queryKey: ['reviews-page-history', user?.id],
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
@@ -150,6 +150,17 @@ export const Revisoes = () => {
     },
     enabled: !!user
   });
+
+  // Listen for topic updates to refresh history
+  useEffect(() => {
+    const handleTopicUpdate = () => {
+      console.log('🔄 Refetching history due to topic update');
+      refetchHistory();
+    };
+
+    window.addEventListener('topicUpdated', handleTopicUpdate);
+    return () => window.removeEventListener('topicUpdated', handleTopicUpdate);
+  }, [refetchHistory]);
 
   // State
   const [activeTab, setActiveTab] = useState<ViewTab>('FOCUS');
@@ -1293,7 +1304,6 @@ export const Revisoes = () => {
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
         duration={difficultyModalData.duration}
-        topicId={difficultyModalData.topicId}
       />
 
       {/* Modal de Informação sobre Repetição Espaçada */}

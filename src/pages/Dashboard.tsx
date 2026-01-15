@@ -16,7 +16,6 @@ import { KeyMetricsGrid } from '@/components/dashboard-v2/KeyMetricsGrid';
 import { DashboardCalendar } from '@/components/dashboard-v2/DashboardCalendar';
 import { DashboardStatsCard } from '@/components/dashboard-v2/DashboardStatsCard';
 import { DashboardInsights } from '@/components/dashboard-v2/DashboardInsights';
-import { ReviewByTypeCard } from '@/components/dashboard-v2/ReviewByTypeCard';
 import { ReviewForecastCard } from '@/components/dashboard-v2/ReviewForecastCard';
 
 import { useDashboardStats } from '@/hooks/useDashboardStats';
@@ -165,25 +164,21 @@ const Dashboard = () => {
                 <ReviewForecastCard
                   subjects={subjects}
                   dailyCapacity={dynamicCapacity}
-                  className="h-full min-h-[400px]"
+                  className="h-full"
                 />
-                {/* Distribuição por Tipo */}
-                <ReviewByTypeCard subjects={subjects} />
               </div>
 
               {/* Coluna Direita */}
               <div className="flex flex-col gap-6">
-                {/* Calendário */}
+                {/* Calendário - compacto */}
                 <DashboardCalendar
                   subjects={subjects}
                   reviewData={reviewData}
                   onDayClick={(date) => setSelectedCalendarDate(date)}
-                  className="min-h-[400px]"
                 />
                 {/* Estatísticas Gerais */}
                 <DashboardStatsCard
                   stats={dashboardStats}
-                  className="min-h-[400px]"
                 />
               </div>
             </div>

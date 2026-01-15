@@ -27,7 +27,7 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
     const completedPercentage = totalPending > 0 ? 0 : 100; // 0% when there are pending reviews
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {/* Card 1: Revisões Pendentes - Redesigned */}
             <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
@@ -90,18 +90,18 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
                 </CardContent>
             </Card>
 
-            {/* Card 2: Progresso (Tópicos e Matérias) */}
+            {/* Card 2: Progresso & Consistência (Merged) */}
             <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full -mr-12 -mt-12 blur-2xl"></div>
-                <CardContent className="p-6 relative z-10">
+                <CardContent className="p-5 relative z-10">
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Progresso Geral</p>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Progresso & Consistência</p>
                         <div className="p-2 bg-indigo-500/10 rounded-xl">
                             <CheckCircle2 className="w-5 h-5 text-indigo-600" />
                         </div>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {/* Tópicos */}
                         <div>
                             <div className="flex justify-between items-end mb-1">
@@ -112,7 +112,7 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
                             </div>
                             <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                                 <div
-                                    className="bg-indigo-500 h-full rounded-full"
+                                    className="bg-indigo-500 h-full rounded-full transition-all duration-500"
                                     style={{ width: `${progress.topics.percentage}%` }}
                                 ></div>
                             </div>
@@ -128,32 +128,27 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
                             </div>
                             <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                                 <div
-                                    className="bg-purple-500 h-full rounded-full"
+                                    className="bg-purple-500 h-full rounded-full transition-all duration-500"
                                     style={{ width: `${progress.subjects.percentage}%` }}
                                 ></div>
                             </div>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
 
-            {/* Card 3: Dias de Estudo */}
-            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full -mr-12 -mt-12 blur-2xl"></div>
-                <CardContent className="p-6 flex items-start justify-between relative z-10">
-                    <div>
-                        <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">Dias de Estudo</p>
-                        <div className="flex items-baseline gap-2">
-                            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
-                                {activeDays.current} <span className="text-lg text-slate-400 font-normal">/ {activeDays.total}</span>
-                            </h3>
+                        {/* Dias de Estudo - inline */}
+                        <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2">
+                                <CalendarDays className="w-4 h-4 text-emerald-500" />
+                                <span className="text-xs text-slate-500">Dias Ativos</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                                    {activeDays.current}/{activeDays.total}
+                                </span>
+                                <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
+                                    {Math.round((activeDays.current / activeDays.total) * 100)}%
+                                </span>
+                            </div>
                         </div>
-                        <p className="text-xs text-emerald-600 mt-2 font-medium bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full inline-block">
-                            {Math.round((activeDays.current / activeDays.total) * 100)}% do mês
-                        </p>
-                    </div>
-                    <div className="p-3 bg-emerald-500/10 rounded-xl">
-                        <CalendarDays className="w-6 h-6 text-emerald-600" />
                     </div>
                 </CardContent>
             </Card>

@@ -156,40 +156,41 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, c
                 <div className="space-y-4">
                     {viewMode === 'month' ? (
                         <>
-                            {/* Aba Mês */}
+                            {/* Aba Mês - Todas as linhas com estilo uniforme */}
                             {/* 1. Tópicos Iniciados */}
-                            <div className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-100 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                        <span className="text-lg">📚</span>
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-700">Tópicos Iniciados</span>
+                            <div className="flex items-center justify-between p-2 px-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-base">📚</span>
+                                    <span className="text-xs font-medium text-slate-600">Tópicos Iniciados</span>
                                 </div>
-                                <span className="text-lg font-bold text-slate-900">{monthStats.firstContacts}</span>
+                                <span className="text-sm font-bold text-blue-600">{monthStats.firstContacts}</span>
                             </div>
 
-                            {/* 2. Revisões Realizadas */}
-                            <div className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-100 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-green-50 text-green-600 rounded-lg">
-                                        <CheckCircle2 className="h-5 w-5" />
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-700">Revisões Feitas</span>
+                            {/* 2. Revisões Feitas */}
+                            <div className="flex items-center justify-between p-2 px-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    <span className="text-xs font-medium text-slate-600">Revisões Feitas</span>
                                 </div>
-                                <span className="text-lg font-bold text-slate-900">{monthStats.reviewsCompleted}</span>
+                                <span className="text-sm font-bold text-green-600">{monthStats.reviewsCompleted}</span>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                                {/* 3. Revisões para Hoje */}
-                                <div className="flex flex-col p-3 bg-yellow-50/50 rounded-xl border border-yellow-100">
-                                    <span className="text-xs text-yellow-700 font-medium mb-1">Para Hoje</span>
-                                    <span className="text-xl font-bold text-yellow-700">{monthStats.todayReviewCount}</span>
+                            {/* 3. Revisões para Hoje */}
+                            <div className="flex items-center justify-between p-2 px-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <CalendarDays className="h-4 w-4 text-yellow-500" />
+                                    <span className="text-xs font-medium text-slate-600">Para Hoje</span>
                                 </div>
-                                {/* 4. Revisões Atrasadas */}
-                                <div className="flex flex-col p-3 bg-red-50/50 rounded-xl border border-red-100">
-                                    <span className="text-xs text-red-700 font-medium mb-1">Atrasadas</span>
-                                    <span className="text-xl font-bold text-red-700">{monthStats.overdueCount}</span>
+                                <span className="text-sm font-bold text-yellow-600">{monthStats.todayReviewCount}</span>
+                            </div>
+
+                            {/* 4. Revisões Atrasadas */}
+                            <div className="flex items-center justify-between p-2 px-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle className="h-4 w-4 text-red-500" />
+                                    <span className="text-xs font-medium text-slate-600">Atrasadas</span>
                                 </div>
+                                <span className="text-sm font-bold text-red-600">{monthStats.overdueCount}</span>
                             </div>
 
                             {/* 5. Revisões Futuras */}
@@ -221,38 +222,32 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, c
                         </>
                     ) : (
                         <>
-                            {/* Aba Geral */}
+                            {/* Aba Geral - Todas as linhas com estilo uniforme */}
                             {/* 1. Tópicos Iniciados */}
-                            <div className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-100 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                        <span className="text-lg">📚</span>
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-700">Total Tópicos</span>
+                            <div className="flex items-center justify-between p-2 px-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-base">📚</span>
+                                    <span className="text-xs font-medium text-slate-600">Total Tópicos</span>
                                 </div>
-                                <span className="text-lg font-bold text-slate-900">{allTimeStats.firstContacts}</span>
+                                <span className="text-sm font-bold text-blue-600">{allTimeStats.firstContacts}</span>
                             </div>
 
                             {/* 2. Revisões Realizadas */}
-                            <div className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-100 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-green-50 text-green-600 rounded-lg">
-                                        <CheckCircle2 className="h-5 w-5" />
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-700">Total Revisões</span>
+                            <div className="flex items-center justify-between p-2 px-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    <span className="text-xs font-medium text-slate-600">Total Revisões</span>
                                 </div>
-                                <span className="text-lg font-bold text-slate-900">{allTimeStats.reviewsCompleted}</span>
+                                <span className="text-sm font-bold text-green-600">{allTimeStats.reviewsCompleted}</span>
                             </div>
 
                             {/* 3. Média diária */}
-                            <div className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-100 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-                                        <span className="text-lg">📈</span>
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-700">Média Diária</span>
+                            <div className="flex items-center justify-between p-2 px-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <TrendingUp className="h-4 w-4 text-purple-500" />
+                                    <span className="text-xs font-medium text-slate-600">Média Diária</span>
                                 </div>
-                                <span className="text-lg font-bold text-slate-900">
+                                <span className="text-sm font-bold text-purple-600">
                                     {allTimeStats.totalActiveDays === 0
                                         ? '0'
                                         : Math.round((allTimeStats.firstContacts + allTimeStats.reviewsCompleted) / allTimeStats.totalActiveDays)
@@ -261,9 +256,9 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, c
                             </div>
 
                             {/* 4. Revisões Atrasadas */}
-                            <div className="flex items-center justify-between p-2 px-3 hover:bg-slate-50 rounded-lg transition-colors mt-2">
+                            <div className="flex items-center justify-between p-2 px-3 hover:bg-slate-50 rounded-lg transition-colors">
                                 <div className="flex items-center gap-2">
-                                    <AlertCircle className="h-4 w-4 text-red-600" />
+                                    <AlertCircle className="h-4 w-4 text-red-500" />
                                     <span className="text-xs font-medium text-slate-600">Revisões Atrasadas</span>
                                 </div>
                                 <span className="text-sm font-bold text-red-600">{allTimeStats.overdueCount}</span>
