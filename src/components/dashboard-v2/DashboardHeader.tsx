@@ -1,7 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sparkles } from 'lucide-react';
-import { ExamCountdown } from './ExamCountdown';
 
 export const DashboardHeader = ({ subjectsCount = 0 }: { subjectsCount?: number }) => {
     const { user } = useAuth();
@@ -16,7 +15,7 @@ export const DashboardHeader = ({ subjectsCount = 0 }: { subjectsCount?: number 
 
     return (
         <div className="flex flex-col gap-6 mb-8">
-            {/* Linha 1: Saudação */}
+            {/* Saudação */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 transition-all">
@@ -38,13 +37,6 @@ export const DashboardHeader = ({ subjectsCount = 0 }: { subjectsCount?: number 
                     </p>
                 </div>
             </div>
-
-            {/* Linha 2: Contagem regressiva da prova - só aparece se tiver matérias */}
-            {subjectsCount > 0 && (
-                <div className="max-w-sm">
-                    <ExamCountdown />
-                </div>
-            )}
         </div>
     );
 };

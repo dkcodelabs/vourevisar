@@ -598,7 +598,7 @@ export const Revisoes = () => {
       <div className="flex-1 flex flex-col relative">
 
         {/* Header Section with Chart and Stats Card */}
-        <div className="mt-[15px] mb-4 shrink-0">
+        <div className="mt-[15px] mb-4 shrink-0 px-4 md:px-8">
           {/* Toggle Button */}
           <div className="flex items-center justify-between mb-3 px-1">
             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -774,48 +774,14 @@ export const Revisoes = () => {
             </>
           )}
         </div>
-        {
-          (searchTerm || reviewStageFilter !== 'all') && (
-            <div className="mb-6 flex justify-between items-center bg-amber-50/50 dark:bg-slate-900 p-3 rounded-lg border border-amber-100 dark:border-amber-500/20 shadow-sm">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-                <div className="p-1.5 bg-amber-100 dark:bg-amber-500/10 rounded-full">
-                  <AlertCircle size={14} className="text-amber-600 dark:text-amber-400" />
-                </div>
-                <span className="text-xs font-medium">
-                  {searchTerm && `Pesquisando por "${searchTerm}"`}
-                  {searchTerm && reviewStageFilter !== 'all' && ' • '}
-                  {reviewStageFilter !== 'all' && `Filtrando por ${reviewStageFilter}ª Revisão`}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-xs text-amber-600 dark:text-amber-400/80 flex flex-col items-end">
-                  <span>Encontrados {Object.values(groupedItems).reduce((acc, curr) => acc + curr.length, 0)} tópicos</span>
-                  <span className="text-[10px] text-amber-500 dark:text-amber-500/60">
-                    Mostrando top 50
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setReviewStageFilter('all');
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-amber-200 dark:border-slate-700 shadow-sm rounded-md text-xs font-medium text-amber-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors"
-                  title="Limpar e mostrar tudo"
-                >
-                  <X size={14} />
-                  Limpar
-                </button>
-              </div>
-            </div>
-          )
-        }
+
 
         {/* Divider Line */}
         <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 dark:via-slate-600 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] mb-0 shrink-0"></div>
 
         {/* Global Toolbar - Sticky below header */}
-        <div className="sticky top-16 z-20 bg-white dark:bg-slate-950 px-4 md:px-8 py-3 shrink-0 shadow-sm">
-          <section className="flex flex-wrap items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md">
+        <div className="sticky top-14 z-20 bg-transparent px-4 md:px-8 py-2 shrink-0 transition-all">
+          <section className="w-full flex flex-wrap items-center gap-4 bg-white dark:bg-slate-900 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md transition-all">
             {/* 1. Botão Recolher/Expandir (SÓ ÍCONE) */}
             <button
               onClick={handleToggleAll}
@@ -842,8 +808,17 @@ export const Revisoes = () => {
                 placeholder="Pesquisar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
               />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                  title="Limpar pesquisa"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
             {/* 3. Abas Principais Migradas */}
@@ -940,10 +915,69 @@ export const Revisoes = () => {
               </div>
             </div>
           </section>
+
+          {/* Search Notification - Now below toolbar inside sticky container */}
+          {
+            (searchTerm || reviewStageFilter !== 'all') && (
+              <div className="mt-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex justify-between items-center bg-amber-50/90 dark:bg-slate-900/90 backdrop-blur-sm p-3 rounded-2xl border border-amber-200/60 dark:border-amber-500/20 shadow-sm">
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400">
+                    <div className="p-1.5 bg-amber-100 dark:bg-amber-500/10 rounded-full">
+                      <AlertCircle size={14} className="text-amber-700 dark:text-amber-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold">
+                        {searchTerm ? (
+                          <>
+                            {`Pesquisando por "${searchTerm}"`}
+                            {` em ${activeTab === 'FOCUS' ? 'Hoje & Atrasadas' :
+                              activeTab === 'FUTURE' ? 'Futuras' :
+                                activeTab === 'COMPLETED' ? 'Concluídas' :
+                                  activeTab === 'SUBJECTS' ? 'Matérias' :
+                                    'Todas'
+                              }`
+                            }
+                            {reviewStageFilter !== 'all' && <span className="text-amber-600 dark:text-amber-500 ml-1">• Ciclo R{reviewStageFilter}</span>}
+                          </>
+                        ) : (
+                          <>
+                            {reviewStageFilter !== 'all'
+                              ? `Filtrando por Ciclo R${reviewStageFilter}`
+                              : `Visualizando ${activeTab === 'FOCUS' ? 'Hoje & Atrasadas' :
+                                activeTab === 'FUTURE' ? 'Futuras' :
+                                  activeTab === 'COMPLETED' ? 'Concluídas' :
+                                    activeTab === 'SUBJECTS' ? 'Matérias' :
+                                      'Todas'
+                              }`
+                            }
+                          </>
+                        )}
+                      </span>
+                      <span className="text-[10px] opacity-70">
+                        Encontrados {Object.values(groupedItems).reduce((acc, curr) => acc + curr.length, 0)} tópicos
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setReviewStageFilter('all');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-amber-200 dark:border-slate-700 shadow-sm rounded-xl text-[10px] font-bold text-amber-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-slate-700 transition-all"
+                  >
+                    <X size={12} />
+                    Limpar
+                  </button>
+                </div>
+              </div>
+            )
+          }
         </div>
 
         {/* Scrollable Content */}
-        <main className="flex-1 lg:overflow-y-auto p-4 md:p-8 custom-scrollbar mr-1 shrink-0 pb-24 lg:pb-8 space-y-6">
+        {/* Scrollable Content */}
+        {/* Scrollable Content */}
+        <main className="flex-1 px-4 md:px-8 pt-2 mr-1 shrink-0 pb-24 lg:pb-8 space-y-6">
 
           {Object.values(groupedItems).reduce((acc, curr) => acc + curr.length, 0) === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-20 px-4">

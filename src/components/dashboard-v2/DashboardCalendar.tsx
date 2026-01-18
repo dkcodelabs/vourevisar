@@ -11,6 +11,7 @@ interface DashboardCalendarProps {
     subjects: Subject[];
     reviewData?: any[];
     onDayClick?: (date: Date) => void;
+    onMonthChange?: (date: Date) => void;
     className?: string;
 }
 
@@ -18,6 +19,7 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     subjects,
     reviewData = [],
     onDayClick,
+    onMonthChange,
     className
 }) => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -72,7 +74,9 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     };
 
     const navigateMonth = (direction: 'prev' | 'next') => {
-        setCurrentMonth(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
+        const newMonth = direction === 'prev' ? subMonths(currentMonth, 1) : addMonths(currentMonth, 1);
+        setCurrentMonth(newMonth);
+        onMonthChange?.(newMonth);
     };
 
     return (

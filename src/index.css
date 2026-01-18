@@ -113,6 +113,8 @@
     text-size-adjust: 100%;
     /* Smooth scrolling */
     scroll-behavior: smooth;
+    /* Prevent layout shift */
+    scrollbar-gutter: stable;
     /* Font smoothing */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
