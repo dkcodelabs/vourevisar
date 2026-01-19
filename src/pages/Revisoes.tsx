@@ -60,17 +60,12 @@ interface ActiveTimer {
 
 const DifficultyStars = ({ rating }: { rating: number }) => {
   return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          size={12}
-          className={`${star <= rating
-            ? 'fill-amber-400 text-amber-400'
-            : 'fill-slate-200 dark:fill-slate-700 text-slate-200 dark:text-slate-700'
-            }`}
-        />
-      ))}
+    <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-200">
+      <span className="text-sm">{rating}</span>
+      <Star
+        size={14}
+        className="fill-amber-400 text-amber-400"
+      />
     </div>
   );
 };
@@ -719,7 +714,7 @@ export const Revisoes = () => {
                 </div>
 
                 {/* Middle: Weekly Engagement Chart */}
-                <div className="hidden lg:block">
+                <div className="h-full">
                   <WeeklyEngagementChart
                     reviewData={reviewData || []}
                     subjects={subjects}
@@ -727,7 +722,7 @@ export const Revisoes = () => {
                 </div>
 
                 {/* Right: Stats Card */}
-                <div className="hidden lg:block h-full">
+                <div className="h-full">
                   <ReviewsStatsCard
                     totalTopics={stats.totalTopics}
                     totalScheduledReviews={stats.totalScheduledReviews}
@@ -746,31 +741,6 @@ export const Revisoes = () => {
                 </div>
               </div>
 
-              {/* Mobile Stats Card */}
-              <div className="lg:hidden mt-4">
-                <ReviewsStatsCard
-                  totalTopics={stats.totalTopics}
-                  totalScheduledReviews={stats.totalScheduledReviews}
-                  startedTopicsCount={stats.startedTopicsCount}
-                  completedTopicsCount={stats.completedTopicsCount}
-                  completedReviews={stats.completedReviews}
-                  pendingReviews={stats.pendingReviews}
-                  notStartedReviews={stats.notStartedReviews}
-                  overdue={stats.overdue}
-                  today={stats.today}
-                  future={stats.future}
-                  reviewProfile={userProfile}
-                  maxReviews={maxReviews}
-                />
-              </div>
-
-              {/* Mobile Weekly Chart */}
-              <div className="lg:hidden mt-4">
-                <WeeklyEngagementChart
-                  reviewData={reviewData || []}
-                  subjects={subjects}
-                />
-              </div>
             </>
           )}
         </div>
@@ -781,7 +751,7 @@ export const Revisoes = () => {
 
         {/* Global Toolbar - Sticky below header */}
         <div className="sticky top-14 z-20 bg-transparent px-4 md:px-8 py-2 shrink-0 transition-all">
-          <section className="w-full flex flex-wrap items-center gap-4 bg-white dark:bg-slate-900 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md transition-all">
+          <section className="w-full flex flex-wrap items-center gap-2 md:gap-4 bg-white dark:bg-slate-900 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md transition-all">
             {/* 1. Botão Recolher/Expandir (SÓ ÍCONE) */}
             <button
               onClick={handleToggleAll}
@@ -801,7 +771,7 @@ export const Revisoes = () => {
             </button>
 
             {/* 2. Campo de Pesquisa Integrado */}
-            <div className="flex-1 min-w-[200px] relative group">
+            <div className="order-last md:order-none w-full md:w-auto md:flex-1 min-w-[200px] relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors w-4 h-4" />
               <input
                 type="text"
@@ -822,7 +792,7 @@ export const Revisoes = () => {
             </div>
 
             {/* 3. Abas Principais Migradas */}
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1 max-w-full">
               {/* Todas */}
               <button
                 onClick={() => {
@@ -886,7 +856,7 @@ export const Revisoes = () => {
               </button>
             </div>
 
-            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+            <div className="hidden md:block h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
 
             {/* 4. Botão Agrupar por Matéria */}
             <button
@@ -894,14 +864,15 @@ export const Revisoes = () => {
               className={`flex items-center gap-2 px-4 py-2 border rounded-xl transition-all text-xs font-bold whitespace-nowrap ${activeTab === 'SUBJECTS' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
             >
               <Layers size={16} />
-              <span>Agrupar por Matéria</span>
+              <span className="hidden sm:inline">Agrupar por Matéria</span>
+              <span className="sm:hidden">Agrupar</span>
             </button>
 
-            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+            <div className="hidden md:block h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
 
             {/* 5. Filtro Ciclo */}
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider whitespace-nowrap">Ciclo:</span>
+              <span className="hidden sm:inline text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider whitespace-nowrap">Ciclo:</span>
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200/50 dark:border-slate-700/50">
                 {[1, 2, 3, 4].map(num => (
                   <button
@@ -1103,51 +1074,64 @@ export const Revisoes = () => {
 
                     {/* Content */}
                     {isGroupExpanded && (
-                      <div className="overflow-x-auto transition-all duration-500 animate-in fade-in slide-in-from-top-2">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-slate-50/30 dark:bg-slate-800/20 border-b border-slate-200 dark:border-slate-800">
-                              <th className="px-8 py-5 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-8">Tópico & Disciplina</th>
-                              <th className="px-6 py-5 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Dificuldade</th>
-                              <th className="px-6 py-5 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Progresso</th>
-                              <th className="px-8 py-5 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right pr-8">Ações</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {groupItems.map(item => {
-                              const isActive = activeTimer?.topicId === item.id;
-                              return (
-                                <tr key={item.id} className={`transition-colors group ${isActive ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/40'}`}>
-                                  <td className="px-8 py-5 pl-8">
-                                    <div className="flex items-center gap-4">
-                                      <div className={`w-1.5 h-10 rounded-full transition-all ${isActive ? 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] scale-y-110' :
+                      <div className="overflow-hidden transition-all duration-500 animate-in fade-in slide-in-from-top-2">
+                        {/* Desktop Header */}
+                        <div className="hidden md:grid md:grid-cols-[1.5fr,120px,120px,140px] gap-4 px-6 py-4 bg-slate-50/30 dark:bg-slate-800/20 border-b border-slate-200 dark:border-slate-800">
+                          <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-2">Tópico & Disciplina</div>
+                          <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Dificuldade</div>
+                          <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Progresso</div>
+                          <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Ações</div>
+                        </div>
+
+                        {/* List Items Grid */}
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {groupItems.map(item => {
+                            const isActive = activeTimer?.topicId === item.id;
+                            return (
+                              <div
+                                key={item.id}
+                                className={`group transition-all ${isActive ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/40'}`}
+                              >
+                                {/* Mobile: Stacked / Desktop: Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-[1.5fr,120px,120px,140px] gap-4 p-4 md:px-6 md:py-5 items-center">
+
+                                  {/* 1. Tópico */}
+                                  <div className="pl-2">
+                                    <div className="flex items-start gap-3">
+                                      <div className={`w-1.5 h-10 rounded-full shrink-0 transition-all ${isActive ? 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] scale-y-110' :
                                         item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-500 dark:bg-rose-500' :
                                           item.status === 'FUTURE' ? 'bg-indigo-500 dark:bg-indigo-500' :
                                             'bg-emerald-500 dark:bg-emerald-500'
                                         }`} />
-                                      <div className="max-w-md">
+                                      <div className="min-w-0 flex-1">
                                         <p className={`text-sm font-bold line-clamp-2 ${isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200'}`}>
                                           {item.topic}
-                                          {isActive && <span className="ml-2 text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full animate-pulse">Em andamento</span>}
+                                          {isActive && <span className="ml-2 inline-block text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full animate-pulse">Em andamento</span>}
                                         </p>
-                                        {item.subject && <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-bold uppercase">{item.subject}</p>}
+                                        {item.subject && <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-bold uppercase truncate">{item.subject}</p>}
                                       </div>
                                     </div>
-                                  </td>
-                                  <td className="px-6 py-5">
+                                  </div>
+
+                                  {/* 2. Dificuldade (Mobile: row) */}
+                                  <div className="flex items-center justify-between md:justify-center pl-4 md:pl-0">
+                                    <span className="md:hidden text-xs text-slate-400 font-medium">Dificuldade:</span>
                                     <DifficultyStars rating={item.difficulty || 0} />
-                                  </td>
-                                  <td className="px-6 py-5">
+                                  </div>
+
+                                  {/* 3. Progresso (Mobile: row) */}
+                                  <div className="flex items-center justify-between md:justify-center pl-4 md:pl-0">
+                                    <span className="md:hidden text-xs text-slate-400 font-medium">Ciclo:</span>
                                     <div className="flex flex-col gap-1.5 w-24">
                                       <div className="flex items-center gap-2">
-                                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${item.status === 'TODAY' || item.status === 'OVERDUE'
+                                        <span className={`px-2 py-1 rounded-md text-xs font-black uppercase tracking-wider ${item.status === 'TODAY' || item.status === 'OVERDUE'
                                           ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
                                           : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                                           }`}>
                                           R{item.reviewCount || 1}
                                         </span>
                                         {(item.status === 'OVERDUE') && (
-                                          <span className="text-rose-600 dark:text-rose-400 text-[10px] font-bold">Atrasada</span>
+                                          <span className="text-rose-600 dark:text-rose-400 text-[11px] font-bold">Atrasada</span>
                                         )}
                                       </div>
                                       <div className="w-full h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -1157,79 +1141,87 @@ export const Revisoes = () => {
                                         />
                                       </div>
                                     </div>
-                                  </td>
-                                  <td className="px-8 py-5 pr-8">
-                                    <div className="flex items-center justify-end gap-2">
-                                      {/* Botão IA */}
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); handleAiAssist(item); }}
-                                        disabled={!!loadingActions[item.id]}
-                                        className="p-2 text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="Assistente de Revisão"
-                                      >
-                                        {loadingActions[item.id] === 'ai' ? (
-                                          <Loader2 size={16} className="animate-spin" />
-                                        ) : (
-                                          <Sparkles size={16} />
-                                        )}
-                                      </button>
+                                  </div>
 
-                                      {/* Botão Marcar Revisão (PLAY/STOP) */}
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); handleMarkCompleted(item.id); }}
-                                        disabled={!!loadingActions[item.id]}
-                                        className={`p-2 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isActive
-                                          ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200'
-                                          : 'text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
-                                          }`}
-                                        title={isActive ? "Parar e Avaliar" : "Iniciar Cronômetro"}
-                                      >
-                                        {loadingActions[item.id] === 'review' ? (
-                                          <Loader2 size={16} className="animate-spin" />
-                                        ) : isActive ? (
-                                          <Square size={16} className="fill-current" />
-                                        ) : (
-                                          <Play size={16} className="fill-current" />
-                                        )}
-                                      </button>
+                                  {/* 4. Ações */}
+                                  <div className="flex justify-end md:justify-center pr-2 md:pr-0 pt-2 md:pt-0 border-t md:border-0 border-slate-100 dark:border-slate-800 mt-2 md:mt-0">
+                                    <div className="flex items-center gap-2 w-full justify-between md:justify-center">
+                                      {/* Mobile Label */}
+                                      <span className="md:hidden text-xs text-slate-400 font-medium">Ações:</span>
 
-                                      {/* Botão Ver Nota */}
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setNotesModalData({
-                                            isOpen: true,
-                                            topicId: item.id,
-                                            topicName: item.topic,
-                                            subjectName: item.subject || ''
-                                          });
-                                        }}
-                                        disabled={!!loadingActions[item.id]}
-                                        className="p-2 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="Ver Nota"
-                                      >
-                                        {loadingActions[item.id] === 'notes' ? (
-                                          <Loader2 size={16} className="animate-spin" />
-                                        ) : (
-                                          <FileText size={16} />
-                                        )}
-                                      </button>
+                                      <div className="flex gap-2">
+                                        {/* Botão IA */}
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleAiAssist(item); }}
+                                          disabled={!!loadingActions[item.id]}
+                                          className="h-10 w-10 flex items-center justify-center text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                          title="Assistente de Revisão"
+                                        >
+                                          {loadingActions[item.id] === 'ai' ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                          ) : (
+                                            <Sparkles size={16} />
+                                          )}
+                                        </button>
+
+                                        {/* Botão Marcar Revisão (PLAY/STOP) */}
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleMarkCompleted(item.id); }}
+                                          disabled={!!loadingActions[item.id]}
+                                          className={`h-10 w-10 flex items-center justify-center rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isActive
+                                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200'
+                                            : 'text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                            }`}
+                                          title={isActive ? "Parar e Avaliar" : "Iniciar Cronômetro"}
+                                        >
+                                          {loadingActions[item.id] === 'review' ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                          ) : isActive ? (
+                                            <Square size={16} className="fill-current" />
+                                          ) : (
+                                            <Play size={16} className="fill-current" />
+                                          )}
+                                        </button>
+
+                                        {/* Botão Ver Nota */}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setNotesModalData({
+                                              isOpen: true,
+                                              topicId: item.id,
+                                              topicName: item.topic,
+                                              subjectName: item.subject || ''
+                                            });
+                                          }}
+                                          disabled={!!loadingActions[item.id]}
+                                          className="h-10 w-10 flex items-center justify-center text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                          title="Ver Nota"
+                                        >
+                                          {loadingActions[item.id] === 'notes' ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                          ) : (
+                                            <FileText size={16} />
+                                          )}
+                                        </button>
+                                      </div>
                                     </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    )}
+                    )
+                    }
                   </div>
                 );
               })}
             </div>
           )}
         </main>
-      </div>
+      </div >
 
       {/* AI Assistant Modal */}
       {
