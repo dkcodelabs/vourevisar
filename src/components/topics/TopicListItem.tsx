@@ -23,6 +23,7 @@ interface TopicListItemProps {
     isMarkedForReview?: boolean;
     difficulty_level?: number;
     maxReviews?: number;
+    last_search_context?: string | null;
   };
   onEdit: (topicId: string, newName: string) => void;
   onDelete: (topicId: string) => void;
@@ -95,7 +96,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
   return (
     <div className="
       group relative border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors
-      flex flex-col lg:grid lg:grid-cols-[1fr_100px_160px_120px] lg:gap-0
+      flex flex-col lg:grid lg:grid-cols-[1fr_100px_110px_160px_120px] lg:gap-0
     ">
       {/* Sticky Left Color Bar */}
       <div
@@ -248,11 +249,27 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
         )}
       </div>
 
-      {/* Desktop: Difficulty */}
       <div className="hidden lg:flex lg:p-0 lg:contents">
         <div className="lg:p-3 flex items-center lg:justify-center lg:border-r border-gray-100 cursor-pointer">
           <DifficultyRating value={topic.difficulty_level || 0} readonly size="sm" />
         </div>
+      </div>
+
+      {/* Desktop: Context Link/Badge */}
+      <div className="hidden lg:flex lg:items-center lg:justify-center lg:border-r border-gray-100 lg:p-2">
+        {topic.last_search_context ? (
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${topic.last_search_context.includes("Global") || topic.last_search_context.includes("Broad")
+              ? "bg-purple-50 text-purple-700 border-purple-100"
+              : "bg-blue-50 text-blue-700 border-blue-100"
+              }`}
+            title={topic.last_search_context}
+          >
+            {topic.last_search_context.includes("Global") || topic.last_search_context.includes("Broad") ? "Global" : "Auto"}
+          </span>
+        ) : (
+          <span className="text-gray-300">-</span>
+        )}
       </div>
 
       {/* Desktop: Status & Actions */}

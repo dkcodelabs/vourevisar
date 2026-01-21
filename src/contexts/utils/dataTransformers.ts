@@ -4,7 +4,7 @@ import { isToday, isBefore } from 'date-fns';
 
 export const transformSubjectsData = (data: any[]): Subject[] => {
   if (!data) return [];
-  
+
   return data.map(subject => ({
     id: subject.id,
     name: subject.name,
@@ -34,31 +34,32 @@ export const transformTopicData = (topic: any): Topic => {
     is_completed: topic.completed || false,
     difficulty_level: topic.difficulty_level,
     notes: notes,
-    subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : []
+    subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [],
+    last_search_context: topic.last_search_context
   };
 };
 
 export const calculateStudyProgress = (subjects: Subject[]): StudyProgress => {
   const totalSubjects = subjects.length;
   const completedSubjects = subjects.filter(s => s.status === 'Concluída').length;
-  
+
   const allTopics = subjects.flatMap(s => s.topics || []);
   const totalTopics = allTopics.length;
   const completedTopics = allTopics.filter(t => t.completed).length;
-  
+
   // Calcular tópicos por status de revisão
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   let delayedTopics = 0;
   let todayTopics = 0;
   let futureTopics = 0;
-  
+
   allTopics.forEach(topic => {
     if (topic.nextReview && !topic.completed) {
       const reviewDate = new Date(topic.nextReview);
       reviewDate.setHours(0, 0, 0, 0);
-      
+
       if (isBefore(reviewDate, today)) {
         delayedTopics++;
       } else if (isToday(reviewDate)) {
@@ -68,7 +69,7 @@ export const calculateStudyProgress = (subjects: Subject[]): StudyProgress => {
       }
     }
   });
-  
+
   return {
     totalSubjects,
     completedSubjects,

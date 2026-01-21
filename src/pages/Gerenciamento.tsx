@@ -7,6 +7,8 @@ import { AdminOnly, OwnerOnly } from '@/components/ProtectedComponent'
 import { UserRoleBadge, ProtectedButton } from '@/components/RoleBasedUI'
 import { UserManagementModal } from '@/components/UserManagementModal'
 import { SubscriptionManagementModal } from '@/components/SubscriptionManagementModal'
+import { ImportadorQuestoes } from '@/components/ImportadorQuestoes'
+import { CalculadoraTendencia } from '@/components/CalculadoraTendencia'
 
 export default function Gerenciamento() {
   const { user, isOwner, isAdmin, loading } = useUserRole()
@@ -237,6 +239,26 @@ export default function Gerenciamento() {
     </OwnerOnly>
   )
 
+  const ImportacaoSection = () => (
+    <div>
+      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>📥 Importação de Questões</h2>
+      <p style={{ color: '#64748b', marginBottom: '24px' }}>
+        Importe questões de PDFs de provas usando Inteligência Artificial.
+      </p>
+      <ImportadorQuestoes />
+    </div>
+  )
+
+  const TendenciaSection = () => (
+    <div>
+      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>📈 Calculadora de Tendência (GUT)</h2>
+      <p style={{ color: '#64748b', marginBottom: '24px' }}>
+        Analise o volume de questões de cada tópico para definir prioridades.
+      </p>
+      <CalculadoraTendencia />
+    </div>
+  )
+
   const BackupSection = () => (
     <OwnerOnly>
       <div>
@@ -314,7 +336,7 @@ export default function Gerenciamento() {
         </div>
       </div>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+      <div style={{ maxWidth: '100%', margin: '0 auto', padding: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '24px' }}>
 
           {/* Sidebar de Navegação */}
@@ -359,6 +381,18 @@ export default function Gerenciamento() {
                   label="Configurações"
                   active={activeSection === 'configuracoes'}
                   onClick={() => setActiveSection('configuracoes')}
+                />
+                <SidebarItem
+                  icon="📥"
+                  label="Importação"
+                  active={activeSection === 'importacao'}
+                  onClick={() => setActiveSection('importacao')}
+                />
+                <SidebarItem
+                  icon="📈"
+                  label="Tendência (GUT)"
+                  active={activeSection === 'tendencia'}
+                  onClick={() => setActiveSection('tendencia')}
                 />
               </AdminOnly>
 
@@ -416,7 +450,10 @@ export default function Gerenciamento() {
             {activeSection === 'configuracoes' && <ConfiguracoesSection />}
             {activeSection === 'roles' && <RolesSection />}
             {activeSection === 'sistema' && <SistemaSection />}
+            {activeSection === 'sistema' && <SistemaSection />}
             {activeSection === 'backup' && <BackupSection />}
+            {activeSection === 'importacao' && <ImportacaoSection />}
+            {activeSection === 'tendencia' && <TendenciaSection />}
           </div>
         </div>
       </div>

@@ -412,9 +412,10 @@ const Topics = () => {
                   <>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                       {/* Table Header - INTEGRATED */}
-                      <div className="hidden lg:grid grid-cols-[1fr_100px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                      <div className="hidden lg:grid grid-cols-[1fr_100px_110px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
                         <div className="pl-8">Tópico / Matéria</div>
                         <div className="text-center">Dificuldade</div>
+                        <div className="text-center">Contexto</div>
                         <div className="text-center">Status</div>
                         <div className="text-center">Ações</div>
                       </div>
@@ -429,7 +430,8 @@ const Topics = () => {
                               subjectColor: topic.subjectColor,
                               nextReview: topic.nextReview ? new Date(topic.nextReview).toISOString() : null,
                               // Ensure difficulty_level is passed if it exists in topic, else 0
-                              difficulty_level: topic.difficulty_level || 0
+                              difficulty_level: topic.difficulty_level || 0,
+                              last_search_context: topic.last_search_context
                             }}
                             onEdit={(id, newName) => {
                               updateTopic(topic.subjectId, id, { name: newName });

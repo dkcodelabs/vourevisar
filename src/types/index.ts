@@ -33,6 +33,9 @@ export interface Topic {
   difficulty_level?: DifficultyLevel | null;
   subtopics?: TopicSubtopic[];
   difficulty_set_at?: Date;
+  last_search_context?: string | null;
+  last_used_query?: string | null;
+  last_audit_log?: any | null;
 }
 
 export interface Subject {
