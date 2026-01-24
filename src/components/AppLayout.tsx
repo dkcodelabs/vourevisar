@@ -46,21 +46,21 @@ const PageBreadcrumb = ({ pageTitle }: { pageTitle: string }) => {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center text-sm">
       {/* Desktop: Menu > Nome da Página */}
-      <div className="hidden sm:flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+      <div className="hidden sm:flex items-center gap-1.5 text-gray-500">
         <span className="font-medium">Menu</span>
         <ChevronRight size={14} className="text-gray-400" />
-        <span className="font-semibold text-gray-800 dark:text-gray-100">{pageTitle}</span>
+        <span className="font-semibold text-gray-800">{pageTitle}</span>
       </div>
 
       {/* Mobile: Menu com seta + Nome da Página */}
       <div className="sm:hidden flex flex-col">
-        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-1 text-gray-500">
           <span className="text-xs font-medium">Menu</span>
           <ChevronDown size={12} className="text-gray-400" />
         </div>
         <div className="flex items-center gap-1">
           <CornerDownRight size={12} className="text-gray-400" />
-          <span className="font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[180px]">{pageTitle}</span>
+          <span className="font-semibold text-gray-800 truncate max-w-[180px]">{pageTitle}</span>
         </div>
       </div>
     </div>
@@ -74,12 +74,12 @@ const TopHeader = ({ pageTitle, onOpenNotes }: { pageTitle: string; onOpenNotes:
   const formattedTime = formatTime(timeLeft);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-[72px] w-full flex items-center justify-between px-6 bg-white/95 backdrop-blur-md shadow-md border-b border-gray-200 transition-all">
+    <header className="fixed top-0 left-0 right-0 z-50 h-[72px] w-full flex items-center justify-between px-6 bg-white shadow-md border-b border-gray-200 transition-all">
       <div className="flex items-center gap-4">
         <MobileMenuToggle />
         <div className="hidden md:flex items-center gap-4">
           <img src="/logo.png" alt="vouRevisar" className="h-8 w-auto" />
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+          <div className="h-6 w-px bg-gray-200" />
         </div>
         <PageBreadcrumb pageTitle={pageTitle} />
       </div>
@@ -88,7 +88,7 @@ const TopHeader = ({ pageTitle, onOpenNotes }: { pageTitle: string; onOpenNotes:
         {/* Annotations Button */}
         <button
           onClick={onOpenNotes}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm"
           title="Anotações Gerais"
         >
           <Notebook className="w-4 h-4" />
@@ -106,7 +106,7 @@ const TopHeader = ({ pageTitle, onOpenNotes }: { pageTitle: string; onOpenNotes:
                 {formattedTime}
               </span>
             )}
-            <button className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:scale-105 transition-transform">
+            <button className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:scale-105 transition-transform">
               <Timer size={18} className={pomodoroState === 'running' ? 'text-green-500 animate-pulse' : 'text-gray-500'} />
             </button>
           </div>
@@ -145,7 +145,7 @@ export const AppLayout = () => {
       <TopHeader pageTitle={pageTitle} onOpenNotes={() => setIsGeneralNotesModalOpen(true)} />
 
       {/* Main Content Area - pushed down by header height */}
-      <div className="flex min-h-screen w-full pt-[72px] bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
+      <div className="flex min-h-screen w-full pt-[72px] bg-background transition-colors duration-200">
         <AppSidebar />
 
         <SidebarInset className="flex flex-col flex-1 pb-20 md:pb-6 relative min-w-0 overflow-y-auto">
