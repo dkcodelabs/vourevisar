@@ -63,8 +63,8 @@ export function AllTopicsTable({ refreshTrigger = 0 }: { refreshTrigger?: number
                     last_audit_log,
                     status
                 `, { count: 'exact' })
-                .order('last_trend_check_at', { ascending: false, nullsFirst: false })
-                .order('last_trend_check_at', { ascending: false, nullsFirst: false })
+                .order('last_trend_check_at', { ascending: true })
+                .order('created_at', { ascending: false })
                 .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1)
 
             console.log('🔍 DEBUG AllTopicsTable V36:')
@@ -243,14 +243,14 @@ export function AllTopicsTable({ refreshTrigger = 0 }: { refreshTrigger?: number
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     {topic.last_search_context && (
                                                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${topic.last_search_context.includes("Global")
-                                                                ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                                : "bg-blue-50 text-blue-700 border-blue-200"
+                                                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                            : "bg-blue-50 text-blue-700 border-blue-200"
                                                             }`}>
                                                             🎯 {topic.last_search_context.replace("🌍 ", "")}
                                                         </span>
                                                     )}
                                                     {topic.skip_reason && (
-                                                        <span className="text-[10px] text-muted-foreground italic truncate max-w-[150px]" title={topic.skip_reason}>
+                                                        <span className="text-[10px] text-muted-foreground italic" title={topic.skip_reason}>
                                                             "{topic.skip_reason}"
                                                         </span>
                                                     )}

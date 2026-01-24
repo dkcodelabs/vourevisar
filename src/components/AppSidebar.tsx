@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -41,7 +41,7 @@ export function AppSidebar() {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
   const location = useLocation();
-  const { setOpenMobile, state } = useSidebar();
+  const { setOpenMobile, state, toggleSidebar } = useSidebar();
   const isMobile = useIsMobile();
   const isCollapsed = state === 'collapsed';
 
@@ -76,19 +76,28 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-[#1E2A3B]/20 transition-all duration-300 !bg-[#1E2A3B]"
+      variant="floating"
+      className="transition-all duration-300 md:!left-4 md:!top-[88px] md:!bottom-4 md:!h-[calc(100vh-104px)] md:!rounded-2xl md:!shadow-2xl"
       style={{ backgroundColor: '#1E2A3B' }}
     >
       <SidebarHeader
-        className="p-4 border-b border-white/10 h-16 flex items-center justify-center overflow-hidden"
-        style={{ backgroundColor: '#1E2A3B' }}
+        className={`p-4 h-[72px] flex items-center justify-between overflow-hidden ${isMobile ? 'bg-white border-b border-gray-200 shadow-md' : ''}`}
+        style={!isMobile ? { backgroundColor: '#1E2A3B' } : undefined}
       >
-        <div className="flex items-center justify-center w-full transition-all duration-300">
-          {isCollapsed ? (
-            <img src="/icon.png" alt="vouRevisar" className="h-10 w-10 flex-shrink-0" />
-          ) : (
-            <img src="/logo.png" alt="vouRevisar" className="h-10 w-auto flex-shrink-0" />
-          )}
+        {/* Mobile Logo */}
+        <div className="flex items-center justify-center w-full md:hidden transition-all duration-300">
+          <img src="/logo.png" alt="vouRevisar" className="h-8 w-auto flex-shrink-0" />
+        </div>
+
+        {/* Desktop Collapse Toggle (Inside Card) */}
+        <div className={`hidden md:flex w-full items-center ${isCollapsed ? 'justify-center' : 'justify-end'}`}>
+          <button
+            onClick={toggleSidebar}
+            className="text-white/70 hover:text-white transition-colors p-1 rounded-md hover:bg-white/10"
+            title={isCollapsed ? "Expandir" : "Recolher"}
+          >
+            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          </button>
         </div>
       </SidebarHeader>
 
@@ -97,6 +106,8 @@ export function AppSidebar() {
           <SidebarMenu className="space-y-1">
             {navItems.map((item) => {
               const isActive = isItemActive(item);
+              // Only apply collapsed styles on desktop, never on mobile
+              const showIconOnly = isCollapsed && !isMobile;
 
               return (
                 <SidebarMenuItem key={item.to}>
@@ -105,14 +116,14 @@ export function AppSidebar() {
                       isActive={isActive}
                       asChild
                       tooltip={item.label}
-                      className={`w-full justify-start h-11 px-3 text-sm font-medium transition-all rounded-lg ${isActive
+                      className={`w-full h-11 px-3 text-sm font-medium transition-all rounded-lg ${showIconOnly ? 'justify-center' : 'justify-start'} ${isActive
                         ? '!bg-blue-600 text-white shadow-md'
                         : 'text-white/70 hover:bg-white/10 hover:text-white'
                         }`}
                     >
-                      <div className="flex items-center">
-                        <item.icon size={20} className={`mr-3 flex-shrink-0 text-white`} />
-                        <span className="truncate">{item.label}</span>
+                      <div className={`flex items-center ${showIconOnly ? 'justify-center' : ''}`}>
+                        <item.icon size={22} className={`flex-shrink-0 text-white ${showIconOnly ? '' : 'mr-3'}`} />
+                        <span className={`truncate ${showIconOnly ? 'hidden' : ''}`}>{item.label}</span>
                       </div>
                     </SidebarMenuButton>
                   </NavLink>
@@ -123,24 +134,26 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      {user && (
-        <SidebarFooter className="p-4 border-t border-white/10" style={{ backgroundColor: '#1E2A3B' }}>
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
-            <div className={`overflow-hidden ${isCollapsed ? 'flex justify-center' : 'flex-1'}`}>
-              {isCollapsed ? (
+      {user && (() => {
+        // Only show compact (avatar only) when collapsed AND on desktop
+        const showCompactProfile = isCollapsed && !isMobile;
+        return (
+          <SidebarFooter className="p-3" style={{ backgroundColor: '#1E2A3B' }}>
+            {showCompactProfile ? (
+              <div className="flex justify-center">
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={undefined} alt="Avatar do usuário" />
                   <AvatarFallback className="bg-app-blue text-white text-sm font-medium">
                     {user?.email?.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-              ) : (
-                <UserProfileNav />
-              )}
-            </div>
-          </div>
-        </SidebarFooter>
-      )}
+              </div>
+            ) : (
+              <UserProfileNav />
+            )}
+          </SidebarFooter>
+        );
+      })()}
     </Sidebar>
   );
 }

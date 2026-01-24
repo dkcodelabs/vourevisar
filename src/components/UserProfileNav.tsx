@@ -111,7 +111,7 @@ const UserProfileNavComponent = () => {
           </Avatar>
 
           {/* Name and badge to the right */}
-          <div className="hidden sm:flex flex-col items-start flex-1">
+          <div className="flex flex-col items-start flex-1 overflow-hidden">
             <span className="text-sm font-medium text-white">{firstName || 'Usuário'}</span>
             <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${badgeClasses}`}>
               <AccountIcon className="h-2.5 w-2.5" />
@@ -119,7 +119,7 @@ const UserProfileNavComponent = () => {
             </div>
           </div>
 
-          <ChevronDown className="hidden sm:block h-4 w-4 text-white/70" />
+          <ChevronDown className="h-4 w-4 text-white/70 flex-shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64" align="end" forceMount>

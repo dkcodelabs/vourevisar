@@ -91,22 +91,64 @@ const Statistics = () => {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto p-4">
-          <div className="flex flex-col items-center justify-center h-96 space-y-6">
-            <div className="p-6 rounded-full bg-blue-100">
-              <BarChart3 className="h-16 w-16 text-blue-600" />
+          <div className="flex flex-col items-center justify-center min-h-[70vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            {/* Ícone Principal */}
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 dark:from-blue-900/30 dark:via-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+              <span className="text-5xl">📈</span>
             </div>
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold text-gray-900">Estatísticas de Estudo</h2>
-              <p className="text-lg text-gray-600">Nenhum dado disponível para análise</p>
-              <p className="text-gray-500 max-w-md">
-                Adicione matérias e tópicos para começar a ver suas estatísticas detalhadas e insights inteligentes.
+
+            {/* Título */}
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+              Seu Painel de Controle Completo
+            </h2>
+
+            {/* Descrição Principal */}
+            <p className="text-gray-600 max-w-lg mx-auto mb-6 leading-relaxed">
+              Acompanhe sua evolução com dados reais e tome decisões inteligentes sobre seus estudos.
+            </p>
+
+            {/* Features Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-2xl mx-auto mb-8">
+              <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+                <span className="text-lg">📊</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Visão Geral</span>
+              </div>
+              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
+                <span className="text-lg">🔄</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Revisões</span>
+              </div>
+              <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+                <span className="text-lg">🏆</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Disciplinas</span>
+              </div>
+              <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/20 px-3 py-2 rounded-lg">
+                <span className="text-lg">⏰</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Hábitos</span>
+              </div>
+              <div className="flex items-center gap-2 bg-cyan-50 dark:bg-cyan-900/20 px-3 py-2 rounded-lg">
+                <span className="text-lg">📈</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Evolução</span>
+              </div>
+              <div className="flex items-center gap-2 bg-rose-50 dark:bg-rose-900/20 px-3 py-2 rounded-lg">
+                <span className="text-lg">💡</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Insights</span>
+              </div>
+            </div>
+
+            {/* Frase Motivacional */}
+            <div className="flex items-center gap-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 border border-indigo-100 dark:border-indigo-800/30 px-5 py-3 rounded-2xl mb-8 shadow-sm">
+              <span className="text-xl flex-shrink-0">🎯</span>
+              <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                Quem mensura seus estudos, acelera seus resultados!
               </p>
             </div>
+
+            {/* CTA Button */}
             <button
               onClick={() => navigate('/materias')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
             >
-              Adicionar Matérias
+              Começar Agora
             </button>
           </div>
         </div>

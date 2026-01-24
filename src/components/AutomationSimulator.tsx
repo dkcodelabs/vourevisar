@@ -3,15 +3,18 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'react-toastify'
-import { processNextPendingTopic } from '@/services/gutCalculator'
+import { processNextPendingTopic, getQuotaStats } from '@/services/gutCalculator'
+import { Progress } from '@/components/ui/progress'
+import { Database } from 'lucide-react'
 
+// Mantendo interface parecida com AllTopicsTable para consistência
 interface ProcessedTopic {
     id: string
     timestamp: Date
     topico_original: string
     materia: string
     total_volume: number
-    maior_sub_topico: string
+    maior_sub_topico: string // Usado como motivo/skip_reason
     status: 'success' | 'rejected' | 'error' | 'warning' // warning = volume 0
     reasoning?: string
     effective_context?: string
@@ -27,15 +30,23 @@ export function AutomationSimulator({
     onProcessComplete
 }: AutomationSimulatorProps) {
     const [isProcessing, setIsProcessing] = useState(false)
-    const [logs, setLogs] = useState<ProcessedTopic[]>([])
+    const [lastResult, setLastResult] = useState<ProcessedTopic | null>(null)
+    const [quota, setQuota] = useState({ used: 0, limit: 100, remaining: 100 })
 
-    // 🔄 V35: Carregar histórico recente diretamente da tabela TOPICS
+    const updateQuota = () => {
+        const stats = getQuotaStats()
+        setQuota(stats)
+    }
+
+    // 🔄 V36: Carregar APENAS O ÚLTIMO processado
     useEffect(() => {
-        const loadHistory = async () => {
+        const loadLast = async () => {
+            updateQuota()
+
             const supabase = (await import('@/services/gutCalculator')).getSupabaseClient()
             if (!supabase) return
 
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('topics')
                 .select(`
                     id, 
@@ -46,68 +57,87 @@ export function AutomationSimulator({
                     last_audit_log,
                     last_used_query,
                     last_search_context,
-                    status
+                    status,
+                    subjects(name)
                 `)
-                .not('last_trend_check_at', 'is', null) // Apenas processados
+                .not('last_trend_check_at', 'is', null)
                 .order('last_trend_check_at', { ascending: false })
-                .limit(5)
+                .limit(1)
+                .maybeSingle()
 
             if (data) {
-                const logsFromDB: ProcessedTopic[] = data.map((t: any) => ({
-                    id: t.id,
-                    timestamp: new Date(t.last_trend_check_at),
-                    topico_original: t.name,
-                    materia: 'Automático', // Simplificação para view rápida
-                    total_volume: t.total_volume || 0,
-                    maior_sub_topico: t.skip_reason || '-',
-                    status: t.status === 'processed' ? 'success' :
-                        t.status === 'skipped' ? 'warning' :
-                            t.status === 'error' ? 'error' :
-                                (t.total_volume > 0 ? 'success' : 'warning'),
-                    reasoning: t.skip_reason,
-                    effective_context: t.last_search_context,
-                    last_used_query: t.last_used_query,
-                    api_cost: t.last_audit_log?.total_api_calls || 0
-                }))
-                setLogs(logsFromDB)
+                const logFromDB: ProcessedTopic = {
+                    id: data.id,
+                    timestamp: new Date(data.last_trend_check_at),
+                    topico_original: data.name,
+                    materia: data.subjects?.name || 'Geral',
+                    total_volume: data.total_volume || 0,
+                    maior_sub_topico: data.skip_reason || '-',
+                    status: data.status === 'processed' ? 'success' :
+                        data.status === 'skipped' ? 'warning' :
+                            data.status === 'error' ? 'error' :
+                                (data.total_volume > 0 ? 'success' : 'warning'),
+                    reasoning: data.skip_reason,
+                    effective_context: data.last_search_context,
+                    last_used_query: data.last_used_query,
+                    api_cost: data.last_audit_log?.total_api_calls || 0
+                }
+                setLastResult(logFromDB)
             }
         }
-        loadHistory()
+        loadLast()
     }, [])
 
     const handleProcessNext = async () => {
-        // Credenciais checkadas no service via .env
         setIsProcessing(true)
         try {
-            // 🔗 CONEXÃO REAL COM O BANCO (v16.5)
             const result = await processNextPendingTopic()
+            updateQuota()
 
             if ('error' in result) {
                 toast.error(result.error)
+                // Se der erro/rejeição, mas tiver dados do tópico, usa eles
+                if (result.rejected || result.topicoOriginal) {
+                    const rejectedLog: ProcessedTopic = {
+                        id: result.id || crypto.randomUUID(),
+                        timestamp: new Date(),
+                        topico_original: result.topicoOriginal || result.topico_original || 'Erro',
+                        materia: result.materia || '-',
+                        total_volume: 0,
+                        maior_sub_topico: result.reasoning || result.error, // Mostra o motivo
+                        status: 'rejected',
+                        reasoning: result.reasoning || result.error,
+                        api_cost: result.api_cost || 0,
+                        effective_context: 'Rejeitado por IA'
+                    }
+                    setLastResult(rejectedLog)
 
-                // Log de erro
-                const errorLog: ProcessedTopic = {
-                    id: crypto.randomUUID(),
-                    timestamp: new Date(),
-                    topico_original: 'N/A',
-                    materia: 'N/A',
-                    total_volume: 0,
-                    maior_sub_topico: '-',
-                    status: 'error',
-                    reasoning: result.error
+                    // V ITAL: Notificar o pai para atualizar a tabela de baixo pois o tópico foi alterado no DB
+                    if (onProcessComplete) {
+                        onProcessComplete(result)
+                    }
+                } else {
+                    // Erro genérico sem dados (ex: falha de API antes de identificar tópico)
+                    setLastResult({
+                        id: crypto.randomUUID(),
+                        timestamp: new Date(),
+                        topico_original: 'Erro de Processamento',
+                        materia: '-',
+                        total_volume: 0,
+                        maior_sub_topico: result.error,
+                        status: 'error',
+                        reasoning: result.error
+                    })
                 }
-                setLogs(prev => [errorLog, ...prev.slice(0, 4)])
                 return
             }
 
-            // Log de sucesso
-            // Log de sucesso
             const logEntry: ProcessedTopic = {
                 id: crypto.randomUUID(),
                 timestamp: new Date(),
-                topico_original: result.topico_original || result.topicoOriginal, // Nome padronizado do backend
+                topico_original: result.topico_original || result.topicoOriginal,
                 materia: result.materia || 'Geral',
-                total_volume: result.total_volume, // ✅ AGORA VEM CORRETO DO BACKEND
+                total_volume: result.total_volume,
                 maior_sub_topico: result.maior_sub_topico || '-',
                 status: (result.status === 'processed' ? 'success' : result.status) || 'success',
                 reasoning: result.reasoning,
@@ -116,37 +146,26 @@ export function AutomationSimulator({
                 api_cost: result.api_cost || 0
             }
 
-            setLogs(prev => [logEntry, ...prev.slice(0, 4)])
-            toast.success(`✅ Processado: ${logEntry.topico_original} (${logEntry.total_volume.toLocaleString()} resultados)`)
+            setLastResult(logEntry)
+            toast.success(`✅ Processado: ${logEntry.topico_original}`)
 
             if (onProcessComplete) {
                 onProcessComplete(result)
             }
         } catch (error) {
-            console.error('❌ Erro ao processar tópico:', error)
-
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            toast.error(`❌ ${errorMessage}`)
-
-            // Log de erro SEMPRE (mesmo quando IA rejeita)
-            const errorLog: ProcessedTopic = {
+            console.error('❌ Erro ao processar:', error)
+            updateQuota()
+            const msg = error instanceof Error ? error.message : String(error)
+            toast.error(msg)
+            setLastResult({
                 id: crypto.randomUUID(),
                 timestamp: new Date(),
-                topico_original: errorMessage.includes('\'b\'') ? 'b' : 'Erro',
+                topico_original: 'Erro Crítico',
                 materia: '-',
                 total_volume: 0,
-                maior_sub_topico: 'Rejeitado',
+                maior_sub_topico: msg,
                 status: 'error',
-                reasoning: errorMessage
-            }
-
-            console.log('🔍 Adicionando log de erro:', errorLog)
-            console.log('🔍 Estado atual de logs:', logs)
-
-            setLogs(prevLogs => {
-                const newLogs = [errorLog, ...prevLogs.slice(0, 4)]
-                console.log('🔍 Novo estado de logs:', newLogs)
-                return newLogs
+                reasoning: msg
             })
         } finally {
             setIsProcessing(false)
@@ -155,37 +174,39 @@ export function AutomationSimulator({
 
     const formatDate = (date: Date) => {
         return new Intl.DateTimeFormat('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
+            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
         }).format(date)
     }
 
-    const getStatusBadge = (status: string) => {
-        const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", label: string, color: string }> = {
-            success: { variant: 'default', label: '✅ Sucesso', color: 'bg-green-500' },
-            processed: { variant: 'default', label: '✅ Sucesso', color: 'bg-green-500' }, // Mapping direto
-            rejected: { variant: 'secondary', label: '⚠️ Rejeitado', color: 'bg-yellow-500' },
-            error: { variant: 'destructive', label: '❌ Erro', color: 'bg-red-500' },
-            warning: { variant: 'outline', label: '⚠️ Volume 0', color: 'bg-orange-500' },
-            skipped: { variant: 'outline', label: '⚠️ Volume 0', color: 'bg-orange-500' } // Mapping direto
-        }
-
-        const config = variants[status] || variants['success'] // Fallback seguro
-        return <Badge variant={config.variant}>{config.label}</Badge>
-    }
+    const quotaPercentage = Math.min(100, (quota.used / quota.limit) * 100)
+    const quotaColorClass = quotaPercentage > 90 ? 'text-red-600' : quotaPercentage > 75 ? 'text-orange-500' : 'text-green-600'
+    const barColor = quotaPercentage > 90 ? '#dc2626' : quotaPercentage > 75 ? '#f97316' : '#16a34a'
 
     return (
         <Card className="mt-6">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <span className="text-2xl">🤖</span>
-                    <span>Automação de Tendência</span>
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                    Processa automaticamente tópicos pendentes da base de dados
-                </p>
+            <CardHeader className="pb-3">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <span className="text-2xl">🤖</span>
+                            <span>Automação de Tendência</span>
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Processa automaticamente tópicos pendentes da base de dados
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 min-w-[140px]">
+                        <div className="flex items-center gap-2 text-xs font-medium">
+                            <span>Cota Diária Google:</span>
+                            <span className={quotaColorClass}>{quota.used}/{quota.limit}</span>
+                        </div>
+                        <Progress value={quotaPercentage} className="h-2 w-full" progressColor={barColor} />
+                        <span className="text-[10px] text-muted-foreground">
+                            {quota.remaining} requisições restantes (Free)
+                        </span>
+                    </div>
+                </div>
             </CardHeader>
             <CardContent className="space-y-4">
                 <Button
@@ -207,76 +228,110 @@ export function AutomationSimulator({
                     )}
                 </Button>
 
-                {logs.length > 0 && (
-                    <div className="space-y-2">
-                        <h3 className="font-semibold text-sm">📋 Últimos Processamentos:</h3>
-                        <div className="border rounded-lg overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left font-medium">Data/Hora</th>
-                                            <th className="px-3 py-2 text-left font-medium">Tópico</th>
-                                            <th className="px-3 py-2 text-right font-medium">Vol.</th>
-                                            <th className="px-3 py-2 text-center font-medium">Custo</th>
-                                            <th className="px-3 py-2 text-left font-medium">Query Usada</th>
-                                            <th className="px-3 py-2 text-left font-medium">Contexto</th>
-                                            <th className="px-3 py-2 text-left font-medium">Motivo</th>
-                                            <th className="px-3 py-2 text-center font-medium">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {logs.map((log) => (
-                                            <tr
-                                                key={log.id}
-                                                className="hover:bg-muted/50 transition-colors"
-                                                title={log.reasoning}
-                                            >
-                                                <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
-                                                    {formatDate(log.timestamp)}
-                                                </td>
-                                                <td className="px-3 py-2 max-w-[200px] truncate" title={log.topico_original}>
-                                                    {log.topico_original}
-                                                </td>
-                                                <td className="px-3 py-2 text-right font-mono font-semibold">
-                                                    {log.total_volume.toLocaleString()}
-                                                </td>
-                                                <td className="px-3 py-2 text-center text-xs text-muted-foreground">
-                                                    <Badge variant="outline" className={`font-mono text-[10px] ${log.api_cost && log.api_cost > 20 ? 'text-red-600 border-red-200' : ''}`}>
-                                                        {log.api_cost || 0} reqs
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-3 py-2 max-w-[150px] truncate text-xs font-mono text-muted-foreground" title={log.last_used_query || "Query não disponível"}>
-                                                    {log.last_used_query || '-'}
-                                                </td>
-                                                <td className="px-3 py-2 max-w-[150px] truncate" title={log.effective_context}>
-                                                    {log.effective_context?.includes('Global') ? (
-                                                        <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
-                                                            🌍 Global
-                                                        </Badge>
-                                                    ) : (
-                                                        <span className="text-muted-foreground text-xs">{log.effective_context || '-'}</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 truncate max-w-[200px] text-xs" title={log.reasoning}>
-                                                    {log.reasoning || log.maior_sub_topico}
-                                                </td>
-                                                <td className="px-3 py-2 text-center">
-                                                    {getStatusBadge(log.status)}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {lastResult && (
+                    <div className="mt-4 border rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                            <thead className="bg-muted">
+                                <tr>
+                                    <th className="px-4 py-3 text-left font-medium w-[40%]">Tópico & Matéria</th>
+                                    <th className="px-4 py-3 text-left font-medium w-[30%]">Detalhes da Busca</th>
+                                    <th className="px-4 py-3 text-left font-medium w-[20%]">Status & Volume</th>
+                                    <th className="px-4 py-3 text-center font-medium w-[10%]">Audit</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white">
+                                <tr>
+                                    {/* COLUNA 1: Tópico e Matéria */}
+                                    <td className="px-4 py-4 align-top">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="font-medium text-sm text-foreground leading-snug">
+                                                {lastResult.topico_original}
+                                            </span>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground bg-muted/50 truncate max-w-[200px]">
+                                                    📚 {lastResult.materia}
+                                                </Badge>
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    Processado em {formatDate(lastResult.timestamp)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </td>
 
-                {logs.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
-                        <p>Nenhum tópico processado ainda</p>
-                        <p className="text-xs mt-1">Clique no botão acima para processar o primeiro</p>
+                                    {/* COLUNA 2: Detalhes */}
+                                    <td className="px-4 py-4 align-top">
+                                        <div className="flex flex-col gap-2">
+                                            <div className="bg-muted/30 p-1.5 rounded border border-muted/50">
+                                                <p className="text-[11px] font-mono text-muted-foreground break-words leading-tight">
+                                                    {lastResult.last_used_query || "Nenhuma query registrada"}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {lastResult.effective_context && (
+                                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${lastResult.effective_context.includes("Global")
+                                                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                        : "bg-blue-50 text-blue-700 border-blue-200"
+                                                        }`}>
+                                                        🎯 {lastResult.effective_context.replace("🌍 ", "")}
+                                                    </span>
+                                                )}
+                                                {lastResult.reasoning && (
+                                                    <span className="text-[10px] text-muted-foreground italic" title={lastResult.reasoning}>
+                                                        "{lastResult.reasoning}"
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {/* COLUNA 3: Status e Volume */}
+                                    <td className="px-4 py-4 align-top">
+                                        <div className="flex flex-col gap-1.5">
+                                            <div className="flex items-center gap-2">
+                                                {lastResult.total_volume > 0 ? (
+                                                    <Badge variant="secondary" className="font-mono font-bold bg-blue-50 text-blue-700 border-blue-200">
+                                                        {lastResult.total_volume.toLocaleString()}
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="text-muted-foreground">Vol. 0</Badge>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {lastResult.status === 'success' ? (
+                                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                                        Processado
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-yellow-700">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+                                                        {lastResult.status === 'error' ? 'Erro' : 'Pulado'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {/* COLUNA 4: Audit */}
+                                    <td className="px-4 py-4 align-middle text-center">
+                                        <div className="flex flex-col items-center gap-1">
+                                            <Badge variant="outline" className={`font-mono text-[10px] ${lastResult.api_cost && lastResult.api_cost > 20 ? 'text-red-600 border-red-200' : ''}`}>
+                                                {lastResult.api_cost || 0} reqs
+                                            </Badge>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 rounded-full hover:bg-muted"
+                                                onClick={() => console.log('Audit:', lastResult)}
+                                                title="Ver Detalhes (Console)"
+                                            >
+                                                <Database className="w-3 h-3 opacity-50" />
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </CardContent>

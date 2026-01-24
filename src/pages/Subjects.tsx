@@ -923,17 +923,30 @@ const Subjects = () => {
               >
                 <div className="space-y-4 max-w-full">
                   {localSubjects.length === 0 ? (
-                    <Card>
-                      <CardHeader className="text-center">
-                        <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <CardTitle>Nenhuma matéria encontrada</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-center">
-                        <p className="text-gray-600 mb-4">
-                          Comece adicionando sua primeira matéria de estudo.
+                    <div className="flex flex-col items-center justify-center min-h-[40vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                      {/* Ícone Principal */}
+                      <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                        <span className="text-4xl">📖</span>
+                      </div>
+
+                      {/* Título */}
+                      <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-3">
+                        Organize seu Conteúdo de Estudos
+                      </h3>
+
+                      {/* Descrição */}
+                      <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                        Cadastre suas matérias e tópicos — o sistema cuida de tudo para você, agendando automaticamente suas revisões.
+                      </p>
+
+                      {/* Frase Motivacional */}
+                      <div className="flex items-center gap-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-100 dark:border-amber-800/30 px-5 py-3 rounded-2xl mb-8 shadow-sm">
+                        <span className="text-xl flex-shrink-0">✨</span>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                          Use o campo acima para adicionar sua primeira matéria!
                         </p>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   ) : (
                     expandedSubjectList
                       .filter(item => {

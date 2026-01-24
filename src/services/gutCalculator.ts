@@ -153,6 +153,14 @@ function incrementarCota(): number {
     return count
 }
 
+export function getQuotaStats() {
+    return {
+        used: getCotaUsage().count,
+        limit: COTA_DIARIA_MAXIMA,
+        remaining: Math.max(0, COTA_DIARIA_MAXIMA - getCotaUsage().count)
+    }
+}
+
 function checkCotaExceeded(): boolean {
     const hoje = new Date().toISOString().split('T')[0]
     const { date, count } = getCotaUsage()
@@ -765,7 +773,8 @@ export async function processNextPendingTopic(
                     .update({
                         is_skipped: true,
                         skip_reason: validation.motivo,
-                        last_trend_check_at: new Date().toISOString()
+                        last_trend_check_at: new Date().toISOString(),
+                        status: 'skipped'
                     } as any) // Workaround: tipos Supabase desatualizados
                     .eq('id', topicData.id)
 
@@ -773,8 +782,16 @@ export async function processNextPendingTopic(
                 return {
                     error: `Tópico rejeitado: ${validation.motivo} `,
                     rejected: true,
-                    topic_name: topicData.name,
-                    multiplos_assuntos: validation.multiplos_assuntos
+                    // Dados para display no frontend mesmo com erro
+                    id: topicData.id,
+                    materia: subjectName,
+                    topicoOriginal: topicData.name, // Padronizado para o frontend
+                    topico_original: topicData.name, // Legado
+                    total_volume: 0,
+                    maior_sub_topico: validation.motivo,
+                    status: 'rejected',
+                    reasoning: validation.motivo,
+                    api_cost: 0
                 }
             }
 

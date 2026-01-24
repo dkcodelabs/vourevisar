@@ -112,27 +112,55 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
+        <div className="min-h-screen bg-background pb-20">
             <div className="container mx-auto p-4 md:p-8 max-w-7xl">
 
                 <DashboardHeader subjectsCount={subjects.length} />
 
                 {subjects.length === 0 ? (
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 md:p-16 shadow-sm border border-slate-100 dark:border-slate-800 text-center max-w-4xl mx-auto mt-6 animate-in fade-in zoom-in duration-500">
-                        <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-3">Comece sua jornada!</h2>
-                        <p className="text-base text-slate-500 dark:text-slate-400 mb-8 max-w-md mx-auto leading-relaxed">
-                            Adicione suas primeiras matérias para desbloquear o painel de estatísticas.
-                        </p>
-                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                            <Button
-                                onClick={() => navigate('/materias')}
-                                size="lg"
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 h-12 rounded-xl shadow-md hover:shadow-lg transition-all group font-semibold"
-                            >
-                                <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform" />
-                                Adicionar Matéria
-                            </Button>
+                    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                        {/* Ícone Principal */}
+                        <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-8 shadow-inner">
+                            <span className="text-5xl">🚀</span>
                         </div>
+
+                        {/* Título Motivacional */}
+                        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+                            Sua Jornada de Aprovação Começa Aqui! ✨
+                        </h2>
+
+                        {/* Descrição */}
+                        <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-lg mx-auto leading-relaxed">
+                            Esse é o primeiro passo para transformar seus estudos. Adicione suas matérias e tópicos para começar sua preparação.
+                        </p>
+
+                        {/* Frase Motivacional com Ícone */}
+                        <div className="flex items-start gap-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-100 dark:border-amber-800/30 p-5 rounded-2xl mb-10 max-w-lg shadow-sm">
+                            <span className="text-3xl flex-shrink-0">🌟</span>
+                            <div className="text-left">
+                                <p className="text-slate-800 dark:text-slate-200 font-semibold mb-1">
+                                    Mantenha a Positividade
+                                </p>
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                    Foque em pensamentos e ações que te levem ao crescimento.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Texto de Ação */}
+                        <p className="text-slate-500 dark:text-slate-500 mb-8 font-medium">
+                            Comece agora cadastrando suas matérias e tópicos de estudo.
+                        </p>
+
+                        {/* Botão CTA */}
+                        <Button
+                            onClick={() => navigate('/materias')}
+                            size="lg"
+                            className="px-10 py-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 text-base"
+                        >
+                            <Plus className="mr-2 h-5 w-5" />
+                            Começar Minha Jornada
+                        </Button>
                     </div>
                 ) : (
                     <div className="space-y-8 animate-in fade-in duration-500 slide-in-from-bottom-4">

@@ -955,34 +955,64 @@ export const Revisoes = () => {
               {/* FOCUS TAB EMPTY STATE */}
               {activeTab === 'FOCUS' && (
                 <>
-                  <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50 dark:ring-emerald-900/10">
-                    <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Parabéns! Tudo em dia!</h3>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-                    Você zerou suas revisões de hoje e atrasadas. <br /> Seu foco e disciplina estão rendendo frutos.
-                  </p>
-
-                  {(stats.totalTopics - stats.startedTopicsCount > 0) && (
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo-estudos')}>
-                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Sparkles size={80} />
+                  {/* Caso 1: Usuário não tem dados ainda */}
+                  {stats.totalTopics === 0 ? (
+                    <>
+                      <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                        <span className="text-4xl">📚</span>
                       </div>
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className="p-2.5 bg-indigo-100 dark:bg-indigo-800/50 rounded-xl shrink-0">
-                          <Sparkles size={20} className="text-indigo-600 dark:text-indigo-400 fill-indigo-200 dark:fill-indigo-900" />
-                        </div>
-                        <div className="text-left">
-                          <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-1">Mantenha o progresso!</p>
-                          <p className="text-xs text-indigo-700 dark:text-indigo-400/90 mb-3 leading-relaxed">
-                            Você tem <span className="font-bold bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded text-indigo-800 dark:text-indigo-200">{stats.totalTopics - stats.startedTopicsCount} tópicos</span> ainda não iniciados. Que tal começar um agora?
-                          </p>
-                          <div className="flex items-center text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">
-                            Ir para o Ciclo <ChevronRight size={14} className="ml-0.5" />
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Comece sua jornada de revisões!</h3>
+                      <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                        Adicione suas matérias e tópicos — o sistema agenda automaticamente suas revisões usando a técnica de repetição espaçada.
+                      </p>
+                      <button
+                        onClick={() => navigate('/materias')}
+                        className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                      >
+                        Adicionar Matérias
+                      </button>
+                    </>
+                  ) : (
+                    /* Caso 2: Usuário zerou as revisões de hoje e atrasadas */
+                    <>
+                      <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50 dark:ring-emerald-900/10">
+                        <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Parabéns! Tudo em dia!</h3>
+                      <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                        Você zerou suas revisões de hoje e atrasadas. <br /> Seu foco e disciplina estão rendendo frutos.
+                      </p>
+
+                      {/* Frase Motivacional - Responsiva */}
+                      <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100 dark:border-emerald-800/30 px-5 py-3 rounded-2xl mb-8 shadow-sm">
+                        <span className="text-xl flex-shrink-0">✅</span>
+                        <p className="text-sm md:text-base text-slate-700 dark:text-slate-300 font-medium whitespace-normal md:whitespace-nowrap">
+                          Cada revisão concluída é uma etapa mais perto da sua conquista.
+                        </p>
+                      </div>
+
+                      {(stats.totalTopics - stats.startedTopicsCount > 0) && (
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo-estudos')}>
+                          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <Sparkles size={80} />
+                          </div>
+                          <div className="flex items-start gap-4 relative z-10">
+                            <div className="p-2.5 bg-indigo-100 dark:bg-indigo-800/50 rounded-xl shrink-0">
+                              <Sparkles size={20} className="text-indigo-600 dark:text-indigo-400 fill-indigo-200 dark:fill-indigo-900" />
+                            </div>
+                            <div className="text-left">
+                              <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-1">Mantenha o progresso!</p>
+                              <p className="text-xs text-indigo-700 dark:text-indigo-400/90 mb-3 leading-relaxed">
+                                Você tem <span className="font-bold bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded text-indigo-800 dark:text-indigo-200">{stats.totalTopics - stats.startedTopicsCount} tópicos</span> ainda não iniciados. Que tal começar um agora?
+                              </p>
+                              <div className="flex items-center text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">
+                                Ir para o Ciclo <ChevronRight size={14} className="ml-0.5" />
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -1032,6 +1062,62 @@ export const Revisoes = () => {
                   <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
                     Você tem <span className="font-bold text-slate-700 dark:text-slate-300">{stats.startedTopicsCount} tópicos</span> em fase de estudos. <br /> Continue revisando com consistência para vê-los aqui em breve.
                   </p>
+                </>
+              )}
+
+              {/* ALL TAB EMPTY STATE */}
+              {activeTab === 'ALL' && (
+                <>
+                  {stats.totalTopics === 0 ? (
+                    <>
+                      <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-indigo-100 dark:from-slate-800 dark:to-indigo-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                        <span className="text-4xl">📋</span>
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Central de Revisões</h3>
+                      <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                        Aqui você terá a visão completa de todos os seus tópicos organizados por status de revisão.
+                      </p>
+
+                      {/* Features */}
+                      <div className="flex flex-wrap justify-center gap-3 max-w-lg mb-8">
+                        <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-1.5 rounded-full text-xs font-medium text-orange-700 dark:text-orange-300">
+                          <span>⏰</span> Atrasados
+                        </div>
+                        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300">
+                          <span>📅</span> Para Hoje
+                        </div>
+                        <div className="flex items-center gap-2 bg-cyan-50 dark:bg-cyan-900/20 px-3 py-1.5 rounded-full text-xs font-medium text-cyan-700 dark:text-cyan-300">
+                          <span>🔮</span> Futuros
+                        </div>
+                        <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-full text-xs font-medium text-green-700 dark:text-green-300">
+                          <span>✅</span> Concluídos
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => navigate('/materias')}
+                        className="px-6 py-3 bg-gradient-to-r from-slate-700 to-indigo-600 hover:from-slate-800 hover:to-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                      >
+                        Adicionar Matérias
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50 dark:ring-emerald-900/10">
+                        <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Nenhum tópico corresponde aos filtros</h3>
+                      <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                        Tente ajustar a pesquisa ou os filtros de ciclo para visualizar seus tópicos.
+                      </p>
+                      <button
+                        onClick={() => { setSearchTerm(''); setReviewStageFilter('all'); }}
+                        className="px-5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
+                      >
+                        Limpar Filtros
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>

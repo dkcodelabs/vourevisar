@@ -392,22 +392,46 @@ const Topics = () => {
               {/* Topics List */}
               <div className="pb-8">
                 {filteredAndSortedTopics.length === 0 ? (
-                  <Card className="bg-card shadow-sm border">
-                    <CardContent className="text-center py-12">
-                      <p className="text-muted-foreground mb-4">
-                        {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
-                          ? 'Nenhum tópico encontrado para os filtros aplicados.'
-                          : 'Nenhum tópico cadastrado ainda.'
-                        }
-                      </p>
-                      {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && subjectFilter === 'all' && (
-                        <Button onClick={() => navigate('/materias')} className="bg-blue-600 hover:bg-blue-700">
+                  <div className="flex flex-col items-center justify-center min-h-[40vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                    {/* Ícone Principal */}
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                      <span className="text-4xl">📝</span>
+                    </div>
+
+                    {/* Título */}
+                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-3">
+                      {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
+                        ? 'Nenhum tópico encontrado'
+                        : 'Seus Tópicos Aparecerão Aqui'
+                      }
+                    </h3>
+
+                    {/* Descrição */}
+                    <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                      {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
+                        ? 'Tente ajustar os filtros para encontrar o que procura.'
+                        : 'Cadastre suas matérias e adicione tópicos para visualizá-los aqui com todas as informações de revisão.'
+                      }
+                    </p>
+
+                    {/* Botão CTA - só mostra se não há filtros ativos */}
+                    {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && subjectFilter === 'all' && (
+                      <>
+                        {/* Frase Motivacional */}
+                        <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/10 dark:to-cyan-900/10 border border-blue-100 dark:border-blue-800/30 px-5 py-3 rounded-2xl mb-8 shadow-sm">
+                          <span className="text-xl flex-shrink-0">🎯</span>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                            Organize seus estudos por tópicos e acompanhe seu progresso!
+                          </p>
+                        </div>
+
+                        <Button onClick={() => navigate('/materias')} className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-xl shadow-md">
                           <Plus className="h-4 w-4 mr-2" />
-                          Adicionar Primeira Matéria
+                          Adicionar Matérias
                         </Button>
-                      )}
-                    </CardContent>
-                  </Card>
+                      </>
+                    )}
+                  </div>
                 ) : (
                   <>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
