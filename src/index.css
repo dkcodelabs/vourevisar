@@ -717,24 +717,31 @@ select {
 /* Classes consistentes removidas para permitir controle via Tailwind */
 
 /* Animação para destacar tópicos */
-@keyframes highlight-blink {
-
-  0%,
+/* Animação para destacar tópicos */
+@keyframes flash-highlight {
+  0% {
+    background-color: transparent;
+  }
+  25% {
+    background-color: rgb(253 224 71 / 0.5); /* yellow-300 with opacity */
+    box-shadow: 0 0 0 2px rgb(234 179 8); /* yellow-500 border */
+  }
+  50% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+  75% {
+    background-color: rgb(253 224 71 / 0.5);
+    box-shadow: 0 0 0 2px rgb(234 179 8);
+  }
   100% {
     background-color: transparent;
-    border-color: transparent;
-  }
-
-  50% {
-    background-color: rgb(254 240 138);
-    /* yellow-200 */
-    border-color: rgb(253 224 71);
-    /* yellow-300 */
+    box-shadow: none;
   }
 }
 
 .highlight-blink {
-  animation: highlight-blink 2s ease-in-out 3;
+  animation: flash-highlight 1.5s ease-in-out forwards;
 }
 
 /* General Notes Modal - Consistent styling */

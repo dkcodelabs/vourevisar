@@ -161,6 +161,7 @@ export const Revisoes = () => {
   const [activeTab, setActiveTab] = useState<ViewTab>('FOCUS');
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [highlightedTopicId, setHighlightedTopicId] = useState<string | null>(null);
 
   // Timer State
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(() => {
@@ -206,13 +207,7 @@ export const Revisoes = () => {
     subjectName: ''
   });
 
-  // Effect to handle URL params
-  useEffect(() => {
-    const subjectId = searchParams.get('subject');
-    if (subjectId) {
-      setActiveTab('SUBJECTS');
-    }
-  }, [searchParams]);
+
 
   // Save timer state whenever it changes
   useEffect(() => {
@@ -432,6 +427,98 @@ export const Revisoes = () => {
     }
     return groups;
   }, [items, activeTab]);
+
+  // Effect to handle URL params
+  useEffect(() => {
+    const subjectId = searchParams.get('subject');
+    if (subjectId) {
+      setActiveTab('SUBJECTS');
+    }
+  }, [searchParams]);
+
+  // Effect to handle TopidId from URL (Smart Navigation)
+  useEffect(() => {
+    const topicId = searchParams.get('topicId');
+    if (topicId && items.length > 0) {
+      // 1. Encontrar o tópico na lista completa
+
+      const targetItem = items.find(i => i.id === topicId);
+
+      if (targetItem) {
+        // Encontrou na lista atual renderizada
+        handleSmartNavigation(targetItem);
+      } else {
+        // Tentar forçar a Tab ALL se não achou nas abas padrão
+        // HACK: Se veio topicId, vamos procurar em TODOS os tópicos brutos primeiro pra saber onde ele está.
+        const allRawTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics];
+        const rawTopic = allRawTopics.find(t => t.id === topicId);
+
+        if (rawTopic) {
+          // Determinar qual aba ele pertence
+          const todayDateString = new Date().toISOString().split('T')[0];
+          let targetTab: ViewTab = 'ALL';
+
+          if (rawTopic.completed || rawTopic.review_stage === 'Concluído') {
+            targetTab = 'COMPLETED';
+          } else if (rawTopic.next_review) {
+            const reviewDateString = new Date(rawTopic.next_review).toISOString().split('T')[0];
+            if (reviewDateString <= todayDateString) targetTab = 'FOCUS';
+            else targetTab = 'FUTURE';
+          } else {
+            // Not started?
+            targetTab = 'ALL';
+          }
+
+          if (activeTab !== targetTab) {
+            setActiveTab(targetTab);
+          } else {
+            if (searchTerm || reviewStageFilter !== 'all') {
+              setSearchTerm('');
+              setReviewStageFilter('all');
+            }
+          }
+        }
+      }
+    }
+  }, [searchParams, items, delayedTopics, todayTopics, futureTopics, completedTopics, activeTab]);
+
+  // Handle scrolling and highlighting when topic is found and rendered
+  useEffect(() => {
+    const topicId = searchParams.get('topicId');
+    if (topicId && !highlightedTopicId) {
+      const element = document.getElementById(`topic-${topicId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedTopicId(topicId);
+      } else {
+        Object.entries(groupedItems).forEach(([groupKey, groupItems]) => {
+          if (groupItems.some(i => i.id === topicId)) {
+            if (collapsedGroups[groupKey]) {
+              setCollapsedGroups(prev => ({ ...prev, [groupKey]: false }));
+            }
+          }
+        });
+      }
+    }
+  }, [groupedItems, collapsedGroups, searchParams, highlightedTopicId]);
+
+  // Limpar highlight após alguns segundos
+  useEffect(() => {
+    if (highlightedTopicId) {
+      const timer = setTimeout(() => {
+        setHighlightedTopicId(null);
+        setSearchParams(params => {
+          params.delete('topicId');
+          return params;
+        });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedTopicId, setSearchParams]);
+
+  const handleSmartNavigation = (item: RevisionItem) => {
+    // Logic handled in side effects
+  };
 
   // Helpers
   const getDaysDiff = (dateStr: string) => {
@@ -991,6 +1078,29 @@ export const Revisoes = () => {
                         </p>
                       </div>
 
+                      {/* Aviso de Revisões Futuras se houver */}
+                      {stats.future > 0 && (
+                        <div className="mb-6 animate-in fade-in slide-in-from-bottom-2">
+                          <button
+                            onClick={() => setActiveTab('FUTURE')}
+                            className="group flex items-center gap-3 px-5 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-2xl hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all text-left"
+                          >
+                            <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-xl group-hover:scale-110 transition-transform">
+                              <Calendar size={20} className="text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-blue-900 dark:text-blue-300">
+                                Você tem {stats.future} {stats.future === 1 ? 'revisão programada' : 'revisões programadas'} para o futuro.
+                              </p>
+                              <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5 group-hover:underline">
+                                Clique para visualizar o cronograma
+                              </p>
+                            </div>
+                            <ChevronRight size={16} className="text-blue-400 ml-auto group-hover:translate-x-1 transition-transform" />
+                          </button>
+                        </div>
+                      )}
+
                       {(stats.totalTopics - stats.startedTopicsCount > 0) && (
                         <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo-estudos')}>
                           <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -1175,8 +1285,11 @@ export const Revisoes = () => {
                             const isActive = activeTimer?.topicId === item.id;
                             return (
                               <div
+                                id={`topic-${item.id}`}
                                 key={item.id}
-                                className={`group transition-all ${isActive ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/40'}`}
+                                className={`group transition-all duration-300 ${isActive ? 'bg-indigo-50/50 dark:bg-indigo-900/10' :
+                                  highlightedTopicId === item.id ? 'highlight-blink z-10' :
+                                    'hover:bg-slate-50/60 dark:hover:bg-slate-800/40'}`}
                               >
                                 {/* Mobile: Stacked / Desktop: Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-[1.5fr,120px,120px,140px] gap-4 p-4 md:px-6 md:py-5 items-center">

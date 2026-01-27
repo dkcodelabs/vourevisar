@@ -63,7 +63,10 @@ Tópico1; tópico2; tópico3
 [Matéria2]
 Tópico1; tópico2; tópico3
 
-ATENÇÃO: mantenha o nome da matéria entre colchetes [], e liste todos os tópicos dela separados apenas por ponto e vírgula ;, tudo em uma linha por matéria. Não coloque numeração nem subitens.
+ATENÇÃO:
+- O texto de entrada geralmente separa os tópicos principais por PONTO E VÍRGULA (;). Respeite essa separação original.
+- NÃO QUEBRE itens separados apenas por vírgula em linhas novas, a menos que sejam claramente tópicos distintos. Mantenha "item A, item B e item C" como um único tópico se fizerem sentido juntos.
+- O formato de saída DEVE SER: [Nome da Matéria] seguido dos tópicos separados por ponto e vírgula (;).
 
 CONTEÚDO PARA PROCESSAR:
 ${content}`;
@@ -292,6 +295,17 @@ ${content}`;
             continue;
           }
 
+          // Buscar a última posição registrada para essa matéria
+          const { data: maxPositionData } = await supabase
+            .from('topics')
+            .select('position')
+            .eq('subject_id', subjectId)
+            .order('position', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          let currentPosition = (maxPositionData?.position || 0) + 1;
+
           const { data: existingTopic } = await supabase
             .from('topics')
             .select('id')
@@ -304,7 +318,8 @@ ${content}`;
               subject_id: subjectId,
               name: topicName,
               completed: false,
-              review_count: 0
+              review_count: 0,
+              position: currentPosition++
             });
           }
         }

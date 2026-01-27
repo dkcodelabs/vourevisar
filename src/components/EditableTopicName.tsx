@@ -166,8 +166,8 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
   }
 
   return (
-    <h3 className="text-sm font-normal text-zinc-800 dark:text-zinc-200 break-words leading-tight">
+    <span className="text-sm font-normal text-zinc-800 dark:text-zinc-200 break-words block">
       <HighlightText text={name} searchQuery={searchQuery} />
-    </h3>
+    </span>
   );
 };

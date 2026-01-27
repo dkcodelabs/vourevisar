@@ -93,7 +93,9 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
     lastReviewedAt: lastReviewedAtRaw || undefined,
     notes: topic.notes?.content || '',
     difficulty: mapDifficultyLevel(topic.difficulty_level),
-    subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || []
+    subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || [],
+    createdAt: (topic as any).created_at,
+    position: (topic as any).position
   };
 };
 
@@ -171,7 +173,7 @@ export const useStudyCycleData = () => {
 
     try {
       // 1. Tentar ler do cache primeiro
-      const cacheKey = `subjects_cache_${user.id}`;
+      const cacheKey = `subjects_cache_${user.id}_v2`;
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try {
@@ -187,9 +189,10 @@ export const useStudyCycleData = () => {
 
       const { data, error } = await supabase
         .from('subjects')
-        .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at)`)
+        .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position)`)
         .eq('user_id', user.id)
         .order('priority', { ascending: true })
+        .order('position', { foreignTable: 'topics', ascending: true })
         .order('created_at', { foreignTable: 'topics', ascending: true });
 
       if (error) {
@@ -252,7 +255,7 @@ export const useStudyCycleData = () => {
           const parsed = JSON.parse(cached);
           setUserCycle(parsed);
           // Se temos subjects em cache tb (verificado em loadSubjects ou aqui), podemos parar o load
-          const subjectsCached = localStorage.getItem(`subjects_cache_${user.id}`);
+          const subjectsCached = localStorage.getItem(`subjects_cache_${user.id}_v2`);
           if (subjectsCached) setIsLoading(false);
         } catch (e) { console.error('Invalid cycle cache', e); }
       }

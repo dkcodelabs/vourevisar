@@ -28,6 +28,8 @@ export interface StudyCycleTopic {
   notes?: string;
   difficulty?: Difficulty;
   subTopics?: SubTopic[];
+  createdAt?: string;
+  position?: number;
 }
 
 export enum SubjectStatus {

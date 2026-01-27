@@ -141,6 +141,14 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     try {
       const originalId = subject.originalId || subject.id;
 
+      // Calcular próxima posição
+      // Encontrar a maior posição atual
+      const maxPosition = subject.topics.reduce((max, t) => {
+        return (t.position || 0) > max ? (t.position || 0) : max;
+      }, 0);
+
+      const newPosition = maxPosition + 1;
+
       const { error } = await supabase
         .from('topics')
         .insert({
@@ -152,7 +160,8 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           next_review: null,
           first_studied_at: null,
           last_reviewed_at: null,
-          notes: null
+          notes: null,
+          position: newPosition
         });
 
       if (error) throw error;
@@ -246,20 +255,35 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         <div className="p-4 bg-muted/30 flex-grow">
           <h4 className="text-xs font-medium text-muted-foreground mb-3 px-2">Tópicos concluídos:</h4>
           <div className="space-y-1 max-h-48 overflow-y-auto pr-2">
-            {(filterTopicsBySearch ? filterTopicsBySearch(subject.topics) : subject.topics).map(topic => (
-              <StudyCycleTopicItem
-                key={topic.id}
-                topic={topic}
-                onCheckboxClick={() => onCheckboxClick(topic.id)}
-                onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
-                onTopicUpdate={onTopicUpdate}
-                isSubjectFinished={true}
-                isActionable={false}
-                isEditing={editingTopicId === topic.id}
-                onEditingChange={setEditingTopicId}
-                searchQuery={searchQuery}
-              />
-            ))}
+            {(() => {
+              const topics = filterTopicsBySearch ? filterTopicsBySearch(subject.topics) : subject.topics;
+              // Ordenar por data de criação (antigos primeiro) para garantir sequência de cadastro
+              // Tópicos novos ficam no fim.
+              const sortedTopics = [...topics].sort((a, b) => {
+                if (a.position !== undefined && b.position !== undefined) {
+                  return a.position - b.position;
+                }
+                if (!a.createdAt && !b.createdAt) return 0;
+                if (!a.createdAt) return 1;
+                if (!b.createdAt) return -1;
+                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+              });
+
+              return sortedTopics.map(topic => (
+                <StudyCycleTopicItem
+                  key={topic.id}
+                  topic={topic}
+                  onCheckboxClick={() => onCheckboxClick(topic.id)}
+                  onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
+                  onTopicUpdate={onTopicUpdate}
+                  isSubjectFinished={true}
+                  isActionable={false}
+                  isEditing={editingTopicId === topic.id}
+                  onEditingChange={setEditingTopicId}
+                  searchQuery={searchQuery}
+                />
+              ));
+            })()}
             {isAddingTopic && (
               <div className="flex items-center gap-2 p-3 bg-white dark:bg-slate-700/50 rounded-lg">
                 <input
@@ -395,20 +419,30 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                   </Button>
                 </div>
 
-                {(filterTopicsBySearch ? filterTopicsBySearch(subject.topics) : subject.topics).map(topic => (
-                  <StudyCycleTopicItem
-                    key={topic.id}
-                    topic={topic}
-                    onCheckboxClick={() => onCheckboxClick(topic.id)}
-                    onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
-                    onTopicUpdate={onTopicUpdate}
-                    isSubjectFinished={false}
-                    isActionable={isActionable}
-                    isEditing={editingTopicId === topic.id}
-                    onEditingChange={setEditingTopicId}
-                    searchQuery={searchQuery}
-                  />
-                ))}
+                {(() => {
+                  const topics = (filterTopicsBySearch ? filterTopicsBySearch(subject.topics) : subject.topics);
+                  const sortedTopics = [...topics].sort((a, b) => {
+                    if (!a.createdAt && !b.createdAt) return 0;
+                    if (!a.createdAt) return 1;
+                    if (!b.createdAt) return -1;
+                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                  });
+
+                  return sortedTopics.map(topic => (
+                    <StudyCycleTopicItem
+                      key={topic.id}
+                      topic={topic}
+                      onCheckboxClick={() => onCheckboxClick(topic.id)}
+                      onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
+                      onTopicUpdate={onTopicUpdate}
+                      isSubjectFinished={false}
+                      isActionable={isActionable}
+                      isEditing={editingTopicId === topic.id}
+                      onEditingChange={setEditingTopicId}
+                      searchQuery={searchQuery}
+                    />
+                  ));
+                })()}
               </div>
             </div>
           </div>
@@ -489,19 +523,28 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             </Button>
           </div>
 
-          {subject.topics.map(topic => (
-            <StudyCycleTopicItem
-              key={topic.id}
-              topic={topic}
-              onCheckboxClick={() => onCheckboxClick(topic.id)}
-              onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
-              onTopicUpdate={onTopicUpdate}
-              isSubjectFinished={false}
-              isActionable={isActionable}
-              isEditing={editingTopicId === topic.id}
-              onEditingChange={setEditingTopicId}
-            />
-          ))}
+          {(() => {
+            const sortedTopics = [...subject.topics].sort((a, b) => {
+              if (!a.createdAt && !b.createdAt) return 0;
+              if (!a.createdAt) return 1;
+              if (!b.createdAt) return -1;
+              return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            });
+
+            return sortedTopics.map(topic => (
+              <StudyCycleTopicItem
+                key={topic.id}
+                topic={topic}
+                onCheckboxClick={() => onCheckboxClick(topic.id)}
+                onOpenNotes={() => onOpenNotes(subject.id, topic.id)}
+                onTopicUpdate={onTopicUpdate}
+                isSubjectFinished={false}
+                isActionable={isActionable}
+                isEditing={editingTopicId === topic.id}
+                onEditingChange={setEditingTopicId}
+              />
+            ));
+          })()}
         </div>
       </div>
     </div>

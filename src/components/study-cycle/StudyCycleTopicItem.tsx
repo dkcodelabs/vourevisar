@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import type { StudyCycleTopic } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
 import { CheckIcon } from './Icons';
-import { FileText } from 'lucide-react';
+import { FileText, ArrowRight } from 'lucide-react';
 import { EditableTopicName } from '@/components/EditableTopicName';
+import { useNavigate } from 'react-router-dom';
 
 interface StudyCycleTopicItemProps {
   topic: StudyCycleTopic;
@@ -198,6 +199,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
     };
   };
 
+  const navigate = useNavigate();
   const statusConfig = getTopicStatus();
 
   const handleStartEditing = () => {
@@ -235,9 +237,14 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
       {/* Layout responsivo: mobile/tablet = vertical (texto em cima, controles embaixo), desktop = horizontal */}
       <div className="flex flex-col lg:flex-row lg:items-start justify-between w-full gap-2">
         {/* Texto do tópico - Editável */}
-        <div className="flex-1 group min-w-0">
+        <div className="flex-1 group min-w-0 flex items-center gap-2">
+          {topic.position && (
+            <span className="text-sm font-semibold text-slate-400 dark:text-slate-500 w-6 text-right shrink-0">
+              {topic.position}.
+            </span>
+          )}
           <div
-            className={`${isEditing ? 'w-full' : 'block'} cursor-pointer`}
+            className={`${isEditing ? 'w-full' : 'block'} cursor-pointer flex-1 first-letter:uppercase`}
             onClick={(e) => {
               e.stopPropagation();
               if (!isEditing) handleStartEditing();
@@ -260,9 +267,9 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         </div>
 
         {/* Controles: status, anotação e radiobox */}
-        <div className="flex items-center gap-3 flex-shrink-0 self-end lg:self-auto">
+        <div className="flex items-center gap-3 flex-shrink-0 self-center">
           {/* Badge com data em tooltip */}
-          <div className="flex flex-col items-end">
+          <div className="flex flex-col items-center">
             <div
               className={`px-2 py-0.5 rounded-full ${statusConfig.className} relative group cursor-help text-[11px] font-semibold`}
               title={statusConfig.dateInfo || ''}
@@ -286,13 +293,25 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
           >
             <FileText size={18} />
           </button>
-          <button
-            onClick={onCheckboxClick}
-            disabled={isTopicCompleted || !isActionable}
-            className={`flex-shrink-0 w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] max-w-[1.5rem] max-h-[1.5rem] rounded-full flex items-center justify-center border-2 transition-all duration-200 border-gray-300 dark:border-slate-400 shadow-sm dark:bg-slate-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-500 bg-[#F1F5F9] hover:bg-[#DBEAFE] hover:border-blue-400 ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
-            aria-label={`Marcar ${topic.name} como revisado`}
-          >
-          </button>
+          {/* Action Button: Radio (Not Started) OR Link (Started) */}
+          {topic.reviewStatus === ReviewInterval.NOT_STARTED ? (
+            <button
+              onClick={onCheckboxClick}
+              disabled={isTopicCompleted || !isActionable}
+              className={`flex-shrink-0 w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] max-w-[1.5rem] max-h-[1.5rem] rounded-full flex items-center justify-center border-2 transition-all duration-200 border-gray-300 dark:border-slate-400 shadow-sm dark:bg-slate-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-500 bg-[#F1F5F9] hover:bg-[#DBEAFE] hover:border-blue-400 ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              aria-label={`Marcar ${topic.name} como revisado`}
+            >
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
+              className="flex-shrink-0 w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] max-w-[1.5rem] max-h-[1.5rem] rounded-full flex items-center justify-center bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-all duration-200 shadow-sm border border-indigo-200 dark:border-indigo-800"
+              title="Ir para Revisões"
+              aria-label={`Ver ${topic.name} em Revisões`}
+            >
+              <ArrowRight size={14} />
+            </button>
+          )}
         </div>
       </div>
     </div>
