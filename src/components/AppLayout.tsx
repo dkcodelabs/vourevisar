@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ChevronDown, Notebook, Timer, Menu, CornerDownRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Notebook, Timer, Menu, CornerDownRight, NotebookPen } from "lucide-react";
+import { FocusTimer } from "./FocusTimer";
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { MobileBottomBar } from "./layout/MobileBottomBar";
@@ -74,6 +75,11 @@ const TopHeader = ({ pageTitle, onOpenNotes }: { pageTitle: string; onOpenNotes:
   const formattedTime = formatTime(timeLeft);
 
   return (
+    // ... imports fixed below via separate edit for top of file or let's try to include imports if I can.
+    // Actually, I need to add imports to the top of the file first.
+    // I'll do two edits or try to merge.
+    // Let's do the inner content first, assuming imports will be added.
+
     <header className="fixed top-0 left-0 right-0 z-50 h-[72px] w-full flex items-center justify-between px-6 bg-white shadow-md border-b border-gray-200 transition-all">
       <div className="flex items-center gap-4">
         <MobileMenuToggle />
@@ -85,20 +91,19 @@ const TopHeader = ({ pageTitle, onOpenNotes }: { pageTitle: string; onOpenNotes:
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Annotations Button */}
+        {/* 1. Focus Timer (Leftmost) */}
+        <FocusTimer />
+
+        {/* 2. Annotations Button (NotebookPen) */}
         <button
           onClick={onOpenNotes}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm"
+          className="flex items-center justify-center w-9 h-9 text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:bg-gray-800 focus:outline-none"
           title="Anotações Gerais"
         >
-          <Notebook className="w-4 h-4" />
-          <span className="hidden lg:inline">Anotações</span>
+          <NotebookPen className="w-5 h-5" strokeWidth={1.5} />
         </button>
 
-        {/* Theme Toggle */}
-        <ThemeToggle />
-
-        {/* Pomodoro Timer */}
+        {/* 3. Pomodoro Timer */}
         <PomodoroPopover>
           <div className="flex items-center gap-2">
             {timeLeft < 25 * 60 && (
@@ -111,6 +116,9 @@ const TopHeader = ({ pageTitle, onOpenNotes }: { pageTitle: string; onOpenNotes:
             </button>
           </div>
         </PomodoroPopover>
+
+        {/* 4. Theme Toggle (Rightmost) */}
+        <ThemeToggle />
       </div>
     </header>
   );

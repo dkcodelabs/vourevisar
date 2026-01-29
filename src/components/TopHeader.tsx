@@ -2,8 +2,9 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, BookOpen, Calendar, List, Clock, TrendingUp, Timer, Menu, Target, Settings, LucideIcon, Notebook
+  LayoutDashboard, BookOpen, Calendar, List, Clock, TrendingUp, Timer, Menu, Target, Settings, LucideIcon, StickyNote
 } from "lucide-react";
+import { FocusTimer } from './FocusTimer';
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { PomodoroPopover } from '@/components/PomodoroPopover';
@@ -138,21 +139,21 @@ export const TopHeader = () => {
           </div>
 
           {/* Right Side: Utility Icons - separated */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            {/* Annotations Button */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 justify-end">
+
+            {/* 1. Review Focus Timer (New) */}
+            <FocusTimer minutes={12} />
+
+            {/* 2. Annotations Button (Refactored: Icon Only) */}
             <button
               onClick={() => setIsGeneralNotesModalOpen(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+              className="flex items-center justify-center w-9 h-9 text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:bg-gray-800 focus:outline-none"
               title="Anotações Gerais"
             >
-              <Notebook className="w-4 h-4" />
-              <span className="hidden sm:inline">Anotações</span>
+              <StickyNote className="w-5 h-5" />
             </button>
 
-            {/* Theme Toggle */}
-            <ThemeToggle />
-
-            {/* Pomodoro Timer Icon */}
+            {/* 3. Pomodoro Timer Icon */}
             {user && (
               <PomodoroPopover>
                 <div className="flex items-center gap-2">
@@ -166,9 +167,9 @@ export const TopHeader = () => {
                     </span>
                   )}
 
-                  <button className="relative flex items-center justify-center w-10 h-10 lg:w-12 lg:h-12 rounded-full transition-all duration-200 hover:scale-105">
+                  <button className="relative flex items-center justify-center w-9 h-9 lg:w-10 lg:h-10 rounded-full transition-all duration-200 hover:scale-105">
                     {/* Progress circle */}
-                    <svg className="absolute w-10 h-10 lg:w-12 lg:h-12 transform -rotate-90" viewBox="0 0 48 48">
+                    <svg className="absolute w-9 h-9 lg:w-10 lg:h-10 transform -rotate-90" viewBox="0 0 48 48">
                       <circle
                         cx="24"
                         cy="24"
@@ -176,7 +177,7 @@ export const TopHeader = () => {
                         stroke="currentColor"
                         strokeWidth="2"
                         fill="none"
-                        className="text-muted-foreground"
+                        className="text-muted-foreground/20"
                       />
                       {state !== 'stopped' && (
                         <circle
@@ -198,25 +199,19 @@ export const TopHeader = () => {
                     {/* Timer icon ou tempo no mobile */}
                     {state === 'stopped' ? (
                       <Timer
-                        size={14}
+                        size={16}
                         className="text-muted-foreground"
                       />
                     ) : (
                       <div className="flex flex-col items-center">
-                        <span className={`text-xs font-mono font-bold sm:hidden transition-all duration-300 ${isBlinking
+                        <span className={`text-[10px] font-mono font-bold sm:hidden transition-all duration-300 ${isBlinking
                           ? 'text-red-500 animate-pulse'
                           : 'text-muted-foreground'
                           }`}>
                           {timeLeft === 0 && isBlinking ? '00' : formattedTime.split(':')[0]}
                         </span>
-                        <span className={`text-xs font-mono font-bold sm:hidden transition-all duration-300 ${isBlinking
-                          ? 'text-red-500 animate-pulse'
-                          : 'text-muted-foreground'
-                          }`}>
-                          {timeLeft === 0 && isBlinking ? '00' : formattedTime.split(':')[1]}
-                        </span>
                         <Timer
-                          size={14}
+                          size={16}
                           className={`hidden sm:block transition-all duration-300 ${isBlinking
                             ? 'text-red-500 animate-pulse'
                             : state === 'running'
@@ -231,9 +226,12 @@ export const TopHeader = () => {
               </PomodoroPopover>
             )}
 
+            {/* 4. Theme Toggle (Extremo Direito) */}
+            <ThemeToggle />
+
             {/* User Profile */}
             {user && (
-              <div className="flex items-center">
+              <div className="flex items-center ml-1">
                 <UserProfileNav />
               </div>
             )}
