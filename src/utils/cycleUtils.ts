@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Subject } from '@/types';
 
 export const generateNextDay = async (
-  userId: string, 
-  userCycle: any, 
+  userId: string,
+  userCycle: any,
   subjects: Subject[]
 ) => {
   console.log('🔄 generateNextDay iniciado:', {
@@ -27,8 +27,8 @@ export const generateNextDay = async (
   console.log('📋 Matérias por dia configuradas:', subjectsPerDay);
 
   // Filtrar apenas matérias do ciclo atual que NÃO estão concluídas E que têm tópicos não revisados
-  const availableSubjects = subjects.filter(s => 
-    userCycle.ciclo_atual.includes(s.id) && 
+  const availableSubjects = subjects.filter(s =>
+    userCycle.ciclo_atual.includes(s.id) &&
     s.status !== 'Concluída' &&
     s.topics && s.topics.length > 0 &&
     s.topics.some(t => t.review_count === 0) // Só matérias com tópicos não revisados
@@ -44,7 +44,7 @@ export const generateNextDay = async (
 
   if (availableSubjects.length === 0) {
     console.log('🏁 Nenhuma matéria disponível - fim do ciclo');
-    
+
     // Incrementar ciclos_realizados quando ciclo é concluído
     await supabase
       .from('user_cycles')
@@ -54,7 +54,7 @@ export const generateNextDay = async (
         atualizado_em: new Date().toISOString()
       })
       .eq('user_id', userId);
-    
+
     console.log('🎉 Ciclo concluído! ciclos_realizados incrementado');
     return { shouldShowNewCycleMessage: true };
   }
@@ -76,21 +76,21 @@ export const generateNextDay = async (
   while (subjectsFound < subjectsPerDay && subjectsFound < availableSubjects.length) {
     const subjectId = userCycle.ciclo_atual[currentIndex];
     const isAvailable = availableSubjects.some(s => s.id === subjectId);
-    
+
     console.log(`🔍 Verificando matéria ${subjectId} (índice ${currentIndex}):`, {
       isAvailable,
       subjectName: subjects.find(s => s.id === subjectId)?.name || 'NOT_FOUND'
     });
-    
+
     if (isAvailable) {
       nextBatchIds.push(subjectId);
       subjectsFound++;
       console.log(`✅ Matéria ${subjectId} selecionada (${subjectsFound}/${subjectsPerDay})`);
     }
-    
+
     // Avançar para o próximo índice (circular)
     currentIndex = (currentIndex + 1) % userCycle.ciclo_atual.length;
-    
+
     // Evitar loop infinito se der uma volta completa
     if (currentIndex === startIndex && subjectsFound === 0) {
       console.log('⚠️ Nenhuma matéria disponível encontrada em todo o ciclo');
@@ -109,7 +109,7 @@ export const generateNextDay = async (
 
   // CORREÇÃO: Calcular novo índice baseado na progressão natural
   let newIndex;
-  
+
   if (nextBatchIds.length === 0) {
     // Se nenhuma matéria foi selecionada, manter o índice atual
     newIndex = startIndex;
@@ -146,22 +146,22 @@ export const generateNextDay = async (
 
   console.log('✅ Ciclo atualizado no banco de dados');
 
-  return { 
-    shouldShowNewCycleMessage: false, 
-    newDisciplinasoDia: nextBatchIds 
+  return {
+    shouldShowNewCycleMessage: false,
+    newDisciplinasoDia: nextBatchIds
   };
 };
 
 export const loadUserCycle = async (userId: string) => {
   console.log('📋 Carregando ciclo do usuário:', userId);
-  
+
   const { data, error } = await supabase
     .from('user_cycles')
     .select('*')
     .eq('user_id', userId)
-    .maybeSingle();
+    .limit(1);
 
-  if (error && error.code !== 'PGRST116') {
+  if (error) {
     console.error('Error loading user cycle:', error);
     return {
       id: '',
@@ -178,7 +178,9 @@ export const loadUserCycle = async (userId: string) => {
     };
   }
 
-  if (!data) {
+  const cycleData = data?.[0] || null;
+
+  if (!cycleData) {
     return {
       id: '',
       user_id: userId,
@@ -194,6 +196,6 @@ export const loadUserCycle = async (userId: string) => {
     };
   }
 
-  console.log('📋 Ciclo carregado:', data);
-  return data;
+  console.log('📋 Ciclo carregado:', cycleData);
+  return cycleData;
 };

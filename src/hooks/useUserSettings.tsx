@@ -84,11 +84,13 @@ export const useUserSettings = () => {
         }
 
         // Buscar informações do ciclo
-        const { data: cycleData, error: cycleError } = await supabase
+        const { data: cycleDataResult, error: cycleError } = await supabase
           .from('user_cycles')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .limit(1);
+
+        const cycleData = (cycleDataResult as any)?.[0] || null;
 
         if (cycleError && cycleError.code !== 'PGRST116') {
           console.warn('Erro ao buscar ciclo:', cycleError);

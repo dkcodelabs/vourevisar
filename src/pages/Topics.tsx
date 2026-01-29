@@ -393,44 +393,80 @@ const Topics = () => {
               <div className="pb-8">
                 {filteredAndSortedTopics.length === 0 ? (
                   <div className="flex flex-col items-center justify-center min-h-[40vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                    {/* Ícone Principal */}
-                    <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                      <span className="text-4xl">📝</span>
-                    </div>
 
-                    {/* Título */}
-                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-3">
-                      {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
-                        ? 'Nenhum tópico encontrado'
-                        : 'Seus Tópicos Aparecerão Aqui'
+                    {/* Lógica de Renderização Condicional do Empty State */}
+                    {(() => {
+                      const hasSubjects = subjects.length > 0;
+                      const hasTopics = allTopics.length > 0;
+                      const isFiltering = searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all';
+
+                      // CASO 1: Nenhuma matéria cadastrada (Prioridade Máxima conforme pedido)
+                      if (!hasSubjects) {
+                        return (
+                          <>
+                            <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                              <span className="text-4xl">📚</span>
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-3">
+                              Nenhuma Matéria Cadastrada
+                            </h3>
+                            <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                              Para começar a criar tópicos de estudo, você precisa primeiro cadastrar suas matérias (ex: Português, Direito Constitucional).
+                            </p>
+                            <Button onClick={() => navigate('/materias')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md py-6 px-8 text-lg">
+                              <Plus className="h-5 w-5 mr-2" />
+                              Cadastrar Primeira Matéria
+                            </Button>
+                          </>
+                        );
                       }
-                    </h3>
 
-                    {/* Descrição */}
-                    <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
-                      {searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all'
-                        ? 'Tente ajustar os filtros para encontrar o que procura.'
-                        : 'Cadastre suas matérias e adicione tópicos para visualizá-los aqui com todas as informações de revisão.'
+                      // CASO 2: Filtros ativos sem resultados
+                      if (isFiltering) {
+                        return (
+                          <>
+                            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
+                              <Search className="h-10 w-10 text-gray-400" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-3">
+                              Nenhum tópico encontrado
+                            </h3>
+                            <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
+                              Não encontramos nada com os filtros atuais. Tente limpar a pesquisa ou mudar os filtros.
+                            </p>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setSearchTerm('');
+                                setStatusFilter('all');
+                                setDifficultyFilter('all');
+                                setSubjectFilter('all');
+                              }}
+                            >
+                              Limpar Filtros
+                            </Button>
+                          </>
+                        );
                       }
-                    </p>
 
-                    {/* Botão CTA - só mostra se não há filtros ativos */}
-                    {!searchTerm && statusFilter === 'all' && difficultyFilter === 'all' && subjectFilter === 'all' && (
-                      <>
-                        {/* Frase Motivacional */}
-                        <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/10 dark:to-cyan-900/10 border border-blue-100 dark:border-blue-800/30 px-5 py-3 rounded-2xl mb-8 shadow-sm">
-                          <span className="text-xl flex-shrink-0">🎯</span>
-                          <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-                            Organize seus estudos por tópicos e acompanhe seu progresso!
+                      // CASO 3: Tem matérias, mas nenhum tópico (Empty State Global)
+                      return (
+                        <>
+                          <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                            <span className="text-4xl">📝</span>
+                          </div>
+                          <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-3">
+                            Adicione Seus Tópicos
+                          </h3>
+                          <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                            Você já tem matérias, mas ainda não criou tópicos. Vá para a tela de matérias para adicionar conteúdo.
                           </p>
-                        </div>
-
-                        <Button onClick={() => navigate('/materias')} className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-xl shadow-md">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Adicionar Matérias
-                        </Button>
-                      </>
-                    )}
+                          <Button onClick={() => navigate('/materias')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">
+                            Ir para Matérias
+                          </Button>
+                        </>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <>

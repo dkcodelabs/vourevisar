@@ -27,7 +27,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { ChevronsDownIcon, ChevronsUpIcon } from '@/components/study-cycle/Icons';
 import { useQuery } from '@tanstack/react-query';
@@ -38,6 +38,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useReviewsData } from '@/hooks/useReviewsData';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useTimer } from '@/contexts/TimerContext';
 import { ReviewsTrendChart } from '@/components/reviews/ReviewsTrendChart';
 import { RevisionItem, RevisionStatus } from '@/types/revision';
 import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
@@ -56,6 +57,8 @@ type ViewTab = 'FOCUS' | 'FUTURE' | 'COMPLETED' | 'SUBJECTS' | 'ALL';
 interface ActiveTimer {
   topicId: string;
   startTime: number;
+  status: 'RUNNING' | 'PAUSED';
+  accumulatedTime: number; // Time in ms before pause
 }
 
 const DifficultyStars = ({ rating }: { rating: number }) => {
@@ -153,9 +156,22 @@ export const Revisoes = () => {
       refetchHistory();
     };
 
+    const handleExternalCompletion = (event: CustomEvent<{ topicId: string }>) => {
+      // Se o modal de dificuldade estiver aberto para ESTE tópico, fecha
+      if (difficultyModalData.isOpen && difficultyModalData.topicId === event.detail.topicId) {
+        closeDifficultyModal();
+      }
+      refetch(); // Atualiza a lista
+    };
+
     window.addEventListener('topicUpdated', handleTopicUpdate);
-    return () => window.removeEventListener('topicUpdated', handleTopicUpdate);
-  }, [refetchHistory]);
+    window.addEventListener('external-topic-completed', handleExternalCompletion as EventListener);
+
+    return () => {
+      window.removeEventListener('topicUpdated', handleTopicUpdate);
+      window.removeEventListener('external-topic-completed', handleExternalCompletion as EventListener);
+    };
+  }, [refetchHistory, difficultyModalData, closeDifficultyModal, refetch]);
 
   // State
   const [activeTab, setActiveTab] = useState<ViewTab>('FOCUS');
@@ -163,11 +179,8 @@ export const Revisoes = () => {
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [highlightedTopicId, setHighlightedTopicId] = useState<string | null>(null);
 
-  // Timer State
-  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(() => {
-    const saved = localStorage.getItem('revisoes-active-timer');
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Timer State from Context
+  const { activeTimer, startTimer, pauseTimer, resumeTimer, stopTimer, resetTimer, setProcessedUpdate } = useTimer();
 
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [reviewStageFilter, setReviewStageFilter] = useState<string>('all');
@@ -208,15 +221,6 @@ export const Revisoes = () => {
   });
 
 
-
-  // Save timer state whenever it changes
-  useEffect(() => {
-    if (activeTimer) {
-      localStorage.setItem('revisoes-active-timer', JSON.stringify(activeTimer));
-    } else {
-      localStorage.removeItem('revisoes-active-timer');
-    }
-  }, [activeTimer]);
 
   // Effect to reload data on visibility change
   useEffect(() => {
@@ -437,68 +441,83 @@ export const Revisoes = () => {
   }, [searchParams]);
 
   // Effect to handle TopidId from URL (Smart Navigation)
+  // Effect to handle TopidId from URL or State (Smart Navigation)
+  const location = useLocation();
+
   useEffect(() => {
-    const topicId = searchParams.get('topicId');
-    if (topicId && items.length > 0) {
-      // 1. Encontrar o tópico na lista completa
+    // Prioridade: State (do Timer) > URL (Deep Link)
+    const topicId = (location.state as any)?.focusTopicId || searchParams.get('topicId');
 
-      const targetItem = items.find(i => i.id === topicId);
+    if (topicId) {
+      // 1. Procurar em TODOS os tópicos brutos para garantir que sabemos onde ele está
+      const allRawTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics];
+      const rawTopic = allRawTopics.find(t => t.id === topicId);
 
-      if (targetItem) {
-        // Encontrou na lista atual renderizada
-        handleSmartNavigation(targetItem);
-      } else {
-        // Tentar forçar a Tab ALL se não achou nas abas padrão
-        // HACK: Se veio topicId, vamos procurar em TODOS os tópicos brutos primeiro pra saber onde ele está.
-        const allRawTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics];
-        const rawTopic = allRawTopics.find(t => t.id === topicId);
+      if (rawTopic) {
+        // 2. Determinar a aba correta
+        const todayDateString = new Date().toISOString().split('T')[0];
+        let targetTab: ViewTab = 'FOCUS'; // Default
 
-        if (rawTopic) {
-          // Determinar qual aba ele pertence
-          const todayDateString = new Date().toISOString().split('T')[0];
-          let targetTab: ViewTab = 'ALL';
+        if (rawTopic.completed || rawTopic.review_stage === 'Concluído') {
+          targetTab = 'COMPLETED';
+        } else if (rawTopic.next_review) {
+          const reviewDateString = new Date(rawTopic.next_review).toISOString().split('T')[0];
+          // Lógica detalhada de abas
+          if (reviewDateString < todayDateString) targetTab = 'FOCUS'; // Atrasado
+          else if (reviewDateString === todayDateString) targetTab = 'FOCUS'; // Hoje
+          else targetTab = 'FUTURE';
+        } else {
+          // Fallback
+          targetTab = 'ALL';
+        }
 
-          if (rawTopic.completed || rawTopic.review_stage === 'Concluído') {
-            targetTab = 'COMPLETED';
-          } else if (rawTopic.next_review) {
-            const reviewDateString = new Date(rawTopic.next_review).toISOString().split('T')[0];
-            if (reviewDateString <= todayDateString) targetTab = 'FOCUS';
-            else targetTab = 'FUTURE';
-          } else {
-            // Not started?
-            targetTab = 'ALL';
-          }
+        // 3. Se estiver na aba errada, mudar
+        if (activeTab !== targetTab) {
+          console.log(`📍 [SmartNav] Switching Tab to ${targetTab} for topic ${topicId}`);
+          setActiveTab(targetTab);
+        }
 
-          if (activeTab !== targetTab) {
-            setActiveTab(targetTab);
-          } else {
-            if (searchTerm || reviewStageFilter !== 'all') {
-              setSearchTerm('');
-              setReviewStageFilter('all');
-            }
-          }
+        // 4. Limpar filtros se necessário
+        if (searchTerm || reviewStageFilter !== 'all') {
+          setSearchTerm('');
+          setReviewStageFilter('all');
+        }
+
+        // 5. Scroll será tratado pelo próximo useEffect ao detectar topicId na URL
+        // Se veio pelo state mas não tem na URL, vamos colocar na URL para disparar o scroll logic
+        if (!searchParams.get('topicId')) {
+          setSearchParams(prev => {
+            prev.set('topicId', topicId);
+            return prev;
+          });
         }
       }
     }
-  }, [searchParams, items, delayedTopics, todayTopics, futureTopics, completedTopics, activeTab]);
+  }, [location.state, searchParams, delayedTopics, todayTopics, futureTopics, completedTopics, activeTab]);
 
   // Handle scrolling and highlighting when topic is found and rendered
   useEffect(() => {
     const topicId = searchParams.get('topicId');
     if (topicId && !highlightedTopicId) {
-      const element = document.getElementById(`topic-${topicId}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setHighlightedTopicId(topicId);
-      } else {
-        Object.entries(groupedItems).forEach(([groupKey, groupItems]) => {
-          if (groupItems.some(i => i.id === topicId)) {
-            if (collapsedGroups[groupKey]) {
-              setCollapsedGroups(prev => ({ ...prev, [groupKey]: false }));
+      // Pequeno timeout para garantir que o DOM renderizou
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`topic-${topicId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setHighlightedTopicId(topicId);
+        } else {
+          // Fallback: Expandir grupos se necessário (já existente)
+          Object.entries(groupedItems).forEach(([groupKey, groupItems]) => {
+            if (groupItems.some(i => i.id === topicId)) {
+              if (collapsedGroups[groupKey]) {
+                setCollapsedGroups(prev => ({ ...prev, [groupKey]: false }));
+              }
             }
-          }
-        });
-      }
+          });
+        }
+      }, 300); // 300ms delay conforme solicitado
+
+      return () => clearTimeout(timer);
     }
   }, [groupedItems, collapsedGroups, searchParams, highlightedTopicId]);
 
@@ -614,43 +633,63 @@ export const Revisoes = () => {
   };
 
   // Actions
+  // Timer Control Functions
+  // Actions
+  // Timer Control Functions - Moved to Context
+  // const stopTimer = ... (Used from context now)
+
+
+  // const pauseTimer = ...
+  // const resumeTimer = ...
+
   const handleMarkCompleted = async (id: string) => {
     // 1. Check if timer is active for this topic
+    console.log('[DEBUG-CRITICAL] handleMarkCompleted CLICKED for:', id);
+    console.log('[DEBUG-CRITICAL] ActiveTimer:', activeTimer);
+
+    // 0. Se já estiver no status "RUNNING" para este tópico, pausar e abrir modal
     if (activeTimer && activeTimer.topicId === id) {
-      // STOP TIMER
-      const endTime = Date.now();
-      const startTime = activeTimer.startTime;
-      const durationMs = endTime - startTime;
+      if (activeTimer.status === 'RUNNING') {
+        // ACTION: STOP (PAUSE)
+        pauseTimer();
 
-      // Regra: < 1 min = 0. > 1 min = Arredonda pra cima (ex: 32m40s -> 33m)
-      const durationMinutes = durationMs < 60000 ? 0 : Math.ceil(durationMs / 60000);
+        // Open Modal to allow Finish or Resume
+        setLoadingActions(prev => ({ ...prev, [id]: 'review' }));
+        try {
+          // Pass current duration for display
+          // Calculate total duration: accumulated + current session
+          const currentSession = Date.now() - activeTimer.startTime;
+          const totalDurationMs = activeTimer.accumulatedTime + currentSession;
+          const totalMinutes = totalDurationMs < 60000 ? 1 : Math.ceil(totalDurationMs / 60000);
 
-      setActiveTimer(null); // Clear timer
-
-      toast.success(`Revisão finalizada em ${durationMinutes} min!`);
-
-      setLoadingActions(prev => ({ ...prev, [id]: 'review' }));
-      try {
-        await openReviewModalHook(id, durationMinutes);
-      } catch (error) {
-        console.error('Erro ao abrir modal:', error);
-      } finally {
-        setLoadingActions(prev => {
-          const newState = { ...prev };
-          delete newState[id];
-          return newState;
-        });
+          await openReviewModalHook(id, totalMinutes);
+        } catch (error) {
+          console.error('Erro ao abrir modal:', error);
+          resumeTimer(); // Falha ao abrir modal? Resume.
+        } finally {
+          setLoadingActions(prev => {
+            const newState = { ...prev };
+            delete newState[id];
+            return newState;
+          });
+        }
+      } else {
+        // STATUS IS PAUSED -> RESUME TIMER
+        resumeTimer();
+        toast.info("Cronômetro retomado!");
       }
       return;
     }
 
     // 2. Check if timer is active for ANOTHER topic
     if (activeTimer && activeTimer.topicId !== id) {
+      toast.warning("Existe uma revisão em andamento. Finalize-a antes de iniciar outra.");
       return;
     }
 
-    // 3. START TIMER
-    setActiveTimer({ topicId: id, startTime: Date.now() });
+    // 3. START TIMER (New Session)
+    // 3. START TIMER (New Session)
+    startTimer(id);
     toast.success('Cronômetro iniciado! Bons estudos.');
   };
 
@@ -1363,22 +1402,30 @@ export const Revisoes = () => {
                                           )}
                                         </button>
 
-                                        {/* Botão Marcar Revisão (PLAY/STOP) */}
+                                        {/* Botão Marcar Revisão (PLAY/STOP/RESUME) */}
                                         <button
                                           onClick={(e) => { e.stopPropagation(); handleMarkCompleted(item.id); }}
                                           disabled={!!loadingActions[item.id]}
                                           className={`h-10 w-10 flex items-center justify-center rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isActive
-                                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200'
-                                            : 'text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                            ? activeTimer?.status === 'PAUSED'
+                                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-400' // PAUSED: Amber
+                                              : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200' // RUNNING: Indigo
+                                            : 'text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' // IDLE: Emerald
                                             }`}
-                                          title={isActive ? "Parar e Avaliar" : "Iniciar Cronômetro"}
+                                          title={isActive
+                                            ? activeTimer?.status === 'PAUSED' ? "Retomar Revisão" : "Parar e Avaliar"
+                                            : "Iniciar Cronômetro"}
                                         >
                                           {loadingActions[item.id] === 'review' ? (
                                             <Loader2 size={16} className="animate-spin" />
                                           ) : isActive ? (
-                                            <Square size={16} className="fill-current" />
+                                            activeTimer?.status === 'PAUSED' ? (
+                                              <Play size={16} className="fill-current" /> // PAUSED: Play
+                                            ) : (
+                                              <Square size={16} className="fill-current" /> // RUNNING: Square
+                                            )
                                           ) : (
-                                            <Play size={16} className="fill-current" />
+                                            <Play size={16} className="fill-current" /> // IDLE: Play
                                           )}
                                         </button>
 
@@ -1508,20 +1555,82 @@ export const Revisoes = () => {
       {/* Difficulty Rating Modal */}
       <DifficultyRatingModal
         isOpen={difficultyModalData.isOpen}
-        onClose={closeDifficultyModal}
+        onClose={() => {
+          // Closing modal = Resume Timer (Voltar a Estudar)
+          closeDifficultyModal();
+          resumeTimer();
+        }}
         onSubmit={async (difficulty) => {
+          // Legacy submit (just save difficulty)
           await submitDifficultyRating(difficulty);
           refetch();
         }}
-        onConfirmReview={difficultyModalData.reviewCount > 0 ? async (difficulty, duration) => {
-          // Novo fluxo: marcar revisão + salvar dificuldade + duração editada
-          await markTopicAsReviewed(difficultyModalData.topicId, difficulty, duration);
+        onConfirmReview={async (difficulty, duration) => {
+          try {
+            // Trava de Segurança: Verificar se já foi concluído externamente
+            // (Agora redundante com a trava no hook, mas bom manter como first-check rápido)
+            const { data: topic } = await supabase
+              .from('topics')
+              .select('completed, review_stage')
+              .eq('id', difficultyModalData.topicId)
+              .single();
+
+            if (topic?.completed || topic?.review_stage === 'Concluído') {
+              toast.error("Este tópico já foi concluído em outra sessão.");
+              stopTimer();
+              closeDifficultyModal();
+              setTimeout(async () => {
+                await refreshData();
+                refetch();
+              }, 200);
+              return;
+            }
+
+            // Finish Review (Confirmar)
+            // Agora passamos o reviewCount esperado para ativar o Optimistic Locking
+
+            // 1. Avisar TimerContext que ESTA janela vai atualizar (ignorar Realtime self-echo)
+            setProcessedUpdate(difficultyModalData.topicId);
+
+            await markTopicAsReviewed(
+              difficultyModalData.topicId,
+              difficulty,
+              duration,
+              difficultyModalData.reviewCount - 1
+            );
+
+            // 2. Stop Timer (Clear state)
+            stopTimer();
+
+            // 3. UI Updates
+            closeDifficultyModal();
+            setTimeout(async () => {
+              await refreshData();
+              refetch(); // Força refetch do React Query
+            }, 500);
+          } catch (error: any) {
+            console.error('Erro ao finalizar revisão:', error);
+
+            // Tratamento específico de erro de concorrência
+            if (error.message?.includes('SYNC_ERROR')) {
+              toast.warning("Sincronismo: Esta revisão já foi processada em outra janela.");
+              closeDifficultyModal();
+              stopTimer();
+              setTimeout(async () => {
+                await refreshData();
+                refetch();
+              }, 500);
+            } else {
+              toast.error('Erro ao salvar revisão. Tente novamente.');
+            }
+          }
+        }}
+        onDiscard={() => {
+          stopTimer();
+          resetTimer();
           closeDifficultyModal();
-          setTimeout(async () => {
-            await refreshData();
-            refetch();
-          }, 500);
-        } : undefined}
+          toast.info("Sessão descartada.");
+        }}
         topicName={difficultyModalData.topicName}
         subjectName={difficultyModalData.subjectName}
         initialDifficulty={difficultyModalData.currentDifficulty}
@@ -1529,6 +1638,7 @@ export const Revisoes = () => {
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
         duration={difficultyModalData.duration}
+      /* Props for UI customization handled inside component */
       />
 
       {/* Modal de Informação sobre Repetição Espaçada */}

@@ -28,14 +28,14 @@ export const useCycleState = () => {
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .limit(1);
 
       if (error) {
         console.error('Erro ao buscar ciclo do usuário:', error);
         return;
       }
 
-      setUserCycle(data);
+      setUserCycle(data?.[0] || null);
     } catch (error) {
       console.error('Erro ao buscar ciclo:', error);
     } finally {
@@ -55,14 +55,14 @@ export const useCycleState = () => {
         })
         .eq('user_id', user.id)
         .select()
-        .single();
+        .select();
 
       if (error) {
         console.error('Erro ao atualizar ciclo:', error);
         return;
       }
 
-      setUserCycle(data);
+      setUserCycle(data?.[0] || null);
     } catch (error) {
       console.error('Erro ao atualizar ciclo:', error);
     }
@@ -195,11 +195,11 @@ export const useCycleState = () => {
       }
 
       // 4. Verificar se existe um ciclo para o usuário
-      const { data: existingCycle, error: checkError } = await supabase
+      const { data: existingCycleData, error: checkError } = await supabase
         .from('user_cycles')
         .select('id')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .limit(1);
 
       if (checkError) {
         console.error('Erro ao verificar ciclo existente:', checkError);
@@ -207,6 +207,8 @@ export const useCycleState = () => {
       }
 
       // 5. Resetar ou criar o ciclo do usuário
+      const existingCycle = existingCycleData?.[0] || null;
+
       if (existingCycle) {
         // Se existe, fazer update
         console.log('📝 Atualizando ciclo existente');

@@ -35,16 +35,33 @@ export const useReviewsData = () => {
     queryFn: async () => {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
-      // Use the new RPC function for weighted sorting
+      // Replace RPC with direct query to ensure ALL topics are returned (including completed)
       const { data, error } = await supabase
-        .rpc('get_weighted_reviews' as any, {
-          p_user_id: user.id
-        });
+        .from('topics')
+        .select(`
+          id,
+          name,
+          subject_id,
+          review_stage,
+          next_review,
+          review_count,
+          first_studied_at,
+          last_reviewed_at,
+          completed,
+          difficulty_level,
+          notes,
+          subjects!inner (
+            id,
+            name,
+            color
+          )
+        `)
+        .eq('subjects.user_id', user.id);
 
       if (error) throw error;
 
-      // Map flat RPC result to existing Topic structure
-      return (data as any[]).map(topic => ({
+      // Map to existing Topic structure and Sort locally
+      const mappedTopics = (data as any[]).map(topic => ({
         id: topic.id,
         name: topic.name,
         subject_id: topic.subject_id,
@@ -56,18 +73,34 @@ export const useReviewsData = () => {
         completed: topic.completed ?? false,
         difficulty_level: topic.difficulty_level,
         notes: topic.notes,
-        // Helper property for filtering
-        subject_name: topic.subject_name || 'Sem disciplina',
-        // Reconstruct nested structure for compatibility
+        subject_name: topic.subjects?.name || 'Sem disciplina',
         subjects: {
-          id: topic.subject_id,
-          name: topic.subject_name,
-          color: topic.subject_color,
+          id: topic.subjects?.id,
+          name: topic.subjects?.name,
+          color: topic.subjects?.color,
           user_id: user.id
-        },
-        // Optional: keep priority score if needed for debugging
-        priority_score: topic.priority_score
+        }
       }));
+
+      // Sort logic: 
+      // 1. Pending (Overdue < Today < Future)
+      // 2. Completed last (or by date?) 
+      // Existing logic used weighted sort. We will approximate reasonable sort:
+      // Status (Pending > Completed) -> Next Review (Asc)
+
+      mappedTopics.sort((a, b) => {
+        // Completed last
+        if (a.completed && !b.completed) return 1;
+        if (!a.completed && b.completed) return -1;
+
+        // Next Review date comparison
+        const dateA = a.next_review ? new Date(a.next_review).getTime() : Infinity;
+        const dateB = b.next_review ? new Date(b.next_review).getTime() : Infinity;
+
+        return dateA - dateB;
+      });
+
+      return mappedTopics;
     },
     enabled: !!user?.id
   });

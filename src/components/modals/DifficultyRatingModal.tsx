@@ -12,6 +12,7 @@ interface DifficultyRatingModalProps {
   onClose: () => void;
   onSubmit: (difficulty: number | null) => void;
   onConfirmReview?: (difficulty: number | null, duration?: number) => void;
+  onDiscard?: () => void;
   topicName: string;
   subjectName: string;
   initialDifficulty?: number | null;
@@ -26,6 +27,7 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   onClose,
   onSubmit,
   onConfirmReview,
+  onDiscard,
   topicName,
   subjectName,
   initialDifficulty = null,
@@ -191,21 +193,33 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
         </div>
 
         {/* Footer - Botões */}
-        <div className="flex flex-col sm:flex-row gap-2 mt-6">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="flex-1 order-2 sm:order-1"
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            className="flex-1 bg-green-600 hover:bg-green-700 order-1 sm:order-2"
-            disabled={onConfirmReview && !selectedDifficulty}
-          >
-            {onConfirmReview ? 'Confirmar Revisão' : 'Salvar'}
-          </Button>
+        <div className="flex flex-col gap-3 mt-6">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 order-2 sm:order-1"
+            >
+              Voltar a Estudar
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              className="flex-1 bg-green-600 hover:bg-green-700 order-1 sm:order-2"
+              disabled={onConfirmReview && !selectedDifficulty}
+            >
+              {onConfirmReview ? 'Confirmar Revisão' : 'Salvar'}
+            </Button>
+          </div>
+
+          {/* Botão Descartar Sessão (Terceria Opção) */}
+          {onDiscard && (
+            <button
+              onClick={onDiscard}
+              className="text-xs text-red-500 hover:text-red-700 hover:underline mx-auto mt-1"
+            >
+              Descartar Sessão
+            </button>
+          )}
         </div>
       </motion.div>
     </div>

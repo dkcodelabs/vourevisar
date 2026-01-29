@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { TimerProvider } from "@/contexts/TimerContext";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import LandingPage from "@/pages/LandingPage";
@@ -51,44 +52,46 @@ const App = () => {
             <BrowserRouter>
               <AuthProvider>
                 <AppProvider>
-                  <ToastContainer
-                    position="bottom-right"
-                    autoClose={4000}
-                    hideProgressBar={false}
-                    newestOnTop={false}
-                    closeOnClick
-                    rtl={false}
-                    pauseOnFocusLoss
-                    draggable
-                    pauseOnHover
-                    theme="colored"
-                    stacked={false}
-                    toastClassName="!rounded-xl !shadow-lg !font-medium"
-                  />
-                  <ProfileOnboardingGate />
-                  <Routes>
-                    <Route path="/" element={<LandingPage />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/reset-password" element={<ResetPassword />} />
-                    <Route path="/auth/callback" element={<AuthCallback />} />
-                    <Route path="/*" element={<ProtectedRoute />}>
-                      <Route path="" element={<AppLayout />}>
-                        <Route path="dashboard" element={<Dashboard />} />
-                        <Route path="materias" element={<Subjects />} />
-                        <Route path="estatisticas" element={<Statistics />} />
-                        <Route path="materias/:subjectId/topicos" element={<Topics />} />
-                        <Route path="topicos" element={<Topics />} />
-                        <Route path="revisoes" element={<Revisoes />} />
-                        <Route path="ciclo-estudos" element={<StudyCycle />} />
-                        <Route path="gerenciamento" element={<Gerenciamento />} />
-                        <Route path="test-roles" element={<SimpleRoleTest />} />
-                        <Route path="perfil" element={<Profile />} />
-                        <Route path="configuracoes" element={<Settings />} />
+                  <TimerProvider>
+                    <ToastContainer
+                      position="bottom-right"
+                      autoClose={4000}
+                      hideProgressBar={false}
+                      newestOnTop={false}
+                      closeOnClick
+                      rtl={false}
+                      pauseOnFocusLoss
+                      draggable
+                      pauseOnHover
+                      theme="colored"
+                      stacked={false}
+                      toastClassName="!rounded-xl !shadow-lg !font-medium"
+                    />
+                    <ProfileOnboardingGate />
+                    <Routes>
+                      <Route path="/" element={<LandingPage />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
+                      <Route path="/auth/callback" element={<AuthCallback />} />
+                      <Route path="/*" element={<ProtectedRoute />}>
+                        <Route path="" element={<AppLayout />}>
+                          <Route path="dashboard" element={<Dashboard />} />
+                          <Route path="materias" element={<Subjects />} />
+                          <Route path="estatisticas" element={<Statistics />} />
+                          <Route path="materias/:subjectId/topicos" element={<Topics />} />
+                          <Route path="topicos" element={<Topics />} />
+                          <Route path="revisoes" element={<Revisoes />} />
+                          <Route path="ciclo-estudos" element={<StudyCycle />} />
+                          <Route path="gerenciamento" element={<Gerenciamento />} />
+                          <Route path="test-roles" element={<SimpleRoleTest />} />
+                          <Route path="perfil" element={<Profile />} />
+                          <Route path="configuracoes" element={<Settings />} />
 
+                        </Route>
                       </Route>
-                    </Route>
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </TimerProvider>
                 </AppProvider>
               </AuthProvider>
             </BrowserRouter>

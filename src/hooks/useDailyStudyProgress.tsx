@@ -35,12 +35,12 @@ export const useDailyStudyProgress = () => {
 
   // Carregar progresso diário - SEM useCallback
   const loadDailyProgress = async () => {
-    console.log('🔄 useDailyStudyProgress loadDailyProgress CALLED:', { 
-      user: !!user, 
+    console.log('🔄 useDailyStudyProgress loadDailyProgress CALLED:', {
+      user: !!user,
       userId: user?.id,
-      timestamp: new Date().toISOString() 
+      timestamp: new Date().toISOString()
     });
-    
+
     if (!user?.id) {
       console.log('❌ No user, setting isLoading false');
       setIsLoading(false);
@@ -53,19 +53,21 @@ export const useDailyStudyProgress = () => {
 
       // DETECÇÃO INTELIGENTE: Verificar se precisa resetar automaticamente
       const today = new Date().toISOString().split('T')[0];
-      
+
       // Carregar dados do ciclo atual
-      const { data: cycleData, error: cycleError } = await supabase
+      const { data: fetchedData, error: cycleError } = await supabase
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .limit(1);
 
       if (cycleError) {
         console.error('Erro ao carregar ciclo:', cycleError);
         setIsLoading(false);
         return;
       }
+
+      const cycleData = fetchedData?.[0] || null;
 
       if (cycleData) {
         // DETECÇÃO INTELIGENTE CORRIGIDA: Verificar condições de reset
@@ -75,12 +77,12 @@ export const useDailyStudyProgress = () => {
         const currentStudiedCount = data.materias_estudadas_hoje?.length || 0;
         const goalCount = data.materias_por_dia || 2;
         const hadCompletedGoal = currentStudiedCount >= goalCount;
-        
+
         // CORREÇÃO: Melhorar detecção de novo ciclo
         const bankDataIsEmpty = !data.materias_estudadas_hoje || data.materias_estudadas_hoje.length === 0;
         const cycleAge = Date.now() - new Date(data.data_inicio_ciclo).getTime();
         const cycleAgeDays = Math.floor(cycleAge / (24 * 60 * 60 * 1000));
-        
+
         // NOVA LÓGICA CORRIGIDA: Detectar novo ciclo de forma mais precisa
         const isNewCycle = (
           // Caso 1: Ciclo iniciado hoje ou ontem (SEMPRE resetar, independente do progresso)
@@ -90,12 +92,12 @@ export const useDailyStudyProgress = () => {
           // Caso 3: Ciclo muito antigo sem progresso (backup)
           (cycleAgeDays > 3 && bankDataIsEmpty)
         );
-        
+
         // Log removido para otimização
-        
+
         let shouldReset = false;
         let reason: 'new_cycle' | 'new_day' | 'continue' = 'continue';
-        
+
         if (isNewCycle) {
           shouldReset = true;
           reason = 'new_cycle';
@@ -109,7 +111,7 @@ export const useDailyStudyProgress = () => {
           shouldReset = false;
           reason = 'continue';
         }
-        
+
         if (shouldReset) {
           // Reset automático inteligente
           const { error: resetError } = await supabase
@@ -143,10 +145,10 @@ export const useDailyStudyProgress = () => {
             data.data_ultimo_reset = today;
           }
         }
-        
+
         setResetReason(reason);
         setUserCycle(data);
-        
+
         // CORREÇÃO: Usar dados corretos do banco após reset
         const finalStudiedSubjects = shouldReset ? [] : (data.materias_estudadas_hoje || []);
         const studiedCount = finalStudiedSubjects.length;
@@ -225,25 +227,27 @@ export const useDailyStudyProgress = () => {
       }
 
       // Atualizar progresso diário no user_cycles
-      
+
       // @ts-ignore - Campo existe mas pode estar faltando na definição de tipos
       const { data: currentCycleData, error: fetchError } = await supabase
         .from('user_cycles')
         .select('materias_estudadas_hoje')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .limit(1);
 
       if (fetchError) {
         console.error('Erro ao buscar dados atuais do ciclo:', fetchError);
         return false;
       }
 
+      const currentCycleRow = currentCycleData?.[0] || null;
+
       // @ts-ignore - Campo existe mas pode estar faltando na definição de tipos
-      const currentStudied = (currentCycleData?.materias_estudadas_hoje as string[]) || [];
+      const currentStudied = (currentCycleRow?.materias_estudadas_hoje as string[]) || [];
 
       if (!currentStudied.includes(session.subjectId)) {
         const updatedStudied = [...currentStudied, session.subjectId];
-        
+
         const { error: updateError } = await supabase
           .from('user_cycles')
           .update({
@@ -267,7 +271,7 @@ export const useDailyStudyProgress = () => {
       window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
         detail: { subjectId: session.subjectId, subjectName: session.subjectName }
       }));
-      
+
       return true;
     } catch (error) {
       console.error('Erro ao salvar sessão de estudo:', error);
@@ -283,7 +287,7 @@ export const useDailyStudyProgress = () => {
     }
 
     const studiedToday = data.materias_estudadas_hoje || [];
-    
+
     // Encontrar primeira matéria não estudada hoje
     for (let i = 0; i < data.ciclo_atual.length; i++) {
       const subjectId = data.ciclo_atual[i];
@@ -324,8 +328,7 @@ export const useDailyStudyProgress = () => {
         .eq('subject_id', subjectId)
         .eq('study_date', new Date().toISOString().split('T')[0])
         .order('completed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
       if (error || !data) return null;
 
@@ -383,7 +386,7 @@ export const useDailyStudyProgress = () => {
 
   // Sistema de debounce para eventos
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Escutar eventos de atualização (super otimizado)
   useEffect(() => {
     const handleProgressUpdate = () => {
@@ -396,7 +399,7 @@ export const useDailyStudyProgress = () => {
 
     window.addEventListener('dailyProgressUpdated', handleProgressUpdate);
     window.addEventListener('cycleUpdated', handleCycleUpdate);
-    
+
     return () => {
       window.removeEventListener('dailyProgressUpdated', handleProgressUpdate);
       window.removeEventListener('cycleUpdated', handleCycleUpdate);

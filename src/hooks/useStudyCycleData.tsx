@@ -265,7 +265,7 @@ export const useStudyCycleData = () => {
           .from('user_cycles')
           .select('*')
           .eq('user_id', user.id)
-          .maybeSingle();
+          .limit(1);
 
         if (error) {
           console.error('Erro ao carregar ciclo:', error);
@@ -274,8 +274,10 @@ export const useStudyCycleData = () => {
           return;
         }
 
+        const cycleData = data?.[0] || null;
+
         // Se o ciclo existe mas está vazio, adicionar matérias ativas
-        if (data && (!data.ciclo_atual || data.ciclo_atual.length === 0)) {
+        if (cycleData && (!cycleData.ciclo_atual || cycleData.ciclo_atual.length === 0)) {
           // ... (Lógica de ciclo vazio mantida) ...
           // Nota: Para brevidade, assumimos que a lógica interna segue igual, 
           // mas precisamos garantir que o setUserCycle no final atualize o cache.
@@ -309,18 +311,20 @@ export const useStudyCycleData = () => {
                 .from('user_cycles')
                 .select('*')
                 .eq('user_id', user.id)
-                .maybeSingle();
+                .limit(1);
 
-              setUserCycle(updatedCycle);
-              localStorage.setItem(cacheKey, JSON.stringify(updatedCycle)); // Update Cache
+              const cycleData = updatedCycle?.[0] || null;
+
+              setUserCycle(cycleData);
+              localStorage.setItem(cacheKey, JSON.stringify(cycleData)); // Update Cache
               setIsLoading(false);
               return;
             }
           }
         }
 
-        setUserCycle(data);
-        localStorage.setItem(cacheKey, JSON.stringify(data)); // Update Cache
+        setUserCycle(cycleData);
+        localStorage.setItem(cacheKey, JSON.stringify(cycleData)); // Update Cache
 
       } catch (error) {
         console.error('Erro ao carregar ciclo:', error);
@@ -569,10 +573,10 @@ export const useStudyCycleData = () => {
             .from('user_cycles')
             .select('*')
             .eq('user_id', user.id)
-            .maybeSingle();
+            .limit(1);
 
-          if (!error) {
-            setUserCycle(data);
+          if (!error && data && data.length > 0) {
+            setUserCycle(data[0]);
           }
         } catch (error) {
           console.error('Erro ao recarregar ciclo:', error);
@@ -642,7 +646,7 @@ export const useStudyCycleData = () => {
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .limit(1);
 
       if (error) {
         console.error('Erro ao recarregar ciclo:', error);

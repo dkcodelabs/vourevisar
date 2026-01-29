@@ -20,16 +20,18 @@ export const completeStudySession = async (
     });
 
     // Buscar o ciclo atual
-    const { data: cycleData, error: cycleError } = await supabase
+    const { data: cycleDataList, error: cycleError } = await supabase
       .from('user_cycles')
       .select('*')
       .eq('user_id', user_id)
-      .maybeSingle();
+      .limit(1);
 
     if (cycleError) {
       console.error('Erro ao buscar ciclo:', cycleError);
       throw new Error('Erro ao buscar ciclo do usuário');
     }
+
+    const cycleData = cycleDataList?.[0] || null;
 
     if (!cycleData) {
       console.error('Ciclo não encontrado para o usuário:', user_id);
@@ -37,8 +39,8 @@ export const completeStudySession = async (
     }
 
     // Verificar se é a última matéria do ciclo
-    const isLastSubjectInCycle = cycleData.ciclo_atual.length === 1 && 
-                                cycleData.ciclo_atual[0] === subjectId;
+    const isLastSubjectInCycle = cycleData.ciclo_atual.length === 1 &&
+      cycleData.ciclo_atual[0] === subjectId;
 
     // Se for a última matéria do ciclo, atualizar tópicos marcados normalmente antes de finalizar o ciclo
     if (isLastSubjectInCycle) {
@@ -150,7 +152,7 @@ export const completeStudySession = async (
 
       const currentReviewCount = topic.review_count || 0;
       const newReviewCount = currentReviewCount + 1;
-      
+
       let newReviewStage: string;
       let nextReviewDate: Date | null = null;
 
@@ -242,7 +244,7 @@ export const completeStudySession = async (
     // Se todos os tópicos estão dominados, marcar a matéria como concluída
     if (allTopicsDominated && subject.status !== 'Concluída') {
       console.log('🎉 Todos os tópicos dominados - marcando matéria como concluída');
-      
+
       const { error: subjectError } = await supabase
         .from('subjects')
         .update({

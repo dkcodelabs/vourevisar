@@ -30,7 +30,7 @@ export const usePomodoroTimer = () => {
         .eq('user_id', user.id)
         .gte('date', today)
         .lte('date', today)
-        .maybeSingle();
+        .limit(1);
 
       if (error && error.code !== 'PGRST116') {
         console.error('Erro ao buscar sessões:', error);
@@ -39,9 +39,11 @@ export const usePomodoroTimer = () => {
         return;
       }
 
-      if (data) {
-        setSessionsToday(data.sessions_completed || 0);
-        setTotalMinutesToday(data.total_minutes_studied || 0);
+      const sessionData = data?.[0] || null;
+
+      if (sessionData) {
+        setSessionsToday(sessionData.sessions_completed || 0);
+        setTotalMinutesToday(sessionData.total_minutes_studied || 0);
       } else {
         setSessionsToday(0);
         setTotalMinutesToday(0);
@@ -66,7 +68,9 @@ export const usePomodoroTimer = () => {
         .eq('user_id', user.id)
         .gte('date', today)
         .lte('date', today)
-        .maybeSingle();
+        .limit(1);
+
+      const existingSession = (data as any[])?.[0] || null;
 
       if (existingSession) {
         // Atualizar sessão existente
@@ -119,7 +123,7 @@ export const usePomodoroTimer = () => {
 
       // Salvar no banco
       updateSessionInDB(newSessions, newTotalMinutes);
-      
+
       // Registrar no sistema de tracking
       recordPomodoroSession(newSessions, newTotalMinutes);
 

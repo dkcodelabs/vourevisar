@@ -26,18 +26,18 @@ interface UseUserProfileReturn {
   error: string | null
   refetch: () => Promise<void>
   forceRefresh: () => void
-  
+
   // Helpers para role
   isOwner: boolean
   isAdmin: boolean
   isModerator: boolean
   isUser: boolean
-  
+
   // Helpers para assinatura
   hasActiveSubscription: boolean
   isPaidUser: boolean
   isTrialUser: boolean
-  
+
   // Badge display
   displayBadge: string
   badgeColor: string
@@ -56,7 +56,7 @@ export function useUserProfile(): UseUserProfileReturn {
 
       // Verificar se está autenticado
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (!user) {
         setProfile(null)
         return
@@ -71,17 +71,17 @@ export function useUserProfile(): UseUserProfileReturn {
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
-          .maybeSingle(); // Usar maybeSingle para evitar erro 406
-        
+          .limit(1); // Usar limit(1) para evitar erro 406
+
         if (roleError && roleError.code !== 'PGRST116') {
           console.error('Role error:', roleError);
         } else {
-          roleData = data;
+          roleData = data?.[0] || null;
         }
       } catch (error) {
         // Silenciar erro 406 - usuário pode não ter role definida
-        if (error && typeof error === 'object' && 'message' in error && 
-            !error.message.includes('406')) {
+        if (error && typeof error === 'object' && 'message' in error &&
+          !error.message.includes('406')) {
           console.error('Role fetch error:', error);
         }
       }
@@ -111,7 +111,7 @@ export function useUserProfile(): UseUserProfileReturn {
         name: profileData?.name || user.email?.split('@')[0] || 'Usuário',
         avatar_url: profileData?.avatar_url || null,
         role: roleData?.role || 'user',
-        subscription: subscriptionData && typeof subscriptionData === 'object' && !Array.isArray(subscriptionData) && !('error' in subscriptionData) 
+        subscription: subscriptionData && typeof subscriptionData === 'object' && !Array.isArray(subscriptionData) && !('error' in subscriptionData)
           ? subscriptionData as UserProfile['subscription']
           : null
       }
@@ -256,18 +256,18 @@ export function useUserProfile(): UseUserProfileReturn {
     error,
     refetch,
     forceRefresh,
-    
+
     // Role helpers
     isOwner,
     isAdmin,
     isModerator,
     isUser,
-    
+
     // Subscription helpers
     hasActiveSubscription,
     isPaidUser,
     isTrialUser,
-    
+
     // Badge display
     displayBadge,
     badgeColor

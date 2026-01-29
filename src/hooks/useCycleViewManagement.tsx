@@ -17,14 +17,17 @@ export const useCycleViewManagement = () => {
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .limit(1);
+
+      const userCycleResult = userCycle?.[0] || null;
+      let currentUserCycle = userCycleResult;
 
       if (fetchError) throw fetchError;
 
       // Se não existe ciclo, criar um novo
-      if (!userCycle) {
+      if (!currentUserCycle) {
         console.log('Nenhum ciclo encontrado, criando novo ciclo...');
-        
+
         // Buscar todas as matérias ativas do usuário
         const { data: subjects, error: subjectsError } = await supabase
           .from('subjects')
@@ -36,7 +39,7 @@ export const useCycleViewManagement = () => {
         if (subjectsError) throw subjectsError;
 
         const cicloAtual = subjects?.map(s => s.id) || [];
-        
+
         // Criar novo ciclo
         const { data: newCycle, error: createError } = await supabase
           .from('user_cycles')
@@ -53,13 +56,16 @@ export const useCycleViewManagement = () => {
           .single();
 
         if (createError) throw createError;
-        
-        userCycle = newCycle;
+
+        currentUserCycle = newCycle; // newCycle from insert single is fine or needs check? insert().single() is usually fine if we just created it.
+        // Actually insert().single() might be fine, but let's stick to the pattern if newCycle causes issues. 
+        // But here we are inserting, so single() expects 1 row which is true.
+        // Let's just fix the read part.
         toast.success('Novo ciclo criado automaticamente');
       }
 
       // Adicionar o subject_id novamente ao ciclo_atual
-      const updatedCicloAtual = [...(userCycle.ciclo_atual || []), subjectId];
+      const updatedCicloAtual = [...(currentUserCycle.ciclo_atual || []), subjectId];
 
       // Atualizar no banco
       const { error: updateError } = await supabase
@@ -93,17 +99,19 @@ export const useCycleViewManagement = () => {
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .limit(1);
+
+      const userCycleResult = userCycle?.[0] || null;
 
       if (fetchError) throw fetchError;
 
-      if (!userCycle) {
+      if (!userCycleResult) {
         toast.error('Nenhum ciclo ativo encontrado');
         return false;
       }
 
       // Encontrar e remover a visualização específica
-      const cicloAtual = [...(userCycle.ciclo_atual || [])];
+      const cicloAtual = [...(userCycleResult.ciclo_atual || [])];
       let foundCount = 0;
       let indexToRemove = -1;
 
@@ -127,14 +135,14 @@ export const useCycleViewManagement = () => {
 
       // Verificar se todas as ocorrências foram removidas
       const remainingCount = cicloAtual.filter(id => id === subjectId).length;
-      
+
       if (remainingCount === 0) {
         toast.warning(`Última visualização de "${subjectName}" removida do ciclo`);
       }
 
       // Ajustar disciplinas_do_dia se necessário
-      let disciplinasoDia = [...(userCycle.disciplinas_do_dia || [])];
-      let indicAtual = userCycle.indice_atual || 0;
+      let disciplinasoDia = [...(userCycleResult.disciplinas_do_dia || [])];
+      let indicAtual = userCycleResult.indice_atual || 0;
 
       // Se a visualização estava nas disciplinas do dia, remover
       if (disciplinasoDia.includes(subjectId)) {
@@ -178,15 +186,15 @@ export const useCycleViewManagement = () => {
   const getSubjectViewCount = (subjectId: string, cicloAtual: string[]): number => {
     if (!cicloAtual) return 0;
     const count = cicloAtual.filter(id => id === subjectId).length;
-    
 
-    
+
+
     return count;
   };
 
   const getViewNumber = (subjectId: string, cycleIndex: number, cicloAtual: string[]): number => {
     if (!cicloAtual) return 1;
-    
+
     let viewNumber = 1;
     for (let i = 0; i < cycleIndex && i < cicloAtual.length; i++) {
       if (cicloAtual[i] === subjectId) {

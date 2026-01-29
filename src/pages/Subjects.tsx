@@ -312,15 +312,17 @@ const Subjects = () => {
           .from('user_cycles')
           .select('*')
           .eq('user_id', user.id)
-          .maybeSingle();
+          .limit(1);
 
-        if (data) {
-          setUserCycle(data);
+        const cycleData = data?.[0] || null;
+
+        if (cycleData) {
+          setUserCycle(cycleData);
           // 2. Atualizar cache com dados frescos
-          localStorage.setItem(cacheKey, JSON.stringify(data));
+          localStorage.setItem(cacheKey, JSON.stringify(cycleData));
 
           console.log('🔄 USER CYCLE LOADED:', {
-            cycleLength: data.ciclo_atual?.length || 0,
+            cycleLength: cycleData.ciclo_atual?.length || 0,
             timestamp: new Date().toISOString()
           });
         }
@@ -658,10 +660,12 @@ const Subjects = () => {
         .from('user_cycles')
         .select('ciclo_atual')
         .eq('user_id', user!.id)
-        .maybeSingle();
+        .limit(1);
 
-      if (data) {
-        setUserCycle(data);
+      const cycleData = data?.[0] || null;
+
+      if (cycleData) {
+        setUserCycle(cycleData);
       }
       */
     } catch (error) {
@@ -759,12 +763,13 @@ const Subjects = () => {
           .from('user_cycles')
           .select('ciclo_atual')
           .eq('user_id', user!.id)
-          .maybeSingle();
+          .limit(1);
 
-        if (data) {
-          setUserCycle(data);
+        const cycleData = data?.[0] || null;
+
+        if (cycleData) {
+          setUserCycle(cycleData);
         }
-        // Cache será atualizado automaticamente na próxima navegação
       }
     } catch (error) {
       console.error('Erro ao adicionar visualização:', error);
@@ -780,10 +785,12 @@ const Subjects = () => {
         .from('user_cycles')
         .select('ciclo_atual')
         .eq('user_id', user!.id)
-        .maybeSingle();
+        .limit(1);
 
-      if (data) {
-        setUserCycle(data);
+      const cycleData = data?.[0] || null;
+
+      if (cycleData) {
+        setUserCycle(cycleData);
       }
       // Refresh será feito automaticamente pelo recarregamento do ciclo
     }

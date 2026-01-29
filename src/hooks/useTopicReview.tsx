@@ -131,14 +131,14 @@ export const useTopicReview = () => {
     }
   };
 
-  const markTopicAsReviewed = async (topicId: string, difficulty?: number | null, durationOverride?: number) => {
+  const markTopicAsReviewed = async (topicId: string, difficulty?: number | null, durationOverride?: number, expectedReviewCount?: number) => {
     if (!user) return;
 
     setIsLoading(true);
     try {
       console.log('🔵 markTopicAsReviewed iniciado para topicId:', topicId);
 
-      // Buscar o tópico atual
+      // Buscar o tópico atual (FORCE FETCH para garantir dados frescos)
       const { data: topic, error: topicError } = await supabase
         .from('topics')
         .select('*')
@@ -147,6 +147,27 @@ export const useTopicReview = () => {
 
       if (topicError) throw topicError;
       if (!topic) throw new Error('Tópico não encontrado');
+
+      // --- TRAVA DE CONCORRÊNCIA (Optimistic Locking) ---
+      if (expectedReviewCount !== undefined) {
+        // Se o contador no banco for MAIOR que o esperado, alguém já atualizou
+        if (topic.review_count > expectedReviewCount) {
+          throw new Error("SYNC_ERROR: A revisão já foi atualizada externamente.");
+        }
+        // Se o contador no banco for MENOR (impossível mas...), ignoramos.
+        // Se for IGUAL, prosseguimos.
+      }
+
+      // Trava de Tempo (debounce server-side rudimentar)
+      if (topic.last_reviewed_at) {
+        const lastUpdate = new Date(topic.last_reviewed_at).getTime();
+        const nowMs = new Date().getTime();
+        // Se foi atualizado há menos de 10 segundos, bloqueia para evitar duplo clique/race condition
+        if (nowMs - lastUpdate < 10000) {
+          throw new Error("SYNC_ERROR: Revisão processada recentemente.");
+        }
+      }
+      // --------------------------------------------------
 
       console.log('🔵 Tópico encontrado:', topic);
 
