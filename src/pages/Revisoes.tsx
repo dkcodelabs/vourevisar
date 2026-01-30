@@ -1336,7 +1336,7 @@ export const Revisoes = () => {
                                   {/* 1. Tópico */}
                                   <div className="pl-2">
                                     <div className="flex items-start gap-3">
-                                      <div className={`w-1.5 h-10 rounded-full shrink-0 transition-all ${isActive ? 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] scale-y-110' :
+                                      <div className={`w-1.5 h-10 rounded-full shrink-0 transition-all ${isActive ? 'bg-indigo-500 dark:bg-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)] dark:shadow-[0_0_15px_rgba(129,140,248,0.6)] scale-y-110' :
                                         item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-500 dark:bg-rose-500' :
                                           item.status === 'FUTURE' ? 'bg-indigo-500 dark:bg-indigo-500' :
                                             'bg-emerald-500 dark:bg-emerald-500'
@@ -1344,7 +1344,7 @@ export const Revisoes = () => {
                                       <div className="min-w-0 flex-1">
                                         <p className={`text-sm font-bold line-clamp-2 ${isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200'}`}>
                                           {item.topic}
-                                          {isActive && <span className="ml-2 inline-block text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full animate-pulse">Em andamento</span>}
+                                          {isActive && <span className="ml-2 inline-block text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-500/30 dark:text-indigo-300 dark:border dark:border-indigo-500/40 px-1.5 py-0.5 rounded-full animate-pulse">Em andamento</span>}
                                         </p>
                                         {item.subject && <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-bold uppercase truncate">{item.subject}</p>}
                                       </div>
