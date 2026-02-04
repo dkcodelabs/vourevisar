@@ -20,6 +20,7 @@ import Statistics from "@/pages/Statistics";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import ResetPassword from "@/pages/ResetPassword";
+import ConfirmEmail from "@/pages/ConfirmEmail";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
 import StudyCycle from "@/pages/StudyCycle";
@@ -72,6 +73,7 @@ const App = () => {
                       <Route path="/" element={<LandingPage />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/reset-password" element={<ResetPassword />} />
+                      <Route path="/confirm-email" element={<ConfirmEmail />} />
                       <Route path="/auth/callback" element={<AuthCallback />} />
                       <Route path="/*" element={<ProtectedRoute />}>
                         <Route path="" element={<AppLayout />}>
