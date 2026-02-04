@@ -653,7 +653,7 @@ export const useStudyCycleData = () => {
         return;
       }
 
-      setUserCycle(data);
+      setUserCycle(data?.[0] || null);
     } catch (error) {
       console.error('Erro ao recarregar ciclo:', error);
     }

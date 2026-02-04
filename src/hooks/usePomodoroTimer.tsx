@@ -62,7 +62,7 @@ export const usePomodoroTimer = () => {
     const today = new Date().toISOString().split('T')[0];
 
     try {
-      const { data: existingSession } = await supabase
+      const { data: sessionData } = await supabase
         .from('pomodoro_sessions')
         .select('*')
         .eq('user_id', user.id)
@@ -70,7 +70,7 @@ export const usePomodoroTimer = () => {
         .lte('date', today)
         .limit(1);
 
-      const existingSession = (data as any[])?.[0] || null;
+      const existingSession = (sessionData as any[])?.[0] || null;
 
       if (existingSession) {
         // Atualizar sessão existente
