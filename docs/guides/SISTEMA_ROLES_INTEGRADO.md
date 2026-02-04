@@ -8,7 +8,7 @@
 - ✅ `src/hooks/useUserRole.ts` - Hook principal para verificar roles
 - ✅ `src/components/ProtectedComponent.tsx` - Componentes protegidos por role
 - ✅ `src/pages/Gerenciamento.tsx` - Página administrativa completa
-- ✅ `src/components/TestRoles.tsx` - Componente para testar o sistema
+- ✅ `src/components/SimpleRoleTest.tsx` - Componente para testar o sistema (rota `/test-roles`)
 - ✅ `INSTALACAO_ROLES.md` - Guia completo de instalação
 
 #### Arquivos Modificados:
@@ -371,7 +371,7 @@ WHERE user_id = 'usuario-especifico@empresa.com';
 
 ### Contato para Suporte Avançado
 - **Documentação Técnica:** Consulte os arquivos SQL comentados
-- **Exemplos de Código:** Veja `src/components/TestRoles.tsx`
+- **Exemplos de Código:** Veja `src/components/SimpleRoleTest.tsx`
 - **Troubleshooting:** Execute `/test-roles` para diagnóstico
 
 ---

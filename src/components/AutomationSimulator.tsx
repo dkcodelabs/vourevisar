@@ -112,7 +112,7 @@ export function AutomationSimulator({
                     }
                     setLastResult(rejectedLog)
 
-                    // V ITAL: Notificar o pai para atualizar a tabela de baixo pois o tópico foi alterado no DB
+                    // VITAL: Notificar o pai para atualizar a tabela de baixo pois o tópico foi alterado no DB
                     if (onProcessComplete) {
                         onProcessComplete(result)
                     }

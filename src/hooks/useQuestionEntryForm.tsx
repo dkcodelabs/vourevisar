@@ -63,7 +63,7 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user || !formData.subject || !formData.bank) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
@@ -92,7 +92,7 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
       });
 
       const attempts = [];
-      
+
       for (let i = 0; i < formData.totalQuestions; i++) {
         attempts.push({
           user_id: user.id,
@@ -112,10 +112,9 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
       console.log('Tentativas a serem inseridas:', attempts);
 
       // Test database connection first
-      const { data: testData, error: testError } = await supabase
+      const { error: testError } = await supabase
         .from('question_attempts')
-        .select('count')
-        .limit(1);
+        .select('id', { count: 'exact', head: true });
 
       if (testError) {
         console.error('Erro de conexão com o banco:', testError);
@@ -137,7 +136,7 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
       console.log('Dados inseridos com sucesso:', data);
 
       toast.success(`${formData.totalQuestions} questões registradas com sucesso!`);
-      
+
       setFormData({
         subject: '',
         topic: '',
