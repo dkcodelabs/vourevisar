@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
 interface UsePiPTimerProps {
-    minutes: number;
+    displayTime: string;
     isActive: boolean;
 }
 
-export const usePiPTimer = ({ minutes, isActive }: UsePiPTimerProps) => {
+export const usePiPTimer = ({ displayTime, isActive }: UsePiPTimerProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isSupported, setIsSupported] = useState(false);
@@ -53,7 +53,7 @@ export const usePiPTimer = ({ minutes, isActive }: UsePiPTimerProps) => {
         ctx.textBaseline = 'middle';
 
         // Text Content
-        const text = isActive ? `${minutes} min` : 'Focus';
+        const text = isActive ? displayTime : 'Focus';
 
         // Center Logic: Logical Width / 2, Logical Height / 2
         ctx.fillText(text, 150, 37.5);
@@ -75,7 +75,7 @@ export const usePiPTimer = ({ minutes, isActive }: UsePiPTimerProps) => {
             video.play().catch(() => { /* Silent catch for autoplay restrictions */ });
         }
 
-    }, [minutes, isActive]);
+    }, [displayTime, isActive]);
 
     const togglePiP = async () => {
         if (!videoRef.current || !isSupported) return;

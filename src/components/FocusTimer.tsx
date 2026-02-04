@@ -9,7 +9,7 @@ interface FocusTimerProps { }
 export const FocusTimer: React.FC<FocusTimerProps> = () => {
   const navigate = useNavigate();
   const { activeTimer } = useTimer();
-  const [elapsedMinutes, setElapsedMinutes] = useState<number>(0);
+  const [displayTime, setDisplayTime] = useState<string>("0min");
   const [justReturned, setJustReturned] = useState(false);
 
   // Calculate elapsed time from global context
@@ -26,10 +26,15 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
           totalMs = (activeTimer.accumulatedTime || 0) + currentSession;
         }
 
-        const minutes = Math.floor(totalMs / 60000);
-        setElapsedMinutes(minutes);
+        if (totalMs < 60000) {
+          const seconds = Math.floor(totalMs / 1000);
+          setDisplayTime(`${seconds}seg`);
+        } else {
+          const minutes = Math.floor(totalMs / 60000);
+          setDisplayTime(`${minutes}min`);
+        }
       } else {
-        setElapsedMinutes(0);
+        setDisplayTime("0min");
       }
     };
 
@@ -42,7 +47,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
   const isPaused = activeTimer?.status === 'PAUSED';
 
   const { canvasRef, videoRef, togglePiP, isSupported } = usePiPTimer({
-    minutes: elapsedMinutes,
+    displayTime,
     isActive: !!activeTopicId && !isPaused // Only active in PiP if running
   });
 
@@ -112,8 +117,8 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
         <span className="text-xs font-bold tracking-wide flex items-center gap-1">
           {activeTopicId ? (
             <>
-              <span className="font-mono tabular-nums">{elapsedMinutes}</span>
-              <span>min{isPaused ? ' (Pausa)' : ''}</span>
+              <span className="font-mono tabular-nums">{displayTime}</span>
+              <span>{isPaused ? ' (Pausa)' : ''}</span>
             </>
           ) : (
             "Iniciar"
