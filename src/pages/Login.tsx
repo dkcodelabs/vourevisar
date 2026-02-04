@@ -66,13 +66,10 @@ const Login = () => {
 
         const result = await signUp(email, password, name, phone);
         if (result.success) {
-          // Reset form after successful signup
-          setIsRegistering(false);
-          setName('');
-          setPhone('');
-          setEmail('');
-          setPassword('');
-          setConfirmPassword('');
+          // Store email for confirmation page
+          localStorage.setItem('pendingConfirmationEmail', email);
+          // Redirect to email confirmation page
+          navigate('/confirm-email', { replace: true });
         }
       } else {
         const result = await signIn(email, password);

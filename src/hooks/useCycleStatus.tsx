@@ -534,7 +534,7 @@ export const useCycleStatus = () => {
 
       // LIMPAR matérias 100% concluídas do ciclo_atual
       const completedSubjectIds = completedSubjects.map(s => s.id);
-      const currentCycle = freshUserCycle.ciclo_atual || [];
+      const currentCycle = typedFreshUserCycle.ciclo_atual || [];
       const cleanedCycle = currentCycle.filter(id => !completedSubjectIds.includes(id));
 
       // Log removido para evitar spam

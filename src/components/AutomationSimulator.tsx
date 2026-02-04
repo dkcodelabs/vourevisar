@@ -80,7 +80,7 @@ export function AutomationSimulator({
                     reasoning: data.skip_reason,
                     effective_context: data.last_search_context,
                     last_used_query: data.last_used_query,
-                    api_cost: data.last_audit_log?.total_api_calls || 0
+                    api_cost: (data.last_audit_log as any)?.total_api_calls || 0
                 }
                 setLastResult(logFromDB)
             }

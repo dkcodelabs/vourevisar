@@ -142,7 +142,7 @@ export const TopHeader = () => {
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 justify-end">
 
             {/* 1. Review Focus Timer (New) */}
-            <FocusTimer minutes={12} />
+            <FocusTimer />
 
             {/* 2. Annotations Button (Refactored: Icon Only) */}
             <button
