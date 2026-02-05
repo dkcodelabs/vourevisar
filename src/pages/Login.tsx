@@ -212,7 +212,7 @@ const Login = () => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
           {isRegistering && (
             <>
               <div className="space-y-1.5">
