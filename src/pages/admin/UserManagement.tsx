@@ -28,15 +28,7 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { useAdminUsers, AdminUser } from '@/hooks/useAdminUsers';
-import { toast } from 'sonner'; // Assuming sonner based on "lib/toast" often wrapping it, or just generic toast. 
-// Wait, Login.tsx used "@/lib/toast". checking if it's sonner or custom. 
-// "import { toast } from '@/lib/toast';"
-// If it's custom, it might have .error, .success. 
-// I'll stick to "@/lib/toast" import.
-
-// Re-importing correctly based on Login.tsx check
-// import { toast } from '@/lib/toast'; 
-// Actually, I'll use the one from Login.tsx: import { toast } from '@/lib/toast';
+import { toast } from '@/lib/toast';
 
 const UserManagement = () => {
     const { users: dbUsers, loading, error } = useAdminUsers();
@@ -173,8 +165,8 @@ const UserManagement = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex gap-2">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${user.role === 'admin'
-                                                        ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
-                                                        : 'border-slate-200 text-slate-600 bg-slate-100'
+                                                    ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
+                                                    : 'border-slate-200 text-slate-600 bg-slate-100'
                                                     }`}>
                                                     {user.role === 'admin' ? 'Admin' : 'User'}
                                                 </span>
@@ -320,8 +312,8 @@ const UserManagement = () => {
                                     <p className="text-sm text-slate-500">{selectedUser.email}</p>
                                     <div className="flex gap-2 mt-2">
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${selectedUser.role === 'admin'
-                                                ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
-                                                : 'border-slate-200 text-slate-600 bg-slate-100'
+                                            ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
+                                            : 'border-slate-200 text-slate-600 bg-slate-100'
                                             }`}>
                                             {selectedUser.role}
                                         </span>
@@ -369,6 +361,5 @@ const UserManagement = () => {
 };
 
 // Manually defining toast here if import fails, but expecting it to work from lib
-import { toast } from 'sonner';
 
 export default UserManagement;
