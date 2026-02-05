@@ -1,14 +1,21 @@
 
-# Plano: Correção do Domínio de Email e Erros de Build
+# Plano: Correção do Conflito de Versões React no esm.sh
 
-## Problemas Identificados
+## Problema Identificado
 
-| Problema | Local | Causa |
-|----------|-------|-------|
-| Domínio errado | `index.ts` linha 218 | Usa `vourevisarbrasil.com.br` em vez de `vourevisar.com.br` |
-| Erro de import npm: | `index.ts` linha 4 | Deno não consegue resolver `npm:@react-email/components` |
-| Erro de import npm: | Todos os 4 templates | Mesmo problema de import |
-| Erro de tipo TS | `RevisoesChartsWrapper.tsx` | `RevisionItem[]` não tem `first_studied_at` |
+Os logs mostram claramente o erro:
+```
+Error: Objects are not valid as a React child (found: object with keys {$$typeof, type, key, ref, props, _owner})
+    at a (https://esm.sh/react@19.3.0-canary-fd524fe0-20251121/es2022/react.mjs:2:3624)
+```
+
+O esm.sh está carregando **React 19 (canary)** como dependência transitiva do `@react-email/components`, enquanto nosso código importa **React 18.3.1**. Isso causa incompatibilidade na renderização dos componentes.
+
+---
+
+## Solução
+
+Usar o recurso de **pinning de dependências** do esm.sh com o parâmetro `?deps=react@18.3.1` para forçar todas as dependências a usarem a mesma versão do React.
 
 ---
 
@@ -16,97 +23,69 @@
 
 ### 1. Edge Function - index.ts
 
-**Linha 4**: Trocar import do `renderAsync`
 ```typescript
-// De:
-import { renderAsync } from 'npm:@react-email/components@0.0.22'
-
-// Para:
-import { renderAsync } from 'https://esm.sh/@react-email/render@0.0.12'
-```
-
-**Linha 218**: Corrigir domínio do remetente
-```typescript
-// De:
-from: 'vouRevisar <noreply@vourevisarbrasil.com.br>',
-
-// Para:
-from: 'vouRevisar <noreply@vourevisar.com.br>',
-```
-
-### 2. Template confirmation.tsx
-
-**Linhas 1-14**: Atualizar imports para esm.sh
-```typescript
-// De:
-import { Body, Button, ... } from 'npm:@react-email/components@0.0.22'
-import * as React from 'npm:react@18.3.1'
-
-// Para:
+// Linha 1 - Manter
 import * as React from 'https://esm.sh/react@18.3.1'
-import { Body, Button, ... } from 'https://esm.sh/@react-email/components@0.0.22'
+
+// Linha 4 - Adicionar deps para pinear React
+import { renderAsync } from 'https://esm.sh/@react-email/render@0.0.12?deps=react@18.3.1'
 ```
 
-### 3. Template recovery.tsx
+### 2. Todos os 4 Templates (_templates/*.tsx)
 
-Mesma alteração de imports (linhas 1-14)
-
-### 4. Template magic-link.tsx
-
-Mesma alteração de imports (linhas 1-14)
-
-### 5. Template email-change.tsx
-
-Mesma alteração de imports (linhas 1-14)
-
-### 6. RevisoesChartsWrapper.tsx
-
-**Linha 76**: Fazer cast para o tipo esperado pelo componente
-
-O componente `ReviewsTrendChart` espera um array com objetos que tenham `first_studied_at`. O `RevisionItem` não tem essa propriedade, mas os dados reais vêm do banco e contêm esse campo.
+Cada template precisa adicionar o parâmetro `?deps=react@18.3.1`:
 
 ```typescript
-// De:
-<ReviewsTrendChart topics={topics} reviewData={reviewData || []} viewMode={trendViewMode} />
+// Linha 1 - Manter igual
+import * as React from 'https://esm.sh/react@18.3.1'
 
-// Para:
-<ReviewsTrendChart 
-  topics={topics as unknown as Array<{ first_studied_at: string | null; [key: string]: any }>} 
-  reviewData={reviewData || []} 
-  viewMode={trendViewMode} 
-/>
+// Linha 2-14 - Adicionar ?deps=react@18.3.1
+import {
+  Body,
+  Button,
+  Container,
+  // ... outros componentes
+} from 'https://esm.sh/@react-email/components@0.0.22?deps=react@18.3.1'
 ```
 
 ---
 
-## Resumo das Correções
+## Resumo das Alterações
 
-| Arquivo | Linha(s) | Alteração |
-|---------|----------|-----------|
-| `send-auth-email/index.ts` | 4 | Import `renderAsync` via esm.sh |
-| `send-auth-email/index.ts` | 218 | Domínio corrigido para `vourevisar.com.br` |
-| `_templates/confirmation.tsx` | 1-14 | Imports via esm.sh |
-| `_templates/recovery.tsx` | 1-14 | Imports via esm.sh |
-| `_templates/magic-link.tsx` | 1-14 | Imports via esm.sh |
-| `_templates/email-change.tsx` | 1-14 | Imports via esm.sh |
-| `RevisoesChartsWrapper.tsx` | 76 | Cast de tipo para compatibilidade |
+| Arquivo | Alteração |
+|---------|-----------|
+| `send-auth-email/index.ts` | Adicionar `?deps=react@18.3.1` no import do `@react-email/render` |
+| `_templates/confirmation.tsx` | Adicionar `?deps=react@18.3.1` no import do `@react-email/components` |
+| `_templates/recovery.tsx` | Adicionar `?deps=react@18.3.1` no import do `@react-email/components` |
+| `_templates/magic-link.tsx` | Adicionar `?deps=react@18.3.1` no import do `@react-email/components` |
+| `_templates/email-change.tsx` | Adicionar `?deps=react@18.3.1` no import do `@react-email/components` |
 
 ---
 
 ## Seção Técnica
 
-### Por que usar esm.sh em vez de npm:
+### Por que isso acontece?
 
-O Deno Edge Functions tem dificuldade em resolver pacotes `npm:` que não estão no `deno.json`. O esm.sh é um CDN que converte pacotes npm para ESM, funcionando perfeitamente no ambiente Deno sem configuração adicional.
+O esm.sh resolve automaticamente dependências transitivas. Quando você importa `@react-email/components`, ele também importa suas dependências (incluindo React). Por padrão, o esm.sh pode resolver para a versão mais recente do React (19 canary neste caso).
 
-### Ordem dos imports em esm.sh
+### Como o parâmetro deps funciona
 
-É importante que o React seja importado antes dos componentes que o usam:
+O parâmetro `?deps=react@18.3.1` instrui o esm.sh a:
+1. Usar React 18.3.1 como dependência do pacote
+2. Garantir que todos os componentes sejam renderizados com a mesma versão do React
+3. Evitar conflitos de "multiple React instances"
+
+### Exemplo completo de import corrigido
+
 ```typescript
 import * as React from 'https://esm.sh/react@18.3.1'
-import { ... } from 'https://esm.sh/@react-email/components@0.0.22'
+import { Body, Button, Container, Head, Heading, Html, Img, Link, Preview, Section, Text } from 'https://esm.sh/@react-email/components@0.0.22?deps=react@18.3.1'
 ```
 
-### Após implementação
+---
 
-Será necessário reimplantar a Edge Function para aplicar as correções.
+## Após Implementação
+
+1. Reimplantar a Edge Function `send-auth-email`
+2. Testar novamente o fluxo de recuperação de senha
+3. Os emails devem ser enviados corretamente
