@@ -72,6 +72,12 @@ const Login = () => {
           navigate('/confirm-email', { replace: true });
         }
       } else {
+        if (!password) {
+          toast.error('Informe sua senha para entrar.');
+          setIsLoading(false);
+          return;
+        }
+
         const result = await signIn(email, password);
         if (result.success) {
           let from = location.state?.from?.pathname || '/dashboard';
@@ -81,7 +87,16 @@ const Login = () => {
           }
           navigate(from, { replace: true });
         } else {
-          toast.error('Email ou senha incorretos.');
+          // Tratamento de erros específicos
+          if (result.error?.includes('Invalid login credentials')) {
+            toast.error('Email ou senha incorretos.');
+          } else if (result.error?.includes('Email not confirmed')) {
+            toast.error('Email não confirmado. Verifique sua caixa de entrada.');
+          } else if (result.error?.includes('Too many requests') || result.error?.includes('rate limit')) {
+            toast.error('Muitas tentativas. Tente novamente em alguns minutos.');
+          } else {
+            toast.error('Erro ao fazer login. Tente novamente.');
+          }
         }
       }
     } catch (error: any) {

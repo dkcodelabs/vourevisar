@@ -22,7 +22,7 @@ export function useAuthOperations() {
       return data;
     } catch (error: any) {
       console.error('Sign in error:', error);
-      toastManager.error(error.message || 'Erro ao fazer login');
+      // toastManager.error(error.message || 'Erro ao fazer login');
       throw error;
     } finally {
       setLoading(false);
