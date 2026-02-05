@@ -173,7 +173,9 @@ const Login = () => {
             )}
 
             <h1 className="text-3xl font-bold">
-              {isRegistering ? (
+              {showForgotPassword ? (
+                <span className="text-brand-blue">Recuperar Senha</span>
+              ) : isRegistering ? (
                 <span className="text-brand-blue">Criar Conta</span>
               ) : (
                 <span className="bg-gradient-to-r from-slate-900 to-brand-blue bg-clip-text text-transparent">Entrar</span>
@@ -243,31 +245,33 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-slate-700 ml-1">Senha</label>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-12 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all text-slate-900 placeholder:text-slate-400 outline-none"
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-                name="password"
-                readOnly={!isRegistering} // Hack: prevent autofill on load
-                onFocus={(e) => e.target.removeAttribute('readonly')}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+          {!showForgotPassword && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-slate-700 ml-1">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-12 pr-12 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all text-slate-900 placeholder:text-slate-400 outline-none"
+                  placeholder="••••••••"
+                  required={!showForgotPassword}
+                  autoComplete="current-password"
+                  name="password"
+                  readOnly={!isRegistering} // Hack: prevent autofill on load
+                  onFocus={(e) => e.target.removeAttribute('readonly')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {isRegistering && (
             <div className="space-y-1.5">
@@ -293,21 +297,23 @@ const Login = () => {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-4 rounded-xl bg-brand-blue hover:bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
-          >
-            {isLoading ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
-              />
-            ) : (
-              isRegistering ? 'Criar Conta' : 'Entrar'
-            )}
-          </button>
+          {!showForgotPassword && (
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-4 rounded-xl bg-brand-blue hover:bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {isLoading ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+                />
+              ) : (
+                isRegistering ? 'Criar Conta' : 'Entrar'
+              )}
+            </button>
+          )}
 
           {!isRegistering && !showForgotPassword && (
             <div className="text-center">

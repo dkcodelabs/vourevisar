@@ -78,13 +78,14 @@ const ResetPassword = () => {
               setIsValidToken(true);
             } else {
               console.error('No session returned from code exchange');
-              // Fallback: Check if user is already logged in
-              const { data: currentSession } = await supabase.auth.getSession();
-              if (currentSession?.session) {
-                console.log('Using existing session as fallback');
+
+              // Fallback: Check if user is already logged in (Robust check)
+              const { data: userData, error: userError } = await supabase.auth.getUser();
+              if (userData?.user && !userError) {
+                console.log('Using existing authenticated user as fallback');
                 setIsValidToken(true);
               } else {
-                toast.error('Link inválido ou expirado');
+                toast.error('Link inválido ou expirado. Faça login novamente.');
                 navigate('/login');
                 return;
               }
@@ -93,17 +94,24 @@ const ResetPassword = () => {
             console.error('Error in code exchange:', error);
 
             // ERROR HANDLING WITH FALLBACK
-            // Specific check for PKCE error or others, but falling back to existing session
-            const { data: currentSession } = await supabase.auth.getSession();
-            if (currentSession?.session) {
-              console.log('PKCE error occurred but existing session found. Allowing reset.');
+            // Wait a moment for any state to settle
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Robust check using getUser() which verifies with server
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+
+            if (userData?.user && !userError) {
+              console.log('PKCE error occurred but active user session found. Allowing reset.');
               setIsValidToken(true);
-              // Optional: toast.info("Sessão ativa detectada. Você pode alterar sua senha.");
+              // Optional: You could show a specialized toast here if needed
+              // toast.info("Sessão ativa detectada. Você pode redefinir sua senha.");
             } else {
               if (error.name === 'AuthPKCECodeVerifierMissingError') {
-                toast.error('O link deve ser aberto no mesmo navegador que solicitou a troca.');
+                // Detailed error for debugging/user info
+                console.warn('PKCE Verifier Missing: Browser executing the link is different from the one that requested it.');
+                toast.error('Por segurança, abra o link no mesmo navegador/dispositivo que solicitou.');
               } else {
-                toast.error('Erro no processamento do link');
+                toast.error('Link inválido ou expirado.');
               }
               navigate('/login');
             }
