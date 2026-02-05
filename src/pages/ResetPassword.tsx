@@ -26,10 +26,10 @@ const ResetPassword = () => {
         const token = urlParams.get('token');
         const type = urlParams.get('type');
         const code = urlParams.get('code');
-        
-        console.log('Reset password check:', { 
-          hasToken: !!token, 
-          type, 
+
+        console.log('Reset password check:', {
+          hasToken: !!token,
+          type,
           hasCode: !!code,
           url: window.location.href,
           search: window.location.search
@@ -40,16 +40,16 @@ const ResetPassword = () => {
           console.log('Recovery token found, attempting to verify session');
           // Give some time for Supabase to process the token
           await new Promise(resolve => setTimeout(resolve, 1000));
-          
+
           const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-          
+
           if (sessionError) {
             console.error('Session error:', sessionError);
             toast.error('Link inválido ou expirado');
             navigate('/login');
             return;
           }
-          
+
           if (sessionData.session) {
             console.log('Valid session found for recovery');
             setIsValidToken(true);
@@ -65,34 +65,55 @@ const ResetPassword = () => {
           console.log('Recovery code found, exchanging for session');
           try {
             const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-            
+
             if (error) {
               console.error('Error exchanging code:', error);
               toast.error('Link inválido ou expirado');
               navigate('/login');
               return;
             }
-            
+
             if (data.session) {
               console.log('Successfully exchanged code for session');
               setIsValidToken(true);
             } else {
               console.error('No session returned from code exchange');
-              toast.error('Link inválido ou expirado');
-              navigate('/login');
-              return;
+              // Fallback: Check if user is already logged in
+              const { data: currentSession } = await supabase.auth.getSession();
+              if (currentSession?.session) {
+                console.log('Using existing session as fallback');
+                setIsValidToken(true);
+              } else {
+                toast.error('Link inválido ou expirado');
+                navigate('/login');
+                return;
+              }
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error in code exchange:', error);
-            toast.error('Erro no processamento do link');
-            navigate('/login');
+
+            // ERROR HANDLING WITH FALLBACK
+            // Specific check for PKCE error or others, but falling back to existing session
+            const { data: currentSession } = await supabase.auth.getSession();
+            if (currentSession?.session) {
+              console.log('PKCE error occurred but existing session found. Allowing reset.');
+              setIsValidToken(true);
+              // Optional: toast.info("Sessão ativa detectada. Você pode alterar sua senha.");
+            } else {
+              if (error.name === 'AuthPKCECodeVerifierMissingError') {
+                toast.error('O link deve ser aberto no mesmo navegador que solicitou a troca.');
+              } else {
+                toast.error('Erro no processamento do link');
+              }
+              navigate('/login');
+            }
             return;
           }
         }
         // Check for existing session
         else {
           const { data, error } = await supabase.auth.getSession();
-          
+
           if (error) {
             console.error('Error getting session:', error);
             toast.error('Erro ao verificar sessão');
@@ -126,7 +147,7 @@ const ResetPassword = () => {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (password.length < 6) {
       toast.error('A senha deve ter pelo menos 6 caracteres');
       return;
@@ -141,7 +162,7 @@ const ResetPassword = () => {
     try {
       // Check if we have a valid session before updating password
       const { data: sessionData } = await supabase.auth.getSession();
-      
+
       if (!sessionData.session) {
         console.error('No valid session found for password update');
         toast.error('Sessão expirada. Tente novamente com um novo link');
@@ -195,7 +216,7 @@ const ResetPassword = () => {
     <PageContainer>
       <div className="min-h-screen flex items-center justify-center p-4">
         <GlassCard className="w-full max-w-md p-8">
-          <AnimatedTitle 
+          <AnimatedTitle
             icon={<Lock size={32} />}
             className="mb-8 text-center"
           >
