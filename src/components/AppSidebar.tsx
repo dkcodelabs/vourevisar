@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight, Key, CreditCard } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -19,22 +19,24 @@ interface NavItem {
   end?: boolean;
 }
 
-const getNavItems = (isAdmin: boolean): NavItem[] => {
-  const baseItems: NavItem[] = [
+const getNavItems = (isAdmin: boolean) => {
+  const mainItems: NavItem[] = [
     { to: "/dashboard", label: "Painel", icon: LayoutDashboard, end: true },
     { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: Target },
     { to: "/revisoes", label: "Revisões", icon: Clock },
     { to: "/materias", label: "Matérias", icon: BookOpen },
     { to: "/topicos", label: "Tópicos", icon: List },
     { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
-
   ];
 
-  if (isAdmin) {
-    baseItems.unshift({ to: "/gerenciamento", label: "Gerenciamento", icon: Shield });
-  }
+  const adminItems: NavItem[] = isAdmin ? [
+    { to: "/admin/users", label: "Gerenciar Usuários", icon: User },
+    { to: "/admin/security", label: "Segurança e Acesso", icon: Shield },
+    { to: "/admin/auth", label: "Autenticação", icon: Key },
+    { to: "/admin/payments", label: "Pagamentos", icon: CreditCard },
+  ] : [];
 
-  return baseItems;
+  return { mainItems, adminItems };
 };
 
 export function AppSidebar() {
@@ -45,7 +47,7 @@ export function AppSidebar() {
   const isMobile = useIsMobile();
   const isCollapsed = state === 'collapsed';
 
-  const navItems = React.useMemo(() => getNavItems(isAdmin), [isAdmin]);
+  const { mainItems, adminItems } = React.useMemo(() => getNavItems(isAdmin), [isAdmin]);
 
   // Função para verificar se o item está ativo
   const isItemActive = (item: NavItem) => {
@@ -72,6 +74,35 @@ export function AppSidebar() {
       setOpenMobile(false);
     }
   };
+
+  const renderNavItems = (items: NavItem[]) => (
+    items.map((item) => {
+      const isActive = isItemActive(item);
+      // Only apply collapsed styles on desktop, never on mobile
+      const showIconOnly = isCollapsed && !isMobile;
+
+      return (
+        <SidebarMenuItem key={item.to}>
+          <NavLink to={item.to} end={item.end ?? false} onClick={handleNavClick}>
+            <SidebarMenuButton
+              isActive={isActive}
+              asChild
+              tooltip={item.label}
+              className={`w-full h-11 px-3 text-sm font-medium transition-all rounded-lg ${showIconOnly ? 'justify-center' : 'justify-start'} ${isActive
+                ? '!bg-blue-600 text-white shadow-md'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+            >
+              <div className={`flex items-center ${showIconOnly ? 'justify-center' : ''}`}>
+                <item.icon size={22} className={`flex-shrink-0 text-white ${showIconOnly ? '' : 'mr-3'}`} />
+                <span className={`truncate ${showIconOnly ? 'hidden' : ''}`}>{item.label}</span>
+              </div>
+            </SidebarMenuButton>
+          </NavLink>
+        </SidebarMenuItem>
+      );
+    })
+  );
 
   return (
     <Sidebar
@@ -104,34 +135,28 @@ export function AppSidebar() {
       <SidebarContent className="p-3" style={{ backgroundColor: '#1E2A3B' }}>
         <SidebarGroup>
           <SidebarMenu className="space-y-1">
-            {navItems.map((item) => {
-              const isActive = isItemActive(item);
-              // Only apply collapsed styles on desktop, never on mobile
-              const showIconOnly = isCollapsed && !isMobile;
-
-              return (
-                <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to} end={item.end ?? false} onClick={handleNavClick}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      asChild
-                      tooltip={item.label}
-                      className={`w-full h-11 px-3 text-sm font-medium transition-all rounded-lg ${showIconOnly ? 'justify-center' : 'justify-start'} ${isActive
-                        ? '!bg-blue-600 text-white shadow-md'
-                        : 'text-white/70 hover:bg-white/10 hover:text-white'
-                        }`}
-                    >
-                      <div className={`flex items-center ${showIconOnly ? 'justify-center' : ''}`}>
-                        <item.icon size={22} className={`flex-shrink-0 text-white ${showIconOnly ? '' : 'mr-3'}`} />
-                        <span className={`truncate ${showIconOnly ? 'hidden' : ''}`}>{item.label}</span>
-                      </div>
-                    </SidebarMenuButton>
-                  </NavLink>
-                </SidebarMenuItem>
-              );
-            })}
+            {renderNavItems(mainItems)}
           </SidebarMenu>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup className="mt-4">
+            {/* Separator Label - Hidden if collapsed on desktop */}
+            {(!isCollapsed || isMobile) && (
+              <div className="px-3 py-2 text-xs font-semibold text-white/40 uppercase tracking-wider mb-1">
+                Gerenciamento
+              </div>
+            )}
+            {/* Separator Line for collapsed state */}
+            {isCollapsed && !isMobile && (
+              <div className="mx-3 my-2 h-[1px] bg-white/10" />
+            )}
+
+            <SidebarMenu className="space-y-1">
+              {renderNavItems(adminItems)}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       {user && (() => {

@@ -25,6 +25,7 @@ import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
 import StudyCycle from "@/pages/StudyCycle";
 import Gerenciamento from "@/pages/Gerenciamento";
+import UserManagement from "@/pages/admin/UserManagement";
 
 import { AuthCallback } from "@/components/AuthCallback";
 import { SimpleRoleTest } from "@/components/SimpleRoleTest";
@@ -85,6 +86,7 @@ const App = () => {
                           <Route path="revisoes" element={<Revisoes />} />
                           <Route path="ciclo-estudos" element={<StudyCycle />} />
                           <Route path="gerenciamento" element={<Gerenciamento />} />
+                          <Route path="admin/users" element={<UserManagement />} />
                           <Route path="test-roles" element={<SimpleRoleTest />} />
                           <Route path="perfil" element={<Profile />} />
                           <Route path="configuracoes" element={<Settings />} />
