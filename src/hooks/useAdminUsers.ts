@@ -10,6 +10,7 @@ export interface AdminUser {
     created_at: string;
     last_sign_in_at?: string;
     status?: string; // Active/Inactive based on subscription or last seen
+    source?: string; // Google, Email, etc.
 }
 
 export function useAdminUsers() {
@@ -41,6 +42,10 @@ export function useAdminUsers() {
             const combinedUsers: AdminUser[] = (profiles || []).map((profile: any) => {
                 const userRole = roles?.find((r: any) => r.user_id === profile.id)?.role || 'user';
 
+                // Deduction logic for Source
+                const isGoogle = profile.avatar_url?.includes('googleusercontent');
+                const source = isGoogle ? 'Google' : 'Email';
+
                 return {
                     id: profile.id,
                     email: profile.email || 'No email (DB sync needed)', // Fallback
@@ -48,7 +53,8 @@ export function useAdminUsers() {
                     avatar_url: profile.avatar_url,
                     role: userRole,
                     created_at: profile.created_at || new Date().toISOString(),
-                    status: 'Active', // Mocking active status as we lack last_sign_in in public profile usually
+                    status: 'Active',
+                    source: source,
                 };
             });
 

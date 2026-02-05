@@ -150,8 +150,8 @@ const UserManagement = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex gap-2">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${user.role === 'admin'
-                                                        ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
-                                                        : 'border-slate-200 text-slate-600 bg-slate-100'
+                                                    ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
+                                                    : 'border-slate-200 text-slate-600 bg-slate-100'
                                                     }`}>
                                                     {user.role === 'admin' ? 'Admin' : 'User'}
                                                 </span>
@@ -184,7 +184,7 @@ const UserManagement = () => {
 
                                                         <div className="px-3 py-2 text-[10px] text-slate-400 uppercase tracking-wider font-medium flex flex-col gap-1 select-none pointer-events-none bg-slate-50/50 rounded-sm mx-1 mb-1">
                                                             <span className="flex items-center gap-1.5">Origin</span>
-                                                            <span className="text-slate-600 font-semibold">System</span>
+                                                            <span className="text-slate-600 font-semibold">{user.source || 'Unknown'}</span>
                                                         </div>
 
                                                         <DropdownMenuItem className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm">
