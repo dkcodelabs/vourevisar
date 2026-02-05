@@ -167,33 +167,33 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                 <div className="space-y-4">
 
                     {/* Stats Grid */}
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         {/* Atrasadas */}
-                        <div className="flex flex-col items-center justify-center py-3.5 px-1 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/20 shadow-sm gap-1.5">
-                            <AlertCircle className="w-4 h-4 text-red-500" />
-                            <span className="text-xl font-bold text-red-600 dark:text-red-400 leading-none">{overdue}</span>
-                            <span className="text-[9px] text-red-500/90 font-bold uppercase tracking-wide">Atrasadas</span>
+                        <div className="flex flex-col items-center justify-center py-3.5 px-1 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/20 shadow-sm gap-1.5 min-w-0">
+                            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                            <span className="text-xl font-bold text-red-600 dark:text-red-400 leading-none truncate w-full text-center">{overdue}</span>
+                            <span className="text-[9px] text-red-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Atrasadas</span>
                         </div>
 
                         {/* Hoje */}
-                        <div className="flex flex-col items-center justify-center py-3.5 px-1 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/20 shadow-sm gap-1.5">
-                            <Clock className="w-4 h-4 text-amber-500" />
-                            <span className="text-xl font-bold text-amber-600 dark:text-amber-400 leading-none">{today}</span>
-                            <span className="text-[9px] text-amber-500/90 font-bold uppercase tracking-wide">Hoje</span>
+                        <div className="flex flex-col items-center justify-center py-3.5 px-1 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/20 shadow-sm gap-1.5 min-w-0">
+                            <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span className="text-xl font-bold text-amber-600 dark:text-amber-400 leading-none truncate w-full text-center">{today}</span>
+                            <span className="text-[9px] text-amber-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Hoje</span>
                         </div>
 
                         {/* Futuras */}
-                        <div className="flex flex-col items-center justify-center py-3.5 px-1 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/20 shadow-sm gap-1.5">
-                            <CalendarClock className="w-4 h-4 text-blue-500" />
-                            <span className="text-xl font-bold text-blue-600 dark:text-blue-400 leading-none">{future}</span>
-                            <span className="text-[9px] text-blue-500/90 font-bold uppercase tracking-wide">Futuras</span>
+                        <div className="flex flex-col items-center justify-center py-3.5 px-1 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/20 shadow-sm gap-1.5 min-w-0">
+                            <CalendarClock className="w-4 h-4 text-blue-500 shrink-0" />
+                            <span className="text-xl font-bold text-blue-600 dark:text-blue-400 leading-none truncate w-full text-center">{future}</span>
+                            <span className="text-[9px] text-blue-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Futuras</span>
                         </div>
 
                         {/* Feitas */}
-                        <div className="flex flex-col items-center justify-center py-3.5 px-1 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/20 shadow-sm gap-1.5">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                            <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none">{completedReviews}</span>
-                            <span className="text-[9px] text-emerald-500/90 font-bold uppercase tracking-wide">Feitas</span>
+                        <div className="flex flex-col items-center justify-center py-3.5 px-1 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/20 shadow-sm gap-1.5 min-w-0">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none truncate w-full text-center">{completedReviews}</span>
+                            <span className="text-[9px] text-emerald-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Feitas</span>
                         </div>
                     </div>
 

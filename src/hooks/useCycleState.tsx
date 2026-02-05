@@ -124,6 +124,27 @@ export const useCycleState = () => {
         console.log('🔄 Resetando revisões dos tópicos...', { subjectIds });
 
         try {
+          // 2.1 Buscar e deletar histórico de revisões primeiro
+          const { data: userTopics, error: fetchTopicsError } = await supabase
+            .from('topics')
+            .select('id')
+            .in('subject_id', subjectIds);
+
+          if (!fetchTopicsError && userTopics && userTopics.length > 0) {
+            const topicIds = userTopics.map(t => t.id);
+            const { error: historyError } = await supabase
+              .from('topic_review_history')
+              .delete()
+              .in('topic_id', topicIds);
+
+            if (historyError) {
+              console.error('❌ Erro ao limpar histórico de revisões:', historyError);
+              // Não vamos lançar erro aqui para permitir que o reset continue
+            } else {
+              console.log('✅ Histórico de revisões limpo com sucesso');
+            }
+          }
+
           const { data: topicsData, error: topicsResetError } = await supabase
             .from('topics')
             .update({

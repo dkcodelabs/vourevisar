@@ -531,6 +531,29 @@ const Subjects = () => {
 
   const handleDelete = async (id: string) => {
     try {
+      // 1. Buscar tópicos dessa matéria para limpar histórico
+      const { data: subjectTopics } = await supabase
+        .from('topics')
+        .select('id')
+        .eq('subject_id', id);
+
+      if (subjectTopics && subjectTopics.length > 0) {
+        const topicIds = subjectTopics.map(t => t.id);
+
+        // 2. Deletar histórico dos tópicos
+        await supabase
+          .from('topic_review_history')
+          .delete()
+          .in('topic_id', topicIds);
+
+        // 3. Deletar tópicos (embora o cascade da FK devesse cuidar disso, garantimos aqui)
+        await supabase
+          .from('topics')
+          .delete()
+          .eq('subject_id', id);
+      }
+
+      // 4. Deletar a matéria
       await supabase
         .from('subjects')
         .delete()
@@ -554,6 +577,17 @@ const Subjects = () => {
     if (!topicToDelete) return;
 
     try {
+      // 1. Deletar histórico primeiro
+      const { error: historyError } = await supabase
+        .from('topic_review_history')
+        .delete()
+        .eq('topic_id', topicToDelete.id);
+
+      if (historyError) {
+        console.error('⚠️ ConfirmDeleteTopic - Error deleting history (continuing anyway):', historyError);
+      }
+
+      // 2. Deletar tópico
       const { error } = await supabase
         .from('topics')
         .delete()

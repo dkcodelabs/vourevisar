@@ -314,8 +314,30 @@ const Settings = () => {
         const subjectIds = (userSubjects || []).map(s => s.id);
         console.log('🧹 Matérias encontradas:', subjectIds.length);
 
-        // 2. Deletar tópicos das matérias do usuário
+        // 2. Buscar e Deletar Tópicos e seu Histórico
         if (subjectIds.length > 0) {
+          // Buscar IDs dos tópicos para deletar histórico
+          const { data: userTopics, error: fetchTopicsError } = await supabase
+            .from('topics')
+            .select('id')
+            .in('subject_id', subjectIds);
+
+          if (fetchTopicsError) throw fetchTopicsError;
+
+          const topicIds = (userTopics || []).map(t => t.id);
+
+          if (topicIds.length > 0) {
+            // 2.1 Deletar histórico de revisões
+            const { error: historyError } = await supabase
+              .from('topic_review_history')
+              .delete()
+              .in('topic_id', topicIds);
+
+            if (historyError) throw historyError;
+            console.log('🧹 Histórico de revisões deletado');
+          }
+
+          // 2.2 Deletar tópicos
           const { error: topicsError } = await supabase
             .from('topics')
             .delete()

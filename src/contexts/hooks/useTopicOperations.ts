@@ -15,7 +15,7 @@ export const useTopicOperations = (
 
     try {
       console.log('📝 addTopic - Adding topic:', { subjectId, topicData });
-      
+
       const { error } = await supabase
         .from('topics')
         .insert({
@@ -33,15 +33,15 @@ export const useTopicOperations = (
       if (error) throw error;
 
       console.log('✅ addTopic - Success, refreshing data...');
-      
+
       // refreshData já chama loadSubjects internamente
       await refreshData();
-      
+
       // Disparar evento para sincronizar outras páginas
-      window.dispatchEvent(new CustomEvent('topicUpdated', { 
-        detail: { action: 'add', subjectId, topicId: null } 
+      window.dispatchEvent(new CustomEvent('topicUpdated', {
+        detail: { action: 'add', subjectId, topicId: null }
       }));
-      
+
       toast.success('Tópico adicionado com sucesso!');
     } catch (error: any) {
       console.error('❌ Error adding topic:', error);
@@ -53,10 +53,10 @@ export const useTopicOperations = (
   const updateTopic = async (subjectId: string, topicId: string, updates: Partial<Topic>) => {
     try {
       console.log('📝 updateTopic - Updating topic:', { subjectId, topicId, updates });
-      
+
       // Verificar se o tópico está sendo marcado como concluído
       const wasCompleted = updates.completed === true;
-      
+
       const updateData: any = {
         name: updates.name,
         completed: updates.completed,
@@ -124,15 +124,15 @@ export const useTopicOperations = (
       }
 
       console.log('✅ updateTopic - Success, refreshing data...');
-      
+
       // refreshData já chama loadSubjects internamente
       await refreshData();
-      
+
       // Disparar evento para sincronizar outras páginas
-      window.dispatchEvent(new CustomEvent('topicUpdated', { 
-        detail: { action: 'update', subjectId, topicId } 
+      window.dispatchEvent(new CustomEvent('topicUpdated', {
+        detail: { action: 'update', subjectId, topicId }
       }));
-      
+
     } catch (error: any) {
       console.error('❌ Error updating topic:', error);
       toast.error('Erro ao atualizar tópico');
@@ -143,7 +143,20 @@ export const useTopicOperations = (
   const deleteTopic = async (subjectId: string, topicId: string) => {
     try {
       console.log('🗑️ deleteTopic - Deleting topic:', { subjectId, topicId });
-      
+
+      // 1. Deletar histórico primeiro
+      const { error: historyError } = await supabase
+        .from('topic_review_history')
+        .delete()
+        .eq('topic_id', topicId);
+
+      if (historyError) {
+        console.error('⚠️ deleteTopic - Error deleting history (continuing anyway):', historyError);
+      } else {
+        console.log('✅ deleteTopic - History deleted');
+      }
+
+      // 2. Deletar tópico
       const { error } = await supabase
         .from('topics')
         .delete()
@@ -152,15 +165,15 @@ export const useTopicOperations = (
       if (error) throw error;
 
       console.log('✅ deleteTopic - Success, refreshing data...');
-      
+
       // refreshData já chama loadSubjects internamente
       await refreshData();
-      
+
       // Disparar evento para sincronizar outras páginas
-      window.dispatchEvent(new CustomEvent('topicUpdated', { 
-        detail: { action: 'delete', subjectId, topicId } 
+      window.dispatchEvent(new CustomEvent('topicUpdated', {
+        detail: { action: 'delete', subjectId, topicId }
       }));
-      
+
       toast.success('Tópico removido com sucesso!');
     } catch (error: any) {
       console.error('❌ Error deleting topic:', error);
