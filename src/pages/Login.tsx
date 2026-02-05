@@ -30,6 +30,8 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [shakePassword, setShakePassword] = useState(false);
+  const passwordInputRef = React.useRef<HTMLInputElement>(null);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -74,6 +76,9 @@ const Login = () => {
       } else {
         if (!password) {
           toast.error('Informe sua senha para entrar.');
+          setShakePassword(true);
+          setTimeout(() => setShakePassword(false), 500);
+          passwordInputRef.current?.focus();
           setIsLoading(false);
           return;
         }
@@ -207,7 +212,7 @@ const Login = () => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
+        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off" noValidate>
           {isRegistering && (
             <>
               <div className="space-y-1.5">
@@ -267,17 +272,22 @@ const Login = () => {
               <label className="text-sm font-semibold text-slate-700 ml-1">Senha</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-                <input
+                <motion.input
+                  animate={shakePassword ? { x: [0, -10, 10, -10, 10, 0] } : {}}
+                  transition={{ duration: 0.4 }}
+                  ref={passwordInputRef}
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-12 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all text-slate-900 placeholder:text-slate-400 outline-none"
-                  placeholder="••••••••"
+                  className={`w-full pl-12 pr-12 py-3.5 rounded-xl border ${shakePassword ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50'} focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all text-slate-900 placeholder:text-slate-400 outline-none`}
+                  placeholder="Digite sua senha"
                   required={!showForgotPassword}
                   autoComplete="current-password"
                   name="password"
                   readOnly={!isRegistering} // Hack: prevent autofill on load
-                  onFocus={(e) => e.target.removeAttribute('readonly')}
+                  onFocus={(e) => {
+                    e.target.removeAttribute('readonly');
+                  }}
                 />
                 <button
                   type="button"
