@@ -8,12 +8,23 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const UserManagement = () => {
+    const [userToDelete, setUserToDelete] = useState<number | null>(null);
+
     // Mock data tailored for the new requirements
     const metrics = [
         { title: 'Total de usuários', value: '1.240', change: '+40%', trend: 'up', icon: Users },
@@ -28,6 +39,12 @@ const UserManagement = () => {
         { id: 4, name: 'Caitlyn King', email: 'caitlyn@untitledui.com', role: 'User', status: 'Active', lastActive: 'Mar 6, 2024', dateAdded: 'July 4, 2022', avatar: '', source: 'Cadastro' },
         { id: 5, name: 'Sienna Hewitt', email: 'sienna@untitledui.com', role: 'User', status: 'Inactive', lastActive: 'Mar 8, 2024', dateAdded: 'July 4, 2022', avatar: '', source: 'Importado' },
     ]);
+
+    const handleDeleteUser = () => {
+        // Here logic to delete user
+        console.log(`Deleting user ${userToDelete}`);
+        setUserToDelete(null);
+    };
 
     return (
         <div className="p-6 max-w-[1600px] mx-auto space-y-8 animate-fade-in font-sans text-slate-900 pointer-events-auto">
@@ -130,8 +147,8 @@ const UserManagement = () => {
                                     <td className="px-6 py-4">
                                         {/* Badge Outline */}
                                         <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${user.role === 'Admin'
-                                                ? 'border-purple-200 text-purple-700 bg-purple-50/30'
-                                                : 'border-slate-200 text-slate-600 bg-slate-50/50'
+                                            ? 'border-purple-200 text-purple-700 bg-purple-50/30'
+                                            : 'border-slate-200 text-slate-600 bg-slate-50/50'
                                             }`}>
                                             {user.role}
                                         </span>
@@ -152,43 +169,53 @@ const UserManagement = () => {
                                         {user.dateAdded}
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        {/* 3 Dots Menu - Só aparece no hover da row (mas mantendo placeholder para layout) */}
+                                        {/* 3 Dots Menu - Silent & Premium */}
                                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end">
                                             <DropdownMenu>
-                                                <DropdownMenuTrigger className="p-2 rounded-full hover:bg-slate-200/50 text-slate-400 hover:text-slate-600 outline-none transition-colors">
+                                                <DropdownMenuTrigger className="p-2 rounded-full hover:bg-slate-200/50 text-slate-400 hover:text-slate-600 outline-none transition-colors data-[state=open]:bg-slate-100 data-[state=open]:text-slate-600">
                                                     <MoreVertical className="w-4 h-4" />
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-56">
-                                                    <DropdownMenuLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ações</DropdownMenuLabel>
-                                                    <DropdownMenuItem className="gap-2 cursor-pointer">
-                                                        <Eye className="w-4 h-4 text-slate-500" /> Ver perfil
+                                                <DropdownMenuContent align="end" className="w-[180px] p-1 border-slate-100 shadow-lg/5">
+                                                    {/* Ações Primárias (Topo) */}
+                                                    <DropdownMenuItem className="gap-2.5 cursor-pointer text-slate-700 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm">
+                                                        <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                                        Ver perfil
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem className="gap-2 cursor-pointer">
-                                                        <Edit className="w-4 h-4 text-slate-500" /> Editar permissões
-                                                    </DropdownMenuItem>
-                                                    {/* Item Detalhes (Source/Method) */}
-                                                    <DropdownMenuItem className="gap-2 cursor-pointer">
-                                                        <GripHorizontal className="w-4 h-4 text-slate-500" />
-                                                        <span className="flex-1">Detalhes</span>
-                                                        <span className="text-[10px] text-slate-400 uppercase tracking-wide bg-slate-100 px-1 rounded">{user.source}</span>
+                                                    <DropdownMenuItem className="gap-2.5 cursor-pointer text-slate-700 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm">
+                                                        <Edit className="w-3.5 h-3.5 text-slate-500" />
+                                                        Editar permissões
                                                     </DropdownMenuItem>
 
-                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuSeparator className="bg-slate-50 my-1" />
 
-                                                    <DropdownMenuItem className="gap-2 cursor-pointer text-slate-600">
-                                                        <Power className="w-4 h-4" />
-                                                        {user.status === 'Active' ? 'Desativar usuário' : 'Ativar usuário'}
+                                                    {/* Informações Contextuais (Não Ação) */}
+                                                    <div className="px-3 py-2 text-[10px] text-slate-400 uppercase tracking-wider font-medium flex flex-col gap-1 select-none pointer-events-none bg-slate-50/50 rounded-sm mx-1 mb-1">
+                                                        <span className="flex items-center gap-1.5">
+                                                            Origem de cadastro
+                                                        </span>
+                                                        <span className="text-slate-600 font-semibold">{user.source}</span>
+                                                    </div>
+
+                                                    {/* Ações de Estado */}
+                                                    <DropdownMenuItem className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm">
+                                                        <Power className="w-3.5 h-3.5 text-slate-400" />
+                                                        {user.status === 'Active' ? 'Desativar acesso' : 'Ativar acesso'}
                                                     </DropdownMenuItem>
 
-                                                    {/* Admin Only Actions would check permissions in real app */}
-                                                    <DropdownMenuItem className="gap-2 cursor-pointer text-slate-600">
-                                                        <RefreshCw className="w-4 h-4" /> Redefinir senha
+                                                    <DropdownMenuItem className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm">
+                                                        <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                                                        Redefinir senha
                                                     </DropdownMenuItem>
 
-                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuSeparator className="bg-slate-50 my-1" />
 
-                                                    <DropdownMenuItem className="gap-2 cursor-pointer text-rose-600 focus:text-rose-700 focus:bg-rose-50">
-                                                        <Trash2 className="w-4 h-4" /> Remover usuário
+                                                    {/* Ação Destrutiva (Isolada) */}
+                                                    <DropdownMenuItem
+                                                        onSelect={() => setUserToDelete(user.id)}
+                                                        className="gap-2.5 cursor-pointer text-rose-600 text-xs py-2 px-3 focus:bg-rose-50 focus:text-rose-700 rounded-sm"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5 opacity-70" />
+                                                        Remover usuário
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
@@ -215,6 +242,23 @@ const UserManagement = () => {
                     </div>
                 </div>
             </div>
+
+            <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Remover usuário?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. O usuário perderá acesso imediato à plataforma e todos os seus dados serão permanentemente excluídos.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteUser} className="bg-rose-600 hover:bg-rose-700 text-white border-transparent">
+                            Sim, remover usuário
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };
