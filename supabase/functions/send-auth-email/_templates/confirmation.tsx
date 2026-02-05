@@ -11,7 +11,7 @@ import {
   Preview,
   Section,
   Text,
-} from 'https://esm.sh/@react-email/components@0.0.22'
+} from 'https://esm.sh/@react-email/components@0.0.22?deps=react@18.3.1'
 
 interface ConfirmationEmailProps {
   supabase_url: string
