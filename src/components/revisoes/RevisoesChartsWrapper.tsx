@@ -73,7 +73,7 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
                 </div>
                 {/* Chart */}
                 <div className="flex-1 flex items-end min-w-0">
-                    <ReviewsTrendChart topics={topics} reviewData={reviewData || []} viewMode={trendViewMode} />
+                    <ReviewsTrendChart topics={topics as unknown as Array<{ first_studied_at: string | null; [key: string]: any }>} reviewData={reviewData || []} viewMode={trendViewMode} />
                 </div>
                 {/* Footer */}
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
