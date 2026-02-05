@@ -28,7 +28,9 @@ export const RecoveryEmail = ({
   logo_url,
   user_name,
 }: RecoveryEmailProps) => {
-  const recoveryUrl = `${supabase_url}/auth/v1/verify?token=${token_hash}&type=recovery&redirect_to=${encodeURIComponent(redirect_to)}`
+  // Use direct link logic for frontend verification to avoid PKCE issues
+  // The redirect_to already contains the base URL (e.g. site_url/reset-password)
+  const recoveryUrl = `${redirect_to}?token_hash=${token_hash}&type=recovery`
 
   return (
     <Html>
@@ -50,11 +52,11 @@ export const RecoveryEmail = ({
           {/* Conteúdo Principal */}
           <Section style={contentSection}>
             <Heading style={h1}>Redefinir sua senha 🔐</Heading>
-            
+
             <Text style={text}>
               Olá{user_name ? `, ${user_name}` : ''}!
             </Text>
-            
+
             <Text style={text}>
               Recebemos uma solicitação para redefinir a senha da sua conta no vouRevisar. Clique no botão abaixo para criar uma nova senha:
             </Text>

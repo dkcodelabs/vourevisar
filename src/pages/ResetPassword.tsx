@@ -26,14 +26,46 @@ const ResetPassword = () => {
         const token = urlParams.get('token');
         const type = urlParams.get('type');
         const code = urlParams.get('code');
+        const token_hash = urlParams.get('token_hash');
 
         console.log('Reset password check:', {
           hasToken: !!token,
+          token_hash: !!token_hash,
           type,
           hasCode: !!code,
           url: window.location.href,
           search: window.location.search
         });
+
+        // Check active session first (existing logic)
+        const { data: currentSession } = await supabase.auth.getSession();
+        if (currentSession?.session) {
+          console.log('Active session found before checking recovery code. Skipping verification.');
+          setIsValidToken(true);
+          return;
+        }
+
+        // Handle OTP Token Hash (New Flow - Bypass PKCE)
+        if (token_hash && type === 'recovery') {
+          console.log('Token hash found, verifying OTP manually...');
+          const { data, error } = await supabase.auth.verifyOtp({
+            type: 'recovery',
+            token_hash,
+          });
+
+          if (error) {
+            console.error('Error verifying OTP:', error);
+            toast.error('Link inválido ou expirado.');
+            navigate('/login');
+            return;
+          }
+
+          if (data.session) {
+            console.log('OTP verified successfully, session established.');
+            setIsValidToken(true);
+            return; // Success!
+          }
+        }
 
         // Handle direct email link with token
         if (token && type === 'recovery') {
