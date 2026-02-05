@@ -80,6 +80,8 @@ const Login = () => {
             from = '/dashboard';
           }
           navigate(from, { replace: true });
+        } else {
+          toast.error('Email ou senha incorretos.');
         }
       }
     } catch (error: any) {
