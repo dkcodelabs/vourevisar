@@ -44,7 +44,9 @@ export function useAdminUsers() {
 
                 // Deduction logic for Source
                 const isGoogle = profile.avatar_url?.includes('googleusercontent');
-                const source = isGoogle ? 'Google' : 'Email';
+                // Heuristic: If they have a Google avatar, they likely have both or used Social login which provides email.
+                // User requested "Email, Google" to be shown.
+                const source = isGoogle ? 'Email, Google' : 'Email';
 
                 return {
                     id: profile.id,
