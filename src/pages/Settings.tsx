@@ -24,9 +24,7 @@ import { Check } from "lucide-react";
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ResetCycleConfirmDialog } from '@/components/ResetCycleConfirmDialog';
-import { SystemStatusTest } from '@/components/SystemStatusTest';
-import { QuickAdminSetup } from '@/components/QuickAdminSetup';
-import { FinalSystemCheck } from '@/components/FinalSystemCheck';
+
 
 interface UserCycle {
   id: string;
@@ -447,7 +445,6 @@ const Settings = () => {
               <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
               <TabsTrigger value="informacoes">Informações</TabsTrigger>
               <TabsTrigger value="sistema">Sistema</TabsTrigger>
-              <TabsTrigger value="diagnostico">🔍 Diagnóstico</TabsTrigger>
             </TabsList>
 
             {/* Aba Estudos */}
@@ -977,28 +974,7 @@ const Settings = () => {
               </GlassCard>
             </TabsContent>
 
-            {/* Aba Diagnóstico */}
-            <TabsContent value="diagnostico" className="space-y-4">
-              <GlassCard className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <h2 className="text-lg font-semibold">🔍 Diagnóstico do Sistema</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Verifique o status das funcionalidades administrativas e de assinatura.
-                    </p>
-                  </div>
-                  <SystemStatusTest />
 
-                  <div className="mt-6">
-                    <QuickAdminSetup />
-                  </div>
-
-                  <div className="mt-6">
-                    <FinalSystemCheck />
-                  </div>
-                </div>
-              </GlassCard>
-            </TabsContent>
           </Tabs>
 
           <ResetCycleConfirmDialog

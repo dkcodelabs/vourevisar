@@ -26,6 +26,12 @@ import Revisoes from "@/pages/Revisoes";
 import StudyCycle from "@/pages/StudyCycle";
 import Gerenciamento from "@/pages/Gerenciamento";
 import UserManagement from "@/pages/admin/UserManagement";
+import ImportQuestions from "@/pages/admin/content/ImportQuestions";
+import SubscriptionManagement from "@/pages/admin/SubscriptionManagement";
+import SystemManagement from "@/pages/admin/SystemManagement";
+import SecurityAudit from "@/pages/admin/SecurityAudit";
+import RolesManagement from "@/pages/admin/security/RolesManagement";
+import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
 
 import { AuthCallback } from "@/components/AuthCallback";
 import { SimpleRoleTest } from "@/components/SimpleRoleTest";
@@ -85,8 +91,21 @@ const App = () => {
                           <Route path="topicos" element={<Topics />} />
                           <Route path="revisoes" element={<Revisoes />} />
                           <Route path="ciclo-estudos" element={<StudyCycle />} />
+                          <Route path="ciclo-estudos" element={<StudyCycle />} />
+                          {/* <Route path="gerenciamento" element={<Gerenciamento />} /> - REMOVED: Monolith dismantled */}
+
+                          {/* Admin Routes - Categorized */}
                           <Route path="gerenciamento" element={<Gerenciamento />} />
                           <Route path="admin/users" element={<UserManagement />} />
+                          <Route path="admin/content/import" element={<ImportQuestions />} />
+                          <Route path="admin/subscription" element={<SubscriptionManagement />} />
+                          <Route path="admin/system" element={<SystemManagement />} />
+                          <Route path="admin/security" element={<SecurityAudit />} />
+                          <Route path="admin/security/roles" element={<RolesManagement />} />
+
+                          {/* Statistics Routes */}
+                          <Route path="estatisticas/tendencia" element={<TrendAnalysis />} />
+
                           <Route path="test-roles" element={<SimpleRoleTest />} />
                           <Route path="perfil" element={<Profile />} />
                           <Route path="configuracoes" element={<Settings />} />

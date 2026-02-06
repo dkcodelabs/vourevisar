@@ -174,8 +174,18 @@ const Statistics = () => {
               </p>
             </div>
 
-            {/* Botão temporário de migração */}
-            <div>
+            {/* Header Buttons */}
+            <div className="flex gap-2">
+              <Button
+                onClick={() => navigate('/estatisticas/tendencia')}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <TrendingUp className="w-4 h-4" />
+                Análise de Tendência
+              </Button>
+
               <Button
                 onClick={async () => {
                   toast.info('Iniciando migração de difficulty_level...');
@@ -187,11 +197,11 @@ const Statistics = () => {
                     toast.error('Erro na migração. Verifique o console.');
                   }
                 }}
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="text-xs"
+                className="text-xs text-muted-foreground"
               >
-                🔧 Migrar Difficulty Levels
+                🔧 Migrar Difficulty
               </Button>
             </div>
           </div>

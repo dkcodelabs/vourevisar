@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight, Key, CreditCard } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Server } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -30,10 +30,12 @@ const getNavItems = (isAdmin: boolean) => {
   ];
 
   const adminItems: NavItem[] = isAdmin ? [
+    { to: "/gerenciamento", label: "Gerenciamento V1 (Legacy)", icon: Settings },
     { to: "/admin/users", label: "Gerenciar Usuários", icon: User },
-    { to: "/admin/security", label: "Segurança e Acesso", icon: Shield },
-    { to: "/admin/auth", label: "Autenticação", icon: Key },
-    { to: "/admin/payments", label: "Pagamentos", icon: CreditCard },
+    { to: "/admin/content/import", label: "Importar Questões", icon: FileUp },
+    { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
+    { to: "/admin/system", label: "Sistema", icon: Server },
+    { to: "/admin/security", label: "Segurança", icon: Shield },
   ] : [];
 
   return { mainItems, adminItems };
