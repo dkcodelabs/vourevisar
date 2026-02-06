@@ -1,3 +1,19 @@
+/**
+ * MODULE: SystemManagement
+ * 
+ * RESPONSIBILITY:
+ * - Infrastructure health checks (API, DB status).
+ * - Emergency system actions (Cache clearing, Manual Backups).
+ * - Viewing critical system logs.
+ * 
+ * SCOPE STATUS: FROZEN ❄️
+ * - Limited scope for DevOps/Maintenance tasks.
+ * 
+ * EXCLUSIONS (DO NOT ADD):
+ * - Business logic configuration.
+ * - User-facing feature toggles.
+ * - Analytics or BI dashboards.
+ */
 import React from 'react';
 import { Shield, Server, Database, Activity, FileText, Lock, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';

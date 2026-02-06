@@ -1,3 +1,20 @@
+/**
+ * MODULE: UserManagement
+ * 
+ * RESPONSIBILITY:
+ * - CRUD operations for users (List, View, simplistic Edit).
+ * - Basic access control toggles (Activate/Deactivate).
+ * - Viewing high-level user metadata (Roles, Auth Source).
+ * 
+ * SCOPE STATUS: FROZEN ❄️
+ * - This module is considered feature-complete for administrative purposes.
+ * - No new features should be added here.
+ * 
+ * EXCLUSIONS (DO NOT ADD):
+ * - Complex analytics or activity heatmaps (Use Statistics module).
+ * - Granular permission editing (Use RolesManagement).
+ * - Financial data/payment history (Use SubscriptionManagement).
+ */
 import React, { useState } from 'react';
 import {
     Search, Filter, Plus, MoreVertical,
@@ -356,7 +373,7 @@ const UserManagement = () => {
                                             ? 'border-blue-200 text-blue-700 bg-blue-50'
                                             : 'border-slate-200 text-slate-600 bg-slate-100'
                                             }`}>
-                                            {selectedUser.source === 'Email, Google' ? 'Email & Google' : user.source || 'Email'}
+                                            {selectedUser.source === 'Email, Google' ? 'Email & Google' : selectedUser.source || 'Email'}
                                         </span>
                                     </div>
                                 </div>

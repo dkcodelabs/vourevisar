@@ -1,3 +1,18 @@
+/**
+ * MODULE: SecurityAudit
+ * 
+ * RESPONSIBILITY:
+ * - Visualization of active user sessions.
+ * - System-wide audit logs visibility.
+ * - Overview of Role hierarchy (Read-only visualization).
+ * 
+ * SCOPE STATUS: OPEN 🚧
+ * - Currently relies on MOCK DATA. Needs integration with real backend logs.
+ * 
+ * EXCLUSIONS (DO NOT ADD):
+ * - User editing capabilities (Use UserManagement).
+ * - Implementation of RBAC logic (Use RolesManagement).
+ */
 import React, { useState } from 'react';
 import {
     Shield, Key, Eye, Lock, Globe, Smartphone,
@@ -145,7 +160,7 @@ const SecurityAudit = () => {
                         {MOCK_ROLES.map(role => (
                             <Card key={role.id} className={`border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all ${role.id === 'owner' ? 'border-purple-200 bg-purple-50/10' : ''}`}>
                                 <div className={`absolute top-0 left-0 w-1 h-full ${role.color === 'purple' ? 'bg-purple-500' :
-                                        role.color === 'indigo' ? 'bg-indigo-500' : 'bg-slate-400'
+                                    role.color === 'indigo' ? 'bg-indigo-500' : 'bg-slate-400'
                                     }`}></div>
                                 <CardHeader>
                                     <div className="flex justify-between items-start mb-2">
@@ -247,8 +262,8 @@ const SecurityAudit = () => {
                                                 <td className="px-4 py-3 text-slate-500">{log.date}</td>
                                                 <td className="px-4 py-3 text-right">
                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${log.status === 'success'
-                                                            ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20'
-                                                            : 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20'
+                                                        ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20'
+                                                        : 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20'
                                                         }`}>
                                                         {log.status === 'success' ? 'Sucesso' : 'Falha'}
                                                     </span>

@@ -1,3 +1,18 @@
+/**
+ * MODULE: RolesManagement (RBAC)
+ * 
+ * RESPONSIBILITY:
+ * - Definition of granular permissions.
+ * - Creation and editing of Roles.
+ * - Assignment of permissions to Roles.
+ * 
+ * SCOPE STATUS: OPEN 🚧
+ * - Currently under active development.
+ * 
+ * EXCLUSIONS (DO NOT ADD):
+ * - Direct assignment of roles to users (Use UserManagement).
+ * - Hardcoded permission checks (Use a permission hook/context).
+ */
 import React from 'react';
 import { Shield, UserPlus, Lock } from 'lucide-react';
 

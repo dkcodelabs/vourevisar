@@ -1,3 +1,19 @@
+/**
+ * MODULE: SubscriptionManagement
+ * 
+ * RESPONSIBILITY:
+ * - Assigning and modifying user subscription plans.
+ * - Visualizing subscription status (Active, Trial, Expired).
+ * - Manual overrides for customer support.
+ * 
+ * SCOPE STATUS: FROZEN ❄️
+ * - This module is considered feature-complete.
+ * 
+ * EXCLUSIONS (DO NOT ADD):
+ * - Payment gateway integration logic or checkout flows.
+ * - Coupon generation engines.
+ * - Product/Pricing management (Use a dedicated localized config or billing provider dashboard).
+ */
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
