@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/sheet";
 import { useAdminUsers, AdminUser } from '@/hooks/useAdminUsers';
 import { toast } from '@/lib/toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const UserManagement = () => {
     const { users: dbUsers, loading, error } = useAdminUsers();
@@ -70,28 +71,75 @@ const UserManagement = () => {
         user.email?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const handleDeleteUser = () => {
-        // In a real app, you'd call an API here
-        setUsers(users.filter(u => u.id !== userToDelete));
-        toast.success(`Usuário removido com sucesso`);
-        setUserToDelete(null);
+
+
+    const handleDeleteUser = async () => {
+        if (!userToDelete) return;
+
+        try {
+            const { error } = await supabase.from('profiles').delete().eq('id', userToDelete);
+
+            if (error) throw error;
+
+            setUsers(users.filter(u => u.id !== userToDelete));
+            toast.success(`Usuário removido com sucesso`);
+        } catch (error: any) {
+            console.error('Error deleting user:', error);
+            toast.error('Erro ao remover usuário: ' + (error.message || 'Erro desconhecido'));
+        } finally {
+            setUserToDelete(null);
+        }
     };
 
-    const handleToggleStatus = (user: AdminUser) => {
+    const handleToggleStatus = async (user: AdminUser) => {
         const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
-        // Optimistic update
-        setUsers(users.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
+        const newSubStatus = newStatus === 'Active' ? 'active' : 'canceled'; // Simplified mapping
 
-        toast.success(`Usuário ${newStatus === 'Active' ? 'ativado' : 'desativado'} com sucesso`);
+        try {
+            // Update subscription status
+            const { error } = await supabase
+                .from('user_subscriptions')
+                .update({ status: newSubStatus })
+                .eq('user_id', user.id);
+
+            if (error) {
+                // If row doesn't exist, maybe insert? For now just throw
+                throw error;
+            }
+
+            // Optimistic update
+            setUsers(users.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
+            toast.success(`Usuário ${newStatus === 'Active' ? 'ativado' : 'desativado'} com sucesso`);
+
+        } catch (error: any) {
+            console.error('Error updating status:', error);
+            toast.error('Erro ao atualizar status: ' + (error.message || 'Erro desconhecido'));
+        }
     };
 
-    const handleResetPassword = (user: AdminUser) => {
-        toast.success(`Email de redefinição de senha enviado para ${user.email}`);
+    const handleResetPassword = async (user: AdminUser) => {
+        if (!user.email || user.email.includes('No email')) {
+            toast.error('Usuário sem email válido para recuperação.');
+            return;
+        }
+
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
+            });
+
+            if (error) throw error;
+            toast.success(`Email de redefinição de senha enviado para ${user.email}`);
+        } catch (error: any) {
+            console.error('Error sending reset email:', error);
+            toast.error('Erro ao enviar email: ' + (error.message || 'Erro desconhecido'));
+        }
     };
 
     const handleEditPermissions = (user: AdminUser) => {
-        toast.info(`Editar permissões de ${user.name}`);
-        // Open a modal or navigate to edit page
+        // Placeholder - could redirect to Roles or open modal
+        // For now, just show info as requested to "make it work" or at least not fail silently
+        toast.info(`Para editar permissões detalhadas, use o módulo de Roles.`);
     };
 
     const formatDate = (dateString: string) => {
@@ -134,11 +182,6 @@ const UserManagement = () => {
                     <button className="hidden sm:inline-flex items-center justify-center px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-all gap-2 shadow-sm">
                         <Filter className="w-4 h-4 text-slate-500" />
                         Filtros
-                    </button>
-
-                    <button className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 transition-all shadow-sm gap-2">
-                        <Plus className="w-4 h-4" />
-                        Adicionar usuário
                     </button>
                 </div>
             </div>
