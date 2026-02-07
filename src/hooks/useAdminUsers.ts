@@ -27,7 +27,7 @@ export function useAdminUsers() {
             // 1. Fetch Profiles (including deleted ones)
             const { data: profiles, error: profilesError } = await supabase
                 .from('profiles')
-                .select('id, name, avatar_url, created_at, email, deleted_at');
+                .select('id, name, avatar_url, created_at, email, deleted_at, last_sign_in_at');
 
             if (profilesError) throw profilesError;
 
@@ -58,7 +58,8 @@ export function useAdminUsers() {
                     created_at: profile.created_at || new Date().toISOString(),
                     status: status,
                     source: source,
-                    deleted_at: profile.deleted_at
+                    deleted_at: profile.deleted_at,
+                    last_sign_in_at: profile.last_sign_in_at
                 };
             });
 

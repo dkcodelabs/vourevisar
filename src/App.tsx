@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TimerProvider } from "@/contexts/TimerContext";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/AdminRoute";
 import LandingPage from "@/pages/LandingPage";
 import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
@@ -94,14 +95,16 @@ const App = () => {
                           <Route path="ciclo-estudos" element={<StudyCycle />} />
                           {/* <Route path="gerenciamento" element={<Gerenciamento />} /> - REMOVED: Monolith dismantled */}
 
-                          {/* Admin Routes - Categorized */}
-                          <Route path="gerenciamento" element={<Gerenciamento />} />
-                          <Route path="admin/users" element={<UserManagement />} />
-                          <Route path="admin/content/import" element={<ImportQuestions />} />
-                          <Route path="admin/subscription" element={<SubscriptionManagement />} />
-                          <Route path="admin/system" element={<SystemManagement />} />
-                          <Route path="admin/security" element={<SecurityAudit />} />
-                          <Route path="admin/security/roles" element={<RolesManagement />} />
+                          {/* Admin Routes - Protected */}
+                          <Route element={<AdminRoute />}>
+                            <Route path="gerenciamento" element={<Gerenciamento />} />
+                            <Route path="admin/users" element={<UserManagement />} />
+                            <Route path="admin/content/import" element={<ImportQuestions />} />
+                            <Route path="admin/subscription" element={<SubscriptionManagement />} />
+                            <Route path="admin/system" element={<SystemManagement />} />
+                            <Route path="admin/security" element={<SecurityAudit />} />
+                            <Route path="admin/security/roles" element={<RolesManagement />} />
+                          </Route>
 
                           {/* Statistics Routes */}
                           <Route path="estatisticas/tendencia" element={<TrendAnalysis />} />

@@ -31,8 +31,14 @@ export function EditRoleModal({ isOpen, onClose, user, onRoleUpdated }: EditRole
 
     const hasChanges = selectedRole !== user.role;
     const isDowngradingOwner = user.role === 'owner' && selectedRole !== 'owner';
+    const isProtectedUser = ['vourevisar@gmail.com', 'darciliok@gmail.com'].includes(user.email || '');
 
     const handleSave = async () => {
+        if (isProtectedUser) {
+            toast.error("Este usuário é protegido e seu papel não pode ser alterado.");
+            return;
+        }
+
         if (isDowngradingOwner && !showOwnerConfirm) {
             setShowOwnerConfirm(true);
             return;
@@ -158,7 +164,7 @@ export function EditRoleModal({ isOpen, onClose, user, onRoleUpdated }: EditRole
                             <Button variant="outline" onClick={onClose} disabled={isLoading}>
                                 Cancelar
                             </Button>
-                            <Button onClick={handleSave} disabled={!hasChanges || isLoading}>
+                            <Button onClick={handleSave} disabled={!hasChanges || isLoading || isProtectedUser}>
                                 {isLoading ? (
                                     <>
                                         <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />

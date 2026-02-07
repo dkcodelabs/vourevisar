@@ -86,21 +86,21 @@ const UserManagement = () => {
         const matchesMode = viewMode === 'archived' ? isArchived : !isArchived;
 
         return matchesSearch && matchesMode;
-    });
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     // Helper to render role badge
     const renderRoleBadge = (role: string) => {
-        if (!isOwner && role !== 'admin') return null; // Non-owners only see 'admin' maybe? Or hide all? 
-        // User requested: "somente propietario ve essa flag" (only owner sees this flag). 
-        // But current code shows 'admin' to everyone. I will keep 'admin' visible to everyone (or admins) but restrict Owner/Moderator visibility or just add the missing ones for Owner.
+        // Validation: Only owners see detailed roles. Others see only 'Admin' (if configured) or nothing.
+        // For now, adhering to: "somente propietario ve essa flag"
+        if (!isOwner && role !== 'admin') return null;
 
         switch (role) {
             case 'owner':
-                return isOwner ? (
+                return (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 border border-purple-200">
                         Proprietário
                     </span>
-                ) : null;
+                );
             case 'admin':
                 return (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-600 border border-blue-200">
@@ -108,19 +108,28 @@ const UserManagement = () => {
                     </span>
                 );
             case 'moderator':
-                return isOwner ? (
+                return (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-600 border border-indigo-200">
                         Moderador
                     </span>
-                ) : null;
+                );
             default:
                 return null;
         }
     };
 
+    // List of emails that cannot be deleted or archived
+    const PROTECTED_EMAILS = ['vourevisar@gmail.com', 'darciliok@gmail.com'];
+
     const handleArchiveUser = async () => {
 
         if (!userToObject || userToObject.action !== 'archive') return;
+
+        // Hardcoded protection
+        if (selectedUser?.email && PROTECTED_EMAILS.includes(selectedUser.email)) {
+            toast.error("Este usuário é protegido e não pode ser arquivado.");
+            return;
+        }
 
         try {
             const { error } = await supabase
@@ -374,41 +383,50 @@ const UserManagement = () => {
 
                                                         {viewMode === 'active' && (
                                                             <>
-                                                                <DropdownMenuItem
-                                                                    onClick={() => handleEditPermissions(user)}
-                                                                    className="gap-2.5 cursor-pointer text-slate-700 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
-                                                                >
-                                                                    <Edit className="w-3.5 h-3.5 text-slate-500" />
-                                                                    Editar permissões
-                                                                </DropdownMenuItem>
+                                                                {PROTECTED_EMAILS.includes(user.email || '') ? (
+                                                                    <DropdownMenuItem disabled className="gap-2.5 cursor-not-allowed opacity-70 text-slate-500 text-xs py-2 px-3 rounded-sm">
+                                                                        <Shield className="w-3.5 h-3.5" />
+                                                                        Usuário Protegido
+                                                                    </DropdownMenuItem>
+                                                                ) : (
+                                                                    <>
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => handleEditPermissions(user)}
+                                                                            className="gap-2.5 cursor-pointer text-slate-700 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
+                                                                        >
+                                                                            <Edit className="w-3.5 h-3.5 text-slate-500" />
+                                                                            Editar permissões
+                                                                        </DropdownMenuItem>
 
-                                                                <DropdownMenuSeparator className="bg-slate-50 my-1" />
+                                                                        <DropdownMenuSeparator className="bg-slate-50 my-1" />
 
-                                                                <DropdownMenuItem
-                                                                    onClick={() => handleToggleStatus(user)}
-                                                                    className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
-                                                                >
-                                                                    <Power className="w-3.5 h-3.5 text-slate-400" />
-                                                                    {user.status === 'Active' ? 'Desativar acesso' : 'Ativar acesso'}
-                                                                </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => handleToggleStatus(user)}
+                                                                            className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
+                                                                        >
+                                                                            <Power className="w-3.5 h-3.5 text-slate-400" />
+                                                                            {user.status === 'Active' ? 'Desativar acesso' : 'Ativar acesso'}
+                                                                        </DropdownMenuItem>
 
-                                                                <DropdownMenuItem
-                                                                    onClick={() => handleResetPassword(user)}
-                                                                    className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
-                                                                >
-                                                                    <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-                                                                    Redefinir senha
-                                                                </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => handleResetPassword(user)}
+                                                                            className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
+                                                                        >
+                                                                            <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                                                                            Redefinir senha
+                                                                        </DropdownMenuItem>
 
-                                                                <DropdownMenuSeparator className="bg-slate-50 my-1" />
+                                                                        <DropdownMenuSeparator className="bg-slate-50 my-1" />
 
-                                                                <DropdownMenuItem
-                                                                    onSelect={() => setUserToObject({ id: user.id, name: user.name || 'Usuário', action: 'archive' })}
-                                                                    className="gap-2.5 cursor-pointer text-rose-600 text-xs py-2 px-3 focus:bg-rose-50 focus:text-rose-700 rounded-sm"
-                                                                >
-                                                                    <Archive className="w-3.5 h-3.5 opacity-70" />
-                                                                    Arquivar usuário
-                                                                </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onSelect={() => setUserToObject({ id: user.id, name: user.name || 'Usuário', action: 'archive' })}
+                                                                            className="gap-2.5 cursor-pointer text-rose-600 text-xs py-2 px-3 focus:bg-rose-50 focus:text-rose-700 rounded-sm"
+                                                                        >
+                                                                            <Archive className="w-3.5 h-3.5 opacity-70" />
+                                                                            Arquivar usuário
+                                                                        </DropdownMenuItem>
+                                                                    </>
+                                                                )}
                                                             </>
                                                         )}
 
