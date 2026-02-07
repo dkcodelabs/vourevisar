@@ -5,6 +5,7 @@
  * - CRUD operations for users (List, View, simplistic Edit).
  * - Basic access control toggles (Activate/Deactivate).
  * - Viewing high-level user metadata (Roles, Auth Source).
+ * - Soft Delete (Archive) and Restore functionality.
  * 
  * SCOPE STATUS: FROZEN ❄️
  * - This module is considered feature-complete for administrative purposes.
@@ -17,8 +18,8 @@
  */
 import React, { useState } from 'react';
 import {
-    Search, Filter, Plus, MoreVertical,
-    Eye, Edit, Power, RefreshCw, Trash2, Mail, Calendar, Shield, Zap
+    Search, Filter, MoreVertical,
+    Eye, Edit, Power, RefreshCw, Trash2, Mail, Calendar, Shield, Zap, Archive, Undo2
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -47,12 +48,20 @@ import {
 import { useAdminUsers, AdminUser } from '@/hooks/useAdminUsers';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/integrations/supabase/client';
+import { EditRoleModal } from '@/components/admin/EditRoleModal';
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useUserRole } from '@/hooks/useUserRole';
 
 const UserManagement = () => {
-    const { users: dbUsers, loading, error } = useAdminUsers();
+    const { users: dbUsers, loading, error, refetch } = useAdminUsers();
 
-    // Local state for optimistic updates (like toggling status)
+    // Local state for optimistic updates
     const [users, setUsers] = useState<AdminUser[]>([]);
+    const [viewMode, setViewMode] = useState<'active' | 'archived'>('active');
+
+    // Role Modal State
+    const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+    const [userToEditRole, setUserToEditRole] = useState<AdminUser | null>(null);
 
     // Sync db users to local state when loaded
     React.useEffect(() => {
@@ -61,53 +70,129 @@ const UserManagement = () => {
         }
     }, [dbUsers]);
 
-    const [userToDelete, setUserToDelete] = useState<string | null>(null);
+    // Role check
+    const { isOwner } = useUserRole();
+
+    const [userToObject, setUserToObject] = useState<{ id: string, name: string, action: 'archive' | 'restore' | 'delete' } | null>(null);
     const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Filter users
-    const filteredUsers = users.filter(user =>
-    (user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    // Filter users based on viewMode and search
+    const filteredUsers = users.filter(user => {
+        const matchesSearch = (user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.email?.toLowerCase().includes(searchTerm.toLowerCase()));
 
+        const isArchived = !!user.deleted_at;
+        const matchesMode = viewMode === 'archived' ? isArchived : !isArchived;
 
+        return matchesSearch && matchesMode;
+    });
 
-    const handleDeleteUser = async () => {
-        if (!userToDelete) return;
+    // Helper to render role badge
+    const renderRoleBadge = (role: string) => {
+        if (!isOwner && role !== 'admin') return null; // Non-owners only see 'admin' maybe? Or hide all? 
+        // User requested: "somente propietario ve essa flag" (only owner sees this flag). 
+        // But current code shows 'admin' to everyone. I will keep 'admin' visible to everyone (or admins) but restrict Owner/Moderator visibility or just add the missing ones for Owner.
+
+        switch (role) {
+            case 'owner':
+                return isOwner ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 border border-purple-200">
+                        Proprietário
+                    </span>
+                ) : null;
+            case 'admin':
+                return (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-600 border border-blue-200">
+                        Admin
+                    </span>
+                );
+            case 'moderator':
+                return isOwner ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-600 border border-indigo-200">
+                        Moderador
+                    </span>
+                ) : null;
+            default:
+                return null;
+        }
+    };
+
+    const handleArchiveUser = async () => {
+
+        if (!userToObject || userToObject.action !== 'archive') return;
 
         try {
-            const { error } = await supabase.from('profiles').delete().eq('id', userToDelete);
+            const { error } = await supabase
+                .from('profiles')
+                .update({ deleted_at: new Date().toISOString() })
+                .eq('id', userToObject.id);
 
             if (error) throw error;
 
-            setUsers(users.filter(u => u.id !== userToDelete));
-            toast.success(`Usuário removido com sucesso`);
+            // Optimistic Update
+            setUsers(users.map(u => u.id === userToObject.id ? { ...u, deleted_at: new Date().toISOString(), status: 'Archived' } : u));
+            toast.success(`Usuário arquivado com sucesso`);
+        } catch (error: any) {
+            console.error('Error archiving user:', error);
+            toast.error('Erro ao arquivar usuário: ' + (error.message || 'Erro desconhecido'));
+        } finally {
+            setUserToObject(null);
+        }
+    };
+
+    const handleRestoreUser = async () => {
+        if (!userToObject || userToObject.action !== 'restore') return;
+
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ deleted_at: null })
+                .eq('id', userToObject.id);
+
+            if (error) throw error;
+
+            // Optimistic Update
+            setUsers(users.map(u => u.id === userToObject.id ? { ...u, deleted_at: null, status: 'Active' } : u));
+            toast.success(`Usuário restaurado com sucesso`);
+        } catch (error: any) {
+            console.error('Error restoring user:', error);
+            toast.error('Erro ao restaurar usuário: ' + (error.message || 'Erro desconhecido'));
+        } finally {
+            setUserToObject(null);
+        }
+    };
+
+    const handleHardDeleteUser = async () => {
+        if (!userToObject || userToObject.action !== 'delete') return;
+
+        try {
+            const { error } = await supabase.from('profiles').delete().eq('id', userToObject.id);
+
+            if (error) throw error;
+
+            setUsers(users.filter(u => u.id !== userToObject.id));
+            toast.success(`Usuário excluído permanentemente`);
         } catch (error: any) {
             console.error('Error deleting user:', error);
-            toast.error('Erro ao remover usuário: ' + (error.message || 'Erro desconhecido'));
+            toast.error('Erro ao excluir usuário: ' + (error.message || 'Erro desconhecido'));
         } finally {
-            setUserToDelete(null);
+            setUserToObject(null);
         }
     };
 
     const handleToggleStatus = async (user: AdminUser) => {
         const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
-        const newSubStatus = newStatus === 'Active' ? 'active' : 'canceled'; // Simplified mapping
+        const newSubStatus = newStatus === 'Active' ? 'active' : 'canceled';
 
         try {
-            // Update subscription status
             const { error } = await supabase
                 .from('user_subscriptions')
                 .update({ status: newSubStatus })
                 .eq('user_id', user.id);
 
-            if (error) {
-                // If row doesn't exist, maybe insert? For now just throw
-                throw error;
-            }
+            if (error) throw error;
 
-            // Optimistic update
             setUsers(users.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
             toast.success(`Usuário ${newStatus === 'Active' ? 'ativado' : 'desativado'} com sucesso`);
 
@@ -137,9 +222,8 @@ const UserManagement = () => {
     };
 
     const handleEditPermissions = (user: AdminUser) => {
-        // Placeholder - could redirect to Roles or open modal
-        // For now, just show info as requested to "make it work" or at least not fail silently
-        toast.info(`Para editar permissões detalhadas, use o módulo de Roles.`);
+        setUserToEditRole(user);
+        setIsRoleModalOpen(true);
     };
 
     const formatDate = (dateString: string) => {
@@ -160,11 +244,13 @@ const UserManagement = () => {
 
             {/* 2. Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-                <div className="flex items-center gap-2">
-                    <span className="text-lg font-semibold text-slate-900">Todos os usuários</span>
-                    <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs font-medium border border-slate-200">
-                        {filteredUsers.length}
-                    </span>
+                <div className="flex items-center gap-4">
+                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'active' | 'archived')} className="w-[400px]">
+                        <TabsList>
+                            <TabsTrigger value="active">Ativos ({users.filter(u => !u.deleted_at).length})</TabsTrigger>
+                            <TabsTrigger value="archived">Arquivados ({users.filter(u => u.deleted_at).length})</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
                 </div>
 
                 <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -178,11 +264,6 @@ const UserManagement = () => {
                             className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 outline-none transition-all placeholder:text-slate-400 text-sm shadow-sm"
                         />
                     </div>
-
-                    <button className="hidden sm:inline-flex items-center justify-center px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-all gap-2 shadow-sm">
-                        <Filter className="w-4 h-4 text-slate-500" />
-                        Filtros
-                    </button>
                 </div>
             </div>
 
@@ -233,16 +314,15 @@ const UserManagement = () => {
                                                         <span className="text-sm font-medium text-slate-900">
                                                             {user.name}
                                                         </span>
-                                                        {/* Role Badge next to name */}
-                                                        {user.role === 'admin' && (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                                                                Admin
-                                                            </span>
-                                                        )}
-                                                        {/* Visual Badge for Inactive */}
+                                                        {renderRoleBadge(user.role)}
                                                         {user.status === 'Inactive' && (
                                                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 border border-gray-200">
                                                                 Desativado
+                                                            </span>
+                                                        )}
+                                                        {user.deleted_at && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-100 text-rose-600 border border-rose-200">
+                                                                Arquivado
                                                             </span>
                                                         )}
                                                     </div>
@@ -254,7 +334,6 @@ const UserManagement = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-1.5">
-                                                {/* Provider Icons */}
                                                 {user.source?.includes('Email') && (
                                                     <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 shadow-sm" title="Email">
                                                         <Mail className="w-3 h-3 text-slate-500" />
@@ -273,7 +352,7 @@ const UserManagement = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-600">
-                                            4 mar, 2024
+                                            {formatDate(user.last_sign_in_at || '')}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-600">
                                             {formatDate(user.created_at)}
@@ -293,41 +372,65 @@ const UserManagement = () => {
                                                             Ver perfil
                                                         </DropdownMenuItem>
 
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleEditPermissions(user)}
-                                                            className="gap-2.5 cursor-pointer text-slate-700 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
-                                                        >
-                                                            <Edit className="w-3.5 h-3.5 text-slate-500" />
-                                                            Editar permissões
-                                                        </DropdownMenuItem>
+                                                        {viewMode === 'active' && (
+                                                            <>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleEditPermissions(user)}
+                                                                    className="gap-2.5 cursor-pointer text-slate-700 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
+                                                                >
+                                                                    <Edit className="w-3.5 h-3.5 text-slate-500" />
+                                                                    Editar permissões
+                                                                </DropdownMenuItem>
 
-                                                        <DropdownMenuSeparator className="bg-slate-50 my-1" />
+                                                                <DropdownMenuSeparator className="bg-slate-50 my-1" />
 
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleToggleStatus(user)}
-                                                            className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
-                                                        >
-                                                            <Power className="w-3.5 h-3.5 text-slate-400" />
-                                                            {user.status === 'Active' ? 'Desativar acesso' : 'Ativar acesso'}
-                                                        </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleToggleStatus(user)}
+                                                                    className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
+                                                                >
+                                                                    <Power className="w-3.5 h-3.5 text-slate-400" />
+                                                                    {user.status === 'Active' ? 'Desativar acesso' : 'Ativar acesso'}
+                                                                </DropdownMenuItem>
 
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleResetPassword(user)}
-                                                            className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
-                                                        >
-                                                            <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-                                                            Redefinir senha
-                                                        </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleResetPassword(user)}
+                                                                    className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
+                                                                >
+                                                                    <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                                                                    Redefinir senha
+                                                                </DropdownMenuItem>
 
-                                                        <DropdownMenuSeparator className="bg-slate-50 my-1" />
+                                                                <DropdownMenuSeparator className="bg-slate-50 my-1" />
 
-                                                        <DropdownMenuItem
-                                                            onSelect={() => setUserToDelete(user.id)}
-                                                            className="gap-2.5 cursor-pointer text-rose-600 text-xs py-2 px-3 focus:bg-rose-50 focus:text-rose-700 rounded-sm"
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5 opacity-70" />
-                                                            Remover usuário
-                                                        </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onSelect={() => setUserToObject({ id: user.id, name: user.name || 'Usuário', action: 'archive' })}
+                                                                    className="gap-2.5 cursor-pointer text-rose-600 text-xs py-2 px-3 focus:bg-rose-50 focus:text-rose-700 rounded-sm"
+                                                                >
+                                                                    <Archive className="w-3.5 h-3.5 opacity-70" />
+                                                                    Arquivar usuário
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+
+                                                        {viewMode === 'archived' && (
+                                                            <>
+                                                                <DropdownMenuSeparator className="bg-slate-50 my-1" />
+                                                                <DropdownMenuItem
+                                                                    onSelect={() => setUserToObject({ id: user.id, name: user.name || 'Usuário', action: 'restore' })}
+                                                                    className="gap-2.5 cursor-pointer text-emerald-600 text-xs py-2 px-3 focus:bg-emerald-50 focus:text-emerald-700 rounded-sm"
+                                                                >
+                                                                    <Undo2 className="w-3.5 h-3.5 opacity-70" />
+                                                                    Restaurar usuário
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onSelect={() => setUserToObject({ id: user.id, name: user.name || 'Usuário', action: 'delete' })}
+                                                                    className="gap-2.5 cursor-pointer text-rose-600 text-xs py-2 px-3 focus:bg-rose-50 focus:text-rose-700 rounded-sm"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5 opacity-70" />
+                                                                    Excluir permanentemente
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </div>
@@ -338,7 +441,7 @@ const UserManagement = () => {
                                 {!loading && filteredUsers.length === 0 && (
                                     <tr>
                                         <td colSpan={6} className="px-6 py-12 text-center text-slate-500 text-sm">
-                                            Nenhum usuário encontrado para "{searchTerm}"
+                                            Nenhum usuário encontrado {viewMode === 'archived' ? 'nos arquivos' : ''} para "{searchTerm}"
                                         </td>
                                     </tr>
                                 )}
@@ -363,20 +466,38 @@ const UserManagement = () => {
                 </div>
             </div>
 
-            {/* Delete Confirmation */}
-            <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+            {/* Action Confirmation Dialog */}
+            <AlertDialog open={!!userToObject} onOpenChange={(open) => !open && setUserToObject(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Remover usuário?</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            {userToObject?.action === 'archive' && 'Arquivar usuário?'}
+                            {userToObject?.action === 'restore' && 'Restaurar usuário?'}
+                            {userToObject?.action === 'delete' && 'Excluir permanentemente?'}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Esta ação não pode ser desfeita. O usuário perderá o acesso imediato e seus dados serão excluídos permanentemente.
+                            {userToObject?.action === 'archive' && `O usuário ${userToObject.name} perderá o acesso, mas seus dados serão preservados. Você poderá restaurá-lo futuramente.`}
+                            {userToObject?.action === 'restore' && `O usuário ${userToObject.name} recuperará o acesso imediato à plataforma.`}
+                            {userToObject?.action === 'delete' && `ATENÇÃO: Esta ação é IRREVERSÍVEL. Todos os dados do usuário ${userToObject.name} serão apagados para sempre.`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteUser} className="bg-rose-600 hover:bg-rose-700 text-white border-transparent">
-                            Sim, remover usuário
-                        </AlertDialogAction>
+                        {userToObject?.action === 'archive' && (
+                            <AlertDialogAction onClick={handleArchiveUser} className="bg-amber-600 hover:bg-amber-700 text-white border-transparent">
+                                Sim, arquivar
+                            </AlertDialogAction>
+                        )}
+                        {userToObject?.action === 'restore' && (
+                            <AlertDialogAction onClick={handleRestoreUser} className="bg-emerald-600 hover:bg-emerald-700 text-white border-transparent">
+                                Sim, restaurar
+                            </AlertDialogAction>
+                        )}
+                        {userToObject?.action === 'delete' && (
+                            <AlertDialogAction onClick={handleHardDeleteUser} className="bg-rose-600 hover:bg-rose-700 text-white border-transparent">
+                                Sim, excluir permanentemente
+                            </AlertDialogAction>
+                        )}
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -444,6 +565,12 @@ const UserManagement = () => {
                                             {selectedUser.status === 'Active' ? 'Ativo' : 'Inativo'}
                                         </span>
                                     </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-slate-50">
+                                        <span className="text-sm text-slate-500 flex items-center gap-2"><Archive className="w-4 h-4" /> Status de Arquivamento</span>
+                                        <span className={`text-sm font-medium ${selectedUser.deleted_at ? 'text-amber-600' : 'text-slate-600'}`}>
+                                            {selectedUser.deleted_at ? `Arquivado em ${formatDate(selectedUser.deleted_at)}` : 'Ativo'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -456,6 +583,15 @@ const UserManagement = () => {
                     )}
                 </SheetContent>
             </Sheet>
+            {/* Role Editor Modal */}
+            <EditRoleModal
+                isOpen={isRoleModalOpen}
+                onClose={() => setIsRoleModalOpen(false)}
+                user={userToEditRole}
+                onRoleUpdated={() => {
+                    refetch();
+                }}
+            />
         </div>
     );
 };
