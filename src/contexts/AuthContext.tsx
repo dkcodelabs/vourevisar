@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from '@/lib/toast';
 import { useAuthOperations } from '@/hooks/useAuthOperations';
+import { useUserLogger } from '@/hooks/useUserLogger';
 import { Database } from '@/integrations/supabase/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -31,6 +32,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const authOps = useAuthOperations();
+  const { logEvent } = useUserLogger();
 
   useEffect(() => {
     let isMounted = true;
@@ -54,7 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(null);
           setProfile(null);
         }
-        
+
         if (isMounted) {
           setLoading(false);
         }
@@ -65,7 +67,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (!error && session?.user) {
           if (isMounted) {
             setUser(session.user);
@@ -95,10 +97,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchProfile = async (userId: string) => {
     if (profileLoading) return; // Evitar múltiplas chamadas
-    
+
     try {
       setProfileLoading(true);
-      
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -119,7 +121,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 phone: userData.user.user_metadata?.phone || null,
                 avatar_url: userData.user.user_metadata?.avatar_url || null
               });
-            
+
             if (!insertError) {
               // Buscar o perfil criado
               const { data: newProfile } = await supabase
@@ -127,7 +129,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 .select('*')
                 .eq('id', userData.user.id)
                 .single();
-              
+
               if (newProfile) {
                 setProfile(newProfile);
               }
@@ -148,7 +150,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
     try {
       setLoading(true);
-      
+
       const result = await authOps.signUp(email, password, name, phone);
       return { success: true, user: result?.user };
     } catch (error: any) {
@@ -161,7 +163,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      
+
       await authOps.signIn(email, password);
       return { success: true };
     } catch (error: any) {
@@ -174,7 +176,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
-      
+
       await authOps.signInWithGoogle();
       return { success: true };
     } catch (error: any) {
@@ -187,15 +189,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       setLoading(true);
-      
+
+      try { await logEvent('LOGOUT'); } catch (e) { /* ignore */ }
       await authOps.signOut();
-      
+
       // Clear all sensitive data from localStorage on logout
       clearSensitiveLocalStorage(user?.id);
-      
+
       setUser(null);
       setProfile(null);
-      
+
       navigate('/login');
       return { success: true };
     } catch (error: any) {
@@ -204,19 +207,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     }
   };
-  
+
   // Helper function to clear sensitive localStorage data on logout
   const clearSensitiveLocalStorage = (userId?: string) => {
     // Clear content upload data
     localStorage.removeItem('contentUpload_content');
     localStorage.removeItem('contentUpload_chatGptResult');
-    
+
     // Clear user-specific caches
     if (userId) {
       localStorage.removeItem(`subjects_cache_${userId}`);
       localStorage.removeItem(`user_cycle_cache_${userId}`);
     }
-    
+
     // Clear all draft keys
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -226,14 +229,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }
     keysToRemove.forEach(key => localStorage.removeItem(key));
-    
+
     // Clear pomodoro state
     localStorage.removeItem('pomodoroState');
   };
 
   const updateProfile = async (profileData: Partial<Profile>) => {
     if (!user) throw new Error('No user found');
-    
+
     try {
       const updatedProfile = await authOps.updateProfile(user, profileData, profile);
       setProfile(updatedProfile);

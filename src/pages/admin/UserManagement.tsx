@@ -29,6 +29,12 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { formatLastAccess, formatJoinDate } from '@/utils/adminDateFormatter';
+import {
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
@@ -118,8 +124,7 @@ const UserManagement = () => {
         }
     };
 
-    // List of emails that cannot be deleted or archived
-    const PROTECTED_EMAILS = ['vourevisar@gmail.com', 'darciliok@gmail.com'];
+
 
     const handleArchiveUser = async () => {
 
@@ -190,7 +195,15 @@ const UserManagement = () => {
         }
     };
 
+    // List of emails that cannot be deleted, archived, or modified
+    const PROTECTED_EMAILS = ['vourevisar@gmail.com', 'darciliok@gmail.com'];
+
     const handleToggleStatus = async (user: AdminUser) => {
+        if (PROTECTED_EMAILS.includes(user.email || '')) {
+            toast.error("Este usuário é protegido e seu acesso não pode ser alterado.");
+            return;
+        }
+
         const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
         const newSubStatus = newStatus === 'Active' ? 'active' : 'canceled';
 
@@ -217,6 +230,11 @@ const UserManagement = () => {
             return;
         }
 
+        if (PROTECTED_EMAILS.includes(user.email)) {
+            toast.error("Este usuário é protegido e a senha não pode ser redefinida por aqui.");
+            return;
+        }
+
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
                 redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
@@ -235,12 +253,7 @@ const UserManagement = () => {
         setIsRoleModalOpen(true);
     };
 
-    const formatDate = (dateString: string) => {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('pt-BR', {
-            day: 'numeric', month: 'short', year: 'numeric'
-        });
-    };
+
 
     return (
         <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-900">
@@ -298,8 +311,8 @@ const UserManagement = () => {
                                     </th>
                                     <th className="px-6 py-3 text-xs font-medium text-slate-500">Usuário</th>
                                     <th className="px-6 py-3 text-xs font-medium text-slate-500">Acesso</th>
-                                    <th className="px-6 py-3 text-xs font-medium text-slate-500">Último acesso</th>
-                                    <th className="px-6 py-3 text-xs font-medium text-slate-500">Data de adição</th>
+                                    <th className="px-6 py-3 text-xs font-medium text-slate-500 whitespace-nowrap">Último acesso</th>
+                                    <th className="px-6 py-3 text-xs font-medium text-slate-500 whitespace-nowrap">Data de adição</th>
                                     <th className="px-6 py-3 w-[50px]"></th>
                                 </tr>
                             </thead>
@@ -360,11 +373,33 @@ const UserManagement = () => {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600">
-                                            {formatDate(user.last_sign_in_at || '')}
+                                        <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap tabular-nums">
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="cursor-help decoration-dotted underline-offset-2 hover:underline">
+                                                        {formatLastAccess(user.last_access_at).label}
+                                                    </span>
+                                                </TooltipTrigger>
+                                                {formatLastAccess(user.last_access_at).tooltip && (
+                                                    <TooltipContent>
+                                                        <p>{formatLastAccess(user.last_access_at).tooltip}</p>
+                                                    </TooltipContent>
+                                                )}
+                                            </Tooltip>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600">
-                                            {formatDate(user.created_at)}
+                                        <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap tabular-nums">
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="cursor-help decoration-dotted underline-offset-2 hover:underline">
+                                                        {formatJoinDate(user.created_at).label}
+                                                    </span>
+                                                </TooltipTrigger>
+                                                {formatJoinDate(user.created_at).tooltip && (
+                                                    <TooltipContent>
+                                                        <p>{formatJoinDate(user.created_at).tooltip}</p>
+                                                    </TooltipContent>
+                                                )}
+                                            </Tooltip>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end">
@@ -571,7 +606,7 @@ const UserManagement = () => {
                                     </div>
                                     <div className="flex justify-between items-center py-2 border-b border-slate-50">
                                         <span className="text-sm text-slate-500 flex items-center gap-2"><Calendar className="w-4 h-4" /> Data de adição</span>
-                                        <span className="text-sm font-medium text-slate-900">{formatDate(selectedUser.created_at)}</span>
+                                        <span className="text-sm font-medium text-slate-900">{formatJoinDate(selectedUser.created_at).label}</span>
                                     </div>
                                     <div className="flex justify-between items-center py-2 border-b border-slate-50">
                                         <span className="text-sm text-slate-500 flex items-center gap-2"><Shield className="w-4 h-4" /> Nível de Permissão</span>
@@ -586,7 +621,7 @@ const UserManagement = () => {
                                     <div className="flex justify-between items-center py-2 border-b border-slate-50">
                                         <span className="text-sm text-slate-500 flex items-center gap-2"><Archive className="w-4 h-4" /> Status de Arquivamento</span>
                                         <span className={`text-sm font-medium ${selectedUser.deleted_at ? 'text-amber-600' : 'text-slate-600'}`}>
-                                            {selectedUser.deleted_at ? `Arquivado em ${formatDate(selectedUser.deleted_at)}` : 'Ativo'}
+                                            {selectedUser.deleted_at ? `Arquivado em ${formatJoinDate(selectedUser.deleted_at).label}` : 'Ativo'}
                                         </span>
                                     </div>
                                 </div>

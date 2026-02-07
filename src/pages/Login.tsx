@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useUserLogger } from '@/hooks/useUserLogger';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
@@ -19,6 +20,7 @@ import PageContainer from '@/components/layout/PageContainer';
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logEvent } = useUserLogger();
   const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -85,6 +87,7 @@ const Login = () => {
 
         const result = await signIn(email, password);
         if (result.success) {
+          await logEvent('LOGIN', { method: 'password' });
           let from = location.state?.from?.pathname || '/dashboard';
           // If redirecting to landing page (root), force dashboard instead
           if (from === '/') {
@@ -116,6 +119,7 @@ const Login = () => {
       setIsLoading(true);
       const result = await signInWithGoogle();
       if (result.success) {
+        await logEvent('LOGIN', { method: 'google' });
         let from = location.state?.from?.pathname || '/dashboard';
         // If redirecting to landing page (root), force dashboard instead
         if (from === '/') {

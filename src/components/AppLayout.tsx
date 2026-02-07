@@ -8,6 +8,7 @@ import { MobileBottomBar } from "./layout/MobileBottomBar";
 import { ThemeToggle } from "./ThemeToggle";
 import { PomodoroPopover } from "./PomodoroPopover";
 import { useSharedPomodoroTimer } from "@/hooks/useSharedPomodoroTimer";
+import { useUserLogger } from "@/hooks/useUserLogger";
 import { Button } from "@/components/ui/button";
 import GeneralNotesModal from './GeneralNotesModal';
 import NotesModal from './reviews/NotesModal';
@@ -127,6 +128,11 @@ const TopHeader = ({ pageTitle, onOpenNotes }: { pageTitle: string; onOpenNotes:
 export const AppLayout = () => {
   const location = useLocation();
   const currentPath = location.pathname;
+  const { logSessionStart } = useUserLogger();
+
+  React.useEffect(() => {
+    logSessionStart();
+  }, [logSessionStart]);
 
   // Encontrar o título correspondente
   const pageTitle = routeTitles[currentPath] ||

@@ -6,6 +6,14 @@ Esta pasta contém toda a documentação técnica e guias do projeto.
 
 - `guia-estilo-mensagens.md` - Guia de Estilo de Mensagens para manter consistência na comunicação
 
+## Eventos de Acesso (User Events)
+
+Documentação técnica do módulo de rastreamento de atividade de usuários.
+
+- [Arquitetura](./guides/access-events-architecture.md)
+- [Runbook & Troubleshooting](./guides/access-events-runbook.md)
+- [ADR-001: Implementação de Eventos](./adr/ADR-001-access-events.md)
+
 ## 🎯 Como Usar
 
 Consulte os guias antes de:

@@ -9,6 +9,7 @@ export interface AdminUser {
     role: string;
     created_at: string;
     last_sign_in_at?: string;
+    last_access_at?: string;
     status: string; // Active/Inactive/Archived
     source?: string; // Google, Email, etc.
     deleted_at?: string | null;
@@ -27,7 +28,7 @@ export function useAdminUsers() {
             // 1. Fetch Profiles (including deleted ones)
             const { data: profiles, error: profilesError } = await supabase
                 .from('profiles')
-                .select('id, name, avatar_url, created_at, email, deleted_at, last_sign_in_at');
+                .select('id, name, avatar_url, created_at, email, deleted_at, last_sign_in_at, last_access_at');
 
             if (profilesError) throw profilesError;
 
@@ -59,7 +60,8 @@ export function useAdminUsers() {
                     status: status,
                     source: source,
                     deleted_at: profile.deleted_at,
-                    last_sign_in_at: profile.last_sign_in_at
+                    last_sign_in_at: profile.last_sign_in_at,
+                    last_access_at: profile.last_access_at || profile.last_sign_in_at
                 };
             });
 
