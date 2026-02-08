@@ -57,6 +57,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { EditRoleModal } from '@/components/admin/EditRoleModal';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserRole } from '@/hooks/useUserRole';
+import { UserActivityList } from '@/components/admin/UserActivityList';
 
 const UserManagement = () => {
     const { users: dbUsers, loading, error, refetch } = useAdminUsers();
@@ -644,10 +645,9 @@ const UserManagement = () => {
                                 </div>
                             </div>
 
-                            {/* Activity Section Placeholder */}
-                            <div>
-                                <h4 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-3">Atividade Recente</h4>
-                                <div className="text-sm text-slate-500 italic">Nenhuma atividade recente registrada.</div>
+                            {/* Activity Section */}
+                            <div className="pt-4 border-t border-slate-100">
+                                <UserActivityList userId={selectedUser.id} />
                             </div>
                         </div>
                     )}
