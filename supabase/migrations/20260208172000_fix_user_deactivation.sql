@@ -20,7 +20,7 @@ FOR INSERT WITH CHECK (
   )
 );
 
--- Fix Deactivate RPC (Correct column name user_id -> id)
+-- Fix Deactivate RPC (Correct column name user_id -> id AND direct insert log)
 CREATE OR REPLACE FUNCTION public.admin_deactivate_user(target_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -35,7 +35,8 @@ BEGIN
     deactivated_by = auth.uid()
   WHERE id = target_user_id;
 
-  PERFORM log_user_event(
+  INSERT INTO public.user_events (user_id, event_type, metadata)
+  VALUES (
     target_user_id,
     'ACCOUNT_DEACTIVATED',
     jsonb_build_object('admin_id', auth.uid())
@@ -43,7 +44,7 @@ BEGIN
 END;
 $$;
 
--- Fix Reactivate RPC (Correct column name user_id -> id)
+-- Fix Reactivate RPC (Correct column name user_id -> id AND direct insert log)
 CREATE OR REPLACE FUNCTION public.admin_reactivate_user(target_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -58,7 +59,8 @@ BEGIN
     deactivated_by = NULL
   WHERE id = target_user_id;
 
-  PERFORM log_user_event(
+  INSERT INTO public.user_events (user_id, event_type, metadata)
+  VALUES (
     target_user_id,
     'ACCOUNT_REACTIVATED',
     jsonb_build_object('admin_id', auth.uid())
