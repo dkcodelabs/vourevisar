@@ -265,8 +265,12 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
 
     return (
         <div className="space-y-6">
-            {Object.entries(groupedItems).map(([key, groupItems]) => {
-                if (groupItems.length === 0) return null;
+            {/* Enforce Order: Overdue -> Today -> Future -> Unstarted -> Completed */}
+            {['FOCUS_MERGED', RevisionStatus.OVERDUE, RevisionStatus.TODAY, RevisionStatus.FUTURE, RevisionStatus.UNSTARTED, RevisionStatus.COMPLETED, ...Object.keys(groupedItems).filter(k =>
+                ![RevisionStatus.OVERDUE, RevisionStatus.TODAY, RevisionStatus.FUTURE, RevisionStatus.UNSTARTED, RevisionStatus.COMPLETED, 'FOCUS_MERGED'].includes(k)
+            )].map((key) => {
+                const groupItems = groupedItems[key];
+                if (!groupItems || groupItems.length === 0) return null;
 
                 const style = getGroupStyle(key);
                 const isCollapsed = collapsedGroups[key];

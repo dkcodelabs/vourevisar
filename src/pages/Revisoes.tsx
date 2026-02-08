@@ -63,7 +63,11 @@ export const Revisoes = () => {
     delayedTopics,
     todayTopics,
     futureTopics,
-    completedTopics
+    completedTopics,
+    isRecoveryMode,
+    recoveryReason,
+    focusTopics,
+    totalPendingCount
   } = useReviewsData();
 
   const { settings, getProfileInfo } = useUserSettings();
@@ -130,7 +134,9 @@ export const Revisoes = () => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [reviewStageFilter, setReviewStageFilter] = useState<string>('all');
   const [loadingActions, setLoadingActions] = useState<Record<string, string>>({});
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
+    [RevisionStatus.COMPLETED]: true
+  });
   const [selectedItemForAI, setSelectedItemForAI] = useState<RevisionItem | null>(null);
   const [aiExplanation, setAiExplanation] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -154,13 +160,28 @@ export const Revisoes = () => {
 
   // Data processing
   const items: RevisionItem[] = useMemo(() => {
+    // Determine Source List
+    const sourceList = activeTab === 'FOCUS' ? focusTopics : topics;
     const allItems: RevisionItem[] = [];
-    const mapTopicToItem = (topic: any, status: RevisionStatus): RevisionItem => {
+
+    const mapTopicToItem = (topic: any): RevisionItem => {
       const subject = subjects.find(s => s.id === topic.subject_id);
       const rawCount = topic.reviewCount || topic.review_count || 0;
-      const reviewCount = status === 'COMPLETED'
+      const reviewCount = topic.completed || topic.review_stage === 'Concluído'
         ? maxReviews
         : Math.min(Math.max(1, rawCount), maxReviews);
+
+      // Determine Status Dynamically
+      let status = RevisionStatus.UNSTARTED;
+      if (topic.completed || topic.review_stage === 'Concluído') {
+        status = RevisionStatus.COMPLETED;
+      } else if (topic.next_review) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const reviewDateStr = new Date(topic.next_review).toISOString().split('T')[0];
+        if (reviewDateStr < todayStr) status = RevisionStatus.OVERDUE;
+        else if (reviewDateStr === todayStr) status = RevisionStatus.TODAY;
+        else status = RevisionStatus.FUTURE;
+      }
 
       return {
         id: topic.id,
@@ -177,25 +198,7 @@ export const Revisoes = () => {
       };
     };
 
-    if (activeTab === 'ALL') {
-      const todayDateString = new Date().toISOString().split('T')[0];
-      topics.forEach(t => {
-        let status = RevisionStatus.UNSTARTED;
-        if (t.completed || t.review_stage === 'Concluído') status = RevisionStatus.COMPLETED;
-        else if (t.next_review) {
-          const reviewDateString = new Date(t.next_review).toISOString().split('T')[0];
-          if (reviewDateString < todayDateString) status = RevisionStatus.OVERDUE;
-          else if (reviewDateString === todayDateString) status = RevisionStatus.TODAY;
-          else status = RevisionStatus.FUTURE;
-        }
-        allItems.push(mapTopicToItem(t, status));
-      });
-    } else {
-      delayedTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.OVERDUE)));
-      todayTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.TODAY)));
-      futureTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.FUTURE)));
-      completedTopics.forEach(t => allItems.push(mapTopicToItem(t, RevisionStatus.COMPLETED)));
-    }
+    sourceList.forEach(t => allItems.push(mapTopicToItem(t)));
 
     let result = allItems;
     if (searchTerm) {
@@ -206,8 +209,14 @@ export const Revisoes = () => {
       const target = parseInt(reviewStageFilter);
       result = result.filter(i => i.reviewCount === target);
     }
+
+    // Safety filters for legacy tabs
+    if (activeTab === 'FUTURE') result = result.filter(i => i.status === RevisionStatus.FUTURE);
+    if (activeTab === 'COMPLETED') result = result.filter(i => i.status === RevisionStatus.COMPLETED);
+
     return result;
-  }, [delayedTopics, todayTopics, futureTopics, completedTopics, subjects, searchTerm, reviewStageFilter, activeTab, topics]);
+  }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews]);
+
 
   const stats = useMemo(() => {
     const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics];
@@ -223,6 +232,7 @@ export const Revisoes = () => {
       overdue: delayedTopics.length,
       future: futureTopics.length,
       completedTopicsCount: completedTopics.length,
+      focusCount: focusTopics.length, // Added
       totalTopics,
       totalScheduledReviews,
       startedTopicsCount,
@@ -230,7 +240,7 @@ export const Revisoes = () => {
       pendingReviews,
       notStartedReviews,
     };
-  }, [todayTopics, delayedTopics, futureTopics, completedTopics, maxReviews]);
+  }, [todayTopics, delayedTopics, futureTopics, completedTopics, focusTopics, maxReviews]);
 
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: RevisionItem[] } = {};
@@ -240,10 +250,8 @@ export const Revisoes = () => {
         groups[i.subject].push(i);
       });
     } else if (activeTab === 'FOCUS') {
-      const merged: RevisionItem[] = [];
-      items.filter(i => i.status === RevisionStatus.TODAY).forEach(i => merged.push(i));
-      items.filter(i => i.status === RevisionStatus.OVERDUE).forEach(i => merged.push(i));
-      if (merged.length > 0) groups['FOCUS_MERGED'] = merged;
+      // Focus Tab -> Single Group
+      if (items.length > 0) groups['FOCUS_MERGED'] = items;
     } else {
       if (activeTab === 'ALL') {
         Object.values(RevisionStatus).forEach(s => groups[s] = []);
@@ -415,20 +423,39 @@ export const Revisoes = () => {
 
         {/* 3. Toolbar - Sticky - Order 3 */}
         <div className="sticky top-14 z-20 bg-transparent px-4 md:px-8 py-2 shrink-0 transition-all w-full order-3">
+          {/* 3. Recovery Mode Banner */}
+          {isRecoveryMode && activeTab === 'FOCUS' && (
+            <div className="mb-4 p-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/20 text-amber-800 dark:text-amber-200 flex items-start gap-3 shadow-sm">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm mb-1">Modo Recuperação Ativo 🚑</h3>
+                <p className="text-xs opacity-90 leading-relaxed">
+                  Você ficou um período sem revisar. Vamos retomar aos poucos para recuperar consistência, sem sobrecarga.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 4. Toolbar (Search, Filter, Tabs) */}
           <RevisoesToolbar
-            stats={stats}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
             reviewStageFilter={reviewStageFilter}
             setReviewStageFilter={setReviewStageFilter}
+            stats={stats}
             areAllExpanded={areAllExpanded}
             onToggleAll={handleToggleAll}
             onToggleSubjectView={() => setActiveTab(prev => prev === 'SUBJECTS' ? 'FOCUS' : 'SUBJECTS')}
             onOpenInfoModal={() => setIsInfoModalOpen(true)}
+            className="mb-6 sticky top-0 z-30" // Sticky top for better UX
+            isRecoveryMode={isRecoveryMode}
           />
-
           {/* Search Notification (Feedback) */}
           {(searchTerm || reviewStageFilter !== 'all') && (
             <div className="mt-1 animate-in fade-in slide-in-from-top-2 duration-300">

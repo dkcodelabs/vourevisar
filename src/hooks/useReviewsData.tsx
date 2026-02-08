@@ -21,7 +21,33 @@ interface Topic {
     name: string;
     color: string;
   };
+  difficulty_level?: number;
 }
+
+// Helper: Calculate Risk Score
+const calculateRiskScore = (topic: Topic): number => {
+  const today = new Date();
+  const dueDate = topic.next_review ? new Date(topic.next_review) : today;
+
+  // 1. Days Overdue (Weight: 3.0)
+  const diffTime = today.getTime() - dueDate.getTime();
+  const daysOverdue = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+  // 2. Difficulty (Weight: 2.0)
+  const difficulty = topic.difficulty_level || 1; // Default to 1 if not set
+
+  // 3. Study Gap (Weight: 0.5)
+  // Time since last interaction (review or first study)
+  const lastContactDate = topic.last_reviewed_at
+    ? new Date(topic.last_reviewed_at)
+    : (topic.first_studied_at ? new Date(topic.first_studied_at) : today);
+
+  const gapTime = today.getTime() - lastContactDate.getTime();
+  const studyGapDays = Math.max(0, Math.ceil(gapTime / (1000 * 60 * 60 * 24)));
+
+  // Formula
+  return (daysOverdue * 3.0) + (difficulty * 2.0) + (studyGapDays * 0.5);
+};
 
 export const useReviewsData = () => {
   const { user } = useAuth();
@@ -29,6 +55,10 @@ export const useReviewsData = () => {
   const [filteredTopics, setFilteredTopics] = useState<Topic[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'all' | 'date'>('all');
+
+  // Recovery Mode State
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [recoveryReason, setRecoveryReason] = useState<'ABSENCE' | 'BACKLOG' | null>(null);
 
   const { data: topics, isLoading, error, refetch } = useQuery({
     queryKey: ['topics'],
@@ -126,8 +156,48 @@ export const useReviewsData = () => {
       }
 
       setFilteredTopics(filtered);
+
+      // Check Recovery Mode Criteria
+      checkRecoveryMode(topics);
     }
   }, [topics, searchTerm, selectedDate, viewMode]);
+
+  const checkRecoveryMode = (allTopics: Topic[]) => {
+    const today = new Date();
+    const todayDateString = format(startOfDay(today), 'yyyy-MM-dd');
+
+    // 1. Check Backlog Size
+    const overdueTopics = allTopics.filter(t => {
+      if (t.completed || !t.next_review) return false;
+      const reviewDate = format(startOfDay(new Date(t.next_review)), 'yyyy-MM-dd');
+      return reviewDate < todayDateString;
+    });
+
+    if (overdueTopics.length > 20) {
+      setIsRecoveryMode(true);
+      setRecoveryReason('BACKLOG');
+      return;
+    }
+
+    // 2. Check Absence (Last review was > 5 days ago)
+    // Find the most recent review among all topics
+    // NOTE: This checks active topics. If user has NO reviews ever, it's not recovery, it's onboarding.
+    const reviewedTopics = allTopics.filter(t => t.last_reviewed_at);
+    if (reviewedTopics.length > 0) {
+      const lastReviewDates = reviewedTopics.map(t => new Date(t.last_reviewed_at!).getTime());
+      const maxReviewDate = Math.max(...lastReviewDates);
+      const daysSinceLastReview = (today.getTime() - maxReviewDate) / (1000 * 60 * 60 * 24);
+
+      if (daysSinceLastReview > 5) {
+        setIsRecoveryMode(true);
+        setRecoveryReason('ABSENCE');
+        return;
+      }
+    }
+
+    setIsRecoveryMode(false);
+    setRecoveryReason(null);
+  };
 
   useEffect(() => {
     const handleFocus = () => {
@@ -160,11 +230,7 @@ export const useReviewsData = () => {
   // CORREÇÃO: Usar comparação de strings de data para evitar problemas de timezone
   const todayDateString = format(startOfDay(new Date()), 'yyyy-MM-dd');
 
-  // Otimização: classificar tópicos em uma única iteração
-  // NOTA: A ordenação principal já vem do banco (R1/R2 -> Difícil -> Data)
-  // O reduce aqui apenas agrupa para visualização, mas a ordem dentro de 'delayedTopics' e 'todayTopics' 
-  // será preservada conforme veio do banco, mantendo a prioridade desejada.
-  const { delayedTopics, todayTopics, futureTopics, completedTopics } = filteredTopics.reduce(
+  const { delayedTopics, todayTopics, futureTopics, completedTopics, totalPendingCount } = filteredTopics.reduce(
     (acc, topic) => {
       if (topic.completed || topic.review_stage === 'Concluído') {
         acc.completedTopics.push(topic);
@@ -177,10 +243,16 @@ export const useReviewsData = () => {
 
       if (reviewDateString < todayDateString) {
         acc.delayedTopics.push(topic);
+        acc.totalPendingCount++;
       } else if (reviewDateString === todayDateString) {
         acc.todayTopics.push(topic);
+        acc.totalPendingCount++;
       } else {
         acc.futureTopics.push(topic);
+        if (!isRecoveryMode) acc.totalPendingCount++; // In recovery, we might treat future differently in total counts? 
+        // Plan says: "Cards do topo NÃO devem ser redesenhados... Mostram realidade completa". 
+        // So pending count should probably reflect TRUTH, not just recovery slice.
+        // Let's keep it true total.
       }
 
       return acc;
@@ -189,9 +261,51 @@ export const useReviewsData = () => {
       delayedTopics: [] as Topic[],
       todayTopics: [] as Topic[],
       futureTopics: [] as Topic[],
-      completedTopics: [] as Topic[]
+      completedTopics: [] as Topic[],
+      totalPendingCount: 0
     }
   );
+
+  // Apply Recovery Mode Logic to 'todayTopics' (which usually merges delayed + today)
+  // But wait, the hook returns separate arrays. The UI merges them for 'FOCUS' tab.
+  // We should prepare the "Recovery List" here or let the UI handle it?
+  // The plan says: "Execute Slice... The 'Today' view should show only 7 reviews".
+
+  // Let's optimize the exported arrays.
+  // If Recovery Mode:
+  // 1. Identify TOP candidates from (Delayed + Today).
+  // 2. Sort them by Risk Score.
+  // 3. Slice top 7.
+  // 4. Return these as `todayTopics` (or a specific recovery list) to force focus.
+  // BUT we must preserve `delayedTopics` array size for the Header Stats (which must show full count).
+
+  // So we will return a NEW property `recoveryTopics` or modify `todayTopics`?
+  // Modifying `todayTopics` might be confusing if `delayedTopics` is still full.
+  // The UI `Revisoes.tsx` calculates `stats` based on `delayedTopics.length`. 
+  // If we slice `delayedTopics` here, we break the stats.
+
+  // STRATEGY: 
+  // Return the full arrays (for stats).
+  // Return a `visibleTopics` or `prioritizedTopics` array that handles the slicing.
+  // OR, simpler: The UI component `RevisoesList` uses `items` derived from `useReviewsData`.
+  // We can perform the sorting/slicing in `Revisoes.tsx` inside `useMemo` based on `isRecoveryMode` flag.
+  // However, putting logic in the hook is cleaner.
+
+  // Let's Attach Risk Score to topics and sort delayed/today by it.
+
+  // Sort Delayed and Today by Risk Score Descending
+  delayedTopics.sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
+  todayTopics.sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
+
+  let focusTopics = [...delayedTopics, ...todayTopics];
+
+  // Sort by Risk Score regardless of mode (User wants "Hoje" => "Sugerida pelo Risk Score")
+  focusTopics.sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
+
+  // Apply Cap if Recovery Mode
+  if (isRecoveryMode) {
+    focusTopics = focusTopics.slice(0, 7);
+  }
 
   return {
     topics: filteredTopics,
@@ -208,6 +322,11 @@ export const useReviewsData = () => {
     delayedTopics,
     todayTopics,
     futureTopics,
-    completedTopics
+    completedTopics,
+    // New Recovery Props
+    isRecoveryMode,
+    recoveryReason,
+    totalPendingCount,
+    focusTopics // Exported
   };
 };

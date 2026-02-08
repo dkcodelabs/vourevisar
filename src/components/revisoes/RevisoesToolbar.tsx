@@ -14,6 +14,7 @@ interface RevisoesToolbarProps {
     onToggleSubjectView: () => void; // Passed from parent
     onOpenInfoModal: () => void;
     className?: string;
+    isRecoveryMode?: boolean;
 }
 
 export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
@@ -28,7 +29,8 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
     onToggleAll,
     onToggleSubjectView,
     onOpenInfoModal,
-    className
+    className,
+    isRecoveryMode = false
 }) => {
     return (
         <div className={`w-full ${className || ''}`}>
@@ -72,8 +74,30 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                     )}
                 </div>
 
-                {/* 3. Abas Principais Migradas - Optimized for Mobile (Wrap + Small Text) */}
+                {/* 3. Abas Principais (Simplificadas: Hoje vs Todas) */}
                 <div className="flex flex-wrap items-center gap-1 sm:gap-2 max-w-full min-w-0">
+                    {/* Hoje (antiga Focus) */}
+                    <button
+                        onClick={() => setActiveTab('FOCUS')}
+                        className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm ${activeTab === 'FOCUS'
+                            ? isRecoveryMode
+                                ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/20 text-amber-700 dark:text-amber-400 ring-2 ring-amber-500/20'
+                                : 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/20 text-rose-600 dark:text-rose-400'
+                            : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            }`}
+                    >
+                        <span>Hoje</span>
+                        <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FOCUS'
+                            ? isRecoveryMode
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 shadow-sm'
+                                : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 shadow-sm'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                            {/* If stats.focusCount exists use it, otherwise sum. 
+                                We will add focusCount to stats in Revisoes.tsx next. */}
+                            {stats.focusCount ?? (stats.today + stats.overdue)}
+                        </span>
+                    </button>
+
                     {/* Todas */}
                     <button
                         onClick={() => {
@@ -88,53 +112,6 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                         <span>Todas</span>
                         <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'ALL' ? 'bg-slate-700 text-slate-200 shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
                             {stats.totalTopics}
-                        </span>
-                    </button>
-
-                    {/* Hoje & Atrasadas */}
-                    <button
-                        onClick={() => setActiveTab('FOCUS')}
-                        className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm ${activeTab === 'FOCUS'
-                            ? 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/20 text-rose-600 dark:text-rose-400'
-                            : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                            }`}
-                    >
-                        <span className="md:hidden">Hoje/Atr.</span>
-                        <span className="hidden md:inline">Hoje & Atrasadas</span>
-                        <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FOCUS' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
-                            {stats.today + stats.overdue}
-                        </span>
-                    </button>
-
-                    {/* Futuras */}
-                    <button
-                        onClick={() => setActiveTab('FUTURE')}
-                        className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm ${activeTab === 'FUTURE'
-                            ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20 text-blue-600 dark:text-blue-400'
-                            : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                            }`}
-                    >
-                        <span>Futuras</span>
-                        <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FUTURE' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
-                            {stats.future}
-                        </span>
-                    </button>
-
-                    {/* Concluídas */}
-                    <button
-                        onClick={() => {
-                            setActiveTab('COMPLETED');
-                            setReviewStageFilter('all');
-                        }}
-                        className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm ${activeTab === 'COMPLETED'
-                            ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400'
-                            : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                            }`}
-                    >
-                        <span className="md:hidden">Concl.</span>
-                        <span className="hidden md:inline">Concluídas</span>
-                        <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
-                            {stats.completedTopicsCount}
                         </span>
                     </button>
                 </div>

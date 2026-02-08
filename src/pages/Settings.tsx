@@ -455,13 +455,13 @@ const Settings = () => {
                     <h2 className="text-lg font-semibold">Perfil de Revisão</h2>
                     <div className="space-y-2">
                       <p className="text-sm text-muted-foreground">
-                        Escolha o perfil que melhor se adapta ao seu ritmo de estudos e experiência.
+                        Este perfil define os intervalos ideais de revisão com base em práticas de retenção. Ele será utilizado durante todo o ciclo para manter consistência.
                       </p>
                       <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
                         <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                         </svg>
-                        <span>Atenção: Depois que a primeira revisão for marcada, o perfil ficará bloqueado para alterações. Para mudar de perfil, use o botão "Limpar Apenas Revisões" na aba Sistema.</span>
+                        <span>Seu perfil de revisão está em uso neste ciclo. Para alterá-lo, finalize ou reinicie o ciclo na aba Sistema.</span>
                       </div>
                     </div>
                   </div>
@@ -475,8 +475,8 @@ const Settings = () => {
                     />
                     {hasReviews && (
                       <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded text-sm">
-                        <strong>Perfil bloqueado:</strong> Há revisões em andamento.
-                        Para alterar o perfil, use "Limpar Apenas Revisões" na aba Sistema.
+                        <strong>Perfil em uso neste ciclo:</strong> Há revisões em andamento.
+                        Para alterar o perfil, use "Reiniciar ciclo de revisões" na aba Sistema.
                       </div>
                     )}
                   </div>
@@ -822,10 +822,10 @@ const Settings = () => {
                   <div className="space-y-3">
                     <div className="p-4 border border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800 rounded-lg">
                       <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                        Limpar Apenas Revisões
+                        Reiniciar ciclo de revisões
                       </h3>
                       <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-                        Remove o progresso de revisões mas mantém suas matérias e tópicos intactos.
+                        Reinicia seu ciclo atual de revisões mantendo suas matérias e tópicos. Ideal para ajustar o perfil ou começar de novo.
                       </p>
                       <Button
                         variant="outline"
@@ -835,7 +835,7 @@ const Settings = () => {
                             toast.error("Usuário não autenticado.");
                             return;
                           }
-                          if (window.confirm("Tem certeza que deseja limpar apenas as revisões? As matérias e tópicos serão mantidos, mas todo o progresso será zerado.")) {
+                          if (window.confirm("Deseja reiniciar o ciclo de revisões? O progresso será zerado para permitir um novo planejamento, mas seus tópicos serão mantidos.")) {
                             try {
                               console.log('🔄 Iniciando reset das revisões para usuário:', user.id);
 
@@ -932,7 +932,7 @@ const Settings = () => {
                                 fetchUserSettingsContext(),
                               ]);
 
-                              toast.success("Revisões limpas com sucesso! O sistema foi reiniciado.");
+                              toast.success("Ciclo reiniciado com sucesso!");
 
                               setTimeout(() => {
                                 console.log('🔄 Recarregando página...');
@@ -946,7 +946,7 @@ const Settings = () => {
                           }
                         }}
                       >
-                        Limpar Apenas Revisões
+                        Reiniciar ciclo de revisões
                       </Button>
                     </div>
                   </div>
@@ -984,8 +984,8 @@ const Settings = () => {
             userId={user?.id || ''}
           />
         </div>
-      </div>
-    </TooltipProvider>
+      </div >
+    </TooltipProvider >
   );
 };
 
