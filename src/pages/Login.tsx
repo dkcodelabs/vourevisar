@@ -87,6 +87,23 @@ const Login = () => {
 
         const result = await signIn(email, password);
         if (result.success) {
+          // Security Check: Active Status
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('is_active')
+              .eq('id', user.id)
+              .single();
+
+            if (profile && profile.is_active === false) {
+              await supabase.auth.signOut();
+              toast.error("Sua conta está desativada. Entre em contato com o suporte.");
+              setIsLoading(false);
+              return;
+            }
+          }
+
           await logEvent('LOGIN', { method: 'password' });
           let from = location.state?.from?.pathname || '/dashboard';
           // If redirecting to landing page (root), force dashboard instead

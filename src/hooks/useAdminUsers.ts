@@ -11,6 +11,7 @@ export interface AdminUser {
     last_sign_in_at?: string;
     last_access_at?: string;
     status: string; // Active/Inactive/Archived
+    is_active?: boolean; // New field
     source?: string; // Google, Email, etc.
     deleted_at?: string | null;
 }
@@ -28,7 +29,7 @@ export function useAdminUsers() {
             // 1. Fetch Profiles (including deleted ones)
             const { data: profiles, error: profilesError } = await supabase
                 .from('profiles')
-                .select('id, name, avatar_url, created_at, email, deleted_at, last_sign_in_at, last_access_at');
+                .select('id, name, avatar_url, created_at, email, deleted_at, last_sign_in_at, last_access_at, is_active');
 
             if (profilesError) throw profilesError;
 
@@ -48,6 +49,8 @@ export function useAdminUsers() {
                 let status = 'Active';
                 if (profile.deleted_at) {
                     status = 'Archived';
+                } else if (profile.is_active === false) {
+                    status = 'Inactive';
                 }
 
                 return {
@@ -58,6 +61,7 @@ export function useAdminUsers() {
                     role: userRole,
                     created_at: profile.created_at || new Date().toISOString(),
                     status: status,
+                    is_active: profile.is_active,
                     source: source,
                     deleted_at: profile.deleted_at,
                     last_sign_in_at: profile.last_sign_in_at,

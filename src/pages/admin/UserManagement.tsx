@@ -204,19 +204,36 @@ const UserManagement = () => {
             return;
         }
 
-        const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
-        const newSubStatus = newStatus === 'Active' ? 'active' : 'canceled';
+        // Determine current active state (default true if undefined/null)
+        const isCurrentlyActive = user.is_active !== false;
+        const newActiveState = !isCurrentlyActive;
+        const rpcFunction = newActiveState ? 'admin_reactivate_user' : 'admin_deactivate_user';
 
         try {
-            const { error } = await supabase
+            // 1. Call RPC to toggle access (Security Layer)
+            const { error: rpcError } = await supabase.rpc(rpcFunction, { target_user_id: user.id });
+            if (rpcError) throw rpcError;
+
+            // 2. Update Subscription Status (Business Layer)
+            const newSubStatus = newActiveState ? 'active' : 'canceled';
+            const { error: subError } = await supabase
                 .from('user_subscriptions')
                 .update({ status: newSubStatus })
                 .eq('user_id', user.id);
 
-            if (error) throw error;
+            if (subError) {
+                console.error('Error updating subscription:', subError);
+                toast.error('Acesso alterado, mas houve erro ao atualizar assinatura.');
+            }
 
-            setUsers(users.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
-            toast.success(`Usuário ${newStatus === 'Active' ? 'ativado' : 'desativado'} com sucesso`);
+            // 3. Optimistic Update
+            setUsers(users.map(u => u.id === user.id ? {
+                ...u,
+                status: newActiveState ? 'Active' : 'Inactive',
+                is_active: newActiveState
+            } : u));
+
+            toast.success(`Usuário ${newActiveState ? 'ativado' : 'desativado'} com sucesso`);
 
         } catch (error: any) {
             console.error('Error updating status:', error);

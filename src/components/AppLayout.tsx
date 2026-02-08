@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import GeneralNotesModal from './GeneralNotesModal';
 import NotesModal from './reviews/NotesModal';
 import SubjectNotesModal from './reviews/SubjectNotesModal';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/lib/toast';
+import { useNavigate } from 'react-router-dom';
 
 const routeTitles: Record<string, string> = {
   '/dashboard': 'Painel',
@@ -129,10 +132,41 @@ export const AppLayout = () => {
   const location = useLocation();
   const currentPath = location.pathname;
   const { logSessionStart } = useUserLogger();
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     logSessionStart();
-  }, [logSessionStart]);
+
+    // Security Check: Active Status
+    const checkActiveStatus = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('is_active')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error checking active status:', error);
+        return;
+      }
+
+      if (profile && profile.is_active === false) {
+        console.warn('USER DEACTIVATED - Force Logout');
+        await supabase.auth.signOut();
+        navigate('/login?reason=deactivated');
+        toast.error("Sua conta foi desativada. Entre em contato com o suporte.");
+      }
+    };
+
+    checkActiveStatus();
+    // Optional: Set up an interval or subscription for real-time kick
+    const interval = setInterval(checkActiveStatus, 60000); // Check every minute
+    return () => clearInterval(interval);
+
+  }, [logSessionStart, navigate]);
 
   // Encontrar o título correspondente
   const pageTitle = routeTitles[currentPath] ||
