@@ -20,6 +20,27 @@ FOR INSERT WITH CHECK (
   )
 );
 
+-- Update Event Type Constraint
+ALTER TABLE public.user_events
+DROP CONSTRAINT IF EXISTS user_events_event_type_check;
+
+ALTER TABLE public.user_events
+ADD CONSTRAINT user_events_event_type_check CHECK (
+  event_type IN (
+    'SIGNUP', 
+    'LOGIN', 
+    'SESSION_START', 
+    'LOGOUT', 
+    'PASSWORD_RESET_REQUEST', 
+    'PASSWORD_RESET_SUCCESS', 
+    'EMAIL_CONFIRMED', 
+    'MARKETING_CONSENT_GRANTED', 
+    'MARKETING_CONSENT_REVOKED',
+    'ACCOUNT_DEACTIVATED',
+    'ACCOUNT_REACTIVATED'
+  )
+);
+
 -- Fix Deactivate RPC (Correct column name user_id -> id AND direct insert log)
 CREATE OR REPLACE FUNCTION public.admin_deactivate_user(target_user_id uuid)
 RETURNS void
