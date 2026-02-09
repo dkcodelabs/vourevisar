@@ -21,7 +21,7 @@ interface AuditLog {
     actor_user_id: string;
     actor_user_name: string;
     actor_user_email: string;
-    source: string;
+    origin: string;
     status: string;
     metadata: any;
     total_count: number;
@@ -224,7 +224,7 @@ export default function AuditLogs() {
                 log.actor_user_id ? (log.actor_user_name || 'N/A') : 'Sistema (automático)',
                 log.actor_user_id ? (log.actor_user_email || 'N/A') : '-',
                 log.actor_user_id || '-',
-                log.source || 'N/A',
+                log.origin || 'N/A',
                 log.status, // status_code: SUCCESS|FAIL
                 log.status === 'SUCCESS' ? 'Sucesso' : 'Falha' // status_label: PT-BR
             ]);
@@ -478,7 +478,7 @@ export default function AuditLogs() {
                                                 )}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <span className="text-slate-600">{log.source || '-'}</span>
+                                                <span className="text-slate-600">{log.origin || '-'}</span>
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 {log.status === 'SUCCESS' ? (
@@ -575,7 +575,7 @@ export default function AuditLogs() {
                                     </div>
                                     <div>
                                         <p className="text-xs font-medium text-slate-500 uppercase">Origem</p>
-                                        <p className="text-sm text-slate-900">{selectedLog.source || '-'}</p>
+                                        <p className="text-sm text-slate-900">{selectedLog.origin || '-'}</p>
                                     </div>
                                     <div className="col-span-2">
                                         <p className="text-xs font-medium text-slate-500 uppercase">Data/Hora</p>
@@ -613,6 +613,14 @@ export default function AuditLogs() {
 
                                         {/* Critical audit fields - formatted */}
                                         <div className="space-y-2 mb-3">
+                                            {(selectedLog.metadata.source || selectedLog.metadata.request_id) && (
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-xs font-medium text-slate-500 min-w-[80px]">Fonte:</span>
+                                                    <span className="text-sm text-slate-900">
+                                                        {selectedLog.metadata.source || selectedLog.metadata.request_id}
+                                                    </span>
+                                                </div>
+                                            )}
                                             {selectedLog.metadata.reason && (
                                                 <div className="flex items-start gap-2">
                                                     <span className="text-xs font-medium text-slate-500 min-w-[80px]">Motivo:</span>

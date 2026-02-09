@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
@@ -34,6 +34,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const authOps = useAuthOperations();
   const { logEvent } = useUserLogger();
 
+  // Track last login signature to avoid duplicate logs in same session
+  const lastLoginSignature = useRef<string | null>(null);
+  // Prevent duplicate logout calls (Hardening)
+  const isSigningOutRef = useRef(false);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -41,6 +46,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return;
+
+        // Log LOGIN_SUCCESS explicitly when SIGNED_IN event happens
+        if (event === 'SIGNED_IN' && session?.user) {
+          const signature = session.access_token?.slice(-16);
+          // Simple in-memory dedupe + RPC dedupe via request_id
+          if (signature && signature !== lastLoginSignature.current) {
+            lastLoginSignature.current = signature;
+            // Fire and forget log with a specific request ID for tracing
+            logEvent('LOGIN_SUCCESS', {
+              request_id: crypto.randomUUID(),
+              source: 'auth_signed_in'
+            });
+          }
+        }
 
         if (session?.user) {
           setUser(session.user);
@@ -55,6 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setUser(null);
           setProfile(null);
+          lastLoginSignature.current = null; // Reset signature on logout
         }
 
         if (isMounted) {
@@ -71,6 +91,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!error && session?.user) {
           if (isMounted) {
             setUser(session.user);
+            // We set the signature here too to prevent "SIGNED_IN" from firing a log if it happens after checkSession
+            if (session.access_token) {
+              lastLoginSignature.current = session.access_token.slice(-16);
+            }
             setTimeout(() => {
               if (isMounted) {
                 fetchProfile(session.user.id);
@@ -93,7 +117,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [logEvent]);
 
   const fetchProfile = async (userId: string) => {
     if (profileLoading) return; // Evitar múltiplas chamadas
@@ -141,7 +165,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setProfile(data);
     } catch (error) {
-      // Silenciar erros para não poluir o console
+      // Silenciar erros 
     } finally {
       setProfileLoading(false);
     }
@@ -187,17 +211,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Prevent re-entry using Ref (Hardening)
+    if (isSigningOutRef.current) return { success: true };
+    isSigningOutRef.current = true;
+
     try {
       setLoading(true);
 
-      try { await logEvent('LOGOUT'); } catch (e) { /* ignore */ }
-      await authOps.signOut();
+      try { await logEvent('LOGOUT', { source: 'signOut_handler_v2' }, 'web_app'); } catch (e) { /* ignore */ }
 
-      // Clear all sensitive data from localStorage on logout
+      // Clear sensitive storage
       clearSensitiveLocalStorage(user?.id);
+
+      await authOps.signOut();
 
       setUser(null);
       setProfile(null);
+      lastLoginSignature.current = null;
 
       navigate('/login');
       return { success: true };
@@ -205,6 +235,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
+      // Keep lock briefly to prevent bounces
+      setTimeout(() => { isSigningOutRef.current = false; }, 2000);
     }
   };
 
@@ -218,6 +250,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (userId) {
       localStorage.removeItem(`subjects_cache_${userId}`);
       localStorage.removeItem(`user_cycle_cache_${userId}`);
+      // Clear legacy SESSION_START throttle
+      localStorage.removeItem(`last_session_log_${userId}`);
+      // Clear new SESSION_START throttle
+      localStorage.removeItem(`audit:last_session_start:${userId}`);
     }
 
     // Clear all draft keys

@@ -16,6 +16,7 @@ import SubjectNotesModal from './reviews/SubjectNotesModal';
 import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 const routeTitles: Record<string, string> = {
   '/dashboard': 'Painel',
@@ -133,6 +134,7 @@ export const AppLayout = () => {
   const currentPath = location.pathname;
   const { logSessionStart } = useUserLogger();
   const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   React.useEffect(() => {
     logSessionStart();
@@ -155,7 +157,9 @@ export const AppLayout = () => {
 
       if (profile && profile.is_active === false) {
         console.warn('USER DEACTIVATED - Force Logout');
-        await supabase.auth.signOut();
+        await signOut();
+        // signOut already navigates to /login. We can add query param if needed, but context might overwrite.
+        // Let's trust signOut handling, or force navigation after.
         navigate('/login?reason=deactivated');
         toastManager.error("Sua conta foi desativada. Entre em contato com o suporte.", { id: 'account-deactivated' });
       }
@@ -166,7 +170,8 @@ export const AppLayout = () => {
     const interval = setInterval(checkActiveStatus, 60000); // Check every minute
     return () => clearInterval(interval);
 
-  }, [logSessionStart, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Encontrar o título correspondente
   const pageTitle = routeTitles[currentPath] ||

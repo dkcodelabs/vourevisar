@@ -124,12 +124,14 @@ export function useAuthOperations() {
       // Get current session first - but proceed to sign out regardless to ensure cleanup
       const { data: { session } } = await supabase.auth.getSession();
 
-      // Clear SESSION_START throttle localStorage so new login triggers fresh log
+      // Clear SESSION_START throttle localStorage BEFORE signing out
+      // This ensures we have access to user.id while session is still valid
       if (session?.user) {
         const LAST_SESSION_LOG_KEY = `last_session_log_${session.user.id}`;
         localStorage.removeItem(LAST_SESSION_LOG_KEY);
       }
 
+      // Now sign out
       const { error } = await supabase.auth.signOut();
 
       if (error) throw error;
