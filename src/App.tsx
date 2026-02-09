@@ -32,6 +32,7 @@ import SubscriptionManagement from "@/pages/admin/SubscriptionManagement";
 import SystemManagement from "@/pages/admin/SystemManagement";
 import SecurityAudit from "@/pages/admin/SecurityAudit";
 import RolesManagement from "@/pages/admin/security/RolesManagement";
+import AuditLogs from "@/pages/admin/AuditLogs";
 import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
 
 import { AuthCallback } from "@/components/AuthCallback";
@@ -104,6 +105,7 @@ const App = () => {
                             <Route path="admin/system" element={<SystemManagement />} />
                             <Route path="admin/security" element={<SecurityAudit />} />
                             <Route path="admin/security/roles" element={<RolesManagement />} />
+                            <Route path="admin/audit" element={<AuditLogs />} />
                           </Route>
 
                           {/* Statistics Routes */}
