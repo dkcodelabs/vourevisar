@@ -17,6 +17,8 @@
 import React from 'react';
 import { Shield, Server, Database, Activity, FileText, Lock, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { errorService } from '@/lib/errors/errorService';
+import { toast } from '@/lib/toast';
 
 const SystemManagement = () => {
     const navigate = useNavigate();
@@ -65,7 +67,22 @@ const SystemManagement = () => {
                         <div className="text-sm text-slate-500 mb-4">
                             Último backup realizado automaticamente há 2 horas.
                         </div>
-                        <button className="w-full py-2 bg-blue-50 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors text-sm border border-blue-100">
+                        <button
+                            onClick={async () => {
+                                try {
+                                    toast.info('Iniciando backup manual...');
+                                    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulação
+                                    // throw new Error("Backup service unavailable"); // Teste
+                                    toast.success('Backup realizado com sucesso!');
+                                } catch (err) {
+                                    errorService.report(err, {
+                                        module: 'system',
+                                        action: 'manual_backup',
+                                        severity: 'critical' // Falha de backup é crítica
+                                    });
+                                }
+                            }}
+                            className="w-full py-2 bg-blue-50 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors text-sm border border-blue-100">
                             Realizar Backup Manual
                         </button>
                         <button className="w-full py-2 bg-white text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors text-sm border border-slate-200">
@@ -81,11 +98,28 @@ const SystemManagement = () => {
                         Diagnóstico & Tools
                     </h3>
                     <div className="space-y-4">
-                        <button className="w-full py-2 bg-white text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors text-sm border border-slate-200 flex items-center justify-center gap-2">
+                        <button
+                            onClick={() => navigate('/admin/system/errors')}
+                            className="w-full py-2 bg-white text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors text-sm border border-slate-200 flex items-center justify-center gap-2"
+                        >
                             <FileText className="w-4 h-4" />
                             Ver Logs de Erro
                         </button>
-                        <button className="w-full py-2 bg-amber-50 text-amber-700 font-medium rounded-lg hover:bg-amber-100 transition-colors text-sm border border-amber-100 flex items-center justify-center gap-2">
+                        <button
+                            onClick={async () => {
+                                try {
+                                    toast.info('Limpando cache de permissões...');
+                                    await new Promise(resolve => setTimeout(resolve, 800));
+                                    toast.success('Cache limpo.');
+                                } catch (err) {
+                                    errorService.report(err, {
+                                        module: 'system',
+                                        action: 'reset_permission_cache',
+                                        severity: 'medium'
+                                    });
+                                }
+                            }}
+                            className="w-full py-2 bg-amber-50 text-amber-700 font-medium rounded-lg hover:bg-amber-100 transition-colors text-sm border border-amber-100 flex items-center justify-center gap-2">
                             <Lock className="w-4 h-4" />
                             Resetar Cache de Permissões
                         </button>

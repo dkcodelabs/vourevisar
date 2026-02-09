@@ -25,6 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { errorService } from '@/lib/errors/errorService';
 
 // --- MOCK DATA ---
 const MOCK_SESSIONS = [
@@ -69,12 +70,23 @@ const SecurityAudit = () => {
     const [sessions, setSessions] = useState(MOCK_SESSIONS);
     const [logFilter, setLogFilter] = useState('');
 
-    const handleRevokeSession = (id: string) => {
-        toast.info("Revogando sessão...");
-        setTimeout(() => {
+    const handleRevokeSession = async (id: string) => {
+        try {
+            toast.info("Revogando sessão...");
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 800));
+            // throw new Error("Simulated Failure"); // Uncomment to test error
+
             setSessions(prev => prev.filter(s => s.id !== id));
             toast.success("Sessão revogada com sucesso.");
-        }, 800);
+        } catch (err) {
+            await errorService.report(err, {
+                module: 'security',
+                action: 'revoke_session',
+                severity: 'high', // Security action failure is high
+                metadata: { sessionId: id }
+            });
+        }
     };
 
     return (

@@ -31,6 +31,7 @@ import ImportQuestions from "@/pages/admin/content/ImportQuestions";
 import SubscriptionManagement from "@/pages/admin/SubscriptionManagement";
 import SystemManagement from "@/pages/admin/SystemManagement";
 import SecurityAudit from "@/pages/admin/SecurityAudit";
+import SystemErrors from "@/pages/admin/system/SystemErrors";
 import RolesManagement from "@/pages/admin/security/RolesManagement";
 import AuditLogs from "@/pages/admin/AuditLogs";
 import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
@@ -106,6 +107,7 @@ const App = () => {
                             <Route path="admin/security" element={<SecurityAudit />} />
                             <Route path="admin/security/roles" element={<RolesManagement />} />
                             <Route path="admin/audit" element={<AuditLogs />} />
+                            <Route path="admin/system/errors" element={<SystemErrors />} />
                           </Route>
 
                           {/* Statistics Routes */}

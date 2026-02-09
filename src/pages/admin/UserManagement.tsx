@@ -58,6 +58,7 @@ import { EditRoleModal } from '@/components/admin/EditRoleModal';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserRole } from '@/hooks/useUserRole';
 import { UserActivityList } from '@/components/admin/UserActivityList';
+import { errorService } from '@/lib/errors/errorService';
 
 const UserManagement = () => {
     const { users: dbUsers, loading, error, refetch } = useAdminUsers();
@@ -150,7 +151,15 @@ const UserManagement = () => {
             toast.success(`Usuário arquivado com sucesso`);
         } catch (error: any) {
             console.error('Error archiving user:', error);
-            toast.error('Erro ao arquivar usuário: ' + (error.message || 'Erro desconhecido'));
+            await errorService.report(error, {
+                module: 'users',
+                action: 'archive_user',
+                severity: 'medium',
+                metadata: {
+                    userId: userToObject.id,
+                    userName: userToObject.name
+                },
+            });
         } finally {
             setUserToObject(null);
         }
@@ -172,7 +181,15 @@ const UserManagement = () => {
             toast.success(`Usuário restaurado com sucesso`);
         } catch (error: any) {
             console.error('Error restoring user:', error);
-            toast.error('Erro ao restaurar usuário: ' + (error.message || 'Erro desconhecido'));
+            await errorService.report(error, {
+                module: 'users',
+                action: 'restore_user',
+                severity: 'medium',
+                metadata: {
+                    userId: userToObject.id,
+                    userName: userToObject.name
+                },
+            });
         } finally {
             setUserToObject(null);
         }
@@ -190,7 +207,15 @@ const UserManagement = () => {
             toast.success(`Usuário excluído permanentemente`);
         } catch (error: any) {
             console.error('Error deleting user:', error);
-            toast.error('Erro ao excluir usuário: ' + (error.message || 'Erro desconhecido'));
+            await errorService.report(error, {
+                module: 'users',
+                action: 'delete_user',
+                severity: 'high',
+                metadata: {
+                    userId: userToObject.id,
+                    userName: userToObject.name
+                },
+            });
         } finally {
             setUserToObject(null);
         }
@@ -238,7 +263,16 @@ const UserManagement = () => {
 
         } catch (error: any) {
             console.error('Error updating status:', error);
-            toast.error('Erro ao atualizar status: ' + (error.message || 'Erro desconhecido'));
+            await errorService.report(error, {
+                module: 'users',
+                action: 'toggle_user_status',
+                severity: 'medium',
+                metadata: {
+                    userId: user.id,
+                    userName: user.name,
+                    targetStatus: newActiveState ? 'active' : 'inactive'
+                },
+            });
         }
     };
 
@@ -262,7 +296,16 @@ const UserManagement = () => {
             toast.success(`Email de redefinição de senha enviado para ${user.email}`);
         } catch (error: any) {
             console.error('Error sending reset email:', error);
-            toast.error('Erro ao enviar email: ' + (error.message || 'Erro desconhecido'));
+            await errorService.report(error, {
+                module: 'users',
+                action: 'reset_password',
+                severity: 'low',
+                metadata: {
+                    userId: user.id,
+                    userName: user.name,
+                    userEmail: user.email
+                },
+            });
         }
     };
 

@@ -28,6 +28,8 @@ import {
 import { UserCheck, User, Crown, Shield, Users, Calendar, DollarSign, XCircle, ArrowLeft, RefreshCw, Smartphone, Search } from 'lucide-react';
 import { useSubscriptionStats } from '@/hooks/useSubscriptionStats';
 import { useNavigate } from 'react-router-dom';
+import { errorService } from '@/lib/errors/errorService';
+import { toast } from '@/lib/toast';
 
 interface UserWithSubscription {
     id: string;
@@ -113,7 +115,14 @@ const SubscriptionManagement = () => {
             setUsers(processedUsers);
         } catch (err) {
             console.error('Error fetching users:', err);
-            setError(err instanceof Error ? err.message : 'Erro ao carregar usuários');
+            // Reportar erro silencioso (sem toast), apenas log
+            errorService.report(err, {
+                module: 'subscriptions',
+                action: 'fetch_users_list',
+                severity: 'low', // Erro de leitura
+                showToast: false
+            });
+            setError('Erro ao carregar usuários. Tente recarregar a página.');
         } finally {
             setLoading(false);
         }
@@ -193,9 +202,21 @@ const SubscriptionManagement = () => {
             await new Promise(resolve => setTimeout(resolve, 500));
             await fetchUsers();
             stats.refresh();
+            toast.success('Assinatura atualizada com sucesso'); // Feedback positivo explícito
 
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao alterar assinatura');
+            // Error Service Integration
+            const normalized = await errorService.report(err, {
+                module: 'subscriptions',
+                action: 'confirm_change_subscription', // Ação específica
+                severity: 'medium', // Falha de negócio/financeira é média/alta
+                metadata: {
+                    userId: userId,
+                    requestedAction: action
+                }
+            });
+            // Não precisamos setar o erro manualmente pq o Toast do errorService já avisa
+            // setError(normalized.userMessage); 
         } finally {
             setProcessingUserId(null);
         }
