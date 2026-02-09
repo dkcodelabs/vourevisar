@@ -51,6 +51,11 @@ DECLARE
 BEGIN
   v_user_id := auth.uid();
   
+  -- CRITICAL: Must have authenticated user
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'User must be authenticated to log events';
+  END IF;
+  
   -- Determine target: explicit param > current user
   v_target := COALESCE(p_target_user_id, v_user_id);
   
