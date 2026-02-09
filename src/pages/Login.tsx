@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserLogger } from '@/hooks/useUserLogger';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/lib/toast';
+import { toastManager } from '@/utils/toastManager';
 import { motion } from 'framer-motion';
 import {
   User,
@@ -37,14 +37,37 @@ const Login = () => {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (user) {
-      let from = location.state?.from?.pathname || '/dashboard';
-      // If redirecting to landing page (root), force dashboard instead
-      if (from === '/') {
-        from = '/dashboard';
+    const checkUserAndRedirect = async () => {
+      if (user) {
+        // Security Check: Active Status before redirecting
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_active')
+          .eq('id', user.id)
+          .single();
+
+        if (profile && profile.is_active === false) {
+          // If inactive, ensure we are signed out and show error
+          await supabase.auth.signOut();
+          toastManager.error("Sua conta está desativada. Entre em contato com o suporte.", { id: 'account-deactivated' });
+          setIsLoading(false);
+          return;
+        }
+
+        // If we are here, user is active
+        let from = location.state?.from?.pathname || '/dashboard';
+        if (from === '/') {
+          from = '/dashboard';
+        }
+
+        navigate(from, { replace: true });
+
+        // Optional: Show success toast only if we just submitted (could use a ref or just skip it as dashboard load is enough feedback)
+        // toast.success("Bem-vindo de volta!"); 
       }
-      navigate(from, { replace: true });
-    }
+    };
+
+    checkUserAndRedirect();
   }, [user, navigate, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,31 +76,30 @@ const Login = () => {
 
     try {
       if (isRegistering) {
+        // ... existing registration logic ...
         if (!name.trim()) {
-          toast.error('Nome é obrigatório');
+          toastManager.error('Nome é obrigatório');
           return;
         }
 
         if (password !== confirmPassword) {
-          toast.error('As senhas não coincidem');
+          toastManager.error('As senhas não coincidem');
           return;
         }
 
         if (password.length < 6) {
-          toast.error('A senha deve ter pelo menos 6 caracteres');
+          toastManager.error('A senha deve ter pelo menos 6 caracteres');
           return;
         }
 
         const result = await signUp(email, password, name, phone);
         if (result.success) {
-          // Store email for confirmation page
           localStorage.setItem('pendingConfirmationEmail', email);
-          // Redirect to email confirmation page
           navigate('/confirm-email', { replace: true });
         }
       } else {
         if (!password) {
-          toast.error('Informe sua senha para entrar.');
+          toastManager.error('Informe sua senha para entrar.');
           setShakePassword(true);
           setTimeout(() => setShakePassword(false), 500);
           passwordInputRef.current?.focus();
@@ -86,49 +108,27 @@ const Login = () => {
         }
 
         const result = await signIn(email, password);
-        if (result.success) {
-          // Security Check: Active Status
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('is_active')
-              .eq('id', user.id)
-              .single();
-
-            if (profile && profile.is_active === false) {
-              await supabase.auth.signOut();
-              toast.error("Sua conta está desativada. Entre em contato com o suporte.");
-              setIsLoading(false);
-              return;
-            }
-          }
-
-          await logEvent('LOGIN', { method: 'password' });
-          let from = location.state?.from?.pathname || '/dashboard';
-          // If redirecting to landing page (root), force dashboard instead
-          if (from === '/') {
-            from = '/dashboard';
-          }
-          navigate(from, { replace: true });
-        } else {
+        // If success, the useEffect will trigger redirection.
+        // We catch errors here.
+        if (!result.success) {
           // Tratamento de erros específicos
           if (result.error?.includes('Invalid login credentials')) {
-            toast.error('Email ou senha incorretos.');
+            toastManager.error('Email ou senha incorretos.');
           } else if (result.error?.includes('Email not confirmed')) {
-            toast.error('Email não confirmado. Verifique sua caixa de entrada.');
+            toastManager.error('Email não confirmado. Verifique sua caixa de entrada.');
           } else if (result.error?.includes('Too many requests') || result.error?.includes('rate limit')) {
-            toast.error('Muitas tentativas. Tente novamente em alguns minutos.');
+            toastManager.error('Muitas tentativas. Tente novamente em alguns minutos.');
           } else {
-            toast.error('Erro ao fazer login. Tente novamente.');
+            toastManager.error('Erro ao fazer login. Tente novamente.');
           }
+          setIsLoading(false); // Only stop loading on error, otherwise wait for redirect
         }
       }
     } catch (error: any) {
       console.error('Login/Signup error:', error);
-    } finally {
       setIsLoading(false);
     }
+    // Finally block removed because we want loading to persist during redirect
   };
 
   const handleGoogleLogin = async () => {
@@ -153,14 +153,14 @@ const Login = () => {
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
-      toast.error('Por favor, insira seu email no campo acima');
+      toastManager.error('Por favor, insira seu email no campo acima');
       return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.error('Por favor, insira um email válido');
+      toastManager.error('Por favor, insira um email válido');
       return;
     }
 
@@ -172,26 +172,26 @@ const Login = () => {
 
       if (error) {
         if (error.message.includes('Email not confirmed')) {
-          toast.error('Email não confirmado. Verifique sua caixa de entrada primeiro.');
+          toastManager.error('Email não confirmado. Verifique sua caixa de entrada primeiro.');
         } else if (error.message.includes('rate limit')) {
-          toast.error('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
+          toastManager.error('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
         } else if (error.message.includes('User not found')) {
-          toast.success('Se este email estiver cadastrado, você receberá um link para redefinir sua senha.');
+          toastManager.success('Se este email estiver cadastrado, você receberá um link para redefinir sua senha.');
           setShowForgotPassword(false);
         } else {
-          toast.error('Erro ao enviar email de recuperação. Tente novamente.');
+          toastManager.error('Erro ao enviar email de recuperação. Tente novamente.');
         }
         return;
       }
 
-      toast.success(
+      toastManager.success(
         'Email enviado! Verifique sua caixa de entrada (e spam) para redefinir sua senha.',
         { duration: 6000 }
       );
       setShowForgotPassword(false);
     } catch (error: any) {
       console.error('❌ Erro inesperado:', error);
-      toast.error('Erro ao enviar email de recuperação. Tente novamente mais tarde.');
+      toastManager.error('Erro ao enviar email de recuperação. Tente novamente mais tarde.');
     } finally {
       setIsLoading(false);
     }

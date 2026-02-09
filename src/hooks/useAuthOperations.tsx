@@ -16,9 +16,9 @@ export function useAuthOperations() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      toastManager.success('Login realizado com sucesso!', {
-        id: 'login-success'
-      });
+      // toastManager.success('Login realizado com sucesso!', {
+      //   id: 'login-success'
+      // });
       return data;
     } catch (error: any) {
       console.error('Sign in error:', error);

@@ -14,7 +14,7 @@ import GeneralNotesModal from './GeneralNotesModal';
 import NotesModal from './reviews/NotesModal';
 import SubjectNotesModal from './reviews/SubjectNotesModal';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/lib/toast';
+import { toastManager } from '@/utils/toastManager';
 import { useNavigate } from 'react-router-dom';
 
 const routeTitles: Record<string, string> = {
@@ -157,7 +157,7 @@ export const AppLayout = () => {
         console.warn('USER DEACTIVATED - Force Logout');
         await supabase.auth.signOut();
         navigate('/login?reason=deactivated');
-        toast.error("Sua conta foi desativada. Entre em contato com o suporte.");
+        toastManager.error("Sua conta foi desativada. Entre em contato com o suporte.", { id: 'account-deactivated' });
       }
     };
 
