@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { toastGate } from '@/lib/errors/toastGate';
 import { toast } from '@/lib/toast'; // Keep toast for success messages
 import { motion } from 'framer-motion';
@@ -12,7 +12,7 @@ const ConfirmEmail = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // Changed from isResending to isLoading
+  const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
@@ -54,7 +54,7 @@ const ConfirmEmail = () => {
   const handleResendEmail = async () => {
     if (!email || resendCooldown > 0) return;
 
-    setIsLoading(true); // Use isLoading
+    setIsResending(true);
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
@@ -78,7 +78,7 @@ const ConfirmEmail = () => {
     } catch (error) {
       toastGate.notifyError('Erro ao reenviar email.', 'AUTH-RESEND-UNK', { severity: 'medium' });
     } finally {
-      setIsLoading(false); // Use isLoading
+      setIsResending(false);
     }
   };
 

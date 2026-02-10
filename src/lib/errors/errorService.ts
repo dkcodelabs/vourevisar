@@ -77,7 +77,17 @@ class ErrorService {
             isUserVisible: classification.isUserVisible,
             recommendedAction: classification.recommendedAction,
             fingerprintVersion: 'v1',
-            environment: import.meta.env.MODE === 'production' ? 'production' : 'development'
+            environment: import.meta.env.MODE === 'production' ? 'production' : 'development',
+
+            // Novos Campos de Contexto (Phase 4.2-A)
+            route_path: input.routePath || window.location.pathname,
+            feature_area: input.featureArea || input.module, // Default to module if not specified
+            actor_email: input.actorEmail,
+            targetUserId: input.targetUserId,
+            target_email: input.targetEmail,
+            session_id: input.sessionId,
+            request_id: input.requestId,
+            context_label: input.contextLabel
         };
     }
 
@@ -236,7 +246,17 @@ class ErrorService {
             is_user_visible: error.isUserVisible,
             recommended_action: error.recommendedAction,
             fingerprint_version: error.fingerprintVersion,
-            environment: error.environment
+            environment: error.environment,
+
+            // Novos Campos de Contexto
+            route_path: error.route_path,
+            feature_area: error.feature_area,
+            actor_email: error.actor_email || user.data.user?.email, // Fallback to current user email
+            target_user_id: error.targetUserId,
+            target_email: error.target_email,
+            session_id: error.session_id,
+            request_id: error.request_id,
+            context_label: error.context_label
         };
 
         // Usar RPC para logar com deduplicação server-side
@@ -261,7 +281,16 @@ class ErrorService {
                 p_is_user_visible: payload.is_user_visible,
                 p_recommended_action: payload.recommended_action,
                 p_fingerprint_version: payload.fingerprint_version,
-                p_environment: payload.environment
+                p_environment: payload.environment,
+                // Novos Parâmetros
+                p_route_path: payload.route_path,
+                p_feature_area: payload.feature_area,
+                p_actor_email: payload.actor_email,
+                p_target_user_id: payload.target_user_id,
+                p_target_email: payload.target_email,
+                p_session_id: payload.session_id,
+                p_request_id: payload.request_id,
+                p_context_label: payload.context_label
             });
 
         if (dbError) {

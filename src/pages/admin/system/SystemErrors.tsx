@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ErrorLogRecord, ErrorSeverity, ErrorStatus, SLOMetrics, AlertEvent } from '@/lib/errors/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,7 +35,11 @@ import {
     Filter,
     AlertTriangle,
     Trash2,
-    Server
+    Server,
+    X,
+    MapPin,
+    User,
+    Globe
 } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -43,17 +48,54 @@ import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 
 export default function SystemErrors() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [errors, setErrors] = useState<ErrorLogRecord[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Initialize filters from URL or defaults
     const [filters, setFilters] = useState({
-        status: 'all',
-        severity: 'all',
-        scope: 'all',
-        category: 'all',
-        recoverability: 'all',
-        search: '',
-        environment: 'production',
+        status: searchParams.get('status') || 'all',
+        severity: searchParams.get('severity') || 'all',
+        scope: searchParams.get('scope') || 'all',
+        category: searchParams.get('category') || 'all',
+        recoverability: searchParams.get('recoverability') || 'all',
+        search: searchParams.get('search') || '',
+        environment: searchParams.get('environment') || 'production',
     });
+
+    // Sync filters to URL
+    useEffect(() => {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value && value !== 'all') {
+                params.set(key, value);
+            }
+        });
+        setSearchParams(params, { replace: true });
+    }, [filters, setSearchParams]);
+
+    // Derived: Active Filters for Chips
+    const activeFilters = useMemo(() => {
+        return Object.entries(filters).filter(([key, value]) =>
+            value && value !== 'all' && key !== 'search' && key !== 'environment' // Environment is a global toggle often kept
+        );
+    }, [filters]);
+
+    const clearFilters = () => {
+        setFilters(prev => ({
+            ...prev,
+            status: 'all',
+            severity: 'all',
+            scope: 'all',
+            category: 'all',
+            recoverability: 'all',
+            search: ''
+        }));
+    };
+
+    const removeFilter = (key: string) => {
+        setFilters(prev => ({ ...prev, [key]: 'all' }));
+    };
     const [selectedError, setSelectedError] = useState<ErrorLogRecord | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
@@ -340,6 +382,33 @@ export default function SystemErrors() {
                 </Button>
             </div>
 
+            {/* Active Filters Bar */}
+            {(activeFilters.length > 0 || filters.search) && (
+                <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-md border border-slate-100 mb-4">
+                    <span className="text-xs font-semibold text-slate-500 uppercase mr-2">Filtros Ativos:</span>
+
+                    {filters.search && (
+                        <Badge variant="secondary" className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 pl-2 pr-1 py-1 gap-1">
+                            <Search className="w-3 h-3 text-slate-400" />
+                            "{filters.search}"
+                            <button onClick={() => setFilters(prev => ({ ...prev, search: '' }))} className="ml-1 hover:text-red-500 rounded-full p-0.5"><X size={12} /></button>
+                        </Badge>
+                    )}
+
+                    {activeFilters.map(([key, value]) => (
+                        <Badge key={key} variant="secondary" className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 pl-2 pr-1 py-1 gap-1 capitalize">
+                            <span className="text-slate-400 text-[10px] uppercase mr-1">{key}:</span>
+                            {value}
+                            <button onClick={() => removeFilter(key)} className="ml-1 hover:text-red-500 rounded-full p-0.5"><X size={12} /></button>
+                        </Badge>
+                    ))}
+
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto">
+                        Limpar Todos
+                    </Button>
+                </div>
+            )}
+
             {/* Alertas Ativos (Banner) */}
             {activeAlerts.length > 0 && (
                 <div className="space-y-2">
@@ -619,12 +688,12 @@ export default function SystemErrors() {
                                             onCheckedChange={toggleSelectAll}
                                         />
                                     </TableHead>
-                                    <TableHead className="w-[140px]">Data/Hora</TableHead>
+                                    <TableHead className="w-[120px]">Data/Hora</TableHead>
                                     <TableHead>Ambiente</TableHead>
-                                    <TableHead>Error ID</TableHead>
-                                    <TableHead>Ocorrências</TableHead>
-                                    <TableHead>Ctg/Escopo</TableHead>
+                                    {/* <TableHead>Error ID</TableHead> Removed to save space */}
+                                    <TableHead>Origem</TableHead>
                                     <TableHead>Módulo/Ação</TableHead>
+                                    <TableHead>Contexto</TableHead>
                                     <TableHead>Mensagem Usuário</TableHead>
                                     <TableHead>Severidade</TableHead>
                                     <TableHead>Status</TableHead>
@@ -660,36 +729,53 @@ export default function SystemErrors() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className={
-                                                    error.environment === 'production' ? 'border-red-200 text-red-700 bg-red-50' :
+                                                <div className="flex flex-col gap-1">
+                                                    <Badge variant="outline" className={`w-fit text-[10px] ${error.environment === 'production' ? 'border-red-200 text-red-700 bg-red-50' :
                                                         error.environment === 'staging' ? 'border-yellow-200 text-yellow-700 bg-yellow-50' :
                                                             'text-muted-foreground border-slate-200 bg-slate-50'
-                                                }>
-                                                    {error.environment || 'production'}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="font-mono text-xs">{error.error_id}</TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-1 font-medium">
-                                                    {error.occurrence_count > 1 && (
-                                                        <Activity className="h-3 w-3 text-orange-500" />
-                                                    )}
-                                                    {error.occurrence_count}
+                                                        }`}>
+                                                        {error.environment || 'prod'}
+                                                    </Badge>
+                                                    <span className="text-[10px] font-mono text-slate-400 truncate w-[60px]" title={error.error_id}>{error.error_id.substring(0, 6)}...</span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="font-mono text-xs">{error.error_id}</TableCell>
+
                                             <TableCell>
-                                                <div className="flex flex-col gap-1">
-                                                    {getScopeBadge(error.scope || 'admin')}
-                                                    <span className="text-[10px] uppercase font-bold text-slate-500">{error.category || 'UNK'}</span>
+                                                <div className="flex flex-col max-w-[120px]">
+                                                    {error.route_path ? (
+                                                        <span className="text-xs font-medium truncate" title={error.route_path}>{error.route_path}</span>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400">-</span>
+                                                    )}
+                                                    {error.feature_area && <span className="text-[10px] text-slate-500">{error.feature_area}</span>}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-xs">
                                                 <div className="font-semibold">{error.module}</div>
                                                 <div className="text-slate-500">{error.action}</div>
                                             </TableCell>
-                                            <TableCell className="text-sm truncate max-w-[200px]" title={error.user_message}>
-                                                {error.user_message}
+                                            <TableCell>
+                                                <div className="flex flex-col gap-1">
+                                                    {error.context_label ? (
+                                                        <Badge variant="outline" className="text-[10px] bg-slate-50">{error.context_label}</Badge>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-300">-</span>
+                                                    )}
+                                                    {error.actor_user_id && (
+                                                        <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                                            <User size={10} />
+                                                            <span title={error.actor_user_id}>User...{error.actor_user_id.substring(0, 4)}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-sm">
+                                                <div className="truncate max-w-[200px]" title={error.user_message}>{error.user_message}</div>
+                                                {error.occurrence_count > 1 && (
+                                                    <Badge variant="secondary" className="mt-1 text-[10px] h-4 px-1 bg-orange-100 text-orange-700">
+                                                        {error.occurrence_count}x
+                                                    </Badge>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge className={`${getSeverityColor(error.severity)} text-white border-0`}>
@@ -726,17 +812,46 @@ export default function SystemErrors() {
             <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
                 <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
+                        <DialogTitle className="flex items-center gap-2 text-xl">
                             Detalhes do Erro
-                            <Badge variant="outline" className="font-mono">{selectedError?.error_id}</Badge>
+                            <Badge variant={selectedError?.status === 'resolved' ? 'default' : 'destructive'} className="ml-2">
+                                {selectedError?.status.toUpperCase()}
+                            </Badge>
                         </DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription className="flex items-center gap-2">
+                            <Clock size={12} />
                             Ocorrido em {selectedError ? formatDate(selectedError.created_at) : '-'}
+                            {selectedError && selectedError.environment && (
+                                <Badge variant="outline" className="ml-2 text-[10px]">{selectedError.environment.toUpperCase()}</Badge>
+                            )}
                         </DialogDescription>
                     </DialogHeader>
 
                     {selectedError && (
                         <div className="space-y-6">
+                            {/* Diagnóstico Rápido */}
+                            <div className="bg-slate-900 text-slate-50 p-4 rounded-lg font-mono text-xs grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-slate-400 uppercase text-[10px] mb-1">ID do Erro</p>
+                                    <p className="select-all">{selectedError.error_id}</p>
+                                </div>
+                                <div>
+                                    <p className="text-slate-400 uppercase text-[10px] mb-1">Request / Session</p>
+                                    <p title="Session ID">{selectedError.session_id || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-slate-400 uppercase text-[10px] mb-1">Ator (User ID)</p>
+                                    <p className="select-all">{selectedError.actor_user_id || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-slate-400 uppercase text-[10px] mb-1">Email</p>
+                                    <p>{selectedError.actor_email || '-'}</p>
+                                </div>
+                                <div className="col-span-2 border-t border-slate-700 pt-2 mt-2">
+                                    <p className="text-slate-400 uppercase text-[10px] mb-1">Rota / Origem</p>
+                                    <p className="break-all text-yellow-400">{selectedError.route_path || 'N/A'}</p>
+                                </div>
+                            </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-xs font-semibold text-slate-500 uppercase">Módulo</label>

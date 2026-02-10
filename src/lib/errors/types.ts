@@ -17,13 +17,21 @@ export interface AppErrorNormalized {
     scope: 'admin' | 'core';
     environment: 'development' | 'staging' | 'production';
 
-
     // Taxonomy Fields
     category: import('./errorEvent.contract').ErrorCategory;
     recoverability: import('./errorEvent.contract').ErrorRecoverability;
     isUserVisible: boolean;
     recommendedAction?: string;
     fingerprintVersion: string;
+
+    // Context Fields (Phase 4.2-A)
+    route_path?: string;
+    feature_area?: string;
+    actor_email?: string;
+    target_email?: string;
+    session_id?: string;
+    request_id?: string;
+    context_label?: string;
 }
 
 export interface ErrorLogRecord {
@@ -57,6 +65,15 @@ export interface ErrorLogRecord {
     classification_feedback?: boolean;
     severity_feedback?: boolean;
     suggested_category?: string;
+
+    // Context Fields (Phase 4.2-A)
+    route_path?: string;
+    feature_area?: string;
+    actor_email?: string;
+    target_email?: string;
+    session_id?: string;
+    request_id?: string;
+    context_label?: string;
 }
 
 export interface SLOMetrics {

@@ -59,6 +59,15 @@ export interface ErrorEventPayload {
     recommended_action?: string;
     fingerprint_version?: string; // Default 'v1'
     environment?: 'development' | 'staging' | 'production'; // Default 'production'
+
+    // Novos Campos de Contexto (Phase 4.2-A)
+    route_path?: string;
+    feature_area?: string;
+    actor_email?: string;
+    target_email?: string;
+    session_id?: string;
+    request_id?: string;
+    context_label?: string;
 }
 
 // 3. Contrato de Entrada do Serviço (Input do ErrorService.report)
@@ -79,6 +88,16 @@ export interface ErrorReportInput {
     // Opcionais na entrada (o classificador irá preencher)
     category?: ErrorCategory;
     recoverability?: ErrorRecoverability;
+
+    // Novos Campos Opcionais de Contexto
+    routePath?: string;
+    featureArea?: string;
+    actorEmail?: string;
+    targetUserId?: string;
+    targetEmail?: string;
+    sessionId?: string;
+    requestId?: string;
+    contextLabel?: string;
 }
 
 // 4. Validação Leve em Runtime
