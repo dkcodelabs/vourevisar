@@ -34,6 +34,7 @@ import SecurityAudit from "@/pages/admin/SecurityAudit";
 import SystemErrors from "@/pages/admin/system/SystemErrors";
 import RolesManagement from "@/pages/admin/security/RolesManagement";
 import AuditLogs from "@/pages/admin/AuditLogs";
+import ToastSpamTest from "@/pages/admin/debug/ToastSpamTest";
 import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
 
 import { AuthCallback } from "@/components/AuthCallback";
@@ -108,6 +109,7 @@ const App = () => {
                             <Route path="admin/security/roles" element={<RolesManagement />} />
                             <Route path="admin/audit" element={<AuditLogs />} />
                             <Route path="admin/system/errors" element={<SystemErrors />} />
+                            <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
                           </Route>
 
                           {/* Statistics Routes */}

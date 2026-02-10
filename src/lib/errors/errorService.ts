@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toastGate } from './toastGate';
 import { toast } from '@/lib/toast';
 import {
     ErrorReportInput,
@@ -75,7 +76,8 @@ class ErrorService {
             recoverability: classification.recoverability,
             isUserVisible: classification.isUserVisible,
             recommendedAction: classification.recommendedAction,
-            fingerprintVersion: 'v1'
+            fingerprintVersion: 'v1',
+            environment: import.meta.env.MODE === 'production' ? 'production' : 'development'
         };
     }
 
@@ -161,20 +163,19 @@ class ErrorService {
             });
         }
 
-        // 4. Feedback Visual (Toast)
-        // Sempre mostra o toast, pois o usuário precisa saber que falhou, mesmo que seja spam
+        // 4. Feedback Visual (Toast) - Agora via ToastGate (Anti-Spam)
         if (input.showToast !== false) { // Default true
-            const fullMessage = `${normalized.userMessage}\n\nCódigo: ${normalized.errorId}`;
+            const flowKey = normalized.module || 'general';
+
+            toastGate.notifyError(normalized.userMessage, normalized.errorId, {
+                severity: normalized.severity,
+                flowKey: flowKey,
+                actionLabel: normalized.retryable ? 'Tentar Novamente' : undefined,
+                // onAction: ... (seria necessário passar o callback de retry, mas por enquanto notificacao visual)
+            });
 
             if (normalized.retryable) {
-                toast.error(fullMessage, {
-                    duration: 8000,
-                });
                 console.info('[ErrorService] Operação pode ser retentada pelo usuário');
-            } else {
-                toast.error(fullMessage, {
-                    duration: 6000,
-                });
             }
         }
 
@@ -234,7 +235,8 @@ class ErrorService {
             recoverability: error.recoverability,
             is_user_visible: error.isUserVisible,
             recommended_action: error.recommendedAction,
-            fingerprint_version: error.fingerprintVersion
+            fingerprint_version: error.fingerprintVersion,
+            environment: error.environment
         };
 
         // Usar RPC para logar com deduplicação server-side
@@ -258,7 +260,8 @@ class ErrorService {
                 p_recoverability: payload.recoverability,
                 p_is_user_visible: payload.is_user_visible,
                 p_recommended_action: payload.recommended_action,
-                p_fingerprint_version: payload.fingerprint_version
+                p_fingerprint_version: payload.fingerprint_version,
+                p_environment: payload.environment
             });
 
         if (dbError) {

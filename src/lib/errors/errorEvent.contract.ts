@@ -58,6 +58,7 @@ export interface ErrorEventPayload {
     is_user_visible: boolean; // Default true
     recommended_action?: string;
     fingerprint_version?: string; // Default 'v1'
+    environment?: 'development' | 'staging' | 'production'; // Default 'production'
 }
 
 // 3. Contrato de Entrada do Serviço (Input do ErrorService.report)

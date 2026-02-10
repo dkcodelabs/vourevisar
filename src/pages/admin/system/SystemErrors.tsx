@@ -20,6 +20,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     AlertCircle,
     Activity,
@@ -32,7 +33,8 @@ import {
     XCircle,
     Filter,
     AlertTriangle,
-    Trash2
+    Trash2,
+    Server
 } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -49,6 +51,7 @@ export default function SystemErrors() {
         category: 'all',
         recoverability: 'all',
         search: '',
+        environment: 'production',
     });
     const [selectedError, setSelectedError] = useState<ErrorLogRecord | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -57,6 +60,55 @@ export default function SystemErrors() {
     // SLO & Alert States
     const [sloMetrics, setSloMetrics] = useState<SLOMetrics | null>(null);
     const [activeAlerts, setActiveAlerts] = useState<AlertEvent[]>([]);
+
+    // Batch Actions State
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        setSelectedIds(new Set());
+    }, [filters]);
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === errors.length && errors.length > 0) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(errors.map(e => e.id)));
+        }
+    };
+
+    const toggleSelectOne = (id: string) => {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedIds(newSet);
+    };
+
+    const executeBatchAction = async (action: 'resolve' | 'investigate' | 'ignore') => {
+        if (!window.confirm(`Aplicar ação "${action}" em ${selectedIds.size} itens?`)) return;
+
+        let newStatus: ErrorStatus = 'new'; // default
+        if (action === 'resolve') newStatus = 'resolved';
+        if (action === 'investigate') newStatus = 'investigating';
+        if (action === 'ignore') newStatus = 'ignored';
+
+        const ids = Array.from(selectedIds);
+
+        const { error } = await supabase
+            .from('admin_error_events')
+            .update({ status: newStatus })
+            .in('id', ids);
+
+        if (error) {
+            toast.error("Falha na ação em lote.");
+        } else {
+            toast.success(`${ids.length} itens atualizados para ${newStatus}.`);
+            setSelectedIds(new Set());
+            fetchErrors();
+        }
+    };
 
     const fetchOperationalData = React.useCallback(async () => {
         // Fetch SLO Metrics
@@ -195,13 +247,16 @@ export default function SystemErrors() {
             query = query.or(`error_id.ilike.%${filters.search}%,user_message.ilike.%${filters.search}%,technical_message.ilike.%${filters.search}%`);
         }
 
+        if (filters.environment !== 'all') {
+            query = query.eq('environment', filters.environment);
+        }
+
         const { data, error } = await query;
 
         if (error) {
             toast.error('Erro ao carregar logs de erro');
             console.error(error);
         } else {
-            // @ts-ignore - Supabase types mapping might be slightly off for the new table until generated
             setErrors(data as ErrorLogRecord[]);
         }
         setLoading(false);
@@ -463,6 +518,23 @@ export default function SystemErrors() {
                                 />
                             </div>
                             <Select
+                                value={filters.environment}
+                                onValueChange={(val) => setFilters(prev => ({ ...prev, environment: val }))}
+                            >
+                                <SelectTrigger className="w-full sm:w-[150px]">
+                                    <div className="flex items-center gap-2">
+                                        <Server size={14} />
+                                        <SelectValue placeholder="Ambiente" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos</SelectItem>
+                                    <SelectItem value="production">Production</SelectItem>
+                                    <SelectItem value="staging">Staging</SelectItem>
+                                    <SelectItem value="development">Development</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select
                                 value={filters.status}
                                 onValueChange={(val) => setFilters(prev => ({ ...prev, status: val }))}
                             >
@@ -540,8 +612,16 @@ export default function SystemErrors() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead className="w-[40px]">
+                                        <Checkbox
+                                            checked={errors.length > 0 && selectedIds.size === errors.length}
+                                            onCheckedChange={toggleSelectAll}
+                                        />
+                                    </TableHead>
                                     <TableHead className="w-[140px]">Data/Hora</TableHead>
+                                    <TableHead>Ambiente</TableHead>
                                     <TableHead>Error ID</TableHead>
+                                    <TableHead>Ocorrências</TableHead>
                                     <TableHead>Ctg/Escopo</TableHead>
                                     <TableHead>Módulo/Ação</TableHead>
                                     <TableHead>Mensagem Usuário</TableHead>
@@ -566,13 +646,36 @@ export default function SystemErrors() {
                                 ) : (
                                     errors.map((error) => (
                                         <TableRow key={error.id}>
+                                            <TableCell>
+                                                <Checkbox
+                                                    checked={selectedIds.has(error.id)}
+                                                    onCheckedChange={() => toggleSelectOne(error.id)}
+                                                />
+                                            </TableCell>
                                             <TableCell className="font-medium text-xs">
                                                 {formatDate(error.created_at)}
                                                 <div className="text-[10px] text-slate-400">
                                                     {((new Date().getTime() - new Date(error.created_at).getTime()) / 60000).toFixed(0)} min atrás
                                                 </div>
                                             </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className={
+                                                    error.environment === 'production' ? 'border-red-200 text-red-700 bg-red-50' :
+                                                        error.environment === 'staging' ? 'border-yellow-200 text-yellow-700 bg-yellow-50' :
+                                                            'text-muted-foreground border-slate-200 bg-slate-50'
+                                                }>
+                                                    {error.environment || 'production'}
+                                                </Badge>
+                                            </TableCell>
                                             <TableCell className="font-mono text-xs">{error.error_id}</TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-1 font-medium">
+                                                    {error.occurrence_count > 1 && (
+                                                        <Activity className="h-3 w-3 text-orange-500" />
+                                                    )}
+                                                    {error.occurrence_count}
+                                                </div>
+                                            </TableCell>
                                             <TableCell className="font-mono text-xs">{error.error_id}</TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col gap-1">
@@ -769,6 +872,46 @@ export default function SystemErrors() {
                     )}
                 </DialogContent>
             </Dialog >
+
+            {/* Floating Action Bar */}
+            {selectedIds.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-4 z-50 animate-in slide-in-from-bottom-5">
+                    <span className="text-sm font-medium">{selectedIds.size} selecionados</span>
+                    <div className="h-4 w-px bg-slate-700" />
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-green-400 hover:text-green-300 hover:bg-slate-800"
+                        onClick={() => executeBatchAction('resolve')}
+                    >
+                        <CheckCircle2 size={16} className="mr-2" /> Resolver
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-yellow-400 hover:text-yellow-300 hover:bg-slate-800"
+                        onClick={() => executeBatchAction('investigate')}
+                    >
+                        <Search size={16} className="mr-2" /> Investigar
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-slate-400 hover:text-slate-300 hover:bg-slate-800"
+                        onClick={() => executeBatchAction('ignore')}
+                    >
+                        Ignorar
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="ml-2 text-slate-500 hover:text-white"
+                        onClick={() => setSelectedIds(new Set())}
+                    >
+                        <XCircle size={16} />
+                    </Button>
+                </div>
+            )}
         </div >
     );
 }

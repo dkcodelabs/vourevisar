@@ -15,6 +15,8 @@ export interface AppErrorNormalized {
     metadata?: Record<string, any>;
     createdAt: string;
     scope: 'admin' | 'core';
+    environment: 'development' | 'staging' | 'production';
+
 
     // Taxonomy Fields
     category: import('./errorEvent.contract').ErrorCategory;
@@ -44,6 +46,8 @@ export interface ErrorLogRecord {
     created_at: string;
     updated_at: string;
     scope: 'admin' | 'core';
+    environment: 'development' | 'staging' | 'production';
+
 
     // Taxonomy Fields
     category: string;
