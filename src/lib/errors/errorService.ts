@@ -1,6 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
-import { AppErrorNormalized, ErrorSeverity } from './types';
+import {
+    ErrorReportInput,
+    ErrorEventPayload,
+    validateErrorPayload,
+    ErrorSeverity,
+    ErrorScope
+} from './errorEvent.contract';
+import { AppErrorNormalized } from './types';
 import { getFriendlyMessage } from './errorMessageMap';
 
 class ErrorService {
@@ -22,37 +29,32 @@ class ErrorService {
      * Normaliza qualquer erro para um formato padrão
      */
     private normalizeError(
-        error: any,
-        module: string,
-        action: string,
-        severity: ErrorSeverity = 'medium',
-        actorUserId?: string,
-        metadata: Record<string, any> = {},
-        scope: 'admin' | 'core' = 'admin'
+        input: ErrorReportInput
     ): AppErrorNormalized {
+        const error = input.originalError;
         const errorId = `ERR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
         // Extração de dados do erro
-        const code = error?.code || error?.status?.toString() || 'UNKNOWN';
-        const technicalMessage = error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
-        const userMessage = getFriendlyMessage(technicalMessage, code);
+        const code = input.errorCode || error?.code || error?.status?.toString() || 'UNKNOWN';
+        const technicalMessage = input.technicalMessage || error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
+        const userMessage = input.userMessage || getFriendlyMessage(technicalMessage, code);
 
         // Sanitização básica de metadata
-        const sanitizedMetadata = this.sanitizeMetadata({ ...metadata });
+        const sanitizedMetadata = this.sanitizeMetadata({ ...input.metadata });
 
         return {
             errorId,
-            module,
-            action,
+            module: input.module,
+            action: input.action,
             userMessage,
             technicalMessage: technicalMessage.substring(0, 1000), // Truncate se muito longo
             code,
-            severity,
+            severity: input.severity || 'medium',
             retryable: ['503', '504', 'NetworkError'].includes(code) || technicalMessage.includes('fetch'),
-            actorUserId,
+            actorUserId: input.userId,
             metadata: sanitizedMetadata,
             createdAt: new Date().toISOString(),
-            scope
+            scope: input.scope || 'core'
         };
     }
 
@@ -84,29 +86,29 @@ class ErrorService {
      */
     public async report(
         error: any,
-        context: {
-            module: string;
-            action: string;
-            severity?: ErrorSeverity;
-            userId?: string;
-            metadata?: Record<string, any>;
-            showToast?: boolean;
-            scope?: 'admin' | 'core';
-            userMessage?: string;
-        }
+        context: Omit<ErrorReportInput, 'originalError'>
     ): Promise<AppErrorNormalized> {
-        const { module, action, severity = 'medium', userId, metadata = {}, showToast = true, scope = 'admin', userMessage } = context;
+        // Construir input completo
+        const rawInput: ErrorReportInput = {
+            ...context,
+            originalError: error
+        };
+
+        // Validação Leve (Contract Enforcement)
+        const validation = validateErrorPayload(rawInput);
+        if (!validation.isValid) {
+            console.warn('[ErrorService] Payload inválido corrigido:', validation.errors);
+        }
+
+        // Usar input sanitizado pela validação
+        const input = validation.sanitizedInput;
 
         // 1. Normalizar
-        const normalized = this.normalizeError(error, module, action, severity, userId, metadata, scope);
-
-        if (userMessage) {
-            normalized.userMessage = userMessage;
-        }
+        const normalized = this.normalizeError(input);
 
         // 2. Log no Console (apenas Dev ou se crítico)
         if (import.meta.env.DEV) {
-            console.group(`[ErrorService] ${module}/${action}`);
+            console.group(`[ErrorService] ${input.module}/${input.action}`);
             console.error(error);
             console.log('Normalized:', normalized);
             console.groupEnd();
@@ -114,7 +116,7 @@ class ErrorService {
 
         // 3. Persistir no Supabase com Deduplicação Client-Side Simples
         // Evita spam de erros idênticos (mesmo módulo, ação e msg técnica) em curto período
-        const signature = `${module}|${action}|${normalized.code}|${normalized.technicalMessage.slice(0, 50)}`;
+        const signature = `${normalized.module}|${normalized.action}|${normalized.code}|${normalized.technicalMessage.slice(0, 50)}`;
         const now = Date.now();
 
         if (this.lastErrorSignature === signature && (now - this.lastErrorTime) < this.DEDUPE_WINDOW_MS) {
@@ -130,7 +132,7 @@ class ErrorService {
 
         // 4. Feedback Visual (Toast)
         // Sempre mostra o toast, pois o usuário precisa saber que falhou, mesmo que seja spam
-        if (showToast) {
+        if (input.showToast !== false) { // Default true
             const fullMessage = `${normalized.userMessage}\n\nCódigo: ${normalized.errorId}`;
 
             if (normalized.retryable) {
@@ -180,21 +182,38 @@ class ErrorService {
         const actorId = error.actorUserId || user.data.user?.id;
         const fingerprint = this.generateFingerprint(error);
 
+        // Mapear para o Payload do Contrato (Snake Case do Banco)
+        const payload: ErrorEventPayload = {
+            error_id: error.errorId,
+            scope: error.scope,
+            module: error.module,
+            action: error.action,
+            severity: error.severity,
+            user_message: error.userMessage,
+            technical_message: error.technicalMessage,
+            error_code: error.code,
+            retryable: error.retryable,
+            actor_user_id: actorId,
+            metadata: error.metadata || {},
+            fingerprint: fingerprint,
+            status: 'new'
+        };
+
         // Usar RPC para logar com deduplicação server-side
         const { error: dbError } = await supabase
             .rpc('log_admin_error', {
-                p_error_id: error.errorId,
-                p_module: error.module,
-                p_action: error.action,
-                p_user_message: error.userMessage,
-                p_technical_message: error.technicalMessage,
-                p_code: error.code,
-                p_severity: error.severity,
-                p_retryable: error.retryable,
-                p_actor_user_id: actorId,
-                p_metadata: error.metadata,
-                p_fingerprint: fingerprint,
-                p_scope: error.scope
+                p_error_id: payload.error_id,
+                p_module: payload.module,
+                p_action: payload.action,
+                p_user_message: payload.user_message,
+                p_technical_message: payload.technical_message,
+                p_code: payload.error_code,
+                p_severity: payload.severity,
+                p_retryable: payload.retryable,
+                p_actor_user_id: payload.actor_user_id,
+                p_metadata: payload.metadata,
+                p_fingerprint: payload.fingerprint,
+                p_scope: payload.scope
             });
 
         if (dbError) {

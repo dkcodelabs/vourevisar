@@ -429,7 +429,8 @@ const Subjects = () => {
       if (updatedSubject) {
         setTopicsModal(prev => ({ ...prev, subject: updatedSubject }));
       }
-    }, [subjects, topicsModal.isOpen, topicsModal.subject]);
+    }
+  }, [subjects, topicsModal.isOpen, topicsModal.subject]);
 
   // Focar o input quando necessário
   useLayoutEffect(() => {
