@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ErrorLogRecord, ErrorSeverity, ErrorStatus } from '@/lib/errors/types';
+import { ErrorLogRecord, ErrorSeverity, ErrorStatus, SLOMetrics, AlertEvent } from '@/lib/errors/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,6 +52,27 @@ export default function SystemErrors() {
     });
     const [selectedError, setSelectedError] = useState<ErrorLogRecord | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+    // SLO & Alert States
+    // SLO & Alert States
+    const [sloMetrics, setSloMetrics] = useState<SLOMetrics | null>(null);
+    const [activeAlerts, setActiveAlerts] = useState<AlertEvent[]>([]);
+
+    const fetchOperationalData = React.useCallback(async () => {
+        // Fetch SLO Metrics
+        const { data: sloData } = await supabase.rpc('calculate_slo_metrics', { p_days_window: 7 });
+        if (sloData) setSloMetrics(sloData as unknown as SLOMetrics);
+
+        // Fetch Active Alerts (check for new ones first)
+        await supabase.rpc('check_error_alerts'); // Trigger check
+        const { data: alertsData } = await supabase
+            .from('admin_alert_events')
+            .select('*')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false });
+
+        if (alertsData) setActiveAlerts(alertsData as unknown as AlertEvent[]);
+    }, []);
 
     // Derived Metrics
     const usageMetrics = React.useMemo(() => {
@@ -138,7 +159,7 @@ export default function SystemErrors() {
         }
     };
 
-    const fetchErrors = async () => {
+    const fetchErrors = React.useCallback(async () => {
         setLoading(true);
         let query = supabase
             .from('admin_error_events')
@@ -184,11 +205,12 @@ export default function SystemErrors() {
             setErrors(data as ErrorLogRecord[]);
         }
         setLoading(false);
-    };
+    }, [filters]);
 
     useEffect(() => {
         fetchErrors();
-    }, [filters]);
+        fetchOperationalData();
+    }, [fetchErrors, fetchOperationalData]);
 
     const updateStatus = async (id: string, newStatus: ErrorStatus) => {
         const { error } = await supabase
@@ -261,6 +283,77 @@ export default function SystemErrors() {
                     Limpar Antigos
                 </Button>
             </div>
+
+            {/* Alertas Ativos (Banner) */}
+            {activeAlerts.length > 0 && (
+                <div className="space-y-2">
+                    {activeAlerts.map(alert => (
+                        <div key={alert.id} className="bg-red-100 border-l-4 border-red-500 text-red-900 p-4 rounded shadow-sm flex justify-between items-center animate-pulse-slow">
+                            <div className="flex items-center gap-3">
+                                <AlertTriangle className="h-5 w-5 text-red-600" />
+                                <div>
+                                    <p className="font-bold text-sm uppercase tracking-wide">{alert.alert_type.replace('_', ' ')}</p>
+                                    <p className="text-sm">{alert.message}</p>
+                                </div>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-white/50 hover:bg-white border-red-200 text-red-800"
+                                onClick={async () => {
+                                    await supabase.from('admin_alert_events').update({ status: 'acknowledged', acknowledged_at: new Date().toISOString() }).eq('id', alert.id);
+                                    fetchOperationalData();
+                                    toast.success('Alerta reconhecido.');
+                                }}
+                            >
+                                Acknowledge
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* SLO Dashboard */}
+            {sloMetrics && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+                    <Card className="bg-slate-50 border-slate-200">
+                        <CardContent className="pt-4 pb-4 flex justify-between items-center">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SLO: CRITICAL ({'<'}4h)</p>
+                                <div className={`text-2xl font-bold mt-1 ${sloMetrics.critical_within_4h_pct >= 90 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {sloMetrics.critical_within_4h_pct}%
+                                </div>
+                                <p className="text-[10px] text-slate-400">Meta: 90%</p>
+                            </div>
+                            <Activity className={sloMetrics.critical_within_4h_pct >= 90 ? 'text-green-200' : 'text-red-200'} />
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-slate-50 border-slate-200">
+                        <CardContent className="pt-4 pb-4 flex justify-between items-center">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SLO: HIGH ({'<'}24h)</p>
+                                <div className={`text-2xl font-bold mt-1 ${sloMetrics.high_within_24h_pct >= 85 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {sloMetrics.high_within_24h_pct}%
+                                </div>
+                                <p className="text-[10px] text-slate-400">Meta: 85%</p>
+                            </div>
+                            <Clock className={sloMetrics.high_within_24h_pct >= 85 ? 'text-green-200' : 'text-red-200'} />
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-slate-50 border-slate-200">
+                        <CardContent className="pt-4 pb-4 flex justify-between items-center">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">TAXA DE RECORRÊNCIA</p>
+                                <div className={`text-2xl font-bold mt-1 ${sloMetrics.recurrence_rate <= 15 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {sloMetrics.recurrence_rate}%
+                                </div>
+                                <p className="text-[10px] text-slate-400">Meta: {'<'}15%</p>
+                            </div>
+                            <RefreshCw className={sloMetrics.recurrence_rate <= 15 ? 'text-green-200' : 'text-red-200'} />
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             {/* Métricas Principais */}
             {/* Alertas do Sistema */}
@@ -566,6 +659,39 @@ export default function SystemErrors() {
                                     <div className="flex gap-2">
                                         {getStatusBadge(selectedError.status)}
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Auditoria de Classificação */}
+                            <div className="bg-slate-50 p-3 rounded border border-slate-100 flex items-center justify-between text-xs">
+                                <span className="text-slate-500 font-medium">Classificação Automática Correta?</span>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant={selectedError.classification_feedback === true ? "default" : "outline"}
+                                        size="sm"
+                                        className={`h-7 px-2 ${selectedError.classification_feedback === true ? 'bg-green-600 text-white' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
+                                        onClick={async () => {
+                                            await supabase.from('admin_error_events').update({ classification_feedback: true }).eq('id', selectedError.id);
+                                            setSelectedError({ ...selectedError, classification_feedback: true });
+                                            fetchErrors();
+                                            toast.success('Feedback registrado: Correto');
+                                        }}
+                                    >
+                                        <CheckCircle2 size={12} className="mr-1" /> Sim
+                                    </Button>
+                                    <Button
+                                        variant={selectedError.classification_feedback === false ? "default" : "outline"}
+                                        size="sm"
+                                        className={`h-7 px-2 ${selectedError.classification_feedback === false ? 'bg-red-600 text-white' : 'text-red-600 border-red-200 hover:bg-red-50'}`}
+                                        onClick={async () => {
+                                            await supabase.from('admin_error_events').update({ classification_feedback: false }).eq('id', selectedError.id);
+                                            setSelectedError({ ...selectedError, classification_feedback: false });
+                                            fetchErrors();
+                                            toast.success('Feedback registrado: Incorreto');
+                                        }}
+                                    >
+                                        <XCircle size={12} className="mr-1" /> Não
+                                    </Button>
                                 </div>
                             </div>
 

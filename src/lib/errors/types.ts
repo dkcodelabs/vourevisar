@@ -50,4 +50,24 @@ export interface ErrorLogRecord {
     recoverability: string;
     is_user_visible: boolean;
     recommended_action?: string;
+    classification_feedback?: boolean;
+    severity_feedback?: boolean;
+    suggested_category?: string;
+}
+
+export interface SLOMetrics {
+    critical_within_4h_pct: number;
+    high_within_24h_pct: number;
+    recurrence_rate: number;
+    total_critical: number;
+    total_high: number;
+}
+
+export interface AlertEvent {
+    id: string;
+    alert_type: string;
+    message: string;
+    metadata: any;
+    status: 'active' | 'acknowledged' | 'resolved';
+    created_at: string;
 }

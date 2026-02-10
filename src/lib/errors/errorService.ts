@@ -11,6 +11,8 @@ import { AppErrorNormalized } from './types';
 import { getFriendlyMessage } from './errorMessageMap';
 import { classifyError } from './classifier';
 
+const MAX_METADATA_SIZE = 4096;
+
 class ErrorService {
     private static instance: ErrorService;
     private lastErrorSignature: string | null = null;
@@ -24,6 +26,14 @@ class ErrorService {
             ErrorService.instance = new ErrorService();
         }
         return ErrorService.instance;
+    }
+
+    private isIgnorableError(error: any): boolean {
+        // AbortController cancellations
+        if (error?.name === 'AbortError') return true;
+        if (error?.code === 20) return true; // DOMException: AbortError
+        if (error?.message?.includes('The user aborted a request')) return true;
+        return false;
     }
 
     /**
@@ -104,6 +114,16 @@ class ErrorService {
             ...context,
             originalError: error
         };
+
+        // 0. Noise Control (Ignorar erros inúteis)
+        if (this.isIgnorableError(error)) {
+            console.debug('[ErrorService] Erro ignorado (Noise Control):', error);
+            // Retorna um erro "dummy" normalizado para não quebrar quem espera retorno, 
+            // mas com status 'ignored' se precisássemos logar, ou apenas não persiste.
+            // Para manter contrato, vamos retornar normalizado mas NÃO persistir.
+            const ignored = this.normalizeError(rawInput);
+            return { ...ignored, isUserVisible: false };
+        }
 
         // Validação Leve (Contract Enforcement)
         const validation = validateErrorPayload(rawInput);
@@ -229,7 +249,9 @@ class ErrorService {
                 p_severity: payload.severity,
                 p_retryable: payload.retryable,
                 p_actor_user_id: payload.actor_user_id,
-                p_metadata: payload.metadata,
+                p_metadata: JSON.stringify(payload.metadata).length > MAX_METADATA_SIZE
+                    ? { ...payload.metadata, _truncated: 'Metadata exceeded limit', _original_size: JSON.stringify(payload.metadata).length }
+                    : payload.metadata,
                 p_fingerprint: payload.fingerprint,
                 p_scope: payload.scope,
                 p_category: payload.category,
@@ -241,6 +263,12 @@ class ErrorService {
 
         if (dbError) {
             console.error('Failed to log error to DB:', dbError);
+        } else {
+            // Trigger Alert Check (Fire and forget)
+            // Only for critical/high or regularly? Let's check always for now to catch recurrence
+            supabase.rpc('check_error_alerts').then(({ error }) => {
+                if (error) console.error('Failed to check alerts:', error);
+            });
         }
     }
 }
