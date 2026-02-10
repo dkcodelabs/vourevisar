@@ -28,10 +28,13 @@ import {
   Star
 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { errorService } from '@/lib/errors/errorService';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Statistics = () => {
   const navigate = useNavigate();
   const { subjects, fetchSubjects } = useApp();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const statisticsData = useAdvancedStatistics();
@@ -45,15 +48,24 @@ const Statistics = () => {
         await fetchSubjects();
         setIsLoading(false);
       } catch (error) {
-        console.error('Erro ao carregar estatísticas:', error);
+        await errorService.report(
+          error,
+          {
+            module: 'Statistics',
+            action: 'loadData',
+            userMessage: 'Erro ao carregar dados estatísticos.',
+            severity: 'high',
+            scope: 'core',
+            userId: user?.id
+          }
+        );
         setHasError(true);
         setIsLoading(false);
-        toast.error("Erro ao carregar dados estatísticos");
       }
     };
 
     loadData();
-  }, [fetchSubjects]);
+  }, [fetchSubjects, user]);
 
   if (isLoading) {
     return <LoadingSpinner message="Analisando seus dados de estudo" />;
@@ -188,13 +200,38 @@ const Statistics = () => {
 
               <Button
                 onClick={async () => {
-                  toast.info('Iniciando migração de difficulty_level...');
-                  const result = await migrateDifficultyLevels();
-                  if (result.success) {
-                    toast.success(`Migração concluída! ${result.migratedCount} tópicos migrados.`);
-                    window.location.reload(); // Recarregar para ver os dados atualizados
-                  } else {
-                    toast.error('Erro na migração. Verifique o console.');
+                  try {
+                    toast.info('Iniciando migração de difficulty_level...');
+                    const result = await migrateDifficultyLevels();
+                    if (result.success) {
+                      toast.success(`Migração concluída! ${result.migratedCount} tópicos migrados.`);
+                      window.location.reload(); // Recarregar para ver os dados atualizados
+                    } else {
+                      await errorService.report(
+                        new Error('Migration failed logically'),
+                        {
+                          module: 'Statistics',
+                          action: 'migrateDifficultyLevels',
+                          userMessage: 'Erro na migração de dificuldade.',
+                          severity: 'medium',
+                          scope: 'core',
+                          userId: user?.id,
+                          metadata: { result }
+                        }
+                      );
+                    }
+                  } catch (error) {
+                    await errorService.report(
+                      error,
+                      {
+                        module: 'Statistics',
+                        action: 'migrateDifficultyLevels',
+                        userMessage: 'Erro crítico na migração de dificuldade.',
+                        severity: 'high',
+                        scope: 'core',
+                        userId: user?.id
+                      }
+                    );
                   }
                 }}
                 variant="ghost"

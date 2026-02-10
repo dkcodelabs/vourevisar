@@ -27,7 +27,8 @@ class ErrorService {
         action: string,
         severity: ErrorSeverity = 'medium',
         actorUserId?: string,
-        metadata: Record<string, any> = {}
+        metadata: Record<string, any> = {},
+        scope: 'admin' | 'core' = 'admin'
     ): AppErrorNormalized {
         const errorId = `ERR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
@@ -51,6 +52,7 @@ class ErrorService {
             actorUserId,
             metadata: sanitizedMetadata,
             createdAt: new Date().toISOString(),
+            scope
         };
     }
 
@@ -89,12 +91,18 @@ class ErrorService {
             userId?: string;
             metadata?: Record<string, any>;
             showToast?: boolean;
+            scope?: 'admin' | 'core';
+            userMessage?: string;
         }
     ): Promise<AppErrorNormalized> {
-        const { module, action, severity = 'medium', userId, metadata = {}, showToast = true } = context;
+        const { module, action, severity = 'medium', userId, metadata = {}, showToast = true, scope = 'admin', userMessage } = context;
 
         // 1. Normalizar
-        const normalized = this.normalizeError(error, module, action, severity, userId, metadata);
+        const normalized = this.normalizeError(error, module, action, severity, userId, metadata, scope);
+
+        if (userMessage) {
+            normalized.userMessage = userMessage;
+        }
 
         // 2. Log no Console (apenas Dev ou se crítico)
         if (import.meta.env.DEV) {
@@ -185,7 +193,8 @@ class ErrorService {
                 p_retryable: error.retryable,
                 p_actor_user_id: actorId,
                 p_metadata: error.metadata,
-                p_fingerprint: fingerprint
+                p_fingerprint: fingerprint,
+                p_scope: error.scope
             });
 
         if (dbError) {

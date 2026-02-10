@@ -18,8 +18,11 @@ import NotesModal from '@/components/reviews/NotesModal';
 import { EditableTopicName } from '@/components/EditableTopicName';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
 import TopicListItem from '@/components/topics/TopicListItem';
+import { errorService } from '@/lib/errors/errorService';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Topics = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { subjects, deleteTopic, updateTopic, isLoading } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
@@ -203,8 +206,17 @@ const Topics = () => {
       await updateTopic(subject.id, topicId, { name: newName });
       toast.success('Nome do tópico atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao atualizar tópico:', error);
-      toast.error('Erro ao atualizar nome do tópico');
+      await errorService.report(
+        error,
+        {
+          module: 'Topics',
+          action: 'handleEditTopic',
+          userMessage: 'Erro ao atualizar nome do tópico',
+          severity: 'medium',
+          scope: 'core',
+          userId: user?.id
+        }
+      );
     }
   };
 
@@ -235,8 +247,17 @@ const Topics = () => {
       toast.success('Tópico excluído com sucesso!');
       setDeleteModal({ isOpen: false, topic: null });
     } catch (error) {
-      console.error('Erro ao deletar tópico:', error);
-      toast.error('Erro ao excluir tópico');
+      await errorService.report(
+        error,
+        {
+          module: 'Topics',
+          action: 'confirmDelete',
+          userMessage: 'Erro ao excluir tópico',
+          severity: 'high',
+          scope: 'core',
+          userId: user?.id
+        }
+      );
     }
   };
 
@@ -494,7 +515,7 @@ const Topics = () => {
                               last_search_context: topic.last_search_context
                             }}
                             onEdit={(id, newName) => {
-                              updateTopic(topic.subjectId, id, { name: newName });
+                              handleEditTopic(id, newName);
                             }}
                             onDelete={(id) => {
                               const topicToDelete = allTopics.find(t => t.id === id);

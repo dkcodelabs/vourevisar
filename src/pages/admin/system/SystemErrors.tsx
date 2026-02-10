@@ -45,6 +45,7 @@ export default function SystemErrors() {
     const [filters, setFilters] = useState({
         status: 'all',
         severity: 'all',
+        scope: 'all',
         search: '',
     });
     const [selectedError, setSelectedError] = useState<ErrorLogRecord | null>(null);
@@ -106,18 +107,20 @@ export default function SystemErrors() {
             .order('created_at', { ascending: false })
             .limit(50); // Pagination in next phase
 
-        if (statusFilter === 'active') {
-            query = query.neq('status', 'resolved');
-        } else if (statusFilter === 'resolved') {
-            query = query.eq('status', 'resolved');
-        } else if (statusFilter !== 'all') { // Existing filters.status logic
-            query = query.eq('status', statusFilter);
+        if (filters.status !== 'all') {
+            if (filters.status === 'active') {
+                query = query.neq('status', 'resolved');
+            } else {
+                query = query.eq('status', filters.status);
+            }
         }
 
-        if (strictSeverityFilter) {
-            query = query.eq('severity', strictSeverityFilter);
-        } else if (filters.severity !== 'all') { // Existing filters.severity logic
+        if (filters.severity !== 'all') {
             query = query.eq('severity', filters.severity);
+        }
+
+        if (filters.scope !== 'all') {
+            query = query.eq('scope', filters.scope);
         }
 
         if (filters.search) {
@@ -177,6 +180,14 @@ export default function SystemErrors() {
         }
     };
 
+    const getScopeBadge = (scope: string) => {
+        switch (scope) {
+            case 'admin': return <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200">Admin</Badge>;
+            case 'core': return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Core</Badge>;
+            default: return <Badge variant="outline">{scope}</Badge>;
+        }
+    };
+
     const formatDate = (dateString: string) => {
         try {
             return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: ptBR });
@@ -209,8 +220,7 @@ export default function SystemErrors() {
             {usageMetrics.criticalCount > 0 && (
                 <div
                     onClick={() => {
-                        setStrictSeverityFilter('critical');
-                        setStatusFilter('all'); // Mostrar todos os críticos
+                        setFilters(prev => ({ ...prev, severity: 'critical', status: 'all' }));
                     }}
                     className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 animate-pulse-slow cursor-pointer hover:bg-red-100 transition-colors">
                     <AlertTriangle className="text-red-600 w-5 h-5 mt-0.5" />
@@ -348,6 +358,22 @@ export default function SystemErrors() {
                                     <SelectItem value="low">Baixo</SelectItem>
                                 </SelectContent>
                             </Select>
+                            <Select
+                                value={filters.scope}
+                                onValueChange={(val) => setFilters(prev => ({ ...prev, scope: val }))}
+                            >
+                                <SelectTrigger className="w-full sm:w-[150px]">
+                                    <div className="flex items-center gap-2">
+                                        <Activity size={14} />
+                                        <SelectValue placeholder="Escopo" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos Escopos</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                    <SelectItem value="core">Core (Aluno)</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </CardHeader>
@@ -358,6 +384,7 @@ export default function SystemErrors() {
                                 <TableRow>
                                     <TableHead className="w-[140px]">Data/Hora</TableHead>
                                     <TableHead>Error ID</TableHead>
+                                    <TableHead>Escopo</TableHead>
                                     <TableHead>Módulo/Ação</TableHead>
                                     <TableHead>Mensagem Usuário</TableHead>
                                     <TableHead>Severidade</TableHead>
@@ -388,6 +415,9 @@ export default function SystemErrors() {
                                                 </div>
                                             </TableCell>
                                             <TableCell className="font-mono text-xs">{error.error_id}</TableCell>
+                                            <TableCell>
+                                                {getScopeBadge(error.scope || 'admin')}
+                                            </TableCell>
                                             <TableCell className="text-xs">
                                                 <div className="font-semibold">{error.module}</div>
                                                 <div className="text-slate-500">{error.action}</div>
@@ -442,6 +472,10 @@ export default function SystemErrors() {
                                 <div className="space-y-1">
                                     <label className="text-xs font-semibold text-slate-500 uppercase">Módulo</label>
                                     <p className="text-sm font-medium">{selectedError.module}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Escopo</label>
+                                    <div>{getScopeBadge(selectedError.scope || 'admin')}</div>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-xs font-semibold text-slate-500 uppercase">Ação</label>

@@ -41,6 +41,7 @@ import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
+import { errorService } from '@/lib/errors/errorService';
 
 const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) {
@@ -153,7 +154,17 @@ const Subjects = () => {
 
       console.log('✅ DATA LOADED:', { subjectsCount: transformedSubjects.length });
     } catch (error) {
-      console.error('❌ ERROR:', error);
+      await errorService.report(
+        error,
+        {
+          module: 'Subjects',
+          action: 'loadSubjects',
+          userMessage: 'Erro ao carregar matérias.',
+          severity: 'high',
+          scope: 'core',
+          userId: user.id
+        }
+      );
     } finally {
       setIsLoading(false);
       setDataLoaded(true);
@@ -253,8 +264,17 @@ const Subjects = () => {
         }
       }, 300);
     } catch (error) {
-      console.error('Erro ao adicionar tópico:', error);
-      toast.error('Erro ao adicionar tópico');
+      await errorService.report(
+        error,
+        {
+          module: 'Subjects',
+          action: 'handleSaveNewTopic',
+          userMessage: 'Erro ao adicionar tópico',
+          severity: 'medium',
+          scope: 'core',
+          userId: user?.id
+        }
+      );
     }
   };
 
@@ -409,8 +429,7 @@ const Subjects = () => {
       if (updatedSubject) {
         setTopicsModal(prev => ({ ...prev, subject: updatedSubject }));
       }
-    }
-  }, [subjects]);
+    }, [subjects, topicsModal.isOpen, topicsModal.subject]);
 
   // Focar o input quando necessário
   useLayoutEffect(() => {
@@ -516,10 +535,17 @@ const Subjects = () => {
         setEditingSubjectId(null);
         setEditingName('');
       } catch (error) {
-        console.error('Erro ao atualizar matéria:', error);
-        toast.error("Erro ao atualizar matéria. Tente novamente.", {
-          duration: 3000
-        });
+        await errorService.report(
+          error,
+          {
+            module: 'Subjects',
+            action: 'handleSaveEdit',
+            userMessage: 'Erro ao atualizar matéria. Tente novamente.',
+            severity: 'medium',
+            scope: 'core',
+            userId: user.id
+          }
+        );
       }
     }
   };
@@ -562,10 +588,17 @@ const Subjects = () => {
 
       await refreshData();
     } catch (error) {
-      console.error('Erro ao excluir matéria:', error);
-      toast.error("Erro ao excluir matéria. Tente novamente.", {
-        duration: 3000
-      });
+      await errorService.report(
+        error,
+        {
+          module: 'Subjects',
+          action: 'handleDelete',
+          userMessage: 'Erro ao excluir matéria. Tente novamente.',
+          severity: 'high',
+          scope: 'core',
+          userId: user.id
+        }
+      );
     }
   };
 
@@ -599,8 +632,17 @@ const Subjects = () => {
       toast.success('Tópico excluído', { duration: 2000 });
       setTopicToDelete(null);
     } catch (error) {
-      console.error('Erro ao excluir tópico:', error);
-      toast.error('Erro ao excluir tópico');
+      await errorService.report(
+        error,
+        {
+          module: 'Subjects',
+          action: 'confirmDeleteTopic',
+          userMessage: 'Erro ao excluir tópico',
+          severity: 'medium',
+          scope: 'core',
+          userId: user?.id
+        }
+      );
     }
   };
 
@@ -629,8 +671,17 @@ const Subjects = () => {
         setEditingTopicName('');
         toast.success('Tópico atualizado', { duration: 1500 });
       } catch (error) {
-        console.error('Erro ao atualizar tópico:', error);
-        toast.error('Erro ao atualizar tópico');
+        await errorService.report(
+          error,
+          {
+            module: 'Subjects',
+            action: 'handleSaveTopicEdit',
+            userMessage: 'Erro ao atualizar tópico',
+            severity: 'medium',
+            scope: 'core',
+            userId: user?.id
+          }
+        );
       }
     }
   };
@@ -703,8 +754,17 @@ const Subjects = () => {
       }
       */
     } catch (error) {
-      console.error('Erro ao reordenar ciclo:', error);
-      toast.error("Erro ao atualizar ordem do ciclo");
+      await errorService.report(
+        error,
+        {
+          module: 'Subjects',
+          action: 'handleDragEnd',
+          userMessage: 'Erro ao atualizar ordem do ciclo',
+          severity: 'medium',
+          scope: 'core',
+          userId: user?.id
+        }
+      );
       // Rollback em caso de erro
       setUserCycle(previousUserCycle);
       if (user && previousUserCycle) {

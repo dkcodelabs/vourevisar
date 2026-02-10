@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { toast } from '@/lib/toast';
+import { errorService } from '@/lib/errors/errorService';
 import { Loader2, AlertCircle, X, Target, BookOpen } from 'lucide-react';
 // Removido hook de visibilidade que causava recarregamentos
 
@@ -152,7 +153,17 @@ export const StudyCycleContent: React.FC = () => {
           await refreshCycleData();
         }
       } catch (error) {
-        console.error('Erro ao carregar dados do ciclo:', error);
+        await errorService.report(
+          error,
+          {
+            module: 'StudyCycle',
+            action: 'loadInitialData',
+            userMessage: 'Erro ao carregar dados do ciclo.',
+            severity: 'high',
+            scope: 'core',
+            userId: user?.id
+          }
+        );
       }
     };
 
@@ -301,8 +312,17 @@ export const StudyCycleContent: React.FC = () => {
       }));
 
     } catch (error) {
-      console.error('❌ Erro ao completar sessão com progresso:', error);
-      toast.error('Erro ao completar sessão');
+      await errorService.report(
+        error,
+        {
+          module: 'StudyCycle',
+          action: 'handleCompleteSessionWithProgress',
+          userMessage: 'Erro ao completar sessão.',
+          severity: 'high',
+          scope: 'core',
+          userId: user?.id
+        }
+      );
     }
   }, [handleCompleteSessionData, subjects, getCyclePosition, user]);
 
@@ -317,8 +337,17 @@ export const StudyCycleContent: React.FC = () => {
       // que reviewCount seja calculado corretamente
       await openReviewModal(topicId);
     } catch (error) {
-      console.error('Erro ao abrir modal de revisão:', error);
-      toast.error('Erro ao abrir modal de revisão');
+      await errorService.report(
+        error,
+        {
+          module: 'StudyCycle',
+          action: 'handleCheckboxClick',
+          userMessage: 'Erro ao abrir modal de revisão.',
+          severity: 'medium',
+          scope: 'core',
+          userId: user?.id
+        }
+      );
     }
   }, [openReviewModal]);
 
@@ -403,10 +432,24 @@ export const StudyCycleContent: React.FC = () => {
   }, []);
 
   const handleOpenStatsModal = useCallback(async () => {
-    const stats = await getCycleStats();
-    setCurrentStats(stats);
-    setShowStatsModal(true);
-  }, [getCycleStats]);
+    try {
+      const stats = await getCycleStats();
+      setCurrentStats(stats);
+      setShowStatsModal(true);
+    } catch (error) {
+      await errorService.report(
+        error,
+        {
+          module: 'StudyCycle',
+          action: 'handleOpenStatsModal',
+          userMessage: 'Erro ao carregar estatísticas.',
+          severity: 'low',
+          scope: 'core',
+          userId: user?.id
+        }
+      );
+    }
+  }, [getCycleStats, user]);
 
 
 
@@ -686,13 +729,41 @@ export const StudyCycleContent: React.FC = () => {
         isOpen={difficultyModalData.isOpen}
         onClose={closeDifficultyModal}
         onSubmit={async (difficulty) => {
-          await submitDifficultyRating(difficulty);
-          setTimeout(() => refreshCycleData(), 500);
+          try {
+            await submitDifficultyRating(difficulty);
+            setTimeout(() => refreshCycleData(), 500);
+          } catch (error) {
+            await errorService.report(
+              error,
+              {
+                module: 'StudyCycle',
+                action: 'DifficultyRatingModal.onSubmit',
+                userMessage: 'Erro ao salvar avaliação de dificuldade.',
+                severity: 'medium',
+                scope: 'core',
+                userId: user?.id
+              }
+            );
+          }
         }}
         onConfirmReview={difficultyModalData.reviewCount > 0 ? async (difficulty) => {
-          await markTopicAsReviewed(difficultyModalData.topicId, difficulty);
-          closeDifficultyModal();
-          setTimeout(() => refreshCycleData(), 500);
+          try {
+            await markTopicAsReviewed(difficultyModalData.topicId, difficulty);
+            closeDifficultyModal();
+            setTimeout(() => refreshCycleData(), 500);
+          } catch (error) {
+            await errorService.report(
+              error,
+              {
+                module: 'StudyCycle',
+                action: 'DifficultyRatingModal.onConfirmReview',
+                userMessage: 'Erro ao salvar revisão.',
+                severity: 'medium',
+                scope: 'core',
+                userId: user?.id
+              }
+            );
+          }
         } : undefined}
         topicName={difficultyModalData.topicName}
         subjectName={difficultyModalData.subjectName}

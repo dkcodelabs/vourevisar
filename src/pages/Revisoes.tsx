@@ -25,6 +25,7 @@ import { SpacedRepetitionInfoModal } from '@/components/reviews/SpacedRepetition
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import NotesModal from '@/components/reviews/NotesModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
+import { errorService } from '@/lib/errors/errorService';
 
 type ViewTab = 'FOCUS' | 'FUTURE' | 'COMPLETED' | 'SUBJECTS' | 'ALL';
 
@@ -78,37 +79,53 @@ export const Revisoes = () => {
   const { data: reviewData, refetch: refetchHistory } = useQuery({
     queryKey: ['reviews-page-history', user?.id],
     queryFn: async () => {
-      if (!user) throw new Error('User not authenticated');
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('id')
-        .eq('user_id', user.id);
+      try {
+        if (!user) throw new Error('User not authenticated');
+        const { data: subjectsData, error: subjectsError } = await supabase
+          .from('subjects')
+          .select('id')
+          .eq('user_id', user.id);
 
-      if (subjectsError) throw subjectsError;
-      if (!subjectsData || subjectsData.length === 0) return [];
+        if (subjectsError) throw subjectsError;
+        if (!subjectsData || subjectsData.length === 0) return [];
 
-      const userSubjectIds = subjectsData.map(s => s.id);
+        const userSubjectIds = subjectsData.map(s => s.id);
 
-      // @ts-ignore
-      const response = await (supabase as any)
-        .from('topic_review_history')
-        .select(`
+        // @ts-ignore
+        const response = await (supabase as any)
+          .from('topic_review_history')
+          .select(`
           id, topic_id, review_stage, reviewed_at,
           topics!inner (id, name, subject_id)
         `)
-        .in('topics.subject_id', userSubjectIds)
-        // Order by review_date or reviewed_at
-        .order('reviewed_at', { ascending: false });
+          .in('topics.subject_id', userSubjectIds)
+          // Order by review_date or reviewed_at
+          .order('reviewed_at', { ascending: false });
 
-      if (response.error) throw response.error;
-      return response.data?.map((review: any) => ({
-        id: review.id,
-        topic_id: review.topic_id,
-        review_stage: review.review_stage,
-        reviewed_at: review.reviewed_at,
-        topic_name: review.topics?.name,
-        subject_id: review.topics?.subject_id
-      })) || [];
+        if (response.error) throw response.error;
+        return response.data?.map((review: any) => ({
+          id: review.id,
+          topic_id: review.topic_id,
+          review_stage: review.review_stage,
+          reviewed_at: review.reviewed_at,
+          topic_name: review.topics?.name,
+          subject_id: review.topics?.subject_id
+        })) || [];
+      } catch (error) {
+        // Log the error but rethrow so react-query handles the state
+        await errorService.report(
+          error,
+          {
+            module: 'Revisoes',
+            action: 'fetchHistory',
+            userMessage: 'Erro ao carregar histórico de revisões.',
+            severity: 'low',
+            scope: 'core',
+            userId: user?.id
+          }
+        );
+        throw error;
+      }
     },
     enabled: !!user
   });
@@ -349,6 +366,17 @@ export const Revisoes = () => {
           const totalMinutes = totalDurationMs < 60000 ? 1 : Math.ceil(totalDurationMs / 60000);
           await openReviewModalHook(id, totalMinutes);
         } catch (error) {
+          await errorService.report(
+            error,
+            {
+              module: 'Revisoes',
+              action: 'handleMarkCompleted',
+              userMessage: 'Erro ao abrir modal de revisão.',
+              severity: 'medium',
+              scope: 'core',
+              userId: user?.id
+            }
+          );
           resumeTimer();
         } finally {
           setLoadingActions(prev => { const n = { ...prev }; delete n[id]; return n; });
@@ -530,7 +558,17 @@ export const Revisoes = () => {
             await markTopicAsReviewed(difficultyModalData.topicId, d, dur, difficultyModalData.reviewCount - 1);
             stopTimer(); closeDifficultyModal(); setTimeout(() => { refreshData(); refetch(); }, 500);
           } catch (e: any) {
-            console.error(e);
+            await errorService.report(
+              e,
+              {
+                module: 'Revisoes',
+                action: 'onConfirmReview',
+                userMessage: 'Erro ao salvar revisão.',
+                severity: 'high',
+                scope: 'core',
+                userId: user?.id
+              }
+            );
             if (e.message?.includes('SYNC_ERROR')) toast.warning("Sincronismo: Já processada.");
             closeDifficultyModal(); stopTimer(); setTimeout(() => { refreshData(); refetch(); }, 500);
           }

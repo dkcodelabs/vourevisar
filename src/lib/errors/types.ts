@@ -14,6 +14,7 @@ export interface AppErrorNormalized {
     targetUserId?: string;
     metadata?: Record<string, any>;
     createdAt: string;
+    scope: 'admin' | 'core';
 }
 
 export interface ErrorLogRecord {
@@ -35,4 +36,5 @@ export interface ErrorLogRecord {
     last_seen_at: string;
     created_at: string;
     updated_at: string;
+    scope: 'admin' | 'core';
 }
