@@ -24,6 +24,8 @@ import { Check } from "lucide-react";
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ResetCycleConfirmDialog } from '@/components/ResetCycleConfirmDialog';
+import { errorService } from '@/lib/errors/errorService';
+import { toastGate } from '@/lib/errors/toastGate';
 
 
 interface UserCycle {
@@ -123,7 +125,7 @@ const Settings = () => {
     } catch (err: any) {
       console.error('Erro ao buscar configurações:', err);
       setError('Não foi possível carregar suas configurações. Por favor, tente novamente mais tarde.');
-      toast.error("Erro ao carregar configurações");
+      errorService.report(err, { module: 'settings', action: 'fetch', userMessage: "Erro ao carregar configurações" });
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +177,7 @@ const Settings = () => {
       }, 1500);
     } catch (err: any) {
       console.error('❌ Erro ao resetar ciclo:', err);
-      toast.error(`Não foi possível resetar o ciclo: ${err.message || 'Erro desconhecido'}`);
+      errorService.report(err, { module: 'settings', action: 'reset_cycle', userMessage: `Não foi possível resetar o ciclo: ${err.message || 'Erro desconhecido'}` });
     } finally {
       setIsResettingCycle(false);
     }
@@ -218,7 +220,7 @@ const Settings = () => {
         toast.success(`Agora você estudará ${newValue} matéria${newValue > 1 ? 's' : ''} por dia`);
       } catch (err) {
         console.error('Erro ao salvar subjects_per_day:', err);
-        toast.error("Não foi possível atualizar a configuração");
+        toastGate.notifyError("Não foi possível atualizar a configuração", "SET-UPD-FAIL", { severity: 'low' });
         // Reverter o valor local se houve erro
         setSettings(prev => ({
           ...prev,
@@ -252,7 +254,7 @@ const Settings = () => {
       toast.success("Perfil de revisão atualizado com sucesso!");
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error);
-      toast.error("Erro ao atualizar perfil de revisão");
+      errorService.report(error, { module: 'settings', action: 'update_profile', userMessage: "Erro ao atualizar perfil de revisão" });
     }
   };
 
@@ -282,7 +284,7 @@ const Settings = () => {
     } catch (err: any) {
       console.error('Erro ao salvar configurações:', err);
       setError('Não foi possível salvar suas configurações. Por favor, tente novamente mais tarde.');
-      toast.error("Não foi possível salvar suas configurações");
+      errorService.report(err, { module: 'settings', action: 'save_all', userMessage: "Não foi possível salvar suas configurações" });
     } finally {
       setIsSaving(false);
     }
@@ -293,7 +295,7 @@ const Settings = () => {
 
   const handleClearAll = async () => {
     if (!user) {
-      toast.error("Usuário não autenticado.");
+      toastGate.notifyError("Usuário não autenticado.", "AUTH-002", { severity: 'low' });
       return;
     }
 
@@ -387,7 +389,7 @@ const Settings = () => {
         }, 1000);
       } catch (err) {
         console.error('Erro ao limpar sistema:', err);
-        toast.error("Ocorreu um erro ao tentar limpar o sistema. Tente novamente.");
+        errorService.report(err, { module: 'settings', action: 'clear_all', userMessage: "Ocorreu um erro ao tentar limpar o sistema." });
       }
     }
   };
@@ -832,7 +834,7 @@ const Settings = () => {
                         className="w-full justify-start border-blue-500 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/40"
                         onClick={async () => {
                           if (!user) {
-                            toast.error("Usuário não autenticado.");
+                            toastGate.notifyError("Usuário não autenticado.", "AUTH-MISS-RESET", { severity: 'low' });
                             return;
                           }
                           if (window.confirm("Deseja reiniciar o ciclo de revisões? O progresso será zerado para permitir um novo planejamento, mas seus tópicos serão mantidos.")) {
@@ -939,9 +941,9 @@ const Settings = () => {
                                 window.location.reload();
                               }, 1500);
 
-                            } catch (err) {
+                            } catch (err: any) {
                               console.error('❌ Erro ao limpar revisões:', err);
-                              toast.error(`Erro ao limpar revisões: ${err.message || 'Erro desconhecido'}`);
+                              errorService.report(err, { module: 'settings', action: 'reset_reviews', userMessage: "Erro ao limpar revisões" });
                             }
                           }
                         }}

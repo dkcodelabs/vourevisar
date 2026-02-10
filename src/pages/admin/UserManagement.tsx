@@ -59,6 +59,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserRole } from '@/hooks/useUserRole';
 import { UserActivityList } from '@/components/admin/UserActivityList';
 import { errorService } from '@/lib/errors/errorService';
+import { toastGate } from '@/lib/errors/toastGate';
 
 const UserManagement = () => {
     const { users: dbUsers, loading, error, refetch } = useAdminUsers();
@@ -134,7 +135,7 @@ const UserManagement = () => {
 
         // Hardcoded protection
         if (selectedUser?.email && PROTECTED_EMAILS.includes(selectedUser.email)) {
-            toast.error("Este usuário é protegido e não pode ser arquivado.");
+            toastGate.notifyError("Este usuário é protegido e não pode ser arquivado.", "USER-PROT-01", { severity: 'low' });
             return;
         }
 
@@ -226,7 +227,7 @@ const UserManagement = () => {
 
     const handleToggleStatus = async (user: AdminUser) => {
         if (PROTECTED_EMAILS.includes(user.email || '')) {
-            toast.error("Este usuário é protegido e seu acesso não pode ser alterado.");
+            toastGate.notifyError("Este usuário é protegido e seu acesso não pode ser alterado.", "USER-PROT-02", { severity: 'low' });
             return;
         }
 
@@ -249,7 +250,8 @@ const UserManagement = () => {
 
             if (subError) {
                 console.error('Error updating subscription:', subError);
-                toast.error('Acesso alterado, mas houve erro ao atualizar assinatura.');
+                // Non-blocking error, user access changed but sub failed
+                toastGate.notifyError('Acesso alterado, mas houve erro ao atualizar assinatura.', "USER-SUB-ERR", { severity: 'medium' });
             }
 
             // 3. Optimistic Update
@@ -278,12 +280,12 @@ const UserManagement = () => {
 
     const handleResetPassword = async (user: AdminUser) => {
         if (!user.email || user.email.includes('No email')) {
-            toast.error('Usuário sem email válido para recuperação.');
+            toastGate.notifyError('Usuário sem email válido para recuperação.', "USER-NO-EMAIL", { severity: 'low' });
             return;
         }
 
         if (PROTECTED_EMAILS.includes(user.email)) {
-            toast.error("Este usuário é protegido e a senha não pode ser redefinida por aqui.");
+            toastGate.notifyError("Este usuário é protegido e a senha não pode ser redefinida por aqui.", "USER-PROT-03", { severity: 'low' });
             return;
         }
 

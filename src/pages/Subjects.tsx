@@ -23,10 +23,16 @@ import {
   List,
   Check,
   X,
-  Circle
+  Circle,
+  Edit2, // Added
+  AlertCircle, // Added
+  Clock, // Added
+  CalendarDays, // Added
+  MoreHorizontal // Added
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate'; // Added
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '@/components/SortableItem';
@@ -114,7 +120,7 @@ const Subjects = () => {
 
     if (!user) return;
 
-    const cacheKey = `subjects_${user.id}`;
+    const cacheKey = `subjects_${user.id} `;
     const cached = localStorage.getItem(cacheKey);
 
     if (cached) {
@@ -135,7 +141,7 @@ const Subjects = () => {
     try {
       const { data } = await supabase
         .from('subjects')
-        .select(`*, topics (*, difficulty_level)`)
+        .select(`*, topics(*, difficulty_level)`)
         .eq('user_id', user.id)
         .order('priority', { ascending: true })
         .order('created_at', { foreignTable: 'topics', ascending: true });
@@ -173,7 +179,7 @@ const Subjects = () => {
 
   const refreshData = async () => {
     if (user) {
-      localStorage.removeItem(`subjects_${user.id}`);
+      localStorage.removeItem(`subjects_${user.id} `);
       await loadSubjects();
     }
   };
@@ -254,7 +260,7 @@ const Subjects = () => {
 
       // Scroll para o novo tópico após um pequeno delay para garantir que o DOM foi atualizado
       setTimeout(() => {
-        const subjectCard = document.querySelector(`[data-subject-id="${subjectId}"]`);
+        const subjectCard = document.querySelector(`[data - subject - id= "${subjectId}"]`);
         if (subjectCard) {
           const topicItems = subjectCard.querySelectorAll('[data-topic-item]');
           const lastTopic = topicItems[topicItems.length - 1];
@@ -314,7 +320,7 @@ const Subjects = () => {
     const loadUserCycle = async () => {
       if (!user) return;
 
-      const cacheKey = `user_cycle_cache_${user.id}`;
+      const cacheKey = `user_cycle_cache_${user.id} `;
 
       // 1. Tentar ler do cache primeiro para evitar flicker
       const cached = localStorage.getItem(cacheKey);
@@ -366,7 +372,7 @@ const Subjects = () => {
   const expandedSubjectList = useMemo(() => {
     if (!userCycle?.ciclo_atual || !localSubjects.length) {
       return localSubjects.map(subject => ({
-        id: `${subject.id}-0`,
+        id: `${subject.id} -0`,
         subject,
         viewIndex: 0,
         isView: false
@@ -391,7 +397,7 @@ const Subjects = () => {
         .filter((id: string) => id === subjectId).length;
 
       expanded.push({
-        id: `${subject.id}-${cycleIndex}`,
+        id: `${subject.id} -${cycleIndex} `,
         subject,
         viewIndex,
         isView: viewIndex > 0
@@ -403,7 +409,7 @@ const Subjects = () => {
     localSubjects.forEach(subject => {
       if (!subjectsInCycle.has(subject.id)) {
         expanded.push({
-          id: `${subject.id}-0`,
+          id: `${subject.id} -0`,
           subject,
           viewIndex: 0,
           isView: false
@@ -495,12 +501,9 @@ const Subjects = () => {
       // Limpar o input imediatamente
       setNewSubjectName('');
 
-    } catch (error) {
-      console.error('Erro ao salvar matéria:', error);
-      // Mostrar toast apenas em caso de erro real
-      toast.error("Erro ao salvar matéria. Tente novamente.", {
-        duration: 3000
-      });
+    } catch (error: any) {
+      console.error('Erro ao adicionar matéria:', error);
+      errorService.report(error, { module: 'subjects', action: 'add', userMessage: "Erro ao salvar matéria. Tente novamente." });
     } finally {
       setIsAddingSubject(false);
 
@@ -654,7 +657,7 @@ const Subjects = () => {
 
   const handleSaveTopicEdit = async () => {
     if (!editingTopicName.trim()) {
-      toast.error('O nome do tópico não pode estar vazio');
+      toastGate.notifyError('O nome do tópico não pode estar vazio', 'SUB-VAL-01', { severity: 'low' });
       return;
     }
 
@@ -671,18 +674,8 @@ const Subjects = () => {
         setEditingTopicId(null);
         setEditingTopicName('');
         toast.success('Tópico atualizado', { duration: 1500 });
-      } catch (error) {
-        await errorService.report(
-          error,
-          {
-            module: 'Subjects',
-            action: 'handleSaveTopicEdit',
-            userMessage: 'Erro ao atualizar tópico',
-            severity: 'medium',
-            scope: 'core',
-            userId: user?.id
-          }
-        );
+      } catch (error: any) {
+        errorService.report(error, { module: 'subjects', action: 'update_topic', userMessage: "Erro ao atualizar tópico" });
       }
     }
   };
@@ -722,7 +715,7 @@ const Subjects = () => {
 
       // Update Cache Immediately
       if (user) {
-        localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(newUserCycle));
+        localStorage.setItem(`user_cycle_cache_${user.id} `, JSON.stringify(newUserCycle));
       }
     }
 
@@ -769,7 +762,7 @@ const Subjects = () => {
       // Rollback em caso de erro
       setUserCycle(previousUserCycle);
       if (user && previousUserCycle) {
-        localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(previousUserCycle));
+        localStorage.setItem(`user_cycle_cache_${user.id} `, JSON.stringify(previousUserCycle));
       }
     }
   };
@@ -818,7 +811,7 @@ const Subjects = () => {
   };
 
   const handleViewTopics = (subject: Subject) => {
-    navigate(`/materias/${subject.id}/topicos`);
+    navigate(`/ materias / ${subject.id}/topicos`);
   };
 
   const toggleExpand = (itemId: string) => {
@@ -866,9 +859,10 @@ const Subjects = () => {
           setUserCycle(cycleData);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Erro genérico
       console.error('Erro ao adicionar visualização:', error);
-      toast.error('Erro ao adicionar visualização da matéria');
+      errorService.report(error, { module: 'subjects', action: 'add_topic_view', userMessage: "Erro ao adicionar visualização da matéria" });
     }
   };
 

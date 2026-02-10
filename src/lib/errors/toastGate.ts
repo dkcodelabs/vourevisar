@@ -76,7 +76,8 @@ class ToastGate {
         }
 
         // 3. Concurrency Check (Max Limit)
-        this.enforceConcurrencyLimit(severity);
+        const allowed = this.enforceConcurrencyLimit(severity);
+        if (!allowed) return;
 
         // 4. Emit New Toast
         this.emitToast(message, errorId, severity, flowKey);
@@ -106,7 +107,7 @@ class ToastGate {
         console.debug('[ToastGate] Toast updated (Consolidation):', state.toastId, state.count);
     }
 
-    private enforceConcurrencyLimit(incomingSeverity: ErrorSeverity) {
+    private enforceConcurrencyLimit(incomingSeverity: ErrorSeverity): boolean {
         // Clean up tracking of inactive toasts first
         for (const [key, state] of this.activeToasts.entries()) {
             if (!toast.isActive(state.toastId)) {
@@ -114,7 +115,7 @@ class ToastGate {
             }
         }
 
-        if (this.activeToasts.size < MAX_CONCURRENT_TOASTS) return;
+        if (this.activeToasts.size < MAX_CONCURRENT_TOASTS) return true;
 
         // If full, decide who to evict
         // Priority: Critical > High > Medium > Low
@@ -162,9 +163,10 @@ class ToastGate {
                 // but user asked "Toast with higher severity replaces...".
                 // So if incoming is LOWER, it gets suppressed.
                 console.debug('[ToastGate] Incoming error suppressed (Low Priority & Full)', incomingSeverity);
-                throw new Error('ToastGate: Suppressed'); // Internal check to skip emit
+                return false; // Silently ignore
             }
         }
+        return true;
     }
 
     private emitToast(message: string, errorId: string, severity: ErrorSeverity, flowKey: string) {
@@ -185,6 +187,7 @@ class ToastGate {
         // Actually, we can't easily get the ID back from toast.error if we need it synchronously for the map?
         // react-toastify returns id synchronously.
 
+        // eslint-disable-next-line no-restricted-syntax
         const toastId = toast.error(fullMessage, {
             autoClose: severity === 'critical' ? false : 6000, // Critical stays until dismissed
             onClose: () => {
@@ -203,6 +206,15 @@ class ToastGate {
         });
 
         console.debug('[ToastGate] Toast emitted:', toastId, flowKey);
+    }
+
+    /**
+     * Resets internal state for testing purposes.
+     * @internal
+     */
+    public resetForTesting() {
+        this.activeToasts.clear();
+        this.recentFingerprints.clear();
     }
 }
 

@@ -40,6 +40,7 @@ import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export default function SystemErrors() {
     const [errors, setErrors] = useState<ErrorLogRecord[]>([]);
@@ -102,7 +103,7 @@ export default function SystemErrors() {
             .in('id', ids);
 
         if (error) {
-            toast.error("Falha na ação em lote.");
+            toastGate.notifyError("Falha na ação em lote.", "SYS-BATCH-ERR", { severity: 'medium', flowKey: 'sys-batch' });
         } else {
             toast.success(`${ids.length} itens atualizados para ${newStatus}.`);
             setSelectedIds(new Set());
@@ -205,8 +206,8 @@ export default function SystemErrors() {
             if (error) throw error;
             toast.success(`${data} logs antigos removidos.`);
             fetchErrors();
-        } catch (err) {
-            toast.error("Erro ao limpar logs.");
+        } catch (err: any) {
+            toastGate.notifyError("Erro ao limpar logs.", "SYS-CLEAN-ERR", { severity: 'medium', flowKey: 'sys-cleanup' });
             console.error(err);
         }
     };
@@ -254,7 +255,7 @@ export default function SystemErrors() {
         const { data, error } = await query;
 
         if (error) {
-            toast.error('Erro ao carregar logs de erro');
+            toastGate.notifyError('Erro ao carregar logs de erro', 'SYS-FETCH-ERR', { severity: 'medium', flowKey: 'sys-fetch' });
             console.error(error);
         } else {
             setErrors(data as ErrorLogRecord[]);
@@ -274,7 +275,7 @@ export default function SystemErrors() {
             .eq('id', id);
 
         if (error) {
-            toast.error('Erro ao atualizar status');
+            toastGate.notifyError('Erro ao atualizar status', 'SYS-UPDATE-ERR', { severity: 'low', flowKey: 'sys-update' });
         } else {
             toast.success(`Status atualizado para ${newStatus}`);
             fetchErrors();

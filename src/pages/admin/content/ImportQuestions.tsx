@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { toast } from '@/lib/toast'; // Using local toast wrapper
+import { toastGate } from '@/lib/errors/toastGate';
 import { Loader2, Upload, FileText, CheckCircle, Save, AlertCircle, Trash2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,7 +29,7 @@ const ImportQuestions = () => {
 
     const processPDF = async () => {
         if (!file || !apiKey) {
-            toast.error('Por favor, forneça a API Key e selecione um arquivo PDF.');
+            toastGate.notifyError('Por favor, forneça a API Key e selecione um arquivo PDF.', 'IMP-VAL-01', { severity: 'low' });
             return;
         }
 
@@ -97,7 +98,7 @@ const ImportQuestions = () => {
 
         } catch (error) {
             console.error('Erro geral:', error);
-            toast.error('Erro ao processar o arquivo. Verifique o console.');
+            toastGate.notifyError('Erro ao processar o arquivo. Verifique o console.', 'IMP-PROC-ERR', { severity: 'medium' });
         } finally {
             setIsProcessing(false);
             setProgress('');

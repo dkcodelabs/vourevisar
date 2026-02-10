@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
+import { errorService } from '@/lib/errors/errorService';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import PageContainer from '@/components/layout/PageContainer';
@@ -55,7 +57,7 @@ const ResetPassword = () => {
 
           if (error) {
             console.error('Error verifying OTP:', error);
-            toast.error('Link inválido ou expirado.');
+            toastGate.notifyError('Link inválido ou expirado.', 'AUTH-OTP-INV', { severity: 'low' });
             navigate('/login');
             return;
           }
@@ -77,7 +79,7 @@ const ResetPassword = () => {
 
           if (sessionError) {
             console.error('Session error:', sessionError);
-            toast.error('Link inválido ou expirado');
+            toastGate.notifyError('Link inválido ou expirado', 'AUTH-SESS-INV', { severity: 'low' });
             navigate('/login');
             return;
           }
@@ -87,7 +89,7 @@ const ResetPassword = () => {
             setIsValidToken(true);
           } else {
             console.log('No session found, token may be invalid');
-            toast.error('Link inválido ou expirado');
+            toastGate.notifyError('Link inválido ou expirado', 'AUTH-TOK-INV', { severity: 'low' });
             navigate('/login');
             return;
           }
@@ -100,7 +102,7 @@ const ResetPassword = () => {
 
             if (error) {
               console.error('Error exchanging code:', error);
-              toast.error('Link inválido ou expirado');
+              toastGate.notifyError('Link inválido ou expirado', 'AUTH-CODE-INV', { severity: 'low' });
               navigate('/login');
               return;
             }
@@ -117,7 +119,7 @@ const ResetPassword = () => {
                 console.log('Using existing authenticated user as fallback');
                 setIsValidToken(true);
               } else {
-                toast.error('Link inválido ou expirado. Faça login novamente.');
+                toastGate.notifyError('Link inválido ou expirado. Faça login novamente.', 'AUTH-LINK-EXP', { severity: 'low' });
                 navigate('/login');
                 return;
               }
@@ -141,9 +143,9 @@ const ResetPassword = () => {
               if (error.name === 'AuthPKCECodeVerifierMissingError') {
                 // Detailed error for debugging/user info
                 console.warn('PKCE Verifier Missing: Browser executing the link is different from the one that requested it.');
-                toast.error('Por segurança, abra o link no mesmo navegador/dispositivo que solicitou.');
+                toastGate.notifyError('Por segurança, abra o link no mesmo navegador/dispositivo que solicitou.', 'AUTH-PKCE-MIS', { severity: 'medium' });
               } else {
-                toast.error('Link inválido ou expirado.');
+                toastGate.notifyError('Link inválido ou expirado.', 'AUTH-LINK-INV', { severity: 'low' });
               }
               navigate('/login');
             }
@@ -156,7 +158,7 @@ const ResetPassword = () => {
 
           if (error) {
             console.error('Error getting session:', error);
-            toast.error('Erro ao verificar sessão');
+            errorService.report(error, { module: 'auth', action: 'check_session', userMessage: "Erro ao verificar sessão" });
             navigate('/login');
             return;
           }
@@ -166,14 +168,14 @@ const ResetPassword = () => {
             setIsValidToken(true);
           } else {
             console.log('No session or recovery parameters found');
-            toast.error('Link inválido ou expirado');
+            toastGate.notifyError('Link inválido ou expirado', 'AUTH-PARAM-MISS', { severity: 'low' });
             navigate('/login');
             return;
           }
         }
       } catch (error) {
         console.error('Error in auth redirect handler:', error);
-        toast.error('Erro ao processar link de recuperação');
+        errorService.report(error, { module: 'auth', action: 'redirect_handler', userMessage: "Erro ao processar link de recuperação" });
         navigate('/login');
       } finally {
         setIsCheckingToken(false);
@@ -189,12 +191,12 @@ const ResetPassword = () => {
     e.preventDefault();
 
     if (password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+      toastGate.notifyError('A senha deve ter pelo menos 6 caracteres', 'AUTH-PASS-LEN', { severity: 'low' });
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error('As senhas não coincidem');
+      toastGate.notifyError('As senhas não coincidem', 'AUTH-PASS-MISMATCH', { severity: 'low' });
       return;
     }
 
@@ -205,7 +207,7 @@ const ResetPassword = () => {
 
       if (!sessionData.session) {
         console.error('No valid session found for password update');
-        toast.error('Sessão expirada. Tente novamente com um novo link');
+        toastGate.notifyError('Sessão expirada. Tente novamente com um novo link', 'AUTH-SESS-EXP', { severity: 'medium' });
         navigate('/login');
         return;
       }
@@ -216,7 +218,7 @@ const ResetPassword = () => {
 
       if (error) {
         console.error('Error updating password:', error);
-        toast.error('Erro ao redefinir senha');
+        errorService.report(error, { module: 'auth', action: 'update_password', userMessage: "Erro ao redefinir senha" });
         return;
       }
 
@@ -225,7 +227,7 @@ const ResetPassword = () => {
       navigate('/', { replace: true });
     } catch (error) {
       console.error('Reset password error:', error);
-      toast.error('Erro ao redefinir senha');
+      errorService.report(error, { module: 'auth', action: 'reset_password_submit', userMessage: "Erro ao redefinir senha" });
     } finally {
       setIsLoading(false);
     }

@@ -3,6 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toastGate } from '@/lib/errors/toastGate';
 
 export default function ToastSpamTest() {
+    // Hardening: Only allow in Dev or if explictly enabled
+    const isDev = import.meta.env.DEV;
+
+    if (!isDev) {
+        return (
+            <div className="p-8 text-center text-muted-foreground">
+                <h1 className="text-xl font-bold">Acesso Negado</h1>
+                <p>Esta ferramenta de debug está disponível apenas em ambiente de desenvolvimento.</p>
+            </div>
+        );
+    }
 
     const triggerScenarioA = () => {
         // Enviar 5 erros idênticos em sequência rápida (Consolidação)

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
+import { errorService } from '@/lib/errors/errorService';
 import { Loader2, TrendingUp, BrainCircuit, Split, AlertOctagon, ArrowLeft } from 'lucide-react';
 import { calcularNotaTendencia } from '@/services/gutCalculator';
 import { AutomationSimulator } from '@/components/AutomationSimulator';
@@ -34,7 +36,7 @@ const TrendAnalysis = () => {
 
     const handleCalcular = async () => {
         if (!materia || !topico) {
-            toast.error('Preencha Matéria e Tópico');
+            toastGate.notifyError('Preencha Matéria e Tópico', 'TREND-INPUT-MISS', { severity: 'low' });
             return;
         }
 
@@ -59,7 +61,7 @@ const TrendAnalysis = () => {
 
         } catch (error) {
             console.error(error);
-            toast.error('Erro ao calcular tendência. Verifique o console.');
+            errorService.report(error, { module: 'trend', action: 'calculate', userMessage: "Erro ao calcular tendência" });
         } finally {
             setLoading(false);
         }

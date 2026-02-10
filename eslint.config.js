@@ -25,6 +25,13 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-unused-expressions": "off",
+      "no-restricted-syntax": [
+        "error",
+        {
+          "selector": "CallExpression[callee.object.name='toast'][callee.property.name='error']",
+          "message": "Direct toast.error calls are forbidden. Use errorService.report() or toastGate.notifyError() instead."
+        }
+      ]
     },
   }
 );

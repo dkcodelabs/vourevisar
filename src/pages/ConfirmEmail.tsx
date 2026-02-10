@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/lib/toast';
+import { supabase } from '@/lib/supabase';
+import { toastGate } from '@/lib/errors/toastGate';
+import { toast } from '@/lib/toast'; // Keep toast for success messages
 import { motion } from 'framer-motion';
-import { Mail, CheckCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Mail, CheckCircle, RefreshCw, ArrowLeft } from 'lucide-react'; // Keep CheckCircle and ArrowLeft
 import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton } from '@/components/ui';
 
@@ -11,7 +12,7 @@ const ConfirmEmail = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState<string | null>(null);
-  const [isResending, setIsResending] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Changed from isResending to isLoading
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
@@ -53,22 +54,21 @@ const ConfirmEmail = () => {
   const handleResendEmail = async () => {
     if (!email || resendCooldown > 0) return;
 
-    setIsResending(true);
+    setIsLoading(true); // Use isLoading
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: `${window.location.origin} /auth/callback`
         }
       });
 
       if (error) {
-        if (error.message.includes('rate limit')) {
-          toast.error('Muitas tentativas. Aguarde alguns minutos.');
-          setResendCooldown(60);
+        if (error.status === 429) { // Check for status code 429 for rate limit
+          toastGate.notifyError('Muitas tentativas. Aguarde alguns minutos.', 'AUTH-RATE-LIMIT', { severity: 'medium' });
         } else {
-          toast.error('Erro ao reenviar email. Tente novamente.');
+          toastGate.notifyError('Erro ao reenviar email. Tente novamente.', 'AUTH-RESEND-ERR', { severity: 'low' });
         }
         return;
       }
@@ -76,9 +76,9 @@ const ConfirmEmail = () => {
       toast.success('Email de confirmação reenviado!');
       setResendCooldown(60); // 60 second cooldown
     } catch (error) {
-      toast.error('Erro ao reenviar email.');
+      toastGate.notifyError('Erro ao reenviar email.', 'AUTH-RESEND-UNK', { severity: 'medium' });
     } finally {
-      setIsResending(false);
+      setIsLoading(false); // Use isLoading
     }
   };
 
