@@ -46,6 +46,8 @@ export default function SystemErrors() {
         status: 'all',
         severity: 'all',
         scope: 'all',
+        category: 'all',
+        recoverability: 'all',
         search: '',
     });
     const [selectedError, setSelectedError] = useState<ErrorLogRecord | null>(null);
@@ -85,6 +87,43 @@ export default function SystemErrors() {
         return { topModule, mttr, criticalCount, highRecurrenceCount };
     }, [errors]);
 
+    const getPlaybook = (error: ErrorLogRecord) => {
+        let title = 'Investigação Geral';
+        let steps = ['Verificar logs detalhados', 'Tentar reproduzir o erro'];
+        let color = 'bg-slate-50 border-slate-200 text-slate-700';
+
+        switch (error.category) {
+            case 'auth':
+            case 'permission':
+                title = 'Problema de Acesso / Segurança';
+                steps = ['Verificar se o token de sessão é válido', 'Checar políticas RLS da tabela', 'Confirmar role do usuário'];
+                color = 'bg-red-50 border-red-200 text-red-800';
+                break;
+            case 'validation':
+                title = 'Erro de Validação de Dados';
+                steps = ['Verificar payload enviado pelo cliente', 'Validar tipos e obrigatoriedade de campos', 'Reproduzir com JSON mínimo'];
+                color = 'bg-orange-50 border-orange-200 text-orange-800';
+                break;
+            case 'network':
+            case 'integration':
+                title = 'Conectividade e Integração';
+                steps = ['Testar conectividade com serviços externos', 'Verificar status do Supabase', 'Avaliar latência de rede'];
+                color = 'bg-blue-50 border-blue-200 text-blue-800';
+                break;
+            case 'database':
+                title = 'Integridade de Dados / SQL';
+                steps = ['Verificar performance da query', 'Checar constraints e chaves estrangeiras', 'Analisar locks no banco'];
+                color = 'bg-purple-50 border-purple-200 text-purple-800';
+                break;
+        }
+
+        if (error.recommended_action) {
+            steps.unshift(error.recommended_action);
+        }
+
+        return { title, steps, color };
+    };
+
     const handleCleanupLogs = async () => {
         if (!window.confirm("Isso apagará logs com mais de 30 dias. Confirmar?")) return;
 
@@ -121,6 +160,14 @@ export default function SystemErrors() {
 
         if (filters.scope !== 'all') {
             query = query.eq('scope', filters.scope);
+        }
+
+        if (filters.category !== 'all') {
+            query = query.eq('category', filters.category);
+        }
+
+        if (filters.recoverability !== 'all') {
+            query = query.eq('recoverability', filters.recoverability);
         }
 
         if (filters.search) {
@@ -374,6 +421,24 @@ export default function SystemErrors() {
                                     <SelectItem value="core">Core (Aluno)</SelectItem>
                                 </SelectContent>
                             </Select>
+                            <Select
+                                value={filters.category}
+                                onValueChange={(val) => setFilters(prev => ({ ...prev, category: val }))}
+                            >
+                                <SelectTrigger className="w-full sm:w-[150px]">
+                                    <div className="flex items-center gap-2">
+                                        <Filter size={14} />
+                                        <SelectValue placeholder="Categoria" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas Cat.</SelectItem>
+                                    <SelectItem value="validation">Validação</SelectItem>
+                                    <SelectItem value="auth">Auth/Perm</SelectItem>
+                                    <SelectItem value="database">Banco</SelectItem>
+                                    <SelectItem value="network">Rede</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </CardHeader>
@@ -384,7 +449,7 @@ export default function SystemErrors() {
                                 <TableRow>
                                     <TableHead className="w-[140px]">Data/Hora</TableHead>
                                     <TableHead>Error ID</TableHead>
-                                    <TableHead>Escopo</TableHead>
+                                    <TableHead>Ctg/Escopo</TableHead>
                                     <TableHead>Módulo/Ação</TableHead>
                                     <TableHead>Mensagem Usuário</TableHead>
                                     <TableHead>Severidade</TableHead>
@@ -415,8 +480,12 @@ export default function SystemErrors() {
                                                 </div>
                                             </TableCell>
                                             <TableCell className="font-mono text-xs">{error.error_id}</TableCell>
+                                            <TableCell className="font-mono text-xs">{error.error_id}</TableCell>
                                             <TableCell>
-                                                {getScopeBadge(error.scope || 'admin')}
+                                                <div className="flex flex-col gap-1">
+                                                    {getScopeBadge(error.scope || 'admin')}
+                                                    <span className="text-[10px] uppercase font-bold text-slate-500">{error.category || 'UNK'}</span>
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-xs">
                                                 <div className="font-semibold">{error.module}</div>
@@ -429,6 +498,9 @@ export default function SystemErrors() {
                                                 <Badge className={`${getSeverityColor(error.severity)} text-white border-0`}>
                                                     {error.severity}
                                                 </Badge>
+                                                {error.recoverability === 'system_retryable' && (
+                                                    <div className="text-[9px] text-center mt-0.5 text-slate-500">Retry Auto</div>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 {getStatusBadge(error.status)}
@@ -497,6 +569,24 @@ export default function SystemErrors() {
                                 </div>
                             </div>
 
+                            {/* Playbook Operacional */}
+                            {(() => {
+                                const playbook = getPlaybook(selectedError);
+                                return (
+                                    <div className={`p-4 rounded-md border ${playbook.color}`}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <CheckCircle2 size={16} />
+                                            <h4 className="font-semibold text-sm uppercase tracking-wide">Playbook: {playbook.title}</h4>
+                                        </div>
+                                        <ul className="list-disc list-inside text-sm space-y-1 ml-1">
+                                            {playbook.steps.map((step, i) => (
+                                                <li key={i}>{step}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                );
+                            })()}
+
                             <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-md border border-slate-200 dark:border-slate-800">
                                 <label className="text-xs font-semibold text-slate-500 uppercase block mb-1">Mensagem Técnica</label>
                                 <code className="text-xs text-red-600 dark:text-red-400 break-words whitespace-pre-wrap font-mono">
@@ -552,7 +642,7 @@ export default function SystemErrors() {
                         </div>
                     )}
                 </DialogContent>
-            </Dialog>
-        </div>
+            </Dialog >
+        </div >
     );
 }

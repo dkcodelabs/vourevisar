@@ -9,6 +9,7 @@ import {
 } from './errorEvent.contract';
 import { AppErrorNormalized } from './types';
 import { getFriendlyMessage } from './errorMessageMap';
+import { classifyError } from './classifier';
 
 class ErrorService {
     private static instance: ErrorService;
@@ -39,6 +40,9 @@ class ErrorService {
         const technicalMessage = input.technicalMessage || error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
         const userMessage = input.userMessage || getFriendlyMessage(technicalMessage, code);
 
+        // Classificação Inteligente
+        const classification = classifyError(input);
+
         // Sanitização básica de metadata
         const sanitizedMetadata = this.sanitizeMetadata({ ...input.metadata });
 
@@ -46,15 +50,22 @@ class ErrorService {
             errorId,
             module: input.module,
             action: input.action,
-            userMessage,
+            userMessage: classification.userMessage || userMessage,
             technicalMessage: technicalMessage.substring(0, 1000), // Truncate se muito longo
             code,
-            severity: input.severity || 'medium',
+            severity: classification.severity,
             retryable: ['503', '504', 'NetworkError'].includes(code) || technicalMessage.includes('fetch'),
             actorUserId: input.userId,
             metadata: sanitizedMetadata,
             createdAt: new Date().toISOString(),
-            scope: input.scope || 'core'
+            scope: input.scope || 'core',
+
+            // Novos Campos de Taxonomia
+            category: classification.category,
+            recoverability: classification.recoverability,
+            isUserVisible: classification.isUserVisible,
+            recommendedAction: classification.recommendedAction,
+            fingerprintVersion: 'v1'
         };
     }
 
@@ -196,7 +207,14 @@ class ErrorService {
             actor_user_id: actorId,
             metadata: error.metadata || {},
             fingerprint: fingerprint,
-            status: 'new'
+            status: 'new',
+
+            // Novos Campos de Taxonomia
+            category: error.category,
+            recoverability: error.recoverability,
+            is_user_visible: error.isUserVisible,
+            recommended_action: error.recommendedAction,
+            fingerprint_version: error.fingerprintVersion
         };
 
         // Usar RPC para logar com deduplicação server-side
@@ -213,7 +231,12 @@ class ErrorService {
                 p_actor_user_id: payload.actor_user_id,
                 p_metadata: payload.metadata,
                 p_fingerprint: payload.fingerprint,
-                p_scope: payload.scope
+                p_scope: payload.scope,
+                p_category: payload.category,
+                p_recoverability: payload.recoverability,
+                p_is_user_visible: payload.is_user_visible,
+                p_recommended_action: payload.recommended_action,
+                p_fingerprint_version: payload.fingerprint_version
             });
 
         if (dbError) {

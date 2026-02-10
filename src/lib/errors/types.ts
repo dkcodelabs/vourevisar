@@ -15,6 +15,13 @@ export interface AppErrorNormalized {
     metadata?: Record<string, any>;
     createdAt: string;
     scope: 'admin' | 'core';
+
+    // Taxonomy Fields
+    category: import('./errorEvent.contract').ErrorCategory;
+    recoverability: import('./errorEvent.contract').ErrorRecoverability;
+    isUserVisible: boolean;
+    recommendedAction?: string;
+    fingerprintVersion: string;
 }
 
 export interface ErrorLogRecord {
@@ -37,4 +44,10 @@ export interface ErrorLogRecord {
     created_at: string;
     updated_at: string;
     scope: 'admin' | 'core';
+
+    // Taxonomy Fields
+    category: string;
+    recoverability: string;
+    is_user_visible: boolean;
+    recommended_action?: string;
 }

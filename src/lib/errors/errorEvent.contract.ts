@@ -12,6 +12,22 @@ export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type ErrorScope = 'admin' | 'core';
 export type ErrorStatus = 'new' | 'investigating' | 'resolved' | 'ignored';
 
+// Novos Tipos de Taxonomia
+export type ErrorCategory =
+    | 'validation'
+    | 'auth'
+    | 'permission'
+    | 'business_rule'
+    | 'integration'
+    | 'network'
+    | 'database'
+    | 'unknown';
+
+export type ErrorRecoverability =
+    | 'user_retryable'
+    | 'system_retryable'
+    | 'non_retryable';
+
 // 2. Contrato do Payload de Erro (Estrutura Persistida/Normalizada)
 // Segue snake_case para alinhar com o banco de dados (admin_error_events)
 export interface ErrorEventPayload {
@@ -34,7 +50,14 @@ export interface ErrorEventPayload {
     last_seen_at?: string;
     occurrence_count?: number;
     created_at?: string;
-    retryable?: boolean; // Adicionado para compatibilidade com sistema atual
+    retryable?: boolean; // Mantido para compatibilidade (true se user_retryable)
+
+    // Novos Campos Obrigatórios (Taxonomia)
+    category: ErrorCategory; // Default 'unknown'
+    recoverability: ErrorRecoverability; // Default 'non_retryable'
+    is_user_visible: boolean; // Default true
+    recommended_action?: string;
+    fingerprint_version?: string; // Default 'v1'
 }
 
 // 3. Contrato de Entrada do Serviço (Input do ErrorService.report)
@@ -51,6 +74,10 @@ export interface ErrorReportInput {
     metadata?: Record<string, unknown>;
     showToast?: boolean; // Controle de UI
     originalError?: any; // O erro original para extração
+
+    // Opcionais na entrada (o classificador irá preencher)
+    category?: ErrorCategory;
+    recoverability?: ErrorRecoverability;
 }
 
 // 4. Validação Leve em Runtime
