@@ -37,7 +37,7 @@ const getNavItems = (isAdmin: boolean) => {
     { to: "/admin/system", label: "Sistema", icon: Server },
     { to: "/admin/security", label: "Segurança", icon: Shield },
     { to: "/admin/audit", label: "Auditoria", icon: FileSearch },
-    { to: "/admin/feedback", label: "Feedbacks", icon: MessageSquare },
+    { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   ] : [];
 
   return { mainItems, adminItems };

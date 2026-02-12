@@ -48,12 +48,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
     em_desenvolvimento: { label: 'Em Desenvolvimento', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30', icon: <Loader2 size={12} /> },
     concluida: { label: 'Concluída', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30', icon: <CheckCircle2 size={12} /> },
     nao_planejada: { label: 'Não Planejada', color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', icon: <X size={12} /> },
-    // Legacy
+    // Legacy (mapeiam para os mesmos labels PT-BR oficiais)
     new: { label: 'Nova', color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30', icon: <Clock size={12} /> },
-    triaged: { label: 'Triada', color: 'text-purple-600', bg: 'bg-purple-100 dark:bg-purple-900/30', icon: <Eye size={12} /> },
-    in_progress: { label: 'Em Progresso', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30', icon: <Loader2 size={12} /> },
-    resolved: { label: 'Resolvida', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30', icon: <CheckCircle2 size={12} /> },
-    wont_fix: { label: 'Não Será Feito', color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', icon: <X size={12} /> },
+    triaged: { label: 'Planejada', color: 'text-purple-600', bg: 'bg-purple-100 dark:bg-purple-900/30', icon: <Eye size={12} /> },
+    in_progress: { label: 'Em Desenvolvimento', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30', icon: <Loader2 size={12} /> },
+    resolved: { label: 'Concluída', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30', icon: <CheckCircle2 size={12} /> },
+    wont_fix: { label: 'Não Planejada', color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', icon: <X size={12} /> },
 };
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -63,6 +63,14 @@ const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode }> = {
     improvement: { label: 'Melhoria', icon: <Wand2 size={12} /> },
     feature_request: { label: 'Nova Funcionalidade', icon: <PlusCircle size={12} /> },
     ux_issue: { label: 'Problema', icon: <AlertTriangle size={12} /> },
+};
+
+
+const IMPACT_MAP: Record<string, string> = {
+    low: 'Baixo',
+    medium: 'Médio',
+    high: 'Alto',
+    critical: 'Crítico',
 };
 
 const PIPELINE_STATUSES: FeedbackStatus[] = ['nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'];
@@ -423,7 +431,7 @@ const AdminFeedback: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="text-xs font-semibold text-slate-400 uppercase mb-0.5">Impacto</p>
-                                            <p className="text-slate-700 dark:text-slate-300 capitalize">{selectedFeedback.impact}</p>
+                                            <p className="text-slate-700 dark:text-slate-300">{IMPACT_MAP[selectedFeedback.impact] || selectedFeedback.impact}</p>
                                         </div>
                                     </div>
 
