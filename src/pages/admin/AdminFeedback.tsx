@@ -98,6 +98,7 @@ const AdminFeedback: React.FC = () => {
     const [editReason, setEditReason] = useState('');
     const [editNotes, setEditNotes] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [replyError, setReplyError] = useState('');
 
     // ── Fetch ─────────────────────────────────────────────────
     const fetchFeedbacks = useCallback(async () => {
@@ -154,11 +155,23 @@ const AdminFeedback: React.FC = () => {
         setEditReply(fb.admin_reply || '');
         setEditReason(fb.admin_reason || '');
         setEditNotes(fb.admin_notes || '');
+        setReplyError('');
     };
+
+    // Resposta obrigatória quando status ≠ Nova
+    const isReplyRequired = editStatus !== 'nova' && editStatus !== 'new';
 
     // ── Salvar alterações admin ───────────────────────────────
     const handleSave = async () => {
         if (!selectedFeedback) return;
+
+        // Validar resposta obrigatória
+        if (isReplyRequired && !editReply.trim()) {
+            setReplyError('Resposta ao aluno é obrigatória ao alterar o status.');
+            return;
+        }
+        setReplyError('');
+
         setIsSaving(true);
         try {
             const now = new Date().toISOString();
@@ -507,16 +520,23 @@ const AdminFeedback: React.FC = () => {
                                         <div>
                                             <label className="text-xs font-semibold text-slate-500 uppercase block mb-1.5">
                                                 Resposta ao Aluno
+                                                {isReplyRequired && <span className="text-red-500 ml-0.5">*</span>}
                                                 <span className="text-slate-400 font-normal ml-1">(visível na Central do Aluno)</span>
                                             </label>
                                             <textarea
                                                 value={editReply}
-                                                onChange={(e) => setEditReply(e.target.value)}
+                                                onChange={(e) => { setEditReply(e.target.value); if (replyError) setReplyError(''); }}
                                                 placeholder="Escreva uma resposta para o aluno..."
                                                 rows={3}
-                                                className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                                className={`w-full text-sm bg-white dark:bg-slate-900 border rounded-lg p-3 outline-none focus:ring-2 resize-none ${replyError
+                                                        ? 'border-red-400 focus:ring-red-400/30'
+                                                        : 'border-slate-200 dark:border-slate-700 focus:ring-blue-500'
+                                                    }`}
                                                 maxLength={1000}
                                             />
+                                            {replyError && (
+                                                <p className="text-xs text-red-500 mt-1">{replyError}</p>
+                                            )}
                                         </div>
 
                                         {/* Motivo (Não Planejada) */}

@@ -26,6 +26,32 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
     const [description, setDescription] = React.useState('');
     const [showToast, setShowToast] = React.useState(false);
     const [protocolCode, setProtocolCode] = React.useState<string | null>(null);
+    const [touched, setTouched] = React.useState<{ title: boolean; description: boolean }>({ title: false, description: false });
+
+    // ── Constantes de validação ─────────────────────────────
+    const TITLE_MIN = 8;
+    const TITLE_MAX = 80;
+    const DESC_MIN = 20;
+    const DESC_MAX = 1000;
+
+    // ── Sanitização ────────────────────────────────────────
+    const sanitize = (v: string) => v.replace(/\s+/g, ' ').trim();
+
+    // ── Validação ──────────────────────────────────────────
+    const titleSanitized = sanitize(title);
+    const descSanitized = sanitize(description);
+
+    const getErrors = () => {
+        const errs: { title?: string; description?: string } = {};
+        if (titleSanitized.length === 0) errs.title = 'Título é obrigatório';
+        else if (titleSanitized.length < TITLE_MIN) errs.title = `Mínimo ${TITLE_MIN} caracteres`;
+        if (descSanitized.length === 0) errs.description = 'Descrição é obrigatória';
+        else if (descSanitized.length < DESC_MIN) errs.description = `Mínimo ${DESC_MIN} caracteres`;
+        return errs;
+    };
+
+    const errors = getErrors();
+    const isFormValid = !errors.title && !errors.description && !!selectedCategory;
 
     React.useEffect(() => {
         if (!isOpen) {
@@ -36,6 +62,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                 setDescription('');
                 setShowToast(false);
                 setProtocolCode(null);
+                setTouched({ title: false, description: false });
             }, 200);
             return () => clearTimeout(t);
         }
@@ -233,6 +260,37 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                     border-color: #1985f0;
                     box-shadow: 0 0 0 3px rgba(25, 133, 240, 0.1);
                 }
+                .fbm-input-error {
+                    border-color: #ef4444 !important;
+                }
+                .fbm-input-error:focus {
+                    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+                }
+                .fbm-field-footer {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    margin-top: 3px;
+                }
+                .fbm-error-msg {
+                    font-size: 10px !important;
+                    font-weight: 500 !important;
+                    color: #ef4444;
+                    margin: 0 !important;
+                }
+                .fbm-counter {
+                    font-size: 10px !important;
+                    font-weight: 500 !important;
+                    color: #94a3b8;
+                    margin: 0 !important;
+                    flex-shrink: 0;
+                }
+                .fbm-counter-warn {
+                    color: #f59e0b !important;
+                }
+                .fbm-counter-error {
+                    color: #ef4444 !important;
+                }
                 .fbm-dot {
                     width: 6px;
                     height: 6px;
@@ -385,30 +443,44 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                                     <p className="fbm-selected-type-name dark:text-slate-100">{catDetails.label}</p>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label htmlFor="fbm-titulo" className="fbm-label dark:text-slate-300">Título</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label htmlFor="fbm-titulo" className="fbm-label dark:text-slate-300">Título <span style={{ color: '#ef4444' }}>*</span></label>
                                 <input
                                     id="fbm-titulo"
                                     type="text"
                                     placeholder="Ex.: Não consigo concluir revisão"
-                                    className="fbm-input dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    className={`fbm-input dark:bg-slate-800 dark:border-slate-700 dark:text-white ${touched.title && errors.title ? 'fbm-input-error' : ''}`}
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    maxLength={120}
+                                    onBlur={() => setTouched((p) => ({ ...p, title: true }))}
+                                    maxLength={TITLE_MAX}
                                 />
+                                <div className="fbm-field-footer">
+                                    <p className="fbm-error-msg">{touched.title && errors.title ? errors.title : ''}</p>
+                                    <p className={`fbm-counter ${titleSanitized.length >= TITLE_MAX ? 'fbm-counter-error' : titleSanitized.length >= TITLE_MAX * 0.9 ? 'fbm-counter-warn' : ''}`}>
+                                        {titleSanitized.length}/{TITLE_MAX}
+                                    </p>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label htmlFor="fbm-descricao" className="fbm-label dark:text-slate-300">Descrição</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label htmlFor="fbm-descricao" className="fbm-label dark:text-slate-300">Descrição <span style={{ color: '#ef4444' }}>*</span></label>
                                 <textarea
                                     id="fbm-descricao"
-                                    placeholder="Descreva o que aconteceu..."
+                                    placeholder="Descreva o que aconteceu com detalhes..."
                                     rows={4}
-                                    className="fbm-input dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    className={`fbm-input dark:bg-slate-800 dark:border-slate-700 dark:text-white ${touched.description && errors.description ? 'fbm-input-error' : ''}`}
                                     style={{ resize: 'none' }}
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
-                                    maxLength={2000}
+                                    onBlur={() => setTouched((p) => ({ ...p, description: true }))}
+                                    maxLength={DESC_MAX}
                                 />
+                                <div className="fbm-field-footer">
+                                    <p className="fbm-error-msg">{touched.description && errors.description ? errors.description : ''}</p>
+                                    <p className={`fbm-counter ${descSanitized.length >= DESC_MAX ? 'fbm-counter-error' : descSanitized.length >= DESC_MAX * 0.9 ? 'fbm-counter-warn' : ''}`}>
+                                        {descSanitized.length}/{DESC_MAX}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -435,20 +507,32 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                                 </div>
                                 <button
                                     onClick={async () => {
-                                        if (!selectedCategory || !title.trim() || !description.trim()) return;
+                                        // Marcar todos como touched para mostrar erros
+                                        setTouched({ title: true, description: true });
+                                        if (!isFormValid) return;
                                         if (onSubmit) {
-                                            const code = await onSubmit(selectedCategory, title, description);
-                                            if (code) {
-                                                setProtocolCode(code);
-                                                setShowToast(true);
+                                            try {
+                                                const code = await onSubmit(selectedCategory!, titleSanitized, descSanitized);
+                                                if (code) {
+                                                    setProtocolCode(code);
+                                                    setShowToast(true);
+                                                    // Reset campos para próximo uso
+                                                    setTitle('');
+                                                    setDescription('');
+                                                    setSelectedCategory(null);
+                                                    setStep(1);
+                                                    setTouched({ title: false, description: false });
+                                                }
+                                            } catch {
+                                                // Toast amigável tratado pelo hook pai
                                             }
                                         } else {
                                             setShowToast(true);
                                         }
                                     }}
                                     className="fbm-btn-submit"
-                                    style={{ marginLeft: '16px', opacity: (!title.trim() || !description.trim() || isSubmitting) ? 0.5 : 1 }}
-                                    disabled={!title.trim() || !description.trim() || isSubmitting}
+                                    style={{ marginLeft: '16px', opacity: (!isFormValid || isSubmitting) ? 0.5 : 1, cursor: (!isFormValid || isSubmitting) ? 'not-allowed' : 'pointer' }}
+                                    disabled={!isFormValid || isSubmitting}
                                 >
                                     {isSubmitting ? 'Enviando...' : 'Enviar Feedback'}
                                 </button>
