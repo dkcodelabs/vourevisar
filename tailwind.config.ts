@@ -33,6 +33,7 @@ export default {
 					'"Segoe UI Emoji"',
 					'"Segoe UI Symbol"',
 				],
+				display: ['Lexend', 'sans-serif'],
 			},
 
 			colors: {

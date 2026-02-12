@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>vouRevisar - Central de Solicitações</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1985f0",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Lexend', sans-serif; }
+        .drawer-shadow { box-shadow: -10px 0 30px rgba(0,0,0,0.05); }.custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-200 overflow-hidden font-display">
+<div class="fixed inset-0 flex p-8 gap-8 filter blur-sm">
+<aside class="w-64 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800"></aside>
+<main class="flex-1 grid grid-cols-3 gap-6">
+<div class="col-span-2 space-y-6">
+<div class="h-48 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"></div>
+<div class="h-96 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"></div>
+</div>
+<div class="space-y-6">
+<div class="h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"></div>
+</div>
+</main>
+</div>
+<div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40"></div>
+<div class="fixed top-0 right-0 h-full w-[450px] bg-background-light dark:bg-background-dark z-50 drawer-shadow flex flex-col border-l border-slate-200 dark:border-slate-800">
+<div class="p-6 pb-2">
+<div class="flex items-center justify-between mb-6">
+<h1 class="text-xl font-bold flex items-center gap-2">
+<span class="material-icons-outlined text-primary">account_circle</span>
+                    Central do Aluno
+                </h1>
+<button class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
+<span class="material-icons-outlined">close</span>
+</button>
+</div>
+<div class="flex border-b border-slate-200 dark:border-slate-800">
+<button class="px-4 py-3 text-sm font-medium text-slate-500 hover:text-primary transition-colors">
+                    Notificações
+                </button>
+<button class="px-4 py-3 text-sm font-bold text-primary border-b-2 border-primary">
+                    Feedback
+                </button>
+<button class="px-4 py-3 text-sm font-medium text-slate-500 hover:text-primary transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+                    Ajustes
+                </button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+<div class="flex items-center gap-3 mb-2">
+<button class="flex-1 bg-primary hover:bg-primary/90 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm">
+<span class="material-icons-outlined text-sm">add</span>
+                    + Enviar Feedback
+                </button>
+<div class="relative group">
+<button class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg flex items-center gap-2 text-sm">
+<span class="material-icons-outlined text-slate-400">filter_list</span>
+                        Status: <span class="font-medium">Todas</span>
+</button>
+</div>
+</div>
+<div class="space-y-3">
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden transition-all">
+<div class="p-3 border-b border-slate-100 dark:border-slate-800 bg-primary/5">
+<div class="flex justify-between items-start mb-1.5">
+<span class="text-[10px] font-mono font-bold tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded">FBK-20391</span>
+<div class="flex items-center gap-1.5 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+<span class="text-green-600 dark:text-green-400 text-[10px] font-bold uppercase">Respondida</span>
+</div>
+</div>
+<h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">Sugestão de novos flashcards de Biologia</h3>
+<div class="flex items-center gap-3 text-[10px] text-slate-400">
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">category</span> Melhoria</span>
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">calendar_today</span> 24 Out 2023</span>
+</div>
+</div>
+<div class="p-3 space-y-3">
+<div class="space-y-1">
+<p class="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Sua mensagem</p>
+<p class="text-xs text-slate-600 dark:text-slate-400 leading-normal">
+                                Gostaria de ver mais conteúdos focados em Microbiologia e Genética Molecular nos flashcards da plataforma.
+                            </p>
+</div>
+<div class="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-primary space-y-1.5">
+<div class="flex items-center gap-2 mb-0.5">
+<img class="w-5 h-5 rounded-full object-cover" data-alt="Female support team member profile picture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClStDWrgfeVB5Rc4NvvrfJiXIIQyWbocca7Pwom8V8KYjbesL0mhJ1Bi2QsxqkWDfrXTTtOK976gAwIuVwW6UcQXNn3b9N-IKXmQYhIZuY5X38BDnOVRh4Vk7rGOJDJo69zNQit0eOxYUr74XNpi9vRG8DVIH4WNEe7MBWp9yJaAQC2usGxRaJ2epLA0mju-LdgFdaKQ9Quq1HlLdOVErAOQLlkPIG0RJ6yf-aJLGZgzFNdTe8V0udNB8vR37PPm58RFmgj0-U2yM"/>
+<p class="text-[9px] font-bold text-primary uppercase">Resposta da equipe</p>
+</div>
+<p class="text-xs text-slate-700 dark:text-slate-300">
+                                Olá, Bruno! Adoramos sua sugestão. Já repassamos para nossa equipe de conteúdo acadêmico. Novos cards de Genética estão em produção. Previsão: Próxima semana!
+                            </p>
+<p class="text-[9px] text-slate-400 text-right">Hoje, 14:20</p>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 border-2 border-primary/40 rounded-xl p-3 hover:border-primary/60 transition-colors cursor-pointer group shadow-sm">
+<div class="flex justify-between items-start mb-1.5">
+<span class="text-[10px] font-mono font-medium text-slate-400">FBK-20389</span>
+<div class="flex items-center gap-1.5 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+<span class="text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase">Em Desenvolvimento</span>
+</div>
+</div>
+<h3 class="text-sm font-medium text-slate-700 dark:text-slate-200 mb-0.5 group-hover:text-primary transition-colors line-clamp-1">Modo escuro para versão mobile</h3>
+<div class="flex items-center gap-3 text-[10px] text-slate-400">
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">display_settings</span> UX/UI</span>
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">calendar_today</span> 23 Out 2023</span>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 hover:border-primary/50 transition-colors cursor-pointer group shadow-sm">
+<div class="flex justify-between items-start mb-1.5">
+<span class="text-[10px] font-mono font-medium text-slate-400">FBK-20388</span>
+<div class="flex items-center gap-1.5 bg-purple-100 dark:bg-purple-900/30 px-2 py-0.5 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+<span class="text-purple-600 dark:text-purple-400 text-[10px] font-bold uppercase">Planejado</span>
+</div>
+</div>
+<h3 class="text-sm font-medium text-slate-700 dark:text-slate-200 mb-0.5 group-hover:text-primary transition-colors line-clamp-1">Exportação de notas em PDF</h3>
+<div class="flex items-center gap-3 text-[10px] text-slate-400">
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">description</span> Funcionalidade</span>
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">calendar_today</span> 23 Out 2023</span>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 hover:border-primary/50 transition-colors cursor-pointer group shadow-sm">
+<div class="flex justify-between items-start mb-1.5">
+<span class="text-[10px] font-mono font-medium text-slate-400">FBK-20385</span>
+<div class="flex items-center gap-1.5 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+<span class="text-amber-600 dark:text-amber-400 text-[10px] font-bold uppercase">Em Análise</span>
+</div>
+</div>
+<h3 class="text-sm font-medium text-slate-700 dark:text-slate-200 mb-0.5 group-hover:text-primary transition-colors line-clamp-1">Erro ao carregar simulado do ENEM</h3>
+<div class="flex items-center gap-3 text-[10px] text-slate-400">
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">report_problem</span> Suporte Técnico</span>
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">calendar_today</span> 22 Out 2023</span>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 hover:border-primary/50 transition-colors cursor-pointer group shadow-sm">
+<div class="flex justify-between items-start mb-1.5">
+<span class="text-[10px] font-mono font-medium text-slate-400">FBK-20370</span>
+<div class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+<span class="text-slate-500 text-[10px] font-bold uppercase">Finalizada</span>
+</div>
+</div>
+<h3 class="text-sm font-medium text-slate-700 dark:text-slate-200 mb-0.5 group-hover:text-primary transition-colors line-clamp-1">Dúvida sobre renovação do plano anual</h3>
+<div class="flex items-center gap-3 text-[10px] text-slate-400">
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">payments</span> Financeiro</span>
+<span class="flex items-center gap-1"><span class="material-icons-outlined text-[12px]">calendar_today</span> 18 Out 2023</span>
+</div>
+</div>
+<div class="h-10"></div>
+</div>
+<div class="hidden flex-col items-center justify-center py-12 text-center">
+<div class="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+<span class="material-icons-outlined text-slate-300 text-3xl">inbox</span>
+</div>
+<h4 class="font-semibold text-slate-400">Nenhum feedback encontrado</h4>
+<p class="text-sm text-slate-400">Suas mensagens aparecerão aqui.</p>
+</div>
+</div>
+</div>
+
+</body></html>

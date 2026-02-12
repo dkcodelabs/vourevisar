@@ -722,18 +722,24 @@ select {
   0% {
     background-color: transparent;
   }
+
   25% {
-    background-color: rgb(253 224 71 / 0.5); /* yellow-300 with opacity */
-    box-shadow: 0 0 0 2px rgb(234 179 8); /* yellow-500 border */
+    background-color: rgb(253 224 71 / 0.5);
+    /* yellow-300 with opacity */
+    box-shadow: 0 0 0 2px rgb(234 179 8);
+    /* yellow-500 border */
   }
+
   50% {
     background-color: transparent;
     box-shadow: none;
   }
+
   75% {
     background-color: rgb(253 224 71 / 0.5);
     box-shadow: 0 0 0 2px rgb(234 179 8);
   }
+
   100% {
     background-color: transparent;
     box-shadow: none;
@@ -977,4 +983,39 @@ select {
   background: #1f2937;
   color: #f3f4f6;
   border: 1px solid #374151;
+}/* Material Icons & Symbols Support */
+.material-icons {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'liga';
+}
+
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'liga';
 }

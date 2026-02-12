@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ChevronDown, Notebook, Timer, Menu, CornerDownRight, NotebookPen } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Notebook, Timer, Menu, CornerDownRight, NotebookPen, Bell } from "lucide-react";
+import { StudentHubPanel } from './student-hub/StudentHubPanel';
 import { FocusTimer } from "./FocusTimer";
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
@@ -74,7 +75,7 @@ const PageBreadcrumb = ({ pageTitle }: { pageTitle: string }) => {
 };
 
 // Componente do Header que precisa estar dentro do SidebarProvider para acesso ao contexto
-const TopHeader = ({ pageTitle, onOpenNotes }: { pageTitle: string; onOpenNotes: () => void }) => {
+const TopHeader = ({ pageTitle, onOpenNotes, onOpenHub, hubUnreadCount }: { pageTitle: string; onOpenNotes: () => void; onOpenHub: () => void; hubUnreadCount: number }) => {
   const { timeLeft, getState, formatTime, isBlinking } = useSharedPomodoroTimer();
   const pomodoroState = getState();
   const formattedTime = formatTime(timeLeft);
@@ -99,7 +100,21 @@ const TopHeader = ({ pageTitle, onOpenNotes }: { pageTitle: string; onOpenNotes:
         {/* 1. Focus Timer (Leftmost) */}
         <FocusTimer />
 
-        {/* 2. Annotations Button (NotebookPen) */}
+        {/* 2. Notification Bell (Central do Aluno) */}
+        <button
+          onClick={onOpenHub}
+          className="relative flex items-center justify-center w-9 h-9 text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:bg-gray-800 focus:outline-none"
+          title="Central do Aluno"
+        >
+          <Bell className="w-5 h-5" strokeWidth={1.5} />
+          {hubUnreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-blue-500 rounded-full">
+              {hubUnreadCount}
+            </span>
+          )}
+        </button>
+
+        {/* 3. Annotations Button (NotebookPen) */}
         <button
           onClick={onOpenNotes}
           className="flex items-center justify-center w-9 h-9 text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:bg-gray-800 focus:outline-none"
@@ -192,10 +207,18 @@ export const AppLayout = () => {
     subjectName: ''
   });
 
+  // Student Hub state
+  const [isHubOpen, setIsHubOpen] = React.useState(false);
+
   return (
     <SidebarProvider defaultOpen={true}>
       {/* Fixed Full-Width Header */}
-      <TopHeader pageTitle={pageTitle} onOpenNotes={() => setIsGeneralNotesModalOpen(true)} />
+      <TopHeader
+        pageTitle={pageTitle}
+        onOpenNotes={() => setIsGeneralNotesModalOpen(true)}
+        onOpenHub={() => setIsHubOpen(true)}
+        hubUnreadCount={1}
+      />
 
       {/* Main Content Area - pushed down by header height */}
       <div className="flex min-h-screen w-full pt-[72px] bg-background transition-colors duration-200">
@@ -245,6 +268,9 @@ export const AppLayout = () => {
           subjectName={subjectNotesModal.subjectName}
         />
       </div>
+
+      {/* Central do Aluno */}
+      <StudentHubPanel isOpen={isHubOpen} onClose={() => setIsHubOpen(false)} />
     </SidebarProvider>
   );
 };

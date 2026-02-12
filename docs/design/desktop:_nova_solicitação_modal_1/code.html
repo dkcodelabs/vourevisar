@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1985f0",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<title>vouRevisar - Nova Solicitação</title>
+<style type="text/tailwindcss">.step-hidden { display: none; }
+    </style>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen relative overflow-hidden">
+<div class="fixed inset-0 z-0 p-8 filter blur-sm pointer-events-none select-none">
+<header class="flex justify-between items-center mb-8">
+<div class="flex items-center gap-2">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-icons text-white">auto_stories</span>
+</div>
+<span class="text-xl font-bold text-slate-800 dark:text-white">vouRevisar</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800"></div>
+</div>
+</header>
+<div class="grid grid-cols-12 gap-6">
+<div class="col-span-3 space-y-4">
+<div class="h-10 bg-white dark:bg-slate-800 rounded-lg w-full"></div>
+<div class="h-10 bg-white dark:bg-slate-800 rounded-lg w-full"></div>
+<div class="h-10 bg-white dark:bg-slate-800 rounded-lg w-full"></div>
+</div>
+<div class="col-span-9 space-y-6">
+<div class="h-32 bg-white dark:bg-slate-800 rounded-xl w-full"></div>
+<div class="grid grid-cols-3 gap-6">
+<div class="h-48 bg-white dark:bg-slate-800 rounded-xl"></div>
+<div class="h-48 bg-white dark:bg-slate-800 rounded-xl"></div>
+<div class="h-48 bg-white dark:bg-slate-800 rounded-xl"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+<div class="bg-white dark:bg-slate-900 w-full max-w-xl rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+<div class="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                    1/2
+                </div>
+<h2 class="text-xl font-semibold text-slate-800 dark:text-slate-100">Nova Solicitação</h2>
+</div>
+<button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+<span class="material-icons">close</span>
+</button>
+</div>
+<div class="p-8 space-y-6">
+<div class="text-center space-y-2 mb-8">
+<h3 class="text-lg font-medium text-slate-800 dark:text-slate-100">O que você deseja relatar?</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400">Selecione uma categoria para sua solicitação</p>
+</div>
+<div class="grid gap-4">
+<button class="group relative flex items-center gap-4 p-4 rounded-xl border-2 border-slate-100 dark:border-slate-800 hover:border-primary/50 hover:bg-primary/5 transition-all text-left">
+<div class="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined">auto_fix_high</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-slate-800 dark:text-slate-100">Melhoria</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Sugira um ajuste em algo que já existe</p>
+</div>
+<span class="material-icons text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+</button>
+<button class="group relative flex items-center gap-4 p-4 rounded-xl border-2 border-slate-100 dark:border-slate-800 hover:border-primary/50 hover:bg-primary/5 transition-all text-left">
+<div class="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined">add_circle</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-slate-800 dark:text-slate-100">Nova funcionalidade</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Proponha uma nova ferramenta para a plataforma</p>
+</div>
+<span class="material-icons text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+</button>
+<button class="group relative flex items-center gap-4 p-4 rounded-xl border-2 border-slate-100 dark:border-slate-800 hover:border-primary/50 hover:bg-primary/5 transition-all text-left">
+<div class="w-12 h-12 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined">report_problem</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-slate-800 dark:text-slate-100">Problema</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Relate um erro ou dificuldade técnica</p>
+</div>
+<span class="material-icons text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="px-6 py-5 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<button class="px-5 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+                Cancelar
+            </button>
+<div class="flex items-center gap-2">
+<div class="flex gap-1">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<div class="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="hidden">
+<div class="flex items-center gap-3">
+<button class="material-icons text-slate-400 hover:text-primary">arrow_back</button>
+<div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-xs font-bold">
+            2/2
+        </div>
+<h2 class="text-xl font-semibold">Nova Solicitação</h2>
+</div>
+<div class="space-y-6">
+<div class="space-y-2">
+<label class="text-sm font-medium" for="titulo">Título</label>
+<input class="w-full bg-slate-50 border border-slate-200 rounded-lg py-3 px-4" id="titulo" placeholder="Ex.: Não consigo concluir revisão" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium" for="descricao">Descrição</label>
+<textarea class="w-full bg-slate-50 border border-slate-200 rounded-lg py-3 px-4 resize-none" id="descricao" placeholder="Descreva o que aconteceu..." rows="5"></textarea>
+</div>
+</div>
+<button class="px-5 py-2.5 rounded-lg text-slate-600 font-medium">Voltar</button>
+<button class="px-6 py-2.5 rounded-lg bg-primary text-white font-semibold">Enviar Solicitação</button>
+</div>
+<div class="fixed bottom-8 right-8 z-50 animate-bounce-subtle">
+<div class="bg-white dark:bg-slate-800 border-l-4 border-green-500 rounded-lg shadow-xl p-4 flex items-center gap-4 min-w-[320px]">
+<div class="flex-shrink-0 w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+<span class="material-icons text-green-600 dark:text-green-400">check_circle</span>
+</div>
+<div class="flex-1">
+<p class="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight">Solicitação enviada com sucesso</p>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Protocolo: <span class="font-mono font-bold">FBK-XXXXX</span></p>
+</div>
+<button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+<span class="material-icons text-lg">close</span>
+</button>
+</div>
+</div>
+<div class="fixed -bottom-20 -left-20 w-80 h-80 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
+<div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-full max-h-[600px] border border-primary/10 rounded-full pointer-events-none"></div>
+
+</body></html>
