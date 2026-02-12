@@ -1,174 +1,103 @@
 import React from 'react';
-import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, Tag, CalendarDays, AlertTriangle, CreditCard, Monitor, FileText } from 'lucide-react';
+import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, CalendarDays, AlertTriangle, Wand2, PlusCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { FeedbackModal } from './FeedbackModal';
+import { useNotifications, type UserNotification, type NotificationFilter } from '@/hooks/useNotifications';
+import { useUserFeedbacks, type UserFeedback, type FeedbackStatus } from '@/hooks/useUserFeedbacks';
 
-
-// ─── Tipos ──────────────────────────────────────────────────────────
-type NotificationCategory = 'sistema' | 'estudo';
-
-interface MockNotification {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  iconBgClass: string;
-  iconTextClass: string;
-  timestamp: string;
-  category: NotificationCategory;
-  read: boolean;
-  group: 'hoje' | 'ontem' | 'anterior';
-}
-
-type FilterOption = 'todas' | 'nao_lidas' | 'sistema' | 'estudo';
-
-// ─── Dados mockados (fiéis ao design) ────────────────────────────────
-const MOCK_NOTIFICATIONS: MockNotification[] = [
-  {
-    id: '1',
-    title: 'Revisão vence hoje',
-    description: 'Sua revisão de Direito Civil expira em 2h',
-    icon: <Calendar size={14} />,
-    iconBgClass: 'bg-blue-50 dark:bg-blue-900/30',
-    iconTextClass: 'text-blue-500',
-    timestamp: 'há 2h',
-    category: 'estudo',
-    read: false,
-    group: 'hoje',
-  },
-  {
-    id: '2',
-    title: 'Meta Semanal',
-    description: 'Você atingiu 80% da sua meta de estudos!',
-    icon: <TrendingUp size={14} />,
-    iconBgClass: 'bg-green-50 dark:bg-green-900/30',
-    iconTextClass: 'text-green-600',
-    timestamp: 'há 5h',
-    category: 'estudo',
-    read: true,
-    group: 'hoje',
-  },
-  {
-    id: '3',
-    title: 'Novo Material',
-    description: 'O PDF de Processo Penal foi atualizado.',
-    icon: <Vibrate size={14} />,
-    iconBgClass: 'bg-amber-50 dark:bg-amber-900/30',
-    iconTextClass: 'text-amber-600',
-    timestamp: 'Ontem',
-    category: 'sistema',
-    read: true,
-    group: 'ontem',
-  },
-  {
-    id: '4',
-    title: 'Manutenção Programada',
-    description: 'A plataforma ficará instável das 02:00 às 04:00.',
-    icon: <Settings size={14} />,
-    iconBgClass: 'bg-slate-50 dark:bg-slate-800',
-    iconTextClass: 'text-slate-400',
-    timestamp: 'há 2 dias',
-    category: 'sistema',
-    read: true,
-    group: 'anterior',
-  },
-];
-
-// ─── Tipos Solicitações ──────────────────────────────────────────────
-type FeedbackStatus = 'respondida' | 'em_desenvolvimento' | 'planejado' | 'em_analise' | 'finalizada';
-type StatusFilterOption = 'todas' | FeedbackStatus;
-
-interface MockFeedback {
-  id: string;
-  code: string;
-  title: string;
-  status: FeedbackStatus;
-  categoryIcon: React.ReactNode;
-  categoryLabel: string;
-  date: string;
-  message?: string;
-  response?: {
-    text: string;
-    date: string;
-  };
-}
-
+// ─── Status Config ──────────────────────────────────────────
 const STATUS_CONFIG: Record<FeedbackStatus, { label: string; dotClass: string; bgClass: string; textClass: string }> = {
-  respondida: { label: 'Respondida', dotClass: 'bg-green-500', bgClass: 'bg-green-100 dark:bg-green-900/30', textClass: 'text-green-600 dark:text-green-400' },
+  nova: { label: 'Nova', dotClass: 'bg-amber-500', bgClass: 'bg-amber-100 dark:bg-amber-900/30', textClass: 'text-amber-600 dark:text-amber-400' },
+  planejada: { label: 'Planejada', dotClass: 'bg-purple-500', bgClass: 'bg-purple-100 dark:bg-purple-900/30', textClass: 'text-purple-600 dark:text-purple-400' },
   em_desenvolvimento: { label: 'Em Desenvolvimento', dotClass: 'bg-blue-500', bgClass: 'bg-blue-100 dark:bg-blue-900/30', textClass: 'text-blue-600 dark:text-blue-400' },
-  planejado: { label: 'Planejado', dotClass: 'bg-purple-500', bgClass: 'bg-purple-100 dark:bg-purple-900/30', textClass: 'text-purple-600 dark:text-purple-400' },
-  em_analise: { label: 'Em Análise', dotClass: 'bg-amber-500', bgClass: 'bg-amber-100 dark:bg-amber-900/30', textClass: 'text-amber-600 dark:text-amber-400' },
-  finalizada: { label: 'Finalizada', dotClass: 'bg-slate-400', bgClass: 'bg-slate-100 dark:bg-slate-800', textClass: 'text-slate-500' },
+  concluida: { label: 'Concluída', dotClass: 'bg-green-500', bgClass: 'bg-green-100 dark:bg-green-900/30', textClass: 'text-green-600 dark:text-green-400' },
+  nao_planejada: { label: 'Não Planejada', dotClass: 'bg-slate-400', bgClass: 'bg-slate-100 dark:bg-slate-800', textClass: 'text-slate-500' },
 };
 
-const MOCK_FEEDBACKS: MockFeedback[] = [
-  {
-    id: 'f1',
-    code: 'FBK-20391',
-    title: 'Sugestão de novos flashcards de Biologia',
-    status: 'respondida',
-    categoryIcon: <Tag size={10} />,
-    categoryLabel: 'Melhoria',
-    date: '24 Out 2023',
-    message: 'Gostaria de ver mais conteúdos focados em Microbiologia e Genética Molecular nos flashcards da plataforma.',
-    response: {
-      text: 'Olá, Bruno! Adoramos sua sugestão. Já repassamos para nossa equipe de conteúdo acadêmico. Novos cards de Genética estão em produção. Previsão: Próxima semana!',
-      date: 'Hoje, 14:20',
-    },
-  },
-  {
-    id: 'f2',
-    code: 'FBK-20389',
-    title: 'Modo escuro para versão mobile',
-    status: 'em_desenvolvimento',
-    categoryIcon: <Monitor size={10} />,
-    categoryLabel: 'UX/UI',
-    date: '23 Out 2023',
-  },
-  {
-    id: 'f3',
-    code: 'FBK-20388',
-    title: 'Exportação de notas em PDF',
-    status: 'planejado',
-    categoryIcon: <FileText size={10} />,
-    categoryLabel: 'Funcionalidade',
-    date: '23 Out 2023',
-  },
-  {
-    id: 'f4',
-    code: 'FBK-20385',
-    title: 'Erro ao carregar simulado do ENEM',
-    status: 'em_analise',
-    categoryIcon: <AlertTriangle size={10} />,
-    categoryLabel: 'Suporte Técnico',
-    date: '22 Out 2023',
-  },
-  {
-    id: 'f5',
-    code: 'FBK-20370',
-    title: 'Dúvida sobre renovação do plano anual',
-    status: 'finalizada',
-    categoryIcon: <CreditCard size={10} />,
-    categoryLabel: 'Financeiro',
-    date: '18 Out 2023',
-  },
-];
+const TYPE_CONFIG: Record<string, { icon: React.ReactNode; label: string }> = {
+  melhoria: { icon: <Wand2 size={10} />, label: 'Melhoria' },
+  nova_funcionalidade: { icon: <PlusCircle size={10} />, label: 'Nova funcionalidade' },
+  problema: { icon: <AlertTriangle size={10} />, label: 'Problema' },
+  // Legacy types from old form
+  improvement: { icon: <Wand2 size={10} />, label: 'Melhoria' },
+  feature_request: { icon: <PlusCircle size={10} />, label: 'Nova funcionalidade' },
+  ux_issue: { icon: <AlertTriangle size={10} />, label: 'Problema' },
+};
 
-// ─── Props ───────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────
+const NOTIFICATION_ICON_MAP: Record<string, { icon: React.ReactNode; bgClass: string; textClass: string }> = {
+  estudo: { icon: <Calendar size={14} />, bgClass: 'bg-blue-50 dark:bg-blue-900/30', textClass: 'text-blue-500' },
+  progresso: { icon: <TrendingUp size={14} />, bgClass: 'bg-green-50 dark:bg-green-900/30', textClass: 'text-green-600' },
+  alerta: { icon: <Vibrate size={14} />, bgClass: 'bg-amber-50 dark:bg-amber-900/30', textClass: 'text-amber-600' },
+  sistema: { icon: <Settings size={14} />, bgClass: 'bg-slate-50 dark:bg-slate-800', textClass: 'text-slate-400' },
+};
+
+function getNotificationIcon(type: string) {
+  return NOTIFICATION_ICON_MAP[type] || NOTIFICATION_ICON_MAP.sistema;
+}
+
+function formatRelativeDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffMs / 86_400_000);
+
+  if (diffMin < 1) return 'agora';
+  if (diffMin < 60) return `há ${diffMin}min`;
+  if (diffHours < 24) return `há ${diffHours}h`;
+  if (diffDays === 1) return 'Ontem';
+  if (diffDays < 7) return `há ${diffDays} dias`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function getDateGroup(dateStr: string): 'hoje' | 'ontem' | 'anterior' {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  const notifDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (notifDate.getTime() === today.getTime()) return 'hoje';
+  if (notifDate.getTime() === yesterday.getTime()) return 'ontem';
+  return 'anterior';
+}
+
+type StatusFilterOption = 'todas' | FeedbackStatus;
+
+// ─── Props ───────────────────────────────────────────────────
 interface StudentHubPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// ─── Componente Principal ────────────────────────────────────────────
+// ─── Componente Principal ────────────────────────────────────
 export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = React.useState<'notificacoes' | 'solicitacoes'>('notificacoes');
-  const [activeFilter, setActiveFilter] = React.useState<FilterOption>('todas');
-  const [notifications, setNotifications] = React.useState<MockNotification[]>(MOCK_NOTIFICATIONS);
+  const [activeTab, setActiveTab] = React.useState<'notificacoes' | 'feedbacks'>('notificacoes');
+  const [activeFilter, setActiveFilter] = React.useState<NotificationFilter>('todas');
   const [statusFilter, setStatusFilter] = React.useState<StatusFilterOption>('todas');
-  const [expandedFeedback, setExpandedFeedback] = React.useState<string | null>('f1');
+  const [expandedFeedback, setExpandedFeedback] = React.useState<string | null>(null);
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
 
+  // ── Hooks reais ─────────────────────────────────────────────
+  const {
+    notifications,
+    unreadCount,
+    isLoading: notifLoading,
+    error: notifError,
+    markAllRead,
+    refetch: refetchNotifs,
+  } = useNotifications();
+
+  const {
+    feedbacks,
+    isLoading: fbLoading,
+    isSubmitting,
+    error: fbError,
+    submitFeedback,
+    refetch: refetchFeedbacks,
+  } = useUserFeedbacks();
 
   // Filtrar notificações
   const filteredNotifications = React.useMemo(() => {
@@ -176,32 +105,32 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
       if (activeFilter === 'nao_lidas') return !n.read;
       if (activeFilter === 'sistema') return n.category === 'sistema';
       if (activeFilter === 'estudo') return n.category === 'estudo';
-      return true; // 'todas'
+      return true;
     });
   }, [notifications, activeFilter]);
 
-  // Agrupar notificações
+  // Agrupar notificações por data
   const grouped = React.useMemo(() => {
-    const groups: Record<string, MockNotification[]> = {};
+    const groups: Record<string, UserNotification[]> = {};
     filteredNotifications.forEach((n) => {
-      if (!groups[n.group]) groups[n.group] = [];
-      groups[n.group].push(n);
+      const group = getDateGroup(n.created_at);
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(n);
     });
     return groups;
   }, [filteredNotifications]);
 
-  const groupOrder: { key: string; label: string }[] = [
+  const groupOrder = [
     { key: 'hoje', label: 'Hoje' },
     { key: 'ontem', label: 'Ontem' },
     { key: 'anterior', label: 'Anterior' },
   ];
 
-  // Marcar todas como lidas
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Filtrar feedbacks
+  const filteredFeedbacks = React.useMemo(() => {
+    if (statusFilter === 'todas') return feedbacks;
+    return feedbacks.filter((fb) => fb.status === statusFilter);
+  }, [feedbacks, statusFilter]);
 
   // Fechar com ESC
   React.useEffect(() => {
@@ -224,12 +153,22 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  const filters: { key: FilterOption; label: string }[] = [
+  const filters: { key: NotificationFilter; label: string }[] = [
     { key: 'todas', label: 'Todas' },
     { key: 'nao_lidas', label: 'Não lidas' },
     { key: 'sistema', label: 'Sistema' },
     { key: 'estudo', label: 'Estudo' },
   ];
+
+  // ── Callback do FeedbackModal ───────────────────────────────
+  const handleFeedbackSubmit = async (type: string, title: string, description: string) => {
+    const result = await submitFeedback({
+      type: type as 'melhoria' | 'nova_funcionalidade' | 'problema',
+      title,
+      description,
+    });
+    return result?.protocol_code ?? null;
+  };
 
   return (
     <>
@@ -255,11 +194,11 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
             </button>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Acompanhe avisos e suas solicitações.
+            Acompanhe avisos e seus feedbacks.
           </p>
         </div>
 
-        {/* ── Tabs (distribuídas na largura) ──────────────────── */}
+        {/* ── Tabs ──────────────────────────────────────────────── */}
         <div className="flex border-b border-slate-100 dark:border-slate-800">
           <button
             onClick={() => setActiveTab('notificacoes')}
@@ -274,14 +213,14 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
             )}
           </button>
           <button
-            onClick={() => setActiveTab('solicitacoes')}
-            className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center ${activeTab === 'solicitacoes'
+            onClick={() => setActiveTab('feedbacks')}
+            className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center ${activeTab === 'feedbacks'
               ? 'text-blue-500'
               : 'text-slate-400 hover:text-slate-600'
               }`}
           >
-            Minhas Solicitações
-            {activeTab === 'solicitacoes' && (
+            Meus Feedbacks
+            {activeTab === 'feedbacks' && (
               <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" />
             )}
           </button>
@@ -309,7 +248,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
               {unreadCount > 0 && (
                 <div className="flex justify-end">
                   <button
-                    onClick={handleMarkAllRead}
+                    onClick={markAllRead}
                     className="text-[11px] font-semibold text-blue-500 hover:underline"
                   >
                     Marcar todas como lidas
@@ -320,81 +259,103 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
 
             {/* Timeline de notificações */}
             <div className="flex-1 overflow-y-auto px-5 pb-10">
-              {groupOrder.map(({ key, label }) => {
-                const items = grouped[key];
-                if (!items || items.length === 0) return null;
-
-                const isOlder = key === 'anterior';
-
-                return (
-                  <div key={key} className={`relative ${key !== 'hoje' ? 'mt-1' : ''} pb-4`}>
-                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
-                      {label}
-                    </h4>
-
-                    <div className="space-y-5 relative">
-                      {/* Linha vertical da timeline */}
-                      <div
-                        className={`absolute left-3 top-1.5 bottom-1.5 w-0.5 bg-slate-100 dark:bg-slate-800 ${isOlder ? 'opacity-30' : ''
-                          }`}
-                      />
-
-                      {items.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`relative pl-8 group cursor-pointer ${isOlder ? 'opacity-70 hover:opacity-100 transition-opacity' : ''
-                            }`}
-                        >
-                          {/* Ícone circular */}
-                          <div
-                            className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center z-10 ring-[3px] ring-white dark:ring-slate-900 ${notification.iconBgClass} ${notification.iconTextClass}`}
-                          >
-                            {notification.icon}
-                          </div>
-
-                          {/* Conteúdo */}
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex justify-between items-center">
-                              <h3
-                                className={`font-semibold text-xs group-hover:text-blue-500 transition-colors ${isOlder
-                                  ? 'text-slate-900 dark:text-white'
-                                  : 'text-slate-900 dark:text-white'
-                                  }`}
-                              >
-                                {notification.title}
-                              </h3>
-                              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                                <span className="text-[9px] text-slate-400 uppercase font-medium">
-                                  {notification.timestamp}
-                                </span>
-                                {!notification.read && (
-                                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
-                              {notification.description}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Estado vazio */}
-              {filteredNotifications.length === 0 && (
+              {/* Loading */}
+              {notifLoading && (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                  <Calendar size={32} className="mb-2 opacity-40" />
-                  <p className="text-xs font-medium">Nenhuma notificação encontrada</p>
-                  <p className="text-[11px] mt-1">Tente alterar o filtro selecionado</p>
+                  <Loader2 size={28} className="animate-spin mb-2" />
+                  <p className="text-xs font-medium">Carregando notificações...</p>
                 </div>
+              )}
+
+              {/* Erro */}
+              {!notifLoading && notifError && (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <AlertTriangle size={28} className="mb-2 text-red-400" />
+                  <p className="text-xs font-medium text-red-500 mb-2">Erro ao carregar</p>
+                  <button
+                    onClick={refetchNotifs}
+                    className="text-[11px] font-semibold text-blue-500 hover:underline flex items-center gap-1"
+                  >
+                    <RefreshCw size={12} /> Tentar novamente
+                  </button>
+                </div>
+              )}
+
+              {/* Dados */}
+              {!notifLoading && !notifError && (
+                <>
+                  {groupOrder.map(({ key, label }) => {
+                    const items = grouped[key];
+                    if (!items || items.length === 0) return null;
+
+                    const isOlder = key === 'anterior';
+
+                    return (
+                      <div key={key} className={`relative ${key !== 'hoje' ? 'mt-1' : ''} pb-4`}>
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
+                          {label}
+                        </h4>
+
+                        <div className="space-y-5 relative">
+                          <div
+                            className={`absolute left-3 top-1.5 bottom-1.5 w-0.5 bg-slate-100 dark:bg-slate-800 ${isOlder ? 'opacity-30' : ''}`}
+                          />
+
+                          {items.map((notification) => {
+                            const iconInfo = getNotificationIcon(notification.type);
+                            return (
+                              <div
+                                key={notification.id}
+                                className={`relative pl-8 group cursor-pointer ${isOlder ? 'opacity-70 hover:opacity-100 transition-opacity' : ''}`}
+                              >
+                                {/* Ícone circular */}
+                                <div
+                                  className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center z-10 ring-[3px] ring-white dark:ring-slate-900 ${iconInfo.bgClass} ${iconInfo.textClass}`}
+                                >
+                                  {iconInfo.icon}
+                                </div>
+
+                                {/* Conteúdo */}
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex justify-between items-center">
+                                    <h3 className="font-semibold text-xs group-hover:text-blue-500 transition-colors text-slate-900 dark:text-white">
+                                      {notification.title}
+                                    </h3>
+                                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                                      <span className="text-[9px] text-slate-400 uppercase font-medium">
+                                        {formatRelativeDate(notification.created_at)}
+                                      </span>
+                                      {!notification.read && (
+                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
+                                    {notification.message}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Estado vazio */}
+                  {filteredNotifications.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                      <Calendar size={32} className="mb-2 opacity-40" />
+                      <p className="text-xs font-medium">Nenhuma notificação encontrada</p>
+                      <p className="text-[11px] mt-1">Tente alterar o filtro selecionado</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </>
         ) : (
-          /* ── Aba Solicitações ─────────────────────────────── */
+          /* ── Aba Feedbacks ─────────────────────────────── */
           <div className="flex-1 overflow-y-auto flex flex-col">
             {/* Botão + Filtro */}
             <div className="flex items-center gap-2 px-5 py-3">
@@ -403,7 +364,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm text-[11px]"
               >
                 <Plus size={12} />
-                Enviar Feedback
+                Novo Feedback
               </button>
               <div className="relative">
                 <button
@@ -411,20 +372,19 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-2 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 hover:border-slate-300 transition-colors"
                 >
                   <Filter size={12} className="text-slate-400" />
-                  Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : STATUS_CONFIG[statusFilter].label}</span>
+                  Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}</span>
                 </button>
                 {showStatusDropdown && (
                   <>
                     <div className="fixed inset-0 z-[80]" onClick={() => setShowStatusDropdown(false)} />
                     <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
-                      {(['todas', 'respondida', 'em_desenvolvimento', 'planejado', 'em_analise', 'finalizada'] as StatusFilterOption[]).map((opt) => (
+                      {(['todas', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as StatusFilterOption[]).map((opt) => (
                         <button
                           key={opt}
                           onClick={() => { setStatusFilter(opt); setShowStatusDropdown(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                            }`}
+                          className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                         >
-                          {opt === 'todas' ? 'Todas' : STATUS_CONFIG[opt].label}
+                          {opt === 'todas' ? 'Todas' : STATUS_CONFIG[opt]?.label ?? opt}
                         </button>
                       ))}
                     </div>
@@ -435,86 +395,124 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
 
             {/* Lista de cards */}
             <div className="flex-1 overflow-y-auto px-5 pb-10 space-y-2.5">
-              {MOCK_FEEDBACKS
-                .filter((fb) => statusFilter === 'todas' || fb.status === statusFilter)
-                .map((fb) => {
-                  const status = STATUS_CONFIG[fb.status];
-                  const isExpanded = expandedFeedback === fb.id;
-                  const hasResponse = fb.status === 'respondida' && fb.response;
+              {/* Loading */}
+              {fbLoading && (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <Loader2 size={28} className="animate-spin mb-2" />
+                  <p className="text-xs font-medium">Carregando feedbacks...</p>
+                </div>
+              )}
 
-                  return (
-                    <div
-                      key={fb.id}
-                      onClick={() => setExpandedFeedback(isExpanded ? null : fb.id)}
-                      className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden transition-all cursor-pointer ${hasResponse && isExpanded
-                        ? 'border border-slate-200 dark:border-slate-800'
-                        : fb.status === 'em_desenvolvimento'
-                          ? 'border-2 border-blue-400/40 hover:border-blue-400/60'
-                          : 'border border-slate-200 dark:border-slate-800 hover:border-blue-400/50'
-                        }`}
-                    >
-                      {/* Header do card */}
-                      <div className={`p-3 ${hasResponse && isExpanded ? 'border-b border-slate-100 dark:border-slate-800 bg-blue-500/5' : ''}`}>
-                        <div className="flex justify-between items-start mb-1">
-                          <span className={`text-[9px] font-mono font-bold tracking-wider ${hasResponse && isExpanded
-                            ? 'text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded'
-                            : 'text-slate-400 font-medium'
-                            }`}>
-                            {fb.code}
-                          </span>
-                          <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${status.bgClass}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
-                            <span className={`text-[9px] font-bold uppercase ${status.textClass}`}>
-                              {status.label}
+              {/* Erro */}
+              {!fbLoading && fbError && (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <AlertTriangle size={28} className="mb-2 text-red-400" />
+                  <p className="text-xs font-medium text-red-500 mb-2">Erro ao carregar</p>
+                  <button
+                    onClick={refetchFeedbacks}
+                    className="text-[11px] font-semibold text-blue-500 hover:underline flex items-center gap-1"
+                  >
+                    <RefreshCw size={12} /> Tentar novamente
+                  </button>
+                </div>
+              )}
+
+              {/* Dados */}
+              {!fbLoading && !fbError && (
+                <>
+                  {filteredFeedbacks.map((fb) => {
+                    const status = STATUS_CONFIG[fb.status] || STATUS_CONFIG.nova;
+                    const typeInfo = TYPE_CONFIG[fb.type] || TYPE_CONFIG.melhoria;
+                    const isExpanded = expandedFeedback === fb.id;
+                    const hasReply = !!fb.admin_reply;
+
+                    return (
+                      <div
+                        key={fb.id}
+                        onClick={() => setExpandedFeedback(isExpanded ? null : fb.id)}
+                        className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden transition-all cursor-pointer ${hasReply && isExpanded
+                          ? 'border border-slate-200 dark:border-slate-800'
+                          : fb.status === 'em_desenvolvimento'
+                            ? 'border-2 border-blue-400/40 hover:border-blue-400/60'
+                            : 'border border-slate-200 dark:border-slate-800 hover:border-blue-400/50'
+                          }`}
+                      >
+                        {/* Header do card */}
+                        <div className={`p-3 ${hasReply && isExpanded ? 'border-b border-slate-100 dark:border-slate-800 bg-blue-500/5' : ''}`}>
+                          <div className="flex justify-between items-start mb-1">
+                            <span className={`text-[9px] font-mono font-bold tracking-wider ${hasReply && isExpanded
+                              ? 'text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded'
+                              : 'text-slate-400 font-medium'
+                              }`}>
+                              {fb.protocol_code}
+                            </span>
+                            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${status.bgClass}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
+                              <span className={`text-[9px] font-bold uppercase ${status.textClass}`}>
+                                {status.label}
+                              </span>
+                            </div>
+                          </div>
+                          <h3 className="text-xs font-semibold text-slate-800 dark:text-slate-100 mb-0.5 line-clamp-1">
+                            {fb.title}
+                          </h3>
+                          <div className="flex items-center gap-2.5 text-[9px] text-slate-400">
+                            <span className="flex items-center gap-0.5">
+                              {typeInfo.icon}
+                              {typeInfo.label}
+                            </span>
+                            <span className="flex items-center gap-0.5">
+                              <CalendarDays size={10} />
+                              {formatRelativeDate(fb.created_at)}
                             </span>
                           </div>
                         </div>
-                        <h3 className="text-xs font-semibold text-slate-800 dark:text-slate-100 mb-0.5 line-clamp-1">
-                          {fb.title}
-                        </h3>
-                        <div className="flex items-center gap-2.5 text-[9px] text-slate-400">
-                          <span className="flex items-center gap-0.5">
-                            {fb.categoryIcon}
-                            {fb.categoryLabel}
-                          </span>
-                          <span className="flex items-center gap-0.5">
-                            <CalendarDays size={10} />
-                            {fb.date}
-                          </span>
-                        </div>
+
+                        {/* Conteúdo expandido */}
+                        {isExpanded && (
+                          <div className="p-3 space-y-2.5">
+                            <div className="space-y-0.5">
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">Sua mensagem</p>
+                              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-normal">
+                                {fb.description}
+                              </p>
+                            </div>
+                            {hasReply && (
+                              <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border-l-2 border-blue-500 space-y-1">
+                                <p className="text-[8px] font-bold text-blue-500 uppercase">Resposta da equipe</p>
+                                <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-normal">
+                                  {fb.admin_reply}
+                                </p>
+                                {fb.admin_reply_at && (
+                                  <p className="text-[9px] text-slate-400 text-right">{formatRelativeDate(fb.admin_reply_at)}</p>
+                                )}
+                              </div>
+                            )}
+                            {fb.status === 'nao_planejada' && fb.admin_reason && (
+                              <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border-l-2 border-slate-400 space-y-1">
+                                <p className="text-[8px] font-bold text-slate-500 uppercase">Motivo</p>
+                                <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-normal">
+                                  {fb.admin_reason}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
+                    );
+                  })}
 
-                      {/* Conteúdo expandido (apenas para "respondida") */}
-                      {hasResponse && isExpanded && fb.message && fb.response && (
-                        <div className="p-3 space-y-2.5">
-                          <div className="space-y-0.5">
-                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">Sua mensagem</p>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-normal">
-                              {fb.message}
-                            </p>
-                          </div>
-                          <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border-l-2 border-blue-500 space-y-1">
-                            <p className="text-[8px] font-bold text-blue-500 uppercase">Resposta da equipe</p>
-                            <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-normal">
-                              {fb.response.text}
-                            </p>
-                            <p className="text-[9px] text-slate-400 text-right">{fb.response.date}</p>
-                          </div>
-                        </div>
-                      )}
+                  {/* Estado vazio */}
+                  {filteredFeedbacks.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
+                        <Inbox size={20} className="text-slate-300" />
+                      </div>
+                      <p className="text-xs font-semibold text-slate-400">Nenhum feedback encontrado</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Seus feedbacks aparecerão aqui.</p>
                     </div>
-                  );
-                })}
-
-              {/* Estado vazio */}
-              {MOCK_FEEDBACKS.filter((fb) => statusFilter === 'todas' || fb.status === statusFilter).length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
-                    <Inbox size={20} className="text-slate-300" />
-                  </div>
-                  <p className="text-xs font-semibold text-slate-400">Nenhum feedback encontrado</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Suas mensagens aparecerão aqui.</p>
-                </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -525,6 +523,8 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
       <FeedbackModal
         isOpen={showFeedbackModal}
         onClose={() => setShowFeedbackModal(false)}
+        onSubmit={handleFeedbackSubmit}
+        isSubmitting={isSubmitting}
       />
     </>
   );

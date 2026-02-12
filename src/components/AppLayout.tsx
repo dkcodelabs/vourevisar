@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ChevronDown, Notebook, Timer, Menu, CornerDownRight, NotebookPen, Bell } from "lucide-react";
 import { StudentHubPanel } from './student-hub/StudentHubPanel';
+import { useNotifications } from '@/hooks/useNotifications';
 import { FocusTimer } from "./FocusTimer";
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
@@ -209,6 +210,7 @@ export const AppLayout = () => {
 
   // Student Hub state
   const [isHubOpen, setIsHubOpen] = React.useState(false);
+  const { unreadCount: hubUnreadCount } = useNotifications();
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -217,7 +219,7 @@ export const AppLayout = () => {
         pageTitle={pageTitle}
         onOpenNotes={() => setIsGeneralNotesModalOpen(true)}
         onOpenHub={() => setIsHubOpen(true)}
-        hubUnreadCount={1}
+        hubUnreadCount={hubUnreadCount}
       />
 
       {/* Main Content Area - pushed down by header height */}

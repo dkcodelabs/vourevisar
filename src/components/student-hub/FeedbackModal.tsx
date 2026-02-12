@@ -8,6 +8,8 @@ type FeedbackCategory = 'melhoria' | 'nova_funcionalidade' | 'problema';
 interface FeedbackModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onSubmit?: (type: string, title: string, description: string) => Promise<string | null>;
+    isSubmitting?: boolean;
 }
 
 /**
@@ -17,17 +19,23 @@ interface FeedbackModalProps {
  *
  * Referência: docs/design/desktop:_nova_solicitação_modal_1/code.html
  */
-export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose }) => {
+export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, onSubmit, isSubmitting = false }) => {
     const [step, setStep] = React.useState<1 | 2>(1);
     const [selectedCategory, setSelectedCategory] = React.useState<FeedbackCategory | null>(null);
+    const [title, setTitle] = React.useState('');
+    const [description, setDescription] = React.useState('');
     const [showToast, setShowToast] = React.useState(false);
+    const [protocolCode, setProtocolCode] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         if (!isOpen) {
             const t = setTimeout(() => {
                 setStep(1);
                 setSelectedCategory(null);
+                setTitle('');
+                setDescription('');
                 setShowToast(false);
+                setProtocolCode(null);
             }, 200);
             return () => clearTimeout(t);
         }
@@ -309,7 +317,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                             >
                                 {step}/2
                             </div>
-                            <h2 className="fbm-title dark:text-slate-100">Nova Solicitação</h2>
+                            <h2 className="fbm-title dark:text-slate-100">Novo Feedback</h2>
                         </div>
                         <button onClick={onClose} className="fbm-close-btn">
                             <X className="fbm-icon" />
@@ -321,7 +329,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                         <div className="p-5" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div style={{ textAlign: 'center', marginBottom: '4px' }}>
                                 <h3 className="fbm-subtitle dark:text-slate-100">O que você deseja relatar?</h3>
-                                <p className="fbm-desc-sm dark:text-slate-400">Selecione uma categoria para sua solicitação</p>
+                                <p className="fbm-desc-sm dark:text-slate-400">Selecione uma categoria para seu feedback</p>
                             </div>
 
                             <div style={{ display: 'grid', gap: '10px' }}>
@@ -384,6 +392,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                                     type="text"
                                     placeholder="Ex.: Não consigo concluir revisão"
                                     className="fbm-input dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    maxLength={120}
                                 />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -394,6 +405,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                                     rows={4}
                                     className="fbm-input dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                                     style={{ resize: 'none' }}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    maxLength={2000}
                                 />
                             </div>
                         </div>
@@ -419,8 +433,24 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                                     <div className="fbm-dot fbm-dot-active" />
                                     <div className="fbm-dot fbm-dot-active" />
                                 </div>
-                                <button onClick={() => setShowToast(true)} className="fbm-btn-submit" style={{ marginLeft: '16px' }}>
-                                    Enviar Solicitação
+                                <button
+                                    onClick={async () => {
+                                        if (!selectedCategory || !title.trim() || !description.trim()) return;
+                                        if (onSubmit) {
+                                            const code = await onSubmit(selectedCategory, title, description);
+                                            if (code) {
+                                                setProtocolCode(code);
+                                                setShowToast(true);
+                                            }
+                                        } else {
+                                            setShowToast(true);
+                                        }
+                                    }}
+                                    className="fbm-btn-submit"
+                                    style={{ marginLeft: '16px', opacity: (!title.trim() || !description.trim() || isSubmitting) ? 0.5 : 1 }}
+                                    disabled={!title.trim() || !description.trim() || isSubmitting}
+                                >
+                                    {isSubmitting ? 'Enviando...' : 'Enviar Feedback'}
                                 </button>
                             </div>
                         )}
@@ -458,9 +488,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                             <CheckCircle className="fbm-icon" style={{ color: '#16a34a' }} />
                         </div>
                         <div style={{ flex: 1 }}>
-                            <p className="fbm-toast-title dark:text-slate-100">Solicitação enviada com sucesso</p>
+                            <p className="fbm-toast-title dark:text-slate-100">Feedback enviado com sucesso</p>
                             <p className="fbm-toast-desc dark:text-slate-400">
-                                Protocolo: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>FBK-{Math.floor(Math.random() * 100000)}</span>
+                                Protocolo: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{protocolCode || 'FBK-XXXXX'}</span>
                             </p>
                         </div>
                         <button onClick={() => { setShowToast(false); onClose(); }} className="fbm-close-btn">
