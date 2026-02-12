@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Server, FileSearch } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Server, FileSearch, MessageSquare } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -37,6 +37,7 @@ const getNavItems = (isAdmin: boolean) => {
     { to: "/admin/system", label: "Sistema", icon: Server },
     { to: "/admin/security", label: "Segurança", icon: Shield },
     { to: "/admin/audit", label: "Auditoria", icon: FileSearch },
+    { to: "/admin/feedback", label: "Feedbacks", icon: MessageSquare },
   ] : [];
 
   return { mainItems, adminItems };
