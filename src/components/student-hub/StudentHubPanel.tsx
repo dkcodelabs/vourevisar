@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, CalendarDays, AlertTriangle, Wand2, PlusCircle, RefreshCw, Loader2 } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, CalendarDays, AlertTriangle, Wand2, PlusCircle, RefreshCw, BellOff, MessageSquarePlus, SearchX } from 'lucide-react';
 import { FeedbackModal } from './FeedbackModal';
 import { useNotifications, type UserNotification, type NotificationFilter } from '@/hooks/useNotifications';
 import { useUserFeedbacks, type UserFeedback, type FeedbackStatus } from '@/hooks/useUserFeedbacks';
@@ -71,6 +71,31 @@ interface StudentHubPanelProps {
   onClose: () => void;
 }
 
+// ─── Skeleton Components ─────────────────────────────────────
+const SkeletonNotification: React.FC = () => (
+  <div className="relative pl-8 animate-pulse" aria-hidden="true">
+    <div className="absolute left-0 top-0.5 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700" />
+    <div className="flex flex-col gap-1.5">
+      <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
+      <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-full" />
+    </div>
+  </div>
+);
+
+const SkeletonCard: React.FC = () => (
+  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 animate-pulse" aria-hidden="true">
+    <div className="flex justify-between items-start mb-2">
+      <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded w-20" />
+      <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full w-16" />
+    </div>
+    <div className="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-5/6 mb-2" />
+    <div className="flex gap-3">
+      <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-16" />
+      <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-14" />
+    </div>
+  </div>
+);
+
 // ─── Componente Principal ────────────────────────────────────
 export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = React.useState<'notificacoes' | 'feedbacks'>('notificacoes');
@@ -79,6 +104,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   const [expandedFeedback, setExpandedFeedback] = React.useState<string | null>(null);
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
 
   // ── Hooks reais ─────────────────────────────────────────────
   const {
@@ -135,19 +161,26 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   // Fechar com ESC
   React.useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !showFeedbackModal) onClose();
     };
     if (isOpen) {
       document.addEventListener('keydown', handleEsc);
       return () => document.removeEventListener('keydown', handleEsc);
     }
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, showFeedbackModal]);
 
   // Bloquear scroll do body
   React.useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       return () => { document.body.style.overflow = ''; };
+    }
+  }, [isOpen]);
+
+  // Foco no drawer ao abrir
+  useEffect(() => {
+    if (isOpen && drawerRef.current) {
+      drawerRef.current.focus();
     }
   }, [isOpen]);
 
@@ -176,59 +209,77 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
       <div
         className="fixed inset-0 bg-slate-900/10 backdrop-blur-[2px] z-[60]"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Painel lateral */}
       <div
-        className="fixed top-0 right-0 h-full w-full sm:w-[400px] bg-white dark:bg-slate-900 shadow-2xl z-[70] flex flex-col border-l border-slate-100 dark:border-slate-800 animate-in slide-in-from-right duration-300"
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Central do Aluno"
+        tabIndex={-1}
+        className="fixed top-0 right-0 h-full w-full sm:w-[400px] md:w-[420px] bg-white dark:bg-slate-900 shadow-2xl z-[70] flex flex-col border-l border-slate-100 dark:border-slate-800 animate-in slide-in-from-right duration-300 outline-none"
       >
-        {/* ── Header ──────────────────────────────────────────── */}
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex justify-between items-start mb-0.5">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Central do Aluno</h2>
+        {/* ── Sticky Header + Tabs ─────────────────────────────── */}
+        <div className="sticky top-0 z-10 bg-white dark:bg-slate-900">
+          {/* Header */}
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex justify-between items-start mb-0.5">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Central do Aluno</h2>
+              <button
+                onClick={onClose}
+                aria-label="Fechar"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors -mt-0.5 min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Acompanhe avisos e seus feedbacks.
+            </p>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-slate-100 dark:border-slate-800" role="tablist" aria-label="Seções da Central">
             <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors -mt-0.5"
+              role="tab"
+              id="tab-notificacoes"
+              aria-selected={activeTab === 'notificacoes'}
+              aria-controls="tabpanel-notificacoes"
+              onClick={() => setActiveTab('notificacoes')}
+              className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center min-h-[44px] ${activeTab === 'notificacoes'
+                ? 'text-blue-500'
+                : 'text-slate-400 hover:text-slate-600'
+                }`}
             >
-              <X size={18} />
+              Notificações
+              {activeTab === 'notificacoes' && (
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" aria-hidden="true" />
+              )}
+            </button>
+            <button
+              role="tab"
+              id="tab-feedbacks"
+              aria-selected={activeTab === 'feedbacks'}
+              aria-controls="tabpanel-feedbacks"
+              onClick={() => setActiveTab('feedbacks')}
+              className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center min-h-[44px] ${activeTab === 'feedbacks'
+                ? 'text-blue-500'
+                : 'text-slate-400 hover:text-slate-600'
+                }`}
+            >
+              Meus Feedbacks
+              {activeTab === 'feedbacks' && (
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" aria-hidden="true" />
+              )}
             </button>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Acompanhe avisos e seus feedbacks.
-          </p>
-        </div>
-
-        {/* ── Tabs ──────────────────────────────────────────────── */}
-        <div className="flex border-b border-slate-100 dark:border-slate-800">
-          <button
-            onClick={() => setActiveTab('notificacoes')}
-            className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center ${activeTab === 'notificacoes'
-              ? 'text-blue-500'
-              : 'text-slate-400 hover:text-slate-600'
-              }`}
-          >
-            Notificações
-            {activeTab === 'notificacoes' && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('feedbacks')}
-            className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center ${activeTab === 'feedbacks'
-              ? 'text-blue-500'
-              : 'text-slate-400 hover:text-slate-600'
-              }`}
-          >
-            Meus Feedbacks
-            {activeTab === 'feedbacks' && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" />
-            )}
-          </button>
         </div>
 
         {/* ── Conteúdo da aba ativa ─────────────────────────── */}
         {activeTab === 'notificacoes' ? (
-          <>
+          <div role="tabpanel" id="tabpanel-notificacoes" aria-labelledby="tab-notificacoes" className="flex-1 flex flex-col min-h-0">
             {/* Filtros + Link */}
             <div className="px-5 py-3 space-y-2.5">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -258,12 +309,14 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
             </div>
 
             {/* Timeline de notificações */}
-            <div className="flex-1 overflow-y-auto px-5 pb-10">
-              {/* Loading */}
+            <div className="flex-1 overflow-y-auto scroll-smooth px-5 pb-10">
+              {/* Skeleton Loading */}
               {notifLoading && (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                  <Loader2 size={28} className="animate-spin mb-2" />
-                  <p className="text-xs font-medium">Carregando notificações...</p>
+                <div className="space-y-5 py-4" role="status" aria-label="Carregando notificações">
+                  <SkeletonNotification />
+                  <SkeletonNotification />
+                  <SkeletonNotification />
+                  <span className="sr-only">Carregando notificações...</span>
                 </div>
               )}
 
@@ -311,6 +364,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                                 {/* Ícone circular */}
                                 <div
                                   className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center z-10 ring-[3px] ring-white dark:ring-slate-900 ${iconInfo.bgClass} ${iconInfo.textClass}`}
+                                  aria-hidden="true"
                                 >
                                   {iconInfo.icon}
                                 </div>
@@ -344,45 +398,71 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
 
                   {/* Estado vazio */}
                   {filteredNotifications.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                      <Calendar size={32} className="mb-2 opacity-40" />
-                      <p className="text-xs font-medium">Nenhuma notificação encontrada</p>
-                      <p className="text-[11px] mt-1">Tente alterar o filtro selecionado</p>
+                    <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                      <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                        {activeFilter !== 'todas' ? (
+                          <SearchX size={24} className="text-slate-300 dark:text-slate-600" aria-hidden="true" />
+                        ) : (
+                          <BellOff size={24} className="text-slate-300 dark:text-slate-600" aria-hidden="true" />
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                        {activeFilter !== 'todas'
+                          ? 'Nenhuma notificação com este filtro.'
+                          : 'Nenhuma notificação por enquanto.'}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1 max-w-[220px]">
+                        {activeFilter !== 'todas'
+                          ? 'Tente outro filtro ou aguarde novas atualizações.'
+                          : 'Quando houver atualizações ou avisos, eles aparecerão aqui.'}
+                      </p>
+                      {activeFilter !== 'todas' && (
+                        <button
+                          onClick={() => setActiveFilter('todas')}
+                          className="mt-3 text-[11px] font-semibold text-blue-500 hover:text-blue-600 transition-colors"
+                        >
+                          Limpar filtro
+                        </button>
+                      )}
                     </div>
                   )}
                 </>
               )}
             </div>
-          </>
+          </div>
         ) : (
           /* ── Aba Feedbacks ─────────────────────────────── */
-          <div className="flex-1 overflow-y-auto flex flex-col">
-            {/* Botão + Filtro */}
-            <div className="flex items-center gap-2 px-5 py-3">
+          <div role="tabpanel" id="tabpanel-feedbacks" aria-labelledby="tab-feedbacks" className="flex-1 flex flex-col min-h-0">
+            {/* Botão + Filtro — sticky */}
+            <div className="sticky top-0 z-[5] bg-white dark:bg-slate-900 flex items-center gap-2 px-5 py-3 border-b border-slate-50 dark:border-slate-800/50">
               <button
                 onClick={() => setShowFeedbackModal(true)}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm text-[11px]"
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm text-[11px] min-h-[44px]"
               >
-                <Plus size={12} />
+                <Plus size={14} aria-hidden="true" />
                 Novo Feedback
               </button>
               <div className="relative">
                 <button
                   onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-2 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 hover:border-slate-300 transition-colors"
+                  aria-haspopup="listbox"
+                  aria-expanded={showStatusDropdown}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-2.5 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 hover:border-slate-300 transition-colors min-h-[44px]"
                 >
-                  <Filter size={12} className="text-slate-400" />
+                  <Filter size={12} className="text-slate-400" aria-hidden="true" />
                   Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}</span>
                 </button>
                 {showStatusDropdown && (
                   <>
                     <div className="fixed inset-0 z-[80]" onClick={() => setShowStatusDropdown(false)} />
-                    <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
+                    <div role="listbox" className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
                       {(['todas', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as StatusFilterOption[]).map((opt) => (
                         <button
                           key={opt}
+                          role="option"
+                          aria-selected={statusFilter === opt}
                           onClick={() => { setStatusFilter(opt); setShowStatusDropdown(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                          className={`w-full text-left px-3 py-2 text-[11px] transition-colors min-h-[36px] ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                         >
                           {opt === 'todas' ? 'Todas' : STATUS_CONFIG[opt]?.label ?? opt}
                         </button>
@@ -394,12 +474,14 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
             </div>
 
             {/* Lista de cards */}
-            <div className="flex-1 overflow-y-auto px-5 pb-10 space-y-2.5">
-              {/* Loading */}
+            <div className="flex-1 overflow-y-auto scroll-smooth px-5 pb-10 space-y-2.5">
+              {/* Skeleton Loading */}
               {fbLoading && (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                  <Loader2 size={28} className="animate-spin mb-2" />
-                  <p className="text-xs font-medium">Carregando feedbacks...</p>
+                <div className="space-y-2.5 py-2" role="status" aria-label="Carregando feedbacks">
+                  <SkeletonCard />
+                  <SkeletonCard />
+                  <SkeletonCard />
+                  <span className="sr-only">Carregando feedbacks...</span>
                 </div>
               )}
 
@@ -429,8 +511,12 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                     return (
                       <div
                         key={fb.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
                         onClick={() => setExpandedFeedback(isExpanded ? null : fb.id)}
-                        className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden transition-all cursor-pointer ${hasReply && isExpanded
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedFeedback(isExpanded ? null : fb.id); } }}
+                        className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${hasReply && isExpanded
                           ? 'border border-slate-200 dark:border-slate-800'
                           : fb.status === 'em_desenvolvimento'
                             ? 'border-2 border-blue-400/40 hover:border-blue-400/60'
@@ -447,29 +533,31 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                               {fb.protocol_code}
                             </span>
                             <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${status.bgClass}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} aria-hidden="true" />
                               <span className={`text-[9px] font-bold uppercase ${status.textClass}`}>
                                 {status.label}
                               </span>
                             </div>
                           </div>
-                          <h3 className="text-xs font-semibold text-slate-800 dark:text-slate-100 mb-0.5 line-clamp-1">
+                          <h3 className="text-xs font-semibold text-slate-800 dark:text-slate-100 mb-0.5 line-clamp-2">
                             {fb.title}
                           </h3>
                           <div className="flex items-center gap-2.5 text-[9px] text-slate-400">
-                            <span className="flex items-center gap-0.5">
+                            <span className="flex items-center gap-0.5" aria-hidden="true">
                               {typeInfo.icon}
                               {typeInfo.label}
                             </span>
                             <span className="flex items-center gap-0.5">
-                              <CalendarDays size={10} />
+                              <CalendarDays size={10} aria-hidden="true" />
                               {formatRelativeDate(fb.created_at)}
                             </span>
                           </div>
                         </div>
 
                         {/* Conteúdo expandido */}
-                        {isExpanded && (
+                        <div
+                          className={`transition-all duration-200 ease-in-out ${isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}
+                        >
                           <div className="p-3 space-y-2.5">
                             <div className="space-y-0.5">
                               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">Sua mensagem</p>
@@ -497,19 +585,47 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                               </div>
                             )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
 
                   {/* Estado vazio */}
                   {filteredFeedbacks.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
-                        <Inbox size={20} className="text-slate-300" />
+                    <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                      <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                        {statusFilter !== 'todas' ? (
+                          <SearchX size={24} className="text-slate-300 dark:text-slate-600" aria-hidden="true" />
+                        ) : (
+                          <MessageSquarePlus size={24} className="text-slate-300 dark:text-slate-600" aria-hidden="true" />
+                        )}
                       </div>
-                      <p className="text-xs font-semibold text-slate-400">Nenhum feedback encontrado</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Seus feedbacks aparecerão aqui.</p>
+                      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                        {statusFilter !== 'todas'
+                          ? 'Nenhum feedback com este status.'
+                          : 'Você ainda não enviou nenhum feedback.'}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1 max-w-[240px]">
+                        {statusFilter !== 'todas'
+                          ? 'Tente um filtro diferente ou envie um novo feedback.'
+                          : 'Diga o que pode ser melhorado — sua opinião importa!'}
+                      </p>
+                      {statusFilter !== 'todas' ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setStatusFilter('todas'); }}
+                          className="mt-3 text-[11px] font-semibold text-blue-500 hover:text-blue-600 transition-colors"
+                        >
+                          Limpar filtro
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowFeedbackModal(true); }}
+                          className="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-1.5 transition-all text-xs min-h-[44px]"
+                        >
+                          <Plus size={14} aria-hidden="true" />
+                          Enviar primeiro feedback
+                        </button>
+                      )}
                     </div>
                   )}
                 </>

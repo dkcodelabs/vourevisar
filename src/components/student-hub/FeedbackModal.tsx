@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Wand2, PlusCircle, AlertTriangle, ChevronRight, X, ArrowLeft, CheckCircle } from 'lucide-react';
 
@@ -27,6 +27,24 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
     const [showToast, setShowToast] = React.useState(false);
     const [protocolCode, setProtocolCode] = React.useState<string | null>(null);
     const [touched, setTouched] = React.useState<{ title: boolean; description: boolean }>({ title: false, description: false });
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    // ESC fecha o modal
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        document.addEventListener('keydown', handleEsc);
+        return () => document.removeEventListener('keydown', handleEsc);
+    }, [isOpen, onClose]);
+
+    // Foco no modal ao abrir
+    useEffect(() => {
+        if (isOpen && modalRef.current) {
+            modalRef.current.focus();
+        }
+    }, [isOpen]);
 
     // ── Constantes de validação ─────────────────────────────
     const TITLE_MIN = 8;
@@ -346,24 +364,57 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                 .dark .fbm-selected-type { background: #1e293b; border-color: #334155; }
                 .dark .fbm-selected-type-label { color: #64748b; }
                 .dark .fbm-selected-type-name { color: #f1f5f9; }
+
+                /* Mobile fullscreen */
+                @media (max-width: 640px) {
+                    .fbm-root {
+                        padding: 0 !important;
+                    }
+                    .fbm-modal-container {
+                        max-width: 100% !important;
+                        width: 100% !important;
+                        height: 100% !important;
+                        max-height: 100% !important;
+                        border-radius: 0 !important;
+                        border: none !important;
+                    }
+                    .fbm-footer {
+                        position: sticky;
+                        bottom: 0;
+                    }
+                    .fbm-card-btn {
+                        min-height: 56px;
+                    }
+                    .fbm-btn-cancel,
+                    .fbm-btn-submit {
+                        min-height: 44px !important;
+                        padding: 10px 20px !important;
+                    }
+                }
             `}</style>
 
             {/* Backdrop */}
             <div
                 className="fbm-root fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
                 onClick={onClose}
+                aria-hidden="true"
             >
                 {/* Modal Container */}
                 <div
-                    className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden"
+                    ref={modalRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Novo Feedback"
+                    tabIndex={-1}
+                    className="fbm-modal-container bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden outline-none"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* ── Header ─────────────────────────────────────── */}
                     <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             {isStep2 && (
-                                <button onClick={() => setStep(1)} className="fbm-close-btn">
-                                    <ArrowLeft className="fbm-icon" />
+                                <button onClick={() => setStep(1)} className="fbm-close-btn" aria-label="Voltar para etapa anterior">
+                                    <ArrowLeft className="fbm-icon" aria-hidden="true" />
                                 </button>
                             )}
                             <div
@@ -372,13 +423,14 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                                     backgroundColor: isStep1 ? 'rgba(25, 133, 240, 0.1)' : '#1985f0',
                                     color: isStep1 ? '#1985f0' : '#fff',
                                 }}
+                                aria-hidden="true"
                             >
                                 {step}/2
                             </div>
                             <h2 className="fbm-title dark:text-slate-100">Novo Feedback</h2>
                         </div>
-                        <button onClick={onClose} className="fbm-close-btn">
-                            <X className="fbm-icon" />
+                        <button onClick={onClose} className="fbm-close-btn" aria-label="Fechar modal">
+                            <X className="fbm-icon" aria-hidden="true" />
                         </button>
                     </div>
 
@@ -486,7 +538,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                     )}
 
                     {/* ── Footer ──────────────────────────────────────── */}
-                    <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div className="fbm-footer px-4 py-3 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <button
                             onClick={isStep1 ? onClose : () => setStep(1)}
                             className="fbm-btn-cancel dark:text-slate-400 dark:hover:bg-slate-800"
