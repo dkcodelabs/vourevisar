@@ -3,6 +3,8 @@ import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, Calend
 import { FeedbackModal } from './FeedbackModal';
 import { useNotifications, type UserNotification, type NotificationFilter } from '@/hooks/useNotifications';
 import { useUserFeedbacks, type UserFeedback, type FeedbackStatus } from '@/hooks/useUserFeedbacks';
+import { features } from '@/lib/features';
+import { analytics } from '@/lib/analytics';
 
 // ─── Status Config ──────────────────────────────────────────
 const STATUS_CONFIG: Record<FeedbackStatus, { label: string; dotClass: string; bgClass: string; textClass: string }> = {
@@ -98,6 +100,12 @@ const SkeletonCard: React.FC = () => (
 
 // ─── Componente Principal ────────────────────────────────────
 export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClose }) => {
+  // Analytics: Log opening
+  useEffect(() => {
+    if (isOpen) {
+      analytics.sendEvent('student_hub_opened');
+    }
+  }, [isOpen]);
   const [activeTab, setActiveTab] = React.useState<'notificacoes' | 'feedbacks'>('notificacoes');
   const [activeFilter, setActiveFilter] = React.useState<NotificationFilter>('todas');
   const [statusFilter, setStatusFilter] = React.useState<StatusFilterOption>('todas');
@@ -247,7 +255,10 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
               id="tab-notificacoes"
               aria-selected={activeTab === 'notificacoes'}
               aria-controls="tabpanel-notificacoes"
-              onClick={() => setActiveTab('notificacoes')}
+              onClick={() => {
+                setActiveTab('notificacoes');
+                analytics.sendEvent('student_tab_changed', { tab: 'notificacoes' });
+              }}
               className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center min-h-[44px] ${activeTab === 'notificacoes'
                 ? 'text-blue-500'
                 : 'text-slate-400 hover:text-slate-600'
@@ -263,7 +274,10 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
               id="tab-feedbacks"
               aria-selected={activeTab === 'feedbacks'}
               aria-controls="tabpanel-feedbacks"
-              onClick={() => setActiveTab('feedbacks')}
+              onClick={() => {
+                setActiveTab('feedbacks');
+                analytics.sendEvent('student_tab_changed', { tab: 'feedbacks' });
+              }}
               className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center min-h-[44px] ${activeTab === 'feedbacks'
                 ? 'text-blue-500'
                 : 'text-slate-400 hover:text-slate-600'
@@ -633,10 +647,10 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
             </div>
           </div>
         )}
-      </div>
+      </div >
 
       {/* ── Modal de Feedback ──────────────────────── */}
-      <FeedbackModal
+      < FeedbackModal
         isOpen={showFeedbackModal}
         onClose={() => setShowFeedbackModal(false)}
         onSubmit={handleFeedbackSubmit}

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Wand2, PlusCircle, AlertTriangle, ChevronRight, X, ArrowLeft, CheckCircle } from 'lucide-react';
+import { analytics } from '@/lib/analytics';
 
 // ─── Tipos ──────────────────────────────────────────────────────────
 type FeedbackCategory = 'melhoria' | 'nova_funcionalidade' | 'problema';
@@ -39,10 +40,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
         return () => document.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
 
-    // Foco no modal ao abrir
+    // Foco no modal ao abrir + Analytics
     useEffect(() => {
         if (isOpen && modalRef.current) {
             modalRef.current.focus();
+            analytics.sendEvent('feedback_form_opened');
         }
     }, [isOpen]);
 
@@ -568,14 +570,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                                                 if (code) {
                                                     setProtocolCode(code);
                                                     setShowToast(true);
-                                                    // Reset campos para próximo uso
-                                                    setTitle('');
-                                                    setDescription('');
-                                                    setSelectedCategory(null);
-                                                    setStep(1);
                                                     setTouched({ title: false, description: false });
+                                                    analytics.sendEvent('feedback_submitted', { type: selectedCategory });
                                                 }
-                                            } catch {
+                                            } catch (error) {
+                                                analytics.sendEvent('feedback_submit_failed', { type: selectedCategory });
                                                 // Toast amigável tratado pelo hook pai
                                             }
                                         } else {

@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { features } from '@/lib/features';
 
 const routeTitles: Record<string, string> = {
   '/dashboard': 'Painel',
@@ -102,19 +103,21 @@ const TopHeader = ({ pageTitle, onOpenNotes, onOpenHub, hubUnreadCount }: { page
         <FocusTimer />
 
         {/* 2. Notification Bell (Central do Aluno) */}
-        <button
-          onClick={onOpenHub}
-          className="relative flex items-center justify-center w-9 h-9 text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:bg-gray-800 focus:outline-none"
-          title="Central do Aluno"
-          aria-label={hubUnreadCount > 0 ? `Notificações, ${hubUnreadCount} não lida${hubUnreadCount > 1 ? 's' : ''}` : 'Notificações'}
-        >
-          <Bell className="w-5 h-5" strokeWidth={1.5} aria-hidden="true" />
-          {hubUnreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-blue-500 rounded-full" aria-hidden="true">
-              {hubUnreadCount}
-            </span>
-          )}
-        </button>
+        {features.STUDENT_HUB && (
+          <button
+            onClick={onOpenHub}
+            className="relative flex items-center justify-center w-9 h-9 text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:bg-gray-800 focus:outline-none"
+            title="Central do Aluno"
+            aria-label={hubUnreadCount > 0 ? `Notificações, ${hubUnreadCount} não lida${hubUnreadCount > 1 ? 's' : ''}` : 'Notificações'}
+          >
+            <Bell className="w-5 h-5" strokeWidth={1.5} aria-hidden="true" />
+            {hubUnreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-blue-500 rounded-full" aria-hidden="true">
+                {hubUnreadCount}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* 3. Annotations Button (NotebookPen) */}
         <button
@@ -273,7 +276,9 @@ export const AppLayout = () => {
       </div>
 
       {/* Central do Aluno */}
-      <StudentHubPanel isOpen={isHubOpen} onClose={() => setIsHubOpen(false)} />
+      {features.STUDENT_HUB && (
+        <StudentHubPanel isOpen={isHubOpen} onClose={() => setIsHubOpen(false)} />
+      )}
     </SidebarProvider>
   );
 };
