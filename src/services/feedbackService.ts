@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { addHours, addDays, isPast } from 'date-fns';
 
 /**
  * Coleta contexto técnico automaticamente ao criar feedback.
@@ -62,4 +63,111 @@ function sanitize(ctx: Record<string, string | null>): Record<string, string | n
 export async function getActorEmail(): Promise<string | null> {
     const { data } = await supabase.auth.getUser();
     return data?.user?.email ?? null;
+}
+
+// ─── Status & Transitions Hardening ─────────────────────────
+
+export type FeedbackStatus = 'nova' | 'planejada' | 'em_desenvolvimento' | 'concluida' | 'nao_planejada';
+export type FeedbackType = 'melhoria' | 'nova_funcionalidade' | 'problema';
+
+export const FEEDBACK_LABELS: Record<FeedbackStatus, string> = {
+    nova: 'Nova',
+    planejada: 'Planejada',
+    em_desenvolvimento: 'Em Desenvolvimento',
+    concluida: 'Concluída',
+    nao_planejada: 'Não Planejada',
+};
+
+// Matriz de transições permitidas
+// Admin tem superpoderes, mas evitamos fluxos ilógicos (ex: Concluída -> Nova)
+const VALID_TRANSITIONS: Record<FeedbackStatus, FeedbackStatus[]> = {
+    nova: ['planejada', 'nao_planejada', 'em_desenvolvimento', 'concluida'],
+    planejada: ['em_desenvolvimento', 'nao_planejada', 'nova'],
+    em_desenvolvimento: ['concluida', 'planejada', 'nova'],
+    concluida: ['em_desenvolvimento', 'planejada'], // Reabrir
+    nao_planejada: ['planejada', 'nova'], // Reconsiderar
+};
+
+/**
+ * Valida se a transição de status é permitida.
+ * @param current Status atual
+ * @param next Próximo status desejado
+ */
+export function isValidTransition(current: FeedbackStatus, next: FeedbackStatus): boolean {
+    if (current === next) return true;
+    const allowed = VALID_TRANSITIONS[current] || [];
+    return allowed.includes(next);
+}
+
+/**
+ * Normaliza status legado para o novo padrão.
+ */
+export function normalizeFeedbackStatus(status: string): FeedbackStatus {
+    const mapLegacy: Record<string, FeedbackStatus> = {
+        'new': 'nova',
+        'triaged': 'planejada',
+        'in_progress': 'em_desenvolvimento',
+        'resolved': 'concluida',
+        'wont_fix': 'nao_planejada'
+    };
+    return (mapLegacy[status] || status) as FeedbackStatus;
+}
+
+/**
+ * Garante que o rótulo seja sempre PT-BR e nunca vaze o enum.
+ */
+export function getFeedbackStatusLabel(status: string): string {
+    const normalized = normalizeFeedbackStatus(status);
+    return FEEDBACK_LABELS[normalized] || status;
+}
+
+// ─── SLA Logic ──────────────────────────────────────────────
+
+export interface SLADueDates {
+    sla_first_response_due_at: string; // ISO
+    sla_resolution_due_at: string; // ISO
+}
+
+/**
+ * Calcula os prazos de SLA baseados no tipo e data de criação.
+ * Regra:
+ * - 1ª Resposta: +24h (Todos)
+ * - Resolução:
+ *    - Problema: +3 dias
+ *    - Melhoria: +7 dias
+ *    - Nova Funcionalidade: +14 dias
+ */
+export function calculateSLADueDates(creationDate: Date | string, type: FeedbackType | string): SLADueDates {
+    const baseDate = new Date(creationDate);
+
+    // 1. First Response: +24h fixed
+    const responseDue = addHours(baseDate, 24);
+
+    // 2. Resolution: Dynamic by type
+    let resolutionDays = 7; // Default (Melhoria)
+    if (type === 'problema') resolutionDays = 3;
+    if (type === 'nova_funcionalidade') resolutionDays = 14;
+
+    const resolutionDue = addDays(baseDate, resolutionDays);
+
+    return {
+        sla_first_response_due_at: responseDue.toISOString(),
+        sla_resolution_due_at: resolutionDue.toISOString()
+    };
+}
+
+/**
+ * Verifica se houve violação de SLA.
+ */
+export function checkSLABreach(
+    dueAt: string | null,
+    actualAt: string | null
+): boolean {
+    if (!dueAt) return false;
+    // Se já foi atendido (actualAt), compara datas.
+    if (actualAt) {
+        return new Date(actualAt) > new Date(dueAt);
+    }
+    // Se não foi atendido, verifica se já estourou o prazo (now > dueAt).
+    return isPast(new Date(dueAt));
 }

@@ -1,5 +1,4 @@
 {
-    "kiroAgent.configureMCP": "Disabled",
     "mcpServers": {
         "stitch": {
             "serverUrl": "https://stitch.googleapis.com/mcp",

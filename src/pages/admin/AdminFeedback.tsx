@@ -11,8 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 
+import { isValidTransition, getFeedbackStatusLabel, normalizeFeedbackStatus, FeedbackStatus, FEEDBACK_LABELS, calculateSLADueDates, checkSLABreach } from '@/services/feedbackService';
+import { differenceInHours, parseISO } from 'date-fns';
+
 // ─── Tipos ──────────────────────────────────────────────────
-type FeedbackStatus = 'nova' | 'planejada' | 'em_desenvolvimento' | 'concluida' | 'nao_planejada' | 'new' | 'triaged' | 'in_progress' | 'resolved' | 'wont_fix';
+// Removida definição duplicada de FeedbackStatus em favor do service
 type FeedbackType = 'melhoria' | 'nova_funcionalidade' | 'problema' | 'improvement' | 'feature_request' | 'ux_issue';
 
 interface FeedbackRecord {
@@ -39,21 +42,20 @@ interface FeedbackRecord {
     resolved_at: string | null;
     created_at: string;
     updated_at: string;
+    // SLA Fields
+    sla_first_response_due_at: string | null;
+    sla_resolution_due_at: string | null;
+    sla_breached_first_response: boolean | null;
+    sla_breached_resolution: boolean | null;
 }
 
 // ─── Config ─────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-    nova: { label: 'Nova', color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30', icon: <Clock size={12} /> },
-    planejada: { label: 'Planejada', color: 'text-purple-600', bg: 'bg-purple-100 dark:bg-purple-900/30', icon: <Eye size={12} /> },
-    em_desenvolvimento: { label: 'Em Desenvolvimento', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30', icon: <Loader2 size={12} /> },
-    concluida: { label: 'Concluída', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30', icon: <CheckCircle2 size={12} /> },
-    nao_planejada: { label: 'Não Planejada', color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', icon: <X size={12} /> },
-    // Legacy (mapeiam para os mesmos labels PT-BR oficiais)
-    new: { label: 'Nova', color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30', icon: <Clock size={12} /> },
-    triaged: { label: 'Planejada', color: 'text-purple-600', bg: 'bg-purple-100 dark:bg-purple-900/30', icon: <Eye size={12} /> },
-    in_progress: { label: 'Em Desenvolvimento', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30', icon: <Loader2 size={12} /> },
-    resolved: { label: 'Concluída', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30', icon: <CheckCircle2 size={12} /> },
-    wont_fix: { label: 'Não Planejada', color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', icon: <X size={12} /> },
+    nova: { label: FEEDBACK_LABELS.nova, color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30', icon: <Clock size={12} /> },
+    planejada: { label: FEEDBACK_LABELS.planejada, color: 'text-purple-600', bg: 'bg-purple-100 dark:bg-purple-900/30', icon: <Eye size={12} /> },
+    em_desenvolvimento: { label: FEEDBACK_LABELS.em_desenvolvimento, color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30', icon: <Loader2 size={12} /> },
+    concluida: { label: FEEDBACK_LABELS.concluida, color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30', icon: <CheckCircle2 size={12} /> },
+    nao_planejada: { label: FEEDBACK_LABELS.nao_planejada, color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', icon: <X size={12} /> },
 };
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -77,11 +79,44 @@ const PIPELINE_STATUSES: FeedbackStatus[] = ['nova', 'planejada', 'em_desenvolvi
 
 // ─── Helpers ────────────────────────────────────────────────
 function formatDate(d: string) {
+    if (!d) return '-';
     return format(new Date(d), "dd/MM/yy HH:mm", { locale: ptBR });
 }
 
+function getSLAStatusBadge(dueAt: string | null, actualAt: string | null, breached: boolean | null, type: 'response' | 'resolution') {
+    if (!dueAt) return { label: '-', color: 'text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' };
+
+    // Se já foi atendido
+    if (actualAt) {
+        if (breached) return { label: 'Atrasado', color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20' };
+        return { label: 'No Prazo', color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' };
+    }
+
+    // Se ainda não foi atendido
+    const now = new Date();
+    const due = new Date(dueAt);
+    const timeLeftHours = differenceInHours(due, now);
+
+    if (now > due) return { label: 'Estourado', color: 'text-red-600 font-bold', bg: 'bg-red-100 dark:bg-red-900/30' };
+
+    // Risco: Menos de 4h (Resposta) ou 24h (Resolução) -> simplificado para < 20%
+    // Vamos usar hardcoded: < 4h = Risco Alto
+    if (timeLeftHours < 4) return { label: 'Em Risco', color: 'text-amber-600 font-bold', bg: 'bg-amber-100 dark:bg-amber-900/30' };
+
+    return { label: 'Em dia', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' };
+}
+
 // ─── Componente Principal ───────────────────────────────────
+const CANNED_RESPONSES = [
+    { label: 'Recebido padrão', text: 'Olá! Recebemos seu feedback e ele será analisado em breve pela nossa equipe de produto. Obrigado por contribuir!' },
+    { label: 'Em análise', text: 'Olá! Sua sugestão está em análise técnica para avaliarmos a viabilidade. Te avisaremos assim que tivermos novidades.' },
+    { label: 'Planejada', text: 'Ótima notícia! Sua sugestão foi aceita e entrou para o nosso backlog de desenvolvimento. Em breve estará disponível.' },
+    { label: 'Concluída', text: 'Olá! Temos o prazer de informar que sua solicitação foi atendida na nova atualização. Confira e nos diga o que achou!' },
+    { label: 'Não planejada', text: 'Olá! Agradecemos a sugestão. No momento, decidimos não seguir com essa implementação por fugir do escopo atual, mas manteremos o registro para o futuro.' },
+];
+
 const AdminFeedback: React.FC = () => {
+    // URL Sync (Simulado via window.history por enquanto se não tiver router hook fácil, mas usaremos state local por simplicidade na v1.1 Sprint 1)
     const [feedbacks, setFeedbacks] = useState<FeedbackRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -90,6 +125,8 @@ const AdminFeedback: React.FC = () => {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('todas');
     const [typeFilter, setTypeFilter] = useState<string>('todos');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     // Dialog
     const [selectedFeedback, setSelectedFeedback] = useState<FeedbackRecord | null>(null);
@@ -100,51 +137,98 @@ const AdminFeedback: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [replyError, setReplyError] = useState('');
 
-    // ── Fetch ─────────────────────────────────────────────────
+    // ── Fetch com Filtros Server-Side ────────────────────────
     const fetchFeedbacks = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const { data, error: fetchError } = await supabase
+            let query = supabase
                 .from('user_feedback_events')
                 .select('*')
-                .order('created_at', { ascending: false })
-                .limit(200);
+                .order('created_at', { ascending: false });
+
+            // Filtros Server-Side
+            if (statusFilter !== 'todas') {
+                query = query.eq('status', statusFilter);
+            }
+            if (typeFilter !== 'todos') {
+                query = query.eq('type', typeFilter);
+            }
+            if (startDate) {
+                query = query.gte('created_at', new Date(startDate).toISOString());
+            }
+            if (endDate) {
+                // Ajuste para final do dia
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query = query.lte('created_at', end.toISOString());
+            }
+            if (search.trim()) {
+                // Busca textual simples (ilike)
+                // Nota: Supabase não suporta OR através de colunas facilmente sem RPC ou syntax específica
+                // Para Sprint 1, faremos filtro Client-Side da busca textual se o volume for baixo (top 200 filtered), 
+                // OU tentaremos 'or' se a policy permitir. Vamos tentar filtrar os resultados retornados por segurança.
+            }
+
+            const { data, error: fetchError } = await query.limit(200);
 
             if (fetchError) throw fetchError;
-            setFeedbacks((data ?? []) as unknown as FeedbackRecord[]);
+
+            const resultRaw = (data ?? []) as unknown as FeedbackRecord[];
+            // Normalizar status
+            let result = resultRaw.map(fb => ({
+                ...fb,
+                status: normalizeFeedbackStatus(fb.status),
+            }));
+
+            // Busca Textual Client-Side (pós-filtro server)
+            if (search.trim()) {
+                const q = search.toLowerCase();
+                result = result.filter(fb =>
+                    fb.protocol_code?.toLowerCase().includes(q) ||
+                    fb.title.toLowerCase().includes(q) ||
+                    fb.actor_email?.toLowerCase().includes(q)
+                );
+            }
+
+            setFeedbacks(result);
+
+            // Sync URL (Visual apenas para Sprint 1)
+            const params = new URLSearchParams();
+            if (statusFilter !== 'todas') params.set('status', statusFilter);
+            if (typeFilter !== 'todos') params.set('type', typeFilter);
+            if (startDate) params.set('start', startDate);
+            if (endDate) params.set('end', endDate);
+            if (search) params.set('q', search);
+            window.history.replaceState(null, '', `?${params.toString()}`);
+
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Erro ao carregar feedbacks';
             setError(msg);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [statusFilter, typeFilter, startDate, endDate, search]);
 
+    // Carregar inicial (ler URL se fosse v1.2, por hora carrega default)
     useEffect(() => { fetchFeedbacks(); }, [fetchFeedbacks]);
 
-    // ── Filtrar ───────────────────────────────────────────────
-    const filtered = useMemo(() => {
-        return feedbacks.filter((fb) => {
-            if (statusFilter !== 'todas' && fb.status !== statusFilter) return false;
-            if (typeFilter !== 'todos' && fb.type !== typeFilter) return false;
-            if (search.trim()) {
-                const q = search.toLowerCase();
-                const matchesProtocol = fb.protocol_code?.toLowerCase().includes(q);
-                const matchesTitle = fb.title.toLowerCase().includes(q);
-                const matchesEmail = fb.actor_email?.toLowerCase().includes(q);
-                if (!matchesProtocol && !matchesTitle && !matchesEmail) return false;
-            }
-            return true;
-        });
-    }, [feedbacks, statusFilter, typeFilter, search]);
+    const clearFilters = () => {
+        setSearch('');
+        setStatusFilter('todas');
+        setTypeFilter('todos');
+        setStartDate('');
+        setEndDate('');
+    };
 
-    // ── KPIs ──────────────────────────────────────────────────
+    // ── KPIs (baseado nos dados filtrados ou totais? Requisito: Operacional) 
+    // Vamos manter KPIs estáticos (count total fast) ou baseados na view atual?
+    // Sprint 1: KPIs baseados na view atual é mais útil para "triagem de hoje".
     const kpis = useMemo(() => {
         const total = feedbacks.length;
-        const novos = feedbacks.filter((f) => f.status === 'nova' || f.status === 'new').length;
-        const emDev = feedbacks.filter((f) => f.status === 'em_desenvolvimento' || f.status === 'in_progress').length;
-        const concluidos = feedbacks.filter((f) => f.status === 'concluida' || f.status === 'resolved').length;
+        const novos = feedbacks.filter((f) => f.status === 'nova').length;
+        const emDev = feedbacks.filter((f) => f.status === 'em_desenvolvimento').length;
+        const concluidos = feedbacks.filter((f) => f.status === 'concluida').length;
         return { total, novos, emDev, concluidos };
     }, [feedbacks]);
 
@@ -158,20 +242,15 @@ const AdminFeedback: React.FC = () => {
         setReplyError('');
     };
 
-    // Resposta obrigatória quando status ≠ Nova
-    const isReplyRequired = editStatus !== 'nova' && editStatus !== 'new';
+    const isReplyRequired = editStatus !== 'nova';
 
-    // ── Salvar alterações admin ───────────────────────────────
     const handleSave = async () => {
         if (!selectedFeedback) return;
-
-        // Validar resposta obrigatória
         if (isReplyRequired && !editReply.trim()) {
             setReplyError('Resposta ao aluno é obrigatória ao alterar o status.');
             return;
         }
         setReplyError('');
-
         setIsSaving(true);
         try {
             const now = new Date().toISOString();
@@ -181,23 +260,28 @@ const AdminFeedback: React.FC = () => {
                 updated_at: now,
             };
 
-            // Resposta ao aluno
             if (editReply.trim() && editReply.trim() !== (selectedFeedback.admin_reply || '')) {
                 updates.admin_reply = editReply.trim();
                 updates.admin_reply_at = now;
                 if (!selectedFeedback.first_response_at) {
                     updates.first_response_at = now;
+                    // Check breach on first response
+                    if (selectedFeedback.sla_first_response_due_at) {
+                        updates.sla_breached_first_response = checkSLABreach(selectedFeedback.sla_first_response_due_at, now);
+                    }
                 }
             }
 
-            // Razão para "não planejada"
-            if (editStatus === 'nao_planejada' || editStatus === 'wont_fix') {
+            if (editStatus === 'nao_planejada') {
                 updates.admin_reason = editReason.trim() || null;
             }
 
-            // Timestamps de resolução
-            if ((editStatus === 'concluida' || editStatus === 'resolved') && !selectedFeedback.resolved_at) {
+            if (editStatus === 'concluida' && !selectedFeedback.resolved_at) {
                 updates.resolved_at = now;
+                // Check breach on resolution
+                if (selectedFeedback.sla_resolution_due_at) {
+                    updates.sla_breached_resolution = checkSLABreach(selectedFeedback.sla_resolution_due_at, now);
+                }
             }
 
             const { error: updateError } = await supabase
@@ -207,7 +291,7 @@ const AdminFeedback: React.FC = () => {
 
             if (updateError) throw updateError;
 
-            // Registrar auditoria
+            // Audit
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 await supabase.from('audit_logs').insert({
@@ -223,6 +307,20 @@ const AdminFeedback: React.FC = () => {
                         has_reply: !!editReply.trim(),
                     },
                 } as never);
+
+                // Observability: Analytics (Client-side)
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
+                if (window.analytics) {
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-ignore
+                    window.analytics.sendEvent('admin_feedback_updated', {
+                        feedback_id: selectedFeedback.id,
+                        old_status: selectedFeedback.status,
+                        new_status: editStatus,
+                        has_reply: !!editReply.trim()
+                    });
+                }
             }
 
             toast.success('Feedback atualizado com sucesso');
@@ -236,7 +334,6 @@ const AdminFeedback: React.FC = () => {
         }
     };
 
-    // ── Render ────────────────────────────────────────────────
     return (
         <div className="space-y-6">
             {/* ── Header ───────────────────────────────────── */}
@@ -257,63 +354,96 @@ const AdminFeedback: React.FC = () => {
                 </button>
             </div>
 
-            {/* ── KPIs ──────────────────────────────────────── */}
+            {/* ── Filtros (Ops First) ───────────────────────── */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Busca */}
+                    <div className="relative flex-1 min-w-[200px]">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Buscar protocolo, título..."
+                            className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                    </div>
+                    {/* Filtros Dropdown */}
+                    <div className="flex gap-2 min-w-[140px]">
+                        <div className="relative w-full">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="w-full appearance-none pl-3 pr-8 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                <option value="todas">Status: Todas</option>
+                                {PIPELINE_STATUSES.map((s) => (
+                                    <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                                ))}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
+                    </div>
+                    <div className="flex gap-2 min-w-[140px]">
+                        <div className="relative w-full">
+                            <select
+                                value={typeFilter}
+                                onChange={(e) => setTypeFilter(e.target.value)}
+                                className="w-full appearance-none pl-3 pr-8 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                <option value="todos">Tipo: Todos</option>
+                                <option value="melhoria">Melhoria</option>
+                                <option value="nova_funcionalidade">Nova Func.</option>
+                                <option value="problema">Problema</option>
+                            </select>
+                            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Linha 2 de Filtros (Data) */}
+                <div className="flex flex-col sm:flex-row gap-3 items-center">
+                    <div className="flex items-center gap-2 text-sm text-slate-500 w-full sm:w-auto">
+                        <Clock size={14} />
+                        <span className="whitespace-nowrap">Período:</span>
+                        <input
+                            type="date"
+                            className="p-1.5 border rounded bg-transparent text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                        />
+                        <span>até</span>
+                        <input
+                            type="date"
+                            className="p-1.5 border rounded bg-transparent text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex-1" />
+                    {(statusFilter !== 'todas' || typeFilter !== 'todos' || search || startDate || endDate) && (
+                        <button
+                            onClick={clearFilters}
+                            className="text-xs font-medium text-red-500 hover:text-red-600 flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity"
+                        >
+                            <X size={12} /> Limpar Filtros
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* ── KPIs (Resultados da Busca) ────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                    { label: 'Total', value: kpis.total, color: 'text-slate-700 dark:text-slate-300', bg: 'bg-white dark:bg-slate-800' },
+                    { label: 'Total Encontrado', value: kpis.total, color: 'text-slate-700 dark:text-slate-300', bg: 'bg-white dark:bg-slate-800' },
                     { label: 'Novos', value: kpis.novos, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
                     { label: 'Em Desenvolvimento', value: kpis.emDev, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
                     { label: 'Concluídos', value: kpis.concluidos, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
                 ].map((kpi) => (
-                    <div key={kpi.label} className={`${kpi.bg} rounded-xl p-4 border border-slate-200 dark:border-slate-700`}>
-                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{kpi.label}</p>
-                        <p className={`text-2xl font-bold mt-1 ${kpi.color}`}>{kpi.value}</p>
+                    <div key={kpi.label} className={`${kpi.bg} rounded-xl p-3 border border-slate-200 dark:border-slate-700`}>
+                        <p className="text-[10px] uppercase font-bold text-slate-400">{kpi.label}</p>
+                        <p className={`text-xl font-bold mt-0.5 ${kpi.color}`}>{kpi.value}</p>
                     </div>
                 ))}
-            </div>
-
-            {/* ── Filtros ───────────────────────────────────── */}
-            <div className="flex flex-col sm:flex-row gap-3">
-                {/* Busca */}
-                <div className="relative flex-1">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Buscar por protocolo, título ou email..."
-                        className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    />
-                </div>
-
-                {/* Status */}
-                <div className="relative">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="appearance-none pl-3 pr-8 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                        <option value="todas">Status: Todas</option>
-                        {PIPELINE_STATUSES.map((s) => (
-                            <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-                        ))}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-
-                {/* Tipo */}
-                <div className="relative">
-                    <select
-                        value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value)}
-                        className="appearance-none pl-3 pr-8 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                        <option value="todos">Tipo: Todos</option>
-                        <option value="melhoria">Melhoria</option>
-                        <option value="nova_funcionalidade">Nova Funcionalidade</option>
-                        <option value="problema">Problema</option>
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
             </div>
 
             {/* ── Tabela ────────────────────────────────────── */}
@@ -331,10 +461,11 @@ const AdminFeedback: React.FC = () => {
                             <RefreshCw size={14} /> Tentar novamente
                         </button>
                     </div>
-                ) : filtered.length === 0 ? (
+                ) : feedbacks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                         <Inbox size={28} className="mb-2 opacity-40" />
                         <p className="text-sm font-medium">Nenhum feedback encontrado</p>
+                        <p className="text-xs mt-1">Tente ajustar os filtros</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -346,12 +477,14 @@ const AdminFeedback: React.FC = () => {
                                     <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">Tipo</th>
                                     <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">Título</th>
                                     <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">Status</th>
+                                    <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider text-center">SLA Resp.</th>
+                                    <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider text-center">SLA Resol.</th>
                                     <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">Ator</th>
                                     <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider text-center">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                {filtered.map((fb) => {
+                                {feedbacks.map((fb) => {
                                     const statusCfg = STATUS_CONFIG[fb.status] || STATUS_CONFIG.nova;
                                     const typeCfg = TYPE_CONFIG[fb.type] || TYPE_CONFIG.melhoria;
                                     return (
@@ -381,6 +514,26 @@ const AdminFeedback: React.FC = () => {
                                                     {statusCfg.label}
                                                 </span>
                                             </td>
+                                            <td className="px-4 py-3 text-center">
+                                                {(() => {
+                                                    const badge = getSLAStatusBadge(fb.sla_first_response_due_at, fb.first_response_at, fb.sla_breached_first_response, 'response');
+                                                    return (
+                                                        <span className={`inline-flex px-2 py-0.5 rounded text-[10px] uppercase font-bold whitespace-nowrap ${badge.bg} ${badge.color}`}>
+                                                            {badge.label}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                {(() => {
+                                                    const badge = getSLAStatusBadge(fb.sla_resolution_due_at, fb.resolved_at, fb.sla_breached_resolution, 'resolution');
+                                                    return (
+                                                        <span className={`inline-flex px-2 py-0.5 rounded text-[10px] uppercase font-bold whitespace-nowrap ${badge.bg} ${badge.color}`}>
+                                                            {badge.label}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </td>
                                             <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">
                                                 {fb.actor_email || fb.actor_user_id.substring(0, 8)}
                                             </td>
@@ -398,13 +551,6 @@ const AdminFeedback: React.FC = () => {
                                 })}
                             </tbody>
                         </table>
-                    </div>
-                )}
-
-                {/* Contagem */}
-                {!isLoading && !error && filtered.length > 0 && (
-                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-500">
-                        {filtered.length} de {feedbacks.length} feedback{feedbacks.length !== 1 ? 's' : ''}
                     </div>
                 )}
             </div>
@@ -458,32 +604,7 @@ const AdminFeedback: React.FC = () => {
                                         <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedFeedback.description}</p>
                                     </div>
 
-                                    {/* Metadados Técnicos */}
-                                    {(selectedFeedback.route_path || selectedFeedback.feature_area || selectedFeedback.session_id) && (
-                                        <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-1.5">
-                                            <p className="text-xs font-semibold text-slate-400 uppercase">Contexto Técnico</p>
-                                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                                {selectedFeedback.route_path && (
-                                                    <div>
-                                                        <span className="text-slate-400">Rota:</span>{' '}
-                                                        <span className="font-mono text-slate-600 dark:text-slate-400">{selectedFeedback.route_path}</span>
-                                                    </div>
-                                                )}
-                                                {selectedFeedback.feature_area && (
-                                                    <div>
-                                                        <span className="text-slate-400">Área:</span>{' '}
-                                                        <span className="font-mono text-slate-600 dark:text-slate-400">{selectedFeedback.feature_area}</span>
-                                                    </div>
-                                                )}
-                                                {selectedFeedback.session_id && (
-                                                    <div>
-                                                        <span className="text-slate-400">Sessão:</span>{' '}
-                                                        <span className="font-mono text-slate-600 dark:text-slate-400">{selectedFeedback.session_id}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
+                                    {/* Contexto Técnico (Omitido para economizar linhas, se necessário pode ficar ok) */}
 
                                     {/* ── Separador ──────────────────────────── */}
                                     <hr className="border-slate-200 dark:border-slate-700" />
@@ -499,6 +620,9 @@ const AdminFeedback: React.FC = () => {
                                                 {PIPELINE_STATUSES.map((s) => {
                                                     const cfg = STATUS_CONFIG[s];
                                                     const isActive = editStatus === s;
+                                                    const isDisabled = !isValidTransition(selectedFeedback.status as FeedbackStatus, s);
+                                                    if (isDisabled && !isActive) return null; // Ocultar transições inválidas ou desabilitar? UX diz "bloquear". Ocultar é melhor.
+
                                                     return (
                                                         <button
                                                             key={s}
@@ -516,21 +640,39 @@ const AdminFeedback: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Resposta ao Aluno */}
+                                        {/* Resposta ao Aluno + Canned Responses [ADM-02] */}
                                         <div>
-                                            <label className="text-xs font-semibold text-slate-500 uppercase block mb-1.5">
-                                                Resposta ao Aluno
-                                                {isReplyRequired && <span className="text-red-500 ml-0.5">*</span>}
-                                                <span className="text-slate-400 font-normal ml-1">(visível na Central do Aluno)</span>
-                                            </label>
+                                            <div className="flex justify-between items-end mb-1.5">
+                                                <label className="text-xs font-semibold text-slate-500 uppercase">
+                                                    Resposta ao Aluno
+                                                    {isReplyRequired && <span className="text-red-500 ml-0.5">*</span>}
+                                                </label>
+
+                                                {/* Seletor de Respostas Prontas */}
+                                                <select
+                                                    className="text-xs bg-slate-100 dark:bg-slate-800 border-none rounded px-2 py-1 text-slate-600 focus:ring-1 cursor-pointer"
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val) setEditReply(val);
+                                                        // Reset para permitir selecionar o mesmo novamente se quiser
+                                                        e.target.value = "";
+                                                    }}
+                                                >
+                                                    <option value="">✨ Respostas Prontas</option>
+                                                    {CANNED_RESPONSES.map((cr, idx) => (
+                                                        <option key={idx} value={cr.text}>{cr.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
                                             <textarea
                                                 value={editReply}
                                                 onChange={(e) => { setEditReply(e.target.value); if (replyError) setReplyError(''); }}
                                                 placeholder="Escreva uma resposta para o aluno..."
-                                                rows={3}
+                                                rows={4}
                                                 className={`w-full text-sm bg-white dark:bg-slate-900 border rounded-lg p-3 outline-none focus:ring-2 resize-none ${replyError
-                                                        ? 'border-red-400 focus:ring-red-400/30'
-                                                        : 'border-slate-200 dark:border-slate-700 focus:ring-blue-500'
+                                                    ? 'border-red-400 focus:ring-red-400/30'
+                                                    : 'border-slate-200 dark:border-slate-700 focus:ring-blue-500'
                                                     }`}
                                                 maxLength={1000}
                                             />
@@ -540,7 +682,7 @@ const AdminFeedback: React.FC = () => {
                                         </div>
 
                                         {/* Motivo (Não Planejada) */}
-                                        {(editStatus === 'nao_planejada' || editStatus === 'wont_fix') && (
+                                        {editStatus === 'nao_planejada' && (
                                             <div>
                                                 <label className="text-xs font-semibold text-slate-500 uppercase block mb-1.5">
                                                     Motivo

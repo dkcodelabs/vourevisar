@@ -27,8 +27,8 @@ const getFeatureFlag = (key: string, defaultValue: boolean): boolean => {
 
 export const features = {
     // Central do Aluno (Notificações + Feedback)
-    // Default: true para development, false para production (até go-live)
-    STUDENT_HUB: getFeatureFlag('STUDENT_HUB', import.meta.env.DEV || false),
+    // ATIVADO NA RELEASE v1.0 (13/02/2026)
+    STUDENT_HUB: getFeatureFlag('STUDENT_HUB', true),
 };
 
 // Expor no window para debug/override fácil

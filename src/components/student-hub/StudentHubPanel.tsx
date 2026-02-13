@@ -454,7 +454,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm text-[11px] min-h-[44px]"
               >
                 <Plus size={14} aria-hidden="true" />
-                Novo Feedback
+                Enviar Feedback
               </button>
               <div className="relative">
                 <button
