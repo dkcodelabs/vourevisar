@@ -38,15 +38,15 @@ export function useUserFeedbacks() {
     const [error, setError] = useState<string | null>(null);
 
     // ── Fetch ─────────────────────────────────────────────────
-    const fetchFeedbacks = useCallback(async () => {
-        setIsLoading(true);
+    const fetchFeedbacks = useCallback(async (options: { silent?: boolean } = {}) => {
+        if (!options.silent) setIsLoading(true);
         setError(null);
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
                 setFeedbacks([]);
-                setIsLoading(false);
+                if (!options.silent) setIsLoading(false);
                 return;
             }
 
@@ -61,11 +61,11 @@ export function useUserFeedbacks() {
 
             setFeedbacks((data ?? []) as unknown as UserFeedback[]);
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Erro ao carregar feedbacks';
+            const msg = err instanceof Error ? err.message : 'Erro ao carregar pedidos';
             setError(msg);
             console.error('[useUserFeedbacks] fetch error:', err);
         } finally {
-            setIsLoading(false);
+            if (!options.silent) setIsLoading(false);
         }
     }, []);
 
@@ -141,7 +141,7 @@ export function useUserFeedbacks() {
 
             return { protocol_code: (data as unknown as { protocol_code: string }).protocol_code };
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Erro ao enviar feedback';
+            const msg = err instanceof Error ? err.message : 'Erro ao enviar solicitação';
             setError(msg);
             // Se for erro de rate limit, não precisamos logar erro técnico
             if (!msg.includes('limite de 5 envios')) {

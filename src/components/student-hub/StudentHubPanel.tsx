@@ -3,7 +3,8 @@ import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, Calend
 import { FeedbackModal } from './FeedbackModal';
 import { useNotifications, type UserNotification, type NotificationFilter } from '@/hooks/useNotifications';
 import { useUserFeedbacks, type UserFeedback, type FeedbackStatus } from '@/hooks/useUserFeedbacks';
-import { features } from '@/lib/features';
+import { useStudentHubBadge } from '@/hooks/useStudentHubBadge';
+import { getFeedbackStatusLabel } from '@/services/feedbackService';
 import { analytics } from '@/lib/analytics';
 
 // ─── Status Config ──────────────────────────────────────────
@@ -58,11 +59,29 @@ function getDateGroup(dateStr: string): 'hoje' | 'ontem' | 'anterior' {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today.getTime() - 86_400_000);
+
   const notifDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
   if (notifDate.getTime() === today.getTime()) return 'hoje';
   if (notifDate.getTime() === yesterday.getTime()) return 'ontem';
   return 'anterior';
+}
+
+/** Helper para formatar mensagens de notificação humanizadas */
+function formatNotificationMessage(msg: string): string {
+  // Substitui 'feedback' por 'pedido/solicitação'
+  let clean = msg.replace(/Seu feedback/gi, 'Sua solicitação')
+    .replace(/feedback/gi, 'pedido');
+
+  // Mapeia status técnicos para labels amigáveis
+  const statusMatch = clean.match(/mudou para:\s*([a-z_]+)$/i);
+  if (statusMatch) {
+    const rawStatus = statusMatch[1];
+    const label = getFeedbackStatusLabel(rawStatus);
+    clean = clean.replace(rawStatus, label);
+  }
+
+  return clean;
 }
 
 type StatusFilterOption = 'todas' | FeedbackStatus;
@@ -108,19 +127,26 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   }, [isOpen]);
   const [activeTab, setActiveTab] = React.useState<'notificacoes' | 'feedbacks'>('notificacoes');
   const [activeFilter, setActiveFilter] = React.useState<NotificationFilter>('todas');
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilterOption>('todas');
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilterOption | 'respondido'>('todas');
   const [expandedFeedback, setExpandedFeedback] = React.useState<string | null>(null);
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
-  // ── Hooks reais ─────────────────────────────────────────────
+  // ── Hooks ───────────────────────────────────────────────────
+  // Hook unificado para Unread/Fingerprint logic
+  const {
+    unreadFeedbackIds,
+    markFeedbackAsRead,
+    totalUnreadCount
+  } = useStudentHubBadge();
+
   const {
     notifications,
-    unreadCount,
     isLoading: notifLoading,
     error: notifError,
-    markAllRead,
+    markAsRead: markNotificationAsRead,
+    markAllRead: markAllNotificationsRead,
     refetch: refetchNotifs,
   } = useNotifications();
 
@@ -133,12 +159,32 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
     refetch: refetchFeedbacks,
   } = useUserFeedbacks();
 
-  // Filtrar notificações
+  // ── Polling Realtime (10s) - SILENT ─────────────────────────
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isOpen) {
+      // Refresh inicial ao abrir
+      refetchNotifs({ silent: true });
+      refetchFeedbacks({ silent: true });
+
+      // Polling a cada 10s
+      interval = setInterval(() => {
+        refetchNotifs({ silent: true });
+        refetchFeedbacks({ silent: true });
+      }, 10000);
+    }
+    return () => clearInterval(interval);
+  }, [isOpen, refetchNotifs, refetchFeedbacks]);
+
+
+  // Filtrar notificações (Exclusivo Estudo)
   const filteredNotifications = React.useMemo(() => {
     return notifications.filter((n) => {
+      // Regra: Não mostrar feedback/solicitação na aba de notificações
+      const isFeedbackRelated = /feedback|solicita[çc][ãa]o|pedido/i.test(n.message) || /feedback|solicita[çc][ãa]o|pedido/i.test(n.title);
+      if (isFeedbackRelated) return false;
+
       if (activeFilter === 'nao_lidas') return !n.read;
-      if (activeFilter === 'sistema') return n.category === 'sistema';
-      if (activeFilter === 'estudo') return n.category === 'estudo';
       return true;
     });
   }, [notifications, activeFilter]);
@@ -163,6 +209,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   // Filtrar feedbacks
   const filteredFeedbacks = React.useMemo(() => {
     if (statusFilter === 'todas') return feedbacks;
+    if (statusFilter === 'respondido') return feedbacks.filter(fb => !!fb.admin_reply);
     return feedbacks.filter((fb) => fb.status === statusFilter);
   }, [feedbacks, statusFilter]);
 
@@ -194,21 +241,34 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
+  // Filtros de notificação simplificados (Apenas Todas e Não lidas)
   const filters: { key: NotificationFilter; label: string }[] = [
     { key: 'todas', label: 'Todas' },
     { key: 'nao_lidas', label: 'Não lidas' },
-    { key: 'sistema', label: 'Sistema' },
-    { key: 'estudo', label: 'Estudo' },
   ];
 
-  // ── Callback do FeedbackModal ───────────────────────────────
+  // ── Callback do FeedbackModal (Com correção de fechamento) ────
   const handleFeedbackSubmit = async (type: string, title: string, description: string) => {
-    const result = await submitFeedback({
-      type: type as 'melhoria' | 'nova_funcionalidade' | 'problema',
-      title,
-      description,
-    });
-    return result?.protocol_code ?? null;
+    try {
+      const result = await submitFeedback({
+        type: type as 'melhoria' | 'nova_funcionalidade' | 'problema',
+        title,
+        description,
+      });
+
+      if (result?.protocol_code) {
+        // Sucesso: Fechar modal e atualizar lista
+        setShowFeedbackModal(false);
+        // Atualização otimista ou refetch já acontece no hook submitFeedback
+        // Refetch silencioso extra por garantia
+        refetchFeedbacks({ silent: true });
+      }
+      return result?.protocol_code ?? null;
+    } catch (error) {
+      // Erro: Modal permanece aberto
+      console.error("Erro ao enviar feedback:", error);
+      return null;
+    }
   };
 
   return (
@@ -244,7 +304,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
               </button>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Acompanhe avisos e seus feedbacks.
+              Acompanhe avisos e o andamento dos seus pedidos.
             </p>
           </div>
 
@@ -283,7 +343,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                 : 'text-slate-400 hover:text-slate-600'
                 }`}
             >
-              Meus Feedbacks
+              Feedback
               {activeTab === 'feedbacks' && (
                 <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" aria-hidden="true" />
               )}
@@ -310,10 +370,10 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   </button>
                 ))}
               </div>
-              {unreadCount > 0 && (
+              {totalUnreadCount > 0 && (
                 <div className="flex justify-end">
                   <button
-                    onClick={markAllRead}
+                    onClick={() => markAllNotificationsRead()}
                     className="text-[11px] font-semibold text-blue-500 hover:underline"
                   >
                     Marcar todas como lidas
@@ -340,7 +400,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   <AlertTriangle size={28} className="mb-2 text-red-400" />
                   <p className="text-xs font-medium text-red-500 mb-2">Erro ao carregar</p>
                   <button
-                    onClick={refetchNotifs}
+                    onClick={() => refetchNotifs()}
                     className="text-[11px] font-semibold text-blue-500 hover:underline flex items-center gap-1"
                   >
                     <RefreshCw size={12} /> Tentar novamente
@@ -374,6 +434,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                               <div
                                 key={notification.id}
                                 className={`relative pl-8 group cursor-pointer ${isOlder ? 'opacity-70 hover:opacity-100 transition-opacity' : ''}`}
+                                onClick={() => !notification.read && markNotificationAsRead(notification.id)}
                               >
                                 {/* Ícone circular */}
                                 <div
@@ -399,7 +460,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                                     </div>
                                   </div>
                                   <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
-                                    {notification.message}
+                                    {formatNotificationMessage(notification.message)}
                                   </p>
                                 </div>
                               </div>
@@ -454,7 +515,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm text-[11px] min-h-[44px]"
               >
                 <Plus size={14} aria-hidden="true" />
-                Enviar Feedback
+                Nova Solicitação
               </button>
               <div className="relative">
                 <button
@@ -464,13 +525,13 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-2.5 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 hover:border-slate-300 transition-colors min-h-[44px]"
                 >
                   <Filter size={12} className="text-slate-400" aria-hidden="true" />
-                  Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}</span>
+                  Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : statusFilter === 'respondido' ? 'Respondido' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}</span>
                 </button>
                 {showStatusDropdown && (
                   <>
                     <div className="fixed inset-0 z-[80]" onClick={() => setShowStatusDropdown(false)} />
                     <div role="listbox" className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
-                      {(['todas', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as StatusFilterOption[]).map((opt) => (
+                      {(['todas', 'respondido', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as (StatusFilterOption | 'respondido')[]).map((opt) => (
                         <button
                           key={opt}
                           role="option"
@@ -478,7 +539,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                           onClick={() => { setStatusFilter(opt); setShowStatusDropdown(false); }}
                           className={`w-full text-left px-3 py-2 text-[11px] transition-colors min-h-[36px] ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                         >
-                          {opt === 'todas' ? 'Todas' : STATUS_CONFIG[opt]?.label ?? opt}
+                          {opt === 'todas' ? 'Todas' : opt === 'respondido' ? 'Respondido' : STATUS_CONFIG[opt as FeedbackStatus]?.label ?? opt}
                         </button>
                       ))}
                     </div>
@@ -491,11 +552,11 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
             <div className="flex-1 overflow-y-auto scroll-smooth px-5 pb-10 space-y-2.5">
               {/* Skeleton Loading */}
               {fbLoading && (
-                <div className="space-y-2.5 py-2" role="status" aria-label="Carregando feedbacks">
+                <div className="space-y-2.5 py-2" role="status" aria-label="Carregando pedidos">
                   <SkeletonCard />
                   <SkeletonCard />
                   <SkeletonCard />
-                  <span className="sr-only">Carregando feedbacks...</span>
+                  <span className="sr-only">Carregando pedidos...</span>
                 </div>
               )}
 
@@ -505,7 +566,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   <AlertTriangle size={28} className="mb-2 text-red-400" />
                   <p className="text-xs font-medium text-red-500 mb-2">Erro ao carregar</p>
                   <button
-                    onClick={refetchFeedbacks}
+                    onClick={() => refetchFeedbacks()}
                     className="text-[11px] font-semibold text-blue-500 hover:underline flex items-center gap-1"
                   >
                     <RefreshCw size={12} /> Tentar novamente
@@ -522,14 +583,35 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                     const isExpanded = expandedFeedback === fb.id;
                     const hasReply = !!fb.admin_reply;
 
+                    // NOVA LÓGICA DE UNREAD (Fingerprint)
+                    const isUnread = unreadFeedbackIds.has(fb.id);
+
                     return (
                       <div
                         key={fb.id}
                         role="button"
                         tabIndex={0}
                         aria-expanded={isExpanded}
-                        onClick={() => setExpandedFeedback(isExpanded ? null : fb.id)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedFeedback(isExpanded ? null : fb.id); } }}
+                        onClick={() => {
+                          const newExpandedState = isExpanded ? null : fb.id;
+                          setExpandedFeedback(newExpandedState);
+
+                          // Se tentar abrir (expandir) e for não lido, marca como lido imediatamente
+                          if (!isExpanded && isUnread) {
+                            markFeedbackAsRead(fb.id);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            const newExpandedState = isExpanded ? null : fb.id;
+                            setExpandedFeedback(newExpandedState);
+
+                            if (!isExpanded && isUnread) {
+                              markFeedbackAsRead(fb.id);
+                            }
+                          }
+                        }}
                         className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${hasReply && isExpanded
                           ? 'border border-slate-200 dark:border-slate-800'
                           : fb.status === 'em_desenvolvimento'
@@ -546,11 +628,17 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                               }`}>
                               {fb.protocol_code}
                             </span>
-                            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${status.bgClass}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} aria-hidden="true" />
-                              <span className={`text-[9px] font-bold uppercase ${status.textClass}`}>
-                                {status.label}
-                              </span>
+                            <div className="flex items-center gap-2">
+                              {/* Blue Dot Indicator for Feedback */}
+                              {isUnread && (
+                                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ring-2 ring-blue-100 dark:ring-blue-900" title="Nova atualização" />
+                              )}
+                              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${status.bgClass}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} aria-hidden="true" />
+                                <span className={`text-[9px] font-bold uppercase ${status.textClass}`}>
+                                  {status.label}
+                                </span>
+                              </div>
                             </div>
                           </div>
                           <h3 className="text-xs font-semibold text-slate-800 dark:text-slate-100 mb-0.5 line-clamp-2">
@@ -574,7 +662,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                         >
                           <div className="p-3 space-y-2.5">
                             <div className="space-y-0.5">
-                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">Sua mensagem</p>
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">Sua solicitação</p>
                               <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-normal">
                                 {fb.description}
                               </p>
@@ -616,12 +704,12 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                       </div>
                       <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
                         {statusFilter !== 'todas'
-                          ? 'Nenhum feedback com este status.'
-                          : 'Você ainda não enviou nenhum feedback.'}
+                          ? 'Nenhum pedido com este status.'
+                          : 'Você ainda não enviou nenhum pedido.'}
                       </p>
                       <p className="text-xs text-slate-400 mt-1 max-w-[240px]">
                         {statusFilter !== 'todas'
-                          ? 'Tente um filtro diferente ou envie um novo feedback.'
+                          ? 'Tente um filtro diferente ou envie uma solicitação.'
                           : 'Diga o que pode ser melhorado — sua opinião importa!'}
                       </p>
                       {statusFilter !== 'todas' ? (
@@ -637,7 +725,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                           className="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-1.5 transition-all text-xs min-h-[44px]"
                         >
                           <Plus size={14} aria-hidden="true" />
-                          Enviar primeiro feedback
+                          Enviar sua primeira solicitação
                         </button>
                       )}
                     </div>

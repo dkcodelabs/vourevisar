@@ -2,7 +2,7 @@ import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ChevronDown, Notebook, Timer, Menu, CornerDownRight, NotebookPen, Bell } from "lucide-react";
 import { StudentHubPanel } from './student-hub/StudentHubPanel';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useStudentHubBadge } from '@/hooks/useStudentHubBadge';
 import { FocusTimer } from "./FocusTimer";
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
@@ -83,11 +83,6 @@ const TopHeader = ({ pageTitle, onOpenNotes, onOpenHub, hubUnreadCount }: { page
   const formattedTime = formatTime(timeLeft);
 
   return (
-    // ... imports fixed below via separate edit for top of file or let's try to include imports if I can.
-    // Actually, I need to add imports to the top of the file first.
-    // I'll do two edits or try to merge.
-    // Let's do the inner content first, assuming imports will be added.
-
     <header className="fixed top-0 left-0 right-0 z-50 h-[72px] w-full flex items-center justify-between px-6 bg-white shadow-md border-b border-gray-200 transition-all">
       <div className="flex items-center gap-4">
         <MobileMenuToggle />
@@ -214,7 +209,9 @@ export const AppLayout = () => {
 
   // Student Hub state
   const [isHubOpen, setIsHubOpen] = React.useState(false);
-  const { unreadCount: hubUnreadCount } = useNotifications();
+
+  // USAR NOVO HOOK UNIFICADO
+  const { totalUnreadCount } = useStudentHubBadge();
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -223,7 +220,7 @@ export const AppLayout = () => {
         pageTitle={pageTitle}
         onOpenNotes={() => setIsGeneralNotesModalOpen(true)}
         onOpenHub={() => setIsHubOpen(true)}
-        hubUnreadCount={hubUnreadCount}
+        hubUnreadCount={totalUnreadCount}
       />
 
       {/* Main Content Area - pushed down by header height */}

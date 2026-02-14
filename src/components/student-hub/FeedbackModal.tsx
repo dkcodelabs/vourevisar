@@ -429,7 +429,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                             >
                                 {step}/2
                             </div>
-                            <h2 className="fbm-title dark:text-slate-100">Novo Feedback</h2>
+                            <h2 className="fbm-title dark:text-slate-100">Nova Solicitação</h2>
                         </div>
                         <button onClick={onClose} className="fbm-close-btn" aria-label="Fechar modal">
                             <X className="fbm-icon" aria-hidden="true" />
@@ -441,7 +441,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                         <div className="p-5" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div style={{ textAlign: 'center', marginBottom: '4px' }}>
                                 <h3 className="fbm-subtitle dark:text-slate-100">O que você deseja relatar?</h3>
-                                <p className="fbm-desc-sm dark:text-slate-400">Selecione uma categoria para seu feedback</p>
+                                <p className="fbm-desc-sm dark:text-slate-400">Selecione uma categoria para seu pedido</p>
                             </div>
 
                             <div style={{ display: 'grid', gap: '10px' }}>
@@ -585,7 +585,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                                     style={{ marginLeft: '16px', opacity: (!isFormValid || isSubmitting) ? 0.5 : 1, cursor: (!isFormValid || isSubmitting) ? 'not-allowed' : 'pointer' }}
                                     disabled={!isFormValid || isSubmitting}
                                 >
-                                    {isSubmitting ? 'Enviando...' : 'Enviar Feedback'}
+                                    {isSubmitting ? 'Enviando...' : 'Enviar Solicitação'}
                                 </button>
                             </div>
                         )}
@@ -623,7 +623,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                             <CheckCircle className="fbm-icon" style={{ color: '#16a34a' }} />
                         </div>
                         <div style={{ flex: 1 }}>
-                            <p className="fbm-toast-title dark:text-slate-100">Feedback enviado com sucesso</p>
+                            <p className="fbm-toast-title dark:text-slate-100">Solicitação enviada com sucesso</p>
                             <p className="fbm-toast-desc dark:text-slate-400">
                                 Protocolo: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{protocolCode || 'FBK-XXXXX'}</span>
                             </p>

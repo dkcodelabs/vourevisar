@@ -25,15 +25,15 @@ export function useNotifications() {
     const [error, setError] = useState<string | null>(null);
 
     // ── Fetch ─────────────────────────────────────────────────
-    const fetchNotifications = useCallback(async () => {
-        setIsLoading(true);
+    const fetchNotifications = useCallback(async (options: { silent?: boolean } = {}) => {
+        if (!options.silent) setIsLoading(true);
         setError(null);
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
                 setNotifications([]);
-                setIsLoading(false);
+                if (!options.silent) setIsLoading(false);
                 return;
             }
 
@@ -52,7 +52,7 @@ export function useNotifications() {
             setError(msg);
             console.error('[useNotifications] fetch error:', err);
         } finally {
-            setIsLoading(false);
+            if (!options.silent) setIsLoading(false);
         }
     }, []);
 
