@@ -232,18 +232,4 @@ export async function getSLAAnalyticsData(filters: AnalyticsFilters = {}): Promi
     }
 }
 
-// Mantendo compatibilidade com funções antigas via wrappers (se necessário, mas ideal é migrar pro consolidated)
-export async function getSLAMetrics(filters: AnalyticsFilters = {}): Promise<SLAMetrics> {
-    const data = await getSLAAnalyticsData(filters);
-    return data.metrics;
-}
-
-export async function getSLATrends(filters: AnalyticsFilters = {}): Promise<SLATrendDataPoint[]> {
-    const data = await getSLAAnalyticsData(filters);
-    return data.trends;
-}
-
-export async function getSLADistribution(filters: AnalyticsFilters = {}): Promise<SLADistribution> {
-    const data = await getSLAAnalyticsData(filters);
-    return data.distribution;
-}
+// ─── End of Service ─────────────────────────────────────────
