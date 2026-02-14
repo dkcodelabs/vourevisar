@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
     Search, Filter, MessageSquare, ChevronDown, X, Eye, Clock,
     CheckCircle2, AlertTriangle, Wand2, PlusCircle, Loader2, RefreshCw,
-    ArrowRight, Save, Inbox
+    ArrowRight, Save, Inbox, BarChart3
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,6 +13,7 @@ import { toastGate } from '@/lib/errors/toastGate';
 
 import { isValidTransition, getFeedbackStatusLabel, normalizeFeedbackStatus, FeedbackStatus, FEEDBACK_LABELS, calculateSLADueDates, checkSLABreach } from '@/services/feedbackService';
 import { differenceInHours, parseISO } from 'date-fns';
+import { SLAAnalyticsDashboard } from '@/components/admin/sla/SLAAnalyticsDashboard';
 
 // ─── Tipos ──────────────────────────────────────────────────
 // Removida definição duplicada de FeedbackStatus em favor do service
@@ -136,6 +137,7 @@ const AdminFeedback: React.FC = () => {
     const [editNotes, setEditNotes] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [replyError, setReplyError] = useState('');
+    const [showAnalytics, setShowAnalytics] = useState(false);
 
     // ── Fetch com Filtros Server-Side ────────────────────────
     const fetchFeedbacks = useCallback(async () => {
@@ -353,6 +355,20 @@ const AdminFeedback: React.FC = () => {
                     Atualizar
                 </button>
             </div>
+
+            {/* ── Toggle Analytics ──────────────────────────── */}
+            <div className="flex justify-end">
+                <button
+                    onClick={() => setShowAnalytics(!showAnalytics)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                >
+                    <BarChart3 size={16} />
+                    {showAnalytics ? 'Ocultar Analytics' : 'Mostrar Analytics'}
+                </button>
+            </div>
+
+            {/* ── Dashboard Analytics (Condicional) ──────────── */}
+            {showAnalytics && <SLAAnalyticsDashboard />}
 
             {/* ── Filtros (Ops First) ───────────────────────── */}
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
