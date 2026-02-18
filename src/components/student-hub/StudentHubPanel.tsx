@@ -84,7 +84,7 @@ function formatNotificationMessage(msg: string): string {
   return clean;
 }
 
-type StatusFilterOption = 'todas' | FeedbackStatus;
+type StatusFilterOption = 'todas' | 'em_aberto' | FeedbackStatus;
 
 // ─── Props ───────────────────────────────────────────────────
 interface StudentHubPanelProps {
@@ -127,7 +127,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   }, [isOpen]);
   const [activeTab, setActiveTab] = React.useState<'notificacoes' | 'feedbacks'>('notificacoes');
   const [activeFilter, setActiveFilter] = React.useState<NotificationFilter>('todas');
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilterOption | 'respondido'>('todas');
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilterOption | 'respondido'>('em_aberto');
   const [expandedFeedback, setExpandedFeedback] = React.useState<string | null>(null);
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
@@ -209,6 +209,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   // Filtrar feedbacks
   const filteredFeedbacks = React.useMemo(() => {
     if (statusFilter === 'todas') return feedbacks;
+    if (statusFilter === 'em_aberto') return feedbacks.filter(fb => fb.status !== 'concluida');
     if (statusFilter === 'respondido') return feedbacks.filter(fb => !!fb.admin_reply);
     return feedbacks.filter((fb) => fb.status === statusFilter);
   }, [feedbacks, statusFilter]);
@@ -512,9 +513,9 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
             <div className="sticky top-0 z-[5] bg-white dark:bg-slate-900 flex items-center gap-2 px-5 py-3 border-b border-slate-50 dark:border-slate-800/50">
               <button
                 onClick={() => setShowFeedbackModal(true)}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm text-[11px] min-h-[44px]"
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-normal text-blue-600 hover:text-blue-700 bg-blue-50/50 hover:bg-blue-100/50 border border-blue-200/50 rounded-lg transition-all duration-200"
               >
-                <Plus size={14} aria-hidden="true" />
+                <Plus size={13} strokeWidth={2.5} aria-hidden="true" />
                 Nova Solicitação
               </button>
               <div className="relative">
@@ -525,13 +526,13 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-2.5 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 hover:border-slate-300 transition-colors min-h-[44px]"
                 >
                   <Filter size={12} className="text-slate-400" aria-hidden="true" />
-                  Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : statusFilter === 'respondido' ? 'Respondido' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}</span>
+                  Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : statusFilter === 'em_aberto' ? 'Em aberto' : statusFilter === 'respondido' ? 'Respondido' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}</span>
                 </button>
                 {showStatusDropdown && (
                   <>
                     <div className="fixed inset-0 z-[80]" onClick={() => setShowStatusDropdown(false)} />
                     <div role="listbox" className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
-                      {(['todas', 'respondido', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as (StatusFilterOption | 'respondido')[]).map((opt) => (
+                      {(['todas', 'em_aberto', 'respondido', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as (StatusFilterOption | 'respondido')[]).map((opt) => (
                         <button
                           key={opt}
                           role="option"
@@ -539,7 +540,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                           onClick={() => { setStatusFilter(opt); setShowStatusDropdown(false); }}
                           className={`w-full text-left px-3 py-2 text-[11px] transition-colors min-h-[36px] ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                         >
-                          {opt === 'todas' ? 'Todas' : opt === 'respondido' ? 'Respondido' : STATUS_CONFIG[opt as FeedbackStatus]?.label ?? opt}
+                          {opt === 'todas' ? 'Todas' : opt === 'em_aberto' ? 'Em aberto' : opt === 'respondido' ? 'Respondido' : STATUS_CONFIG[opt as FeedbackStatus]?.label ?? opt}
                         </button>
                       ))}
                     </div>
