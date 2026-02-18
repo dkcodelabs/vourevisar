@@ -10,6 +10,7 @@ import { AppProvider } from "@/contexts/AppContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TimerProvider } from "@/contexts/TimerContext";
 import { AppLayout } from "@/components/AppLayout";
+import { StudentHubProvider } from "@/contexts/StudentHubContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import LandingPage from "@/pages/LandingPage";
@@ -88,7 +89,7 @@ const App = () => {
                       <Route path="/confirm-email" element={<ConfirmEmail />} />
                       <Route path="/auth/callback" element={<AuthCallback />} />
                       <Route path="/*" element={<ProtectedRoute />}>
-                        <Route path="" element={<AppLayout />}>
+                        <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
                           <Route path="dashboard" element={<Dashboard />} />
                           <Route path="materias" element={<Subjects />} />
                           <Route path="estatisticas" element={<Statistics />} />
