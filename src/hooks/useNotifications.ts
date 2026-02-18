@@ -64,31 +64,35 @@ export function useNotifications() {
     useEffect(() => {
         let channel: any;
 
-        const setupSubscription = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+        const init = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            const userId = session?.user?.id;
+            if (!userId) return;
 
             channel = supabase
-                .channel(`notifications_realtime:${user.id}`)
+                .channel(`notifications:changes:${userId}`)
                 .on(
                     'postgres_changes',
                     {
                         event: '*',
                         schema: 'public',
                         table: 'user_notifications',
-                        filter: `user_id=eq.${user.id}`
+                        filter: `user_id=eq.${userId}`
                     },
-                    () => {
+                    (payload) => {
+                        console.log('[Realtime Notif] Change received:', payload);
                         fetchNotifications({ silent: true });
                     }
                 )
                 .subscribe();
         };
 
-        setupSubscription();
+        init();
 
         return () => {
-            if (channel) supabase.removeChannel(channel);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
         };
     }, [fetchNotifications]);
 

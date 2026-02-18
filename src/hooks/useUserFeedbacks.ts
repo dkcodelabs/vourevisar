@@ -77,31 +77,35 @@ export function useUserFeedbacks() {
     useEffect(() => {
         let channel: any;
 
-        const setupSubscription = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+        const init = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            const userId = session?.user?.id;
+            if (!userId) return;
 
             channel = supabase
-                .channel(`feedbacks_realtime:${user.id}`)
+                .channel(`feedbacks:changes:${userId}`)
                 .on(
                     'postgres_changes',
                     {
                         event: '*',
                         schema: 'public',
                         table: 'user_feedback_events',
-                        filter: `actor_user_id=eq.${user.id}`
+                        filter: `actor_user_id=eq.${userId}`
                     },
-                    () => {
+                    (payload) => {
+                        console.log('[Realtime Feedback] Change received:', payload);
                         fetchFeedbacks({ silent: true });
                     }
                 )
                 .subscribe();
         };
 
-        setupSubscription();
+        init();
 
         return () => {
-            if (channel) supabase.removeChannel(channel);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
         };
     }, [fetchFeedbacks]);
 
