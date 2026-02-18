@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from './useNotifications';
 import { useUserFeedbacks } from './useUserFeedbacks';
 import { useFeedbackReadState } from './useFeedbackReadState';
@@ -26,20 +27,53 @@ export const useStudentHubBadge = () => {
         markAsRead: markFeedbackAsRead
     } = useFeedbackReadState(feedbacks, user?.id);
 
-    // 4. Sincronização Global Silenciosa (30s)
+    // 4. Sincronização Global via Realtime (WebSockets)
     const { refetch: refetchNotifs } = useNotifications();
     const { refetch: refetchFeedbacks } = useUserFeedbacks();
 
     useEffect(() => {
-        if (!user) return;
+        if (!user?.id) return;
 
-        const interval = setInterval(() => {
-            refetchNotifs({ silent: true });
-            refetchFeedbacks({ silent: true });
-        }, 30000); // 30 segundos é um balanço saudável entre real-time e performance
+        // Criar canal de escuta exclusivo para este usuário
+        // Usamos Realtime para evitar Polling constante (mais eficiente e instantâneo)
+        const channel = supabase
+            .channel(`student_hub_realtime:${user.id}`)
+            // 1. Escutar notificações
+            .on(
+                'postgres_changes',
+                {
+                    event: '*', // INSERT, UPDATE, DELETE
+                    schema: 'public',
+                    table: 'user_notifications',
+                    filter: `user_id=eq.${user.id}`
+                },
+                () => {
+                    refetchNotifs({ silent: true });
+                }
+            )
+            // 2. Escutar atualizações de feedback
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'user_feedback_events',
+                    filter: `actor_user_id=eq.${user.id}`
+                },
+                () => {
+                    refetchFeedbacks({ silent: true });
+                }
+            )
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('[Realtime] Inscrito com sucesso na Central do Aluno');
+                }
+            });
 
-        return () => clearInterval(interval);
-    }, [user, refetchNotifs, refetchFeedbacks]);
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user?.id, refetchNotifs, refetchFeedbacks]);
 
     // Total Unread = Estudo + Feedbacks Atualizados
     const totalUnreadCount = studyUnreadCount + unreadFeedbackIds.size;
