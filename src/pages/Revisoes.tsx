@@ -160,10 +160,7 @@ export const Revisoes = () => {
   const [highlightedTopicId, setHighlightedTopicId] = useState<string | null>(null);
 
   // Header State
-  const [headerCardsCollapsed, setHeaderCardsCollapsed] = useState<boolean>(() => {
-    const saved = localStorage.getItem('revisoes-header-collapsed');
-    return saved === 'true'; // Default to false (Expanded) if not set? Original was checking 'true'.
-  });
+  const [headerCardsCollapsed, setHeaderCardsCollapsed] = useState<boolean>(false);
 
   const { activeTimer, startTimer, pauseTimer, resumeTimer, stopTimer, resetTimer, setProcessedUpdate } = useTimer();
 
@@ -424,7 +421,7 @@ export const Revisoes = () => {
       <div className="flex-1 flex flex-col relative w-full max-w-[1600px] mx-auto pb-24 lg:pb-8">
 
         {/* 1. Header (KPIs) - Order 1 (Default) */}
-        <div className="mt-[15px] mb-4 shrink-0 px-4 md:px-8 w-full order-1">
+        <div className="mt-0 mb-4 shrink-0 px-4 md:px-8 w-full order-1">
           <RevisoesHeader
             stats={stats}
             isCollapsed={headerCardsCollapsed}
@@ -481,7 +478,7 @@ export const Revisoes = () => {
             onToggleAll={handleToggleAll}
             onToggleSubjectView={() => setActiveTab(prev => prev === 'SUBJECTS' ? 'FOCUS' : 'SUBJECTS')}
             onOpenInfoModal={() => setIsInfoModalOpen(true)}
-            className="mb-6 sticky top-0 z-30" // Sticky top for better UX
+            className="mb-6 sticky top-[72px] z-30" // Sticky top adjusted for 72px header
             isRecoveryMode={isRecoveryMode}
           />
           {/* Search Notification (Feedback) */}

@@ -903,7 +903,7 @@ const Subjects = () => {
       <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
 
         {/* Header Outside Card */}
-        <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar pt-4">
+        <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar pt-0">
           <div className="space-y-6 w-full"> {/* Changed space-y-4 to 6 to match Topics */}
 
             {/* Unified Header Card - Sticky at top of scroll container */}

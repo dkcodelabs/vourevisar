@@ -528,7 +528,7 @@ export const StudyCycleContent: React.FC = () => {
           </div>
         )}
 
-        <header className="mt-4 px-4 py-3 mb-4 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md mx-4 md:mx-6">
+        <header className="mt-0 px-4 py-3 mb-4 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md mx-4 md:mx-6">
           <div className="mb-2">
             <p className="text-xs text-muted-foreground mt-0.5">Gerencie seu progresso e metas diárias</p>
           </div>

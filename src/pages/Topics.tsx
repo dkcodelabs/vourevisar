@@ -277,7 +277,7 @@ const Topics = () => {
     <TooltipProvider>
       <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden">
         <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
-          <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 pt-4">
+          <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 pt-0">
             <div className="space-y-6">
               {/* Header com Pesquisa e Filtros - Sticky at top of scroll container */}
               <div className="sticky top-0 z-20 px-4 md:px-8 pt-6 pb-6 mb-6 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-md">

@@ -257,7 +257,7 @@ const Profile = () => {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto p-4">
+        <div className="container mx-auto px-4 pb-4 pt-0">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

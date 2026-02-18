@@ -317,7 +317,7 @@ export default function Gerenciamento() {
       {/* Header */}
       {/* Header */}
       {/* Header */}
-      <div className="mt-[15px] px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
+      <div className="mt-0 px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
         <div style={{ margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>

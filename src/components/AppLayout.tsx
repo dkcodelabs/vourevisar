@@ -83,7 +83,7 @@ const TopHeader = ({ pageTitle, onOpenNotes, onOpenHub, hubUnreadCount }: { page
   const formattedTime = formatTime(timeLeft);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-[72px] w-full flex items-center justify-between px-6 bg-white shadow-md border-b border-gray-200 transition-all">
+    <header className="fixed top-0 left-0 right-0 z-[100] h-[72px] w-full flex items-center justify-between px-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm border-b border-gray-200/50 dark:border-gray-800/50 transition-all">
       <div className="flex items-center gap-4">
         <MobileMenuToggle />
         <div className="hidden md:flex items-center gap-4">
@@ -223,12 +223,12 @@ export const AppLayout = () => {
         hubUnreadCount={totalUnreadCount}
       />
 
-      {/* Main Content Area - pushed down by header height */}
-      <div className="flex min-h-screen w-full pt-[72px] bg-background transition-colors duration-200">
+      {/* Main Content Area - no longer pushed down by global padding to allow glassmorphism scroll effect */}
+      <div className="flex min-h-screen w-full bg-background transition-colors duration-200">
         <AppSidebar />
 
         <SidebarInset className="flex flex-col flex-1 pb-20 md:pb-6 relative min-w-0 overflow-y-auto">
-          <main className="flex-1 w-full max-w-[1440px] mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <main className="flex-1 w-full max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-[72px] md:pt-[88px] animate-in fade-in slide-in-from-bottom-4 duration-500">
             <Outlet />
           </main>
         </SidebarInset>

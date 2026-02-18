@@ -113,7 +113,7 @@ const Dashboard = () => {
 
     return (
         <div className="min-h-screen bg-background pb-20">
-            <div className="container mx-auto p-4 md:p-8 max-w-7xl">
+            <div className="container mx-auto px-4 md:px-8 pb-8 pt-0 max-w-7xl">
 
                 <DashboardHeader subjectsCount={subjects.length} />
 
