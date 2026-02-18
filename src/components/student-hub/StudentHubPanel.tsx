@@ -161,19 +161,15 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
 
   // ── Polling Realtime (10s) - SILENT ─────────────────────────
   useEffect(() => {
-    let interval: NodeJS.Timeout;
     if (isOpen) {
-      // Refresh inicial ao abrir
+      // Refresh inicial ao abrir para garantir dados frescos
       refetchNotifs({ silent: true });
       refetchFeedbacks({ silent: true });
 
-      // Polling a cada 10s
-      interval = setInterval(() => {
-        refetchNotifs({ silent: true });
-        refetchFeedbacks({ silent: true });
-      }, 10000);
+      // NOTA: O polling em background (30s) agora é gerenciado globalmente 
+      // via useStudentHubBadge, mantendo o sino sempre atualizado.
+      // O painel aberto não faz polling agressivo para evitar flickering/pulos de interface.
     }
-    return () => clearInterval(interval);
   }, [isOpen, refetchNotifs, refetchFeedbacks]);
 
 
@@ -518,34 +514,47 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                 <Plus size={13} strokeWidth={2.5} aria-hidden="true" />
                 Nova Solicitação
               </button>
-              <div className="relative">
+              <div className="flex items-center gap-1.5 ml-auto">
                 <button
-                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                  aria-haspopup="listbox"
-                  aria-expanded={showStatusDropdown}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-2.5 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 hover:border-slate-300 transition-colors min-h-[44px]"
+                  onClick={() => {
+                    refetchNotifs({ silent: true });
+                    refetchFeedbacks({ silent: true });
+                  }}
+                  className={`p-2.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all ${(notifLoading || fbLoading) ? 'animate-spin' : ''}`}
+                  title="Atualizar lista"
+                  aria-label="Atualizar lista"
                 >
-                  <Filter size={12} className="text-slate-400" aria-hidden="true" />
-                  Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : statusFilter === 'em_aberto' ? 'Em aberto' : statusFilter === 'respondido' ? 'Respondido' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}</span>
+                  <RefreshCw size={14} />
                 </button>
-                {showStatusDropdown && (
-                  <>
-                    <div className="fixed inset-0 z-[80]" onClick={() => setShowStatusDropdown(false)} />
-                    <div role="listbox" className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
-                      {(['todas', 'em_aberto', 'respondido', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as (StatusFilterOption | 'respondido')[]).map((opt) => (
-                        <button
-                          key={opt}
-                          role="option"
-                          aria-selected={statusFilter === opt}
-                          onClick={() => { setStatusFilter(opt); setShowStatusDropdown(false); }}
-                          className={`w-full text-left px-3 py-2 text-[11px] transition-colors min-h-[36px] ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                        >
-                          {opt === 'todas' ? 'Todas' : opt === 'em_aberto' ? 'Em aberto' : opt === 'respondido' ? 'Respondido' : STATUS_CONFIG[opt as FeedbackStatus]?.label ?? opt}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                    aria-haspopup="listbox"
+                    aria-expanded={showStatusDropdown}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-2.5 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 hover:border-slate-300 transition-colors min-h-[44px]"
+                  >
+                    <Filter size={12} className="text-slate-400" aria-hidden="true" />
+                    Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : statusFilter === 'em_aberto' ? 'Em aberto' : statusFilter === 'respondido' ? 'Respondido' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}</span>
+                  </button>
+                  {showStatusDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-[80]" onClick={() => setShowStatusDropdown(false)} />
+                      <div role="listbox" className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
+                        {(['todas', 'em_aberto', 'respondido', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as (StatusFilterOption | 'respondido')[]).map((opt) => (
+                          <button
+                            key={opt}
+                            role="option"
+                            aria-selected={statusFilter === opt}
+                            onClick={() => { setStatusFilter(opt); setShowStatusDropdown(false); }}
+                            className={`w-full text-left px-3 py-2 text-[11px] transition-colors min-h-[36px] ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                          >
+                            {opt === 'todas' ? 'Todas' : opt === 'em_aberto' ? 'Em aberto' : opt === 'respondido' ? 'Respondido' : STATUS_CONFIG[opt as FeedbackStatus]?.label ?? opt}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
