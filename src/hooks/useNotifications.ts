@@ -60,6 +60,38 @@ export function useNotifications() {
         fetchNotifications();
     }, [fetchNotifications]);
 
+    // ── Realtime Subscription ─────────────────────────────────
+    useEffect(() => {
+        let channel: any;
+
+        const setupSubscription = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            channel = supabase
+                .channel(`notifications_realtime:${user.id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'user_notifications',
+                        filter: `user_id=eq.${user.id}`
+                    },
+                    () => {
+                        fetchNotifications({ silent: true });
+                    }
+                )
+                .subscribe();
+        };
+
+        setupSubscription();
+
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, [fetchNotifications]);
+
     // ── Unread count ──────────────────────────────────────────
     const unreadCount = useMemo(
         () => notifications.filter((n) => !n.read).length,

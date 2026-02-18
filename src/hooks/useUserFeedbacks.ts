@@ -73,6 +73,38 @@ export function useUserFeedbacks() {
         fetchFeedbacks();
     }, [fetchFeedbacks]);
 
+    // ── Realtime Subscription ─────────────────────────────────
+    useEffect(() => {
+        let channel: any;
+
+        const setupSubscription = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            channel = supabase
+                .channel(`feedbacks_realtime:${user.id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'user_feedback_events',
+                        filter: `actor_user_id=eq.${user.id}`
+                    },
+                    () => {
+                        fetchFeedbacks({ silent: true });
+                    }
+                )
+                .subscribe();
+        };
+
+        setupSubscription();
+
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, [fetchFeedbacks]);
+
     // ── Submit ────────────────────────────────────────────────
     const submitFeedback = useCallback(async (input: SubmitFeedbackInput): Promise<{ protocol_code: string } | null> => {
         // 1. Rate-limit local (Flood Protection - 10s)
