@@ -5,6 +5,13 @@
             "headers": {
                 "Authorization": "Bearer AQ.Ab8RN6Iaxk6e6LGFQW3kmWiyn-PzbeDdOJKnP_tFXSrTsKfr-w"
             }
+        },
+        "context7": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp@latest"
+            ]
         }
     }
 }

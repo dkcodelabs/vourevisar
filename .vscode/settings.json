@@ -1,9 +1,16 @@
 {
-    "kiroAgent.configureMCP": "Disabled",
+    "kiroAgent.configureMCP": "Enabled",
     "mcpServers": {
         "stitch": {
             "serverUrl": "https://stitch.googleapis.com/mcp",
             "headers": {}
+        },
+        "context7": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp@latest"
+            ]
         }
     }
 }
