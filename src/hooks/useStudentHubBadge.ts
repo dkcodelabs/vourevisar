@@ -27,18 +27,24 @@ export const useStudentHubBadge = () => {
         markAsRead: markFeedbackAsRead
     } = useFeedbackReadState(feedbacks, user?.id);
 
-    // 4. Sincronização Global via Realtime (WebSockets)
-    // Agora gerenciada nativamente dentro de useNotifications e useUserFeedbacks
-    // Isso garante que tanto o sino quanto o painel aberto se atualizem simultaneamente.
+    // 4. Lógica de Badge Inteligente (Anti-Spam)
+    // Filtramos notificações que são duplicatas de feedbacks que já estão sendo contados
+    const pureStudyNotifs = notifications.filter(n => {
+        if (n.read) return false;
+        // Se a notificação tem um feedback_id nos metadados ou no título/link
+        // nós desconsideramos aqui para não contar em dobro com o unreadFeedbackIds
+        const hasFeedbackRef = n.data?.feedback_id || n.action_url?.includes('feedback');
+        return !hasFeedbackRef;
+    });
 
-    // Total Unread = Estudo + Feedbacks Atualizados
-    const totalUnreadCount = studyUnreadCount + unreadFeedbackIds.size;
+    // Total Unread = Notificações de Estudo Puras + Feedbacks Únicos com Interação
+    const totalUnreadCount = pureStudyNotifs.length + unreadFeedbackIds.size;
 
     const isLoading = notifsLoading || feedbacksLoading;
 
     return {
         totalUnreadCount,
-        studyUnreadCount,
+        studyUnreadCount: pureStudyNotifs.length, // Apenas para exibição na aba
         feedbackUnreadCount: unreadFeedbackIds.size,
         isLoading,
         unreadFeedbackIds,
