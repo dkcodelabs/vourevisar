@@ -138,6 +138,8 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   const {
     unreadFeedbackIds,
     markFeedbackAsRead,
+    studyUnreadCount,
+    feedbackUnreadCount,
     totalUnreadCount
   } = useStudentHubBadge();
 
@@ -162,15 +164,23 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   // ── Polling Realtime (10s) - SILENT ─────────────────────────
   useEffect(() => {
     if (isOpen) {
-      // Refresh inicial ao abrir para garantir dados frescos
+      // 1. Resetar Filtro de Feedback para 'Em Aberto'
+      setStatusFilter('em_aberto');
+
+      // 2. Navegação Inteligente:
+      // Se não há notificações de estudo, mas há feedbacks não lidos -> vai para Feedback
+      // Caso contrário (se houver ambos ou nenhum) -> preferência Notificações
+      if (studyUnreadCount === 0 && feedbackUnreadCount > 0) {
+        setActiveTab('feedbacks');
+      } else {
+        setActiveTab('notificacoes');
+      }
+
+      // 3. Refresh inicial ao abrir para garantir dados frescos
       refetchNotifs({ silent: true });
       refetchFeedbacks({ silent: true });
-
-      // NOTA: O polling em background (30s) agora é gerenciado globalmente 
-      // via useStudentHubBadge, mantendo o sino sempre atualizado.
-      // O painel aberto não faz polling agressivo para evitar flickering/pulos de interface.
     }
-  }, [isOpen, refetchNotifs, refetchFeedbacks]);
+  }, [isOpen, studyUnreadCount, feedbackUnreadCount, refetchNotifs, refetchFeedbacks]);
 
 
   // Filtrar notificações (Exclusivo Estudo)
