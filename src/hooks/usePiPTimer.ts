@@ -1,8 +1,30 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface UsePiPTimerProps {
     displayTime: string;
     isActive: boolean;
+}
+
+/**
+ * Detecta se o PiP padrão do HTML5 é suportado.
+ * 
+ * O Safari possui uma implementação instável para \`canvas.captureStream()\` 
+ * no Picture-in-Picture. Por solicitação do usuário, não usaremos hacks ou overlays CSS 
+ * para contornar isso. O recurso ficará desabilitado nativamente no Safari até que a Apple 
+ * implemente o \`document.pictureInPictureEnabled\` de forma estável para canvas.
+ */
+function isPiPSupported(): boolean {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return false;
+    if (window.innerWidth <= 768) return false; // Mobile: sem PiP
+
+    // API padrão: Chrome, Edge, Firefox
+    if ('pictureInPictureEnabled' in document && document.pictureInPictureEnabled) {
+        return true;
+    }
+
+    // Safari não suporta pictureInPictureEnabled de forma confiável para canvas stream.
+    // O recurso será simplesmente ocultado.
+    return false;
 }
 
 export const usePiPTimer = ({ displayTime, isActive }: UsePiPTimerProps) => {
@@ -11,85 +33,68 @@ export const usePiPTimer = ({ displayTime, isActive }: UsePiPTimerProps) => {
     const [isSupported, setIsSupported] = useState(false);
 
     useEffect(() => {
-        // Check support
-        if (
-            typeof document !== 'undefined' &&
-            'pictureInPictureEnabled' in document &&
-            window.innerWidth > 768
-        ) {
-            setIsSupported(true);
-        } else {
-            setIsSupported(false);
-        }
+        setIsSupported(isPiPSupported());
     }, []);
 
+    // Desenha no canvas
     useEffect(() => {
+        if (!isSupported) return;
+
         const canvas = canvasRef.current;
         const video = videoRef.current;
-
         if (!canvas || !video) return;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Visual Specifications
-        // Dimensions: 600x150 (Physical) - Banner Aspect Ratio 4:1
         canvas.width = 600;
         canvas.height = 150;
 
-        // High DPI Scale: 2x (Logical viewport: 300x75)
-        ctx.scale(2, 2);
-
-        // Background: Indigo Deep (#1e1b4b)
-        // Draw in logical coordinates (0,0 to 300,75)
         ctx.fillStyle = '#1e1b4b';
-        ctx.fillRect(0, 0, 300, 75);
+        ctx.fillRect(0, 0, 600, 150);
 
-        // Typography
-        // Logical font size 40px renders as 80px physical pixels (Sharp/Retina)
-        ctx.font = 'bold 40px Inter, system-ui, -apple-system, sans-serif';
+        ctx.font = 'bold 80px Inter, system-ui, -apple-system, sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.fillText(isActive ? displayTime : 'Focus', 300, 75);
 
-        // Text Content
-        const text = isActive ? displayTime : 'Focus';
-
-        // Center Logic: Logical Width / 2, Logical Height / 2
-        ctx.fillText(text, 150, 37.5);
-
-        // Resize Handle (Visual Hint)
         if (isActive) {
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
-            ctx.font = '14px sans-serif';
+            ctx.font = '22px sans-serif';
             ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.fillText('⤡', 5, 5);
+            ctx.fillText('⤡', 8, 8);
         }
 
-        // Stream Management
+        // Cria stream apenas uma vez
         if (video.srcObject === null) {
-            const stream = canvas.captureStream();
+            const stream = canvas.captureStream(1);
             video.srcObject = stream;
-            // Ensure video plays to allow PiP
-            video.play().catch(() => { /* Silent catch for autoplay restrictions */ });
+            video.play().catch(() => { });
         }
+    }, [displayTime, isActive, isSupported]);
 
-    }, [displayTime, isActive]);
+    const togglePiP = useCallback(() => {
+        if (!isSupported) return;
 
-    const togglePiP = async () => {
-        if (!videoRef.current || !isSupported) return;
-
-        try {
-            if (document.pictureInPictureElement) {
-                await document.exitPictureInPicture();
-            } else {
-                await videoRef.current.requestPictureInPicture();
+        const openStandardPiP = async () => {
+            const video = videoRef.current;
+            if (!video) return;
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else {
+                    if (video.paused) await video.play();
+                    await video.requestPictureInPicture();
+                }
+            } catch (error) {
+                console.error('[PiP] Falha ao alternar Picture-in-Picture:', error);
             }
-        } catch (error) {
-            console.error('Failed to toggle PiP:', error);
-        }
-    };
+        };
+
+        openStandardPiP();
+    }, [isSupported]);
 
     return {
         canvasRef,

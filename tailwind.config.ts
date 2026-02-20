@@ -34,7 +34,8 @@ export default {
 					'"Segoe UI Emoji"',
 					'"Segoe UI Symbol"',
 				],
-				display: ['Lexend', 'sans-serif'],
+				display: ['Inter', 'sans-serif'],
+				timer: ['Outfit', 'sans-serif'],
 			},
 
 			colors: {

@@ -227,7 +227,7 @@ export const AppLayout = () => {
       <div className="flex min-h-screen w-full bg-background transition-colors duration-200">
         <AppSidebar />
 
-        <SidebarInset className="flex flex-col flex-1 pb-20 md:pb-6 relative min-w-0 overflow-y-auto">
+        <SidebarInset className={`flex flex-col flex-1 pb-20 md:pb-6 relative min-w-0 ${isHubOpen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           <main className="flex-1 w-full max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-[72px] md:pt-[88px] animate-in fade-in slide-in-from-bottom-4 duration-500">
             <Outlet />
           </main>

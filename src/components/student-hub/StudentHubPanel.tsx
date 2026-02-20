@@ -162,14 +162,18 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   } = useUserFeedbacks();
 
   // ── Polling Realtime (10s) - SILENT ─────────────────────────
+  const wasOpenRef = useRef(false);
+
   useEffect(() => {
-    if (isOpen) {
-      // 1. Resetar Filtro de Feedback para 'Em Aberto'
-      setStatusFilter('em_aberto');
+    // Reset de estado apenas na transição de FECHADO -> ABERTO
+    if (isOpen && !wasOpenRef.current) {
+      // 1. Filtro Inteligente: 
+      // Se houver feedbacks não lidos, mostramos "Todas" para que itens recém-concluídos apareçam.
+      // Caso contrário, mantemos "Em aberto" para focar no que falta.
+      setStatusFilter(feedbackUnreadCount > 0 ? 'todas' : 'em_aberto');
 
       // 2. Navegação Inteligente:
       // Se não há notificações de estudo, mas há feedbacks não lidos -> vai para Feedback
-      // Caso contrário (se houver ambos ou nenhum) -> preferência Notificações
       if (studyUnreadCount === 0 && feedbackUnreadCount > 0) {
         setActiveTab('feedbacks');
       } else {
@@ -180,6 +184,8 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
       refetchNotifs({ silent: true });
       refetchFeedbacks({ silent: true });
     }
+
+    wasOpenRef.current = isOpen;
   }, [isOpen, studyUnreadCount, feedbackUnreadCount, refetchNotifs, refetchFeedbacks]);
 
 
@@ -212,12 +218,27 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
     { key: 'anterior', label: 'Anterior' },
   ];
 
-  // Filtrar feedbacks
+  // Filtrar e Ordenar feedbacks
   const filteredFeedbacks = React.useMemo(() => {
-    if (statusFilter === 'todas') return feedbacks;
-    if (statusFilter === 'em_aberto') return feedbacks.filter(fb => fb.status !== 'concluida');
-    if (statusFilter === 'respondido') return feedbacks.filter(fb => !!fb.admin_reply);
-    return feedbacks.filter((fb) => fb.status === statusFilter);
+    let result = feedbacks;
+
+    // 1. Filtragem
+    if (statusFilter === 'em_aberto') {
+      result = feedbacks.filter(fb => fb.status !== 'concluida');
+    } else if (statusFilter === 'respondido') {
+      result = feedbacks.filter(fb => !!fb.admin_reply);
+    } else if (statusFilter !== 'todas') {
+      result = feedbacks.filter((fb) => fb.status === statusFilter);
+    }
+
+    // 2. Ordenação: Concluídas por último
+    return [...result].sort((a, b) => {
+      // Se um é concluído e o outro não, o concluído vai para o final (1)
+      if (a.status === 'concluida' && b.status !== 'concluida') return 1;
+      if (a.status !== 'concluida' && b.status === 'concluida') return -1;
+      // Mantém a ordem original (data de criação decrescente da API) para itens de mesma prioridade
+      return 0;
+    });
   }, [feedbacks, statusFilter]);
 
   // Fechar com ESC
@@ -282,7 +303,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/10 backdrop-blur-[2px] z-[60]"
+        className="fixed top-[72px] left-0 right-0 bottom-0 bg-slate-900/10 backdrop-blur-[2px] z-[40]"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -294,7 +315,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
         aria-modal="true"
         aria-label="Central do Aluno"
         tabIndex={-1}
-        className="fixed top-0 right-0 h-full w-full sm:w-[400px] md:w-[420px] bg-white dark:bg-slate-900 shadow-2xl z-[70] flex flex-col border-l border-slate-100 dark:border-slate-800 animate-in slide-in-from-right duration-300 outline-none"
+        className="fixed top-[72px] right-0 h-[calc(100vh-72px)] w-full sm:w-[400px] md:w-[420px] bg-white dark:bg-slate-900 shadow-2xl z-[50] flex flex-col border-l border-slate-100 dark:border-slate-800 animate-in slide-in-from-right duration-300 outline-none overscroll-behavior-contain"
       >
         {/* ── Sticky Header + Tabs ─────────────────────────────── */}
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900">
@@ -653,8 +674,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                               {isUnread && (
                                 <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ring-2 ring-blue-100 dark:ring-blue-900" title="Nova atualização" />
                               )}
-                              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${status.bgClass}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} aria-hidden="true" />
+                              <div className={`flex items-center px-2 py-0.5 rounded-full ${status.bgClass}`}>
                                 <span className={`text-[9px] font-bold uppercase ${status.textClass}`}>
                                   {status.label}
                                 </span>

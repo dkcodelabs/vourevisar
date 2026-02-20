@@ -311,6 +311,23 @@ export const Revisoes = () => {
     }
   }, [location.state, searchParams, delayedTopics, todayTopics, futureTopics, completedTopics, activeTab]);
 
+  // When coming from "Parar e Avaliar" in FocusModal: auto-open the review modal
+  useEffect(() => {
+    const evaluationTopicId = (location.state as { openEvaluationForTopic?: string } | null)?.openEvaluationForTopic;
+    if (!evaluationTopicId) return;
+
+    // Small delay to ensure data is loaded
+    const timer = setTimeout(() => {
+      handleMarkCompleted(evaluationTopicId);
+      // Clear state so it doesn't re-trigger on re-renders
+      window.history.replaceState({}, '');
+    }, 400);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
+
   useEffect(() => {
     const topicId = searchParams.get('topicId');
     if (topicId && !highlightedTopicId) {

@@ -1,12 +1,19 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+/**
+ * TimerContext — Fonte de verdade: Supabase (active_study_timers)
+ * Fallback: localStorage (cache offline / inicialização rápida sem flicker)
+ * Sincronização: Supabase Realtime → qualquer browser logado na mesma conta se atualiza
+ */
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 
-interface ActiveTimer {
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+
+export interface ActiveTimer {
     topicId: string;
-    startTime: number;
+    startTime: number;        // epoch ms do início da sessão atual (0 se pausado)
     status: 'RUNNING' | 'PAUSED';
-    accumulatedTime: number;
+    accumulatedTime: number;  // ms acumulados antes da sessão atual
 }
 
 interface TimerContextType {
@@ -20,230 +27,309 @@ interface TimerContextType {
     setProcessedUpdate: (topicId: string) => void;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const LS_KEY = 'revisoes-active-timer';
+
+function readFromLocalStorage(): ActiveTimer | null {
+    try {
+        const saved = localStorage.getItem(LS_KEY);
+        return saved ? JSON.parse(saved) : null;
+    } catch {
+        return null;
+    }
+}
+
+function writeToLocalStorage(timer: ActiveTimer | null) {
+    try {
+        if (timer) {
+            localStorage.setItem(LS_KEY, JSON.stringify(timer));
+        } else {
+            localStorage.removeItem(LS_KEY);
+        }
+    } catch { /* storage cheia ou bloqueada */ }
+}
+
+/** Converte uma linha do DB para o formato interno do contexto */
+function dbRowToTimer(row: {
+    topic_id: string | null;
+    status: string;
+    started_at: string | null;
+    accumulated_ms: number;
+}): ActiveTimer | null {
+    if (!row.topic_id) return null;
+    return {
+        topicId: row.topic_id,
+        status: row.status as 'RUNNING' | 'PAUSED',
+        startTime: row.started_at ? new Date(row.started_at).getTime() : 0,
+        accumulatedTime: row.accumulated_ms,
+    };
+}
+
+// ── Context ───────────────────────────────────────────────────────────────────
+
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
 
 export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
-    const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(() => {
-        try {
-            const saved = localStorage.getItem('revisoes-active-timer');
-            return saved ? JSON.parse(saved) : null;
-        } catch {
-            return null;
-        }
-    });
+    // Inicialização rápida via localStorage para evitar flicker
+    const [activeTimer, setActiveTimerState] = useState<ActiveTimer | null>(readFromLocalStorage);
+    const userIdRef = useRef<string | null>(null);
+    const syncingRef = useRef(false); // evita loops de sync
 
-    // Persist to localStorage
+    /** Atualiza estado local + localStorage (cache offline) */
+    const applyTimer = useCallback((timer: ActiveTimer | null) => {
+        setActiveTimerState(timer);
+        writeToLocalStorage(timer);
+    }, []);
+
+    // ── Auth: descobre user_id atual ──────────────────────────────────────────
     useEffect(() => {
-        if (activeTimer) {
-            localStorage.setItem('revisoes-active-timer', JSON.stringify(activeTimer));
-        } else {
-            localStorage.removeItem('revisoes-active-timer');
-        }
-    }, [activeTimer]);
+        supabase.auth.getUser().then(({ data }) => {
+            userIdRef.current = data.user?.id ?? null;
+        });
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+            userIdRef.current = session?.user?.id ?? null;
+        });
+        return () => subscription.unsubscribe();
+    }, []);
 
-    const startTimer = (topicId: string) => {
-        const newTimer: ActiveTimer = {
-            topicId,
-            startTime: Date.now(),
-            status: 'RUNNING',
-            accumulatedTime: 0
+    // ── Carrega estado inicial do Supabase (sobrepõe localStorage se necessário) ──
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user || cancelled) return;
+
+            const { data, error } = await supabase
+                .from('active_study_timers')
+                .select('topic_id, status, started_at, accumulated_ms')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            if (error || cancelled) return;
+
+            const remoteTimer = data ? dbRowToTimer(data) : null;
+            // O estado remoto é sempre a fonte de verdade
+            applyTimer(remoteTimer);
         };
-        setActiveTimer(newTimer);
-    };
+        load();
+        return () => { cancelled = true; };
+    }, [applyTimer]);
 
-    const pauseTimer = () => {
-        if (!activeTimer || activeTimer.status === 'PAUSED') return;
-
-        const now = Date.now();
-        const elapsed = now - activeTimer.startTime;
-
-        setActiveTimer({
-            ...activeTimer,
-            status: 'PAUSED',
-            startTime: 0,
-            accumulatedTime: activeTimer.accumulatedTime + elapsed
-        });
-    };
-
-    const resumeTimer = () => {
-        if (!activeTimer || activeTimer.status === 'RUNNING') return;
-
-        setActiveTimer({
-            ...activeTimer,
-            status: 'RUNNING',
-            startTime: Date.now()
-        });
-    };
-
-    const stopTimer = () => {
-        setActiveTimer(null);
-    };
-
-    const resetTimer = stopTimer;
-
-    // Transparent Sync Logic
-    const checkSync = useCallback(async () => {
-        if (!activeTimer) return;
-
-        try {
-            // Check topic status silently
-            const { data: topic, error } = await supabase
-                .from('topics')
-                .select('name, subjects(name), completed, review_stage, next_review')
-                .eq('id', activeTimer.topicId)
-                .single();
-
-            if (error || !topic) return;
-
-            // Check if Completed
-            // Logic: If completed flag is true OR review_stage is 'Concluído' OR 
-            // maybe checked if 'next_review' is in the future relative to today?
-            // The user specifically asked: "SE o tópico estiver `COMPLETED` (concluído externamente)"
-            // We'll check the 'completed' column and 'review_stage'.
-
-            const isCompleted = topic.completed || topic.review_stage === 'Concluído';
-
-            // Also consider if it was reviewed TODAY already (next_review > today)
-            // But maybe user is reviewing it again? 
-            // User prompt says: "SE o tópico estiver `COMPLETED` ... Feche o Modal ... Limpe o Timer"
-
-            if (isCompleted) {
-                resetTimer();
-                // Close modal logic is handled by the consumer (Revisoes.tsx needs to use this context and listen)
-                // OR we can trigger a custom event? 
-                // We will dispatch a custom event that Revisoes.tsx can listen to if needed, 
-                // OR simply reliance on state change (activeTimer becomes null).
-
-                toast.info(
-                    `Atualização: O tópico '${topic.name}' de '${(topic.subjects as any)?.name}' foi concluído em outra sessão.`
-                );
-            }
-
-        } catch (err) {
-            console.error('Silent sync error:', err);
-        }
-    }, [activeTimer, resetTimer]);
-
-    // Listen for window focus (still useful for mobile/minimizing)
+    // ── Supabase Realtime: sincroniza mudanças de qualquer browser ────────────
     useEffect(() => {
-        const handleFocus = () => {
-            // 1. Sync Timer State from LocalStorage (Catch "Resumed/Paused" elsewhere)
-            try {
-                const saved = localStorage.getItem('revisoes-active-timer');
-                const parsed = saved ? JSON.parse(saved) : null;
+        let userId: string | null = null;
 
-                // If local state differs from storage, update it
-                // We use JSON.stringify for quick comparison
-                if (JSON.stringify(parsed) !== JSON.stringify(activeTimer)) {
-                    setActiveTimer(parsed);
-                    if (parsed && activeTimer?.status === 'PAUSED' && parsed.status === 'RUNNING') {
-                        toast.info('Cronômetro sincronizado (Retomado em outra aba).');
+        const setupSubscription = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            userId = user.id;
+
+            const channel = supabase
+                .channel(`timer_sync_${user.id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*', // INSERT, UPDATE, DELETE
+                        schema: 'public',
+                        table: 'active_study_timers',
+                        filter: `user_id=eq.${user.id}`,
+                    },
+                    (payload) => {
+                        if (syncingRef.current) return; // mudança gerada por este mesmo cliente
+
+                        if (payload.eventType === 'DELETE') {
+                            applyTimer(null);
+                            return;
+                        }
+
+                        const row = payload.new as {
+                            topic_id: string | null;
+                            status: string;
+                            started_at: string | null;
+                            accumulated_ms: number;
+                        };
+                        const remoteTimer = dbRowToTimer(row);
+                        applyTimer(remoteTimer);
                     }
-                }
-            } catch (e) {
-                console.error('Error syncing storage on focus', e);
-            }
+                )
+                .subscribe();
 
-            // 2. Sync Topic Status from Supabase (Catch "Completed" elsewhere)
-            checkSync();
+            return channel;
         };
 
-        window.addEventListener('focus', handleFocus);
-        return () => window.removeEventListener('focus', handleFocus);
-    }, [checkSync, activeTimer]);
+        let channelPromise = setupSubscription();
 
-    // Also listen for storage events (multi-tab immediate sync)
+        return () => {
+            channelPromise.then((channel) => {
+                if (channel) supabase.removeChannel(channel);
+            });
+        };
+    }, [applyTimer]);
+
+    // ── Listener de storage (sincronização entre abas do mesmo browser) ───────
     useEffect(() => {
         const handleStorage = (e: StorageEvent) => {
-            if (e.key === 'revisoes-active-timer') {
-                if (!e.newValue) {
-                    setActiveTimer(null);
-                } else {
-                    const newTimer = JSON.parse(e.newValue);
-                    setActiveTimer(newTimer);
-                }
-            }
+            if (e.key !== LS_KEY) return;
+            const parsed = e.newValue ? JSON.parse(e.newValue) : null;
+            setActiveTimerState(parsed); // apenas estado React, não escreve no storage de volta
         };
-
         window.addEventListener('storage', handleStorage);
         return () => window.removeEventListener('storage', handleStorage);
     }, []);
 
-    // Ref to track updates made by this client to avoid double-toasting
-    const processedUpdateRef = React.useRef<string | null>(null);
-
-    const setProcessedUpdate = (topicId: string) => {
-        console.log('🔒 [TimerContext] Registering self-update for:', topicId);
-        processedUpdateRef.current = topicId;
-        // Auto-clear after 5 seconds to be safe
-        setTimeout(() => {
-            if (processedUpdateRef.current === topicId) {
-                processedUpdateRef.current = null;
+    // ── Helper: persiste no Supabase sinalizando que é mudança local ──────────
+    const persistToSupabase = useCallback(async (
+        userId: string,
+        timer: ActiveTimer | null
+    ) => {
+        syncingRef.current = true;
+        try {
+            if (!timer) {
+                await supabase
+                    .from('active_study_timers')
+                    .delete()
+                    .eq('user_id', userId);
+            } else {
+                await supabase
+                    .from('active_study_timers')
+                    .upsert({
+                        user_id: userId,
+                        topic_id: timer.topicId,
+                        status: timer.status,
+                        started_at: timer.startTime ? new Date(timer.startTime).toISOString() : null,
+                        accumulated_ms: timer.accumulatedTime,
+                    }, { onConflict: 'user_id' });
             }
-        }, 5000);
-    };
+        } catch (err) {
+            console.error('[TimerContext] Erro ao persistir no Supabase:', err);
+        } finally {
+            // Limpa flag após um tick para absorver o evento Realtime que virá
+            setTimeout(() => { syncingRef.current = false; }, 500);
+        }
+    }, []);
 
-    // REALTIME SUBSCRIPTION (Split-Screen Support)
+    // ── Ações públicas ────────────────────────────────────────────────────────
+
+    const startTimer = useCallback((topicId: string) => {
+        const userId = userIdRef.current;
+        const newTimer: ActiveTimer = {
+            topicId,
+            startTime: Date.now(),
+            status: 'RUNNING',
+            accumulatedTime: 0,
+        };
+        applyTimer(newTimer);
+        if (userId) persistToSupabase(userId, newTimer);
+    }, [applyTimer, persistToSupabase]);
+
+    const pauseTimer = useCallback(() => {
+        const userId = userIdRef.current;
+        setActiveTimerState(prev => {
+            if (!prev || prev.status === 'PAUSED') return prev;
+            const now = Date.now();
+            const elapsed = now - prev.startTime;
+            const paused: ActiveTimer = {
+                ...prev,
+                status: 'PAUSED',
+                startTime: 0,
+                accumulatedTime: prev.accumulatedTime + elapsed,
+            };
+            writeToLocalStorage(paused);
+            if (userId) persistToSupabase(userId, paused);
+            return paused;
+        });
+    }, [persistToSupabase]);
+
+    const resumeTimer = useCallback(() => {
+        const userId = userIdRef.current;
+        setActiveTimerState(prev => {
+            if (!prev || prev.status === 'RUNNING') return prev;
+            const resumed: ActiveTimer = {
+                ...prev,
+                status: 'RUNNING',
+                startTime: Date.now(),
+            };
+            writeToLocalStorage(resumed);
+            if (userId) persistToSupabase(userId, resumed);
+            return resumed;
+        });
+    }, [persistToSupabase]);
+
+    const stopTimer = useCallback(() => {
+        const userId = userIdRef.current;
+        applyTimer(null);
+        if (userId) persistToSupabase(userId, null);
+    }, [applyTimer, persistToSupabase]);
+
+    const resetTimer = stopTimer;
+
+    // ── checkSync: verifica tópico no banco (conclusão externa) ──────────────
+    const checkSync = useCallback(async () => {
+        const timer = activeTimer;
+        if (!timer) return;
+        try {
+            const { data: topic, error } = await supabase
+                .from('topics')
+                .select('name, subjects(name), completed, review_stage')
+                .eq('id', timer.topicId)
+                .single();
+
+            if (error || !topic) return;
+            const isCompleted = topic.completed || topic.review_stage === 'Concluído';
+            if (isCompleted) {
+                resetTimer();
+                toast.info(`Tópico '${topic.name}' foi concluído em outra sessão.`);
+            }
+        } catch { /* silencioso */ }
+    }, [activeTimer, resetTimer]);
+
+    // ── refs para evitar duplo-toast em updates externos ─────────────────────
+    const processedUpdateRef = useRef<string | null>(null);
+    const setProcessedUpdate = useCallback((topicId: string) => {
+        processedUpdateRef.current = topicId;
+        setTimeout(() => {
+            if (processedUpdateRef.current === topicId) processedUpdateRef.current = null;
+        }, 5000);
+    }, []);
+
+    // ── Realtime: watch topic completion externa ───────────────────────────────
     useEffect(() => {
         if (!activeTimer?.topicId) return;
-
         const topicId = activeTimer.topicId;
-        console.log('🔌 [TimerContext] Subscribing to realtime updates for topic:', topicId);
 
         const channel = supabase
             .channel(`topic_watch_${topicId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'topics',
-                    filter: `id=eq.${topicId}`
-                },
-                (payload) => {
-                    const newTopic = payload.new as any;
-                    const oldTopic = payload.old as any;
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'topics',
+                filter: `id=eq.${topicId}`,
+            }, (payload) => {
+                const newTopic = payload.new as { id: string; completed: boolean; review_stage: string; review_count: number };
+                const oldTopic = payload.old as { review_count: number };
 
-                    console.log('⚡ [TimerContext] Realtime update received:', newTopic);
-
-                    // Check if THIS client triggered the update
-                    if (processedUpdateRef.current === newTopic.id) {
-                        console.log('✅ [TimerContext] Ignoring self-update.');
-                        processedUpdateRef.current = null; // Clear flag
-                        return;
-                    }
-
-                    // Check for Completion or Advancement
-                    const isCompletedNow = newTopic.completed || newTopic.review_stage === 'Concluído';
-                    const hasAdvanced = newTopic.review_count > (oldTopic?.review_count || -1);
-
-                    if (isCompletedNow || hasAdvanced) {
-                        console.log('🛑 [TimerContext] Detected external completion/advancement. Resetting timer.');
-
-                        // Stop local timer
-                        setActiveTimer(null);
-
-                        // Notify user
-                        // Mobile-Friendly: Short title + description style
-                        toast.info(
-                            "Revisão marcada em outra janela.",
-                            { duration: 6000 }
-                        );
-
-                        // Broadcast event to force UI refresh/Modal close immediately
-                        window.dispatchEvent(new CustomEvent('external-topic-completed', {
-                            detail: { topicId }
-                        }));
-                    }
+                if (processedUpdateRef.current === newTopic.id) {
+                    processedUpdateRef.current = null;
+                    return;
                 }
-            )
+
+                const isCompletedNow = newTopic.completed || newTopic.review_stage === 'Concluído';
+                const hasAdvanced = newTopic.review_count > (oldTopic?.review_count ?? -1);
+
+                if (isCompletedNow || hasAdvanced) {
+                    setActiveTimerState(null);
+                    writeToLocalStorage(null);
+                    const userId = userIdRef.current;
+                    if (userId) persistToSupabase(userId, null);
+                    toast.info('Revisão marcada em outra janela.', { duration: 6000 });
+                    window.dispatchEvent(new CustomEvent('external-topic-completed', { detail: { topicId } }));
+                }
+            })
             .subscribe();
 
-        return () => {
-            console.log('🔌 [TimerContext] Unsubscribing from topic:', topicId);
-            supabase.removeChannel(channel);
-        };
-    }, [activeTimer?.topicId]);
+        return () => { supabase.removeChannel(channel); };
+    }, [activeTimer?.topicId, persistToSupabase]);
 
     return (
         <TimerContext.Provider value={{
@@ -254,7 +340,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
             stopTimer,
             resetTimer,
             checkSync,
-            setProcessedUpdate
+            setProcessedUpdate,
         }}>
             {children}
         </TimerContext.Provider>

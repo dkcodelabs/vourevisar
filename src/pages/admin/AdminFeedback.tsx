@@ -108,13 +108,36 @@ function getSLAStatusBadge(dueAt: string | null, actualAt: string | null, breach
 }
 
 // ─── Componente Principal ───────────────────────────────────
-const CANNED_RESPONSES = [
-    { label: 'Recebido padrão', text: 'Olá! Recebemos seu feedback e ele será analisado em breve pela nossa equipe de produto. Obrigado por contribuir!' },
-    { label: 'Em análise', text: 'Olá! Sua sugestão está em análise técnica para avaliarmos a viabilidade. Te avisaremos assim que tivermos novidades.' },
-    { label: 'Planejada', text: 'Ótima notícia! Sua sugestão foi aceita e entrou para o nosso backlog de desenvolvimento. Em breve estará disponível.' },
-    { label: 'Concluída', text: 'Olá! Temos o prazer de informar que sua solicitação foi atendida na nova atualização. Confira e nos diga o que achou!' },
-    { label: 'Não planejada', text: 'Olá! Agradecemos a sugestão. No momento, decidimos não seguir com essa implementação por fugir do escopo atual, mas manteremos o registro para o futuro.' },
-];
+// ─── Componente Principal ───────────────────────────────────
+// [ADM-02] Templates por Status (Source of Truth)
+const RESPONSE_TEMPLATES: Record<string, { label: string; text: string }[]> = {
+    nova: [
+        { label: 'Recebido padrão', text: 'Olá! Recebemos seu feedback e ele será analisado em breve pela nossa equipe de produto. Obrigado por contribuir!' },
+        { label: 'Em Análise', text: 'Olá! Sua sugestão está em análise técnica para avaliarmos a viabilidade. Te avisaremos assim que tivermos novidades.' }
+    ],
+    planejada: [
+        { label: 'Planejada', text: 'Ótima notícia! Sua sugestão foi aceita e entrou para o nosso backlog de desenvolvimento. Em breve estará disponível.' },
+        { label: 'Já existe', text: 'Olá! Analisamos sua sugestão e percebemos que essa funcionalidade já existe ou será atendida por uma melhoria planejada.' }
+    ],
+    em_desenvolvimento: [
+        { label: 'Em Desenvolvimento', text: 'Olá! Sua sugestão já está sendo desenvolvida por nossa equipe. Avisaremos assim que for lançada.' }
+    ],
+    concluida: [
+        { label: 'Concluída', text: 'Olá! Temos o prazer de informar que sua solicitação foi atendida na nova atualização. Confira e nos diga o que achou!' },
+        { label: 'Não Planejada / Recusada', text: 'Olá! Agradecemos a sugestão. No momento, decidimos não seguir com essa implementação por fugir do escopo atual, mas manteremos o registro para o futuro.' }
+    ],
+    nao_planejada: [
+        { label: 'Não planejada', text: 'Olá! Agradecemos a sugestão. No momento, decidimos não seguir com essa implementação por fugir do escopo atual, mas manteremos o registro para o futuro.' }
+    ],
+};
+
+const DEFAULT_TEMPLATE_BY_STATUS: Record<string, string> = {
+    nova: RESPONSE_TEMPLATES.nova[0].text,
+    planejada: RESPONSE_TEMPLATES.planejada[0].text,
+    em_desenvolvimento: RESPONSE_TEMPLATES.em_desenvolvimento[0].text,
+    concluida: RESPONSE_TEMPLATES.concluida[0].text,
+    nao_planejada: RESPONSE_TEMPLATES.nao_planejada[0].text,
+};
 
 const AdminFeedback: React.FC = () => {
     // URL Sync (Simulado via window.history por enquanto se não tiver router hook fácil, mas usaremos state local por simplicidade na v1.1 Sprint 1)
@@ -133,6 +156,7 @@ const AdminFeedback: React.FC = () => {
     const [selectedFeedback, setSelectedFeedback] = useState<FeedbackRecord | null>(null);
     const [editStatus, setEditStatus] = useState<FeedbackStatus>('nova');
     const [editReply, setEditReply] = useState('');
+    const [dirtyReply, setDirtyReply] = useState(false); // [ADM-02] Novo estado para controle de edição manual
     const [editReason, setEditReason] = useState('');
     const [editNotes, setEditNotes] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -239,12 +263,41 @@ const AdminFeedback: React.FC = () => {
         setSelectedFeedback(fb);
         setEditStatus(fb.status);
         setEditReply(fb.admin_reply || '');
+        setDirtyReply(false); // [ADM-02] Reset dirty state
         setEditReason(fb.admin_reason || '');
         setEditNotes(fb.admin_notes || '');
         setReplyError('');
     };
 
     const isReplyRequired = editStatus !== 'nova';
+
+    // [ADM-02] Handler para mudança de status com lógica de template
+    const handleStatusChange = (newStatus: FeedbackStatus) => {
+        const currentTemplate = DEFAULT_TEMPLATE_BY_STATUS[newStatus];
+
+        // Se NÃO editou manualmente, troca o template automaticamente
+        if (!dirtyReply) {
+            setEditReply(currentTemplate || '');
+        }
+
+        // Se JÁ editou (dirtyReply=true), mantém o texto atual mas permite user trocar depois
+        setEditStatus(newStatus);
+    };
+
+    // [ADM-02] Handler aplicar template manual
+    const handleTemplateSelect = (text: string) => {
+        setEditReply(text);
+        setDirtyReply(false); // Reset dirty flag pois é um template oficial
+    };
+
+    // [ADM-02] Aplicar template sugerido (para caso de dirty)
+    const applySuggestedTemplate = () => {
+        const suggestion = DEFAULT_TEMPLATE_BY_STATUS[editStatus];
+        if (suggestion) {
+            setEditReply(suggestion);
+            setDirtyReply(false);
+        }
+    };
 
     const handleSave = async () => {
         if (!selectedFeedback) return;
@@ -573,14 +626,14 @@ const AdminFeedback: React.FC = () => {
 
             {/* ── Dialog Detalhe ───────────────────────────── */}
             <Dialog open={!!selectedFeedback} onOpenChange={(open) => !open && setSelectedFeedback(null)}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-lg h-[80vh] z-[200] flex flex-col p-0 gap-0 overflow-hidden">
                     {selectedFeedback && (() => {
                         const statusCfg = STATUS_CONFIG[selectedFeedback.status] || STATUS_CONFIG.nova;
                         const typeCfg = TYPE_CONFIG[selectedFeedback.type] || TYPE_CONFIG.melhoria;
                         return (
                             <>
-                                <DialogHeader>
-                                    <DialogTitle className="flex items-center gap-2 text-lg">
+                                <DialogHeader className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                                    <DialogTitle className="flex items-center gap-2 text-base">
                                         <span className="font-mono text-blue-600 dark:text-blue-400">{selectedFeedback.protocol_code}</span>
                                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${statusCfg.bg} ${statusCfg.color}`}>
                                             {statusCfg.icon}
@@ -589,40 +642,43 @@ const AdminFeedback: React.FC = () => {
                                     </DialogTitle>
                                 </DialogHeader>
 
-                                <div className="space-y-5 mt-2">
+                                {/* Área de Scroll */}
+                                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
                                     {/* Info Principal */}
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div className="grid grid-cols-2 gap-y-4 gap-x-6">
                                         <div>
-                                            <p className="text-xs font-semibold text-slate-400 uppercase mb-0.5">Tipo</p>
-                                            <p className="flex items-center gap-1 text-slate-700 dark:text-slate-300">{typeCfg.icon} {typeCfg.label}</p>
+                                            <p className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1 opacity-70">Tipo</p>
+                                            <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
+                                                {typeCfg.icon}
+                                                {typeCfg.label}
+                                            </p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold text-slate-400 uppercase mb-0.5">Criado em</p>
-                                            <p className="text-slate-700 dark:text-slate-300">{formatDate(selectedFeedback.created_at)}</p>
+                                            <p className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1 opacity-70">Criado em</p>
+                                            <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{formatDate(selectedFeedback.created_at)}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold text-slate-400 uppercase mb-0.5">Ator</p>
-                                            <p className="text-slate-700 dark:text-slate-300">{selectedFeedback.actor_email || selectedFeedback.actor_user_id}</p>
+                                            <p className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1 opacity-70">Ator</p>
+                                            <p className="text-xs font-medium text-slate-600 dark:text-slate-400 break-all">{selectedFeedback.actor_email || selectedFeedback.actor_user_id}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold text-slate-400 uppercase mb-0.5">Impacto</p>
-                                            <p className="text-slate-700 dark:text-slate-300">{IMPACT_MAP[selectedFeedback.impact] || selectedFeedback.impact}</p>
+                                            <p className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1 opacity-70">Impacto</p>
+                                            <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{IMPACT_MAP[selectedFeedback.impact] || selectedFeedback.impact}</p>
                                         </div>
                                     </div>
 
                                     {/* Título + Descrição */}
-                                    <div>
-                                        <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Título</p>
-                                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{selectedFeedback.title}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Descrição</p>
-                                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedFeedback.description}</p>
+                                    <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1 opacity-70">Título do Feedback</p>
+                                            <p className="text-sm font-semibold text-slate-900 dark:text-white leading-tight">{selectedFeedback.title}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1 opacity-70">Descrição Detalhada</p>
+                                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{selectedFeedback.description}</p>
+                                        </div>
                                     </div>
 
-                                    {/* Contexto Técnico (Omitido para economizar linhas, se necessário pode ficar ok) */}
-
-                                    {/* ── Separador ──────────────────────────── */}
                                     <hr className="border-slate-200 dark:border-slate-700" />
 
                                     {/* ── Ações do Admin ─────────────────────── */}
@@ -631,19 +687,19 @@ const AdminFeedback: React.FC = () => {
 
                                         {/* Pipeline de Status */}
                                         <div>
-                                            <label className="text-xs font-semibold text-slate-500 uppercase block mb-2">Alterar Status</label>
+                                            <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase block mb-2 opacity-70">Alterar Status</label>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {PIPELINE_STATUSES.map((s) => {
                                                     const cfg = STATUS_CONFIG[s];
                                                     const isActive = editStatus === s;
                                                     const isDisabled = !isValidTransition(selectedFeedback.status as FeedbackStatus, s);
-                                                    if (isDisabled && !isActive) return null; // Ocultar transições inválidas ou desabilitar? UX diz "bloquear". Ocultar é melhor.
+                                                    if (isDisabled && !isActive) return null;
 
                                                     return (
                                                         <button
                                                             key={s}
-                                                            onClick={() => setEditStatus(s)}
-                                                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${isActive
+                                                            onClick={() => handleStatusChange(s)}
+                                                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all border ${isActive
                                                                 ? `${cfg.bg} ${cfg.color} border-current ring-1 ring-current/20`
                                                                 : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:border-slate-300'
                                                                 }`}
@@ -656,51 +712,66 @@ const AdminFeedback: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Resposta ao Aluno + Canned Responses [ADM-02] */}
+                                        {/* Resposta ao Aluno */}
                                         <div>
                                             <div className="flex justify-between items-end mb-1.5">
-                                                <label className="text-xs font-semibold text-slate-500 uppercase">
+                                                <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider opacity-70">
                                                     Resposta ao Aluno
                                                     {isReplyRequired && <span className="text-red-500 ml-0.5">*</span>}
                                                 </label>
 
-                                                {/* Seletor de Respostas Prontas */}
-                                                <select
-                                                    className="text-xs bg-slate-100 dark:bg-slate-800 border-none rounded px-2 py-1 text-slate-600 focus:ring-1 cursor-pointer"
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        if (val) setEditReply(val);
-                                                        // Reset para permitir selecionar o mesmo novamente se quiser
-                                                        e.target.value = "";
-                                                    }}
-                                                >
-                                                    <option value="">✨ Respostas Prontas</option>
-                                                    {CANNED_RESPONSES.map((cr, idx) => (
-                                                        <option key={idx} value={cr.text}>{cr.label}</option>
-                                                    ))}
-                                                </select>
+                                                <div className="flex items-center gap-2">
+                                                    {dirtyReply && editReply !== DEFAULT_TEMPLATE_BY_STATUS[editStatus] && DEFAULT_TEMPLATE_BY_STATUS[editStatus] && (
+                                                        <button
+                                                            onClick={applySuggestedTemplate}
+                                                            className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center gap-1"
+                                                            title="Substituir pelo texto padrão deste status"
+                                                        >
+                                                            <Wand2 size={10} />
+                                                            Aplicar padrão
+                                                        </button>
+                                                    )}
+
+                                                    <select
+                                                        className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 border-none rounded px-2 py-1 text-slate-600 focus:ring-1 cursor-pointer max-w-[180px]"
+                                                        value={(RESPONSE_TEMPLATES[editStatus] || []).find(t => t.text === editReply)?.text || ""}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val) handleTemplateSelect(val);
+                                                        }}
+                                                    >
+                                                        <option value="">✨ Modelos ({STATUS_CONFIG[editStatus]?.label})</option>
+                                                        {(RESPONSE_TEMPLATES[editStatus] || []).map((cr, idx) => (
+                                                            <option key={idx} value={cr.text}>{cr.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                             </div>
 
                                             <textarea
                                                 value={editReply}
-                                                onChange={(e) => { setEditReply(e.target.value); if (replyError) setReplyError(''); }}
+                                                onChange={(e) => {
+                                                    setEditReply(e.target.value);
+                                                    setDirtyReply(true);
+                                                    if (replyError) setReplyError('');
+                                                }}
                                                 placeholder="Escreva uma resposta para o aluno..."
                                                 rows={4}
-                                                className={`w-full text-sm bg-white dark:bg-slate-900 border rounded-lg p-3 outline-none focus:ring-2 resize-none ${replyError
+                                                className={`w-full text-xs bg-white dark:bg-slate-900 border rounded-lg p-3 outline-none focus:ring-2 resize-none ${replyError
                                                     ? 'border-red-400 focus:ring-red-400/30'
                                                     : 'border-slate-200 dark:border-slate-700 focus:ring-blue-500'
                                                     }`}
                                                 maxLength={1000}
                                             />
                                             {replyError && (
-                                                <p className="text-xs text-red-500 mt-1">{replyError}</p>
+                                                <p className="text-[10px] text-red-500 mt-1">{replyError}</p>
                                             )}
                                         </div>
 
                                         {/* Motivo (Não Planejada) */}
                                         {editStatus === 'nao_planejada' && (
                                             <div>
-                                                <label className="text-xs font-semibold text-slate-500 uppercase block mb-1.5">
+                                                <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase block mb-1.5 opacity-70">
                                                     Motivo
                                                     <span className="text-slate-400 font-normal ml-1">(visível ao aluno)</span>
                                                 </label>
@@ -709,7 +780,7 @@ const AdminFeedback: React.FC = () => {
                                                     onChange={(e) => setEditReason(e.target.value)}
                                                     placeholder="Explique brevemente o motivo..."
                                                     rows={2}
-                                                    className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                                     maxLength={500}
                                                 />
                                             </div>
@@ -717,7 +788,7 @@ const AdminFeedback: React.FC = () => {
 
                                         {/* Notas Internas */}
                                         <div>
-                                            <label className="text-xs font-semibold text-slate-500 uppercase block mb-1.5">
+                                            <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase block mb-1.5 opacity-70">
                                                 Notas Internas
                                                 <span className="text-slate-400 font-normal ml-1">(não visível ao aluno)</span>
                                             </label>
@@ -726,29 +797,29 @@ const AdminFeedback: React.FC = () => {
                                                 onChange={(e) => setEditNotes(e.target.value)}
                                                 placeholder="Notas internas para a equipe..."
                                                 rows={2}
-                                                className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                                className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                                 maxLength={1000}
                                             />
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* ── Footer ─────────────────────────────── */}
-                                    <div className="flex justify-end gap-2 pt-2">
-                                        <button
-                                            onClick={() => setSelectedFeedback(null)}
-                                            className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            onClick={handleSave}
-                                            disabled={isSaving}
-                                            className="px-4 py-2 text-sm font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                                        >
-                                            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                                            {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                                        </button>
-                                    </div>
+                                {/* ── Footer Fixo ─────────────────────────────── */}
+                                <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 rounded-b-lg">
+                                    <button
+                                        onClick={() => setSelectedFeedback(null)}
+                                        className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors uppercase tracking-wide"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={isSaving}
+                                        className="px-4 py-2 text-xs font-bold text-white bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50 uppercase tracking-wide"
+                                    >
+                                        {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                        {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                                    </button>
                                 </div>
                             </>
                         );
