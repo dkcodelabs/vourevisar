@@ -83,7 +83,7 @@ const TopHeader = ({ pageTitle, onOpenNotes, onOpenHub, hubUnreadCount }: { page
   const formattedTime = formatTime(timeLeft);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[100] h-[72px] w-full flex items-center justify-between px-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm border-b border-gray-200/50 dark:border-gray-800/50 transition-all">
+    <header className="fixed top-0 left-0 right-0 z-[100] h-[72px] w-full flex items-center justify-between px-6 bg-card shadow-sm border-b border-solid border-border transition-all">
       <div className="flex items-center gap-4">
         <MobileMenuToggle />
         <div className="hidden md:flex items-center gap-4">

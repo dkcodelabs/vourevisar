@@ -564,7 +564,8 @@ export const Revisoes = () => {
       />
       <DifficultyRatingModal
         isOpen={difficultyModalData.isOpen}
-        onClose={() => { closeDifficultyModal(); resumeTimer(); }}
+        onClose={() => { closeDifficultyModal(); }}
+        onResume={() => { closeDifficultyModal(); resumeTimer(); }}
         onSubmit={async (d) => { await submitDifficultyRating(d); refetch(); }}
         onConfirmReview={async (d, dur) => {
           try {

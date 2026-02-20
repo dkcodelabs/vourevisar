@@ -13,6 +13,7 @@ interface DifficultyRatingModalProps {
   onSubmit: (difficulty: number | null) => void;
   onConfirmReview?: (difficulty: number | null, duration?: number) => void;
   onDiscard?: () => void;
+  onResume?: () => void;
   topicName: string;
   subjectName: string;
   initialDifficulty?: number | null;
@@ -28,6 +29,7 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   onSubmit,
   onConfirmReview,
   onDiscard,
+  onResume,
   topicName,
   subjectName,
   initialDifficulty = null,
@@ -78,20 +80,32 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <motion.div
+        onClick={(e) => e.stopPropagation()}
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full mx-4 p-6 border border-slate-200 dark:border-slate-800"
+        className="relative bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full mx-4 p-6 border border-slate-200 dark:border-slate-800"
       >
-        {/* Botão de fechar */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 z-10"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        {/* Botão de fechar com tooltip */}
+        <div className="absolute top-4 right-4 z-10 flex flex-col items-center group">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+            title="Fechar e manter pausa"
+            aria-label="Fechar e manter pausa"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Tooltip CSS puro */}
+          <div className="absolute top-full right-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap bg-slate-800 dark:bg-slate-700 text-white text-[10px] font-medium px-2 py-1 flex items-center gap-1 rounded shadow-lg before:content-[''] before:-top-1 before:right-3 before:absolute before:border-x-[4px] before:border-x-transparent before:border-b-[4px] before:border-b-slate-800 dark:before:border-b-slate-700">
+            Fechar e manter pausa
+          </div>
+        </div>
 
         {/* Header com ícone inline */}
         <div className="text-center mb-6">
@@ -199,7 +213,7 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
-              onClick={onClose}
+              onClick={() => onResume ? onResume() : onClose()}
               className="flex-1 order-2 sm:order-1 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white transition-all"
             >
               Voltar a Estudar

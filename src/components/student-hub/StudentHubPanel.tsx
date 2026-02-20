@@ -46,12 +46,10 @@ function formatRelativeDate(dateStr: string): string {
   const diffHours = Math.floor(diffMs / 3_600_000);
   const diffDays = Math.floor(diffMs / 86_400_000);
 
-  if (diffMin < 1) return 'agora';
-  if (diffMin < 60) return `há ${diffMin}min`;
-  if (diffHours < 24) return `há ${diffHours}h`;
-  if (diffDays === 1) return 'Ontem';
-  if (diffDays < 7) return `há ${diffDays} dias`;
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (diffMin < 60) return `${diffMin}M`;
+  if (diffHours < 24) return `${diffHours}H`;
+  if (diffDays === 1) return 'ONTEM';
+  return `${diffDays}D`;
 }
 
 function getDateGroup(dateStr: string): 'hoje' | 'ontem' | 'anterior' {
@@ -66,6 +64,81 @@ function getDateGroup(dateStr: string): 'hoje' | 'ontem' | 'anterior' {
   if (notifDate.getTime() === yesterday.getTime()) return 'ontem';
   return 'anterior';
 }
+
+const MOCK_NOTIFICATIONS: UserNotification[] = [
+  {
+    id: 'mock-1',
+    user_id: '123',
+    type: 'estudo',
+    title: 'Revisão vence hoje',
+    message: 'Direito Civil expira em 2h',
+    category: 'estudo',
+    read: false,
+    action_url: null,
+    data: null,
+    created_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
+  },
+  {
+    id: 'mock-2',
+    user_id: '123',
+    type: 'progresso',
+    title: 'Meta Semanal',
+    message: '80% da meta atingida!',
+    category: 'estudo',
+    read: false,
+    action_url: null,
+    data: null,
+    created_at: new Date(Date.now() - 5 * 3600_000).toISOString(),
+  },
+  {
+    id: 'mock-3',
+    user_id: '123',
+    type: 'sistema',
+    title: 'Novo Material',
+    message: 'Processo Penal atualizado.',
+    category: 'sistema',
+    read: true,
+    action_url: null,
+    data: null,
+    created_at: new Date(Date.now() - 25 * 3600_000).toISOString(),
+  },
+  {
+    id: 'mock-4',
+    user_id: '123',
+    type: 'alerta',
+    title: 'Matéria com baixo rendimento',
+    message: 'Seu rendimento em Raciocínio Lógico caiu 15% nesta semana.',
+    category: 'estudo',
+    read: true,
+    action_url: null,
+    data: null,
+    created_at: new Date(Date.now() - 48 * 3600_000).toISOString(),
+  },
+  {
+    id: 'mock-5',
+    user_id: '123',
+    type: 'progresso',
+    title: 'Desempenho Excelente!',
+    message: 'Você estudou 3 horas a mais esta semana em comparação com a semana passada.',
+    category: 'estudo',
+    read: true,
+    action_url: null,
+    data: null,
+    created_at: new Date(Date.now() - 72 * 3600_000).toISOString(),
+  },
+  {
+    id: 'mock-6',
+    user_id: '123',
+    type: 'alerta',
+    title: 'Tópico Atrasado',
+    message: 'O tópico de Direito Constitucional está 2 dias atrasado em relação ao cronograma.',
+    category: 'estudo',
+    read: false,
+    action_url: null,
+    data: null,
+    created_at: new Date(Date.now() - 5 * 3600_000).toISOString(),
+  }
+];
 
 /** Helper para formatar mensagens de notificação humanizadas */
 function formatNotificationMessage(msg: string): string {
@@ -94,11 +167,11 @@ interface StudentHubPanelProps {
 
 // ─── Skeleton Components ─────────────────────────────────────
 const SkeletonNotification: React.FC = () => (
-  <div className="relative pl-8 animate-pulse" aria-hidden="true">
-    <div className="absolute left-0 top-0.5 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700" />
-    <div className="flex flex-col gap-1.5">
-      <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
-      <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-full" />
+  <div className="relative pl-14 py-2 animate-pulse" aria-hidden="true">
+    <div className="absolute left-0 top-3 w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700" />
+    <div className="flex flex-col gap-2">
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2" />
+      <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-full" />
     </div>
   </div>
 );
@@ -189,9 +262,10 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   }, [isOpen, studyUnreadCount, feedbackUnreadCount, refetchNotifs, refetchFeedbacks]);
 
 
-  // Filtrar notificações (Exclusivo Estudo)
+  // Filtrar notificações (Exclusivo Estudo) + Mocks
   const filteredNotifications = React.useMemo(() => {
-    return notifications.filter((n) => {
+    const allNotifs = [...MOCK_NOTIFICATIONS, ...notifications];
+    return allNotifs.filter((n) => {
       // Regra: Não mostrar feedback/solicitação na aba de notificações
       const isFeedbackRelated = /feedback|solicita[çc][ãa]o|pedido/i.test(n.message) || /feedback|solicita[çc][ãa]o|pedido/i.test(n.title);
       if (isFeedbackRelated) return false;
@@ -320,20 +394,30 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
         {/* ── Sticky Header + Tabs ─────────────────────────────── */}
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex justify-between items-start mb-0.5">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Central do Aluno</h2>
-              <button
-                onClick={onClose}
-                aria-label="Fechar"
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors -mt-0.5 min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2"
-              >
-                <X size={18} aria-hidden="true" />
-              </button>
+          <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Central de Notificações</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    refetchNotifs({ silent: true });
+                    refetchFeedbacks({ silent: true });
+                  }}
+                  className={`flex items-center justify-center w-[32px] h-[32px] rounded-lg text-blue-500 hover:text-blue-600 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 transition-all ${(notifLoading || fbLoading) ? 'animate-spin' : ''}`}
+                  title="Atualizar dados"
+                  aria-label="Atualizar dados"
+                >
+                  <RefreshCw size={14} strokeWidth={2.5} />
+                </button>
+                <button
+                  onClick={onClose}
+                  aria-label="Fechar"
+                  className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center -mr-2 rounded-lg"
+                >
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Acompanhe avisos e o andamento dos seus pedidos.
-            </p>
           </div>
 
           {/* Tabs */}
@@ -453,7 +537,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
 
                         <div className="space-y-5 relative">
                           <div
-                            className={`absolute left-3 top-1.5 bottom-1.5 w-0.5 bg-slate-100 dark:bg-slate-800 ${isOlder ? 'opacity-30' : ''}`}
+                            className={`absolute left-5 top-5 bottom-[-16px] w-[1px] bg-slate-200 dark:bg-slate-700 ${isOlder ? 'opacity-30' : ''}`}
                           />
 
                           {items.map((notification) => {
@@ -461,25 +545,25 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                             return (
                               <div
                                 key={notification.id}
-                                className={`relative pl-8 group cursor-pointer ${isOlder ? 'opacity-70 hover:opacity-100 transition-opacity' : ''}`}
+                                className={`relative pl-14 py-2 group cursor-pointer ${isOlder ? 'opacity-70 hover:opacity-100 transition-opacity' : ''}`}
                                 onClick={() => !notification.read && markNotificationAsRead(notification.id)}
                               >
                                 {/* Ícone circular */}
                                 <div
-                                  className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center z-10 ring-[3px] ring-white dark:ring-slate-900 ${iconInfo.bgClass} ${iconInfo.textClass}`}
+                                  className={`absolute left-0 top-3 w-10 h-10 rounded-full flex items-center justify-center z-10 ${iconInfo.bgClass} ${iconInfo.textClass}`}
                                   aria-hidden="true"
                                 >
-                                  {iconInfo.icon}
+                                  {React.cloneElement(iconInfo.icon as React.ReactElement, { size: 18 })}
                                 </div>
 
                                 {/* Conteúdo */}
                                 <div className="flex flex-col gap-0.5">
-                                  <div className="flex justify-between items-center">
-                                    <h3 className="font-semibold text-xs group-hover:text-blue-500 transition-colors text-slate-900 dark:text-white">
+                                  <div className="flex justify-between items-baseline">
+                                    <h3 className="font-bold text-[13px] text-slate-900 dark:text-white">
                                       {notification.title}
                                     </h3>
                                     <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                                      <span className="text-[9px] text-slate-400 uppercase font-medium">
+                                      <span className="text-[10px] text-slate-400 uppercase font-semibold">
                                         {formatRelativeDate(notification.created_at)}
                                       </span>
                                       {!notification.read && (
@@ -487,7 +571,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                                       )}
                                     </div>
                                   </div>
-                                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
+                                  <p className="text-[13px] text-slate-500 dark:text-slate-400 leading-snug">
                                     {formatNotificationMessage(notification.message)}
                                   </p>
                                 </div>
@@ -537,55 +621,44 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
           /* ── Aba Feedbacks ─────────────────────────────── */
           <div role="tabpanel" id="tabpanel-feedbacks" aria-labelledby="tab-feedbacks" className="flex-1 flex flex-col min-h-0">
             {/* Botão + Filtro — sticky */}
-            <div className="sticky top-0 z-[5] bg-white dark:bg-slate-900 flex items-center gap-2 px-5 py-3 border-b border-slate-50 dark:border-slate-800/50">
+            <div className="sticky top-0 z-[5] bg-white dark:bg-slate-900 flex items-center justify-between px-5 py-3 border-b border-slate-50 dark:border-slate-800/50">
               <button
                 onClick={() => setShowFeedbackModal(true)}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-normal text-blue-600 hover:text-blue-700 bg-blue-50/50 hover:bg-blue-100/50 border border-blue-200/50 rounded-lg transition-all duration-200"
+                className="flex items-center justify-center px-3 py-2 text-[12px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all duration-200"
               >
-                <Plus size={13} strokeWidth={2.5} aria-hidden="true" />
                 Nova Solicitação
               </button>
-              <div className="flex items-center gap-1.5 ml-auto">
+              <div className="relative">
                 <button
-                  onClick={() => {
-                    refetchNotifs({ silent: true });
-                    refetchFeedbacks({ silent: true });
-                  }}
-                  className={`p-2.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all ${(notifLoading || fbLoading) ? 'animate-spin' : ''}`}
-                  title="Atualizar lista"
-                  aria-label="Atualizar lista"
+                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                  aria-haspopup="listbox"
+                  aria-expanded={showStatusDropdown}
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-slate-600 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
                 >
-                  <RefreshCw size={14} />
+                  <Filter size={13} className="text-blue-500" strokeWidth={2.5} aria-hidden="true" />
+                  <span className="font-bold text-slate-700 dark:text-slate-300">Status:</span>
+                  <span className="font-normal text-slate-500 dark:text-slate-400">
+                    {statusFilter === 'todas' ? 'Todas' : statusFilter === 'em_aberto' ? 'Em aberto' : statusFilter === 'respondido' ? 'Respondido' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}
+                  </span>
                 </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                    aria-haspopup="listbox"
-                    aria-expanded={showStatusDropdown}
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-2.5 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 hover:border-slate-300 transition-colors min-h-[44px]"
-                  >
-                    <Filter size={12} className="text-slate-400" aria-hidden="true" />
-                    Status: <span className="font-medium">{statusFilter === 'todas' ? 'Todas' : statusFilter === 'em_aberto' ? 'Em aberto' : statusFilter === 'respondido' ? 'Respondido' : STATUS_CONFIG[statusFilter]?.label ?? statusFilter}</span>
-                  </button>
-                  {showStatusDropdown && (
-                    <>
-                      <div className="fixed inset-0 z-[80]" onClick={() => setShowStatusDropdown(false)} />
-                      <div role="listbox" className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
-                        {(['todas', 'em_aberto', 'respondido', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as (StatusFilterOption | 'respondido')[]).map((opt) => (
-                          <button
-                            key={opt}
-                            role="option"
-                            aria-selected={statusFilter === opt}
-                            onClick={() => { setStatusFilter(opt); setShowStatusDropdown(false); }}
-                            className={`w-full text-left px-3 py-2 text-[11px] transition-colors min-h-[36px] ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                          >
-                            {opt === 'todas' ? 'Todas' : opt === 'em_aberto' ? 'Em aberto' : opt === 'respondido' ? 'Respondido' : STATUS_CONFIG[opt as FeedbackStatus]?.label ?? opt}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                {showStatusDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-[80]" onClick={() => setShowStatusDropdown(false)} />
+                    <div role="listbox" className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
+                      {(['todas', 'em_aberto', 'respondido', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as (StatusFilterOption | 'respondido')[]).map((opt) => (
+                        <button
+                          key={opt}
+                          role="option"
+                          aria-selected={statusFilter === opt}
+                          onClick={() => { setStatusFilter(opt); setShowStatusDropdown(false); }}
+                          className={`w-full text-left px-3 py-2 text-[11px] transition-colors min-h-[36px] ${statusFilter === opt ? 'bg-blue-50 text-blue-600 font-medium dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                        >
+                          {opt === 'todas' ? 'Todas' : opt === 'em_aberto' ? 'Em aberto' : opt === 'respondido' ? 'Respondido' : STATUS_CONFIG[opt as FeedbackStatus]?.label ?? opt}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -660,13 +733,9 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                             : 'border border-slate-200 dark:border-slate-800 hover:border-blue-400/50'
                           }`}
                       >
-                        {/* Header do card */}
                         <div className={`p-3 ${hasReply && isExpanded ? 'border-b border-slate-100 dark:border-slate-800 bg-blue-500/5' : ''}`}>
-                          <div className="flex justify-between items-start mb-1">
-                            <span className={`text-[9px] font-mono font-bold tracking-wider ${hasReply && isExpanded
-                              ? 'text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded'
-                              : 'text-slate-400 font-medium'
-                              }`}>
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[9px] font-mono font-bold tracking-wider">
                               {fb.protocol_code}
                             </span>
                             <div className="flex items-center gap-2">
@@ -674,8 +743,8 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                               {isUnread && (
                                 <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ring-2 ring-blue-100 dark:ring-blue-900" title="Nova atualização" />
                               )}
-                              <div className={`flex items-center px-2 py-0.5 rounded-full ${status.bgClass}`}>
-                                <span className={`text-[9px] font-bold uppercase ${status.textClass}`}>
+                              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${status.bgClass}`}>
+                                <span className={`text-[9px] font-bold uppercase tracking-wide ${status.textClass}`}>
                                   {status.label}
                                 </span>
                               </div>
@@ -708,9 +777,12 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                               </p>
                             </div>
                             {hasReply && (
-                              <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border-l-2 border-blue-500 space-y-1">
-                                <p className="text-[8px] font-bold text-blue-500 uppercase">Resposta da equipe</p>
-                                <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-normal">
+                              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-blue-500 space-y-2 mt-2">
+                                <div className="flex items-center gap-2">
+                                  <img src="https://i.pravatar.cc/150?img=32" alt="Equipe" className="w-5 h-5 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                                  <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide">Resposta da equipe</p>
+                                </div>
+                                <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-normal pl-7">
                                   {fb.admin_reply}
                                 </p>
                                 {fb.admin_reply_at && (
