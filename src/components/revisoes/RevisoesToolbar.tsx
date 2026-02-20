@@ -34,7 +34,7 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
 }) => {
     return (
         <div className={`w-full ${className || ''}`}>
-            <section className="w-full flex flex-wrap items-center gap-2 md:gap-4 bg-white dark:bg-slate-900 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md transition-all">
+            <section className="w-full flex flex-wrap items-center gap-2 md:gap-4 bg-white dark:bg-slate-800 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md transition-all">
                 {/* 1. Botão Recolher/Expandir (SÓ ÍCONE) */}
                 <button
                     onClick={onToggleAll}

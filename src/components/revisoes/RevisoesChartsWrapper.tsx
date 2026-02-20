@@ -32,7 +32,7 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch animate-in fade-in slide-in-from-top-2 duration-300">
             {/* Left: Tendência de Estudos */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-5 flex flex-col h-full min-w-0">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-5 flex flex-col h-full min-w-0">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4 shrink-0">
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -73,7 +73,7 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
                 </div>
                 {/* Chart */}
                 <div className="flex-1 flex items-end min-w-0">
-                    <ReviewsTrendChart topics={topics as unknown as Array<{ first_studied_at: string | null; [key: string]: any }>} reviewData={reviewData || []} viewMode={trendViewMode} />
+                    <ReviewsTrendChart topics={topics as unknown as Array<{ first_studied_at: string | null;[key: string]: any }>} reviewData={reviewData || []} viewMode={trendViewMode} />
                 </div>
                 {/* Footer */}
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">

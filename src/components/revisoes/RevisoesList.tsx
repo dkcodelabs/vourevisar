@@ -280,7 +280,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                 const groupTitle = activeTab === 'SUBJECTS' ? key : style.title;
 
                 return (
-                    <div key={key} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all duration-300">
+                    <div key={key} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all duration-300">
                         {/* Header */}
                         <button
                             onClick={() => {

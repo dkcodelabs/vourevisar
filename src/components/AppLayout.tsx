@@ -42,10 +42,10 @@ const MobileMenuToggle = () => {
     <Button
       variant="ghost"
       size="icon"
-      className="h-10 w-10 text-gray-500 mr-2"
+      className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full mr-1 -ml-2"
       onClick={toggleSidebar}
     >
-      <Menu className="h-6 w-6" />
+      <Menu size={18} />
     </Button>
   );
 };
@@ -55,45 +55,44 @@ const PageBreadcrumb = ({ pageTitle }: { pageTitle: string }) => {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center text-sm">
       {/* Desktop: Menu > Nome da Página */}
-      <div className="hidden sm:flex items-center gap-1.5 text-gray-500">
-        <span className="font-medium">Menu</span>
-        <ChevronRight size={14} className="text-gray-400" />
-        <span className="font-semibold text-gray-800">{pageTitle}</span>
+      <div className="hidden sm:flex items-center gap-1.5 text-muted-foreground/80">
+        <span className="font-medium text-[13px]">Menu</span>
+        <ChevronRight size={14} className="text-muted-foreground/40" />
+        <span className="font-bold text-foreground tracking-tight text-[14.5px]">{pageTitle}</span>
       </div>
 
       {/* Mobile: Menu com seta + Nome da Página */}
       <div className="sm:hidden flex flex-col">
-        <div className="flex items-center gap-1 text-gray-500">
+        <div className="flex items-center gap-1 text-muted-foreground/80">
           <span className="text-xs font-medium">Menu</span>
-          <ChevronDown size={12} className="text-gray-400" />
+          <ChevronDown size={12} className="text-muted-foreground/40" />
         </div>
         <div className="flex items-center gap-1">
-          <CornerDownRight size={12} className="text-gray-400" />
-          <span className="font-semibold text-gray-800 truncate max-w-[180px]">{pageTitle}</span>
+          <CornerDownRight size={12} className="text-muted-foreground/40" />
+          <span className="font-bold text-foreground truncate max-w-[180px] tracking-tight">{pageTitle}</span>
         </div>
       </div>
     </div>
   );
 };
 
-// Componente do Header que precisa estar dentro do SidebarProvider para acesso ao contexto
 const TopHeader = ({ pageTitle, onOpenNotes, onOpenHub, hubUnreadCount }: { pageTitle: string; onOpenNotes: () => void; onOpenHub: () => void; hubUnreadCount: number }) => {
   const { timeLeft, getState, formatTime, isBlinking } = useSharedPomodoroTimer();
   const pomodoroState = getState();
   const formattedTime = formatTime(timeLeft);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[100] h-[72px] w-full flex items-center justify-between px-6 bg-card shadow-sm border-b border-solid border-border transition-all">
+    <header className="fixed top-0 left-0 right-0 z-[100] h-[60px] w-full flex items-center justify-between px-6 bg-card shadow-sm border-b border-solid border-border transition-all">
       <div className="flex items-center gap-4">
         <MobileMenuToggle />
         <div className="hidden md:flex items-center gap-4">
-          <img src="/logo.png" alt="vouRevisar" className="h-8 w-auto" />
-          <div className="h-6 w-px bg-gray-200" />
+          <img src="/logo.png" alt="vouRevisar" className="h-[26px] w-auto" />
+          <div className="h-5 w-px bg-border" />
         </div>
         <PageBreadcrumb pageTitle={pageTitle} />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* 1. Focus Timer (Leftmost) */}
         <FocusTimer />
 
@@ -101,13 +100,13 @@ const TopHeader = ({ pageTitle, onOpenNotes, onOpenHub, hubUnreadCount }: { page
         {features.STUDENT_HUB && (
           <button
             onClick={onOpenHub}
-            className="relative flex items-center justify-center w-9 h-9 text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:bg-gray-800 focus:outline-none"
+            className="relative flex items-center justify-center w-9 h-9 text-muted-foreground hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-full transition-all duration-300 focus:outline-none group"
             title="Central do Aluno"
             aria-label={hubUnreadCount > 0 ? `Notificações, ${hubUnreadCount} não lida${hubUnreadCount > 1 ? 's' : ''}` : 'Notificações'}
           >
-            <Bell className="w-5 h-5" strokeWidth={1.5} aria-hidden="true" />
+            <Bell size={18} strokeWidth={2} className="transition-transform group-hover:scale-110" aria-hidden="true" />
             {hubUnreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-blue-500 rounded-full" aria-hidden="true">
+              <span className="absolute top-0 right-0 flex items-center justify-center min-w-[17px] h-4.5 px-1 text-[10px] font-black text-white bg-blue-500 rounded-full border-2 border-card shadow-sm" aria-hidden="true">
                 {hubUnreadCount}
               </span>
             )}
@@ -117,13 +116,13 @@ const TopHeader = ({ pageTitle, onOpenNotes, onOpenHub, hubUnreadCount }: { page
         {/* 3. Annotations Button (NotebookPen) */}
         <button
           onClick={onOpenNotes}
-          className="flex items-center justify-center w-9 h-9 text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:bg-gray-800 focus:outline-none"
+          className="flex items-center justify-center w-9 h-9 text-muted-foreground hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-full transition-all duration-300 focus:outline-none group"
           title="Anotações Gerais"
         >
-          <NotebookPen className="w-5 h-5" strokeWidth={1.5} />
+          <NotebookPen size={18} strokeWidth={2} className="transition-transform group-hover:scale-110" />
         </button>
 
-        {/* 3. Pomodoro Timer */}
+        {/* 3. Pomodoro Timer (Oculto)
         <PomodoroPopover>
           <div className="flex items-center gap-2">
             {timeLeft < 25 * 60 && (
@@ -136,9 +135,12 @@ const TopHeader = ({ pageTitle, onOpenNotes, onOpenHub, hubUnreadCount }: { page
             </button>
           </div>
         </PomodoroPopover>
+        */}
 
         {/* 4. Theme Toggle (Rightmost) */}
-        <ThemeToggle />
+        <div className="ml-1">
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
@@ -227,7 +229,7 @@ export const AppLayout = () => {
       <div className="flex min-h-screen w-full bg-background transition-colors duration-200">
         <AppSidebar />
 
-        <SidebarInset className={`flex flex-col flex-1 pb-20 md:pb-6 relative min-w-0 ${isHubOpen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        <SidebarInset className={`bg-transparent flex flex-col flex-1 pb-20 md:pb-6 relative min-w-0 ${isHubOpen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           <main className="flex-1 w-full max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-[72px] md:pt-[88px] animate-in fade-in slide-in-from-bottom-4 duration-500">
             <Outlet />
           </main>

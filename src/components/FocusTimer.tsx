@@ -200,7 +200,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
     ? isPaused
       ? 'bg-amber-500 text-white shadow-md hover:bg-amber-600'
       : 'bg-indigo-600 text-white shadow-md hover:shadow-lg animate-pulse'
-    : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400';
+    : 'bg-secondary text-muted-foreground hover:bg-secondary/80';
 
   const feedbackClasses = justReturned
     ? 'ring-4 ring-indigo-500 ring-offset-2 animate-pulse bg-indigo-100 text-indigo-900'
@@ -211,7 +211,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
       <button
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 focus:outline-none focus:ring-0 active:scale-95 group ${justReturned ? feedbackClasses : buttonClasses}`}
+        className={`flex items-center justify-center gap-1.5 px-3 h-8 rounded-full transition-all duration-300 focus:outline-none focus:ring-0 active:scale-95 group ${justReturned ? feedbackClasses : buttonClasses}`}
         style={activeTopicId && !justReturned && !isPaused ? { animationDuration: '3s' } : {}}
         title={getTitle()}
       >
@@ -219,11 +219,11 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
           className={`w-3.5 h-3.5 transition-transform duration-500 ${activeTopicId && !isPaused ? 'group-hover:rotate-180' : ''
             }`}
         />
-        <span className="text-xs font-bold tracking-wide flex items-center gap-1">
+        <span className="text-[11px] font-bold tracking-wide flex items-center gap-1 uppercase">
           {activeTopicId ? (
             <>
-              <span className="font-mono tabular-nums">{displayTime}</span>
-              {isPaused && <span> (Pausa)</span>}
+              <span className="font-mono tabular-nums tracking-normal text-xs">{displayTime}</span>
+              {isPaused && <span>(Pausa)</span>}
             </>
           ) : (
             'Iniciar'

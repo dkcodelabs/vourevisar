@@ -41,27 +41,28 @@
     --radius: 0.5rem;
     /* 16px for rounded-2xl look as default or large */
 
-    /* Sidebar always uses #1E2A3B = hsl(215, 33%, 17%) */
-    --sidebar-background: 215 33% 17%;
+    /* Sidebar Constant Dark Theme (#181A1C) */
+    --sidebar-background: 210 8% 10%;
+    /* #181A1C */
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 226 70% 55.5%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 226 70% 55.5%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 19% 27%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 19% 27%;
+    --sidebar-ring: 217 91% 60%;
   }
 
   .dark {
-    /* Dark mode background: #0F162A = hsl(224, 47%, 11%) */
-    --background: 224 47% 11%;
+    /* Dark mode background: #10172A = hsl(222, 47%, 11.4%) */
+    --background: 222 47% 11.4%;
     --foreground: 210 40% 98%;
 
-    /* Slate-900 for cards */
-    --card: 222 47% 11%;
+    /* Usando a mesma base #10172A para cards e popovers para consistência */
+    --card: 222 47% 11.4%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 11%;
+    --popover: 222 47% 11.4%;
     --popover-foreground: 210 40% 98%;
 
     /* Indigo-500 */
@@ -84,8 +85,9 @@
     --input: 217 19% 27%;
     --ring: 224 76% 48%;
 
-    /* Sidebar always uses #1E2A3B = hsl(215, 33%, 17%) */
-    --sidebar-background: 215 33% 17%;
+    /* Sidebar Dark Mode: #181A1C (matching light mode sidebar) */
+    --sidebar-background: 210 8% 10%;
+    /* #181A1C */
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;

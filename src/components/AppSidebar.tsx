@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Server, FileSearch, MessageSquare } from "lucide-react";
+import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Server, FileSearch, MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -53,6 +53,32 @@ export function AppSidebar() {
 
   const { mainItems, adminItems } = React.useMemo(() => getNavItems(isAdmin), [isAdmin]);
 
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [showScrollDownIndicator, setShowScrollDownIndicator] = React.useState(false);
+  const [showScrollUpIndicator, setShowScrollUpIndicator] = React.useState(false);
+
+  const checkScroll = React.useCallback(() => {
+    if (scrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      setShowScrollDownIndicator(
+        scrollHeight > clientHeight && Math.ceil(scrollTop + clientHeight) < scrollHeight - 2
+      );
+      setShowScrollUpIndicator(scrollTop > 0);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    checkScroll();
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, [checkScroll, mainItems, adminItems, isCollapsed]);
+
+  // Handle checking scroll after a slight delay, to allow rendering
+  React.useEffect(() => {
+    const timeout = setTimeout(checkScroll, 100);
+    return () => clearTimeout(timeout);
+  }, [checkScroll]);
+
   // Função para verificar se o item está ativo
   const isItemActive = (item: NavItem) => {
     if (item.end) {
@@ -86,20 +112,24 @@ export function AppSidebar() {
       const showIconOnly = isCollapsed && !isMobile;
 
       return (
-        <SidebarMenuItem key={item.to}>
-          <NavLink to={item.to} end={item.end ?? false} onClick={handleNavClick}>
+        <SidebarMenuItem key={item.to} className="w-full">
+          <NavLink to={item.to} end={item.end ?? false} onClick={handleNavClick} className="w-full block">
             <SidebarMenuButton
               isActive={isActive}
               asChild
-              tooltip={item.label}
-              className={`w-full h-11 px-3 text-sm font-medium transition-all rounded-lg ${showIconOnly ? 'justify-center' : 'justify-start'} ${isActive
-                ? '!bg-blue-600 text-white shadow-md'
-                : 'text-white/70 hover:bg-white/10 hover:text-white'
+              tooltip={showIconOnly ? item.label : undefined}
+              className={`w-full h-10 px-2 text-[13px] font-medium transition-all rounded-lg relative group/nav flex items-center gap-2 overflow-hidden ${showIconOnly ? 'justify-center' : 'justify-start'} ${isActive
+                ? 'text-[#EAB308] bg-[#241A0B] !bg-[#241A0B] hover:bg-[#241A0B]' // Force yellow text and brown bg
+                : 'text-slate-200 hover:text-white hover:bg-slate-800/50'
                 }`}
             >
-              <div className={`flex items-center ${showIconOnly ? 'justify-center' : ''}`}>
-                <item.icon size={22} className={`flex-shrink-0 text-white ${showIconOnly ? '' : 'mr-3'}`} />
-                <span className={`truncate ${showIconOnly ? 'hidden' : ''}`}>{item.label}</span>
+              <div className={`flex items-center w-full ${showIconOnly ? 'justify-center' : ''}`}>
+                {/* Indicador lateral amarelo fluído para itens ativos - agora sempre visível */}
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-[#EAB308] rounded-r-md"></div>
+                )}
+                <item.icon size={22} className={`flex-shrink-0 ${isActive ? 'text-[#EAB308]' : 'text-slate-200 group-hover/nav:text-white'} ${showIconOnly ? '' : 'mr-3'}`} />
+                <span className={`text-[13px] font-medium truncate ${showIconOnly ? 'hidden' : ''} ${isActive ? 'text-[#EAB308]' : 'text-slate-200 group-hover/nav:text-white'}`}>{item.label}</span>
               </div>
             </SidebarMenuButton>
           </NavLink>
@@ -112,51 +142,58 @@ export function AppSidebar() {
     <Sidebar
       collapsible="icon"
       variant="floating"
-      className="transition-all duration-300 md:!left-4 md:!top-[88px] md:!bottom-4 md:!h-[calc(100vh-104px)] md:!rounded-2xl md:!shadow-2xl"
-      style={{ backgroundColor: '#1E2A3B' }}
+      className="transition-all duration-300 md:!left-4 md:!top-[88px] md:!bottom-4 md:!h-[calc(100vh-104px)] [&>div[data-sidebar=sidebar]]:!rounded-2xl md:!rounded-2xl border-none shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-2xl z-[90]"
     >
       <SidebarHeader
-        className={`p-4 h-[72px] flex items-center justify-between overflow-hidden ${isMobile ? 'bg-white border-b border-gray-200 shadow-md' : ''}`}
-        style={!isMobile ? { backgroundColor: '#1E2A3B' } : undefined}
+        className={`relative p-3 h-[60px] flex flex-row items-center justify-between border-b border-slate-800/80 z-20`}
       >
-        {/* Mobile Logo */}
-        <div className="flex items-center justify-center w-full md:hidden transition-all duration-300">
-          <img src="/logo.png" alt="vouRevisar" className="h-8 w-auto flex-shrink-0" />
+        {/* Up Indicator */}
+        <div className={`absolute bottom-0 left-0 w-full flex justify-center pointer-events-none z-30 transition-opacity duration-300 translate-y-1/2 ${showScrollUpIndicator ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="bg-[#181A1C] border border-slate-700/80 rounded-full p-0.5 shadow-lg flex items-center justify-center">
+            <ChevronUp size={14} className="text-slate-400 animate-bounce" />
+          </div>
         </div>
 
-        {/* Desktop Collapse Toggle (Inside Card) */}
-        <div className={`hidden md:flex w-full items-center ${isCollapsed ? 'justify-center' : 'justify-end'}`}>
+        {/* Logo Section */}
+        <div className={`flex items-center gap-2 w-full ${isCollapsed && !isMobile ? 'justify-center' : 'justify-start'}`}>
+          <div className="w-7 h-7 bg-[#EAB308] rounded-md flex items-center justify-center shrink-0 shadow-sm shadow-[#EAB308]/20">
+            <RotateCcw className="text-black/90 font-bold" size={16} strokeWidth={2.5} />
+          </div>
+          {!isCollapsed && (
+            <span className="font-bold text-lg tracking-tight text-white">EduFlow</span>
+          )}
+        </div>
+
+        {/* Desktop Collapse Toggle */}
+        <div className={`flex items-center justify-end`}>
           <button
             onClick={toggleSidebar}
-            className="text-white/70 hover:text-white transition-colors p-1 rounded-md hover:bg-white/10"
+            className="text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center p-1 rounded-md"
             title={isCollapsed ? "Expandir" : "Recolher"}
           >
-            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+            {isCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
           </button>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="p-3" style={{ backgroundColor: '#1E2A3B' }}>
+      <SidebarContent
+        ref={scrollRef}
+        onScroll={checkScroll}
+        className="p-2 bg-transparent [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+      >
         <SidebarGroup>
-          <SidebarMenu className="space-y-1">
+          <SidebarMenu className="space-y-0.5">
             {renderNavItems(mainItems)}
           </SidebarMenu>
         </SidebarGroup>
 
         {isAdmin && (
-          <SidebarGroup className="mt-4">
-            {/* Separator Label - Hidden if collapsed on desktop */}
-            {(!isCollapsed || isMobile) && (
-              <div className="px-3 py-2 text-xs font-semibold text-white/40 uppercase tracking-wider mb-1">
-                Gerenciamento
-              </div>
-            )}
-            {/* Separator Line for collapsed state */}
+          <SidebarGroup className="mt-3 border-t border-slate-800/50 pt-3">
             {isCollapsed && !isMobile && (
-              <div className="mx-3 my-2 h-[1px] bg-white/10" />
+              <div className="mx-2 my-2 h-[1px] bg-slate-800/50" />
             )}
 
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-0.5">
               {renderNavItems(adminItems)}
             </SidebarMenu>
           </SidebarGroup>
@@ -167,12 +204,19 @@ export function AppSidebar() {
         // Only show compact (avatar only) when collapsed AND on desktop
         const showCompactProfile = isCollapsed && !isMobile;
         return (
-          <SidebarFooter className="p-3" style={{ backgroundColor: '#1E2A3B' }}>
+          <SidebarFooter className="relative p-3 mt-auto border-t border-slate-800/80 bg-transparent z-20">
+            {/* Down Indicator */}
+            <div className={`absolute top-0 left-0 w-full flex justify-center pointer-events-none z-30 transition-opacity duration-300 -translate-y-1/2 ${showScrollDownIndicator ? 'opacity-100' : 'opacity-0'}`}>
+              <div className="bg-[#181A1C] border border-slate-700/80 rounded-full p-0.5 shadow-lg flex items-center justify-center">
+                <ChevronDown size={14} className="text-slate-400 animate-bounce" />
+              </div>
+            </div>
+
             {showCompactProfile ? (
               <div className="flex justify-center">
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-8 w-8 border border-slate-700">
                   <AvatarImage src={undefined} alt="Avatar do usuário" />
-                  <AvatarFallback className="bg-app-blue text-white text-sm font-medium">
+                  <AvatarFallback className="bg-slate-800 text-white text-[11px] font-medium">
                     {user?.email?.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
