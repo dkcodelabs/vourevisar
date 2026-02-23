@@ -29,13 +29,13 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
             {/* Card 1: Revisões Pendentes */}
-            <div className="bg-white dark:bg-[#1B1D1F] p-6 rounded-[2rem] border border-black/[0.03] dark:border-cyan-500/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_0_15px_rgba(6,182,212,0.15)] flex flex-col h-full">
+            <div className="bg-white dark:bg-[#181A1C] p-6 rounded-3xl border border-black/[0.03] dark:border-white/[0.05] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] flex flex-col h-full">
                 <div className="flex flex-col h-full">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-6">
                         <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Revisões Pendentes</span>
-                        <div className="w-10 h-10 bg-orange-50 dark:bg-[#332018] rounded-2xl flex items-center justify-center">
-                            <ListChecks className="w-5 h-5 text-orange-500 dark:text-orange-600" />
+                        <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 rounded-2xl flex items-center justify-center">
+                            <ListChecks className="w-5 h-5 text-orange-500" />
                         </div>
                     </div>
 
@@ -44,29 +44,29 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
                         <h3 className="text-5xl font-extrabold text-[#1a2332] dark:text-white tracking-tight">
                             {totalPending}
                         </h3>
-                        <span className="text-sm font-medium text-slate-400 dark:text-slate-400">revisões</span>
+                        <span className="text-sm font-bold text-slate-400 dark:text-slate-500">revisões</span>
                     </div>
 
                     {/* Breakdown Cubes - 3 columns */}
                     <div className="grid grid-cols-3 gap-3 mb-8">
                         {/* Atrasadas */}
-                        <div className="flex flex-col items-center justify-center p-4 bg-[#FFFAFA] dark:bg-[#352525] rounded-2xl border border-red-100 dark:border-white/5">
-                            <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 mb-2" />
-                            <span className="text-2xl font-black text-red-600 dark:text-red-400">{reviews.overdue}</span>
+                        <div className="flex flex-col items-center justify-center p-4 bg-[#FFFAFA] dark:bg-red-500/5 rounded-2xl border border-red-100 dark:border-red-500/10">
+                            <AlertCircle className="w-5 h-5 text-red-500 mb-2" />
+                            <span className="text-2xl font-black text-red-600 dark:text-red-500">{reviews.overdue}</span>
                             <span className="text-[10px] text-red-400 dark:text-red-500/80 font-bold uppercase tracking-wider mt-1">Atrasadas</span>
                         </div>
 
                         {/* Hoje */}
-                        <div className="flex flex-col items-center justify-center p-4 bg-[#FFFEF5] dark:bg-[#332A1C] rounded-2xl border border-amber-100 dark:border-white/5">
-                            <Clock className="w-5 h-5 text-amber-500 dark:text-amber-400 mb-2" />
-                            <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{reviews.today}</span>
+                        <div className="flex flex-col items-center justify-center p-4 bg-[#FFFEF5] dark:bg-amber-500/5 rounded-2xl border border-amber-100 dark:border-amber-500/10">
+                            <Clock className="w-5 h-5 text-amber-500 mb-2" />
+                            <span className="text-2xl font-black text-amber-600 dark:text-amber-500">{reviews.today}</span>
                             <span className="text-[10px] text-amber-400 dark:text-amber-500/80 font-bold uppercase tracking-wider mt-1">Hoje</span>
                         </div>
 
                         {/* Futuras */}
-                        <div className="flex flex-col items-center justify-center p-4 bg-[#F8FAFF] dark:bg-[#202736] rounded-2xl border border-blue-100 dark:border-white/5">
-                            <CalendarClock className="w-5 h-5 text-blue-500 dark:text-blue-400 mb-2" />
-                            <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{reviews.future}</span>
+                        <div className="flex flex-col items-center justify-center p-4 bg-[#F8FAFF] dark:bg-blue-500/5 rounded-2xl border border-blue-100 dark:border-blue-500/10">
+                            <CalendarClock className="w-5 h-5 text-blue-500 mb-2" />
+                            <span className="text-2xl font-black text-blue-600 dark:text-blue-500">{reviews.future}</span>
                             <span className="text-[10px] text-blue-400 dark:text-blue-500/80 font-bold uppercase tracking-wider mt-1">Futuras</span>
                         </div>
                     </div>
@@ -74,12 +74,12 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
                     {/* Progress Bar - Restantes/Total */}
                     <div className="mt-auto">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-[11px] text-slate-400 dark:text-slate-400 font-bold uppercase tracking-wider">Progresso do dia</span>
-                            <span className="text-[13px] font-bold text-[#1a2332] dark:text-white">
+                            <span className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Progresso do dia</span>
+                            <span className="text-xs font-bold text-[#1a2332] dark:text-slate-300">
                                 {reviews.overdue + reviews.today} restantes
                             </span>
                         </div>
-                        <div className="w-full bg-slate-100 dark:bg-[#2A2D33] h-2.5 rounded-full overflow-hidden">
+                        <div className="w-full bg-slate-100 dark:bg-white/5 h-2.5 rounded-full overflow-hidden">
                             <div
                                 className="h-full rounded-full bg-gradient-to-r from-orange-400 to-orange-500 transition-all duration-500 shadow-[0_0_10px_rgba(249,115,22,0.3)]"
                                 style={{ width: `${Math.max(5, (reviews.today / Math.max(1, reviews.overdue + reviews.today)) * 100)}%` }}

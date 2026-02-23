@@ -154,7 +154,7 @@ export const ExamCountdown = () => {
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white dark:bg-[#181A1C] p-6 rounded-3xl border border-black/[0.03] dark:border-cyan-500/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_0_15px_rgba(6,182,212,0.15)] flex flex-col h-full relative overflow-hidden group"
+                className="bg-white dark:bg-[#181A1C] p-6 rounded-3xl border border-black/[0.03] dark:border-white/[0.05] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] flex flex-col h-full relative overflow-hidden group"
             >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-slate-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity"></div>
 
@@ -186,7 +186,7 @@ export const ExamCountdown = () => {
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-[#181A1C] p-8 rounded-3xl border border-black/[0.03] dark:border-cyan-500/30 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_0_15px_rgba(6,182,212,0.15)] flex flex-col h-full relative overflow-hidden group"
+            className="bg-white dark:bg-[#181A1C] p-8 rounded-3xl border border-black/[0.03] dark:border-white/[0.05] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] flex flex-col h-full relative overflow-hidden group"
         >
             <div className={`absolute top-0 right-0 w-32 h-32 ${colors.bg} rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity`}></div>
 
