@@ -29,7 +29,7 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
             {/* Card 1: Revisões Pendentes */}
-            <div className="bg-white dark:bg-[#181A1C] p-6 rounded-3xl border border-black/[0.03] dark:border-white/[0.05] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] flex flex-col h-full">
+            <div className="glow-card p-6 rounded-3xl flex flex-col h-full">
                 <div className="flex flex-col h-full">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-6">
@@ -90,7 +90,7 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
             </div>
 
             {/* Card 2: Progresso & Consistência */}
-            <div className="bg-white dark:bg-[#181A1C] p-8 rounded-3xl border border-black/[0.03] dark:border-white/[0.05] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] flex flex-col h-full">
+            <div className="glow-card p-8 rounded-3xl flex flex-col h-full">
                 <div className="flex flex-col h-full">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-8">
