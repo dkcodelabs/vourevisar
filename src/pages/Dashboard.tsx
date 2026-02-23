@@ -7,11 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ListChecks, AlertCircle, Clock, CalendarClock, CheckCircle2, CalendarDays } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Novos componentes V2
-import { DashboardHeader } from '@/components/dashboard-v2/DashboardHeader';
+import { KeyMetricsGrid } from '@/components/dashboard-v2/KeyMetricsGrid';
 import { ExamCountdown } from '@/components/dashboard-v2/ExamCountdown';
 import { DashboardCalendar } from '@/components/dashboard-v2/DashboardCalendar';
 import { DashboardStatsCard } from '@/components/dashboard-v2/DashboardStatsCard';
@@ -45,7 +45,6 @@ const Dashboard = () => {
 
             const userSubjectIds = subjectsData.map(s => s.id);
 
-            // @ts-ignore - tabela existente no banco
             const response = await (supabase as any)
                 .from('topic_review_history')
                 .select(`
@@ -168,130 +167,32 @@ const Dashboard = () => {
                             {/* Card 1: Dias Restantes (ExamCountdown) */}
                             <ExamCountdown />
 
-                            {/* Card 2: Revisões Pendentes */}
-                            <Card className="glow-card border-0 overflow-hidden relative group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 dark:bg-orange-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity"></div>
-                                <CardContent className="p-5 relative z-10 flex flex-col h-full">
-                                    {/* Header */}
-                                    <div className="flex items-center justify-between mb-4">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Revisões Pendentes</p>
-                                        <div className="p-2 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl">
-                                            <ListChecks className="w-5 h-5 text-orange-600" />
-                                        </div>
-                                    </div>
-
-                                    {/* Main Number */}
-                                    <div className="flex items-baseline gap-2 mb-4">
-                                        <h3 className="text-4xl font-bold text-slate-900 dark:text-white">
-                                            {dashboardStats.general.overdueCount + dashboardStats.general.todayReviewCount + dashboardStats.general.futureReviewCount}
-                                        </h3>
-                                        <span className="text-sm text-slate-400 font-medium">revisões</span>
-                                    </div>
-
-                                    {/* Breakdown with Icons - 3 columns */}
-                                    <div className="grid grid-cols-3 gap-2 mb-4">
-                                        {/* Atrasadas */}
-                                        <div className="flex flex-col items-center p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                                            <AlertCircle className="w-4 h-4 text-red-500 mb-1" />
-                                            <span className="text-lg font-bold text-red-600 dark:text-red-400">{dashboardStats.general.overdueCount}</span>
-                                            <span className="text-[10px] text-red-500/80 font-medium uppercase tracking-wide">Atrasadas</span>
-                                        </div>
-
-                                        {/* Hoje */}
-                                        <div className="flex flex-col items-center p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                                            <Clock className="w-4 h-4 text-amber-500 mb-1" />
-                                            <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{dashboardStats.general.todayReviewCount}</span>
-                                            <span className="text-[10px] text-amber-500/80 font-medium uppercase tracking-wide">Hoje</span>
-                                        </div>
-
-                                        {/* Futuras */}
-                                        <div className="flex flex-col items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                            <CalendarClock className="w-4 h-4 text-blue-500 mb-1" />
-                                            <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{dashboardStats.general.futureReviewCount}</span>
-                                            <span className="text-[10px] text-blue-500/80 font-medium uppercase tracking-wide">Futuras</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Progress Bar */}
-                                    <div className="mt-auto">
-                                        <div className="flex justify-between items-center mb-1.5">
-                                            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Progresso do dia</span>
-                                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                                {dashboardStats.general.overdueCount + dashboardStats.general.todayReviewCount} restantes
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-500"
-                                                style={{ width: `${Math.max(5, (dashboardStats.general.todayReviewCount / Math.max(1, dashboardStats.general.overdueCount + dashboardStats.general.todayReviewCount)) * 100)}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Card 3: Progresso & Consistência */}
-                            <Card className="glow-card border-0 overflow-hidden relative group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity"></div>
-                                <CardContent className="p-5 relative z-10">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Progresso & Consistência</p>
-                                        <div className="p-2 bg-indigo-500/10 rounded-xl">
-                                            <CheckCircle2 className="w-5 h-5 text-indigo-600" />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        {/* Tópicos */}
-                                        <div>
-                                            <div className="flex justify-between items-end mb-1">
-                                                <span className="text-xs text-slate-500">Tópicos</span>
-                                                <span className="text-sm font-bold text-slate-900 dark:text-white">
-                                                    {completedTopics}/{totalTopics}
-                                                </span>
-                                            </div>
-                                            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                                <div
-                                                    className="bg-indigo-500 h-full rounded-full transition-all duration-500"
-                                                    style={{ width: `${progressPercentage}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-
-                                        {/* Matérias */}
-                                        <div>
-                                            <div className="flex justify-between items-end mb-1">
-                                                <span className="text-xs text-slate-500">Matérias</span>
-                                                <span className="text-sm font-bold text-slate-900 dark:text-white">
-                                                    {completedSubjects}/{totalSubjects}
-                                                </span>
-                                            </div>
-                                            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                                <div
-                                                    className="bg-purple-500 h-full rounded-full transition-all duration-500"
-                                                    style={{ width: `${subjectProgressPercentage}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-
-                                        {/* Dias de Estudo */}
-                                        <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
-                                            <div className="flex items-center gap-2">
-                                                <CalendarDays className="w-4 h-4 text-emerald-500" />
-                                                <span className="text-xs text-slate-500">Dias Ativos</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-bold text-slate-900 dark:text-white">
-                                                    {dashboardStats.month.activeDays}/{dashboardStats.month.totalDaysInMonth}
-                                                </span>
-                                                <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
-                                                    {Math.round((dashboardStats.month.activeDays / dashboardStats.month.totalDaysInMonth) * 100)}%
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                            {/* Card 2 e 3: Revisões e Progresso (Grid Unificado) */}
+                            <div className="md:col-span-2">
+                                <KeyMetricsGrid
+                                    reviews={{
+                                        overdue: dashboardStats.general.overdueCount,
+                                        today: dashboardStats.general.todayReviewCount,
+                                        future: dashboardStats.general.futureReviewCount
+                                    }}
+                                    progress={{
+                                        topics: {
+                                            completed: completedTopics,
+                                            total: totalTopics,
+                                            percentage: progressPercentage
+                                        },
+                                        subjects: {
+                                            completed: completedSubjects,
+                                            total: totalSubjects,
+                                            percentage: subjectProgressPercentage
+                                        }
+                                    }}
+                                    activeDays={{
+                                        current: dashboardStats.month.activeDays,
+                                        total: dashboardStats.month.totalDaysInMonth
+                                    }}
+                                />
+                            </div>
                         </div>
 
                         {/* 2. Insights Rápidos */}

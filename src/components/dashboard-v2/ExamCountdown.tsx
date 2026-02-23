@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { toast } from '@/lib/toast';
+import { errorService } from '@/lib/errors/errorService';
 
 export const ExamCountdown = () => {
     const { settings, getExamCountdown, updateExamDate } = useUserSettings();
@@ -15,7 +16,11 @@ export const ExamCountdown = () => {
 
     const handleSave = async () => {
         if (!selectedDate) {
-            toast.error('Selecione uma data válida');
+            errorService.report(new Error('Data não selecionada'), {
+                module: 'dashboard',
+                action: 'update_exam_date',
+                userMessage: 'Selecione uma data válida'
+            });
             return;
         }
 
@@ -27,7 +32,11 @@ export const ExamCountdown = () => {
             toast.success('Data da prova definida! 🎯');
             setIsEditing(false);
         } else {
-            toast.error('Erro ao salvar. Tente novamente.');
+            errorService.report(new Error('Falha ao salvar data da prova'), {
+                module: 'dashboard',
+                action: 'update_exam_date',
+                userMessage: 'Erro ao salvar. Tente novamente.'
+            });
         }
     };
 
