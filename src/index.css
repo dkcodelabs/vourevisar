@@ -6,20 +6,18 @@
 
 @layer base {
   :root {
-    /* Light mode background: #f8fafc */
-    --background: 210 40% 98%;
-    /* Teto principal: #0f172a */
-    --foreground: 222.2 47.4% 11.2%;
+    /* Light mode background: #FAFAF9 (stone-50) */
+    --background: 60 9% 98%;
+    --foreground: 222.2 84% 4.9%;
 
-    /* Cards de Conteúdo: #ffffff */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
+    --card-foreground: 222.2 84% 4.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 222.2 84% 4.9%;
 
-    /* Cor Primária (Ação): #00BFFF (Deep Sky Blue) */
-    --primary: 195 100% 50%;
+    /* Indigo-600 */
+    --primary: 226 70% 55.5%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -38,79 +36,65 @@
     --border: 24 6% 90%;
     /* Input acompanhando border */
     --input: 24 6% 90%;
-    --ring: 195 100% 50%;
-    /* Primary color for rings */
-
-    /* Cor Secundária (Atenção): #FF8C00 (Dark Orange) */
-    --warning: 33 100% 50%;
-    --warning-foreground: 210 40% 98%;
+    --ring: 226 70% 55.5%;
 
     --radius: 0.5rem;
     /* 16px for rounded-2xl look as default or large */
 
-    /* Sidebar Constant Dark Theme (#1A1A1A) */
-    --sidebar-background: 0 0% 10.2%;
+    /* Sidebar Constant Dark Theme (#181A1C) */
+    --sidebar-background: 210 8% 10%;
+    /* #181A1C */
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 195 100% 50%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 15.7%;
-    /* #282828 for hover/accent */
+    --sidebar-accent: 217 19% 27%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 0 0% 15.7%;
-    --sidebar-ring: 195 100% 50%;
-    --sidebar-muted: 215 20.2% 65.1%;
+    --sidebar-border: 217 19% 27%;
+    --sidebar-ring: 217 91% 60%;
   }
 
   .dark {
-    /* Dark mode background: #121212 */
-    --background: 0 0% 7.1%;
-    --foreground: 0 0% 100%;
-    /* #ffffff */
+    /* Dark mode background: #10172A = hsl(222, 47%, 11.4%) */
+    --background: 222 47% 11.4%;
+    --foreground: 210 40% 98%;
 
-    /* Cards and popovers: #282828 */
-    --card: 0 0% 15.7%;
-    --card-foreground: 0 0% 100%;
+    /* Usando a mesma base #10172A para cards e popovers para consistência */
+    --card: 222 47% 11.4%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 15.7%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 222 47% 11.4%;
+    --popover-foreground: 210 40% 98%;
 
-    /* Cor Primária (Ação): #00BFFF (Deep Sky Blue) */
-    --primary: 195 100% 50%;
-    --primary-foreground: 0 0% 10.2%;
-    /* Dark contrast for button text */
+    /* Indigo-500 */
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47.4% 11.2%;
 
-    /* Secondary / Muted / Accent: based on #282828 for subtle fills */
-    --secondary: 0 0% 15.7%;
+    --secondary: 217 19% 27%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 0 0% 15.7%;
+    --muted: 217 19% 27%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 0 0% 15.7%;
+    --accent: 217 19% 27%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    /* Borders and Rings: #282828 */
-    --border: 0 0% 15.7%;
-    --input: 0 0% 15.7%;
-    --ring: 195 100% 50%;
+    --border: 217 19% 27%;
+    --input: 217 19% 27%;
+    --ring: 224 76% 48%;
 
-    /* Cor Secundária (Atenção): #FF8C00 (Dark Orange) */
-    --warning: 33 100% 50%;
-    --warning-foreground: 210 40% 98%;
-
-    /* Sidebar Dark Mode: #1A1A1A */
-    --sidebar-background: 0 0% 10.2%;
+    /* Sidebar Dark Mode: #181A1C (matching light mode sidebar) */
+    --sidebar-background: 210 8% 10%;
+    /* #181A1C */
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 195 100% 50%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 15.7%;
+    --sidebar-accent: 217 19% 27%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 0 0% 15.7%;
-    --sidebar-ring: 195 100% 50%;
-    --sidebar-muted: 215 20.2% 65.1%;
+    --sidebar-border: 217 19% 27%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -428,10 +412,10 @@ video {
   }
 }
 
-/* Scrollbar - Global Default */
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -439,33 +423,7 @@ video {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors;
-}
-
-/* Custom Scrollbar for Main AppLayout */
-.layout-scrollbar::-webkit-scrollbar {
-  width: 14px;
-}
-
-.layout-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-  margin-top: 24px;
-  /* Pushes track below the top rounded corner */
-  margin-bottom: 24px;
-  /* Pushes track above the bottom rounded corner */
-}
-
-.layout-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgb(203 213 225);
-  /* slate-300 */
-  border: 4px solid transparent;
-  background-clip: padding-box;
-  border-radius: 999px;
-}
-
-.dark .layout-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgb(51 65 85);
-  /* slate-700 */
+  @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors;
 }
 
 /* Selection */
@@ -1066,42 +1024,4 @@ select {
   text-rendering: optimizeLegibility;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'liga';
-}
-
-@layer components {
-  .glass-card {
-    @apply bg-card/70 backdrop-blur-xl border shadow-2xl transition-colors duration-300;
-    border-color: hsl(var(--border) / 0.5);
-  }
-
-  .glow-card {
-    @apply bg-card/70 backdrop-blur-xl border shadow-xl transition-all duration-300 hover:border-primary/50;
-    border-color: hsl(var(--border) / 0.5);
-  }
-
-  .glow-card:hover {
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 0 15px hsl(var(--primary) / 0.15);
-  }
-
-  .dark .glow-card {
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
-  }
-
-  .dark .glow-card:hover {
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 15px hsl(var(--primary) / 0.2);
-  }
-
-  .nav-item-active {
-    @apply bg-primary/10 text-primary relative;
-    background: radial-gradient(circle at left, hsl(var(--primary) / 0.1) 0%, transparent 70%);
-  }
-
-  .nav-item-active::before {
-    content: '';
-    @apply absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-primary rounded-r shadow-[0_0_10px_hsl(var(--primary))];
-  }
-
-  .data-label {
-    @apply text-[10px] uppercase tracking-[0.2em] font-bold text-muted-foreground;
-  }
 }

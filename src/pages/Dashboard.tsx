@@ -112,8 +112,10 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="pb-10 h-full w-full">
-            <div className="container mx-auto pb-8 pt-0 max-w-[1440px]">
+        <div className="min-h-screen bg-background pb-20">
+            <div className="container mx-auto px-4 md:px-8 pb-8 pt-0 max-w-7xl">
+
+                <DashboardHeader subjectsCount={subjects.length} />
 
                 {subjects.length === 0 ? (
                     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
@@ -169,8 +171,8 @@ const Dashboard = () => {
                             <ExamCountdown />
 
                             {/* Card 2: Revisões Pendentes */}
-                            <Card className="glow-card border-0 overflow-hidden relative group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 dark:bg-orange-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity"></div>
+                            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
                                 <CardContent className="p-5 relative z-10 flex flex-col h-full">
                                     {/* Header */}
                                     <div className="flex items-center justify-between mb-4">
@@ -231,8 +233,8 @@ const Dashboard = () => {
                             </Card>
 
                             {/* Card 3: Progresso & Consistência */}
-                            <Card className="glow-card border-0 overflow-hidden relative group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity"></div>
+                            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full -mr-12 -mt-12 blur-2xl"></div>
                                 <CardContent className="p-5 relative z-10">
                                     <div className="flex items-center justify-between mb-4">
                                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Progresso & Consistência</p>

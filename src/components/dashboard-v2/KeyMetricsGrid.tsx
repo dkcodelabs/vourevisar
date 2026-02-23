@@ -27,130 +27,131 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
     const completedPercentage = totalPending > 0 ? 0 : 100; // 0% when there are pending reviews
 
     return (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-            {/* Card 1: Revisões Pendentes */}
-            <div className="bg-white dark:bg-[#1B1D1F] p-6 rounded-[2rem] border border-black/[0.03] dark:border-cyan-500/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_0_15px_rgba(6,182,212,0.15)] flex flex-col h-full">
-                <div className="flex flex-col h-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* Card 1: Revisões Pendentes - Redesigned */}
+            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                <CardContent className="p-5 relative z-10 flex flex-col h-full">
                     {/* Header */}
-                    <div className="flex items-center justify-between mb-6">
-                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Revisões Pendentes</span>
-                        <div className="w-10 h-10 bg-orange-50 dark:bg-[#332018] rounded-2xl flex items-center justify-center">
-                            <ListChecks className="w-5 h-5 text-orange-500 dark:text-orange-600" />
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Revisões Pendentes</p>
+                        <div className="p-2 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl">
+                            <ListChecks className="w-5 h-5 text-orange-600" />
                         </div>
                     </div>
 
                     {/* Main Number */}
-                    <div className="flex items-baseline gap-2 mb-6">
-                        <h3 className="text-5xl font-extrabold text-[#1a2332] dark:text-white tracking-tight">
+                    <div className="flex items-baseline gap-2 mb-4">
+                        <h3 className="text-4xl font-bold text-slate-900 dark:text-white">
                             {totalPending}
                         </h3>
-                        <span className="text-sm font-medium text-slate-400 dark:text-slate-400">revisões</span>
+                        <span className="text-sm text-slate-400 font-medium">revisões</span>
                     </div>
 
-                    {/* Breakdown Cubes - 3 columns */}
-                    <div className="grid grid-cols-3 gap-3 mb-8">
+                    {/* Breakdown with Icons - 3 columns */}
+                    <div className="grid grid-cols-3 gap-2 mb-4">
                         {/* Atrasadas */}
-                        <div className="flex flex-col items-center justify-center p-4 bg-[#FFFAFA] dark:bg-[#352525] rounded-2xl border border-red-100 dark:border-white/5">
-                            <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 mb-2" />
-                            <span className="text-2xl font-black text-red-600 dark:text-red-400">{reviews.overdue}</span>
-                            <span className="text-[10px] text-red-400 dark:text-red-500/80 font-bold uppercase tracking-wider mt-1">Atrasadas</span>
+                        <div className="flex flex-col items-center p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                            <AlertCircle className="w-4 h-4 text-red-500 mb-1" />
+                            <span className="text-lg font-bold text-red-600 dark:text-red-400">{reviews.overdue}</span>
+                            <span className="text-[10px] text-red-500/80 font-medium uppercase tracking-wide">Atrasadas</span>
                         </div>
 
                         {/* Hoje */}
-                        <div className="flex flex-col items-center justify-center p-4 bg-[#FFFEF5] dark:bg-[#332A1C] rounded-2xl border border-amber-100 dark:border-white/5">
-                            <Clock className="w-5 h-5 text-amber-500 dark:text-amber-400 mb-2" />
-                            <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{reviews.today}</span>
-                            <span className="text-[10px] text-amber-400 dark:text-amber-500/80 font-bold uppercase tracking-wider mt-1">Hoje</span>
+                        <div className="flex flex-col items-center p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                            <Clock className="w-4 h-4 text-amber-500 mb-1" />
+                            <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{reviews.today}</span>
+                            <span className="text-[10px] text-amber-500/80 font-medium uppercase tracking-wide">Hoje</span>
                         </div>
 
                         {/* Futuras */}
-                        <div className="flex flex-col items-center justify-center p-4 bg-[#F8FAFF] dark:bg-[#202736] rounded-2xl border border-blue-100 dark:border-white/5">
-                            <CalendarClock className="w-5 h-5 text-blue-500 dark:text-blue-400 mb-2" />
-                            <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{reviews.future}</span>
-                            <span className="text-[10px] text-blue-400 dark:text-blue-500/80 font-bold uppercase tracking-wider mt-1">Futuras</span>
+                        <div className="flex flex-col items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <CalendarClock className="w-4 h-4 text-blue-500 mb-1" />
+                            <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{reviews.future}</span>
+                            <span className="text-[10px] text-blue-500/80 font-medium uppercase tracking-wide">Futuras</span>
                         </div>
                     </div>
 
                     {/* Progress Bar - Restantes/Total */}
                     <div className="mt-auto">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-[11px] text-slate-400 dark:text-slate-400 font-bold uppercase tracking-wider">Progresso do dia</span>
-                            <span className="text-[13px] font-bold text-[#1a2332] dark:text-white">
+                        <div className="flex justify-between items-center mb-1.5">
+                            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Progresso do dia</span>
+                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                                 {reviews.overdue + reviews.today} restantes
                             </span>
                         </div>
-                        <div className="w-full bg-slate-100 dark:bg-[#2A2D33] h-2.5 rounded-full overflow-hidden">
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                             <div
-                                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-orange-500 transition-all duration-500 shadow-[0_0_10px_rgba(249,115,22,0.3)]"
+                                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-500"
                                 style={{ width: `${Math.max(5, (reviews.today / Math.max(1, reviews.overdue + reviews.today)) * 100)}%` }}
                             ></div>
                         </div>
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
 
-            {/* Card 2: Progresso & Consistência */}
-            <div className="bg-white dark:bg-[#181A1C] p-8 rounded-3xl border border-black/[0.03] dark:border-white/[0.05] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] flex flex-col h-full">
-                <div className="flex flex-col h-full">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-8">
-                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Progresso & Consistência</span>
-                        <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center">
-                            <CheckCircle2 className="w-5 h-5 text-indigo-500" />
+            {/* Card 2: Progresso & Consistência (Merged) */}
+            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full -mr-12 -mt-12 blur-2xl"></div>
+                <CardContent className="p-5 relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Progresso & Consistência</p>
+                        <div className="p-2 bg-indigo-500/10 rounded-xl">
+                            <CheckCircle2 className="w-5 h-5 text-indigo-600" />
                         </div>
                     </div>
 
-                    <div className="space-y-6 flex-1">
+                    <div className="space-y-3">
                         {/* Tópicos */}
-                        <div className="border-b border-slate-100 dark:border-white/5 pb-4">
-                            <div className="flex justify-between items-end mb-3">
-                                <span className="text-[13px] font-bold text-slate-400 dark:text-slate-500">Tópicos</span>
-                                <span className="text-[15px] font-bold text-[#1a2332] dark:text-slate-200">
+                        <div>
+                            <div className="flex justify-between items-end mb-1">
+                                <span className="text-xs text-slate-500">Tópicos</span>
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">
                                     {progress.topics.completed}/{progress.topics.total}
                                 </span>
                             </div>
-                            <div className="w-full bg-slate-100 dark:bg-white/5 h-2.5 rounded-full overflow-hidden">
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                                 <div
-                                    className="bg-slate-200 dark:bg-slate-600 h-full rounded-full transition-all duration-500"
+                                    className="bg-indigo-500 h-full rounded-full transition-all duration-500"
                                     style={{ width: `${progress.topics.percentage}%` }}
                                 ></div>
                             </div>
                         </div>
 
                         {/* Matérias */}
-                        <div className="border-b border-slate-100 dark:border-white/5 pb-4">
-                            <div className="flex justify-between items-end mb-3">
-                                <span className="text-[13px] font-bold text-slate-400 dark:text-slate-500">Matérias</span>
-                                <span className="text-[15px] font-bold text-[#1a2332] dark:text-slate-200">
+                        <div>
+                            <div className="flex justify-between items-end mb-1">
+                                <span className="text-xs text-slate-500">Matérias</span>
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">
                                     {progress.subjects.completed}/{progress.subjects.total}
                                 </span>
                             </div>
-                            <div className="w-full bg-slate-100 dark:bg-white/5 h-2.5 rounded-full overflow-hidden">
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                                 <div
-                                    className="bg-slate-200 dark:bg-slate-600 h-full rounded-full transition-all duration-500"
+                                    className="bg-purple-500 h-full rounded-full transition-all duration-500"
                                     style={{ width: `${progress.subjects.percentage}%` }}
                                 ></div>
                             </div>
                         </div>
 
-                        {/* Dias de Estudo */}
-                        <div className="flex items-center justify-between pt-2">
-                            <div className="flex items-center gap-2.5">
-                                <CalendarDays className="w-5 h-5 text-emerald-500" />
-                                <span className="text-[13px] font-bold text-slate-400 dark:text-slate-500">Dias Ativos</span>
+                        {/* Dias de Estudo - inline */}
+                        <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2">
+                                <CalendarDays className="w-4 h-4 text-emerald-500" />
+                                <span className="text-xs text-slate-500">Dias Ativos</span>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <span className="text-[15px] font-black text-[#1a2332] dark:text-slate-200">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">
                                     {activeDays.current}/{activeDays.total}
                                 </span>
-                                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-500/20">
+                                <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
                                     {Math.round((activeDays.current / activeDays.total) * 100)}%
                                 </span>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         </div>
     );
 };

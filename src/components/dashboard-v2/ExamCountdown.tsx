@@ -54,13 +54,37 @@ export const ExamCountdown = () => {
     const getUrgencyColors = (urgency: string) => {
         switch (urgency) {
             case 'critical':
-                return { text: 'text-red-500', bg: 'bg-red-500/5', bar: 'bg-red-500' };
+                return {
+                    bg: 'from-red-500 to-rose-600',
+                    text: 'text-red-50',
+                    badge: 'bg-red-400/30',
+                    progress: 'bg-red-300',
+                    glow: 'shadow-red-500/25'
+                };
             case 'high':
-                return { text: 'text-orange-500', bg: 'bg-orange-500/5', bar: 'bg-orange-500' };
+                return {
+                    bg: 'from-amber-500 to-orange-600',
+                    text: 'text-amber-50',
+                    badge: 'bg-amber-400/30',
+                    progress: 'bg-amber-300',
+                    glow: 'shadow-amber-500/25'
+                };
             case 'medium':
-                return { text: 'text-blue-500', bg: 'bg-blue-500/5', bar: 'bg-blue-500' };
+                return {
+                    bg: 'from-blue-500 to-indigo-600',
+                    text: 'text-blue-50',
+                    badge: 'bg-blue-400/30',
+                    progress: 'bg-blue-300',
+                    glow: 'shadow-blue-500/25'
+                };
             default:
-                return { text: 'text-emerald-500', bg: 'bg-emerald-500/5', bar: 'bg-emerald-500' };
+                return {
+                    bg: 'from-emerald-500 to-teal-600',
+                    text: 'text-emerald-50',
+                    badge: 'bg-emerald-400/30',
+                    progress: 'bg-emerald-300',
+                    glow: 'shadow-emerald-500/25'
+                };
         }
     };
 
@@ -133,14 +157,20 @@ export const ExamCountdown = () => {
                 onClick={() => setIsEditing(true)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full glow-card flex items-center justify-between p-6 rounded-3xl relative overflow-hidden group border border-dashed hover:border-primary/50 transition-all text-left"
+                className="group flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-2xl hover:border-indigo-400 dark:hover:border-indigo-600 transition-all cursor-pointer"
             >
-                <div>
-                    <span className="data-label block mb-1">Data da Prova</span>
-                    <span className="text-2xl font-black text-foreground">Definir Meta</span>
-                    <span className="text-[10px] font-bold text-primary opacity-60 uppercase block mt-1">Quando é sua prova?</span>
+                <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
+                    <Target className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <Target className="w-6 h-6 text-primary/50 group-hover:text-primary transition-colors" />
+                <div className="text-left">
+                    <span className="block text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                        Definir Meta
+                    </span>
+                    <span className="text-xs text-indigo-500 dark:text-indigo-400">
+                        Quando é sua prova?
+                    </span>
+                </div>
+                <ChevronRight className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform ml-auto" />
             </motion.button>
         );
     }
@@ -154,29 +184,26 @@ export const ExamCountdown = () => {
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white dark:bg-[#181A1C] p-6 rounded-3xl border border-black/[0.03] dark:border-cyan-500/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_0_15px_rgba(6,182,212,0.15)] flex flex-col h-full relative overflow-hidden group"
+                className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-600 to-slate-700 p-5 shadow-lg"
             >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity"></div>
-
-                <div className="flex items-center justify-between mb-6 relative z-10">
-                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Data da Prova</span>
-                    <button
-                        onClick={() => setIsEditing(true)}
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors flex items-center gap-1"
-                    >
-                        <Edit3 className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="flex flex-col gap-1 relative z-10">
-                    <h4 className="text-2xl font-black text-foreground">
-                        Realizada
-                    </h4>
-                    <div className="flex flex-col gap-1 mt-1">
-                        <p className="text-[10px] font-bold text-slate-500 opacity-60 uppercase">
-                            Concluída em {formatDate(countdown.examDate)}
-                        </p>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-white/10 rounded-xl">
+                            <Calendar className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <span className="block text-sm text-white/80">Prova realizada em</span>
+                            <span className="font-semibold text-white">{formatDate(countdown.examDate)}</span>
+                        </div>
                     </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsEditing(true)}
+                        className="text-white/80 hover:text-white hover:bg-white/10"
+                    >
+                        <Edit3 className="w-4 h-4" />
+                    </Button>
                 </div>
             </motion.div>
         );
@@ -186,51 +213,68 @@ export const ExamCountdown = () => {
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-[#181A1C] p-8 rounded-3xl border border-black/[0.03] dark:border-cyan-500/30 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_0_15px_rgba(6,182,212,0.15)] flex flex-col h-full relative overflow-hidden group"
+            className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${colors.bg} p-5 shadow-xl ${colors.glow}`}
         >
-            <div className={`absolute top-0 right-0 w-32 h-32 ${colors.bg} rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity`}></div>
+            {/* Decoração de fundo */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
 
-            <div className="flex items-center justify-between mb-10 relative z-10">
-                <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Data da Prova</span>
-                <button
-                    onClick={() => {
-                        setSelectedDate(settings?.data_prova_meta || '');
-                        setIsEditing(true);
-                    }}
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                >
-                    <Edit3 className="w-5 h-5" />
-                </button>
-            </div>
+            <div className="relative z-10">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <div className={`p-2 ${colors.badge} rounded-xl backdrop-blur-sm`}>
+                            <Target className="w-5 h-5 text-white" />
+                        </div>
+                        <span className={`text-sm font-medium ${colors.text} opacity-90`}>
+                            FALTAM
+                        </span>
+                    </div>
+                    <button
+                        onClick={() => {
+                            setSelectedDate(settings?.data_prova_meta || '');
+                            setIsEditing(true);
+                        }}
+                        className={`p-2 ${colors.badge} rounded-xl hover:bg-white/20 transition-colors backdrop-blur-sm`}
+                    >
+                        <Edit3 className="w-4 h-4 text-white" />
+                    </button>
+                </div>
 
-            <div className="flex flex-col gap-1 relative z-10 flex-1 justify-end">
-                <div className="flex items-baseline gap-2">
-                    <span className="text-6xl font-black text-[#1a2332] dark:text-white tracking-tight">
+                {/* Número grande */}
+                <div className="flex items-baseline gap-2 mb-3">
+                    <motion.span
+                        key={countdown.daysRemaining}
+                        initial={{ scale: 1.2, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="text-5xl font-black text-white tracking-tight"
+                    >
                         {countdown.daysRemaining}
-                    </span>
-                    <span className={`text-[13px] font-bold text-orange-600 dark:text-orange-500 uppercase`}>
-                        {countdown.daysRemaining === 1 ? 'DIA RESTANTE' : 'DIAS RESTANTES'}
+                    </motion.span>
+                    <span className={`text-xl font-semibold ${colors.text} opacity-90`}>
+                        {countdown.daysRemaining === 1 ? 'DIA' : 'DIAS'}
                     </span>
                     {countdown.urgency === 'critical' && (
-                        <Flame className={`w-5 h-5 ${colors.text} animate-pulse ml-1`} />
+                        <Flame className="w-6 h-6 text-white animate-pulse ml-1" />
                     )}
                 </div>
 
                 {/* Barra de progresso */}
-                <div className="mt-8 mb-4">
-                    <div className="h-2 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                <div className="mb-3">
+                    <div className="h-2 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm">
                         <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${countdown.progressPercentage}%` }}
                             transition={{ duration: 1, ease: 'easeOut' }}
-                            className={`h-full bg-orange-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.5)]`}
+                            className={`h-full ${colors.progress} rounded-full`}
                         />
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 mt-4">
-                    <Calendar className="w-4 h-4 text-slate-400 dark:text-white/80" />
-                    <span className="text-[13px] font-bold text-[#1a2332] dark:text-white/90 uppercase">
+                {/* Data formatada */}
+                <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-white/70" />
+                    <span className={`text-sm ${colors.text} opacity-80`}>
                         {formatDate(countdown.examDate)}
                     </span>
                 </div>
