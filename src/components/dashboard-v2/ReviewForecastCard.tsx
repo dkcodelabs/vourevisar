@@ -9,6 +9,7 @@ import {
     Info
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface ReviewForecastCardProps {
     subjects: Subject[];
@@ -96,65 +97,65 @@ export const ReviewForecastCard: React.FC<ReviewForecastCardProps> = ({
     }, [subjects, today, nextWeek, dailyCapacity]);
 
     return (
-        <div className={`flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm ${className}`}>
-            <div className="p-5 flex flex-col h-full space-y-6">
+        <div className={cn("flex flex-col glow-card p-6 rounded-3xl relative overflow-hidden group", className)}>
+            <div className="flex flex-col h-full space-y-6 relative z-10 p-0">
 
                 {/* 1. Raio-X das Revisões (Diagnóstico – NÃO EXECUTA) */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <CalendarClock className="w-4 h-4 text-indigo-500" />
+                        <h3 className="text-sm font-bold text-content-main flex items-center gap-2">
+                            <CalendarClock className="w-4 h-4 text-primary" />
                             Raio-X das Revisões
                         </h3>
-                        <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 mt-1">
-                            Total geral de revisões: <span className="text-slate-900 dark:text-white font-bold">{stats.totalGeral}</span>
+                        <p className="text-[11px] font-medium text-content-muted mt-1">
+                            Total geral de revisões: <span className="text-foreground font-bold">{stats.totalGeral}</span>
                         </p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                     {/* Atrasadas */}
-                    <div className="flex flex-col p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                    <div className="flex flex-col p-3 rounded-xl bg-red-500/10">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 mb-1">Atrasadas</span>
                         <div className="flex items-baseline gap-1">
                             <AlertCircle className="w-3.5 h-3.5 text-red-500 translate-y-[1px]" />
-                            <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{stats.overdue}</span>
+                            <span className="text-xl font-bold text-foreground">{stats.overdue}</span>
                         </div>
                     </div>
 
                     {/* Vence Hoje */}
-                    <div className="flex flex-col p-3 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20">
+                    <div className="flex flex-col p-3 rounded-xl bg-orange-500/10">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-orange-500 mb-1">Vence Hoje</span>
                         <div className="flex items-baseline gap-1">
                             <CalendarClock className="w-3.5 h-3.5 text-orange-500 translate-y-[1px]" />
-                            <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{stats.dueToday}</span>
+                            <span className="text-xl font-bold text-foreground">{stats.dueToday}</span>
                         </div>
                     </div>
 
                     {/* Futuras */}
-                    <div className="flex flex-col p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
+                    <div className="flex flex-col p-3 rounded-xl bg-blue-500/10">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">Futuras</span>
                         <div className="flex items-baseline gap-1">
                             <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 translate-y-[1px]" />
-                            <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{stats.future}</span>
+                            <span className="text-xl font-bold text-foreground">{stats.future}</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="h-px bg-slate-100 dark:bg-slate-800" />
+                <div className="h-px bg-black/5 dark:bg-white/5" />
 
                 {/* 2. Execução Sugerida Hoje (ÚNICO BLOCO QUE ORIENTA AÇÃO) */}
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <h4 className="text-xs font-semibold text-content-main flex items-center gap-1.5">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             Execução Sugerida
                         </h4>
                     </div>
 
-                    <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20 rounded-xl p-3.5 space-y-2">
+                    <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3.5 space-y-2">
                         {/* Linha 1: Estado do Sistema (O que falta) */}
-                        <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                        <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
                             Há <span className="font-bold">{stats.pendentesHoje}</span> revisões previstas para hoje.
                         </p>
 
@@ -167,22 +168,22 @@ export const ReviewForecastCard: React.FC<ReviewForecastCardProps> = ({
                         )}
 
                         {/* Linha 3: Orientação (Capacidade como conforto) */}
-                        <p className="text-xs text-emerald-700 dark:text-emerald-300 leading-relaxed pt-1 border-t border-emerald-100 dark:border-emerald-900/30">
+                        <p className="text-xs text-emerald-700 dark:text-emerald-300 leading-relaxed pt-1 border-t border-emerald-500/10">
                             Sua capacidade sustentável é de <span className="font-semibold">{dailyCapacity}</span>.
                             Manter-se próximo a este número favorece o equilíbrio a longo prazo.
                         </p>
                     </div>
                 </div>
 
-                <div className="h-px bg-slate-100 dark:bg-slate-800" />
+                <div className="h-px bg-black/5 dark:bg-white/5" />
 
                 {/* 3. Simulação — Impacto da Semana (7 dias) (Forecast Informativo) */}
                 <TooltipProvider>
-                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5 border border-slate-100 dark:border-slate-800">
+                    <div className="bg-black/5 dark:bg-white/5 rounded-xl p-3.5">
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-1.5">
                                 <TrendingUp className="w-3.5 h-3.5 text-indigo-500" />
-                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Simulação (7 Dias)</span>
+                                <span className="text-xs font-semibold text-content-main">Simulação (7 Dias)</span>
                             </div>
                             <Tooltip>
                                 <TooltipTrigger>
@@ -220,9 +221,9 @@ export const ReviewForecastCard: React.FC<ReviewForecastCardProps> = ({
 
                             if (ritmoPrevisto > limiteAtencao) {
                                 return (
-                                    <div className="mt-3 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 flex gap-2 items-start">
-                                        <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                                        <p className="text-[10px] text-amber-800 dark:text-amber-200 leading-relaxed">
+                                    <div className="mt-3 p-2.5 rounded-lg bg-orange-500/10 flex gap-2 items-start">
+                                        <Info className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                                        <p className="text-[10px] text-orange-700 dark:text-orange-300 leading-relaxed">
                                             O ritmo previsto excede sua capacidade habitual. Considere reduzir novas adições para recuperar o equilíbrio.
                                         </p>
                                     </div>
@@ -230,7 +231,7 @@ export const ReviewForecastCard: React.FC<ReviewForecastCardProps> = ({
                             }
 
                             return (
-                                <p className="text-[10px] text-slate-400 mt-2 italic border-l-2 border-slate-200 dark:border-slate-600 pl-2">
+                                <p className="text-[10px] text-content-muted mt-2 italic border-l-2 border-black/10 dark:border-white/10 pl-2">
                                     Esta projeção está levemente acima da sua capacidade habitual.
                                 </p>
                             );

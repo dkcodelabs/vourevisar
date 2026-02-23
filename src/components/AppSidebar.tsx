@@ -1,16 +1,17 @@
-
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
-  SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar
-} from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Calendar, User, Settings, List, Clock, Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid, ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Server, FileSearch, MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp } from "lucide-react";
+  LayoutDashboard, Book, Calendar, Users, Settings, List, Clock,
+  Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
+  ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Monitor, FileSearch,
+  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList
+} from "lucide-react";
 import { UserProfileNav } from './UserProfileNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { motion, AnimatePresence } from 'motion/react';
 
 interface NavItem {
   to: string;
@@ -22,21 +23,21 @@ interface NavItem {
 const getNavItems = (isAdmin: boolean) => {
   const mainItems: NavItem[] = [
     { to: "/dashboard", label: "Painel", icon: LayoutDashboard, end: true },
-    { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: Target },
+    { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: RotateCcw },
     { to: "/revisoes", label: "Revisões", icon: Clock },
-    { to: "/materias", label: "Matérias", icon: BookOpen },
+    { to: "/materias", label: "Matérias", icon: Book },
     { to: "/topicos", label: "Tópicos", icon: List },
-    { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
+    { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
   ];
 
   const adminItems: NavItem[] = isAdmin ? [
     { to: "/gerenciamento", label: "Gerenciamento V1 (Legacy)", icon: Settings },
-    { to: "/admin/users", label: "Gerenciar Usuários", icon: User },
+    { to: "/admin/users", label: "Gerenciar Usuários", icon: Users },
     { to: "/admin/content/import", label: "Importar Questões", icon: FileUp },
     { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
-    { to: "/admin/system", label: "Sistema", icon: Server },
+    { to: "/admin/system", label: "Sistema", icon: Monitor },
     { to: "/admin/security", label: "Segurança", icon: Shield },
-    { to: "/admin/audit", label: "Auditoria", icon: FileSearch },
+    { to: "/admin/audit", label: "Auditoria", icon: ClipboardList },
     { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   ] : [];
 
@@ -47,186 +48,120 @@ export function AppSidebar() {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
   const location = useLocation();
-  const { setOpenMobile, state, toggleSidebar } = useSidebar();
   const isMobile = useIsMobile();
-  const isCollapsed = state === 'collapsed';
+
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
 
   const { mainItems, adminItems } = React.useMemo(() => getNavItems(isAdmin), [isAdmin]);
 
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-  const [showScrollDownIndicator, setShowScrollDownIndicator] = React.useState(false);
-  const [showScrollUpIndicator, setShowScrollUpIndicator] = React.useState(false);
-
-  const checkScroll = React.useCallback(() => {
-    if (scrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      setShowScrollDownIndicator(
-        scrollHeight > clientHeight && Math.ceil(scrollTop + clientHeight) < scrollHeight - 2
-      );
-      setShowScrollUpIndicator(scrollTop > 0);
+  React.useEffect(() => {
+    if (window.innerWidth >= 768 && window.innerWidth < 1024) {
+      setIsCollapsed(true);
     }
   }, []);
 
-  React.useEffect(() => {
-    checkScroll();
-    window.addEventListener('resize', checkScroll);
-    return () => window.removeEventListener('resize', checkScroll);
-  }, [checkScroll, mainItems, adminItems, isCollapsed]);
-
-  // Handle checking scroll after a slight delay, to allow rendering
-  React.useEffect(() => {
-    const timeout = setTimeout(checkScroll, 100);
-    return () => clearTimeout(timeout);
-  }, [checkScroll]);
-
-  // Função para verificar se o item está ativo
   const isItemActive = (item: NavItem) => {
     if (item.end) {
       return location.pathname === item.to;
     }
-
-    // Para tópicos, considerar ativo se estiver em /topicos ou /materias/*/topicos
     if (item.to === '/topicos') {
       return location.pathname === '/topicos' || location.pathname.includes('/topicos');
     }
-
-    // Para matérias, considerar ativo apenas se estiver exatamente em /materias
     if (item.to === '/materias') {
       return location.pathname === '/materias';
     }
-
     return location.pathname.startsWith(item.to);
-  };
-
-  // Função para fechar o sidebar em mobile quando navegar
-  const handleNavClick = () => {
-    if (isMobile) {
-      setOpenMobile(false);
-    }
   };
 
   const renderNavItems = (items: NavItem[]) => (
     items.map((item) => {
       const isActive = isItemActive(item);
-      // Only apply collapsed styles on desktop, never on mobile
       const showIconOnly = isCollapsed && !isMobile;
 
       return (
-        <SidebarMenuItem key={item.to} className="w-full">
-          <NavLink to={item.to} end={item.end ?? false} onClick={handleNavClick} className="w-full block">
-            <SidebarMenuButton
-              isActive={isActive}
-              asChild
-              tooltip={showIconOnly ? item.label : undefined}
-              className={`w-full h-10 px-2 text-[13px] font-medium transition-all rounded-lg relative group/nav flex items-center gap-2 overflow-hidden ${showIconOnly ? 'justify-center' : 'justify-start'} ${isActive
-                ? 'text-[#EAB308] bg-[#241A0B] !bg-[#241A0B] hover:bg-[#241A0B]' // Force yellow text and brown bg
-                : 'text-slate-200 hover:text-white hover:bg-slate-800/50'
-                }`}
+        <li key={item.to} className="w-full">
+          <NavLink to={item.to} end={item.end ?? false} className="w-full block">
+            <div
+              title={showIconOnly ? item.label : undefined}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group ${isActive ? 'nav-item-active' : 'text-sidebar-muted hover:bg-primary/5 hover:text-primary'
+                } ${showIconOnly ? 'justify-center px-0' : ''}`}
             >
-              <div className={`flex items-center w-full ${showIconOnly ? 'justify-center' : ''}`}>
-                {/* Indicador lateral amarelo fluído para itens ativos - agora sempre visível */}
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-[#EAB308] rounded-r-md"></div>
-                )}
-                <item.icon size={22} className={`flex-shrink-0 ${isActive ? 'text-[#EAB308]' : 'text-slate-200 group-hover/nav:text-white'} ${showIconOnly ? '' : 'mr-3'}`} />
-                <span className={`text-[13px] font-medium truncate ${showIconOnly ? 'hidden' : ''} ${isActive ? 'text-[#EAB308]' : 'text-slate-200 group-hover/nav:text-white'}`}>{item.label}</span>
-              </div>
-            </SidebarMenuButton>
+              <item.icon size={22} className={isActive ? 'text-primary' : ''} />
+              {!showIconOnly && <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>}
+            </div>
           </NavLink>
-        </SidebarMenuItem>
+        </li>
       );
     })
   );
 
   return (
-    <Sidebar
-      collapsible="icon"
-      variant="floating"
-      className="transition-all duration-300 md:!left-4 md:!top-[88px] md:!bottom-4 md:!h-[calc(100vh-104px)] [&>div[data-sidebar=sidebar]]:!rounded-2xl md:!rounded-2xl border-none shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-2xl z-[90]"
+    <motion.aside
+      initial={false}
+      animate={{ width: isCollapsed && !isMobile ? 80 : (isMobile ? '100%' : 260) }}
+      className={`flex flex-col bg-sidebar shrink-0 overflow-hidden relative transition-colors duration-300 z-[90] ${isMobile ? 'w-full h-full rounded-none border-none' : 'h-[calc(100vh-32px)] md:h-[calc(100vh-48px)] rounded-3xl border border-white/5'
+        }`}
     >
-      <SidebarHeader
-        className={`relative p-3 h-[60px] flex flex-row items-center justify-between border-b border-slate-800/80 z-20`}
-      >
-        {/* Up Indicator */}
-        <div className={`absolute bottom-0 left-0 w-full flex justify-center pointer-events-none z-30 transition-opacity duration-300 translate-y-1/2 ${showScrollUpIndicator ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="bg-[#181A1C] border border-slate-700/80 rounded-full p-0.5 shadow-lg flex items-center justify-center">
-            <ChevronUp size={14} className="text-slate-400 animate-bounce" />
+      <div className="p-6 flex items-center justify-between">
+        <div className={`flex items-center gap-3 overflow-hidden ${isCollapsed && !isMobile ? 'justify-center w-full' : ''}`}>
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(0,191,255,0.3)]">
+            <RotateCcw className="text-black font-bold" size={24} strokeWidth={2.5} />
           </div>
-        </div>
-
-        {/* Logo Section */}
-        <div className={`flex items-center gap-2 w-full ${isCollapsed && !isMobile ? 'justify-center' : 'justify-start'}`}>
-          <div className="w-7 h-7 bg-[#EAB308] rounded-md flex items-center justify-center shrink-0 shadow-sm shadow-[#EAB308]/20">
-            <RotateCcw className="text-black/90 font-bold" size={16} strokeWidth={2.5} />
-          </div>
-          {!isCollapsed && (
-            <span className="font-bold text-lg tracking-tight text-white">EduFlow</span>
+          {!(isCollapsed && !isMobile) && (
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-sidebar-foreground font-extrabold text-2xl tracking-tight whitespace-nowrap"
+            >
+              VOU<span className="text-primary">REVISAR</span>
+            </motion.span>
           )}
         </div>
 
-        {/* Desktop Collapse Toggle */}
-        <div className={`flex items-center justify-end`}>
+        {!isMobile && (
           <button
-            onClick={toggleSidebar}
-            className="text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center p-1 rounded-md"
-            title={isCollapsed ? "Expandir" : "Recolher"}
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1.5 hover:bg-white/5 rounded-lg transition-colors text-sidebar-muted shrink-0"
           >
-            {isCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
           </button>
-        </div>
-      </SidebarHeader>
+        )}
+      </div>
 
-      <SidebarContent
-        ref={scrollRef}
-        onScroll={checkScroll}
-        className="p-2 bg-transparent [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-      >
-        <SidebarGroup>
-          <SidebarMenu className="space-y-0.5">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-3 space-y-8 mt-2">
+        <nav className="space-y-1">
+          <ul className="flex w-full min-w-0 flex-col gap-1">
             {renderNavItems(mainItems)}
-          </SidebarMenu>
-        </SidebarGroup>
+          </ul>
+        </nav>
 
         {isAdmin && (
-          <SidebarGroup className="mt-3 border-t border-slate-800/50 pt-3">
-            {isCollapsed && !isMobile && (
-              <div className="mx-2 my-2 h-[1px] bg-slate-800/50" />
-            )}
-
-            <SidebarMenu className="space-y-0.5">
-              {renderNavItems(adminItems)}
-            </SidebarMenu>
-          </SidebarGroup>
+          <div className="pt-4 border-t border-white/5">
+            <nav className="space-y-1">
+              <ul className="flex w-full min-w-0 flex-col gap-1">
+                {renderNavItems(adminItems)}
+              </ul>
+            </nav>
+          </div>
         )}
-      </SidebarContent>
+      </div>
 
-      {user && (() => {
-        // Only show compact (avatar only) when collapsed AND on desktop
-        const showCompactProfile = isCollapsed && !isMobile;
-        return (
-          <SidebarFooter className="relative p-3 mt-auto border-t border-slate-800/80 bg-transparent z-20">
-            {/* Down Indicator */}
-            <div className={`absolute top-0 left-0 w-full flex justify-center pointer-events-none z-30 transition-opacity duration-300 -translate-y-1/2 ${showScrollDownIndicator ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="bg-[#181A1C] border border-slate-700/80 rounded-full p-0.5 shadow-lg flex items-center justify-center">
-                <ChevronDown size={14} className="text-slate-400 animate-bounce" />
-              </div>
+      {user && (
+        <div className="p-4 mt-auto border-t border-white/5">
+          {isCollapsed && !isMobile ? (
+            <div className="flex justify-center">
+              <Avatar className="h-9 w-9 border border-white/10 shadow-sm">
+                <AvatarImage src={undefined} alt="Avatar do usuário" />
+                <AvatarFallback className="bg-primary/20 text-primary text-[12px] font-bold">
+                  {user?.email?.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
             </div>
-
-            {showCompactProfile ? (
-              <div className="flex justify-center">
-                <Avatar className="h-8 w-8 border border-slate-700">
-                  <AvatarImage src={undefined} alt="Avatar do usuário" />
-                  <AvatarFallback className="bg-slate-800 text-white text-[11px] font-medium">
-                    {user?.email?.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            ) : (
-              <UserProfileNav />
-            )}
-          </SidebarFooter>
-        );
-      })()}
-    </Sidebar>
+          ) : (
+            <UserProfileNav />
+          )}
+        </div>
+      )}
+    </motion.aside>
   );
 }

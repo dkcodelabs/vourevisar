@@ -377,7 +377,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
     <>
       {/* Backdrop */}
       <div
-        className="fixed top-[72px] left-0 right-0 bottom-0 bg-slate-900/10 backdrop-blur-[2px] z-[40]"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[40]"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -389,7 +389,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
         aria-modal="true"
         aria-label="Central do Aluno"
         tabIndex={-1}
-        className="fixed top-[72px] right-0 h-[calc(100vh-72px)] w-full sm:w-[400px] md:w-[420px] bg-white dark:bg-slate-900 shadow-2xl z-[50] flex flex-col border-l border-slate-100 dark:border-slate-800 animate-in slide-in-from-right duration-300 outline-none overscroll-behavior-contain"
+        className="fixed top-0 right-0 h-screen w-full sm:w-[400px] md:w-[420px] bg-white dark:bg-[#111624] shadow-2xl z-[50] flex flex-col border-l border-white/5 animate-in slide-in-from-right duration-300 outline-none overscroll-behavior-contain"
       >
         {/* ── Sticky Header + Tabs ─────────────────────────────── */}
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900">
