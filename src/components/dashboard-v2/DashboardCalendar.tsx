@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfDay, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Subject } from '@/types';
@@ -80,39 +79,37 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     };
 
     return (
-        <Card className={cn("flex flex-col h-full border-0 shadow-sm", className)}>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100">
-                    <Calendar className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+        <div className={cn("flex flex-col h-full glow-card p-6 rounded-3xl relative overflow-hidden group", className)}>
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2 text-sm font-bold text-content-main">
+                    <CalendarIcon className="h-4 w-4 text-primary" />
                     Calendário de Estudos
-                </CardTitle>
+                </div>
 
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-lg">
+                <div className="flex items-center gap-1 rounded-lg">
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => navigateMonth('prev')}
-                        className="h-7 w-7 p-0 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm rounded-md"
+                        className="h-7 w-7 p-0 hover:bg-black/5 dark:hover:bg-white/5 rounded-md text-content-main transition-colors"
                     >
-                        <ChevronLeft className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                        <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 min-w-[100px] text-center capitalize">
-                        {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+                    <span className="text-[11px] font-bold text-content-main min-w-[90px] text-center uppercase tracking-widest px-2">
+                        {format(currentMonth, 'MMMM', { locale: ptBR })}
                     </span>
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => navigateMonth('next')}
-                        // Bloqueia meses futuros se não houver dados, mas geralmente deixamos aberto
-                        // disabled={isSameMonth(currentMonth, new Date())} 
-                        className="h-7 w-7 p-0 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm rounded-md"
+                        className="h-7 w-7 p-0 hover:bg-black/5 dark:hover:bg-white/5 rounded-md text-content-main transition-colors"
                     >
-                        <ChevronRight className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                        <ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>
-            </CardHeader>
+            </div>
 
-            <CardContent className="flex-1 flex flex-col justify-center">
+            <div className="flex-1 flex flex-col justify-center">
                 {/* Dias da semana */}
                 <div className="grid grid-cols-7 gap-1 mb-2">
                     {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, index) => (
@@ -134,15 +131,14 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                             <button
                                 key={day.toISOString()}
                                 onClick={() => onDayClick && onDayClick(day)}
-                                className={`
-                      aspect-square rounded-lg flex flex-col items-center justify-center text-xs font-medium transition-all duration-200 relative
-                      ${isToday
-                                        ? 'bg-blue-50 text-blue-700 border border-blue-500 font-semibold shadow-sm'
+                                className={cn(
+                                    "aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-medium transition-all duration-200 relative",
+                                    isToday
+                                        ? "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/20"
                                         : showAsStudied
-                                            ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-                                            : 'bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100'
-                                    }
-                    `}
+                                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold hover:bg-emerald-500/20"
+                                            : "text-content-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-content-main"
+                                )}
                             >
                                 <span className="leading-none">{format(day, 'd')}</span>
 
@@ -183,7 +179,7 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                         <span>Futura</span>
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 };

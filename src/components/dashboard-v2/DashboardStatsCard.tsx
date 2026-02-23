@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardStats } from '@/hooks/useDashboardStats';
 import {
     Target, CheckCircle2, CalendarDays,
@@ -20,21 +19,21 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
     const allTimeStats = stats.general;
 
     return (
-        <Card className={cn("flex flex-col h-full border-0 shadow-sm", className)}>
-            <CardHeader className="pb-2 space-y-0 flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
-                    <Target className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+        <div className={cn("flex flex-col h-full glow-card p-6 rounded-3xl relative overflow-hidden group", className)}>
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2 text-sm font-bold text-content-main">
+                    <Target className="h-4 w-4 text-primary" />
                     Estatísticas
-                </CardTitle>
+                </div>
 
-                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+                <div className="flex gap-1">
                     <button
                         onClick={() => setViewMode('month')}
                         className={cn(
-                            "px-2 py-1 text-[10px] font-semibold rounded-md transition-all duration-200",
+                            "px-3 py-1 text-[11px] font-bold rounded-md transition-all duration-200 uppercase tracking-widest border",
                             viewMode === 'month'
-                                ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
-                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                                ? "bg-primary/10 text-primary border-primary/20"
+                                : "text-content-muted hover:text-content-main border-transparent hover:bg-black/5 dark:hover:bg-white/5"
                         )}
                     >
                         Mês
@@ -42,24 +41,24 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                     <button
                         onClick={() => setViewMode('general')}
                         className={cn(
-                            "px-2 py-1 text-[10px] font-semibold rounded-md transition-all duration-200",
+                            "px-3 py-1 text-[11px] font-bold rounded-md transition-all duration-200 uppercase tracking-widest border",
                             viewMode === 'general'
-                                ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
-                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                                ? "bg-primary/10 text-primary border-primary/20"
+                                : "text-content-muted hover:text-content-main border-transparent hover:bg-black/5 dark:hover:bg-white/5"
                         )}
                     >
                         Geral
                     </button>
                 </div>
-            </CardHeader>
+            </div>
 
-            <CardContent className="pt-0 p-3">
+            <div className="flex-1">
                 <div className="space-y-1.5">
                     {viewMode === 'month' ? (
                         <>
                             {/* Aba Mês - Compacto */}
                             {/* 1. Tópicos Iniciados */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-sm">📚</span>
                                     <span className="text-[10px] font-medium text-slate-600">Tópicos Iniciados</span>
@@ -68,7 +67,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 2. Revisões Feitas */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <CheckCircle2 className="h-3 w-3 text-green-500" />
                                     <span className="text-[10px] font-medium text-slate-600">Revisões Feitas</span>
@@ -77,7 +76,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 3. Revisões para Hoje */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <CalendarDays className="h-3 w-3 text-yellow-500" />
                                     <span className="text-[10px] font-medium text-slate-600">Para Hoje</span>
@@ -86,7 +85,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 4. Revisões Atrasadas */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <AlertCircle className="h-3 w-3 text-red-500" />
                                     <span className="text-[10px] font-medium text-slate-600">Atrasadas</span>
@@ -95,7 +94,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 5. Revisões Futuras */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-sm">🔮</span>
                                     <span className="text-[10px] font-medium text-slate-600">Revisões Futuras</span>
@@ -104,7 +103,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 6. Total de Revisões */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <BarChart3 className="h-3 w-3 text-blue-500" />
                                     <span className="text-[10px] font-medium text-slate-600">Total de Revisões</span>
@@ -113,7 +112,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 7. Dias Ativos */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-sm">✅</span>
                                     <span className="text-[10px] font-medium text-slate-600">Dias Ativos</span>
@@ -125,7 +124,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                         <>
                             {/* Aba Geral - Compacto */}
                             {/* 1. Tópicos Iniciados */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-sm">📚</span>
                                     <span className="text-[10px] font-medium text-slate-600">Total Tópicos</span>
@@ -134,7 +133,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 2. Revisões Realizadas */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <CheckCircle2 className="h-3 w-3 text-green-500" />
                                     <span className="text-[10px] font-medium text-slate-600">Total Revisões</span>
@@ -143,7 +142,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 3. Média diária */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <TrendingUp className="h-3 w-3 text-purple-500" />
                                     <span className="text-[10px] font-medium text-slate-600">Média Diária</span>
@@ -157,7 +156,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 4. Revisões Atrasadas */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <AlertCircle className="h-3 w-3 text-red-500" />
                                     <span className="text-[10px] font-medium text-slate-600">Revisões Atrasadas</span>
@@ -166,7 +165,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 5. Revisões Futuras */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-sm">🔮</span>
                                     <span className="text-[10px] font-medium text-slate-600">Revisões Futuras</span>
@@ -175,7 +174,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 6. Total de Revisões */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <BarChart3 className="h-3 w-3 text-blue-500" />
                                     <span className="text-[10px] font-medium text-slate-600">Total de Revisões</span>
@@ -184,7 +183,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                             </div>
 
                             {/* 7. Dias Ativos */}
-                            <div className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-md transition-colors">
+                            <div className="flex items-center justify-between px-2 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-sm">✅</span>
                                     <span className="text-[10px] font-medium text-slate-600">Dias Ativos</span>
@@ -194,7 +193,7 @@ export const DashboardStatsCard: React.FC<DashboardStatsCardProps> = ({ stats, s
                         </>
                     )}
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 };
