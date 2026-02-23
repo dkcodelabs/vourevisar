@@ -30,7 +30,6 @@ export const DashboardInsights = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mt-6">
             {/* Card 1: Foco Agora */}
             <div className="glow-card p-6 rounded-3xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:opacity-100 transition-opacity"></div>
                 <div className="flex items-center justify-between mb-6">
                     <span className="data-label">Foco Necessário</span>
                     <Brain className="text-red-500 opacity-80" size={20} />
@@ -55,7 +54,6 @@ export const DashboardInsights = () => {
 
             {/* Card 2: Vitória Rápida */}
             <div className="glow-card p-6 rounded-3xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:opacity-100 transition-opacity"></div>
                 <div className="flex items-center justify-between mb-6">
                     <span className="data-label">Vitória Rápida</span>
                     <Zap className="text-emerald-500 opacity-80" size={20} />
@@ -80,7 +78,6 @@ export const DashboardInsights = () => {
 
             {/* Card 3: Insight de Produtividade */}
             <div className="glow-card p-6 rounded-3xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:opacity-100 transition-opacity"></div>
                 <div className="flex items-center justify-between mb-6">
                     <span className="data-label">Horário de Ouro</span>
                     <Clock className="text-primary opacity-80" size={20} />

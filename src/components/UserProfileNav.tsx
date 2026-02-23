@@ -74,7 +74,7 @@ const UserProfileNavComponent = () => {
   }
 
   const userInitials = profile?.name
-    ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase()
+    ? profile.name.trim().split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
     : user.email?.charAt(0).toUpperCase() || 'U';
 
   // Usar o novo sistema integrado

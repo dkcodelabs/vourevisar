@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-primary: #00BFFF;
+  --color-secondary: #FF8C00;
+  --color-deep-slate: var(--sidebar-bg);
+  --color-card-slate: var(--card-slate);
+  --color-bg-main: var(--bg-main);
+  --color-content-main: var(--text-white);
+  --color-content-muted: var(--text-slate-400);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-muted: var(--sidebar-muted);
+}
+
+:root {
+  --bg-main: #f8fafc;
+  --text-main: #475569;
+  --deep-slate: #f1f5f9;
+  --card-slate: #ffffff;
+  --border-color: rgba(0, 0, 0, 0.06);
+  --bg-gradient-start: #ffffff;
+  --bg-gradient-end: #f8fafc;
+  --text-white: #0f172a;
+  --text-slate-500: #64748b;
+  --text-slate-400: #475569;
+  
+  /* Sidebar always dark */
+  --sidebar-bg: #1A1A1A;
+  --sidebar-text: #ffffff;
+  --sidebar-muted: #94a3b8;
+}
+
+.dark {
+  --bg-main: #121212;
+  --text-main: #cbd5e1;
+  --deep-slate: #1A1A1A;
+  --card-slate: #282828;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --bg-gradient-start: #1A1A1A;
+  --bg-gradient-end: #121212;
+  --text-white: #ffffff;
+  --text-slate-500: #64748b;
+  --text-slate-400: #94a3b8;
+  
+  --sidebar-bg: #1A1A1A;
+  --sidebar-text: #ffffff;
+  --sidebar-muted: #94a3b8;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-main font-sans transition-colors duration-300;
+    color: var(--text-main);
+    background-image: radial-gradient(circle at 50% 0%, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card-slate/70 backdrop-blur-xl border shadow-2xl transition-colors duration-300;
+    border-color: var(--border-color);
+  }
+  
+  .glow-card {
+    @apply bg-card-slate/70 backdrop-blur-xl border shadow-2xl transition-all duration-300 hover:border-primary/30 hover:shadow-primary/5;
+    border-color: var(--border-color);
+  }
+
+  .nav-item-active {
+    @apply bg-primary/10 text-primary relative;
+    background: radial-gradient(circle at left, rgba(0, 191, 255, 0.1) 0%, transparent 70%);
+  }
+
+  .nav-item-active::before {
+    content: '';
+    @apply absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-primary rounded-r shadow-[0_0_10px_#00BFFF];
+  }
+
+  .data-label {
+    @apply text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500;
+  }
+}
+
+/* Custom scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

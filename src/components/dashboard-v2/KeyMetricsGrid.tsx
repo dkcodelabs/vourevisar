@@ -34,9 +34,7 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
                     {/* Header */}
                     <div className="flex items-center justify-between mb-6">
                         <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Revisões Pendentes</span>
-                        <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 rounded-2xl flex items-center justify-center">
-                            <ListChecks className="w-5 h-5 text-orange-500" />
-                        </div>
+                        <ListChecks className="w-5 h-5 text-orange-500" />
                     </div>
 
                     {/* Main Number */}
@@ -81,7 +79,7 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
                         </div>
                         <div className="w-full bg-slate-100 dark:bg-white/5 h-2.5 rounded-full overflow-hidden">
                             <div
-                                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-orange-500 transition-all duration-500 shadow-[0_0_10px_rgba(249,115,22,0.3)]"
+                                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-orange-500 transition-all duration-500"
                                 style={{ width: `${Math.max(5, (reviews.today / Math.max(1, reviews.overdue + reviews.today)) * 100)}%` }}
                             ></div>
                         </div>
@@ -95,9 +93,7 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
                     {/* Header */}
                     <div className="flex items-center justify-between mb-8">
                         <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Progresso & Consistência</span>
-                        <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center">
-                            <CheckCircle2 className="w-5 h-5 text-indigo-500" />
-                        </div>
+                        <CheckCircle2 className="w-5 h-5 text-indigo-500" />
                     </div>
 
                     <div className="space-y-6 flex-1">
@@ -135,10 +131,8 @@ export const KeyMetricsGrid: React.FC<KeyMetricsGridProps> = ({
 
                         {/* Dias de Estudo */}
                         <div className="flex items-center justify-between pt-2">
-                            <div className="flex items-center gap-2.5">
-                                <CalendarDays className="w-5 h-5 text-emerald-500" />
-                                <span className="text-[13px] font-bold text-slate-400 dark:text-slate-500">Dias Ativos</span>
-                            </div>
+                            <CalendarDays className="w-5 h-5 text-emerald-500" />
+                            <span className="text-[13px] font-bold text-slate-400 dark:text-slate-500">Dias Ativos</span>
                             <div className="flex items-center gap-3">
                                 <span className="text-[15px] font-black text-[#1a2332] dark:text-slate-200">
                                     {activeDays.current}/{activeDays.total}

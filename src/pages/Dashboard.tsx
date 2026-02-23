@@ -112,7 +112,7 @@ const Dashboard = () => {
 
     return (
         <div className="pb-10 h-full w-full">
-            <div className="container mx-auto pb-8 pt-0 max-w-[1440px]">
+            <div className="w-full pb-8 pt-0">
 
                 {subjects.length === 0 ? (
                     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">

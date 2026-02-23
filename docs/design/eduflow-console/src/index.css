@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-primary: #00BFFF;
+  --color-secondary: #FF8C00;
+  --color-deep-slate: #1A1A1A;
+  --color-card-slate: #282828;
+  --color-bg-main: #121212;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-main text-slate-300 font-sans;
+    background-image: radial-gradient(circle at 50% 0%, #1A1A1A 0%, #121212 100%);
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card-slate/70 backdrop-blur-xl border border-white/5 shadow-2xl;
+  }
+  
+  .glow-card {
+    @apply bg-card-slate/70 backdrop-blur-xl border border-white/5 shadow-2xl transition-all duration-300 hover:border-primary/30 hover:shadow-primary/5;
+  }
+
+  .nav-item-active {
+    @apply bg-primary/10 text-primary relative;
+    background: radial-gradient(circle at left, rgba(0, 191, 255, 0.1) 0%, transparent 70%);
+  }
+
+  .nav-item-active::before {
+    content: '';
+    @apply absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-primary rounded-r shadow-[0_0_10px_#00BFFF];
+  }
+
+  .data-label {
+    @apply text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500;
+  }
+}
+
+/* Custom scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

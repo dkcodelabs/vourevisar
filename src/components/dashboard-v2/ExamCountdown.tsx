@@ -84,9 +84,7 @@ export const ExamCountdown = () => {
             >
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-                            <Calendar className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        </div>
+                        <Calendar className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                         <h3 className="font-semibold text-slate-800 dark:text-white">Data da Prova</h3>
                     </div>
                     <button
@@ -165,7 +163,6 @@ export const ExamCountdown = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="glow-card p-6 rounded-3xl flex flex-col h-full relative overflow-hidden group"
             >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity"></div>
 
                 <div className="flex items-center justify-between mb-6 relative z-10">
                     <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Data da Prova</span>
@@ -197,7 +194,6 @@ export const ExamCountdown = () => {
             animate={{ opacity: 1, y: 0 }}
             className="glow-card p-8 rounded-3xl flex flex-col h-full relative overflow-hidden group"
         >
-            <div className={`absolute top-0 right-0 w-32 h-32 ${colors.bg} rounded-full -mr-16 -mt-16 blur-2xl group-hover:opacity-100 transition-opacity`}></div>
 
             <div className="flex items-center justify-between mb-10 relative z-10">
                 <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Data da Prova</span>
@@ -232,7 +228,7 @@ export const ExamCountdown = () => {
                             initial={{ width: 0 }}
                             animate={{ width: `${countdown.progressPercentage}%` }}
                             transition={{ duration: 1, ease: 'easeOut' }}
-                            className={`h-full bg-orange-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.5)]`}
+                            className={`h-full bg-orange-500 rounded-full`}
                         />
                     </div>
                 </div>

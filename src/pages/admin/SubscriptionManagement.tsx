@@ -41,6 +41,7 @@ interface UserWithSubscription {
     is_active: boolean;
     days_remaining: number | null;
     subscription_ends_at: string | null;
+    avatar_url?: string | null;
 }
 
 const SubscriptionManagement = () => {
@@ -60,7 +61,7 @@ const SubscriptionManagement = () => {
 
             const { data: profiles, error: profilesError } = await supabase
                 .from('profiles')
-                .select('id, email, name')
+                .select('id, email, name, avatar_url')
                 .order('email');
 
             if (profilesError) throw profilesError;
@@ -103,12 +104,13 @@ const SubscriptionManagement = () => {
                     id: user.id,
                     email: user.email,
                     name: user.name || user.email?.split('@')[0] || 'Sem nome',
-                    role: role as any,
+                    role: role as UserWithSubscription['role'],
                     subscription_plan: subscription?.plan || null,
                     subscription_status: subscription?.status || null,
                     is_active: isActive,
                     days_remaining: daysRemaining,
-                    subscription_ends_at: subscription?.subscription_ends_at || subscription?.trial_ends_at || null
+                    subscription_ends_at: subscription?.subscription_ends_at || subscription?.trial_ends_at || null,
+                    avatar_url: user.avatar_url || null
                 };
             });
 
@@ -176,7 +178,7 @@ const SubscriptionManagement = () => {
                 const { error: updateError } = await supabase
                     .from('user_subscriptions')
                     .update({
-                        plan: plan as any,
+                        plan: plan as 'free_trial' | 'monthly' | 'annual',
                         status: 'active',
                         subscription_started_at: new Date().toISOString(),
                         subscription_ends_at: subscriptionEndDate.toISOString(),
@@ -189,7 +191,7 @@ const SubscriptionManagement = () => {
                 if (updateError) {
                     const { error: insertError } = await supabase.from('user_subscriptions').insert({
                         user_id: userId,
-                        plan: plan as any,
+                        plan: plan as 'free_trial' | 'monthly' | 'annual',
                         status: 'active',
                         subscription_started_at: new Date().toISOString(),
                         subscription_ends_at: subscriptionEndDate.toISOString(),
@@ -322,9 +324,20 @@ const SubscriptionManagement = () => {
                         filteredUsers.map(user => (
                             <div key={user.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold border border-slate-200">
-                                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                                    </div>
+                                    {user.avatar_url ? (
+                                        <img
+                                            src={user.avatar_url}
+                                            alt={user.name || 'User'}
+                                            className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                                            referrerPolicy="no-referrer"
+                                        />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold border border-slate-200">
+                                            {user.name && user.name !== 'Sem nome'
+                                                ? user.name.trim().split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+                                                : (user.email ? user.email.charAt(0).toUpperCase() : 'U')}
+                                        </div>
+                                    )}
                                     <div>
                                         <div className="font-medium text-slate-900 flex items-center gap-2">
                                             {user.name}
@@ -347,7 +360,7 @@ const SubscriptionManagement = () => {
 
                                     <Select
                                         disabled={processingUserId === user.id || user.role === 'owner'}
-                                        onValueChange={(value) => changeSubscription(user.id, value as any)}
+                                        onValueChange={(value) => changeSubscription(user.id, value as 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate')}
                                     >
                                         <SelectTrigger className="w-[180px] h-9 text-xs">
                                             <SelectValue placeholder="Ações de Assinatura" />
