@@ -144,7 +144,7 @@ export const ExamCountdown = () => {
             >
                 <div>
                     <span className="data-label block mb-1">Data da Prova</span>
-                    <span className="text-2xl font-black text-foreground">Definir Meta</span>
+                    <span className="text-xl font-black text-foreground">Definir Meta</span>
                     <span className="text-[10px] font-bold text-primary opacity-60 uppercase block mt-1">Quando é sua prova?</span>
                 </div>
                 <Target className="w-6 h-6 text-primary/50 group-hover:text-primary transition-colors" />
@@ -161,11 +161,11 @@ export const ExamCountdown = () => {
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glow-card p-6 rounded-3xl flex flex-col h-full relative overflow-hidden group"
+                className="glow-card p-5 rounded-3xl flex flex-col h-full relative overflow-hidden group bg-white dark:bg-[#181A1C]"
             >
 
-                <div className="flex items-center justify-between mb-6 relative z-10">
-                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Data da Prova</span>
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                    <span className="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Data da Prova</span>
                     <button
                         onClick={() => setIsEditing(true)}
                         className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors flex items-center gap-1"
@@ -174,8 +174,8 @@ export const ExamCountdown = () => {
                     </button>
                 </div>
 
-                <div className="flex flex-col gap-1 relative z-10">
-                    <h4 className="text-2xl font-black text-foreground">
+                <div className="flex flex-col gap-1 relative z-10 flex-1 justify-end">
+                    <h4 className="text-xl font-black text-foreground">
                         Realizada
                     </h4>
                     <div className="flex flex-col gap-1 mt-1">
@@ -192,11 +192,11 @@ export const ExamCountdown = () => {
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glow-card p-8 rounded-3xl flex flex-col h-full relative overflow-hidden group"
+            className="glow-card p-5 rounded-3xl flex flex-col h-full relative overflow-hidden group bg-white dark:bg-[#181A1C]"
         >
 
-            <div className="flex items-center justify-between mb-10 relative z-10">
-                <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Data da Prova</span>
+            <div className="flex items-center justify-between mb-4 relative z-10">
+                <span className="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Data da Prova</span>
                 <button
                     onClick={() => {
                         setSelectedDate(settings?.data_prova_meta || '');
@@ -210,7 +210,7 @@ export const ExamCountdown = () => {
 
             <div className="flex flex-col gap-1 relative z-10 flex-1 justify-end">
                 <div className="flex items-baseline gap-2">
-                    <span className="text-6xl font-black text-[#1a2332] dark:text-white tracking-tight">
+                    <span className="text-4xl font-black text-[#1a2332] dark:text-white tracking-tight">
                         {countdown.daysRemaining}
                     </span>
                     <span className={`text-[13px] font-bold text-orange-600 dark:text-orange-500 uppercase`}>
@@ -222,8 +222,8 @@ export const ExamCountdown = () => {
                 </div>
 
                 {/* Barra de progresso */}
-                <div className="mt-8 mb-4">
-                    <div className="h-2 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                <div className="mt-4 mb-2">
+                    <div className="h-1.5 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
                         <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${countdown.progressPercentage}%` }}
@@ -233,9 +233,9 @@ export const ExamCountdown = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 mt-4">
+                <div className="flex items-center gap-2 mt-2">
                     <Calendar className="w-4 h-4 text-slate-400 dark:text-white/80" />
-                    <span className="text-[13px] font-bold text-[#1a2332] dark:text-white/90 uppercase">
+                    <span className="text-[11px] font-bold text-[#1a2332] dark:text-white/90 uppercase">
                         {formatDate(countdown.examDate)}
                     </span>
                 </div>

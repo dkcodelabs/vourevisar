@@ -8,7 +8,6 @@ interface AnimatedLogoProps {
 
 export function AnimatedLogo({ collapsed = false, className = '', onClick }: AnimatedLogoProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const isFirstRender = useRef(true);
 
     const replayAnimations = () => {
         const container = containerRef.current;
@@ -38,23 +37,19 @@ export function AnimatedLogo({ collapsed = false, className = '', onClick }: Ani
         replayAnimations();
     };
 
-    // When expanding the menu (collapsed goes false -> true is minimizing, true -> false is expanding)
-    // We want to replay the animation when expanding
+    // Replay animations on mount (with delay for animated containers like mobile drawer)
+    // and whenever the sidebar expands (collapsed -> false)
     useEffect(() => {
-        if (isFirstRender.current) {
-            isFirstRender.current = false;
-            return;
-        }
-
-        if (!collapsed) {
+        const timer = setTimeout(() => {
             replayAnimations();
-        }
+        }, 100);
+        return () => clearTimeout(timer);
     }, [collapsed]);
 
     return (
         <div
             ref={containerRef}
-            className={`relative cursor-pointer flex items-center gap-3 overflow-hidden ${className}`}
+            className={`relative cursor-pointer flex items-center gap-2 overflow-hidden ${className}`}
             onClick={handleReplay}
             title="Clique para reiniciar a animação"
         >
@@ -103,7 +98,7 @@ export function AnimatedLogo({ collapsed = false, className = '', onClick }: Ani
             </style>
 
             {/* O ícone SVG (Tamanho Fixo) */}
-            <div className="w-16 h-10 shrink-0 flex items-center justify-center">
+            <div className="w-14 h-9 shrink-0 flex items-center justify-center">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 400 250"
@@ -140,7 +135,7 @@ export function AnimatedLogo({ collapsed = false, className = '', onClick }: Ani
                         filter="url(#neonGlow)" />
 
                     <path className="graph-line"
-                        d="M 20 200 L 130 60 L 240 180 L 380 20"
+                        d="M 20 180 L 130 50 L 240 160 L 380 20"
                         stroke="url(#neonGradientGraph)"
                         strokeWidth="24"
                         strokeLinecap="round"
@@ -153,8 +148,8 @@ export function AnimatedLogo({ collapsed = false, className = '', onClick }: Ani
 
             {/* O Texto em HTML (aparece apenas quando o menu estive aberto) */}
             {!collapsed && (
-                <div className="animate-fade-up-text flex items-center whitespace-nowrap overflow-hidden">
-                    <span className="text-sidebar-foreground font-extrabold text-[22px] tracking-tight whitespace-nowrap font-sans">
+                <div className="animate-fade-up-text flex items-center whitespace-nowrap overflow-visible">
+                    <span className="text-sidebar-foreground font-extrabold text-[20px] tracking-tight whitespace-nowrap font-sans">
                         <span className="font-medium opacity-90">vou</span><span className="text-primary">Revisar</span>
                     </span>
                 </div>

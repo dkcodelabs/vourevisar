@@ -211,7 +211,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
       <button
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        className={`flex items-center justify-center gap-1.5 px-3 h-8 rounded-full transition-all duration-300 focus:outline-none focus:ring-0 active:scale-95 group ${justReturned ? feedbackClasses : buttonClasses}`}
+        className={`flex items-center justify-center gap-1.5 px-3 h-9 lg:h-10 rounded-full transition-all duration-300 focus:outline-none focus:ring-0 active:scale-95 group ${justReturned ? feedbackClasses : buttonClasses}`}
         style={activeTopicId && !justReturned && !isPaused ? { animationDuration: '3s' } : {}}
         title={getTitle()}
       >

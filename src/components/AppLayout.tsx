@@ -175,14 +175,14 @@ export const AppLayout = () => {
 
   return (
     // App Shell Global Area - Fixed Shell, Scrollable Main Card
-    <div className="min-h-screen flex p-4 gap-4 overflow-hidden transition-colors duration-300 font-sans">
+    <div className="h-[100dvh] flex sm:p-4 gap-4 overflow-hidden transition-colors duration-300 font-sans bg-background">
       {/* Sidebar Desktop Card */}
-      <div className="hidden md:flex h-[calc(100vh-2rem)] shrink-0 z-20">
+      <div className="hidden md:flex h-[calc(100dvh-2rem)] shrink-0 z-20">
         <AppSidebar />
       </div>
 
       {/* Main Content Area Card */}
-      <main className="flex-1 h-[calc(100vh-2rem)] glass-card rounded-[24px] relative transition-colors duration-300 flex w-full min-w-0 overflow-hidden">
+      <main className="flex-1 h-[100dvh] sm:h-[calc(100dvh-2rem)] glass-card rounded-none sm:rounded-[24px] relative transition-colors duration-300 flex w-full min-w-0 overflow-hidden">
 
         {/* Blur Gradient Overlay For Scroll (Atua como um "fade" para o topo) */}
         <div className="absolute top-0 left-0 right-0 h-32 z-[30] pointer-events-none fade-top-glass"></div>
@@ -190,10 +190,10 @@ export const AppLayout = () => {
         {/* Header and Content Wrapper */}
         <div className="flex flex-col w-full h-full relative">
           {/* Header Action Bar - Fixo no topo sem sticky principal, fica sobreposto e o scroll passa por baixo via z-index */}
-          <div className="w-full px-4 sm:px-8 pt-3 pb-2 shrink-0 z-[40] bg-transparent absolute top-0 left-0 right-0">
+          <div className="w-full px-4 sm:px-8 pt-8 sm:pt-3 pb-2 shrink-0 z-[40] bg-transparent absolute top-0 left-0 right-0">
 
-            {/* === MOBILE: Ícones em cima, título embaixo === */}
-            <div className="flex flex-col gap-2 md:hidden">
+            {/* === MOBILE/TABLET: Ícones em cima === */}
+            <div className="flex flex-col gap-2 lg:hidden">
               {/* Linha 1: Hamburger + Ícones (sempre visíveis) */}
               <div className="flex items-center justify-between">
                 <Button
@@ -230,71 +230,52 @@ export const AppLayout = () => {
                     <NotebookPen className="text-muted-foreground" size={18} />
                   </button>
 
-                  {user && <UserProfileNav />}
+                  <div className="pl-1">
+                    {user && <UserProfileNav />}
+                  </div>
                 </div>
-              </div>
-
-              {/* Linha 2: Título da página */}
-              <div className="px-1 pb-1">
-                {pageTitle === 'Painel' ? (
-                  <>
-                    <h1 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-1.5 flex-wrap">
-                      {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'},
-                      <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                        {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}
-                      </span>! <span className="text-sm">👋</span>
-                    </h1>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
-                      Foco total nos estudos!
-                    </p>
-                  </>
-                ) : (
-                  <h1 className="text-lg font-bold tracking-tight text-foreground">
-                    {pageTitle}
-                  </h1>
-                )}
               </div>
             </div>
 
             {/* === DESKTOP: Layout original (1 linha) === */}
-            <div className="hidden md:flex items-center justify-between gap-4">
-              <div className="flex flex-col">
+            <div className="hidden lg:flex items-center justify-between gap-4">
+              <div className="flex flex-col flex-1 min-w-0">
                 {pageTitle === 'Painel' ? (
                   <>
-                    <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                      {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'}, <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}</span>! <span className="text-base">👋</span>
+                    <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2 truncate">
+                      {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'}, <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent truncate">{user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}</span>! <span className="text-base shrink-0">👋</span>
                     </h1>
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium">
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium truncate">
                       Foco total nos estudos! O seu sucesso depende da constante dedicação.
                     </p>
                   </>
                 ) : (
-                  <h1 className="text-lg font-bold tracking-tight text-foreground">
+                  <h1 className="text-lg font-bold tracking-tight text-foreground truncate">
                     {pageTitle}
                   </h1>
                 )}
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 shrink-0">
                 <FocusTimer />
                 <ThemeToggle />
 
                 {features.STUDENT_HUB && (
                   <button
                     onClick={() => setIsHubOpen(true)}
-                    className="w-11 h-11 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-all border border-black/5 dark:border-white/5 relative group"
+                    className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-all border border-black/5 dark:border-white/5 relative group"
                     title="Central do Aluno"
                   >
                     <Bell className="text-slate-500 group-hover:text-primary transition-colors" size={20} />
                     {totalUnreadCount > 0 && (
-                      <span className="absolute top-3 right-3 w-1.5 h-1.5 bg-secondary rounded-full shadow-[0_0_5px_#FF8C00]"></span>
+                      <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-secondary rounded-full shadow-[0_0_5px_#FF8C00]"></span>
                     )}
                   </button>
                 )}
 
                 <button
                   onClick={() => setIsGeneralNotesModalOpen(true)}
-                  className="w-11 h-11 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-all border border-black/5 dark:border-white/5 relative group"
+                  className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-all border border-black/5 dark:border-white/5 relative group"
                   title="Anotações Gerais"
                 >
                   <NotebookPen className="text-slate-500 group-hover:text-primary transition-colors" size={20} />
@@ -314,7 +295,29 @@ export const AppLayout = () => {
           <div className="flex-1 w-full overflow-y-auto overscroll-contain layout-scrollbar relative">
             <div className="w-full max-w-[1600px] mx-auto flex flex-col min-h-full">
               {/* Content Area */}
-              <div className="flex-1 w-full px-6 pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-24 md:pt-20">
+              <div className="flex-1 w-full px-5 sm:px-8 pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-20 lg:pt-28 xl:pt-24">
+
+                {/* Título Mobile Rolável */}
+                <div className="lg:hidden mb-6 flex flex-col pt-2">
+                  {pageTitle === 'Painel' ? (
+                    <>
+                      <h1 className="text-[22px] font-bold tracking-tight text-foreground flex items-center gap-1.5 flex-wrap leading-tight">
+                        {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'},
+                        <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                          {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}
+                        </span>! <span className="text-xl">👋</span>
+                      </h1>
+                      <p className="text-sm text-muted-foreground mt-1 font-medium">
+                        Foco total nos estudos! O seu sucesso depende da constante dedicação.
+                      </p>
+                    </>
+                  ) : (
+                    <h1 className="text-[22px] font-bold tracking-tight text-foreground">
+                      {pageTitle}
+                    </h1>
+                  )}
+                </div>
+
                 <Outlet />
               </div>
             </div>

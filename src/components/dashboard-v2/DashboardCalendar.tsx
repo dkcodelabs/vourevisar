@@ -79,9 +79,9 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     };
 
     return (
-        <div className={cn("flex flex-col h-full glow-card p-6 rounded-3xl relative overflow-hidden group", className)}>
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2 text-sm font-bold text-content-main">
+        <div className={cn("flex flex-col h-full glow-card p-5 rounded-3xl relative overflow-hidden group bg-white dark:bg-[#181A1C]", className)}>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-[12px] font-bold text-content-main">
                     <CalendarIcon className="h-4 w-4 text-primary" />
                     Calendário de Estudos
                 </div>
@@ -161,21 +161,21 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                 </div>
 
                 {/* Legenda Minimalista */}
-                <div className="mt-6 flex flex-wrap justify-center gap-4 text-[10px] text-slate-500">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                <div className="mt-4 flex flex-wrap justify-center gap-3 text-[9px] font-bold text-slate-500 uppercase">
+                    <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
                         <span>Estudou</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
                         <span>Atrasado</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-orange-400"></div>
                         <span>Hoje</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-indigo-400"></div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
                         <span>Futura</span>
                     </div>
                 </div>

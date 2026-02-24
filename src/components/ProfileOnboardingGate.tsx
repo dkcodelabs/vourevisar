@@ -25,7 +25,7 @@ export function ProfileOnboardingGate() {
         return;
       }
       setLoadingProfile(true);
-      
+
       try {
         // Buscar perfil com retry em caso de erro de conectividade
         const { data, error } = await supabase
@@ -33,26 +33,21 @@ export function ProfileOnboardingGate() {
           .select('review_profile')
           .eq('user_id', user.id)
           .single();
-        
-        // Se erro de conectividade, tentar novamente após delay
-        if (error && (error.message?.includes('Failed to fetch') || error.message?.includes('ERR_INTERNET_DISCONNECTED'))) {
-          console.log('🌐 Problema de conectividade detectado, tentativa:', retryCount + 1);
-          
-          if (retryCount < 3) {
-            setTimeout(() => {
-              setRetryCount(prev => prev + 1);
-            }, 2000 * (retryCount + 1)); // Delay progressivo: 2s, 4s, 6s
-            setLoadingProfile(false);
-            return;
+
+        // Se houver erro, diferenciar entre "usuário não existe" e "erro real"
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // Nenhum registro encontrado. É um usuário novo legitímo. Segue o fluxo.
           } else {
-            console.log('🌐 Máximo de tentativas atingido, assumindo que usuário tem perfil');
+            // Qualquer outro erro (timeout, instabilidade, internet)
+            console.error('Erro real ao buscar perfil, abortando verificação:', error);
             setLoadingProfile(false);
             return;
           }
         }
-        
+
         setProfile(data?.review_profile as ReviewProfile || null);
-        
+
         // Checar se já existem revisões (com tratamento de erro)
         const { data: topics, error: topicsError } = await supabase
           .from('topics')
@@ -60,7 +55,7 @@ export function ProfileOnboardingGate() {
           .eq('subjects.user_id', user.id)
           .gt('review_count', 0)
           .limit(1);
-        
+
         // Se erro de conectividade nas revisões, assumir que não tem
         if (topicsError && (topicsError.message?.includes('Failed to fetch') || topicsError.message?.includes('ERR_INTERNET_DISCONNECTED'))) {
           console.log('🌐 Problema de conectividade ao buscar revisões, assumindo que não tem');
@@ -68,11 +63,11 @@ export function ProfileOnboardingGate() {
         } else {
           setHasReviews(topics && topics.length > 0);
         }
-        
+
         // Verificar se está em uma rota protegida sem perfil
         const isProtectedRoute = protectedRoutes.some(route => location.pathname.startsWith(route));
         const needsProfile = !data?.review_profile || data?.review_profile === '';
-        
+
         if (isProtectedRoute && needsProfile) {
           setShowOnboarding(true);
           // Não redirecionar se já estiver no onboarding
@@ -83,38 +78,29 @@ export function ProfileOnboardingGate() {
           setShowOnboarding(needsProfile);
         }
       } catch (error: any) {
-        console.error('Erro ao verificar perfil:', error);
-        
-        // Se for erro de conectividade, não mostrar onboarding
-        if (error?.message?.includes('Failed to fetch') || 
-            error?.message?.includes('ERR_INTERNET_DISCONNECTED') ||
-            error?.message?.includes('net::ERR_INTERNET_DISCONNECTED')) {
-          console.log('🌐 Erro de conectividade detectado, não mostrando onboarding');
-          setShowOnboarding(false);
-        } else {
-          // Outros erros (ex: usuário realmente não tem perfil)
-          setShowOnboarding(true);
-        }
+        console.error('Erro inesperado ao verificar perfil:', error);
+        // Em caso de exceção severa, NUNCA presuma que o usuário é novo. Isso previne modals indevidos.
+        setShowOnboarding(false);
       } finally {
         setLoadingProfile(false);
       }
     };
-    
+
     checkProfile();
   }, [user?.id, retryCount]); // Removido location.pathname para evitar loops
 
   const handleConfirmProfile = async (profile: ReviewProfile) => {
     if (!user || hasReviews) return;
-    
+
     try {
       await supabase
         .from('user_settings')
         .update({ review_profile: profile })
         .eq('user_id', user.id);
-      
+
       setProfile(profile);
       setShowOnboarding(false);
-      
+
       // Se estiver em uma rota protegida, redirecionar para a página inicial
       if (protectedRoutes.some(route => location.pathname.startsWith(route))) {
         navigate('/');

@@ -11,15 +11,17 @@ import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Novos componentes V2
-import { KeyMetricsGrid } from '@/components/dashboard-v2/KeyMetricsGrid';
 import { ExamCountdown } from '@/components/dashboard-v2/ExamCountdown';
 import { DashboardCalendar } from '@/components/dashboard-v2/DashboardCalendar';
 import { DashboardStatsCard } from '@/components/dashboard-v2/DashboardStatsCard';
-import { DashboardInsights } from '@/components/dashboard-v2/DashboardInsights';
+import { PendingReviewsCard } from '@/components/dashboard-v2/PendingReviewsCard';
+import { ProgressConsistencyCard } from '@/components/dashboard-v2/ProgressConsistencyCard';
+import { NeedsFocusCard, QuickWinCard, GoldenHourCard } from '@/components/dashboard-v2/InsightCards';
 import { ReviewForecastCard } from '@/components/dashboard-v2/ReviewForecastCard';
 
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useDynamicCapacity } from '@/hooks/useDynamicCapacity';
+import { useRealStatistics } from '@/hooks/useRealStatistics';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
 
 const Dashboard = () => {
@@ -29,6 +31,18 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
     const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+    const [hour] = useState(() => new Date().getHours());
+
+    // Novas estatísticas reais
+    const { subjectPerformance, difficultyStats, studyHabits } = useRealStatistics();
+
+    // 1. Foco Agora
+    const worstSubject = [...subjectPerformance]
+        .filter(s => s.completedTopics > 0)
+        .sort((a, b) => a.completionPercentage - b.completionPercentage)[0];
+
+    // 2. Vitórias Rápidas
+    const easyTopic = difficultyStats.easiestPendingTopics[0];
 
     // Buscar histórico de revisões
     const { data: reviewData } = useQuery({
@@ -162,45 +176,24 @@ const Dashboard = () => {
                 ) : (
                     <div className="space-y-8 animate-in fade-in duration-500 slide-in-from-bottom-4">
 
-                        {/* 1. Cards do Topo: Dias Restantes + Revisões Pendentes + Progresso */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* Card 1: Dias Restantes (ExamCountdown) */}
-                            <ExamCountdown />
-
-                            {/* Card 2 e 3: Revisões e Progresso (Grid Unificado) */}
-                            <div className="md:col-span-2">
-                                <KeyMetricsGrid
-                                    reviews={{
-                                        overdue: dashboardStats.general.overdueCount,
-                                        today: dashboardStats.general.todayReviewCount,
-                                        future: dashboardStats.general.futureReviewCount
-                                    }}
-                                    progress={{
-                                        topics: {
-                                            completed: completedTopics,
-                                            total: totalTopics,
-                                            percentage: progressPercentage
-                                        },
-                                        subjects: {
-                                            completed: completedSubjects,
-                                            total: totalSubjects,
-                                            percentage: subjectProgressPercentage
-                                        }
-                                    }}
-                                    activeDays={{
-                                        current: dashboardStats.month.activeDays,
-                                        total: dashboardStats.month.totalDaysInMonth
-                                    }}
-                                />
+                        {/* 1. L1 - 4 Colunas Principais (Desktop) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                            {/* C1: Data da Prova + Horário de Ouro */}
+                            <div className="flex flex-col gap-4">
+                                <ExamCountdown />
+                                <GoldenHourCard studyHabits={studyHabits} />
                             </div>
-                        </div>
 
-                        {/* 2. Insights Rápidos */}
-                        <DashboardInsights />
+                            {/* C2: Revisões Pendentes */}
+                            <PendingReviewsCard
+                                reviews={{
+                                    overdue: dashboardStats.general.overdueCount,
+                                    today: dashboardStats.general.todayReviewCount,
+                                    future: dashboardStats.general.futureReviewCount
+                                }}
+                            />
 
-                        {/* 3. Calendário + Estatísticas (Lado a Lado, Sincronizados) */}
-                        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr,0.8fr] gap-6 items-start">
-                            {/* Calendário */}
+                            {/* C3: Calendário */}
                             <DashboardCalendar
                                 subjects={subjects}
                                 reviewData={reviewData}
@@ -208,10 +201,39 @@ const Dashboard = () => {
                                 onMonthChange={(date) => setSelectedMonth(date)}
                             />
 
-                            {/* Estatísticas - Sincronizada com o mês do calendário */}
+                            {/* C4: Estatísticas */}
                             <DashboardStatsCard
                                 stats={dashboardStats}
                                 selectedMonth={selectedMonth}
+                            />
+                        </div>
+
+                        {/* 2. L2 - 3 Colunas Secundárias (Desktop) */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* C1: Foco Necessário */}
+                            <NeedsFocusCard worstSubject={worstSubject} />
+
+                            {/* C2: Vitória Rápida */}
+                            <QuickWinCard easyTopic={easyTopic} />
+
+                            {/* C3: Progresso & Consistência */}
+                            <ProgressConsistencyCard
+                                progress={{
+                                    topics: {
+                                        completed: completedTopics,
+                                        total: totalTopics,
+                                        percentage: progressPercentage
+                                    },
+                                    subjects: {
+                                        completed: completedSubjects,
+                                        total: totalSubjects,
+                                        percentage: subjectProgressPercentage
+                                    }
+                                }}
+                                activeDays={{
+                                    current: dashboardStats.month.activeDays,
+                                    total: dashboardStats.month.totalDaysInMonth
+                                }}
                             />
                         </div>
 

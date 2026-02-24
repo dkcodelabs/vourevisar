@@ -83,11 +83,11 @@ export function AppSidebar() {
           <NavLink to={item.to} end={item.end ?? false} className="w-full block">
             <div
               title={showIconOnly ? item.label : undefined}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group ${isActive ? 'nav-item-active' : 'text-sidebar-muted hover:bg-primary/5 hover:text-primary'
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all group ${isActive ? 'nav-item-active' : 'text-sidebar-muted hover:bg-primary/5 hover:text-primary'
                 } ${showIconOnly ? 'justify-center px-0' : ''}`}
             >
-              <item.icon size={22} className={isActive ? 'text-primary' : ''} />
-              {!showIconOnly && <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>}
+              <item.icon size={18} className={isActive ? 'text-primary' : ''} />
+              {!showIconOnly && <span className="font-medium text-[13px] whitespace-nowrap">{item.label}</span>}
             </div>
           </NavLink>
         </li>
