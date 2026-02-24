@@ -13,6 +13,61 @@ import { useUserRole } from '@/hooks/useUserRole';
 
 import { motion, AnimatePresence } from 'motion/react';
 
+// ─── Tooltip Moderno para Menu Recolhido ────────────────────────────────────
+interface SidebarTooltipProps {
+  label: string;
+  children: React.ReactNode;
+  enabled: boolean;
+}
+
+const SidebarTooltip = ({ label, children, enabled }: SidebarTooltipProps) => {
+  const [visible, setVisible] = React.useState(false);
+
+  if (!enabled) return <>{children}</>;
+
+  return (
+    <div
+      className="relative w-full flex justify-center"
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+    >
+      {children}
+      <AnimatePresence>
+        {visible && (
+          <motion.div
+            initial={{ opacity: 0, x: -6, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -4, scale: 0.95 }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
+            className="absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-[200] pointer-events-none"
+          >
+            {/* Seta */}
+            <div className="absolute left-[-5px] top-1/2 -translate-y-1/2 w-0 h-0
+              border-t-[5px] border-t-transparent
+              border-b-[5px] border-b-transparent
+              border-r-[5px] border-r-[rgba(30,30,35,0.92)]"
+            />
+            {/* Balão */}
+            <div className="
+              bg-[rgba(20,20,25,0.92)] dark:bg-[rgba(15,15,20,0.95)]
+              text-white text-[12px] font-semibold
+              px-3 py-1.5 rounded-lg
+              whitespace-nowrap
+              shadow-[0_4px_20px_rgba(0,0,0,0.4)]
+              border border-white/10
+              backdrop-blur-md
+              ring-1 ring-inset ring-white/5
+            ">
+              {label}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+// ────────────────────────────────────────────────────────────────────────────
+
 interface NavItem {
   to: string;
   label: string;
@@ -80,16 +135,17 @@ export function AppSidebar() {
 
       return (
         <li key={item.to} className="w-full">
-          <NavLink to={item.to} end={item.end ?? false} className="w-full block">
-            <div
-              title={showIconOnly ? item.label : undefined}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all group ${isActive ? 'nav-item-active' : 'text-sidebar-muted hover:bg-primary/5 hover:text-primary'
-                } ${showIconOnly ? 'justify-center px-0' : ''}`}
-            >
-              <item.icon size={18} className={isActive ? 'text-primary' : ''} />
-              {!showIconOnly && <span className="font-medium text-[13px] whitespace-nowrap">{item.label}</span>}
-            </div>
-          </NavLink>
+          <SidebarTooltip label={item.label} enabled={showIconOnly}>
+            <NavLink to={item.to} end={item.end ?? false} className="w-full block">
+              <div
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all group ${isActive ? 'nav-item-active' : 'text-sidebar-muted hover:bg-primary/5 hover:text-primary'
+                  } ${showIconOnly ? 'justify-center px-0' : ''}`}
+              >
+                <item.icon size={18} className={isActive ? 'text-primary' : ''} />
+                {!showIconOnly && <span className="font-medium text-[13px] whitespace-nowrap">{item.label}</span>}
+              </div>
+            </NavLink>
+          </SidebarTooltip>
         </li>
       );
     })

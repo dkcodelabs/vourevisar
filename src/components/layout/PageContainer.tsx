@@ -30,13 +30,13 @@ const PageContainer: React.FC<PageContainerProps> = ({ children, className = '' 
   };
 
   return (
-    <motion.div 
-      className={`min-h-screen ${className}`}
+    <motion.div
+      className={`fixed inset-0 overflow-y-auto ${className}`}
       initial="hidden"
       animate="visible"
       variants={containerVariants}
     >
-      <motion.div 
+      <motion.div
         className="container mx-auto p-4 safe-top safe-bottom"
         variants={itemVariants}
       >

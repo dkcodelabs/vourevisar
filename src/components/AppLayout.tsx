@@ -175,22 +175,21 @@ export const AppLayout = () => {
 
   return (
     // App Shell Global Area - Fixed Shell, Scrollable Main Card
-    <div className="h-[100dvh] flex sm:p-4 gap-4 overflow-hidden transition-colors duration-300 font-sans bg-background">
+    <div className="fixed inset-0 flex sm:p-4 gap-4 overflow-hidden transition-colors duration-300 font-sans bg-background">
       {/* Sidebar Desktop Card */}
       <div className="hidden md:flex h-[calc(100dvh-2rem)] shrink-0 z-20">
         <AppSidebar />
       </div>
 
       {/* Main Content Area Card */}
-      <main className="flex-1 h-[100dvh] sm:h-[calc(100dvh-2rem)] glass-card rounded-none sm:rounded-[24px] relative transition-colors duration-300 flex w-full min-w-0 overflow-hidden">
+      <main className="flex-1 h-full sm:h-full glass-card rounded-none sm:rounded-[24px] relative transition-colors duration-300 flex w-full min-w-0 overflow-hidden">
 
-        {/* Blur Gradient Overlay For Scroll (Atua como um "fade" para o topo) */}
-        <div className="absolute top-0 left-0 right-0 h-32 z-[30] pointer-events-none fade-top-glass"></div>
+
 
         {/* Header and Content Wrapper */}
         <div className="flex flex-col w-full h-full relative">
           {/* Header Action Bar - Fixo no topo sem sticky principal, fica sobreposto e o scroll passa por baixo via z-index */}
-          <div className="w-full px-4 sm:px-8 pt-8 sm:pt-3 pb-2 shrink-0 z-[40] bg-transparent absolute top-0 left-0 right-0">
+          <div className="w-full px-4 sm:px-8 pt-8 sm:pt-3 pb-3 shrink-0 z-[40] bg-card absolute top-0 left-0 right-0" style={{ touchAction: 'none' }}>
 
             {/* === MOBILE/TABLET: Ícones em cima === */}
             <div className="flex flex-col gap-2 lg:hidden">
@@ -288,11 +287,9 @@ export const AppLayout = () => {
             </div>
           </div>
 
-          {/* Pseudo-backdrop para o header flex, reativa o efeito de transparência desfocada no conteúdo scrolado */}
-          <div className="absolute top-0 left-0 right-0 h-32 z-[35] pointer-events-none fade-top-glass-header"></div>
 
           {/* Constrained Wrapper for Content - O padding top extra acomoda o header absolute */}
-          <div className="flex-1 w-full overflow-y-auto overscroll-contain layout-scrollbar relative">
+          <div className="flex-1 w-full overflow-y-auto overscroll-contain layout-scrollbar relative" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className="w-full max-w-[1600px] mx-auto flex flex-col min-h-full">
               {/* Content Area */}
               <div className="flex-1 w-full px-5 sm:px-8 pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-20 lg:pt-28 xl:pt-24">

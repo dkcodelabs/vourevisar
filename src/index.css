@@ -104,6 +104,9 @@
     --input: 0 0% 15.7%;
     --ring: 195 100% 50%;
 
+    /* Card border: exatamente como o design de referência */
+    --card-border-color: rgba(0, 0, 0, 0.06);
+
     /* Cor Secundária (Atenção): #FF8C00 (Dark Orange) */
     --warning: 33 100% 50%;
     --warning-foreground: 210 40% 98%;
@@ -125,6 +128,9 @@
     --user-menu-icon: #94a3b8;
     --user-menu-separator: rgba(255, 255, 255, 0.06);
     --user-menu-border: rgba(255, 255, 255, 0.08);
+
+    /* Card border dark mode: exatamente como o design de referência */
+    --card-border-color: rgba(255, 255, 255, 0.05);
   }
 }
 
@@ -141,14 +147,13 @@
   }
 
   html {
-    /* Prevent horizontal scroll */
-    overflow-x: hidden;
+    /* Prevent any scroll on html */
+    overflow: hidden;
+    height: 100%;
     /* Better text rendering */
     -webkit-text-size-adjust: 100%;
     -moz-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    /* Smooth scrolling */
-    scroll-behavior: smooth;
     /* Prevent layout shift */
     scrollbar-gutter: stable;
     /* Font smoothing */
@@ -158,8 +163,9 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    /* Prevent horizontal scroll */
-    overflow-x: hidden;
+    /* Prevent any scroll on body - only inner content scrolls */
+    overflow: hidden;
+    height: 100%;
     /* Smooth transitions */
     transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
   }
@@ -1084,25 +1090,29 @@ select {
 
 @layer components {
   .glass-card {
-    @apply bg-card/70 backdrop-blur-xl border shadow-2xl transition-colors duration-300;
-    border-color: hsl(var(--border) / 0.5);
+    @apply bg-card/70 backdrop-blur-xl shadow-2xl transition-colors duration-300;
+    border: 1px solid var(--card-border-color);
+  }
+
+  /* Universal BG-Card border for total sync */
+  .bg-card {
+    border: 1px solid var(--card-border-color);
   }
 
   .glow-card {
-    @apply bg-card/70 backdrop-blur-xl border shadow-xl transition-all duration-300 hover:border-primary/50;
-    border-color: hsl(var(--border) / 0.5);
+    @apply bg-card/70 backdrop-blur-xl shadow-2xl transition-all duration-300;
+    border: 1px solid var(--card-border-color);
   }
 
   .glow-card:hover {
+    border-color: hsl(var(--primary) / 0.3);
     box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
   }
 
-  .dark .glow-card {
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
-  }
-
+  /* Dark mode */
   .dark .glow-card:hover {
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 15px hsl(var(--primary) / 0.2);
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 15px hsl(var(--primary) / 0.15);
   }
 
   .nav-item-active {
@@ -1119,6 +1129,7 @@ select {
     @apply text-[10px] uppercase tracking-[0.2em] font-bold text-muted-foreground;
   }
 }
+
 @layer utilities {
   .fade-top-glass {
     background: linear-gradient(to bottom, hsl(var(--card) / 0.8) 0%, hsl(var(--card) / 0) 100%);

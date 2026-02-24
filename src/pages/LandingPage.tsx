@@ -13,7 +13,7 @@ const LandingPage = () => {
   if (loading) return null;
 
   return (
-    <div className="bg-brand-light text-slate-800 overflow-x-hidden font-sans">
+    <div className="fixed inset-0 bg-brand-light text-slate-800 overflow-y-auto overflow-x-hidden font-sans">
       {/* NAVBAR */}
       <nav className="fixed w-full bg-white/80 backdrop-blur-md border-b border-slate-200 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

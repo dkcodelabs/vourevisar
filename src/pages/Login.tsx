@@ -198,7 +198,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand-light flex items-center justify-center p-4 font-sans">
+    <div className="fixed inset-0 overflow-y-auto bg-brand-light flex items-center justify-center p-4 font-sans">
       <div className="w-full max-w-[480px] bg-white rounded-3xl shadow-xl border border-slate-100 p-8 md:p-10 relative overflow-hidden">
 
         {/* Header com Logo e Título */}

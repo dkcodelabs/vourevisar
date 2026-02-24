@@ -80,7 +80,7 @@ export const ExamCountdown = () => {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg p-5"
+                className="bg-card rounded-2xl border-[color:var(--card-border-color)] shadow-lg p-5"
             >
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export const ExamCountdown = () => {
                         </Button>
                     </div>
                 </div>
-            </motion.div>
+            </motion.div >
         );
     }
 
@@ -161,7 +161,7 @@ export const ExamCountdown = () => {
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glow-card p-5 rounded-3xl flex flex-col h-full relative overflow-hidden group bg-white dark:bg-[#181A1C]"
+                className="glow-card p-5 rounded-3xl flex flex-col h-full relative overflow-hidden group"
             >
 
                 <div className="flex items-center justify-between mb-4 relative z-10">
@@ -192,7 +192,7 @@ export const ExamCountdown = () => {
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glow-card p-5 rounded-3xl flex flex-col h-full relative overflow-hidden group bg-white dark:bg-[#181A1C]"
+            className="glow-card p-5 rounded-3xl flex flex-col h-full relative overflow-hidden group"
         >
 
             <div className="flex items-center justify-between mb-4 relative z-10">
