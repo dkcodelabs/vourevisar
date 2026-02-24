@@ -96,7 +96,7 @@ export const TopHeader = () => {
   const navItems = React.useMemo(() => getNavItems(isAdmin), [isAdmin]);
 
   return (
-    <header className="w-full py-3">
+    <header className="w-full py-3 relative z-50">
       <div className="w-full max-w-[1920px] mx-auto px-4">
         <div className="flex items-center justify-between gap-4">
 

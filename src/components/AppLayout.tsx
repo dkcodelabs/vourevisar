@@ -6,14 +6,16 @@ import {
   NotebookPen,
   Bell,
   Menu,
-  Sparkles, // Added Sparkles
+  Sparkles,
   CornerDownRight,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { StudentHubPanel } from "./student-hub/StudentHubPanel";
 import { useStudentHubBadge } from "@/hooks/useStudentHubBadge";
 import { useSimpleSubscription } from "@/hooks/useSimpleSubscription";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { FocusTimer } from "./FocusTimer";
+import { UserProfileNav } from "./UserProfileNav";
 
 import { AppSidebar } from "./AppSidebar";
 import { ThemeToggle } from "./ThemeToggle";
@@ -166,102 +168,156 @@ export const AppLayout = () => {
   // Mobile sidebar state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = React.useState(false);
 
+  // Fechar sidebar mobile ao navegar
+  React.useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [location.pathname]);
+
   return (
     // App Shell Global Area - Fixed Shell, Scrollable Main Card
-    <div className="min-h-screen flex w-full p-4 gap-4 overflow-hidden transition-colors duration-300 font-sans max-w-[1920px] mx-auto">
+    <div className="min-h-screen flex p-4 gap-4 overflow-hidden transition-colors duration-300 font-sans">
       {/* Sidebar Desktop Card */}
-      <div className="hidden md:flex h-full shrink-0 z-20">
+      <div className="hidden md:flex h-[calc(100vh-2rem)] shrink-0 z-20">
         <AppSidebar />
       </div>
 
-      {/* Main Content Area Card (Scrolls Internally) */}
-      <main className="flex-1 h-[calc(100vh-2rem)] glass-card rounded-[24px] relative transition-colors duration-300 flex flex-col w-full min-w-0 overflow-y-auto overscroll-contain layout-scrollbar">
+      {/* Main Content Area Card */}
+      <main className="flex-1 h-[calc(100vh-2rem)] glass-card rounded-[24px] relative transition-colors duration-300 flex w-full min-w-0 overflow-hidden">
 
-        {/* Header Action Bar - MOVIDO PARA FORA DO CONTAINER LIMITADOR */}
-        {/* Fundo transparente com blur, preservando a cor idêntica à da página sem linha divisória visível */}
-        <div className="w-full px-8 pt-4 pb-3 flex items-center justify-between gap-3 shrink-0 sticky top-0 z-30 transition-all backdrop-blur-md bg-transparent">
-          <div className="flex items-center gap-4">
-            <Button
-              className="md:hidden h-9 w-9 text-muted-foreground mr-2"
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMobileSidebarOpen(true)}
-            >
-              <Menu size={20} />
-            </Button>
+        {/* Blur Gradient Overlay For Scroll (Atua como um "fade" para o topo) */}
+        <div className="absolute top-0 left-0 right-0 h-32 z-[30] pointer-events-none fade-top-glass"></div>
 
-            <div className="flex flex-col">
-              {pageTitle === 'Painel' ? (
-                <>
-                  <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                    {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'}, <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}</span>! <span className="text-base">👋</span>
-                  </h1>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5 font-medium">
-                    Foco total nos estudos! O seu sucesso depende da constante dedicação.
-                  </p>
-                </>
-              ) : (
-                <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-                  {pageTitle}
-                </h1>
-              )}
-            </div>
-          </div>
+        {/* Header and Content Wrapper */}
+        <div className="flex flex-col w-full h-full relative">
+          {/* Header Action Bar - Fixo no topo sem sticky principal, fica sobreposto e o scroll passa por baixo via z-index */}
+          <div className="w-full px-4 sm:px-8 pt-3 pb-2 shrink-0 z-[40] bg-transparent absolute top-0 left-0 right-0">
 
-          <div className="flex items-center gap-4">
-            <FocusTimer />
-            <ThemeToggle />
+            {/* === MOBILE: Ícones em cima, título embaixo === */}
+            <div className="flex flex-col gap-2 md:hidden">
+              {/* Linha 1: Hamburger + Ícones (sempre visíveis) */}
+              <div className="flex items-center justify-between">
+                <Button
+                  className="h-9 w-9 text-muted-foreground"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                >
+                  <Menu size={20} />
+                </Button>
 
-            {features.STUDENT_HUB && (
-              <button
-                onClick={() => setIsHubOpen(true)}
-                className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-all border border-black/5 dark:border-white/5 relative group"
-                title="Central do Aluno"
-              >
-                <Bell className="text-slate-500 group-hover:text-primary transition-colors" size={18} />
-                {totalUnreadCount > 0 && (
-                  <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-secondary rounded-full shadow-[0_0_5px_#FF8C00]"></span>
-                )}
-              </button>
-            )}
+                <div className="flex items-center gap-1.5">
+                  <FocusTimer />
+                  <ThemeToggle />
 
-            <button
-              onClick={() => setIsGeneralNotesModalOpen(true)}
-              className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-all border border-black/5 dark:border-white/5 relative group"
-              title="Anotações Gerais"
-            >
-              <NotebookPen className="text-slate-500 group-hover:text-primary transition-colors" size={18} />
-            </button>
+                  {features.STUDENT_HUB && (
+                    <button
+                      onClick={() => setIsHubOpen(true)}
+                      className="w-9 h-9 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-all relative"
+                      title="Central do Aluno"
+                    >
+                      <Bell className="text-muted-foreground" size={18} />
+                      {totalUnreadCount > 0 && (
+                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-secondary rounded-full shadow-[0_0_5px_#FF8C00]"></span>
+                      )}
+                    </button>
+                  )}
 
-            <div className="flex items-center gap-3 pl-4 border-l border-black/10 dark:border-white/10 hidden sm:flex">
-              <div className="text-right">
-                <p className="text-[13px] font-bold text-slate-900 dark:text-white tracking-tight">{user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}</p>
-                <p className="text-[10px] text-primary font-bold uppercase tracking-widest opacity-90">{displayBadge || 'Estudante'}</p>
+                  <button
+                    onClick={() => setIsGeneralNotesModalOpen(true)}
+                    className="w-9 h-9 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-all relative"
+                    title="Anotações Gerais"
+                  >
+                    <NotebookPen className="text-muted-foreground" size={18} />
+                  </button>
+
+                  {user && <UserProfileNav />}
+                </div>
               </div>
-              <div className="relative group cursor-pointer" onClick={() => navigate('/perfil')}>
-                <div className="absolute -inset-0.5 bg-gradient-to-tr from-primary to-secondary rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
-                {avatarUrl ? (
-                  <img
-                    alt={profile?.name || "User"}
-                    className="relative w-9 h-9 rounded-xl object-cover grayscale-[20%] hover:grayscale-0 transition-all border border-black/5 dark:border-white/10"
-                    src={avatarUrl}
-                    referrerPolicy="no-referrer"
-                  />
+
+              {/* Linha 2: Título da página */}
+              <div className="px-1 pb-1">
+                {pageTitle === 'Painel' ? (
+                  <>
+                    <h1 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-1.5 flex-wrap">
+                      {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'},
+                      <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                        {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}
+                      </span>! <span className="text-sm">👋</span>
+                    </h1>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
+                      Foco total nos estudos!
+                    </p>
+                  </>
                 ) : (
-                  <div className="relative w-9 h-9 rounded-xl flex items-center justify-center bg-app-blue/20 text-app-blue font-bold text-sm border border-black/5 dark:border-white/10 hover:bg-app-blue/30 transition-all">
-                    {userInitials}
-                  </div>
+                  <h1 className="text-lg font-bold tracking-tight text-foreground">
+                    {pageTitle}
+                  </h1>
                 )}
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Constrained Wrapper for Content - Removed 1440px constraint for ultrawides */}
-        <div className="w-full max-w-[1600px] mx-auto flex flex-col min-h-full">
-          {/* Content Area */}
-          <div className="flex-1 w-full px-6 pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-2">
-            <Outlet />
+            {/* === DESKTOP: Layout original (1 linha) === */}
+            <div className="hidden md:flex items-center justify-between gap-4">
+              <div className="flex flex-col">
+                {pageTitle === 'Painel' ? (
+                  <>
+                    <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                      {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'}, <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}</span>! <span className="text-base">👋</span>
+                    </h1>
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium">
+                      Foco total nos estudos! O seu sucesso depende da constante dedicação.
+                    </p>
+                  </>
+                ) : (
+                  <h1 className="text-lg font-bold tracking-tight text-foreground">
+                    {pageTitle}
+                  </h1>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4">
+                <FocusTimer />
+                <ThemeToggle />
+
+                {features.STUDENT_HUB && (
+                  <button
+                    onClick={() => setIsHubOpen(true)}
+                    className="w-11 h-11 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-all border border-black/5 dark:border-white/5 relative group"
+                    title="Central do Aluno"
+                  >
+                    <Bell className="text-slate-500 group-hover:text-primary transition-colors" size={20} />
+                    {totalUnreadCount > 0 && (
+                      <span className="absolute top-3 right-3 w-1.5 h-1.5 bg-secondary rounded-full shadow-[0_0_5px_#FF8C00]"></span>
+                    )}
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setIsGeneralNotesModalOpen(true)}
+                  className="w-11 h-11 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-all border border-black/5 dark:border-white/5 relative group"
+                  title="Anotações Gerais"
+                >
+                  <NotebookPen className="text-slate-500 group-hover:text-primary transition-colors" size={20} />
+                </button>
+
+                <div className="flex items-center pl-4 border-l border-black/10 dark:border-white/10">
+                  <UserProfileNav />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pseudo-backdrop para o header flex, reativa o efeito de transparência desfocada no conteúdo scrolado */}
+          <div className="absolute top-0 left-0 right-0 h-32 z-[35] pointer-events-none fade-top-glass-header"></div>
+
+          {/* Constrained Wrapper for Content - O padding top extra acomoda o header absolute */}
+          <div className="flex-1 w-full overflow-y-auto overscroll-contain layout-scrollbar relative">
+            <div className="w-full max-w-[1600px] mx-auto flex flex-col min-h-full">
+              {/* Content Area */}
+              <div className="flex-1 w-full px-6 pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-24 md:pt-20">
+                <Outlet />
+              </div>
+            </div>
           </div>
         </div>
       </main>
@@ -317,19 +373,29 @@ export const AppLayout = () => {
       }
 
       {/* Mobile Drawer Overlay */}
-      {
-        isMobileSidebarOpen && (
+      <AnimatePresence>
+        {isMobileSidebarOpen && (
           <div className="fixed inset-0 z-50 md:hidden flex">
-            <div
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
               className="fixed inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setIsMobileSidebarOpen(false)}
             />
-            <aside className="relative w-[280px] h-full bg-sidebar flex flex-col overflow-hidden animate-in slide-in-from-left z-[50]">
+            <motion.aside
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-[280px] h-full bg-sidebar flex flex-col overflow-hidden z-[50]"
+            >
               <AppSidebar />
-            </aside>
+            </motion.aside>
           </div>
-        )
-      }
+        )}
+      </AnimatePresence>
     </div >
   );
 };

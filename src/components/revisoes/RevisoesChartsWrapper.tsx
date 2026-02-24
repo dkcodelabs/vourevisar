@@ -32,7 +32,7 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch animate-in fade-in slide-in-from-top-2 duration-300">
             {/* Left: Tendência de Estudos */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-5 flex flex-col h-full min-w-0">
+            <div className="glass-card p-5 flex flex-col h-full min-w-0">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4 shrink-0">
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -52,7 +52,7 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
                         <button
                             onClick={() => setTrendViewMode('days')}
                             className={`flex items-center gap-1 px-2 py-1 text-[9px] font-medium rounded-md transition-all ${trendViewMode === 'days'
-                                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                ? 'bg-card text-primary shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                 }`}
                         >
@@ -62,7 +62,7 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
                         <button
                             onClick={() => setTrendViewMode('hours')}
                             className={`flex items-center gap-1 px-2 py-1 text-[9px] font-medium rounded-md transition-all ${trendViewMode === 'hours'
-                                ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm'
+                                ? 'bg-card text-primary shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                 }`}
                         >

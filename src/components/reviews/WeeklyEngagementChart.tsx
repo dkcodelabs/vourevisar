@@ -142,7 +142,7 @@ export const WeeklyEngagementChart: React.FC<WeeklyEngagementChartProps> = ({
 
     return (
         <>
-            <Card className="border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 h-full overflow-hidden">
+            <Card className="glass-card border-0 shadow-sm h-full overflow-hidden">
                 <CardContent className="p-5 h-full flex flex-col">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-4 shrink-0">
@@ -165,7 +165,7 @@ export const WeeklyEngagementChart: React.FC<WeeklyEngagementChartProps> = ({
                                 <button
                                     onClick={() => setViewMode('day')}
                                     className={`px-2 py-1 text-[9px] font-medium rounded-md transition-all ${viewMode === 'day'
-                                        ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                        ? 'bg-card text-primary shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                         }`}
                                 >
@@ -174,7 +174,7 @@ export const WeeklyEngagementChart: React.FC<WeeklyEngagementChartProps> = ({
                                 <button
                                     onClick={() => setViewMode('month')}
                                     className={`px-2 py-1 text-[9px] font-medium rounded-md transition-all ${viewMode === 'month'
-                                        ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                        ? 'bg-card text-primary shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                         }`}
                                 >

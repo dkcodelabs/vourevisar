@@ -59,6 +59,13 @@
     --sidebar-border: 0 0% 15.7%;
     --sidebar-ring: 195 100% 50%;
     --sidebar-muted: 215 20.2% 65.1%;
+
+    /* User Menu Dropdown */
+    --user-menu-bg: #ffffff;
+    --user-menu-text: #1e293b;
+    --user-menu-icon: #94a3b8;
+    --user-menu-separator: rgba(0, 0, 0, 0.06);
+    --user-menu-border: rgba(0, 0, 0, 0.08);
   }
 
   .dark {
@@ -111,6 +118,13 @@
     --sidebar-border: 0 0% 15.7%;
     --sidebar-ring: 195 100% 50%;
     --sidebar-muted: 215 20.2% 65.1%;
+
+    /* User Menu Dropdown */
+    --user-menu-bg: #1A1A1A;
+    --user-menu-text: #ffffff;
+    --user-menu-icon: #94a3b8;
+    --user-menu-separator: rgba(255, 255, 255, 0.06);
+    --user-menu-border: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -1103,5 +1117,22 @@ select {
 
   .data-label {
     @apply text-[10px] uppercase tracking-[0.2em] font-bold text-muted-foreground;
+  }
+}
+@layer utilities {
+  .fade-top-glass {
+    background: linear-gradient(to bottom, hsl(var(--card) / 0.8) 0%, hsl(var(--card) / 0) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  }
+}
+
+@layer utilities {
+  .fade-top-glass-header {
+    background: linear-gradient(to bottom, hsl(var(--card) / 0.8) 0%, hsl(var(--card) / 0) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
   }
 }

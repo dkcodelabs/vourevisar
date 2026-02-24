@@ -434,7 +434,7 @@ export const Revisoes = () => {
   }
 
   return (
-    <div className="flex min-h-full w-full text-gray-900">
+    <div className="flex min-h-full w-full text-foreground">
       <div className="flex-1 flex flex-col relative w-full max-w-[1600px] mx-auto pb-24 lg:pb-8">
 
         {/* 1. Header (KPIs) - Order 1 (Default) */}

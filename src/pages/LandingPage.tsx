@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 
 const LandingPage = () => {
   const { user, loading } = useAuth();
@@ -18,8 +19,8 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             {/* LOGO APLICADO */}
-            <div className="flex-shrink-0 flex items-center cursor-pointer">
-              <img src="/logo.png" alt="vouRevisar Logo" className="h-10 w-auto" />
+            <div className="flex-shrink-0 flex items-center h-10 cursor-pointer">
+              <AnimatedLogo collapsed={false} className="h-full [&_.text-sidebar-foreground]:!text-slate-900" />
             </div>
 
             {/* MENU DESKTOP */}
@@ -367,8 +368,8 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
 
           {/* Logo Pequeno (Rodapé) */}
-          <div className="opacity-90 hover:opacity-100 transition duration-300">
-            <img src="/logo.png" alt="vouRevisar Logo" className="h-8 w-auto" />
+          <div className="opacity-90 hover:opacity-100 transition duration-300 h-8">
+            <AnimatedLogo collapsed={false} className="h-full [&_.text-sidebar-foreground]:!text-slate-900" />
           </div>
 
           <div className="flex gap-6 text-slate-500 text-sm font-medium">

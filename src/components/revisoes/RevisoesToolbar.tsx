@@ -34,7 +34,7 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
 }) => {
     return (
         <div className={`w-full ${className || ''}`}>
-            <section className="w-full flex flex-wrap items-center gap-2 md:gap-4 bg-white dark:bg-slate-800 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md transition-all">
+            <section className="w-full flex flex-wrap items-center gap-2 md:gap-4 glass-card px-4 py-2 rounded-2xl shadow-md transition-all">
                 {/* 1. Botão Recolher/Expandir (SÓ ÍCONE) */}
                 <button
                     onClick={onToggleAll}
@@ -61,12 +61,12 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                         placeholder="Pesquisar..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                        className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/[0.05] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400 dark:text-slate-200"
                     />
                     {searchTerm && (
                         <button
                             onClick={() => setSearchTerm('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
                             title="Limpar pesquisa"
                         >
                             <X size={14} />
@@ -121,7 +121,7 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                 {/* 4. Botão Agrupar por Matéria */}
                 <button
                     onClick={onToggleSubjectView}
-                    className={`flex items-center gap-2 px-4 py-2 border rounded-xl transition-all text-xs font-bold whitespace-nowrap ${activeTab === 'SUBJECTS' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                    className={`flex items-center gap-2 px-4 py-2 border rounded-xl transition-all text-xs font-bold whitespace-nowrap ${activeTab === 'SUBJECTS' ? 'bg-primary border-primary text-primary-foreground shadow-md' : 'bg-card border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                 >
                     <Layers size={16} />
                     <span className="hidden sm:inline">Agrupar por Matéria</span>

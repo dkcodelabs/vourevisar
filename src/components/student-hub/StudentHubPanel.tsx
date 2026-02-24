@@ -554,22 +554,21 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                                   aria-hidden="true"
                                 >
                                   {React.cloneElement(iconInfo.icon as React.ReactElement, { size: 18 })}
+                                  {/* Blue dot no ícone — igual ao padrão da aba Feedback */}
+                                  {!notification.read && (
+                                    <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse ring-2 ring-white dark:ring-slate-900" title="Não lida" />
+                                  )}
                                 </div>
 
                                 {/* Conteúdo */}
                                 <div className="flex flex-col gap-0.5">
                                   <div className="flex justify-between items-baseline">
-                                    <h3 className="font-bold text-[13px] text-slate-900 dark:text-white">
+                                    <h3 className={`text-[13px] text-slate-900 dark:text-white ${!notification.read ? 'font-bold' : 'font-medium'}`}>
                                       {notification.title}
                                     </h3>
-                                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                                      <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                                        {formatRelativeDate(notification.created_at)}
-                                      </span>
-                                      {!notification.read && (
-                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                                      )}
-                                    </div>
+                                    <span className="text-[10px] text-slate-400 uppercase font-semibold flex-shrink-0 ml-2">
+                                      {formatRelativeDate(notification.created_at)}
+                                    </span>
                                   </div>
                                   <p className="text-[13px] text-slate-500 dark:text-slate-400 leading-snug">
                                     {formatNotificationMessage(notification.message)}

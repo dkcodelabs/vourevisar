@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { User, Mail, Calendar, Phone, Lock, } from 'lucide-react';
+import {
+  User, Mail, Calendar, Phone, Lock, Shield, CreditCard,
+  GraduationCap, Target, Clock, BookOpen, Camera, Loader2,
+  CheckCircle2, ShieldCheck, Pencil
+} from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from '@/lib/toast';
 import { z } from 'zod';
@@ -10,483 +13,702 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useNavigate } from 'react-router-dom';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from '@/integrations/supabase/client';
-import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
+import { GradientButton } from '@/components/ui';
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { useSubscriptionInfo } from '@/hooks/useSubscriptionInfo';
 
-const passwordSchema = z.object({
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
-
-const resetPasswordSchema = z.object({
-  email: z.string().email('Email inválido'),
-  newPassword: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
-  confirmPassword: z.string(),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
-
+// ─── Schemas ────────────────────────────────────────────────
 const profileSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   phone: z.string().optional(),
 });
 
-interface StatsData {
-  totalSubjects: number;
-  totalTopics: number;
-  totalReviews: number;
-  consecutiveDays: number;
+const academicSchema = z.object({
+  targetExam: z.string().optional(),
+  level: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+  dailyHours: z.string().optional(),
+  examDate: z.string().optional(),
+  focusArea: z.string().optional(),
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().email('Email inválido'),
+});
+
+// ─── Tipos ──────────────────────────────────────────────────
+interface AcademicInfo {
+  targetExam?: string;
+  level?: 'beginner' | 'intermediate' | 'advanced';
+  dailyHours?: string;
+  examDate?: string;
+  focusArea?: string;
 }
 
-const Profile = () => {
-  const { profile, user, updateProfile, updatePassword, resetPassword } = useAuth();
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [statsData, setStatsData] = useState<StatsData>({
-    totalSubjects: 0,
-    totalTopics: 0,
-    totalReviews: 0,
-    consecutiveDays: 0
-  });
-  const navigate = useNavigate();
+// ─── Constantes ─────────────────────────────────────────────
+const PLAN_LABELS: Record<string, string> = {
+  free_trial: 'Teste Gratuito',
+  monthly: 'Mensal',
+  annual: 'Anual',
+};
 
-  // Check if user is from Google provider
+const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  trial: { label: 'Em teste', variant: 'secondary' },
+  active: { label: 'Ativo', variant: 'default' },
+  expired: { label: 'Expirado', variant: 'destructive' },
+  canceled: { label: 'Cancelado', variant: 'destructive' },
+  suspended: { label: 'Suspenso', variant: 'destructive' },
+};
+
+// ─── Componente de Card (padrão do Dashboard) ───────────────
+const ProfileCard = ({
+  children,
+  className = '',
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) => (
+  <motion.div
+    initial={{ opacity: 0, y: 16 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: delay * 0.08, duration: 0.4, type: 'spring', stiffness: 120 }}
+    className={`glow-card rounded-2xl p-5 ${className}`}
+  >
+    {children}
+  </motion.div>
+);
+
+// ─── Header de seção (padrão Dashboard: uppercase + tracking) ─
+const SectionHeader = ({
+  icon: Icon,
+  iconColor,
+  label,
+  action,
+}: {
+  icon: React.ElementType;
+  iconColor: string;
+  label: string;
+  action?: React.ReactNode;
+}) => (
+  <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center gap-2.5">
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconColor}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <span className="data-label">{label}</span>
+    </div>
+    {action}
+  </div>
+);
+
+// ─── Linha de dados (padrão Dashboard: ícone + label + valor) ─
+const DataRow = ({
+  icon: Icon,
+  label,
+  value,
+  valueColor,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+  valueColor?: string;
+}) => (
+  <div className="flex items-center justify-between py-2.5 border-b border-border/30 last:border-0">
+    <div className="flex items-center gap-2">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground/60" />
+      <span className="text-sm text-muted-foreground">{label}</span>
+    </div>
+    <span className={`text-sm font-semibold ${valueColor || 'text-foreground'}`}>
+      {value}
+    </span>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ═══════════════════════════════════════════════════════════
+const Profile = () => {
+  const { profile, user, updateProfile, resetPassword } = useAuth();
+  const { subscriptionInfo, loading: subLoading } = useSubscriptionInfo();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingAcademic, setIsSavingAcademic] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingAcademic, setIsEditingAcademic] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const isGoogleUser = user?.app_metadata?.provider === 'google';
 
-  // Populate form with profile data when it becomes available
+  // ─── Forms ──────────────────────────────────────────────
+  const profileForm = useForm({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { name: '', phone: '' },
+  });
+
+  const academicForm = useForm({
+    resolver: zodResolver(academicSchema),
+    defaultValues: {
+      targetExam: '',
+      level: undefined as 'beginner' | 'intermediate' | 'advanced' | undefined,
+      dailyHours: '',
+      examDate: '',
+      focusArea: '',
+    },
+  });
+
+  const resetForm = useForm({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { email: user?.email || '' },
+  });
+
+  // ─── Populate forms ───────────────────────────────────
   useEffect(() => {
     if (profile) {
-      profileForm.reset({
-        name: profile.name || '',
-        phone: profile.phone || '',
-      });
+      profileForm.reset({ name: profile.name || '', phone: profile.phone || '' });
+      const prefs = (profile.preferences as Record<string, any>) || {};
+      const academic = prefs.academic as AcademicInfo | undefined;
+      if (academic) {
+        academicForm.reset({
+          targetExam: academic.targetExam || '',
+          level: academic.level || undefined,
+          dailyHours: academic.dailyHours || '',
+          examDate: academic.examDate || '',
+          focusArea: academic.focusArea || '',
+        });
+      }
     }
   }, [profile]);
 
-  // Fetch statistics data
   useEffect(() => {
-    let isMounted = true;
+    if (profile?.avatar_url) setAvatarPreview(profile.avatar_url);
+    else if (user?.user_metadata?.avatar_url) setAvatarPreview(user.user_metadata.avatar_url);
+  }, [profile, user]);
 
-    const loadData = async () => {
-      if (!user) return;
-
-      try {
-        await fetchStatsData();
-      } catch (error) {
-        console.error('Erro ao carregar dados estatísticos:', error);
-        if (isMounted) {
-          setError('Não foi possível carregar os dados estatísticos');
-        }
-      }
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
-
-  const fetchStatsData = async () => {
+  // ─── Handlers ─────────────────────────────────────────
+  const handleSaveProfile = async (values: any) => {
     if (!user) return;
-
-    setIsLoadingStats(true);
-    setError(null);
-
-    try {
-      // Buscar total de matérias
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('id')
-        .eq('user_id', user.id);
-
-      if (subjectsError) throw subjectsError;
-
-      const subjectIds = subjectsData?.map(subject => subject.id) || [];
-
-      // Se não houver matérias, retorna estatísticas zeradas
-      if (subjectIds.length === 0) {
-        setStatsData({
-          totalSubjects: 0,
-          totalTopics: 0,
-          totalReviews: 0,
-          consecutiveDays: 0
-        });
-        return;
-      }
-
-      // Buscar total de tópicos
-      const { data: topicsData, error: topicsError } = await supabase
-        .from('topics')
-        .select('id, review_count')
-        .in('subject_id', subjectIds);
-
-      if (topicsError) throw topicsError;
-
-      // Calcular total de revisões
-      const totalReviews = topicsData?.reduce((sum, topic) => sum + (topic.review_count || 0), 0) || 0;
-
-      setStatsData({
-        totalSubjects: subjectsData?.length || 0,
-        totalTopics: topicsData?.length || 0,
-        totalReviews: totalReviews,
-        consecutiveDays: 0 // Placeholder
-      });
-
-    } catch (err: any) {
-      console.error('Erro ao buscar estatísticas do perfil:', err);
-      setStatsData({
-        totalSubjects: 0,
-        totalTopics: 0,
-        totalReviews: 0,
-        consecutiveDays: 0
-      });
-      setError(null); // Não exibe erro para o usuário
-    } finally {
-      setIsLoadingStats(false);
-    }
-  };
-
-  const profileForm = useForm({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      name: profile?.name || '',
-      phone: profile?.phone || '',
-    },
-  });
-
-  const passwordForm = useForm({
-    resolver: zodResolver(passwordSchema),
-    defaultValues: {
-      password: '',
-      confirmPassword: '',
-    },
-  });
-
-  const resetPasswordForm = useForm({
-    resolver: zodResolver(resetPasswordSchema),
-    defaultValues: {
-      email: user?.email || '',
-      newPassword: '',
-      confirmPassword: '',
-    },
-  });
-
-  const handleSaveProfile = async (values) => {
-    if (!user) return;
-
     setIsSaving(true);
-    setError(null);
-
     try {
-      await updateProfile({
-        name: values.name,
-        phone: values.phone,
-      });
+      await updateProfile({ name: values.name, phone: values.phone });
+      toast.success('Perfil atualizado!');
+      setIsEditingProfile(false);
     } catch (error: any) {
-      setError('Erro ao salvar perfil: ' + error.message);
-      console.error('Erro:', error);
+      toast.error('Erro ao salvar: ' + error.message);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleChangePassword = async (values) => {
-    setError(null);
+  const handleSaveAcademic = async (values: any) => {
+    if (!user) return;
+    setIsSavingAcademic(true);
     try {
-      await updatePassword(values.password);
-      setIsPasswordDialogOpen(false);
-      passwordForm.reset();
+      const currentPrefs = (profile?.preferences as Record<string, any>) || {};
+      await updateProfile({ preferences: { ...currentPrefs, academic: values } });
+      toast.success('Informações acadêmicas salvas!');
+      setIsEditingAcademic(false);
     } catch (error: any) {
-      setError('Erro ao alterar senha: ' + error.message);
-      console.error('Erro ao alterar senha:', error);
+      toast.error('Erro ao salvar: ' + error.message);
+    } finally {
+      setIsSavingAcademic(false);
     }
   };
 
-  const handleResetPassword = async (values) => {
-    setError(null);
-
-    // Verificar se o email é o mesmo do usuário logado
+  const handleResetPassword = async (values: any) => {
     if (values.email !== user?.email) {
-      setError('O email deve ser o mesmo da sua conta atual');
+      toast.error('O email deve ser o mesmo da sua conta atual');
       return;
     }
-
     try {
       setIsSaving(true);
       await resetPassword(values.email);
-      setIsResetPasswordDialogOpen(false);
-      resetPasswordForm.reset();
-      toast.success("Email enviado! Verifique sua caixa de entrada para redefinir sua senha.");
+      setIsResetDialogOpen(false);
+      resetForm.reset();
+      toast.success('Email enviado! Verifique sua caixa de entrada.');
     } catch (error: any) {
-      setError('Erro ao enviar email de redefinição: ' + error.message);
-      console.error('Erro ao enviar email de redefinição:', error);
+      toast.error('Erro ao enviar email: ' + error.message);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error('Máximo 2MB'); return; }
+    if (!file.type.startsWith('image/')) { toast.error('Selecione uma imagem'); return; }
 
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).format(date);
+    setIsUploadingAvatar(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `avatars/${user.id}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      await updateProfile({ avatar_url: publicUrl });
+      setAvatarPreview(publicUrl);
+      toast.success('Foto atualizada!');
+    } catch (error: any) {
+      toast.error('Erro ao enviar foto.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
-  const createdAt = user?.created_at ? formatDate(user.created_at) : '';
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return '—';
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateString));
+  };
 
-  if (!user) {
-    return <LoadingSpinner />;
-  }
+  const getInitials = () => {
+    const name = profile?.name || user?.user_metadata?.name || '';
+    return name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]).join('').toUpperCase() || '?';
+  };
 
+  const getLevelLabel = (level?: string) => {
+    const map: Record<string, string> = { beginner: 'Iniciante', intermediate: 'Intermediário', advanced: 'Avançado' };
+    return level ? map[level] || level : '—';
+  };
+
+  if (!user) return <LoadingSpinner />;
+
+  const academic = ((profile?.preferences as Record<string, any>) || {}).academic as AcademicInfo | undefined;
+
+  // ═══════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 pb-4 pt-0">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-            className="mb-8"
-          >
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              Perfil
-            </h1>
-          </motion.div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertTitle>Erro</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+      <div className="pb-10 h-full w-full">
+        <div className="w-full pb-8 pt-0">
 
-          <GlassCard className="max-w-xl p-6">
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Informações Pessoais</h2>
+          {/* ────────────────────────────────────────── */}
+          {/* LINHA 1: 3 Cards no topo (como Dashboard) */}
+          {/* ────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
 
-              <Form {...profileForm}>
-                <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-4">
-                  <FormField
-                    control={profileForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center text-sm">
-                          <User className="h-4 w-4 mr-2" />
-                          Nome
-                        </FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Seu nome" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="email" className="flex items-center text-sm">
-                      <Mail className="h-4 w-4 mr-2" />
-                      Email
-                    </Label>
-                    <Input
-                      id="email"
-                      value={user?.email || ''}
-                      readOnly
-                      type="email"
-                    />
-                  </div>
-
-                  <FormField
-                    control={profileForm.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center text-sm">
-                          <Phone className="h-4 w-4 mr-2" />
-                          Telefone
-                        </FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Seu telefone" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="joined" className="flex items-center text-sm">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Data de Cadastro
-                    </Label>
-                    <Input
-                      id="joined"
-                      value={createdAt}
-                      readOnly
-                    />
-                  </div>
-
-                  <div className="flex gap-4 pt-4">
-                    <GradientButton
-                      type="submit"
-                      className="flex-1"
-                      disabled={isSaving}
-                    >
-                      {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                    </GradientButton>
-
-                    {!isGoogleUser && (
-                      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-                        <DialogTrigger asChild>
-                          <GradientButton
-                            type="button"
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            <Lock className="h-4 w-4 mr-2" />
-                            Alterar Senha
-                          </GradientButton>
-                        </DialogTrigger>
-                        <DialogContent aria-describedby="change-password-description">
-                          <DialogHeader>
-                            <DialogTitle>Alterar Senha</DialogTitle>
-                          </DialogHeader>
-                          <div id="change-password-description" className="sr-only">
-                            Formulário para alterar sua senha atual. Digite uma nova senha e confirme-a.
-                          </div>
-                          <Form {...passwordForm}>
-                            <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4 pt-2">
-                              <FormField
-                                control={passwordForm.control}
-                                name="password"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-sm">Nova Senha</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="password"
-                                        {...field}
-                                        placeholder="Digite sua nova senha"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={passwordForm.control}
-                                name="confirmPassword"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-sm">Confirme a Senha</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="password"
-                                        {...field}
-                                        placeholder="Confirme sua nova senha"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <DialogFooter>
-                                <GradientButton type="submit">
-                                  Alterar Senha
-                                </GradientButton>
-                              </DialogFooter>
-                            </form>
-                          </Form>
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                  </div>
-                </form>
-              </Form>
-            </div>
-          </GlassCard>
-
-          {/* Card de Redefinição de Senha */}
-          <GlassCard className="max-w-xl p-6 mt-6">
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Redefinir Senha</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Receba um email com link para redefinir sua senha
-              </p>
-
-              <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
-                <DialogTrigger asChild>
-                  <GradientButton
-                    type="button"
-                    className="w-full"
+            {/* CARD 1: Identidade — Avatar + Nome + Email */}
+            <ProfileCard delay={0}>
+              <SectionHeader
+                icon={User}
+                iconColor="bg-blue-500/10 text-blue-500"
+                label="IDENTIFICAÇÃO"
+                action={
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-muted-foreground/50 hover:text-primary transition-colors"
                   >
-                    <Lock className="h-4 w-4 mr-2" />
-                    Redefinir Senha por Email
-                  </GradientButton>
-                </DialogTrigger>
-                <DialogContent aria-describedby="reset-password-description">
-                  <DialogHeader>
-                    <DialogTitle>Redefinir Senha</DialogTitle>
-                  </DialogHeader>
-                  <div id="reset-password-description" className="sr-only">
-                    Formulário para redefinir sua senha por email. Digite seu email atual para receber um link de redefinição.
-                  </div>
-                  <Form {...resetPasswordForm}>
-                    <form onSubmit={resetPasswordForm.handleSubmit(handleResetPassword)} className="space-y-4 pt-2">
-                      <FormField
-                        control={resetPasswordForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center text-sm">
-                              <Mail className="h-4 w-4 mr-2" />
-                              Confirme seu email
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="email"
-                                {...field}
-                                placeholder="Digite seu email atual"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                            <p className="text-xs text-gray-500">
-                              Deve ser o mesmo email da sua conta atual
-                            </p>
-                          </FormItem>
-                        )}
-                      />
+                    <Camera className="h-4 w-4" />
+                  </button>
+                }
+              />
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
-                      <DialogFooter>
-                        <GradientButton
-                          type="submit"
-                          disabled={isSaving}
-                        >
-                          {isSaving ? 'Enviando...' : 'Enviar Email de Redefinição'}
-                        </GradientButton>
-                      </DialogFooter>
-                    </form>
-                  </Form>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </GlassCard>
+              <div className="flex items-center gap-4 mb-4">
+                <div
+                  className="relative group cursor-pointer flex-shrink-0"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-border/50 bg-muted flex items-center justify-center">
+                    {isUploadingAvatar ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : avatarPreview ? (
+                      <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-base font-bold text-muted-foreground">{getInitials()}</span>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Camera className="h-3.5 w-3.5 text-white" />
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg font-bold text-foreground truncate">
+                    {profile?.name || 'Usuário'}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.email}
+                  </p>
+                </div>
+              </div>
+
+              <DataRow icon={Calendar} label="Membro desde" value={formatDate(user.created_at)} />
+              <DataRow icon={Phone} label="Telefone" value={profile?.phone || '—'} />
+              <DataRow
+                icon={Shield}
+                label="Login"
+                value={
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {isGoogleUser ? '🔗 Google' : '📧 Email'}
+                  </Badge>
+                }
+              />
+            </ProfileCard>
+
+            {/* CARD 2: Assinatura */}
+            <ProfileCard delay={1}>
+              <SectionHeader
+                icon={CreditCard}
+                iconColor="bg-amber-500/10 text-amber-500"
+                label="ASSINATURA"
+              />
+
+              {subLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : subscriptionInfo ? (
+                <>
+                  <div className="text-center mb-4">
+                    <p className="text-3xl font-black text-foreground">
+                      {PLAN_LABELS[subscriptionInfo.plan] || subscriptionInfo.plan}
+                    </p>
+                    <Badge
+                      variant={STATUS_CONFIG[subscriptionInfo.status]?.variant || 'outline'}
+                      className="mt-1"
+                    >
+                      {STATUS_CONFIG[subscriptionInfo.status]?.label || subscriptionInfo.status}
+                    </Badge>
+                  </div>
+
+                  <DataRow
+                    icon={Calendar}
+                    label={subscriptionInfo.status === 'trial' ? 'Fim do teste' : 'Renovação'}
+                    value={formatDate(subscriptionInfo.trial_ends_at || subscriptionInfo.subscription_ends_at)}
+                  />
+                  {subscriptionInfo.days_remaining !== null && (
+                    <DataRow
+                      icon={Clock}
+                      label="Dias restantes"
+                      value={`${subscriptionInfo.days_remaining} dias`}
+                      valueColor={
+                        subscriptionInfo.days_remaining <= 7
+                          ? 'text-red-500'
+                          : subscriptionInfo.days_remaining <= 30
+                            ? 'text-amber-500'
+                            : 'text-emerald-500'
+                      }
+                    />
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <CreditCard className="h-6 w-6 mx-auto mb-1 opacity-30" />
+                  <p className="text-xs text-muted-foreground">Sem assinatura</p>
+                </div>
+              )}
+
+              <div className="mt-3">
+                <GradientButton
+                  type="button"
+                  variant="outline"
+                  className="w-full text-xs py-1.5"
+                  onClick={() => toast.info('Em breve: Portal de gerenciamento')}
+                >
+                  Gerenciar Assinatura
+                </GradientButton>
+              </div>
+            </ProfileCard>
+
+            {/* CARD 3: Segurança */}
+            <ProfileCard delay={2}>
+              <SectionHeader
+                icon={Lock}
+                iconColor="bg-red-500/10 text-red-500"
+                label="SEGURANÇA"
+              />
+
+              {/* Senha */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-2 border-b border-border/30">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground/60" />
+                    <span className="text-sm text-muted-foreground">Senha</span>
+                  </div>
+                  {isGoogleUser ? (
+                    <span className="text-xs text-muted-foreground">Via Google</span>
+                  ) : (
+                    <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+                      <DialogTrigger asChild>
+                        <button className="text-xs text-primary font-medium hover:underline">
+                          Redefinir
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent aria-describedby="reset-desc">
+                        <DialogHeader>
+                          <DialogTitle>Redefinir Senha</DialogTitle>
+                        </DialogHeader>
+                        <div id="reset-desc" className="sr-only">Enviar link de redefinição de senha</div>
+                        <Form {...resetForm}>
+                          <form onSubmit={resetForm.handleSubmit(handleResetPassword)} className="space-y-4 pt-2">
+                            <FormField
+                              control={resetForm.control}
+                              name="email"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="flex items-center text-sm">
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Confirme seu email
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Input type="email" {...field} placeholder="Seu email atual" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <DialogFooter>
+                              <GradientButton type="submit" disabled={isSaving}>
+                                {isSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</> : 'Enviar Link'}
+                              </GradientButton>
+                            </DialogFooter>
+                          </form>
+                        </Form>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </div>
+
+                {/* 2FA */}
+                <div className="flex items-center justify-between py-2 border-b border-border/30">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground/60" />
+                    <span className="text-sm text-muted-foreground">2FA</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    Em breve
+                  </Badge>
+                </div>
+
+                {/* Metodo Login */}
+                <DataRow
+                  icon={Shield}
+                  label="Método"
+                  value={
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                      {isGoogleUser ? '🔗 Google' : '📧 Email'}
+                    </Badge>
+                  }
+                />
+              </div>
+            </ProfileCard>
+          </div>
+
+          {/* ────────────────────────────────────────── */}
+          {/* LINHA 2: Dados Pessoais + Acadêmico       */}
+          {/* ────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            {/* CARD: Dados Pessoais (editável) */}
+            <ProfileCard delay={3}>
+              <SectionHeader
+                icon={User}
+                iconColor="bg-indigo-500/10 text-indigo-500"
+                label="DADOS PESSOAIS"
+                action={
+                  !isEditingProfile ? (
+                    <button
+                      onClick={() => setIsEditingProfile(true)}
+                      className="text-muted-foreground/50 hover:text-primary transition-colors"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  ) : null
+                }
+              />
+
+              {isEditingProfile ? (
+                <Form {...profileForm}>
+                  <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-3">
+                    <FormField
+                      control={profileForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">Nome</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Seu nome" className="h-9 text-sm" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">Telefone</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="(00) 00000-0000" className="h-9 text-sm" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex gap-2 pt-1">
+                      <GradientButton type="submit" className="flex-1 text-xs py-1.5" disabled={isSaving}>
+                        {isSaving ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Salvando</> : <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Salvar</>}
+                      </GradientButton>
+                      <GradientButton
+                        type="button"
+                        variant="outline"
+                        className="text-xs py-1.5 px-3"
+                        onClick={() => {
+                          setIsEditingProfile(false);
+                          profileForm.reset({ name: profile?.name || '', phone: profile?.phone || '' });
+                        }}
+                      >
+                        Cancelar
+                      </GradientButton>
+                    </div>
+                  </form>
+                </Form>
+              ) : (
+                <div>
+                  <DataRow icon={User} label="Nome" value={profile?.name || '—'} />
+                  <DataRow icon={Mail} label="Email" value={user?.email || '—'} />
+                  <DataRow icon={Phone} label="Telefone" value={profile?.phone || '—'} />
+                  <DataRow icon={Calendar} label="Cadastro" value={formatDate(user.created_at)} />
+                </div>
+              )}
+            </ProfileCard>
+
+            {/* CARD: Informações Acadêmicas (editável) */}
+            <ProfileCard delay={4}>
+              <SectionHeader
+                icon={GraduationCap}
+                iconColor="bg-emerald-500/10 text-emerald-500"
+                label="INFORMAÇÕES ACADÊMICAS"
+                action={
+                  !isEditingAcademic ? (
+                    <button
+                      onClick={() => setIsEditingAcademic(true)}
+                      className="text-muted-foreground/50 hover:text-primary transition-colors"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  ) : null
+                }
+              />
+
+              {isEditingAcademic ? (
+                <Form {...academicForm}>
+                  <form onSubmit={academicForm.handleSubmit(handleSaveAcademic)} className="space-y-3">
+                    <FormField
+                      control={academicForm.control}
+                      name="targetExam"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">Concurso Alvo</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Ex: TRT, PF, INSS..." className="h-9 text-sm" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={academicForm.control}
+                      name="level"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">Nível</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <FormControl>
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="beginner">Iniciante</SelectItem>
+                              <SelectItem value="intermediate">Intermediário</SelectItem>
+                              <SelectItem value="advanced">Avançado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={academicForm.control}
+                      name="dailyHours"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">Carga Diária</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Ex: 4h" className="h-9 text-sm" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={academicForm.control}
+                      name="examDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">Data da Prova</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="date" className="h-9 text-sm" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={academicForm.control}
+                      name="focusArea"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">Área de Foco</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Ex: Direito Constitucional" className="h-9 text-sm" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex gap-2 pt-1">
+                      <GradientButton type="submit" className="flex-1 text-xs py-1.5" disabled={isSavingAcademic}>
+                        {isSavingAcademic ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Salvando</> : <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Salvar</>}
+                      </GradientButton>
+                      <GradientButton
+                        type="button"
+                        variant="outline"
+                        className="text-xs py-1.5 px-3"
+                        onClick={() => {
+                          setIsEditingAcademic(false);
+                          const prefs = (profile?.preferences as Record<string, any>) || {};
+                          const ac = prefs.academic as AcademicInfo | undefined;
+                          academicForm.reset({
+                            targetExam: ac?.targetExam || '',
+                            level: ac?.level || undefined,
+                            dailyHours: ac?.dailyHours || '',
+                            examDate: ac?.examDate || '',
+                            focusArea: ac?.focusArea || '',
+                          });
+                        }}
+                      >
+                        Cancelar
+                      </GradientButton>
+                    </div>
+                  </form>
+                </Form>
+              ) : (
+                <div>
+                  <DataRow icon={Target} label="Concurso" value={academic?.targetExam || '—'} />
+                  <DataRow icon={BookOpen} label="Nível" value={getLevelLabel(academic?.level)} />
+                  <DataRow icon={Clock} label="Carga diária" value={academic?.dailyHours || '—'} />
+                  <DataRow icon={Calendar} label="Prova" value={academic?.examDate ? formatDate(academic.examDate) : '—'} />
+                  <DataRow icon={Target} label="Foco" value={academic?.focusArea || '—'} />
+                </div>
+              )}
+            </ProfileCard>
+          </div>
+
         </div>
       </div>
     </TooltipProvider>

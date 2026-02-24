@@ -47,7 +47,7 @@ export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollaps
             {/* But for now, we follow the prop `isCollapsed`. */}
 
             {isCollapsed && (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-4 mb-4 relative group">
+                <div className="glass-card rounded-2xl p-4 mb-4 relative group">
                     <div className="flex items-center justify-around gap-4 flex-wrap pr-10">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-rose-500"></div>

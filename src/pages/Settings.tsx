@@ -1,50 +1,116 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw } from 'lucide-react';
+import {
+  RefreshCw, BookOpen, Bell, Settings2, AlertTriangle,
+  Clock, Globe, Loader2, CheckCircle2, ChevronRight,
+  CreditCard, User
+} from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { GlassCard, AnimatedTitle, GradientButton } from '@/components/ui';
-import { format, startOfDay, isBefore } from 'date-fns';
+import { GradientButton } from '@/components/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useApp } from '@/contexts/AppContext';
-import { ReviewProfile, REVIEW_PROFILES, UserSettings } from '@/types/study';
+import { ReviewProfile, UserSettings } from '@/types/study';
 import { ProfileSelector } from '@/components/ProfileSelector';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Check } from "lucide-react";
-// Removido hook de visibilidade que causava recarregamentos
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ResetCycleConfirmDialog } from '@/components/ResetCycleConfirmDialog';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
 
+// ─── Design System Components (padrão Perfil v2) ───────────
+const SettingsCard = ({
+  children,
+  className = '',
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) => (
+  <motion.div
+    initial={{ opacity: 0, y: 16 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: delay * 0.08, duration: 0.4, type: 'spring', stiffness: 120 }}
+    className={`glow-card rounded-2xl p-5 ${className}`}
+  >
+    {children}
+  </motion.div>
+);
 
-interface UserCycle {
-  id: string;
-  user_id: string;
-  ciclo_atual: string[];
-  disciplinas_do_dia: string[];
-  ciclos_realizados: number;
-  data_inicio_ciclo: string;
-  data_fim_ciclo: string | null;
-  atualizado_em: string;
-  created_at: string;
-}
+const SectionHeader = ({
+  icon: Icon,
+  iconColor,
+  label,
+  action,
+}: {
+  icon: React.ElementType;
+  iconColor: string;
+  label: string;
+  action?: React.ReactNode;
+}) => (
+  <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center gap-2.5">
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconColor}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <span className="data-label">{label}</span>
+    </div>
+    {action}
+  </div>
+);
 
+const DataRow = ({
+  icon: Icon,
+  label,
+  value,
+  valueColor,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+  valueColor?: string;
+}) => (
+  <div className="flex items-center justify-between py-2.5 border-b border-border/30 last:border-0">
+    <div className="flex items-center gap-2">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground/60" />
+      <span className="text-sm text-muted-foreground">{label}</span>
+    </div>
+    <span className={`text-sm font-semibold ${valueColor || 'text-foreground'}`}>
+      {value}
+    </span>
+  </div>
+);
+
+// ─── Constantes ─────────────────────────────────────────────
+const TIMEZONES = [
+  { value: 'America/Sao_Paulo', label: 'Brasília (GMT-3)' },
+  { value: 'America/Manaus', label: 'Manaus (GMT-4)' },
+  { value: 'America/Rio_Branco', label: 'Rio Branco (GMT-5)' },
+  { value: 'America/Noronha', label: 'Fernando de Noronha (GMT-2)' },
+  { value: 'America/Belem', label: 'Belém (GMT-3)' },
+  { value: 'America/Fortaleza', label: 'Fortaleza (GMT-3)' },
+  { value: 'America/Cuiaba', label: 'Cuiabá (GMT-4)' },
+  { value: 'America/Campo_Grande', label: 'Campo Grande (GMT-4)' },
+  { value: 'America/Porto_Velho', label: 'Porto Velho (GMT-4)' },
+  { value: 'America/Boa_Vista', label: 'Boa Vista (GMT-4)' },
+];
+
+// ═══════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ═══════════════════════════════════════════════════════════
 const Settings = () => {
-  // Removido hook de visibilidade problemático
-
   const navigate = useNavigate();
-
   const { user } = useAuth();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -62,14 +128,13 @@ const Settings = () => {
   });
   const [hasReviews, setHasReviews] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [timezone, setTimezone] = useState('America/Sao_Paulo');
 
-  // Use the custom hook for cycle management
   const { userCycle, isLoading: isCycleLoading, fetchUserCycle, resetCycle } = useCycleState();
   const [isResettingCycle, setIsResettingCycle] = useState(false);
-
   const { fetchUserSettings: fetchUserSettingsContext, refreshData } = useApp();
 
-  // Buscar configurações do usuário ao carregar a página
+  // ─── Data loading ─────────────────────────────────────
   useEffect(() => {
     if (user) {
       fetchUserSettings();
@@ -81,10 +146,8 @@ const Settings = () => {
 
   const fetchUserSettings = async () => {
     if (!user) return;
-
     setIsLoading(true);
     setError(null);
-
     try {
       const { data, error } = await supabase
         .from('user_settings')
@@ -96,7 +159,7 @@ const Settings = () => {
 
       if (data) {
         setSettings({
-          id: '', // Campo removido da tabela user_settings
+          id: '',
           user_id: data.user_id || '',
           review_profile: data.review_profile as ReviewProfile,
           subjects_per_day: data.subjects_per_day,
@@ -106,7 +169,6 @@ const Settings = () => {
           updated_at: data.updated_at || ''
         } as UserSettings);
       } else {
-        // Create default settings if none exist
         const { error: insertError } = await supabase
           .from('user_settings')
           .insert({
@@ -119,12 +181,11 @@ const Settings = () => {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
-
         if (insertError) throw insertError;
       }
     } catch (err: any) {
       console.error('Erro ao buscar configurações:', err);
-      setError('Não foi possível carregar suas configurações. Por favor, tente novamente mais tarde.');
+      setError('Não foi possível carregar suas configurações.');
       errorService.report(err, { module: 'settings', action: 'fetch', userMessage: "Erro ao carregar configurações" });
     } finally {
       setIsLoading(false);
@@ -139,102 +200,30 @@ const Settings = () => {
       .eq('subjects.user_id', user.id)
       .gt('review_count', 0)
       .limit(1);
-    if (error) {
-      setHasReviews(false);
-    }
+    if (error) setHasReviews(false);
     setHasReviews(data && data.length > 0);
   };
 
-  const handleResetCycle = async () => {
-    if (!user) {
-      console.error('❌ Usuário não encontrado para reset');
-      return;
-    }
-
-    console.log('🔄 Iniciando handleResetCycle...');
-    setIsResettingCycle(true);
-    try {
-      console.log('🔄 Chamando resetCycle...');
-      await resetCycle();
-
-      console.log('✅ resetCycle executado com sucesso');
-
-      // Atualizar todos os dados da aplicação
-      console.log('🔄 Atualizando dados da aplicação...');
-      await Promise.all([
-        refreshData(), // Atualiza o contexto global
-        fetchUserSettingsContext(), // Atualiza as configurações
-        checkHasReviews() // Atualiza o estado de revisões
-      ]);
-
-      console.log('✅ Dados atualizados com sucesso');
-      toast.success("Ciclo e revisões resetados com sucesso! Todas as matérias voltaram ao status inicial.");
-
-      // Recarregar a página após um pequeno delay para garantir que todos os estados foram atualizados
-      setTimeout(() => {
-        console.log('🔄 Recarregando página...');
-        window.location.reload();
-      }, 1500);
-    } catch (err: any) {
-      console.error('❌ Erro ao resetar ciclo:', err);
-      errorService.report(err, { module: 'settings', action: 'reset_cycle', userMessage: `Não foi possível resetar o ciclo: ${err.message || 'Erro desconhecido'}` });
-    } finally {
-      setIsResettingCycle(false);
-    }
-  };
-
-  const handleNotificationsToggle = (checked: boolean) => {
-    setSettings(prev => ({
-      ...prev,
-      notifications_enabled: checked
-    }));
-  };
-
+  // ─── Handlers ─────────────────────────────────────────
   const handleSubjectsPerDayChange = async (value: number[]) => {
     const newValue = value[0];
-    console.log('🔧 Mudando subjects_per_day de', settings.subjects_per_day, 'para', newValue);
+    setSettings(prev => ({ ...prev, subjects_per_day: newValue }));
 
-    setSettings(prev => ({
-      ...prev,
-      subjects_per_day: newValue
-    }));
-
-    // Salvar imediatamente no banco de dados
     if (user) {
       try {
         const { error } = await supabase
           .from('user_settings')
-          .update({
-            subjects_per_day: newValue,
-            updated_at: new Date().toISOString()
-          })
+          .update({ subjects_per_day: newValue, updated_at: new Date().toISOString() })
           .eq('user_id', user.id);
-
         if (error) throw error;
-
-        console.log('✅ subjects_per_day salvo no banco:', newValue);
-
-        // Atualizar o contexto global imediatamente
         await fetchUserSettingsContext();
-
         toast.success(`Agora você estudará ${newValue} matéria${newValue > 1 ? 's' : ''} por dia`);
       } catch (err) {
         console.error('Erro ao salvar subjects_per_day:', err);
-        toastGate.notifyError("Não foi possível atualizar a configuração", "SET-UPD-FAIL", { severity: 'low' });
-        // Reverter o valor local se houve erro
-        setSettings(prev => ({
-          ...prev,
-          subjects_per_day: settings.subjects_per_day
-        }));
+        toastGate.notifyError("Não foi possível atualizar", "SET-UPD-FAIL", { severity: 'low' });
+        setSettings(prev => ({ ...prev, subjects_per_day: settings.subjects_per_day }));
       }
     }
-  };
-
-  const handleNotificationTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSettings(prev => ({
-      ...prev,
-      notification_time: e.target.value
-    }));
   };
 
   const handleProfileChange = async (newProfile: ReviewProfile) => {
@@ -244,26 +233,25 @@ const Settings = () => {
         .from('user_settings')
         .update({ review_profile: newProfile })
         .eq('user_id', user?.id);
-
       if (error) throw error;
-
-      setSettings(prev => ({
-        ...prev,
-        review_profile: newProfile
-      }));
-      toast.success("Perfil de revisão atualizado com sucesso!");
+      setSettings(prev => ({ ...prev, review_profile: newProfile }));
+      toast.success("Perfil de revisão atualizado!");
     } catch (error) {
-      console.error('Erro ao atualizar perfil:', error);
-      errorService.report(error, { module: 'settings', action: 'update_profile', userMessage: "Erro ao atualizar perfil de revisão" });
+      errorService.report(error, { module: 'settings', action: 'update_profile', userMessage: "Erro ao atualizar perfil" });
     }
   };
 
-  const handleSaveSettings = async () => {
+  const handleNotificationsToggle = (checked: boolean) => {
+    setSettings(prev => ({ ...prev, notifications_enabled: checked }));
+  };
+
+  const handleNotificationTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSettings(prev => ({ ...prev, notification_time: e.target.value }));
+  };
+
+  const handleSaveNotifications = async () => {
     if (!user) return;
-
     setIsSaving(true);
-    setError(null);
-
     try {
       const { error } = await supabase
         .from('user_settings')
@@ -275,122 +263,87 @@ const Settings = () => {
           review_profile: settings.review_profile,
           updated_at: new Date().toISOString()
         });
-
       if (error) throw error;
-
-      // Atualizar o contexto global imediatamente
       await fetchUserSettingsContext();
-      toast.success("Configurações salvas com sucesso");
+      toast.success("Notificações salvas!");
     } catch (err: any) {
-      console.error('Erro ao salvar configurações:', err);
-      setError('Não foi possível salvar suas configurações. Por favor, tente novamente mais tarde.');
-      errorService.report(err, { module: 'settings', action: 'save_all', userMessage: "Não foi possível salvar suas configurações" });
+      errorService.report(err, { module: 'settings', action: 'save_notifications', userMessage: "Erro ao salvar notificações" });
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Calcular disciplinas concluídas do ciclo atual
-  const disciplinasConcluidas = userCycle?.ciclo_atual?.length || 0;
+  const handleResetCycle = async () => {
+    if (!user) return;
+    setIsResettingCycle(true);
+    try {
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects').select('id').eq('user_id', user.id);
+      if (subjectsError) throw subjectsError;
+      const subjectIds = (subjectsData || []).map(s => s.id);
+
+      if (subjectIds.length > 0) {
+        const { error: topicsError } = await supabase
+          .from('topics')
+          .update({
+            review_stage: null, review_count: 0, next_review: null,
+            last_reviewed_at: null, completed: false, updated_at: new Date().toISOString()
+          })
+          .in('subject_id', subjectIds);
+        if (topicsError) throw topicsError;
+      }
+
+      await supabase.from('subjects').update({ status: 'Nova', updated_at: new Date().toISOString() }).eq('user_id', user.id);
+      await supabase.from('user_cycles').update({
+        ciclo_atual: [], disciplinas_do_dia: [], materias_estudadas_ciclo: [],
+        ciclos_realizados: 0, data_inicio_ciclo: null, data_fim_ciclo: null,
+        atualizado_em: new Date().toISOString()
+      }).eq('user_id', user.id);
+      await supabase.from('study_sessions').delete().eq('user_id', user.id);
+
+      const { updateStudiedSubjects, resetCycle: resetCycleState } = await import('@/utils/cycleState');
+      updateStudiedSubjects([]);
+      resetCycleState(0);
+      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { isReset: true, reason: 'reviewsCleared', timestamp: Date.now() } }));
+
+      await Promise.all([refreshData(), fetchUserCycle(), fetchUserSettingsContext()]);
+      toast.success("Ciclo reiniciado com sucesso!");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err: any) {
+      errorService.report(err, { module: 'settings', action: 'reset_cycle', userMessage: "Erro ao reiniciar ciclo" });
+    } finally {
+      setIsResettingCycle(false);
+    }
+  };
 
   const handleClearAll = async () => {
     if (!user) {
       toastGate.notifyError("Usuário não autenticado.", "AUTH-002", { severity: 'low' });
       return;
     }
+    try {
+      const { data: userSubjects, error: subjectsError } = await supabase.from('subjects').select('id').eq('user_id', user.id);
+      if (subjectsError) throw subjectsError;
+      const subjectIds = (userSubjects || []).map(s => s.id);
 
-    if (window.confirm("Tem certeza que deseja excluir TODAS as matérias, tópicos e revisões? Esta ação não pode ser desfeita!")) {
-      try {
-        console.log('🧹 Iniciando limpeza completa do sistema para usuário:', user.id);
-
-        // 1. Buscar todas as matérias do usuário
-        const { data: userSubjects, error: subjectsError } = await supabase
-          .from('subjects')
-          .select('id')
-          .eq('user_id', user.id);
-
-        if (subjectsError) throw subjectsError;
-
-        const subjectIds = (userSubjects || []).map(s => s.id);
-        console.log('🧹 Matérias encontradas:', subjectIds.length);
-
-        // 2. Buscar e Deletar Tópicos e seu Histórico
-        if (subjectIds.length > 0) {
-          // Buscar IDs dos tópicos para deletar histórico
-          const { data: userTopics, error: fetchTopicsError } = await supabase
-            .from('topics')
-            .select('id')
-            .in('subject_id', subjectIds);
-
-          if (fetchTopicsError) throw fetchTopicsError;
-
-          const topicIds = (userTopics || []).map(t => t.id);
-
-          if (topicIds.length > 0) {
-            // 2.1 Deletar histórico de revisões
-            const { error: historyError } = await supabase
-              .from('topic_review_history')
-              .delete()
-              .in('topic_id', topicIds);
-
-            if (historyError) throw historyError;
-            console.log('🧹 Histórico de revisões deletado');
-          }
-
-          // 2.2 Deletar tópicos
-          const { error: topicsError } = await supabase
-            .from('topics')
-            .delete()
-            .in('subject_id', subjectIds);
-
-          if (topicsError) throw topicsError;
-          console.log('🧹 Tópicos deletados');
+      if (subjectIds.length > 0) {
+        const { data: userTopics } = await supabase.from('topics').select('id').in('subject_id', subjectIds);
+        const topicIds = (userTopics || []).map(t => t.id);
+        if (topicIds.length > 0) {
+          await supabase.from('topic_review_history').delete().in('topic_id', topicIds);
         }
-
-        // 3. Deletar matérias do usuário
-        const { error: subjectsDeleteError } = await supabase
-          .from('subjects')
-          .delete()
-          .eq('user_id', user.id);
-
-        if (subjectsDeleteError) throw subjectsDeleteError;
-        console.log('🧹 Matérias deletadas');
-
-        // 4. Deletar ciclos do usuário
-        const { error: cyclesError } = await supabase
-          .from('user_cycles')
-          .delete()
-          .eq('user_id', user.id);
-
-        if (cyclesError) throw cyclesError;
-        console.log('🧹 Ciclos deletados');
-
-        // 5. Deletar sessões de estudo do usuário
-        const { error: sessionsError } = await supabase
-          .from('study_sessions')
-          .delete()
-          .eq('user_id', user.id);
-
-        if (sessionsError) throw sessionsError;
-        console.log('🧹 Sessões deletadas');
-
-        // 6. Atualizar estados locais e contextos
-        await Promise.all([
-          refreshData(), // Atualiza o contexto global
-          fetchUserCycle(), // Atualiza o ciclo do usuário
-          fetchUserSettingsContext(), // Atualiza as configurações
-        ]);
-
-        toast.success("Sistema limpo com sucesso!");
-
-        // Recarregar a página após um pequeno delay para garantir que todos os estados foram atualizados
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } catch (err) {
-        console.error('Erro ao limpar sistema:', err);
-        errorService.report(err, { module: 'settings', action: 'clear_all', userMessage: "Ocorreu um erro ao tentar limpar o sistema." });
+        await supabase.from('topics').delete().in('subject_id', subjectIds);
       }
+
+      await supabase.from('subjects').delete().eq('user_id', user.id);
+      await supabase.from('user_cycles').delete().eq('user_id', user.id);
+      await supabase.from('study_sessions').delete().eq('user_id', user.id);
+
+      await Promise.all([refreshData(), fetchUserCycle(), fetchUserSettingsContext()]);
+      toast.success("Sistema limpo com sucesso!");
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (err) {
+      errorService.report(err, { module: 'settings', action: 'clear_all', userMessage: "Erro ao limpar sistema." });
     }
   };
 
@@ -398,212 +351,142 @@ const Settings = () => {
     return <LoadingSpinner message="Carregando configurações..." />;
   }
 
-  function agruparPorMateria(topics) {
-    const materias = {};
-    topics.forEach(topic => {
-      if (!materias[topic.subject_name]) materias[topic.subject_name] = [];
-      materias[topic.subject_name].push(topic);
-    });
-    return materias;
-  }
-
-  function separarPorStatus(topics) {
-    const hoje = startOfDay(new Date());
-    return {
-      atrasados: topics.filter(t => t.next_review && isBefore(startOfDay(new Date(t.next_review)), hoje)),
-      hoje: topics.filter(t => t.next_review && startOfDay(new Date(t.next_review)).getTime() === hoje.getTime()),
-      futuras: topics.filter(t => t.next_review && new Date(t.next_review) > hoje && startOfDay(new Date(t.next_review)).getTime() !== hoje.getTime()),
-    };
-  }
-
+  // ═══════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto p-4 max-w-4xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-            className="mb-6"
-          >
-            <h1 className="text-2xl font-bold text-foreground mb-1">
-              Configurações
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Gerencie suas preferências de estudo e conta
-            </p>
-          </motion.div>
+      <div className="pb-10 h-full w-full">
+        <div className="w-full pb-8 pt-0">
 
           {error && (
-            <Alert variant="destructive" className="mb-6">
+            <Alert variant="destructive" className="mb-4">
               <AlertTitle>Erro</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          <Tabs defaultValue="estudos" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="estudos">Estudos</TabsTrigger>
-              <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
-              <TabsTrigger value="informacoes">Informações</TabsTrigger>
-              <TabsTrigger value="sistema">Sistema</TabsTrigger>
+          <Tabs defaultValue="estudos" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="estudos" className="text-xs sm:text-sm">Estudos</TabsTrigger>
+              <TabsTrigger value="notificacoes" className="text-xs sm:text-sm">Notificações</TabsTrigger>
+              <TabsTrigger value="conta" className="text-xs sm:text-sm">Conta</TabsTrigger>
+              <TabsTrigger value="sistema" className="text-xs sm:text-sm">Sistema</TabsTrigger>
             </TabsList>
 
-            {/* Aba Estudos */}
+            {/* ═══════════════════════════════════════════ */}
+            {/* ABA ESTUDOS                                */}
+            {/* ═══════════════════════════════════════════ */}
             <TabsContent value="estudos" className="space-y-4">
-              <GlassCard className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <h2 className="text-lg font-semibold">Perfil de Revisão</h2>
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        Este perfil define os intervalos ideais de revisão com base em práticas de retenção. Ele será utilizado durante todo o ciclo para manter consistência.
-                      </p>
-                      <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
-                        <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                        <span>Seu perfil de revisão está em uso neste ciclo. Para alterá-lo, finalize ou reinicie o ciclo na aba Sistema.</span>
-                      </div>
-                    </div>
-                  </div>
+              {/* Perfil de Revisão */}
+              <SettingsCard delay={0}>
+                <SectionHeader
+                  icon={BookOpen}
+                  iconColor="bg-blue-500/10 text-blue-500"
+                  label="PERFIL DE REVISÃO"
+                />
 
-                  <div className="max-w-2xl">
-                    <ProfileSelector
-                      selected={settings?.review_profile}
-                      onSelect={handleProfileChange}
-                      onboarding={false}
-                      disabled={hasReviews}
-                    />
-                    {hasReviews && (
-                      <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded text-sm">
-                        <strong>Perfil em uso neste ciclo:</strong> Há revisões em andamento.
-                        Para alterar o perfil, use "Reiniciar ciclo de revisões" na aba Sistema.
-                      </div>
-                    )}
+                {hasReviews && (
+                  <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 mb-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span>Perfil em uso. Para alterar, reinicie o ciclo abaixo.</span>
                   </div>
+                )}
+
+                <div className="max-w-2xl">
+                  <ProfileSelector
+                    selected={settings?.review_profile}
+                    onSelect={handleProfileChange}
+                    onboarding={false}
+                    disabled={hasReviews}
+                  />
                 </div>
-              </GlassCard>
-              <div className="grid gap-4 md:grid-cols-2">
-                <GlassCard className="p-6">
+              </SettingsCard>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Planejamento */}
+                <SettingsCard delay={1}>
+                  <SectionHeader
+                    icon={Settings2}
+                    iconColor="bg-indigo-500/10 text-indigo-500"
+                    label="PLANEJAMENTO"
+                  />
+
                   <div className="space-y-4">
                     <div>
-                      <h2 className="text-lg font-semibold">Planejamento</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Configure seus estudos diários.
-                      </p>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-muted-foreground">Matérias por dia</span>
+                        <span className="text-sm font-bold text-foreground">{settings.subjects_per_day}</span>
+                      </div>
+                      <Slider
+                        value={[settings.subjects_per_day]}
+                        max={10}
+                        min={1}
+                        step={1}
+                        onValueChange={handleSubjectsPerDayChange}
+                        className="w-full"
+                      />
+                      <p className="text-[10px] text-muted-foreground/60 mt-1.5">Mudanças aplicadas imediatamente</p>
                     </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">
-                          Matérias por dia: {settings.subjects_per_day}
-                        </h3>
-                        <Slider
-                          value={[settings.subjects_per_day]}
-                          max={10}
-                          min={1}
-                          step={1}
-                          onValueChange={handleSubjectsPerDayChange}
-                          className="w-full"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Mudanças aplicadas imediatamente
-                        </p>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">Organizar Matérias</h3>
-                        <GradientButton
-                          className="w-full"
-                          onClick={() => navigate('/materias')}
-                        >
-                          Gerenciar Matérias
-                        </GradientButton>
-                      </div>
-                    </div>
+                    <GradientButton
+                      type="button"
+                      variant="outline"
+                      className="w-full text-xs py-1.5"
+                      onClick={() => navigate('/materias')}
+                    >
+                      <BookOpen className="h-3.5 w-3.5 mr-1.5" />
+                      Gerenciar Matérias
+                    </GradientButton>
                   </div>
-                </GlassCard>
+                </SettingsCard>
 
-                <GlassCard className="p-6">
-                  <div className="space-y-4">
-                    <div>
-                      <h2 className="text-lg font-semibold">Progresso do Ciclo</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Acompanhe suas estatísticas.
-                      </p>
-                    </div>
+                {/* Reiniciar Ciclo */}
+                <SettingsCard delay={2}>
+                  <SectionHeader
+                    icon={RefreshCw}
+                    iconColor="bg-sky-500/10 text-sky-500"
+                    label="REINICIAR CICLO"
+                  />
 
-                    {userCycle ? (
-                      <div className="space-y-4">
-                        <div className="text-center p-3 bg-primary/10 rounded-lg">
-                          <div className="text-2xl font-bold text-primary">{userCycle.ciclos_realizados || 0}</div>
-                          <div className="text-sm text-muted-foreground">Total de ciclos</div>
-                        </div>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Reinicia seu ciclo de revisões mantendo matérias e tópicos. Ideal para ajustar o perfil ou recomeçar.
+                  </p>
 
-                        <div className="space-y-2 text-sm">
-                          <div>
-                            <span className="font-medium">Data Início: </span>
-                            <span className="text-muted-foreground">
-                              {userCycle.data_inicio_ciclo ? format(new Date(userCycle.data_inicio_ciclo), 'dd/MM/yyyy') : 'Não iniciado'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-medium">Data Último Ciclo: </span>
-                            <span className="text-muted-foreground">
-                              {userCycle.data_fim_ciclo ? format(new Date(userCycle.data_fim_ciclo), 'dd/MM/yyyy') : 'Nenhum ciclo concluído'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <Button
-                          variant="destructive"
-                          onClick={handleResetCycle}
-                          disabled={isResettingCycle}
-                          className="w-full"
-                          size="sm"
-                        >
-                          {isResettingCycle ? (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              Resetando...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Resetar Ciclo
-                            </>
-                          )}
-                        </Button>
-                      </div>
+                  <Button
+                    variant="outline"
+                    className="w-full text-xs border-sky-500/30 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10"
+                    onClick={handleResetCycle}
+                    disabled={isResettingCycle}
+                    size="sm"
+                  >
+                    {isResettingCycle ? (
+                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Reiniciando...</>
                     ) : (
-                      <div className="text-center py-4">
-                        <p className="text-muted-foreground text-sm">Nenhum ciclo encontrado</p>
-                      </div>
+                      <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Reiniciar Ciclo de Revisões</>
                     )}
-                  </div>
-                </GlassCard>
+                  </Button>
+                </SettingsCard>
               </div>
             </TabsContent>
 
-            {/* Aba Notificações */}
+            {/* ═══════════════════════════════════════════ */}
+            {/* ABA NOTIFICAÇÕES                           */}
+            {/* ═══════════════════════════════════════════ */}
             <TabsContent value="notificacoes" className="space-y-4">
-              <GlassCard className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <h2 className="text-lg font-semibold">Lembretes</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Configure suas notificações de estudo.
-                    </p>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <SettingsCard delay={0}>
+                  <SectionHeader
+                    icon={Bell}
+                    iconColor="bg-amber-500/10 text-amber-500"
+                    label="LEMBRETES"
+                  />
 
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between py-2.5 border-b border-border/30">
                       <div>
-                        <h3 className="text-sm font-medium">Notificações ativas</h3>
-                        <p className="text-xs text-muted-foreground">
-                          Receba lembretes para estudar
-                        </p>
+                        <p className="text-sm font-medium text-foreground">Notificações ativas</p>
+                        <p className="text-[10px] text-muted-foreground">Receba lembretes para estudar</p>
                       </div>
                       <Switch
                         checked={settings.notifications_enabled}
@@ -611,371 +494,131 @@ const Settings = () => {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="notification-time" className="text-sm">Horário Principal</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="notification-time" className="text-xs text-muted-foreground">
+                        Horário principal
+                      </Label>
                       <Input
                         id="notification-time"
                         type="time"
                         value={settings.notification_time}
                         onChange={handleNotificationTimeChange}
-                        className="max-w-[160px]"
+                        className="max-w-[140px] h-9 text-sm"
                       />
                     </div>
 
-                    <div className="pt-2">
-                      <GradientButton
-                        onClick={handleSaveSettings}
-                        disabled={isSaving}
-                        className="w-full"
-                      >
-                        {isSaving ? 'Salvando...' : 'Salvar Configurações'}
-                      </GradientButton>
-                    </div>
-                  </div>
-                </div>
-              </GlassCard>
-            </TabsContent>
-
-            {/* Aba Informações */}
-            <TabsContent value="informacoes" className="space-y-4">
-              <GlassCard className="p-6">
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-semibold">Como Funcionam as Porcentagens</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Entenda como são calculadas as porcentagens de progresso das suas matérias.
-                    </p>
-                  </div>
-
-                  {/* Categorização Geral */}
-                  <div className="space-y-4">
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100">Categorias de Status</h3>
-                    <div className="grid gap-3">
-                      <div className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                        <span className="text-2xl">🎯</span>
-                        <div>
-                          <div className="font-medium text-emerald-800 dark:text-emerald-200">100% - Dominada</div>
-                          <div className="text-sm text-emerald-600 dark:text-emerald-400">Todas as revisões do perfil foram completadas</div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                        <span className="text-2xl">⚡</span>
-                        <div>
-                          <div className="font-medium text-blue-800 dark:text-blue-200">60-99% - Progredindo</div>
-                          <div className="text-sm text-blue-600 dark:text-blue-400">Boa parte das revisões já foi feita</div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-                        <span className="text-2xl">⚠️</span>
-                        <div>
-                          <div className="font-medium text-orange-800 dark:text-orange-200">40-59% - Precisa Atenção</div>
-                          <div className="text-sm text-orange-600 dark:text-orange-400">Algumas revisões feitas, mas precisa de mais foco</div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                        <span className="text-2xl">🚨</span>
-                        <div>
-                          <div className="font-medium text-red-800 dark:text-red-200">0-39% - Crítica</div>
-                          <div className="text-sm text-red-600 dark:text-red-400">Poucas ou nenhuma revisão feita</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Perfis de Revisão */}
-                  <div className="space-y-4">
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100">Porcentagens por Perfil de Revisão</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Cada perfil tem um número diferente de revisões, o que afeta como a porcentagem é calculada.
-                    </p>
-
-                    <div className="grid gap-4 md:grid-cols-3">
-                      {/* Iniciante */}
-                      <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-xl">🌟</span>
-                          <h4 className="font-medium">Iniciante</h4>
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          6 revisões por tópico
-                        </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span>6/6 revisões:</span>
-                            <span className="font-medium text-emerald-600">100% 🎯</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>4-5 revisões:</span>
-                            <span className="font-medium text-blue-600">67-83% ⚡</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>2-3 revisões:</span>
-                            <span className="font-medium text-orange-600">33-50% ⚠️</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>0-1 revisões:</span>
-                            <span className="font-medium text-red-600">0-17% 🚨</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Intermediário */}
-                      <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-xl">🚀</span>
-                          <h4 className="font-medium">Intermediário</h4>
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          4 revisões por tópico
-                        </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span>4/4 revisões:</span>
-                            <span className="font-medium text-emerald-600">100% 🎯</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>3 revisões:</span>
-                            <span className="font-medium text-blue-600">75% ⚡</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>2 revisões:</span>
-                            <span className="font-medium text-orange-600">50% ⚠️</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>0-1 revisões:</span>
-                            <span className="font-medium text-red-600">0-25% 🚨</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Avançado */}
-                      <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-xl">💎</span>
-                          <h4 className="font-medium">Avançado</h4>
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          3 revisões por tópico
-                        </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span>3/3 revisões:</span>
-                            <span className="font-medium text-emerald-600">100% 🎯</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>2 revisões:</span>
-                            <span className="font-medium text-blue-600">67% ⚡</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>1 revisão:</span>
-                            <span className="font-medium text-orange-600">33% ⚠️</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>0 revisões:</span>
-                            <span className="font-medium text-red-600">0% 🚨</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Como é Calculado */}
-                  <div className="space-y-4">
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100">Como é Calculado</h3>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <strong>1. Para cada tópico:</strong> (Revisões feitas ÷ Revisões do perfil) × 100
-                        </div>
-                        <div>
-                          <strong>2. Para a matéria:</strong> Média de todos os tópicos
-                        </div>
-                        <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-                          <strong>Exemplo:</strong> Matéria com 2 tópicos (Perfil Intermediário)
-                          <br />
-                          • Tópico A: 4/4 revisões = 100%
-                          <br />
-                          • Tópico B: 2/4 revisões = 50%
-                          <br />
-                          • <strong>Resultado:</strong> (100% + 50%) ÷ 2 = 75% - Progredindo ⚡
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </GlassCard>
-            </TabsContent>
-
-            {/* Aba Sistema */}
-            <TabsContent value="sistema" className="space-y-4">
-              <GlassCard className="p-6">
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-semibold">Gerenciar Dados</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Reinicie seu ambiente de estudos.
-                    </p>
-                  </div>
-
-                  {/* Botão Limpar Apenas Revisões */}
-                  <div className="space-y-3">
-                    <div className="p-4 border border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800 rounded-lg">
-                      <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                        Reiniciar ciclo de revisões
-                      </h3>
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-                        Reinicia seu ciclo atual de revisões mantendo suas matérias e tópicos. Ideal para ajustar o perfil ou começar de novo.
-                      </p>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start border-blue-500 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/40"
-                        onClick={async () => {
-                          if (!user) {
-                            toastGate.notifyError("Usuário não autenticado.", "AUTH-MISS-RESET", { severity: 'low' });
-                            return;
-                          }
-                          if (window.confirm("Deseja reiniciar o ciclo de revisões? O progresso será zerado para permitir um novo planejamento, mas seus tópicos serão mantidos.")) {
-                            try {
-                              console.log('🔄 Iniciando reset das revisões para usuário:', user.id);
-
-                              // 1. Buscar todas as matérias do usuário
-                              const { data: subjectsData, error: subjectsError } = await supabase
-                                .from('subjects')
-                                .select('id')
-                                .eq('user_id', user.id);
-                              if (subjectsError) throw subjectsError;
-                              const subjectIds = (subjectsData || []).map(s => s.id);
-                              console.log('🔄 Matérias encontradas:', subjectIds.length);
-
-                              // 2. Resetar TODOS os campos de revisão dos tópicos
-                              if (subjectIds.length > 0) {
-                                const { error: topicsError } = await supabase
-                                  .from('topics')
-                                  .update({
-                                    review_stage: null,
-                                    review_count: 0,
-                                    next_review: null,
-                                    last_reviewed_at: null,
-                                    completed: false,
-                                    updated_at: new Date().toISOString()
-                                  })
-                                  .in('subject_id', subjectIds);
-
-                                if (topicsError) throw topicsError;
-                                console.log('✅ Tópicos resetados');
-                              }
-
-                              // 3. Resetar status das matérias
-                              const { error: subjectsUpdateError } = await supabase
-                                .from('subjects')
-                                .update({
-                                  status: 'Nova',
-                                  updated_at: new Date().toISOString()
-                                })
-                                .eq('user_id', user.id);
-
-                              if (subjectsUpdateError) throw subjectsUpdateError;
-                              console.log('✅ Status das matérias resetado');
-
-                              // 4. Resetar COMPLETAMENTE o ciclo do usuário
-                              const { error: cycleError } = await supabase
-                                .from('user_cycles')
-                                .update({
-                                  ciclo_atual: [],
-                                  disciplinas_do_dia: [],
-                                  materias_estudadas_ciclo: [], // CRÍTICO: Limpar matérias estudadas
-                                  ciclos_realizados: 0,
-                                  data_inicio_ciclo: null,
-                                  data_fim_ciclo: null,
-                                  atualizado_em: new Date().toISOString()
-                                })
-                                .eq('user_id', user.id);
-
-                              if (cycleError) throw cycleError;
-                              console.log('✅ Ciclo resetado completamente');
-
-                              // 5. Deletar sessões de estudo (opcional, mas recomendado)
-                              const { error: sessionsError } = await supabase
-                                .from('study_sessions')
-                                .delete()
-                                .eq('user_id', user.id);
-
-                              if (sessionsError) {
-                                console.warn('⚠️ Erro ao deletar sessões (não crítico):', sessionsError);
-                              } else {
-                                console.log('✅ Sessões de estudo deletadas');
-                              }
-
-                              // 6. CRÍTICO: Limpar estado global do frontend
-                              console.log('🔄 Limpando estado global...');
-
-                              // Importar e usar as funções do cycleState
-                              const { updateStudiedSubjects, resetCycle } = await import('@/utils/cycleState');
-                              updateStudiedSubjects([]); // Limpar matérias estudadas
-                              resetCycle(0); // Resetar para ciclo 0
-
-                              // 7. Disparar eventos para atualizar componentes
-                              console.log('🔄 Disparando eventos de atualização...');
-                              window.dispatchEvent(new CustomEvent('cycleUpdated', {
-                                detail: {
-                                  isReset: true,
-                                  reason: 'reviewsCleared',
-                                  timestamp: Date.now()
-                                }
-                              }));
-
-                              // 8. Atualizar dados da aplicação
-                              await Promise.all([
-                                refreshData(),
-                                fetchUserCycle(),
-                                fetchUserSettingsContext(),
-                              ]);
-
-                              toast.success("Ciclo reiniciado com sucesso!");
-
-                              setTimeout(() => {
-                                console.log('🔄 Recarregando página...');
-                                window.location.reload();
-                              }, 1500);
-
-                            } catch (err: any) {
-                              console.error('❌ Erro ao limpar revisões:', err);
-                              errorService.report(err, { module: 'settings', action: 'reset_reviews', userMessage: "Erro ao limpar revisões" });
-                            }
-                          }
-                        }}
-                      >
-                        Reiniciar ciclo de revisões
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Zona de Perigo */}
-                  <div className="p-4 border-2 border-destructive/50 bg-destructive/5 rounded-lg space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-                      <h3 className="font-semibold text-destructive">
-                        Zona de Perigo
-                      </h3>
-                    </div>
-                    <p className="text-sm text-destructive/80">
-                      Esta ação irá remover <strong>permanentemente</strong> todas as suas matérias, tópicos, revisões e anotações. Não há como desfazer.
-                    </p>
-                    <Button
-                      variant="destructive"
-                      className="w-full"
-                      onClick={() => setResetDialogOpen(true)}
+                    <GradientButton
+                      type="button"
+                      className="w-full text-xs py-1.5"
+                      onClick={handleSaveNotifications}
+                      disabled={isSaving}
                     >
-                      ⚠️ Reset Completo (Irreversível)
-                    </Button>
+                      {isSaving
+                        ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Salvando</>
+                        : <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Salvar Notificações</>
+                      }
+                    </GradientButton>
                   </div>
-                </div>
-              </GlassCard>
+                </SettingsCard>
+              </div>
             </TabsContent>
 
+            {/* ═══════════════════════════════════════════ */}
+            {/* ABA CONTA                                  */}
+            {/* ═══════════════════════════════════════════ */}
+            <TabsContent value="conta" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Fuso Horário */}
+                <SettingsCard delay={0}>
+                  <SectionHeader
+                    icon={Globe}
+                    iconColor="bg-emerald-500/10 text-emerald-500"
+                    label="FUSO HORÁRIO"
+                  />
+
+                  <div className="space-y-3">
+                    <Select value={timezone} onValueChange={setTimezone}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIMEZONES.map(tz => (
+                          <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground/60">
+                      Define o horário de referência para notificações e agendamentos.
+                    </p>
+                  </div>
+                </SettingsCard>
+
+                {/* Links rápidos */}
+                <SettingsCard delay={1}>
+                  <SectionHeader
+                    icon={Settings2}
+                    iconColor="bg-slate-500/10 text-slate-500"
+                    label="ATALHOS"
+                  />
+
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => navigate('/perfil')}
+                      className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg border border-border/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        <span className="text-sm text-muted-foreground">Editar Perfil</span>
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
+                    </button>
+
+                    <button
+                      onClick={() => toast.info('Em breve: Portal de gerenciamento')}
+                      className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg border border-border/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        <span className="text-sm text-muted-foreground">Gerenciar Assinatura</span>
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
+                    </button>
+                  </div>
+                </SettingsCard>
+              </div>
+            </TabsContent>
+
+            {/* ═══════════════════════════════════════════ */}
+            {/* ABA SISTEMA                                */}
+            {/* ═══════════════════════════════════════════ */}
+            <TabsContent value="sistema" className="space-y-4">
+              <SettingsCard delay={0}>
+                <SectionHeader
+                  icon={AlertTriangle}
+                  iconColor="bg-red-500/10 text-red-500"
+                  label="ZONA DE PERIGO"
+                />
+
+                <div className="p-4 border-2 border-destructive/30 bg-destructive/5 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                    <h3 className="text-sm font-semibold text-destructive">Reset Completo</h3>
+                  </div>
+                  <p className="text-xs text-destructive/80">
+                    Remove <strong>permanentemente</strong> todas as matérias, tópicos, revisões e anotações. Esta ação é irreversível.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    className="w-full text-xs"
+                    size="sm"
+                    onClick={() => setResetDialogOpen(true)}
+                  >
+                    ⚠️ Reset Completo (Irreversível)
+                  </Button>
+                </div>
+              </SettingsCard>
+            </TabsContent>
 
           </Tabs>
 
@@ -986,8 +629,8 @@ const Settings = () => {
             userId={user?.id || ''}
           />
         </div>
-      </div >
-    </TooltipProvider >
+      </div>
+    </TooltipProvider>
   );
 };
 

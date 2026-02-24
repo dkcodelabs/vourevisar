@@ -10,10 +10,10 @@ export const ProtectedRoute = () => {
   // Show loading spinner while checking authentication
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Carregando...</p>
+      <div className="flex items-center justify-center min-h-screen bg-background transition-colors duration-300">
+        <div className="text-center flex flex-col items-center">
+          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+          <p className="text-sm font-medium text-muted-foreground animate-pulse">Carregando plataforma...</p>
         </div>
       </div>
     );

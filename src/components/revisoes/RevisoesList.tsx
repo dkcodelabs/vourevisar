@@ -280,13 +280,13 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                 const groupTitle = activeTab === 'SUBJECTS' ? key : style.title;
 
                 return (
-                    <div key={key} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all duration-300">
+                    <div key={key} className="glass-card shadow-sm overflow-hidden transition-all duration-300">
                         {/* Header */}
                         <button
                             onClick={() => {
                                 setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }));
                             }}
-                            className="w-full flex items-center justify-between px-8 py-5 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-slate-100/50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800"
+                            className="w-full flex items-center justify-between px-8 py-5 bg-slate-50/50 dark:bg-white/[0.02] hover:bg-slate-100/50 dark:hover:bg-white/[0.05] transition-colors border-b border-slate-100 dark:border-white/[0.05]"
                         >
                             <div className="flex items-center gap-3">
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${activeTab === 'SUBJECTS' ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
@@ -308,7 +308,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                         {isGroupExpanded && (
                             <div className="overflow-hidden transition-all duration-500 animate-in fade-in slide-in-from-top-2">
                                 {/* Desktop Header */}
-                                <div className="hidden lg:grid lg:grid-cols-[1.5fr,120px,120px,140px] gap-4 px-6 py-4 bg-slate-50/30 dark:bg-slate-800/20 border-b border-slate-200 dark:border-slate-800">
+                                <div className="hidden lg:grid lg:grid-cols-[1.5fr,120px,120px,140px] gap-4 px-6 py-4 bg-slate-50/30 dark:bg-black/20 border-b border-slate-200 dark:border-white/[0.05]">
                                     <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-2">Tópico & Disciplina</div>
                                     <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Dificuldade</div>
                                     <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Progresso</div>
@@ -316,16 +316,16 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 </div>
 
                                 {/* List Items Grid */}
-                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                <div className="divide-y divide-slate-100 dark:divide-white/[0.05]">
                                     {groupItems.map(item => {
                                         const isActive = activeTimer?.topicId === item.id;
                                         return (
                                             <div
                                                 id={`topic-${item.id}`}
                                                 key={item.id}
-                                                className={`group transition-all duration-300 ${isActive ? 'bg-indigo-50/50 dark:bg-indigo-900/10' :
+                                                className={`group transition-all duration-300 ${isActive ? 'bg-indigo-50/50 dark:bg-indigo-500/10' :
                                                     highlightedTopicId === item.id ? 'highlight-blink z-10' :
-                                                        'hover:bg-slate-50/60 dark:hover:bg-slate-800/40'} min-w-0`}
+                                                        'hover:bg-slate-50/80 dark:hover:bg-white/[0.03]'} min-w-0`}
                                             >
                                                 {/* Mobile: Stacked / Desktop: Grid */}
                                                 <div className="grid grid-cols-1 lg:grid-cols-[1.5fr,120px,120px,140px] gap-4 p-4 md:px-6 md:py-5 items-center">
@@ -389,7 +389,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); handleAiAssist(item); }}
                                                                     disabled={!!loadingActions[item.id]}
-                                                                    className="h-10 w-10 flex items-center justify-center text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    className="h-10 w-10 flex items-center justify-center text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                                                     title="Assistente de Revisão"
                                                                 >
                                                                     {loadingActions[item.id] === 'ai' ? (
@@ -405,9 +405,9 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                     disabled={!!loadingActions[item.id]}
                                                                     className={`h-10 w-10 flex items-center justify-center rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isActive
                                                                         ? activeTimer?.status === 'PAUSED'
-                                                                            ? 'bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-400' // PAUSED: Amber
-                                                                            : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200' // RUNNING: Indigo
-                                                                        : 'text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' // IDLE: Emerald
+                                                                            ? 'bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20' // PAUSED: Amber
+                                                                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20' // RUNNING: Indigo
+                                                                        : 'text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10' // IDLE: Emerald
                                                                         }`}
                                                                     title={isActive
                                                                         ? activeTimer?.status === 'PAUSED' ? "Retomar Revisão" : "Parar e Avaliar"
@@ -433,7 +433,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                         openNotesModal(item.id, item.topic, item.subject || '');
                                                                     }}
                                                                     disabled={!!loadingActions[item.id]}
-                                                                    className="h-10 w-10 flex items-center justify-center text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    className="h-10 w-10 flex items-center justify-center text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                                                     title="Ver Nota"
                                                                 >
                                                                     {loadingActions[item.id] === 'notes' ? (
