@@ -158,13 +158,6 @@ export const AppLayout = () => {
   const { displayBadge } = useSimpleSubscription();
   const { profile } = useUserProfile();
 
-  // Formatação consistente de iniciais sem uso de API externa ui-avatars
-  const userInitials = profile?.name
-    ? profile.name.trim().split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-    : user?.email?.charAt(0).toUpperCase() || 'U';
-
-  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
-
   // Mobile sidebar state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = React.useState(false);
 

@@ -4,9 +4,10 @@ interface AnimatedLogoProps {
     collapsed?: boolean;
     className?: string;
     onClick?: () => void;
+    isRepeating?: boolean;
 }
 
-export function AnimatedLogo({ collapsed = false, className = '', onClick }: AnimatedLogoProps) {
+export function AnimatedLogo({ collapsed = false, className = '', onClick, isRepeating = false }: AnimatedLogoProps) {
     const containerRef = useRef<HTMLDivElement>(null);
 
     const replayAnimations = () => {
@@ -58,23 +59,23 @@ export function AnimatedLogo({ collapsed = false, className = '', onClick }: Ani
         .base-line {
             stroke-dasharray: 100;
             stroke-dashoffset: 100;
-            animation: drawLine 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            animation: drawLine ${isRepeating ? '2.5s linear infinite' : '1s cubic-bezier(0.4, 0, 0.2, 1) forwards'};
         }
         .graph-line {
             stroke-dasharray: 105; 
             stroke-dashoffset: 105;
             opacity: 0; 
-            animation: drawGraph 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            animation: drawGraph 2.5s ${isRepeating ? 'linear infinite' : 'cubic-bezier(0.4, 0, 0.2, 1) forwards'};
         }
         .animate-fade-up-text {
-            opacity: 0;
-            transform: translateY(15px);
-            animation: fadeUpText 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-            animation-delay: 0s; /* Appears immediately with the graph */
+            opacity: ${isRepeating ? '1' : '0'};
+            transform: translateY(${isRepeating ? '0' : '15px'});
+            animation: ${isRepeating ? 'none' : 'fadeUpText 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards'};
+            animation-delay: 0s;
         }
         @keyframes drawLine {
             0% { stroke-dashoffset: 100; }
-            100% { stroke-dashoffset: 0; }
+            ${isRepeating ? '50% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -100; }' : '100% { stroke-dashoffset: 0; }'}
         }
         @keyframes drawGraph {
             0%, 39.9% { 
@@ -85,10 +86,7 @@ export function AnimatedLogo({ collapsed = false, className = '', onClick }: Ani
                 stroke-dashoffset: 105; 
                 opacity: 1; 
             }
-            100% { 
-                stroke-dashoffset: 0; 
-                opacity: 1; 
-            }
+            ${isRepeating ? '70% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -105; opacity: 0; }' : '100% { stroke-dashoffset: 0; opacity: 1; }'}
         }
         @keyframes fadeUpText {
             0% { opacity: 0; transform: translateY(15px); }
@@ -127,7 +125,7 @@ export function AnimatedLogo({ collapsed = false, className = '', onClick }: Ani
 
                     <path className="base-line"
                         d="M 380 225 L 20 225.01"
-                        stroke="#00d2ff"
+                        stroke="#0a0a0a"
                         strokeWidth="24"
                         strokeLinecap="round"
                         fill="none"

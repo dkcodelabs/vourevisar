@@ -6,7 +6,7 @@ import {
   GraduationCap, Target, Clock, BookOpen, Camera, Loader2,
   CheckCircle2, ShieldCheck, Pencil
 } from 'lucide-react';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { toast } from '@/lib/toast';
 import { z } from 'zod';
 import { zodResolver } from "@hookform/resolvers/zod";

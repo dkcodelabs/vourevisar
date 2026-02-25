@@ -27,7 +27,7 @@ import {
   Lightbulb,
   Star
 } from 'lucide-react';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { errorService } from '@/lib/errors/errorService';
 import { useAuth } from '@/contexts/AuthContext';
 

@@ -136,7 +136,7 @@ export function useAuthOperations() {
 
       if (error) throw error;
 
-      toastManager.success('Logout realizado com sucesso!');
+      toastManager.success('Sessão encerrada.');
     } catch (error: any) {
       // Even if there's an error, we should clear local state
       toastManager.error('Erro ao sair, mas você foi desconectado localmente');

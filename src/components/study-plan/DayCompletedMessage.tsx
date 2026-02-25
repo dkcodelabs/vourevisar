@@ -12,8 +12,8 @@ interface DayCompletedMessageProps {
   hasMoreSubjectsInCycle?: boolean;
 }
 
-const DayCompletedMessage: React.FC<DayCompletedMessageProps> = ({ 
-  onNextDay, 
+const DayCompletedMessage: React.FC<DayCompletedMessageProps> = ({
+  onNextDay,
   onStartNewCycle,
   isLoading = false,
   hasMoreSubjectsInCycle = true
@@ -38,31 +38,31 @@ const DayCompletedMessage: React.FC<DayCompletedMessageProps> = ({
               <Trophy className="mx-auto mb-4 h-16 w-16 text-yellow-600" />
             )}
           </motion.div>
-          
+
           <h2 className={`text-2xl font-bold mb-2 ${hasMoreSubjectsInCycle ? 'text-green-800' : 'text-yellow-800'}`}>
             {hasMoreSubjectsInCycle ? 'Parabéns! 🎉' : 'Ciclo Concluído! 🏆'}
           </h2>
-          
+
           <p className={`mb-4 ${hasMoreSubjectsInCycle ? 'text-green-700' : 'text-yellow-700'}`}>
-            {hasMoreSubjectsInCycle 
+            {hasMoreSubjectsInCycle
               ? 'Você concluiu todas as disciplinas do dia!'
               : 'Você completou todas as matérias deste ciclo!'
             }
           </p>
-          
+
           {hasMoreSubjectsInCycle ? (
             <>
               <p className="text-gray-600 text-sm mb-6">
                 Quer estudar mais matérias hoje? Clique no botão abaixo para carregar as próximas disciplinas.
               </p>
-              
-              <Button 
+
+              <Button
                 onClick={onNextDay}
                 disabled={isLoading}
                 className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white transition-all duration-300"
               >
                 {isLoading ? (
-                  <LoadingSpinner className="h-4 w-4 mr-2" />
+                  <LoadingSpinner size="small" className="mr-2" />
                 ) : (
                   <ArrowRight className="ml-2 h-4 w-4" />
                 )}

@@ -21,6 +21,7 @@ export function ProfileOnboardingGate() {
   useEffect(() => {
     const checkProfile = async () => {
       if (!user) {
+        setShowOnboarding(false);
         setLoadingProfile(false);
         return;
       }

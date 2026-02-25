@@ -108,8 +108,8 @@ export function useUserProfile(): UseUserProfileReturn {
       const userProfile: UserProfile = {
         id: user.id,
         email: user.email || '',
-        name: profileData?.name || user.email?.split('@')[0] || 'Usuário',
-        avatar_url: profileData?.avatar_url || null,
+        name: profileData?.name || user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
+        avatar_url: profileData?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
         role: roleData?.role || 'user',
         subscription: subscriptionData && typeof subscriptionData === 'object' && !Array.isArray(subscriptionData) && !('error' in subscriptionData)
           ? subscriptionData as UserProfile['subscription']
@@ -125,7 +125,7 @@ export function useUserProfile(): UseUserProfileReturn {
     } finally {
       setLoading(false)
     }
-  }, [refreshTrigger])
+  }, [])
 
   const forceRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1)
@@ -135,10 +135,10 @@ export function useUserProfile(): UseUserProfileReturn {
     await fetchProfile()
   }, [fetchProfile])
 
-  // Buscar na montagem
+  // Buscar na montagem e quando forçar refresh
   useEffect(() => {
     fetchProfile()
-  }, [fetchProfile])
+  }, [fetchProfile, refreshTrigger])
 
   // Escutar mudanças de auth (otimizado)
   useEffect(() => {
@@ -191,6 +191,23 @@ export function useUserProfile(): UseUserProfileReturn {
       )
       .subscribe()
 
+    // Listener para mudanças no perfil (nome, avatar)
+    const profileSubscription = supabase
+      .channel('profile_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${profile.id}`
+        },
+        () => {
+          forceRefresh()
+        }
+      )
+      .subscribe()
+
     // Listener para eventos customizados (otimizado)
     const handleSubscriptionChange = (event: CustomEvent) => {
       if (event.detail?.userId === profile.id) {
@@ -203,6 +220,7 @@ export function useUserProfile(): UseUserProfileReturn {
     return () => {
       supabase.removeChannel(roleSubscription)
       supabase.removeChannel(subscriptionSubscription)
+      supabase.removeChannel(profileSubscription)
       window.removeEventListener('subscription-changed', handleSubscriptionChange as EventListener)
     }
   }, [profile?.id, forceRefresh])
