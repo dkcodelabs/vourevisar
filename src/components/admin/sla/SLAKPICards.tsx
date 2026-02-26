@@ -74,21 +74,27 @@ export const SLAKPICards: React.FC<SLAKPICardsProps> = ({
     ];
 
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {kpis.map((kpi, idx) => (
-                <div
-                    key={idx}
-                    className={`${kpi.bg} rounded-xl p-3 border border-slate-200 dark:border-slate-700 transition-all hover:shadow-md`}
-                >
-                    <div className="flex items-center justify-between mb-1">
-                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wide">
-                            {kpi.label}
-                        </p>
-                        <span className={kpi.color}>{kpi.icon}</span>
+        <div className="h-full glow-card p-4 sm:p-5 rounded-3xl flex flex-col">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                <Inbox size={16} className="text-blue-500" />
+                Métricas Gerais
+            </h3>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 flex-1">
+                {kpis.map((kpi, idx) => (
+                    <div
+                        key={idx}
+                        className={`${kpi.bg} rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700/50 transition-all hover:shadow-md flex flex-col justify-center`}
+                    >
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wide line-clamp-1">
+                                {kpi.label}
+                            </p>
+                            <span className={kpi.color}>{kpi.icon}</span>
+                        </div>
+                        <p className={`text-xl sm:text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
                     </div>
-                    <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     );
 };

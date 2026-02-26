@@ -9,7 +9,7 @@ interface InsightStats {
 
 export const NeedsFocusCard: React.FC<{ worstSubject: any }> = ({ worstSubject }) => {
     return (
-        <div className="glow-card p-5 rounded-3xl relative overflow-hidden group h-full bg-white dark:bg-[#181A1C]">
+        <div className="glow-card p-5 rounded-3xl relative overflow-hidden group h-full">
             <div className="flex items-center justify-between mb-4">
                 <span className="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Foco Necessário</span>
                 <Brain className="text-red-500 opacity-80" size={18} />
@@ -43,7 +43,7 @@ export const NeedsFocusCard: React.FC<{ worstSubject: any }> = ({ worstSubject }
 
 export const QuickWinCard: React.FC<{ easyTopic: any }> = ({ easyTopic }) => {
     return (
-        <div className="glow-card p-5 rounded-3xl relative overflow-hidden group h-full bg-white dark:bg-[#181A1C]">
+        <div className="glow-card p-5 rounded-3xl relative overflow-hidden group h-full">
             <div className="flex items-center justify-between mb-4">
                 <span className="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Vitória Rápida</span>
                 <Zap className="text-emerald-500 opacity-80" size={18} />
@@ -77,7 +77,7 @@ export const QuickWinCard: React.FC<{ easyTopic: any }> = ({ easyTopic }) => {
 
 export const GoldenHourCard: React.FC<{ studyHabits: any }> = ({ studyHabits }) => {
     return (
-        <div className="glow-card p-5 rounded-3xl relative overflow-hidden group h-full bg-white dark:bg-[#181A1C]">
+        <div className="glow-card p-5 rounded-3xl relative overflow-hidden group h-full">
             <div className="flex items-center justify-between mb-4">
                 <span className="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Horário de Ouro</span>
                 <Clock className="text-primary opacity-80" size={18} />

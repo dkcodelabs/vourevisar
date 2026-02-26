@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useQuery } from '@tanstack/react-query';
@@ -106,7 +106,14 @@ const Dashboard = () => {
 
     const currentStreak = dashboardStats.general.totalActiveDays > 0 ? dashboardStats.month.activeDays : 0;
 
-    if (isLoading || cycleLoading) return <LoadingSpinner />;
+    if (isLoading || cycleLoading) {
+        console.log('[DEBUG] Dashboard renderizando LoadingSpinner. AppContext isLoading:', isLoading, 'cycleLoading:', cycleLoading);
+        return (
+            <div className="w-full h-[70vh] flex flex-col items-center justify-center">
+                <LoadingSpinner size="large" showText />
+            </div>
+        );
+    }
 
     if (error) {
         return (

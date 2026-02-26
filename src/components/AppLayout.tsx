@@ -40,6 +40,16 @@ const routeTitles: Record<string, string> = {
   "/gerenciamento": "Gerenciamento",
   "/perfil": "Perfil",
   "/configuracoes": "Configurações",
+  "/admin/subscription": "Gestão de Assinaturas",
+  "/admin/feedback": "Feedbacks dos Alunos",
+  "/admin/users": "Gestão de Usuários",
+};
+
+const routeDescriptions: Record<string, string> = {
+  "/admin/feedback": "Gerencie e responda aos feedbacks recebidos.",
+  "/admin/subscription": "Controle de planos, status de pagamento e acesso dos usuários.",
+  "/dashboard": "Foco total nos estudos! O seu sucesso depende da constante dedicação.",
+  "/admin/users": "Gerencie os membros da sua equipe e suas permissões de conta aqui.",
 };
 
 // Removed MobileMenuToggle from here as it relies on useSidebar which we are removing from the wrap
@@ -238,13 +248,20 @@ export const AppLayout = () => {
                       {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'}, <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent truncate">{user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}</span>! <span className="text-base shrink-0">👋</span>
                     </h1>
                     <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium truncate">
-                      Foco total nos estudos! O seu sucesso depende da constante dedicação.
+                      {routeDescriptions["/dashboard"]}
                     </p>
                   </>
                 ) : (
-                  <h1 className="text-lg font-bold tracking-tight text-foreground truncate">
-                    {pageTitle}
-                  </h1>
+                  <>
+                    <h1 className="text-lg font-bold tracking-tight text-foreground truncate">
+                      {pageTitle}
+                    </h1>
+                    {routeDescriptions[currentPath] && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {routeDescriptions[currentPath]}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -298,13 +315,20 @@ export const AppLayout = () => {
                         </span>! <span className="text-xl">👋</span>
                       </h1>
                       <p className="text-sm text-muted-foreground mt-1 font-medium">
-                        Foco total nos estudos! O seu sucesso depende da constante dedicação.
+                        {routeDescriptions["/dashboard"]}
                       </p>
                     </>
                   ) : (
-                    <h1 className="text-[22px] font-bold tracking-tight text-foreground">
-                      {pageTitle}
-                    </h1>
+                    <>
+                      <h1 className="text-[22px] font-bold tracking-tight text-foreground flex items-center gap-1.5 flex-wrap leading-tight">
+                        {pageTitle}
+                      </h1>
+                      {routeDescriptions[currentPath] && (
+                        <p className="text-sm text-muted-foreground mt-1 font-medium leading-tight">
+                          {routeDescriptions[currentPath]}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
 

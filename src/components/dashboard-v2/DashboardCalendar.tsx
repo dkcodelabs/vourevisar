@@ -79,7 +79,7 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     };
 
     return (
-        <div className={cn("flex flex-col h-full glow-card p-5 rounded-3xl relative overflow-hidden group bg-white dark:bg-[#181A1C]", className)}>
+        <div className={cn("flex flex-col h-full glow-card p-5 rounded-3xl relative overflow-hidden group", className)}>
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2 text-[12px] font-bold text-content-main">
                     <CalendarIcon className="h-4 w-4 text-primary" />

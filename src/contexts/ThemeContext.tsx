@@ -29,7 +29,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     if (savedTheme) {
       return savedTheme;
     }
-    
+
     // Sempre iniciar em modo claro (dia)
     return 'light';
   });
@@ -45,21 +45,16 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    
-    // Verificar se estamos na página de login
-    const isLoginPage = window.location.pathname === '/login' || 
-                       window.location.pathname === '/reset-password';
-    
-    if (isLoginPage) {
-      // Forçar modo claro na página de login
-      root.classList.remove('dark');
+
+    // Verificar se estamos na página base de acesso livre
+    const isLoginPage = window.location.pathname === '/login' ||
+      window.location.pathname === '/reset-password';
+
+    // Ao invés de forçar light (claro), vamos FORÇAR DARK na página de login
+    if (theme === 'dark' || isLoginPage) {
+      root.classList.add('dark');
     } else {
-      // Aplicar tema normal nas outras páginas
-      if (theme === 'dark') {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
+      root.classList.remove('dark');
     }
   }, [theme]);
 

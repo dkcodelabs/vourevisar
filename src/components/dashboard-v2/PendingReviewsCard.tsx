@@ -13,7 +13,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = ({ reviews 
     const totalPending = reviews.overdue + reviews.today + reviews.future;
 
     return (
-        <div className="glow-card p-5 rounded-3xl flex flex-col h-full bg-white dark:bg-[#181A1C]">
+        <div className="glow-card p-5 rounded-3xl flex flex-col h-full">
             <div className="flex flex-col h-full">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">

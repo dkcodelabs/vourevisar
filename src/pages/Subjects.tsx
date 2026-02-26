@@ -33,6 +33,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate'; // Added
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '@/components/SortableItem';
@@ -891,7 +892,7 @@ const Subjects = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
+        <LoadingSpinner size="medium" />
       </div>
     );
   }

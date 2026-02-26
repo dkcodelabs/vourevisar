@@ -20,10 +20,11 @@
 
     /* Cor Primária (Ação): #00BFFF (Deep Sky Blue) */
     --primary: 195 100% 50%;
-    --primary-foreground: 210 40% 98%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 215.4 16.3% 46.9%;
+    /* Mudando para Muted Text Color no HSL */
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
@@ -41,11 +42,16 @@
     --ring: 195 100% 50%;
     /* Primary color for rings */
 
-    /* Cor Secundária (Atenção): #FF8C00 (Dark Orange) */
+    /* Cor Secundária (Atenção / Sair): #FF8C00 (Dark Orange) */
     --warning: 33 100% 50%;
     --warning-foreground: 210 40% 98%;
 
-    --radius: 0.5rem;
+    /* Cor Sucesso (Progresso): #10B981 (Emerald 500) */
+    --success: 160 84% 39%;
+    --success-foreground: 210 40% 98%;
+
+    --radius: 1rem;
+    /* Alterando default para 16px (rounded-2xl) conforme design system */
     /* 16px for rounded-2xl look as default or large */
 
     /* Sidebar Constant Dark Theme (#1A1A1A) */
@@ -145,6 +151,45 @@
     padding: 0;
     @apply border-border;
   }
+}
+
+@layer components {
+
+  /* Design System Reference Classes */
+  .glass-card {
+    @apply bg-card/70 backdrop-blur-2xl border transition-colors duration-300;
+    border-color: rgba(0, 0, 0, 0.06);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .glass-card {
+    border-color: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  }
+
+  .glow-card {
+    @apply bg-card/70 backdrop-blur-2xl border transition-all duration-300 hover:-translate-y-1;
+    border-color: rgba(0, 0, 0, 0.06);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .glow-card {
+    border-color: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  }
+
+  .glow-card:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 0 20px hsl(var(--primary) / 0.35);
+  }
+
+  .dark .glow-card:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 20px hsl(var(--primary) / 0.25);
+  }
+}
+
+@layer base {
 
   /* Browser Autofill Overrides for Dark Mode */
   input:-webkit-autofill,
@@ -1104,31 +1149,7 @@ select {
 }
 
 @layer components {
-  .glass-card {
-    @apply bg-card/70 backdrop-blur-xl shadow-2xl transition-colors duration-300;
-    border: 1px solid var(--card-border-color);
-  }
 
-  /* Universal BG-Card border for total sync */
-  .bg-card {
-    border: 1px solid var(--card-border-color);
-  }
-
-  .glow-card {
-    @apply bg-card/70 backdrop-blur-xl shadow-2xl transition-all duration-300;
-    border: 1px solid var(--card-border-color);
-  }
-
-  .glow-card:hover {
-    border-color: hsl(var(--primary) / 0.3);
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
-  }
-
-  /* Dark mode */
-  .dark .glow-card:hover {
-    border-color: hsl(var(--primary) / 0.3);
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 15px hsl(var(--primary) / 0.15);
-  }
 
   .nav-item-active {
     @apply bg-primary/10 text-primary relative;

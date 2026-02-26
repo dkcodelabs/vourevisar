@@ -25,7 +25,7 @@ interface SLATrendChartProps {
 
 export const SLATrendChart: React.FC<SLATrendChartProps> = ({ data }) => {
     return (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+        <div className="glow-card p-4 sm:p-5 rounded-3xl">
             <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-3">
                 Tendência de SLA
             </h3>

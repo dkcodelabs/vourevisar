@@ -1,14 +1,15 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export const AdminRoute = () => {
     const { isAdmin, loading } = useUserRole();
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen bg-slate-50">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-800"></div>
+            <div className="flex items-center justify-center h-[50vh]">
+                <LoadingSpinner size="medium" />
             </div>
         );
     }

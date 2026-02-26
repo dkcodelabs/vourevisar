@@ -170,8 +170,8 @@ export const SLAAnalyticsDashboard: React.FC = () => {
     return (
         <div className="space-y-4">
             {/* Header + Filtros */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div className="glow-card p-4 sm:p-5 rounded-3xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <BarChart3 size={20} className="text-blue-500" />
                         Analytics de SLA
@@ -191,9 +191,9 @@ export const SLAAnalyticsDashboard: React.FC = () => {
                                     key={p}
                                     onClick={() => setPeriod(p)}
                                     aria-label={`Ver últimos ${p === '7d' ? '7' : p === '30d' ? '30' : '90'} dias`}
-                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all focus:ring-2 focus:ring-blue-500 outline-none ${period === p
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all focus:ring-2 focus:ring-blue-500 outline-none border border-transparent ${period === p
+                                        ? 'bg-blue-500 text-white shadow-sm shadow-blue-500/20'
+                                        : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-foreground border-transparent'
                                         }`}
                                 >
                                     {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : '90 dias'}
@@ -203,12 +203,12 @@ export const SLAAnalyticsDashboard: React.FC = () => {
                     </div>
 
                     {/* Status */}
-                    <div className="relative min-w-[140px]">
+                    <div className="relative min-w-[140px] flex-1 sm:flex-none">
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
                             aria-label="Filtrar por status do feedback"
-                            className="w-full appearance-none pl-3 pr-8 py-1.5 text-xs bg-slate-100 dark:bg-slate-700 border-none rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full appearance-none pl-4 pr-9 py-2.5 text-sm bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-foreground"
                         >
                             <option value="todas">Status: Todas</option>
                             <option value="nova">Nova</option>
@@ -219,17 +219,17 @@ export const SLAAnalyticsDashboard: React.FC = () => {
                         </select>
                         <ChevronDown
                             size={14}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                         />
                     </div>
 
                     {/* Tipo */}
-                    <div className="relative min-w-[140px]">
+                    <div className="relative min-w-[140px] flex-1 sm:flex-none">
                         <select
                             value={typeFilter}
                             onChange={(e) => setTypeFilter(e.target.value)}
                             aria-label="Filtrar por tipo de feedback"
-                            className="w-full appearance-none pl-3 pr-8 py-1.5 text-xs bg-slate-100 dark:bg-slate-700 border-none rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full appearance-none pl-4 pr-9 py-2.5 text-sm bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-foreground"
                         >
                             <option value="todos">Tipo: Todos</option>
                             <option value="melhoria">Melhoria</option>
@@ -238,7 +238,7 @@ export const SLAAnalyticsDashboard: React.FC = () => {
                         </select>
                         <ChevronDown
                             size={14}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                         />
                     </div>
 
@@ -256,21 +256,28 @@ export const SLAAnalyticsDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* KPIs */}
-            <SLAKPICards
-                totalFeedbacks={metrics.totalFeedbacks}
-                responseOnTimePct={metrics.responseOnTimePct}
-                resolutionOnTimePct={metrics.resolutionOnTimePct}
-                avgFirstResponseHours={metrics.avgFirstResponseHours}
-                avgResolutionDays={metrics.avgResolutionDays}
-                breachedPct={metrics.breachedPct}
-            />
+            {/* ── KPIs e Saúde do SLA ───────────────── */}
+            <div className="flex flex-col xl:flex-row gap-4">
+                {/* Saúde do SLA */}
+                <div className="w-full xl:w-[35%] flex flex-col">
+                    <SLAHealthIndicator
+                        responseOnTimePct={metrics.responseOnTimePct}
+                        resolutionOnTimePct={metrics.resolutionOnTimePct}
+                    />
+                </div>
 
-            {/* Saúde do SLA */}
-            <SLAHealthIndicator
-                responseOnTimePct={metrics.responseOnTimePct}
-                resolutionOnTimePct={metrics.resolutionOnTimePct}
-            />
+                {/* KPIs */}
+                <div className="w-full xl:w-[65%] flex flex-col">
+                    <SLAKPICards
+                        totalFeedbacks={metrics.totalFeedbacks}
+                        responseOnTimePct={metrics.responseOnTimePct}
+                        resolutionOnTimePct={metrics.resolutionOnTimePct}
+                        avgFirstResponseHours={metrics.avgFirstResponseHours}
+                        avgResolutionDays={metrics.avgResolutionDays}
+                        breachedPct={metrics.breachedPct}
+                    />
+                </div>
+            </div>
 
             {/* Gráfico de Tendência */}
             <SLATrendChart data={trends} />

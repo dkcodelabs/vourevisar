@@ -13,7 +13,7 @@ const STATUS_CONFIG: Record<FeedbackStatus, { label: string; dotClass: string; b
   planejada: { label: 'Planejada', dotClass: 'bg-purple-500', bgClass: 'bg-purple-100 dark:bg-purple-900/30', textClass: 'text-purple-600 dark:text-purple-400' },
   em_desenvolvimento: { label: 'Em Desenvolvimento', dotClass: 'bg-blue-500', bgClass: 'bg-blue-100 dark:bg-blue-900/30', textClass: 'text-blue-600 dark:text-blue-400' },
   concluida: { label: 'Concluída', dotClass: 'bg-green-500', bgClass: 'bg-green-100 dark:bg-green-900/30', textClass: 'text-green-600 dark:text-green-400' },
-  nao_planejada: { label: 'Não Planejada', dotClass: 'bg-slate-400', bgClass: 'bg-slate-100 dark:bg-slate-800', textClass: 'text-slate-500' },
+  nao_planejada: { label: 'Não Planejada', dotClass: 'bg-slate-400', bgClass: 'bg-slate-100 dark:bg-white/5', textClass: 'text-slate-500' },
 };
 
 const TYPE_CONFIG: Record<string, { icon: React.ReactNode; label: string }> = {
@@ -31,7 +31,7 @@ const NOTIFICATION_ICON_MAP: Record<string, { icon: React.ReactNode; bgClass: st
   estudo: { icon: <Calendar size={14} />, bgClass: 'bg-blue-50 dark:bg-blue-900/30', textClass: 'text-blue-500' },
   progresso: { icon: <TrendingUp size={14} />, bgClass: 'bg-green-50 dark:bg-green-900/30', textClass: 'text-green-600' },
   alerta: { icon: <Vibrate size={14} />, bgClass: 'bg-amber-50 dark:bg-amber-900/30', textClass: 'text-amber-600' },
-  sistema: { icon: <Settings size={14} />, bgClass: 'bg-slate-50 dark:bg-slate-800', textClass: 'text-slate-400' },
+  sistema: { icon: <Settings size={14} />, bgClass: 'bg-slate-50 dark:bg-white/5', textClass: 'text-slate-400' },
 };
 
 function getNotificationIcon(type: string) {
@@ -168,24 +168,24 @@ interface StudentHubPanelProps {
 // ─── Skeleton Components ─────────────────────────────────────
 const SkeletonNotification: React.FC = () => (
   <div className="relative pl-14 py-2 animate-pulse" aria-hidden="true">
-    <div className="absolute left-0 top-3 w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700" />
+    <div className="absolute left-0 top-3 w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10" />
     <div className="flex flex-col gap-2">
-      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2" />
-      <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-full" />
+      <div className="h-4 bg-slate-200 dark:bg-white/10 rounded w-1/2" />
+      <div className="h-3 bg-slate-100 dark:bg-white/5 rounded w-full" />
     </div>
   </div>
 );
 
 const SkeletonCard: React.FC = () => (
-  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 animate-pulse" aria-hidden="true">
+  <div className="bg-white dark:bg-[#181A1C] rounded-xl border border-slate-200 dark:border-white/5 p-3 animate-pulse" aria-hidden="true">
     <div className="flex justify-between items-start mb-2">
-      <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded w-20" />
-      <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full w-16" />
+      <div className="h-2.5 bg-slate-200 dark:bg-white/10 rounded w-20" />
+      <div className="h-4 bg-slate-100 dark:bg-white/5 rounded-full w-16" />
     </div>
-    <div className="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-5/6 mb-2" />
+    <div className="h-3.5 bg-slate-200 dark:bg-white/10 rounded w-5/6 mb-2" />
     <div className="flex gap-3">
-      <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-16" />
-      <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-14" />
+      <div className="h-2.5 bg-slate-100 dark:bg-white/5 rounded w-16" />
+      <div className="h-2.5 bg-slate-100 dark:bg-white/5 rounded w-14" />
     </div>
   </div>
 );
@@ -305,15 +305,23 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
       result = feedbacks.filter((fb) => fb.status === statusFilter);
     }
 
-    // 2. Ordenação: Concluídas por último
+    // 2. Ordenação: Não Lidos primeiro, Concluídas por último
     return [...result].sort((a, b) => {
-      // Se um é concluído e o outro não, o concluído vai para o final (1)
+      const isAUnread = unreadFeedbackIds.has(a.id);
+      const isBUnread = unreadFeedbackIds.has(b.id);
+
+      // Prioridade 1: Não lidos sempre no topo
+      if (isAUnread && !isBUnread) return -1;
+      if (!isAUnread && isBUnread) return 1;
+
+      // Prioridade 2: Itens concluídos afundam para o final
       if (a.status === 'concluida' && b.status !== 'concluida') return 1;
       if (a.status !== 'concluida' && b.status === 'concluida') return -1;
+
       // Mantém a ordem original (data de criação decrescente da API) para itens de mesma prioridade
       return 0;
     });
-  }, [feedbacks, statusFilter]);
+  }, [feedbacks, statusFilter, unreadFeedbackIds]);
 
   // Fechar com ESC
   React.useEffect(() => {
@@ -389,12 +397,12 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
         aria-modal="true"
         aria-label="Central do Aluno"
         tabIndex={-1}
-        className="fixed top-0 right-0 h-screen w-full sm:w-[400px] md:w-[420px] bg-white dark:bg-[#111624] shadow-2xl z-[50] flex flex-col border-l border-white/5 animate-in slide-in-from-right duration-300 outline-none overscroll-behavior-contain"
+        className="fixed top-0 right-0 h-screen w-full sm:w-[400px] md:w-[420px] bg-white dark:bg-[#181A1C] shadow-2xl z-[50] flex flex-col border-l border-white/5 animate-in slide-in-from-right duration-300 outline-none overscroll-behavior-contain"
       >
         {/* ── Sticky Header + Tabs ─────────────────────────────── */}
-        <div className="sticky top-0 z-10 bg-white dark:bg-slate-900">
+        <div className="sticky top-0 z-10 bg-white dark:bg-[#181A1C]">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+          <div className="px-5 py-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Central de Notificações</h2>
               <div className="flex items-center gap-2">
@@ -421,7 +429,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-slate-100 dark:border-slate-800" role="tablist" aria-label="Seções da Central">
+          <div className="flex border-b border-slate-100 dark:border-white/5" role="tablist" aria-label="Seções da Central">
             <button
               role="tab"
               id="tab-notificacoes"
@@ -431,12 +439,17 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                 setActiveTab('notificacoes');
                 analytics.sendEvent('student_tab_changed', { tab: 'notificacoes' });
               }}
-              className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center min-h-[44px] ${activeTab === 'notificacoes'
+              className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center min-h-[44px] flex items-center justify-center gap-1.5 ${activeTab === 'notificacoes'
                 ? 'text-blue-500'
                 : 'text-slate-400 hover:text-slate-600'
                 }`}
             >
               Notificações
+              {studyUnreadCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold rounded-full bg-blue-500 text-white px-1 shadow-sm">
+                  {studyUnreadCount}
+                </span>
+              )}
               {activeTab === 'notificacoes' && (
                 <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" aria-hidden="true" />
               )}
@@ -450,12 +463,17 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                 setActiveTab('feedbacks');
                 analytics.sendEvent('student_tab_changed', { tab: 'feedbacks' });
               }}
-              className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center min-h-[44px] ${activeTab === 'feedbacks'
+              className={`relative flex-1 py-3 text-xs font-semibold transition-colors text-center min-h-[44px] flex items-center justify-center gap-1.5 ${activeTab === 'feedbacks'
                 ? 'text-blue-500'
                 : 'text-slate-400 hover:text-slate-600'
                 }`}
             >
               Feedback
+              {feedbackUnreadCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold rounded-full bg-blue-500 text-white px-1 shadow-sm">
+                  {feedbackUnreadCount}
+                </span>
+              )}
               {activeTab === 'feedbacks' && (
                 <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" aria-hidden="true" />
               )}
@@ -475,7 +493,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                     onClick={() => setActiveFilter(f.key)}
                     className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors ${activeFilter === f.key
                       ? 'bg-blue-500 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                       }`}
                   >
                     {f.label}
@@ -537,7 +555,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
 
                         <div className="space-y-5 relative">
                           <div
-                            className={`absolute left-5 top-5 bottom-[-16px] w-[1px] bg-slate-200 dark:bg-slate-700 ${isOlder ? 'opacity-30' : ''}`}
+                            className={`absolute left-5 top-5 bottom-[-16px] w-[1px] bg-slate-200 dark:bg-white/10 ${isOlder ? 'opacity-30' : ''}`}
                           />
 
                           {items.map((notification) => {
@@ -556,7 +574,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                                   {React.cloneElement(iconInfo.icon as React.ReactElement, { size: 18 })}
                                   {/* Blue dot no ícone — igual ao padrão da aba Feedback */}
                                   {!notification.read && (
-                                    <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse ring-2 ring-white dark:ring-slate-900" title="Não lida" />
+                                    <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse ring-2 ring-white dark:ring-[#181A1C]" title="Não lida" />
                                   )}
                                 </div>
 
@@ -585,7 +603,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   {/* Estado vazio */}
                   {filteredNotifications.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                      <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                      <div className="w-14 h-14 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4">
                         {activeFilter !== 'todas' ? (
                           <SearchX size={24} className="text-slate-300 dark:text-slate-600" aria-hidden="true" />
                         ) : (
@@ -620,7 +638,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
           /* ── Aba Feedbacks ─────────────────────────────── */
           <div role="tabpanel" id="tabpanel-feedbacks" aria-labelledby="tab-feedbacks" className="flex-1 flex flex-col min-h-0">
             {/* Botão + Filtro — sticky */}
-            <div className="sticky top-0 z-[5] bg-white dark:bg-slate-900 flex items-center justify-between px-5 py-3 border-b border-slate-50 dark:border-slate-800/50">
+            <div className="sticky top-0 z-[5] bg-white dark:bg-[#181A1C] flex items-center justify-between px-5 py-3 border-b border-slate-50 dark:border-white/5">
               <button
                 onClick={() => setShowFeedbackModal(true)}
                 className="flex items-center justify-center px-3 py-2 text-[12px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all duration-200"
@@ -632,7 +650,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   onClick={() => setShowStatusDropdown(!showStatusDropdown)}
                   aria-haspopup="listbox"
                   aria-expanded={showStatusDropdown}
-                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-slate-600 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-slate-600 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:bg-white/5 dark:hover:bg-slate-700 rounded-lg transition-colors"
                 >
                   <Filter size={13} className="text-blue-500" strokeWidth={2.5} aria-hidden="true" />
                   <span className="font-bold text-slate-700 dark:text-slate-300">Status:</span>
@@ -643,7 +661,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                 {showStatusDropdown && (
                   <>
                     <div className="fixed inset-0 z-[80]" onClick={() => setShowStatusDropdown(false)} />
-                    <div role="listbox" className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-[90] py-1">
+                    <div role="listbox" className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-[#181A1C] border border-slate-200 dark:border-white/5 rounded-lg shadow-lg z-[90] py-1">
                       {(['todas', 'em_aberto', 'respondido', 'nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'] as (StatusFilterOption | 'respondido')[]).map((opt) => (
                         <button
                           key={opt}
@@ -725,16 +743,16 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                             }
                           }
                         }}
-                        className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${hasReply && isExpanded
-                          ? 'border border-slate-200 dark:border-slate-800'
+                        className={`bg-white dark:bg-[#181A1C] rounded-xl shadow-sm overflow-hidden transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${hasReply && isExpanded
+                          ? 'border border-slate-200 dark:border-white/5'
                           : fb.status === 'em_desenvolvimento'
                             ? 'border-2 border-blue-400/40 hover:border-blue-400/60'
-                            : 'border border-slate-200 dark:border-slate-800 hover:border-blue-400/50'
+                            : 'border border-slate-200 dark:border-white/5 hover:border-blue-400/50'
                           }`}
                       >
-                        <div className={`p-3 ${hasReply && isExpanded ? 'border-b border-slate-100 dark:border-slate-800 bg-blue-500/5' : ''}`}>
+                        <div className={`p-3 ${hasReply && isExpanded ? 'border-b border-slate-100 dark:border-white/5 bg-blue-500/5' : ''}`}>
                           <div className="flex justify-between items-center mb-2">
-                            <span className="flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[9px] font-mono font-bold tracking-wider">
+                            <span className="flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 text-[9px] font-mono font-bold tracking-wider">
                               {fb.protocol_code}
                             </span>
                             <div className="flex items-center gap-2">
@@ -776,9 +794,9 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                               </p>
                             </div>
                             {hasReply && (
-                              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-blue-500 space-y-2 mt-2">
+                              <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-lg border-l-2 border-blue-500 space-y-2 mt-2">
                                 <div className="flex items-center gap-2">
-                                  <img src="https://i.pravatar.cc/150?img=32" alt="Equipe" className="w-5 h-5 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                                  <img src="https://i.pravatar.cc/150?img=32" alt="Equipe" className="w-5 h-5 rounded-full object-cover border border-slate-200 dark:border-white/5" />
                                   <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide">Resposta da equipe</p>
                                 </div>
                                 <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-normal pl-7">
@@ -790,7 +808,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                               </div>
                             )}
                             {fb.status === 'nao_planejada' && fb.admin_reason && (
-                              <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border-l-2 border-slate-400 space-y-1">
+                              <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-lg border-l-2 border-slate-400 space-y-1">
                                 <p className="text-[8px] font-bold text-slate-500 uppercase">Motivo</p>
                                 <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-normal">
                                   {fb.admin_reason}
@@ -806,7 +824,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   {/* Estado vazio */}
                   {filteredFeedbacks.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                      <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                      <div className="w-14 h-14 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4">
                         {statusFilter !== 'todas' ? (
                           <SearchX size={24} className="text-slate-300 dark:text-slate-600" aria-hidden="true" />
                         ) : (

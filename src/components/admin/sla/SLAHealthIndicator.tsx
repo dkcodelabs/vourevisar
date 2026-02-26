@@ -42,41 +42,41 @@ export const SLAHealthIndicator: React.FC<SLAHealthIndicatorProps> = ({
     const resolutionHealth = getHealthStatus(resolutionOnTimePct);
 
     return (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+        <div className="h-full glow-card p-4 sm:p-5 rounded-3xl flex flex-col">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                 <Activity size={16} className="text-blue-500" />
                 Saúde do SLA
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex-1 flex flex-col gap-3 justify-center">
                 {/* Saúde de Resposta */}
                 <div
-                    className={`${responseHealth.bg} border ${responseHealth.border} rounded-lg p-3 transition-all hover:shadow-sm`}
+                    className={`${responseHealth.bg} border ${responseHealth.border} rounded-xl p-4 transition-all hover:shadow-sm flex flex-col justify-center`}
                 >
-                    <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-semibold text-slate-500 uppercase">Resposta</p>
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Resposta</p>
                         <span className="text-lg">{responseHealth.icon}</span>
                     </div>
-                    <p className={`text-xl font-bold ${responseHealth.color}`}>
+                    <p className={`text-xl sm:text-2xl font-bold ${responseHealth.color}`}>
                         {responseHealth.label}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-1">
                         {responseOnTimePct.toFixed(1)}% no prazo
                     </p>
                 </div>
 
                 {/* Saúde de Resolução */}
                 <div
-                    className={`${resolutionHealth.bg} border ${resolutionHealth.border} rounded-lg p-3 transition-all hover:shadow-sm`}
+                    className={`${resolutionHealth.bg} border ${resolutionHealth.border} rounded-xl p-4 transition-all hover:shadow-sm flex flex-col justify-center`}
                 >
-                    <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-semibold text-slate-500 uppercase">Resolução</p>
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Resolução</p>
                         <span className="text-lg">{resolutionHealth.icon}</span>
                     </div>
-                    <p className={`text-xl font-bold ${resolutionHealth.color}`}>
+                    <p className={`text-xl sm:text-2xl font-bold ${resolutionHealth.color}`}>
                         {resolutionHealth.label}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-1">
                         {resolutionOnTimePct.toFixed(1)}% no prazo
                     </p>
                 </div>

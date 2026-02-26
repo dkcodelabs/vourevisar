@@ -60,6 +60,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { UserActivityList } from '@/components/admin/UserActivityList';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const UserManagement = () => {
     const { users: dbUsers, loading, error, refetch } = useAdminUsers();
@@ -319,48 +320,42 @@ const UserManagement = () => {
 
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-900">
-
-            {/* 1. Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Gestão de usuários</h1>
-                <p className="text-slate-500 mt-1.5 text-sm">Gerencie os membros da sua equipe e suas permissões de conta aqui.</p>
-            </div>
+        <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-900 dark:text-slate-100">
 
             {/* 2. Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-                <div className="flex items-center gap-4">
-                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'active' | 'archived')} className="w-[400px]">
-                        <TabsList>
-                            <TabsTrigger value="active">Ativos ({users.filter(u => !u.deleted_at).length})</TabsTrigger>
-                            <TabsTrigger value="archived">Arquivados ({users.filter(u => u.deleted_at).length})</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                </div>
-
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <div className="relative group w-full sm:w-[240px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
+            <div className="glow-card p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 border border-black/5 dark:border-white/5">
+                <div className="flex items-center gap-3 w-full sm:w-auto flex-1">
+                    <div className="relative w-full max-w-md">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Buscar"
+                            placeholder="Buscar usuário, email..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 outline-none transition-all placeholder:text-slate-400 text-sm shadow-sm"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-black/5 dark:border-white/5 bg-black/5 dark:bg-white/5 focus:border-primary/30 focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm shadow-sm text-slate-900 dark:text-slate-200"
                         />
                     </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'active' | 'archived')} className="w-full sm:w-auto">
+                        <TabsList className="bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-lg p-1 text-slate-500 dark:text-slate-400">
+                            <TabsTrigger value="active" className="rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-white text-sm data-[state=active]:shadow-sm transition-all px-4 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20">Ativos ({users.filter(u => !u.deleted_at).length})</TabsTrigger>
+                            <TabsTrigger value="archived" className="rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-white text-sm data-[state=active]:shadow-sm transition-all px-4 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20">Arquivados ({users.filter(u => u.deleted_at).length})</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
                 </div>
             </div>
 
             {/* 3. Table */}
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="glass-card rounded-2xl overflow-hidden border border-black/5 dark:border-white/5">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-400"></div>
+                        <LoadingSpinner size="small" />
                         <span className="text-sm">Carregando usuários...</span>
                     </div>
                 ) : error ? (
-                    <div className="p-12 text-center text-rose-500 text-sm bg-rose-50">
+                    <div className="p-12 text-center text-rose-500 text-sm bg-rose-50 dark:bg-rose-500/10">
                         <span className="font-semibold block mb-1">Erro ao carregar usuários</span>
                         {error}
                     </div>
@@ -368,26 +363,26 @@ const UserManagement = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="border-b border-slate-100 bg-slate-50/50">
-                                    <th className="px-6 py-3 w-[40px]">
-                                        <input type="checkbox" className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-4 h-4" />
+                                <tr className="border-b border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">
+                                    <th className="px-6 py-4 w-[40px]">
+                                        <input type="checkbox" className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-primary focus:ring-primary w-4 h-4 opacity-50 cursor-not-allowed" disabled />
                                     </th>
-                                    <th className="px-6 py-3 text-xs font-medium text-slate-500">Usuário</th>
-                                    <th className="px-6 py-3 text-xs font-medium text-slate-500">Acesso</th>
-                                    <th className="px-6 py-3 text-xs font-medium text-slate-500 whitespace-nowrap">Último acesso</th>
-                                    <th className="px-6 py-3 text-xs font-medium text-slate-500 whitespace-nowrap">Data de adição</th>
-                                    <th className="px-6 py-3 w-[50px]"></th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Usuário</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Acesso</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Último acesso</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Data de adição</th>
+                                    <th className="px-6 py-4 w-[50px]"></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-black/5 dark:divide-white/5">
                                 {filteredUsers.map((user) => (
-                                    <tr key={user.id} className={`group hover:bg-slate-50/60 transition-colors duration-150 ${user.status === 'Inactive' ? 'opacity-60 grayscale bg-slate-50/50' : ''}`}>
+                                    <tr key={user.id} className={`group hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors duration-150 ${user.status === 'Inactive' ? 'opacity-60 grayscale bg-slate-50/50 dark:bg-transparent' : ''}`}>
                                         <td className="px-6 py-4">
-                                            <input type="checkbox" className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-4 h-4" />
+                                            <input type="checkbox" className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-primary focus:ring-primary w-4 h-4 opacity-50 cursor-not-allowed" disabled />
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 font-medium text-xs overflow-hidden shrink-0">
+                                                <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-medium text-xs overflow-hidden shrink-0">
                                                     {user.avatar_url ? (
                                                         <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
                                                     ) : (
@@ -396,22 +391,22 @@ const UserManagement = () => {
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-medium text-slate-900">
+                                                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                                             {user.name}
                                                         </span>
                                                         {renderRoleBadge(user.role)}
                                                         {user.status === 'Inactive' && (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
                                                                 Desativado
                                                             </span>
                                                         )}
                                                         {user.deleted_at && (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-100 text-rose-600 border border-rose-200">
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
                                                                 Arquivado
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <span className="text-xs text-slate-500 font-normal">
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">
                                                         {user.email || 'Sem email'}
                                                     </span>
                                                 </div>
@@ -420,12 +415,12 @@ const UserManagement = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-1.5">
                                                 {user.source?.includes('Email') && (
-                                                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 shadow-sm" title="Email">
-                                                        <Mail className="w-3 h-3 text-slate-500" />
+                                                    <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm" title="Email">
+                                                        <Mail className="w-3 h-3 text-slate-500 dark:text-slate-400" />
                                                     </div>
                                                 )}
                                                 {user.source?.includes('Google') && (
-                                                    <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center border border-slate-200 shadow-sm" title="Google">
+                                                    <div className="w-6 h-6 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm" title="Google">
                                                         <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                                                             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -436,7 +431,7 @@ const UserManagement = () => {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap tabular-nums">
+                                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap tabular-nums">
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <span className="cursor-help decoration-dotted underline-offset-2 hover:underline">
@@ -450,7 +445,7 @@ const UserManagement = () => {
                                                 )}
                                             </Tooltip>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap tabular-nums">
+                                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap tabular-nums">
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <span className="cursor-help decoration-dotted underline-offset-2 hover:underline">
@@ -467,15 +462,15 @@ const UserManagement = () => {
                                         <td className="px-6 py-4 text-right">
                                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end">
                                                 <DropdownMenu>
-                                                    <DropdownMenuTrigger className="p-2 rounded-full hover:bg-slate-200/50 text-slate-400 hover:text-slate-600 outline-none transition-colors data-[state=open]:bg-slate-100 data-[state=open]:text-slate-600">
+                                                    <DropdownMenuTrigger className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none transition-colors data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-800 data-[state=open]:text-slate-600 dark:data-[state=open]:text-slate-200">
                                                         <MoreVertical className="w-4 h-4" />
                                                     </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-[180px] p-1 border-slate-100 shadow-lg/5">
+                                                    <DropdownMenuContent align="end" className="w-[180px] p-1 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg shadow-black/5 dark:shadow-black/20">
                                                         <DropdownMenuItem
                                                             onClick={() => setSelectedUser(user)}
-                                                            className="gap-2.5 cursor-pointer text-slate-700 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
+                                                            className="gap-2.5 cursor-pointer text-slate-700 dark:text-slate-300 text-xs py-2 px-3 focus:bg-slate-50 dark:focus:bg-slate-800 focus:text-slate-900 dark:focus:text-white rounded-sm"
                                                         >
-                                                            <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                                            <Eye className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                                                             Ver perfil
                                                         </DropdownMenuItem>
 
@@ -530,17 +525,17 @@ const UserManagement = () => {
 
                                                         {viewMode === 'archived' && (
                                                             <>
-                                                                <DropdownMenuSeparator className="bg-slate-50 my-1" />
+                                                                <DropdownMenuSeparator className="bg-slate-50 dark:bg-slate-800 my-1" />
                                                                 <DropdownMenuItem
                                                                     onSelect={() => setUserToObject({ id: user.id, name: user.name || 'Usuário', action: 'restore' })}
-                                                                    className="gap-2.5 cursor-pointer text-emerald-600 text-xs py-2 px-3 focus:bg-emerald-50 focus:text-emerald-700 rounded-sm"
+                                                                    className="gap-2.5 cursor-pointer text-emerald-600 dark:text-emerald-400 text-xs py-2 px-3 focus:bg-emerald-50 dark:focus:bg-emerald-900/30 focus:text-emerald-700 dark:focus:text-emerald-300 rounded-sm"
                                                                 >
                                                                     <Undo2 className="w-3.5 h-3.5 opacity-70" />
                                                                     Restaurar usuário
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem
                                                                     onSelect={() => setUserToObject({ id: user.id, name: user.name || 'Usuário', action: 'delete' })}
-                                                                    className="gap-2.5 cursor-pointer text-rose-600 text-xs py-2 px-3 focus:bg-rose-50 focus:text-rose-700 rounded-sm"
+                                                                    className="gap-2.5 cursor-pointer text-rose-600 dark:text-rose-400 text-xs py-2 px-3 focus:bg-rose-50 dark:focus:bg-rose-900/30 focus:text-rose-700 dark:focus:text-rose-300 rounded-sm"
                                                                 >
                                                                     <Trash2 className="w-3.5 h-3.5 opacity-70" />
                                                                     Excluir permanentemente
@@ -556,7 +551,7 @@ const UserManagement = () => {
 
                                 {!loading && filteredUsers.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500 text-sm">
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400 text-sm">
                                             Nenhum usuário encontrado {viewMode === 'archived' ? 'nos arquivos' : ''} para "{searchTerm}"
                                         </td>
                                     </tr>
@@ -567,15 +562,15 @@ const UserManagement = () => {
                 )}
 
                 {/* Pagination - Minimalist */}
-                <div className="bg-white px-6 py-4 border-t border-slate-100 flex items-center justify-between">
-                    <div className="text-sm text-slate-500">
-                        Página <span className="font-medium text-slate-900">1</span> de <span className="font-medium text-slate-900">1</span>
+                <div className="bg-transparent px-6 py-4 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
+                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                        Página <span className="font-medium text-slate-900 dark:text-slate-100">1</span> de <span className="font-medium text-slate-900 dark:text-slate-100">1</span>
                     </div>
                     <div className="flex gap-2">
-                        <button className="px-3 py-1.5 border border-slate-200 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>
+                        <button className="px-3 py-1.5 bg-transparent border border-slate-200 dark:border-slate-800 rounded-md text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>
                             Anterior
                         </button>
-                        <button className="px-3 py-1.5 border border-slate-200 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>
+                        <button className="px-3 py-1.5 bg-transparent border border-slate-200 dark:border-slate-800 rounded-md text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>
                             Próxima
                         </button>
                     </div>

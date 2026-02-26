@@ -348,22 +348,22 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                 .dark .fbm-cat-name { color: #f1f5f9; }
                 .dark .fbm-desc-sm,
                 .dark .fbm-cat-desc { color: #94a3b8; }
-                .dark .fbm-card-btn { border-color: #1e293b; }
+                .dark .fbm-card-btn { border-color: rgba(255, 255, 255, 0.05); }
                 .dark .fbm-btn-cancel { color: #94a3b8; }
-                .dark .fbm-btn-cancel:hover { background: #1e293b; }
+                .dark .fbm-btn-cancel:hover { background: rgba(255, 255, 255, 0.05); }
                 .dark .fbm-label { color: #cbd5e1; }
                 .dark .fbm-input {
-                    background-color: #1e293b;
-                    border-color: #334155;
+                    background-color: rgba(255, 255, 255, 0.05) !important;
+                    border-color: transparent !important;
                     color: #f1f5f9;
                 }
-                .dark .fbm-dot-inactive { background-color: #334155; }
+                .dark .fbm-dot-inactive { background-color: rgba(255, 255, 255, 0.1); }
                 .dark .fbm-icon-blue { background: rgba(30, 64, 175, 0.3); color: #60a5fa; }
                 .dark .fbm-icon-purple { background: rgba(88, 28, 135, 0.3); color: #c084fc; }
                 .dark .fbm-icon-red { background: rgba(127, 29, 29, 0.3); color: #f87171; }
                 .dark .fbm-toast-title { color: #f1f5f9; }
                 .dark .fbm-toast-desc { color: #94a3b8; }
-                .dark .fbm-selected-type { background: #1e293b; border-color: #334155; }
+                .dark .fbm-selected-type { background: rgba(255, 255, 255, 0.05); border-color: transparent; }
                 .dark .fbm-selected-type-label { color: #64748b; }
                 .dark .fbm-selected-type-name { color: #f1f5f9; }
 
@@ -397,7 +397,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
 
             {/* Backdrop */}
             <div
-                className="fbm-root fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+                className="fbm-root fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
                 onClick={onClose}
                 aria-hidden="true"
             >
@@ -408,11 +408,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                     aria-modal="true"
                     aria-label="Novo Feedback"
                     tabIndex={-1}
-                    className="fbm-modal-container bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden outline-none"
+                    className="fbm-modal-container bg-white dark:bg-[#181A1C] w-full max-w-sm rounded-xl shadow-2xl border border-slate-200 dark:border-white/5 flex flex-col overflow-hidden outline-none"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* ── Header ─────────────────────────────────────── */}
-                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             {isStep2 && (
                                 <button onClick={() => setStep(1)} className="fbm-close-btn" aria-label="Voltar para etapa anterior">
@@ -488,7 +488,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                     {isStep2 && catDetails && (
                         <div className="p-5" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             {/* Tipo selecionado */}
-                            <div className="fbm-selected-type dark:bg-slate-800 dark:border-slate-700">
+                            <div className="fbm-selected-type dark:bg-white/5 dark:border-transparent">
                                 <div className={`fbm-icon-box ${catDetails.iconBg}`} style={{ width: 32, height: 32 }}>
                                     {catDetails.icon}
                                 </div>
@@ -503,7 +503,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                                     id="fbm-titulo"
                                     type="text"
                                     placeholder="Ex.: Não consigo concluir revisão"
-                                    className={`fbm-input dark:bg-slate-800 dark:border-slate-700 dark:text-white ${touched.title && errors.title ? 'fbm-input-error' : ''}`}
+                                    className={`fbm-input dark:text-white ${touched.title && errors.title ? 'fbm-input-error' : ''}`}
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     onBlur={() => setTouched((p) => ({ ...p, title: true }))}
@@ -522,7 +522,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                                     id="fbm-descricao"
                                     placeholder="Descreva o que aconteceu com detalhes..."
                                     rows={4}
-                                    className={`fbm-input dark:bg-slate-800 dark:border-slate-700 dark:text-white ${touched.description && errors.description ? 'fbm-input-error' : ''}`}
+                                    className={`fbm-input dark:text-white ${touched.description && errors.description ? 'fbm-input-error' : ''}`}
                                     style={{ resize: 'none' }}
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
@@ -540,7 +540,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                     )}
 
                     {/* ── Footer ──────────────────────────────────────── */}
-                    <div className="fbm-footer px-4 py-3 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div className="fbm-footer px-4 py-3 bg-slate-50 dark:bg-white/5 border-t border-slate-100 dark:border-transparent flex items-center justify-between">
                         <button
                             onClick={isStep1 ? onClose : () => setStep(1)}
                             className="fbm-btn-cancel dark:text-slate-400 dark:hover:bg-slate-800"
@@ -551,7 +551,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
                         {isStep1 ? (
                             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                                 <div className="fbm-dot fbm-dot-active" />
-                                <div className="fbm-dot fbm-dot-inactive dark:bg-slate-700" />
+                                <div className="fbm-dot fbm-dot-inactive dark:bg-white/10" />
                             </div>
                         ) : (
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -597,7 +597,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
             {showToast && (
                 <div className="fbm-root fixed bottom-8 right-8 z-[10000]">
                     <div
-                        className="bg-white dark:bg-slate-800 shadow-xl"
+                        className="bg-white dark:bg-[#181A1C] shadow-xl"
                         style={{
                             borderLeft: '4px solid #22c55e',
                             borderRadius: '8px',

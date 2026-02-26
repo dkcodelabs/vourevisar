@@ -43,7 +43,7 @@ export const SLADistributionCharts: React.FC<SLADistributionChartsProps> = ({ by
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Distribuição por Status */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <div className="glow-card p-4 sm:p-5 rounded-3xl">
                 <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-3">
                     Distribuição por Status
                 </h3>
@@ -77,7 +77,7 @@ export const SLADistributionCharts: React.FC<SLADistributionChartsProps> = ({ by
             </div>
 
             {/* Distribuição por Tipo */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <div className="glow-card p-4 sm:p-5 rounded-3xl">
                 <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-3">
                     Distribuição por Tipo
                 </h3>

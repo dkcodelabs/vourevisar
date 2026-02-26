@@ -30,6 +30,7 @@ import { useSubscriptionStats } from '@/hooks/useSubscriptionStats';
 import { useNavigate } from 'react-router-dom';
 import { errorService } from '@/lib/errors/errorService';
 import { toast } from '@/lib/toast';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface UserWithSubscription {
     id: string;
@@ -225,22 +226,22 @@ const SubscriptionManagement = () => {
     };
 
     const getSubscriptionBadge = (user: UserWithSubscription) => {
-        if (user.role === 'owner') return <Badge className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200"><Crown className="w-3 h-3 mr-1" />Proprietário</Badge>;
-        if (user.role === 'admin') return <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"><Shield className="w-3 h-3 mr-1" />Admin</Badge>;
+        if (user.role === 'owner') return <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 hover:bg-purple-500/20 hover:border-purple-500/30 shadow-none"><Crown className="w-3 h-3 mr-1" />Proprietário</Badge>;
+        if (user.role === 'admin') return <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/30 shadow-none"><Shield className="w-3 h-3 mr-1" />Admin</Badge>;
 
         if (user.subscription_status === 'expired' || (user.subscription_ends_at && new Date(user.subscription_ends_at) < new Date())) {
-            return <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-200"><XCircle className="w-3 h-3 mr-1" />Expirado</Badge>;
+            return <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 shadow-none"><XCircle className="w-3 h-3 mr-1" />Expirado</Badge>;
         }
         if (user.is_active && user.subscription_status === 'trial') {
-            return <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200"><UserCheck className="w-3 h-3 mr-1" />Trial ({user.days_remaining}d)</Badge>;
+            return <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/30 shadow-none"><UserCheck className="w-3 h-3 mr-1" />Trial ({user.days_remaining}d)</Badge>;
         }
         if (user.is_active && user.subscription_plan === 'monthly') {
-            return <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"><UserCheck className="w-3 h-3 mr-1" />Mensal</Badge>;
+            return <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/30 shadow-none"><UserCheck className="w-3 h-3 mr-1" />Mensal</Badge>;
         }
         if (user.is_active && user.subscription_plan === 'annual') {
-            return <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200"><UserCheck className="w-3 h-3 mr-1" />Anual</Badge>;
+            return <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:border-primary/30 shadow-none"><UserCheck className="w-3 h-3 mr-1" />Anual</Badge>;
         }
-        return <Badge className="bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"><User className="w-3 h-3 mr-1" />Free</Badge>;
+        return <Badge className="bg-foreground/5 text-foreground/60 border-foreground/10 hover:bg-foreground/10 hover:border-foreground/20 shadow-none"><User className="w-3 h-3 mr-1" />Free</Badge>;
     };
 
     const filteredUsers = users.filter(u =>
@@ -249,103 +250,96 @@ const SubscriptionManagement = () => {
     );
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-900">
-            {/* Header */}
-            <div className="mb-8">
-                <button
-                    onClick={() => navigate('/admin')}
-                    className="text-slate-500 hover:text-slate-800 text-sm flex items-center gap-1 mb-2 transition-colors"
-                >
-                    <ArrowLeft className="w-4 h-4" /> Voltar
-                </button>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                            Gestão de Assinaturas
-                        </h1>
-                        <p className="text-slate-500 mt-1.5 text-sm">Controle de planos, status de pagamento e acesso dos usuários.</p>
-                    </div>
-                </div>
-            </div>
-
+        <div className="max-w-[1600px] w-full animate-fade-in font-sans">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
-                    <span className="text-slate-500 text-xs uppercase font-bold tracking-wider mb-2">Total de Usuários</span>
-                    <span className="text-3xl font-black text-slate-900">{users.length}</span>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+                <div className="glow-card p-5 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden group">
+                    <span className="data-label mb-2 relative z-10">Total de Usuários</span>
+                    <span className="text-3xl font-black text-foreground relative z-10">{users.length}</span>
                 </div>
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center border-l-4 border-l-amber-400">
-                    <span className="text-amber-600 text-xs uppercase font-bold tracking-wider mb-2">Trial Ativo</span>
-                    <span className="text-3xl font-black text-amber-600">{stats.loading ? '-' : stats.freeActiveUsers}</span>
+                <div className="glow-card p-5 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:opacity-100 transition-opacity"></div>
+                    <span className="data-label !text-amber-500 mb-2 relative z-10">Trial Ativo</span>
+                    <span className="text-3xl font-black text-amber-600 dark:text-amber-400 relative z-10">{stats.loading ? '-' : stats.freeActiveUsers}</span>
                 </div>
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center border-l-4 border-l-blue-500">
-                    <span className="text-blue-600 text-xs uppercase font-bold tracking-wider mb-2">Planos Mensais</span>
-                    <span className="text-3xl font-black text-blue-600">{stats.loading ? '-' : stats.monthlyUsers}</span>
+                <div className="glow-card p-5 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:opacity-100 transition-opacity"></div>
+                    <span className="data-label !text-blue-500 mb-2 relative z-10">Planos Mensais</span>
+                    <span className="text-3xl font-black text-blue-600 dark:text-blue-400 relative z-10">{stats.loading ? '-' : stats.monthlyUsers}</span>
                 </div>
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center border-l-4 border-l-indigo-600">
-                    <span className="text-indigo-600 text-xs uppercase font-bold tracking-wider mb-2">Planos Anuais</span>
-                    <span className="text-3xl font-black text-indigo-600">{stats.loading ? '-' : stats.annualUsers}</span>
+                <div className="glow-card p-5 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:opacity-100 transition-opacity"></div>
+                    <span className="data-label !text-primary mb-2 relative z-10">Planos Anuais</span>
+                    <span className="text-3xl font-black text-primary relative z-10">{stats.loading ? '-' : stats.annualUsers}</span>
+                </div>
+                <div className="glow-card p-5 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:opacity-100 transition-opacity"></div>
+                    <span className="data-label !text-red-500 mb-2 relative z-10">Expirados</span>
+                    <span className="text-3xl font-black text-red-600 dark:text-red-400 relative z-10">{stats.loading ? '-' : stats.expiredUsers}</span>
                 </div>
             </div>
 
             {/* Main Content */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center flex-wrap gap-4">
+            <div className="glass-card rounded-3xl overflow-hidden py-4 px-2">
+                <div className="px-6 pb-6 pt-2 flex justify-between items-center flex-wrap gap-4 border-b border-black/5 dark:border-white/5">
                     <div className="relative w-full max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                             type="text"
                             placeholder="Buscar por nome ou email..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-9 pr-4 py-2 w-full text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-200 outline-none"
+                            className="pl-11 pr-4 py-2.5 w-full text-sm bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-foreground rounded-2xl transition-all outline-none border-transparent focus:ring-2 focus:ring-primary focus:border-transparent placeholder:text-muted-foreground"
                         />
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => { fetchUsers(); stats.refresh(); }} disabled={loading} className="gap-2">
-                            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                        <Button variant="outline" size="sm" onClick={() => { fetchUsers(); stats.refresh(); }} disabled={loading} className="gap-2 bg-transparent rounded-xl shrink-0 border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 h-10 px-4">
+                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                             Atualizar
                         </Button>
                     </div>
                 </div>
 
                 {error && (
-                    <div className="bg-red-50 text-red-700 p-4 text-sm border-b border-red-100">
+                    <div className="bg-red-500/10 text-red-500 m-4 p-4 text-sm rounded-2xl border border-red-500/20">
                         {error}
                     </div>
                 )}
 
-                <div className="divide-y divide-slate-50">
+                <div className="divide-y divide-black/5 dark:divide-white/5 px-4 pb-2">
                     {loading ? (
-                        <div className="p-12 text-center text-slate-400">Carregando...</div>
+                        <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-4">
+                            <LoadingSpinner size="small" />
+                            <span className="text-xs uppercase tracking-widest font-bold">Carregando usuários</span>
+                        </div>
                     ) : filteredUsers.length === 0 ? (
-                        <div className="p-12 text-center text-slate-400">Nenhum usuário encontrado.</div>
+                        <div className="p-12 text-center text-muted-foreground font-medium">Nenhum usuário encontrado na sua busca.</div>
                     ) : (
                         filteredUsers.map(user => (
-                            <div key={user.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
-                                <div className="flex items-center gap-4">
+                            <div key={user.id} className="p-3 my-1 flex items-center justify-between hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition-colors group">
+                                <div className="flex items-center gap-4 px-2">
                                     {user.avatar_url ? (
                                         <img
                                             src={user.avatar_url}
                                             alt={user.name || 'User'}
-                                            className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                                            className="w-12 h-12 rounded-full object-cover border border-black/10 dark:border-white/10"
                                             referrerPolicy="no-referrer"
                                         />
                                     ) : (
-                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold border border-slate-200">
+                                        <div className="w-12 h-12 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center text-foreground font-bold border border-black/10 dark:border-white/10">
                                             {user.name && user.name !== 'Sem nome'
                                                 ? user.name.trim().split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
                                                 : (user.email ? user.email.charAt(0).toUpperCase() : 'U')}
                                         </div>
                                     )}
                                     <div>
-                                        <div className="font-medium text-slate-900 flex items-center gap-2">
+                                        <div className="font-bold text-foreground flex items-center gap-2">
                                             {user.name}
-                                            <span className="text-xs font-normal text-slate-400">({user.role})</span>
+                                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider opacity-60">({user.role})</span>
                                         </div>
-                                        <div className="text-sm text-slate-500">{user.email}</div>
+                                        <div className="text-sm font-medium text-muted-foreground">{user.email}</div>
                                         {user.subscription_ends_at && (
-                                            <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                                            <div className="text-xs text-muted-foreground/60 mt-1 flex items-center gap-1 font-medium">
                                                 <Calendar className="w-3 h-3" />
                                                 Vence em: {new Date(user.subscription_ends_at).toLocaleDateString('pt-BR')}
                                             </div>
@@ -353,25 +347,34 @@ const SubscriptionManagement = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 pr-2">
                                     {getSubscriptionBadge(user)}
 
-                                    <div className="w-px h-8 bg-slate-200 mx-2 hidden sm:block"></div>
+                                    <div className="w-px h-8 bg-black/10 dark:bg-white/10 mx-2 hidden sm:block"></div>
 
-                                    <Select
-                                        disabled={processingUserId === user.id || user.role === 'owner'}
-                                        onValueChange={(value) => changeSubscription(user.id, value as 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate')}
-                                    >
-                                        <SelectTrigger className="w-[180px] h-9 text-xs">
-                                            <SelectValue placeholder="Ações de Assinatura" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="activate_trial">🆓 Ativar Trial (7 dias)</SelectItem>
-                                            <SelectItem value="activate_monthly">💰 Ativar Mensal</SelectItem>
-                                            <SelectItem value="activate_annual">💎 Ativar Anual</SelectItem>
-                                            <SelectItem value="deactivate" className="text-red-600 focus:text-red-700 focus:bg-red-50">❌ Remover Acesso</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="relative min-w-[180px] h-10 rounded-xl overflow-hidden flex items-center justify-end">
+                                        {processingUserId === user.id ? (
+                                            <div className="flex items-center gap-2 pr-4 pl-8 h-full rounded-xl bg-black/5 dark:bg-white/5 text-muted-foreground w-full justify-end border border-black/5 dark:border-white/5">
+                                                <span className="text-xs font-bold uppercase tracking-wider">Processando</span>
+                                                <LoadingSpinner size="small" />
+                                            </div>
+                                        ) : (
+                                            <Select
+                                                disabled={user.role === 'owner'}
+                                                onValueChange={(value) => changeSubscription(user.id, value as 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate')}
+                                            >
+                                                <SelectTrigger className="w-full h-full text-xs font-semibold bg-black/5 dark:bg-white/5 border-transparent outline-none ring-0 hover:bg-black/10 dark:hover:bg-white/10 transition-colors rounded-xl focus:ring-0">
+                                                    <SelectValue placeholder="Ações de Assinatura" />
+                                                </SelectTrigger>
+                                                <SelectContent className="rounded-2xl shadow-xl overflow-hidden glass-card p-1 border border-black/10 dark:border-white/10">
+                                                    <SelectItem value="activate_trial" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">🆓 Ativar Trial (7 dias)</SelectItem>
+                                                    <SelectItem value="activate_monthly" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">💰 Ativar Mensal</SelectItem>
+                                                    <SelectItem value="activate_annual" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">💎 Ativar Anual</SelectItem>
+                                                    <SelectItem value="deactivate" className="rounded-xl font-bold m-0.5 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 hover:bg-red-500/10">❌ Remover Acesso</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))

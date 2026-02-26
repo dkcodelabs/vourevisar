@@ -57,40 +57,48 @@ export function useSubscriptionStats() {
       let annualUsers = 0      // Anual - assinaturas anuais ativas
       let expiredUsers = 0     // Expirados - qualquer coisa vencida
 
+      // Buscar roles para alinhar com a visualização da tela
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+
       // Processar cada usuário
       profiles?.forEach(profile => {
         const subscription = subscriptions?.find(s => s.user_id === profile.id)
+        const userRole = roles?.find(r => r.user_id === profile.id)?.role
 
-        if (!subscription) {
-          // Usuário sem assinatura = considerado expirado
-          expiredUsers++
+        // Se for proprietário ou admin ignorar das contagens de planos/expirados (já que não mostram badge de plano)
+        if (userRole === 'owner' || userRole === 'admin') {
           return
         }
 
-        // Verificar se está ativo
-        let isActive = false
-        if (subscription.status === 'trial' && subscription.trial_ends_at) {
-          const trialEnd = new Date(subscription.trial_ends_at)
-          isActive = trialEnd > now
-        } else if (subscription.status === 'active' && subscription.subscription_ends_at) {
-          const subEnd = new Date(subscription.subscription_ends_at)
-          isActive = subEnd > now
-        } else if (subscription.status === 'active' && !subscription.subscription_ends_at) {
-          isActive = true // Assinatura vitalícia
+        let isExpired = false
+        let isTrialActive = false
+        let isPlanActive = false
+
+        if (subscription) {
+          const effectiveEndAt = subscription.subscription_ends_at || subscription.trial_ends_at || null;
+          const effectiveEndDate = effectiveEndAt ? new Date(effectiveEndAt) : null;
+
+          if (subscription.status === 'expired' || (effectiveEndDate && effectiveEndDate < now)) {
+            isExpired = true
+          } else if (subscription.status === 'trial') {
+            isTrialActive = true
+          } else if (subscription.status === 'active') {
+            isPlanActive = true
+          }
         }
 
-        // Categorizar baseado no novo padrão
-        if (!isActive || subscription.status === 'expired') {
+        if (isExpired) {
           expiredUsers++
-        } else if (subscription.status === 'trial') {
-          freeActiveUsers++ // Free (7d)
-        } else if (subscription.status === 'active' && subscription.plan === 'monthly') {
+        } else if (isTrialActive) {
+          freeActiveUsers++ // Trial (7d)
+        } else if (isPlanActive && subscription?.plan === 'monthly') {
           monthlyUsers++ // Mensal
-        } else if (subscription.status === 'active' && subscription.plan === 'annual') {
+        } else if (isPlanActive && subscription?.plan === 'annual') {
           annualUsers++ // Anual
-        } else {
-          expiredUsers++ // Qualquer outro caso
         }
+        // Usuários "Free" (sem subscription ou subscription inativa e sem 'expired' explícito caso exista) não contam para 'Expirados' 
       })
 
       console.log('📊 Subscription stats calculated:', {

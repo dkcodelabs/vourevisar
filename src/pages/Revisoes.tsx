@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { useQuery } from '@tanstack/react-query';
@@ -428,7 +429,7 @@ export const Revisoes = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
+        <LoadingSpinner size="medium" />
       </div>
     );
   }

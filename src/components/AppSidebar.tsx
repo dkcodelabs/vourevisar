@@ -158,8 +158,8 @@ export function AppSidebar() {
       className={`flex flex-col h-full bg-sidebar shrink-0 overflow-hidden relative transition-colors duration-300 z-[90] ${isMobile ? 'w-full rounded-none border-none' : 'rounded-3xl border border-white/5'
         }`}
     >
-      <div className="p-6 flex items-center justify-between">
-        <div className={`flex items-center overflow-hidden h-10 ${isCollapsed && !isMobile ? 'justify-center w-full' : 'w-full'}`}>
+      <div className="pl-3 pr-4 py-6 flex items-center justify-between h-[88px] relative">
+        <div className={`flex items-center overflow-hidden h-full ${isCollapsed && !isMobile ? 'justify-center w-full' : ''}`}>
           <AnimatedLogo collapsed={isCollapsed && !isMobile} className="h-full" />
         </div>
 

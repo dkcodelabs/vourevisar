@@ -15,13 +15,15 @@ import {
   ArrowRight,
   UserPlus
 } from 'lucide-react';
-import { AnimatedLogo } from '@/components/AnimatedLogo';
+import { TracerLogo } from '@/components/ui/TracerLogo';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logEvent } = useUserLogger();
   const { signIn, signUp, signInWithGoogle, user } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,6 +36,11 @@ const Login = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [shakePassword, setShakePassword] = useState(false);
   const passwordInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    console.log('[DEBUG] Login.tsx: Montagem/Renderização. isLoading=', isLoading, ' user=', !!user);
+    return () => console.log('[DEBUG] Login.tsx: Desmontando componente.');
+  }, [isLoading, user]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -61,9 +68,6 @@ const Login = () => {
         }
 
         navigate(from, { replace: true });
-
-        // Optional: Show success toast only if we just submitted (could use a ref or just skip it as dashboard load is enough feedback)
-        // toast.success("Bem-vindo de volta!"); 
       }
     };
 
@@ -76,7 +80,6 @@ const Login = () => {
 
     try {
       if (isRegistering) {
-        // ... existing registration logic ...
         if (!name.trim()) {
           toastManager.error('Nome é obrigatório');
           setIsLoading(false);
@@ -99,6 +102,8 @@ const Login = () => {
         if (result.success) {
           localStorage.setItem('pendingConfirmationEmail', email);
           navigate('/confirm-email', { replace: true });
+        } else {
+          setIsLoading(false);
         }
       } else {
         if (!password) {
@@ -111,10 +116,8 @@ const Login = () => {
         }
 
         const result = await signIn(email, password);
-        // If success, the useEffect will trigger redirection.
-        // We catch errors here.
+        console.log('[DEBUG] Login.tsx: Resultado do signIn:', result);
         if (!result.success) {
-          // Tratamento de erros específicos
           if (result.error?.includes('Invalid login credentials')) {
             toastManager.error('Email ou senha incorretos.');
           } else if (result.error?.includes('Email not confirmed')) {
@@ -124,14 +127,12 @@ const Login = () => {
           } else {
             toastManager.error('Erro ao fazer login. Tente novamente.');
           }
-          setIsLoading(false); // Only stop loading on error, otherwise wait for redirect
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Login/Signup error:', error);
       setIsLoading(false);
     }
-    // Finally block removed because we want loading to persist during redirect
   };
 
   const handleGoogleLogin = async () => {
@@ -141,13 +142,12 @@ const Login = () => {
       if (result.success) {
         await logEvent('LOGIN', { method: 'google' });
         let from = location.state?.from?.pathname || '/dashboard';
-        // If redirecting to landing page (root), force dashboard instead
         if (from === '/') {
           from = '/dashboard';
         }
         navigate(from, { replace: true });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Google login error:', error);
     } finally {
       setIsLoading(false);
@@ -160,7 +160,6 @@ const Login = () => {
       return;
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       toastManager.error('Por favor, insira um email válido');
@@ -192,7 +191,7 @@ const Login = () => {
         { duration: 6000 }
       );
       setShowForgotPassword(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Erro inesperado:', error);
       toastManager.error('Erro ao enviar email de recuperação. Tente novamente mais tarde.');
     } finally {
@@ -201,29 +200,31 @@ const Login = () => {
   };
 
   return (
-    <div className="dark min-h-screen w-full flex items-center justify-center bg-[#121212] p-4 transition-colors duration-300 font-sans">
+    <div className="dark min-h-screen w-full flex items-center justify-center bg-background p-4 transition-colors duration-300 font-sans">
       <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
+        initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-[400px] glass-card rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border-white/5"
+        className="w-full max-w-[400px] glass-card rounded-[32px] p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border-white/5"
       >
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center text-white">
-            {isRegistering ? <UserPlus size={16} /> : <ArrowRight size={16} />}
+          <div className="w-10 h-10 bg-slate-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-foreground">
+            {isRegistering ? <UserPlus size={18} /> : <ArrowRight size={18} />}
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
+          <h2 className="text-2xl font-black text-foreground tracking-tight">
             {showForgotPassword ? 'Recuperar' : isRegistering ? 'Criar Conta' : 'Entrar'}
           </h2>
         </div>
 
         {/* Logo Area */}
-        <div className="flex flex-col items-center mb-8">
-          <AnimatedLogo collapsed={false} className="scale-110" />
+        <div className="flex flex-col items-center mb-6 w-full">
+          <div className="w-full max-w-[220px]">
+            <TracerLogo />
+          </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <AnimatePresence mode="wait">
             {isRegistering && (
               <motion.div
@@ -232,30 +233,30 @@ const Login = () => {
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-4 overflow-hidden"
               >
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Nome</label>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Nome</label>
                   <div className="relative group">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within:text-primary transition-colors" size={16} />
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                     <input
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-[#0a0a0a] border border-white/5 focus:border-primary/30 rounded-xl py-2.5 pl-11 pr-4 text-sm font-medium text-white outline-none transition-all placeholder:text-muted-foreground/30"
+                      className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-2xl py-4 pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                       placeholder="Seu nome completo"
                       required={isRegistering}
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Telefone (opcional)</label>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Telefone (opcional)</label>
                   <div className="relative group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within:text-primary transition-colors" size={16} />
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                     <input
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full bg-[#0a0a0a] border border-white/5 focus:border-primary/30 rounded-xl py-2.5 pl-11 pr-4 text-sm font-medium text-white outline-none transition-all placeholder:text-muted-foreground/30"
+                      className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-2xl py-4 pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                       placeholder="(11) 99999-9999"
                     />
                   </div>
@@ -264,15 +265,15 @@ const Login = () => {
             )}
           </AnimatePresence>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Email</label>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Email</label>
             <div className="relative group">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within:text-primary transition-colors" size={16} />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white/5 border border-white/5 focus:border-primary/30 rounded-xl py-2.5 pl-11 pr-4 text-sm font-medium text-white outline-none transition-all placeholder:text-muted-foreground/30"
+                className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-2xl py-4 pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                 placeholder="seu@email.com"
                 required
               />
@@ -280,10 +281,10 @@ const Login = () => {
           </div>
 
           {!showForgotPassword && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Senha</label>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Senha</label>
               <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within:text-primary transition-colors" size={16} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                 <motion.input
                   animate={shakePassword ? { x: [0, -10, 10, -10, 10, 0] } : {}}
                   transition={{ duration: 0.4 }}
@@ -291,59 +292,52 @@ const Login = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full bg-[#0a0a0a] border ${shakePassword ? 'border-red-500/50' : 'border-white/5'} focus:border-primary/30 rounded-xl py-2.5 pl-11 pr-11 text-sm font-medium text-white outline-none transition-all placeholder:text-muted-foreground/30`}
+                  className={`w-full bg-primary/5 border ${shakePassword ? 'border-red-500/50' : 'border-transparent'} focus:border-primary/30 rounded-2xl py-4 pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30`}
                   placeholder="Digite sua senha"
                   required={!showForgotPassword}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-primary transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
           )}
 
           {isRegistering && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Confirmar Senha</label>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Confirmar Senha</label>
               <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within:text-primary transition-colors" size={16} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/5 focus:border-primary/30 rounded-xl py-2.5 pl-11 pr-11 text-sm font-medium text-white outline-none transition-all placeholder:text-muted-foreground/30"
+                  className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-2xl py-4 pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-primary transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
                 >
-                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
           )}
 
           <button
-            type="submit"
+            type={showForgotPassword ? "button" : "submit"}
+            onClick={showForgotPassword ? handleForgotPassword : undefined}
             disabled={isLoading}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
+            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
           >
-            {isLoading ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-              />
-            ) : (
-              showForgotPassword ? 'Enviar Link' : isRegistering ? 'Criar Conta' : 'Entrar'
-            )}
+            {showForgotPassword ? 'Enviar Link' : isRegistering ? 'Criar Conta' : 'Entrar'}
           </button>
 
           {!isRegistering && !showForgotPassword && (
@@ -351,7 +345,7 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(true)}
-                className="text-sm font-bold text-primary hover:underline transition-colors"
+                className="text-sm font-bold text-primary hover:underline transition-colors mt-2"
               >
                 Esqueci minha senha
               </button>
@@ -363,7 +357,7 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(false)}
-                className="text-sm font-bold text-muted-foreground hover:text-white transition-colors"
+                className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors mt-2"
               >
                 Voltar ao login
               </button>
@@ -372,12 +366,12 @@ const Login = () => {
 
           {!isRegistering && !showForgotPassword && (
             <>
-              <div className="relative py-2">
+              <div className="relative py-4">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/5"></div>
+                  <div className="w-full border-t border-black/5 dark:border-white/5"></div>
                 </div>
-                <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest">
-                  <span className="bg-[#121212] px-4 text-muted-foreground/50">OU</span>
+                <div className="relative flex justify-center text-xs uppercase font-bold tracking-widest">
+                  <span className="bg-card px-4 text-muted-foreground">OU</span>
                 </div>
               </div>
 
@@ -385,9 +379,9 @@ const Login = () => {
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                className="w-full bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/10 text-foreground font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
@@ -399,7 +393,7 @@ const Login = () => {
           )}
 
           {!showForgotPassword && (
-            <div className="mt-10 text-center">
+            <div className="mt-6 text-center">
               <p className="text-sm font-medium text-muted-foreground">
                 {isRegistering ? 'Já tem uma conta?' : 'Não tem uma conta?'} {' '}
                 <button
