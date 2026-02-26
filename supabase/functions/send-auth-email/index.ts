@@ -1,6 +1,6 @@
 import * as React from 'https://esm.sh/react@18.3.1'
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0'
-import { Resend } from 'npm:resend@4.0.0'
+import { Resend } from 'https://esm.sh/resend@4.0.0'
 import { renderAsync } from 'https://esm.sh/@react-email/render@0.0.12?deps=react@18.3.1'
 import { ConfirmationEmail } from './_templates/confirmation.tsx'
 import { RecoveryEmail } from './_templates/recovery.tsx'
