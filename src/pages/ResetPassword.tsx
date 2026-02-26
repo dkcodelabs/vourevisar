@@ -287,7 +287,7 @@ const ResetPassword = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                 placeholder="No mínimo 6 caracteres"
                 required
               />
@@ -309,7 +309,7 @@ const ResetPassword = () => {
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                 placeholder="Repita a nova senha"
                 required
               />
