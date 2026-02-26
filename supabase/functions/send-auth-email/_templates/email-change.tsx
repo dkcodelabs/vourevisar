@@ -40,7 +40,7 @@ export const EmailChangeEmail = ({
           <Section style={logoSection}>
             <Img
               src={logo_url}
-              width="180"
+              width="220"
               height="auto"
               alt="vouRevisar"
               style={logo}
@@ -121,13 +121,13 @@ const container = {
 
 const logoSection = {
   backgroundColor: '#0E1729',
-  padding: '40px',
+  padding: '24px',
   textAlign: 'center' as const,
 }
 
 const logo = {
   margin: '0 auto',
-  maxWidth: '180px',
+  maxWidth: '220px',
 }
 
 const contentSection = {

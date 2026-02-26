@@ -192,7 +192,7 @@ export const AppLayout = () => {
         {/* Header and Content Wrapper */}
         <div className="flex flex-col w-full h-full relative">
           {/* Header Action Bar - Fixo no topo sem sticky principal, fica sobreposto e o scroll passa por baixo via z-index */}
-          <div className="w-full px-4 sm:px-8 pt-8 sm:pt-3 pb-3 shrink-0 z-[40] bg-card absolute top-0 left-0 right-0" style={{ touchAction: 'none' }}>
+          <div className="w-full px-4 sm:px-8 pt-6 sm:pt-3 pb-3 shrink-0 z-[40] bg-card absolute top-0 left-0 right-0 border-b border-black/5 dark:border-white/5" style={{ touchAction: 'none' }}>
 
             {/* === MOBILE/TABLET: Ícones em cima === */}
             <div className="flex flex-col gap-2 lg:hidden">
@@ -245,7 +245,7 @@ export const AppLayout = () => {
                 {pageTitle === 'Painel' ? (
                   <>
                     <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2 truncate">
-                      {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'}, <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent truncate">{user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}</span>! <span className="text-base shrink-0">👋</span>
+                      {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'}, <span className="bg-gradient-to-r from-[#00d2ff] via-white to-[#00ff87] bg-clip-text text-transparent truncate">{user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}</span>! <span className="text-base shrink-0">👋</span>
                     </h1>
                     <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium truncate">
                       {routeDescriptions["/dashboard"]}
@@ -302,7 +302,7 @@ export const AppLayout = () => {
           <div className="flex-1 w-full overflow-y-auto overscroll-contain layout-scrollbar relative" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className="w-full max-w-[1600px] mx-auto flex flex-col min-h-full">
               {/* Content Area */}
-              <div className="flex-1 w-full px-5 sm:px-8 pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-20 lg:pt-28 xl:pt-24">
+              <div className="flex-1 w-full px-4 sm:px-8 pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-24 lg:pt-28 xl:pt-24">
 
                 {/* Título Mobile Rolável */}
                 <div className="lg:hidden mb-6 flex flex-col pt-2">
@@ -310,7 +310,7 @@ export const AppLayout = () => {
                     <>
                       <h1 className="text-[22px] font-bold tracking-tight text-foreground flex items-center gap-1.5 flex-wrap leading-tight">
                         {hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'},
-                        <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                        <span className="bg-gradient-to-r from-[#00d2ff] via-white to-[#00ff87] bg-clip-text text-transparent">
                           {user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}
                         </span>! <span className="text-xl">👋</span>
                       </h1>

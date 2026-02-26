@@ -19,7 +19,7 @@ export const DashboardHeader = ({ subjectsCount = 0 }: { subjectsCount?: number 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 transition-all">
-                        {greeting}, <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{firstName}</span>!
+                        {greeting}, <span className="bg-gradient-to-r from-[#00d2ff] via-white to-[#00ff87] bg-clip-text text-transparent">{firstName}</span>!
                         <span className="animate-bounce-slow">👋</span>
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-2 text-lg">

@@ -237,23 +237,6 @@ const ResetPassword = () => {
     }
   };
 
-  if (isCheckingToken) {
-    return (
-      <div className="dark min-h-screen w-full flex items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans">
-        <div className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-8 shadow-2xl flex flex-col items-center justify-center backdrop-blur-xl bg-card border-white/5">
-          <LoadingSpinner size="medium" />
-          <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-6 animate-pulse">
-            Validando link...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isValidToken) {
-    return null; // Component will redirect to login
-  }
-
   return (
     <div className="dark min-h-screen w-full flex items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans overflow-y-auto">
       <motion.div
@@ -278,69 +261,94 @@ const ResetPassword = () => {
           </div>
         </div>
 
-        <form onSubmit={handleResetPassword} className="space-y-4" autoComplete="off">
-          <div className="space-y-1.5 sm:space-y-2">
-            <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Nova Senha</label>
-            <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors sm:size-[18px]" size={16} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
-                placeholder="No mínimo 6 caracteres"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-              >
-                {showPassword ? <EyeOff className="sm:size-[18px]" size={16} /> : <Eye className="sm:size-[18px]" size={16} />}
-              </button>
-            </div>
+        {isCheckingToken ? (
+          <div className="flex flex-col items-center justify-center py-10">
+            <LoadingSpinner size="medium" />
+            <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-6 animate-pulse">
+              Validando link...
+            </p>
           </div>
-
-          <div className="space-y-1.5 sm:space-y-2">
-            <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Confirmar Nova Senha</label>
-            <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors sm:size-[18px]" size={16} />
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
-                placeholder="Repita a nova senha"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-              >
-                {showConfirmPassword ? <EyeOff className="sm:size-[18px]" size={16} /> : <Eye className="sm:size-[18px]" size={16} />}
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-4"
-          >
-            {isLoading ? <LoadingSpinner size="small" /> : 'Redefinir Senha'}
-          </button>
-
-          <div className="mt-6 text-center">
+        ) : !isValidToken ? (
+          <div className="text-center py-6">
+            <p className="text-muted-foreground">Link inválido ou expirado.</p>
             <button
-              type="button"
               onClick={() => navigate('/login')}
-              className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
+              className="mt-4 text-primary font-bold hover:underline"
             >
               Voltar ao login
             </button>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleResetPassword} className="space-y-4" autoComplete="off">
+            <div className="space-y-1.5 sm:space-y-2">
+              <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Nova Senha</label>
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors sm:size-[18px]" size={16} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                  placeholder="No mínimo 6 caracteres"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {showPassword ? <EyeOff className="sm:size-[18px]" size={16} /> : <Eye className="sm:size-[18px]" size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 sm:space-y-2">
+              <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Confirmar Nova Senha</label>
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors sm:size-[18px]" size={16} />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                  placeholder="Repita a nova senha"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="sm:size-[18px]" size={16} /> : <Eye className="sm:size-[18px]" size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-4 h-[48px] sm:h-[56px]"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <LoadingSpinner size="xs" variant="minimal" />
+                </div>
+              ) : (
+                'Redefinir Senha'
+              )}
+            </button>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Voltar ao login
+              </button>
+            </div>
+          </form>
+        )}
       </motion.div>
     </div>
   );

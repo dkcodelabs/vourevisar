@@ -219,12 +219,14 @@
     /* Font smoothing */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent horizontal scroll globally */
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-background text-foreground font-sans;
     /* Prevent any scroll on body - only inner content scrolls */
-    overflow: hidden;
+    overflow-x: hidden;
     height: 100%;
     /* Smooth transitions */
     transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
@@ -454,7 +456,9 @@
   input,
   select,
   textarea {
-    @apply py-3 px-4 text-base;
+    @apply py-3 px-4;
+    /* Crucial: Font-size 16px (1rem) prevents auto-zoom on iOS focus */
+    font-size: 16px !important;
   }
 
   /* Better mobile buttons */
