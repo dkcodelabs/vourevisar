@@ -241,7 +241,7 @@ const Login = () => {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
+                      className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
                       placeholder="Seu nome completo"
                       required={isRegistering}
                     />
@@ -256,7 +256,7 @@ const Login = () => {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
+                      className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
                       placeholder="(11) 99999-9999"
                     />
                   </div>
@@ -337,7 +337,11 @@ const Login = () => {
             disabled={isLoading}
             className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
           >
-            {showForgotPassword ? 'Enviar Link' : isRegistering ? 'Criar Conta' : 'Entrar'}
+            {isLoading ? (
+              <LoadingSpinner className="w-5 h-5 border-white/30 border-t-white" />
+            ) : (
+              showForgotPassword ? 'Enviar Link' : isRegistering ? 'Criar Conta' : 'Entrar'
+            )}
           </button>
 
           {!isRegistering && !showForgotPassword && (
