@@ -54,69 +54,48 @@ export function useUserProfile(): UseUserProfileReturn {
       setLoading(true)
       setError(null)
 
-      // Verificar se está autenticado
-      const { data: { user } } = await supabase.auth.getUser()
+      // 1. Obter sessão atual de forma rápida
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
 
       if (!user) {
         setProfile(null)
+        setLoading(false)
         return
       }
 
-      // Log removido para otimização
-
-      // Buscar role do usuário (com tratamento de erro 406)
-      let roleData = null;
-      try {
-        const { data, error: roleError } = await supabase
+      // 2. Executar consultas em PARALELO (Otimização de Performance)
+      const [roleResult, subscriptionResult, profileResult] = await Promise.all([
+        // Consulta 1: Roles
+        supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
-          .limit(1); // Usar limit(1) para evitar erro 406
+          .maybeSingle(),
 
-        if (roleError && roleError.code !== 'PGRST116') {
-          console.error('Role error:', roleError);
-        } else {
-          roleData = data?.[0] || null;
-        }
-      } catch (error) {
-        // Silenciar erro 406 - usuário pode não ter role definida
-        if (error && typeof error === 'object' && 'message' in error &&
-          !error.message.includes('406')) {
-          console.error('Role fetch error:', error);
-        }
-      }
+        // Consulta 2: Assinatura (RPC)
+        supabase
+          .rpc('get_subscription_info', { check_user_id: user.id }),
 
-      // Buscar informações da assinatura
-      const { data: subscriptionData, error: subscriptionError } = await supabase
-        .rpc('get_subscription_info', { check_user_id: user.id })
-
-      if (subscriptionError) {
-        console.error('Subscription error:', subscriptionError)
-      }
-
-      // Buscar perfil básico
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('name, avatar_url')
-        .eq('id', user.id)
-        .single()
-
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.error('Profile error:', profileError)
-      }
+        // Consulta 3: Perfil (Avatar + Nome)
+        supabase
+          .from('profiles')
+          .select('name, avatar_url')
+          .eq('id', user.id)
+          .maybeSingle()
+      ])
 
       const userProfile: UserProfile = {
         id: user.id,
         email: user.email || '',
-        name: profileData?.name || user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
-        avatar_url: profileData?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-        role: roleData?.role || 'user',
-        subscription: subscriptionData && typeof subscriptionData === 'object' && !Array.isArray(subscriptionData) && !('error' in subscriptionData)
-          ? subscriptionData as UserProfile['subscription']
+        name: profileResult.data?.name || user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
+        avatar_url: profileResult.data?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+        role: roleResult.data?.role || 'user',
+        subscription: subscriptionResult.data && typeof subscriptionResult.data === 'object' && !Array.isArray(subscriptionResult.data) && !('error' in subscriptionResult.data)
+          ? subscriptionResult.data as UserProfile['subscription']
           : null
       }
 
-      // Log removido para otimização
       setProfile(userProfile)
 
     } catch (err) {

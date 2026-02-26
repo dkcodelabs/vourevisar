@@ -200,25 +200,25 @@ const Login = () => {
   };
 
   return (
-    <div className="dark min-h-screen w-full flex items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans overflow-y-auto">
+    <div className="dark min-h-screen w-full flex items-start sm:items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans overflow-y-auto pt-8 pb-8 sm:pt-4 sm:pb-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border-white/5 my-4"
       >
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4 sm:mb-6">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-foreground">
-            {isRegistering ? <UserPlus size={16} className="sm:size-[18px]" /> : <ArrowRight size={16} className="sm:size-[18px]" />}
+        <div className="flex items-center gap-3 mb-3 sm:mb-6">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-foreground">
+            {isRegistering ? <UserPlus size={14} className="sm:size-[18px]" /> : <ArrowRight size={14} className="sm:size-[18px]" />}
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+          <h2 className="text-lg sm:text-2xl font-black text-foreground tracking-tight">
             {showForgotPassword ? 'Recuperar' : isRegistering ? 'Criar Conta' : 'Entrar'}
           </h2>
         </div>
 
         {/* Logo Area */}
-        <div className="flex flex-col items-center mb-4 sm:mb-6 w-full">
-          <div className="w-full max-w-[160px] sm:max-w-[220px]">
+        <div className="flex flex-col items-center mb-3 sm:mb-6 w-full">
+          <div className="w-full max-w-[140px] sm:max-w-[220px]">
             <TracerLogo />
           </div>
         </div>
@@ -292,7 +292,7 @@ const Login = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full bg-primary/5 border ${shakePassword ? 'border-red-500/50' : 'border-transparent'} focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30`}
+                  className={`w-full bg-[#0F1115] border ${shakePassword ? 'border-red-500/50' : 'border-transparent'} focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner`}
                   placeholder="Digite sua senha"
                   required={!showForgotPassword}
                 />
@@ -316,7 +316,7 @@ const Login = () => {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
+                  className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
                   placeholder="••••••••"
                   required
                 />
