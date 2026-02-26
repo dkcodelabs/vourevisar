@@ -272,7 +272,7 @@ class ErrorService {
                 p_retryable: payload.retryable,
                 p_actor_user_id: payload.actor_user_id,
                 p_metadata: JSON.stringify(payload.metadata).length > MAX_METADATA_SIZE
-                    ? { ...payload.metadata, _truncated: 'Metadata exceeded limit', _original_size: JSON.stringify(payload.metadata).length }
+                    ? JSON.parse(JSON.stringify({ ...payload.metadata, _truncated: 'Metadata exceeded limit', _original_size: JSON.stringify(payload.metadata).length }))
                     : payload.metadata,
                 p_fingerprint: payload.fingerprint,
                 p_scope: payload.scope,

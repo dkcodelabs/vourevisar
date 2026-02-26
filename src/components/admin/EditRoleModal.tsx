@@ -60,7 +60,7 @@ export function EditRoleModal({ isOpen, onClose, user, onRoleUpdated }: EditRole
             // Using 'set_user_role' security definer function to handle RLS and ensure atomic update
             const { error: rpcError } = await supabase.rpc('set_user_role', {
                 _target_user_id: user.id,
-                _role: selectedRole
+                _role: selectedRole as "admin" | "moderator" | "owner" | "user"
             });
 
             if (rpcError) throw rpcError;

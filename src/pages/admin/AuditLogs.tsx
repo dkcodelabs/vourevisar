@@ -21,7 +21,8 @@ interface AuditLog {
     actor_user_id: string;
     actor_user_name: string;
     actor_user_email: string;
-    origin: string;
+    source: string;
+    origin?: string;
     status: string;
     metadata: any;
     total_count: number;

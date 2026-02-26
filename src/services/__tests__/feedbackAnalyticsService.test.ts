@@ -23,7 +23,7 @@ describe('feedbackAnalyticsService', () => {
     });
 
     const setupMockData = (data: unknown[]) => {
-        (supabase.from as unknown as vi.Mock).mockReturnValue({
+        (supabase.from as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
             select: vi.fn().mockReturnThis(),
             gte: vi.fn().mockReturnThis(),
             lte: vi.fn().mockReturnThis(),
