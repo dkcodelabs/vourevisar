@@ -123,14 +123,14 @@ const container = {
 }
 
 const logoSection = {
-  backgroundColor: '#181A1C',
+  backgroundColor: '#0E1729',
   padding: '40px',
   textAlign: 'center' as const,
 }
 
 const logo = {
   margin: '0 auto',
-  maxWidth: '200px',
+  maxWidth: '180px',
 }
 
 const contentSection = {
@@ -138,7 +138,7 @@ const contentSection = {
 }
 
 const h1 = {
-  color: '#1a1a1a',
+  color: '#0E1729',
   fontSize: '24px',
   fontWeight: '700',
   margin: '0 0 24px',
@@ -193,10 +193,10 @@ const codeSection = {
 const codeText = {
   display: 'inline-block',
   padding: '16px 32px',
-  backgroundColor: '#f9fafb',
+  backgroundColor: '#F8FAFC',
   borderRadius: '12px',
-  border: '1px solid #f3f4f6',
-  color: '#111827',
+  border: '1px solid #E2E8F0',
+  color: '#0E1729',
   fontSize: '24px',
   fontWeight: '700',
   letterSpacing: '4px',

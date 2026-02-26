@@ -8,6 +8,8 @@ import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
+import { TracerLogo } from '@/components/ui/TracerLogo';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -237,18 +239,14 @@ const ResetPassword = () => {
 
   if (isCheckingToken) {
     return (
-      <PageContainer>
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <GlassCard className="w-full max-w-md p-8 text-center">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="w-8 h-8 border-2 border-app-blue border-t-transparent rounded-full mx-auto mb-4"
-            />
-            <p className="text-gray-600 dark:text-gray-400">Validando link de recuperação...</p>
-          </GlassCard>
+      <div className="dark min-h-screen w-full flex items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans">
+        <div className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-8 shadow-2xl flex flex-col items-center justify-center backdrop-blur-xl bg-card border-white/5">
+          <LoadingSpinner size="medium" />
+          <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-6 animate-pulse">
+            Validando link...
+          </p>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
@@ -257,80 +255,94 @@ const ResetPassword = () => {
   }
 
   return (
-    <PageContainer>
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <GlassCard className="w-full max-w-md p-8">
-          <AnimatedTitle
-            icon={<Lock size={32} />}
-            className="mb-8 text-center"
-          >
+    <div className="dark min-h-screen w-full flex items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans overflow-y-auto">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border-white/5 my-4"
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-foreground">
+            <Lock size={16} className="sm:size-[18px]" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
             Redefinir Senha
-          </AnimatedTitle>
+          </h2>
+        </div>
 
-          <form onSubmit={handleResetPassword} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
-                  placeholder="Digite sua nova senha"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
+        {/* Logo Area */}
+        <div className="flex flex-col items-center mb-4 sm:mb-6 w-full">
+          <div className="w-full max-w-[160px] sm:max-w-[220px]">
+            <TracerLogo />
+          </div>
+        </div>
+
+        <form onSubmit={handleResetPassword} className="space-y-4" autoComplete="off">
+          <div className="space-y-1.5 sm:space-y-2">
+            <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Nova Senha</label>
+            <div className="relative group">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors sm:size-[18px]" size={16} />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
+                placeholder="No mínimo 6 caracteres"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+              >
+                {showPassword ? <EyeOff className="sm:size-[18px]" size={16} /> : <Eye className="sm:size-[18px]" size={16} />}
+              </button>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirmar Nova Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:border-app-blue focus:ring-2 focus:ring-app-blue/20 transition-all"
-                  placeholder="Confirme sua nova senha"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
+          <div className="space-y-1.5 sm:space-y-2">
+            <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Confirmar Nova Senha</label>
+            <div className="relative group">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors sm:size-[18px]" size={16} />
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
+                placeholder="Repita a nova senha"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+              >
+                {showConfirmPassword ? <EyeOff className="sm:size-[18px]" size={16} /> : <Eye className="sm:size-[18px]" size={16} />}
+              </button>
             </div>
+          </div>
 
-            <GradientButton
-              type="submit"
-              className="w-full py-3"
-              disabled={isLoading}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-4"
+          >
+            {isLoading ? <LoadingSpinner size="small" /> : 'Redefinir Senha'}
+          </button>
+
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
             >
-              {isLoading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                />
-              ) : (
-                'Redefinir Senha'
-              )}
-            </GradientButton>
-          </form>
-        </GlassCard>
-      </div>
-    </PageContainer>
+              Voltar ao login
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
   );
 };
 

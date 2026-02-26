@@ -122,14 +122,14 @@ const container = {
 }
 
 const logoSection = {
-  backgroundColor: '#181A1C', // Alinhado com a cor da sidebar atualizada em conversas anteriores
+  backgroundColor: '#0E1729',
   padding: '40px',
   textAlign: 'center' as const,
 }
 
 const logo = {
   margin: '0 auto',
-  maxWidth: '200px',
+  maxWidth: '180px',
 }
 
 const contentSection = {
@@ -137,7 +137,7 @@ const contentSection = {
 }
 
 const h1 = {
-  color: '#1a1a1a',
+  color: '#0E1729',
   fontSize: '24px',
   fontWeight: '700',
   margin: '0 0 24px',
@@ -185,15 +185,15 @@ const button = {
 }
 
 const warningSection = {
-  backgroundColor: '#fffbeb',
+  backgroundColor: '#F8FAFC',
   borderRadius: '12px',
   padding: '16px',
   margin: '24px 0',
-  border: '1px solid #fcd34d',
+  border: '1px solid #E2E8F0',
 }
 
 const warningText = {
-  color: '#92400e',
+  color: '#475569',
   fontSize: '14px',
   lineHeight: '1.5',
   margin: '0',
