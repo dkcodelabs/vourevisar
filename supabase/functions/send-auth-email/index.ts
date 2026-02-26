@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
   const userName = user.user_metadata?.name || 'Usuário'
 
   // Logo URL from storage bucket - usando v=2 para forçar atualização no cache dos clientes de email
-  const logoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/logo.png?v=2`
+  const logoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/logo.png?v=3`
 
   let html: string
   let subject: string
