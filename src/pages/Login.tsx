@@ -16,6 +16,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { TracerLogo } from '@/components/ui/TracerLogo';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -75,13 +76,6 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Se estiver no modo de recuperação de senha, não processar login/registro
-    if (showForgotPassword) {
-      handleForgotPassword();
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -210,7 +204,7 @@ const Login = () => {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border-white/5 my-4"
+        className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border-white/5 my-4"
       >
         {/* Header */}
         <div className="flex items-center gap-3 mb-3 sm:mb-6">
@@ -247,7 +241,7 @@ const Login = () => {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-base sm:text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                      className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
                       placeholder="Seu nome completo"
                       required={isRegistering}
                     />
@@ -262,7 +256,7 @@ const Login = () => {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-base sm:text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                      className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
                       placeholder="(11) 99999-9999"
                     />
                   </div>
@@ -279,7 +273,7 @@ const Login = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-base sm:text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                 placeholder="seu@email.com"
                 required
               />
@@ -341,10 +335,10 @@ const Login = () => {
             type={showForgotPassword ? "button" : "submit"}
             onClick={showForgotPassword ? handleForgotPassword : undefined}
             disabled={isLoading}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-2 h-[48px] sm:h-[56px]"
+            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
           >
             {isLoading ? (
-              <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin block" />
+              <LoadingSpinner className="w-5 h-5 border-white/30 border-t-white" />
             ) : (
               showForgotPassword ? 'Enviar Link' : isRegistering ? 'Criar Conta' : 'Entrar'
             )}
