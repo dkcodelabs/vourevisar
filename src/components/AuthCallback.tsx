@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export function AuthCallback() {
   const [loading, setLoading] = useState(true);
@@ -16,6 +16,15 @@ export function AuthCallback() {
         const error = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
         const authCode = urlParams.get('code');
+        const type = urlParams.get('type');
+
+        // Se o tipo for recovery, redirecionar para a página de reset password
+        if (type === 'recovery') {
+          console.log('AuthCallback: Detectado fluxo de recuperação, redirecionando para /reset-password');
+          setRedirectPath('/reset-password');
+          setLoading(false);
+          return;
+        }
 
         // Se há erro nos parâmetros, exibir e redirecionar
         if (error) {
@@ -30,7 +39,7 @@ export function AuthCallback() {
             errorMessage = errorDescription;
           }
 
-          toast.error(errorMessage);
+          toastGate.notifyError(errorMessage, 'AUTH-CALLBACK-01', { severity: 'low' });
           setRedirectPath('/login');
           return;
         }
@@ -63,16 +72,16 @@ export function AuthCallback() {
           }
 
           // Se não conseguiu estabelecer sessão após tentativas
-          toast.error('Erro na autenticação. Tente novamente.');
+          toastGate.notifyError('Erro na autenticação. Tente novamente.', 'AUTH-CALLBACK-02', { severity: 'low' });
           setRedirectPath('/login');
         } else {
           // Sem código de autorização
           setRedirectPath('/login');
         }
 
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('AuthCallback: Erro não tratado:', err);
-        toast.error('Erro na autenticação');
+        toastGate.notifyError('Erro na autenticação', 'AUTH-CALLBACK-UNK', { severity: 'low' });
         setRedirectPath('/login');
       } finally {
         setLoading(false);

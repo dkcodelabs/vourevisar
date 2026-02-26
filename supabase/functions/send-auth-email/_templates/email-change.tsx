@@ -40,7 +40,7 @@ export const EmailChangeEmail = ({
           <Section style={logoSection}>
             <Img
               src={logo_url}
-              width="150"
+              width="180"
               height="auto"
               alt="vouRevisar"
               style={logo}
@@ -50,11 +50,11 @@ export const EmailChangeEmail = ({
           {/* Conteúdo Principal */}
           <Section style={contentSection}>
             <Heading style={h1}>Confirmar mudança de email ✉️</Heading>
-            
+
             <Text style={text}>
               Olá{user_name ? `, ${user_name}` : ''}!
             </Text>
-            
+
             <Text style={text}>
               Você solicitou a alteração do email da sua conta no vouRevisar. Clique no botão abaixo para confirmar esta mudança:
             </Text>
@@ -116,34 +116,36 @@ const container = {
   borderRadius: '12px',
   overflow: 'hidden',
   maxWidth: '600px',
-  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
 }
 
 const logoSection = {
-  backgroundColor: '#0066FF',
-  padding: '32px 40px',
+  backgroundColor: '#181A1C',
+  padding: '40px',
   textAlign: 'center' as const,
 }
 
 const logo = {
   margin: '0 auto',
+  maxWidth: '200px',
 }
 
 const contentSection = {
-  padding: '40px',
+  padding: '40px 48px',
 }
 
 const h1 = {
   color: '#1a1a1a',
-  fontSize: '28px',
+  fontSize: '24px',
   fontWeight: '700',
   margin: '0 0 24px',
   padding: '0',
-  lineHeight: '1.3',
+  lineHeight: '1.2',
+  textAlign: 'center' as const,
 }
 
 const text = {
-  color: '#374151',
+  color: '#4b5563',
   fontSize: '16px',
   lineHeight: '1.6',
   margin: '0 0 16px',
@@ -170,19 +172,19 @@ const buttonSection = {
 
 const button = {
   backgroundColor: '#0066FF',
-  borderRadius: '8px',
+  borderRadius: '12px',
   color: '#ffffff',
   fontSize: '16px',
   fontWeight: '600',
   textDecoration: 'none',
   textAlign: 'center' as const,
   display: 'inline-block',
-  padding: '14px 32px',
+  padding: '16px 32px',
 }
 
 const warningSection = {
   backgroundColor: '#eff6ff',
-  borderRadius: '8px',
+  borderRadius: '12px',
   padding: '16px',
   margin: '24px 0',
   border: '1px solid #bfdbfe',
@@ -197,7 +199,7 @@ const warningText = {
 }
 
 const linkText = {
-  color: '#6b7280',
+  color: '#9ca3af',
   fontSize: '12px',
   lineHeight: '1.5',
   wordBreak: 'break-all' as const,
@@ -206,13 +208,13 @@ const linkText = {
 
 const link = {
   color: '#0066FF',
-  textDecoration: 'underline',
+  textDecoration: 'none',
 }
 
 const footer = {
   backgroundColor: '#f9fafb',
-  padding: '24px 40px',
-  borderTop: '1px solid #e5e7eb',
+  padding: '32px 40px',
+  borderTop: '1px solid #f3f4f6',
 }
 
 const footerText = {

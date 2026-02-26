@@ -36,7 +36,8 @@ const ResetPassword = () => {
           type,
           hasCode: !!code,
           url: window.location.href,
-          search: window.location.search
+          search: window.location.search,
+          hash: window.location.hash
         });
 
         // Check active session first (existing logic)
@@ -124,8 +125,9 @@ const ResetPassword = () => {
                 return;
               }
             }
-          } catch (error: any) {
+          } catch (error: unknown) {
             console.error('Error in code exchange:', error);
+            const authError = error as { name?: string };
 
             // ERROR HANDLING WITH FALLBACK
             // Wait a moment for any state to settle
@@ -140,7 +142,7 @@ const ResetPassword = () => {
               // Optional: You could show a specialized toast here if needed
               // toast.info("Sessão ativa detectada. Você pode redefinir sua senha.");
             } else {
-              if (error.name === 'AuthPKCECodeVerifierMissingError') {
+              if (authError.name === 'AuthPKCECodeVerifierMissingError') {
                 // Detailed error for debugging/user info
                 console.warn('PKCE Verifier Missing: Browser executing the link is different from the one that requested it.');
                 toastGate.notifyError('Por segurança, abra o link no mesmo navegador/dispositivo que solicitou.', 'AUTH-PKCE-MIS', { severity: 'medium' });
@@ -224,7 +226,7 @@ const ResetPassword = () => {
 
       toast.success('Senha redefinida com sucesso!');
       // Redirect to dashboard after successful password reset
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error('Reset password error:', error);
       errorService.report(error, { module: 'auth', action: 'reset_password_submit', userMessage: "Erro ao redefinir senha" });

@@ -43,12 +43,12 @@ function normalizeHookSecret(secret: string): string {
   if (!secret) {
     throw new Error('SEND_EMAIL_HOOK_SECRET is not configured')
   }
-  
+
   // If it's already in whsec_ format, extract the base64 part
   if (secret.startsWith('whsec_')) {
     return secret
   }
-  
+
   // If it's a raw base64 string, add the whsec_ prefix
   // The standardwebhooks library expects this prefix
   return `whsec_${secret}`
@@ -69,12 +69,12 @@ Deno.serve(async (req) => {
 
   const payload = await req.text()
   const headers = Object.fromEntries(req.headers)
-  
+
   console.log('📧 Received auth email webhook')
-  
+
   // Get and normalize the hook secret
   const rawSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string
-  
+
   if (!rawSecret) {
     console.error('❌ SEND_EMAIL_HOOK_SECRET is not configured')
     return new Response(
@@ -97,16 +97,16 @@ Deno.serve(async (req) => {
     // Try to verify with normalized secret
     const normalizedSecret = normalizeHookSecret(rawSecret)
     console.log('🔐 Verifying webhook signature...')
-    
+
     const wh = new Webhook(normalizedSecret)
     webhookData = wh.verify(payload, headers) as WebhookPayload
-    
+
     console.log('✅ Webhook signature verified')
     console.log('Email type:', webhookData.email_data.email_action_type)
     console.log('User email:', webhookData.user.email)
   } catch (error: any) {
     console.error('❌ Webhook signature verification failed:', error.message)
-    
+
     // Log more details for debugging
     console.log('Debug info - Raw secret length:', rawSecret.length)
     console.log('Debug info - Webhook headers present:', {
@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
       'webhook-signature': !!headers['webhook-signature'],
       'webhook-timestamp': !!headers['webhook-timestamp'],
     })
-    
+
     // If signature verification fails, try parsing payload directly for development
     // This is a fallback - in production, signature should always be verified
     try {
@@ -142,8 +142,8 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
   const userName = user.user_metadata?.name || 'Usuário'
 
-  // Logo URL from storage bucket
-  const logoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/logo.png?v=1`
+  // Logo URL from storage bucket - usando v=2 para forçar atualização no cache dos clientes de email
+  const logoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/logo.png?v=2`
 
   let html: string
   let subject: string
