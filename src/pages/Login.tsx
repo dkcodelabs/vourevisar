@@ -338,7 +338,7 @@ const Login = () => {
             className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
           >
             {isLoading ? (
-              <LoadingSpinner className="w-5 h-5 border-white/30 border-t-white" />
+              <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin block" />
             ) : (
               showForgotPassword ? 'Enviar Link' : isRegistering ? 'Criar Conta' : 'Entrar'
             )}
