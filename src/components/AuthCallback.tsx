@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toastGate } from '@/lib/errors/toastGate';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 
 export function AuthCallback() {
   const [loading, setLoading] = useState(true);
@@ -96,12 +97,14 @@ export function AuthCallback() {
     handleAuthCallback();
   }, []);
 
-  if (loading) { // Assuming 'isProcessing' was meant to be 'loading' or a new state variable that wasn't declared. For syntactic correctness, using 'loading'.
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background transition-colors duration-300">
         <div className="text-center flex flex-col items-center">
-          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
-          <p className="text-sm font-medium text-muted-foreground animate-pulse">Autenticando...</p>
+          <LoadingSpinner size="medium" />
+          <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-6 animate-pulse">
+            Autenticando...
+          </p>
         </div>
       </div>
     );

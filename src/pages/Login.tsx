@@ -98,9 +98,9 @@ const Login = () => {
           return;
         }
 
-        const result = await signUp(email, password, name, phone);
+        const result = await signUp(email.trim(), password, name, phone);
         if (result.success) {
-          localStorage.setItem('pendingConfirmationEmail', email);
+          localStorage.setItem('pendingConfirmationEmail', email.trim());
           navigate('/confirm-email', { replace: true });
         } else {
           setIsLoading(false);
@@ -115,7 +115,7 @@ const Login = () => {
           return;
         }
 
-        const result = await signIn(email, password);
+        const result = await signIn(email.trim(), password);
         console.log('[DEBUG] Login.tsx: Resultado do signIn:', result);
         if (!result.success) {
           if (result.error?.includes('Invalid login credentials')) {
@@ -127,6 +127,7 @@ const Login = () => {
           } else {
             toastManager.error('Erro ao fazer login. Tente novamente.');
           }
+          setIsLoading(false);
         }
       }
     } catch (error) {
@@ -168,7 +169,7 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/reset-password`
       });
 
@@ -224,7 +225,7 @@ const Login = () => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <AnimatePresence mode="wait">
             {isRegistering && (
               <motion.div
@@ -276,6 +277,7 @@ const Login = () => {
                 className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                 placeholder="seu@email.com"
                 required
+                autoComplete="email"
               />
             </div>
           </div>
@@ -295,6 +297,7 @@ const Login = () => {
                   className={`w-full bg-[#0F1115] border ${shakePassword ? 'border-red-500/50' : 'border-transparent'} focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner`}
                   placeholder="Digite sua senha"
                   required={!showForgotPassword}
+                  autoComplete={isRegistering ? "new-password" : "current-password"}
                 />
                 <button
                   type="button"
@@ -319,6 +322,7 @@ const Login = () => {
                   className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
                   placeholder="••••••••"
                   required
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"

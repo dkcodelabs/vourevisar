@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ReviewProfile } from "@/types/study";
+import { LoadingSpinner } from "./ui/LoadingSpinner";
 
 export function ProfileOnboardingGate() {
   const { user } = useAuth();
@@ -124,8 +125,13 @@ export function ProfileOnboardingGate() {
   // Não mostrar loading se o usuário não estiver autenticado
   if (loadingProfile && user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background/50 backdrop-blur-sm fixed inset-0 z-[100]">
+        <div className="text-center flex flex-col items-center">
+          <LoadingSpinner size="medium" />
+          <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-6 animate-pulse">
+            Carregando sua jornada...
+          </p>
+        </div>
       </div>
     );
   }

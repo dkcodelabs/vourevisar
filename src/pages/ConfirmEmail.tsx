@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Mail, CheckCircle, RefreshCw, ArrowLeft } from 'lucide-react'; // Keep CheckCircle and ArrowLeft
 import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton } from '@/components/ui';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const ConfirmEmail = () => {
   const navigate = useNavigate();
@@ -101,11 +102,12 @@ const ConfirmEmail = () => {
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Redirecionando para o dashboard...
             </p>
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="w-6 h-6 border-2 border-brand-blue border-t-transparent rounded-full mx-auto"
-            />
+            <div className="flex flex-col items-center gap-4">
+              <LoadingSpinner size="small" />
+              <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase animate-pulse">
+                Redirecionando...
+              </p>
+            </div>
           </GlassCard>
         </div>
       </PageContainer>
@@ -156,11 +158,7 @@ const ConfirmEmail = () => {
             >
               {isResending ? (
                 <>
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                  />
+                  <LoadingSpinner size="xs" variant="minimal" className="mr-2" />
                   Enviando...
                 </>
               ) : resendCooldown > 0 ? (

@@ -278,7 +278,7 @@ const ResetPassword = () => {
           </div>
         </div>
 
-        <form onSubmit={handleResetPassword} className="space-y-4" autoComplete="off">
+        <form onSubmit={handleResetPassword} className="space-y-4">
           <div className="space-y-1.5 sm:space-y-2">
             <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Nova Senha</label>
             <div className="relative group">
@@ -290,6 +290,7 @@ const ResetPassword = () => {
                 className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                 placeholder="No mínimo 6 caracteres"
                 required
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -312,6 +313,7 @@ const ResetPassword = () => {
                 className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                 placeholder="Repita a nova senha"
                 required
+                autoComplete="new-password"
               />
               <button
                 type="button"
