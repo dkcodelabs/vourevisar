@@ -40,7 +40,7 @@ export const ConfirmationEmail = ({
           <Section style={logoSection}>
             <Img
               src={logo_url}
-              width="220"
+              width="280"
               height="auto"
               alt="vouRevisar"
               style={logo}
@@ -115,13 +115,13 @@ const container = {
 
 const logoSection = {
   backgroundColor: '#0E1729',
-  padding: '24px',
+  padding: '16px',
   textAlign: 'center' as const,
 }
 
 const logo = {
   margin: '0 auto',
-  maxWidth: '220px',
+  maxWidth: '280px',
 }
 
 const contentSection = {
