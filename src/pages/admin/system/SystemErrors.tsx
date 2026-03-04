@@ -367,6 +367,10 @@ export default function SystemErrors() {
         }
     };
 
+    if (loading) {
+        return <LoadingSpinner size="large" showText fullPage />;
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4 mb-2">
@@ -717,15 +721,9 @@ export default function SystemErrors() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {loading ? (
+                                {errors.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} className="text-center py-8">
-                                            <LoadingSpinner size="medium" showText />
-                                        </TableCell>
-                                    </TableRow>
-                                ) : errors.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                                        <TableCell colSpan={10} className="text-center py-8 text-slate-500">
                                             Nenhum erro encontrado com os filtros atuais.
                                         </TableCell>
                                     </TableRow>

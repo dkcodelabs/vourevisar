@@ -249,6 +249,10 @@ const SubscriptionManagement = () => {
         u.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    if (loading) {
+        return <LoadingSpinner size="large" showText fullPage />;
+    }
+
     return (
         <div className="max-w-[1600px] w-full animate-fade-in font-sans">
             {/* Stats Cards */}
@@ -307,11 +311,7 @@ const SubscriptionManagement = () => {
                 )}
 
                 <div className="divide-y divide-black/5 dark:divide-white/5 px-4 pb-2">
-                    {loading ? (
-                        <div className="p-12 text-center">
-                            <LoadingSpinner size="medium" showText />
-                        </div>
-                    ) : filteredUsers.length === 0 ? (
+                    {filteredUsers.length === 0 ? (
                         <div className="p-12 text-center text-muted-foreground font-medium">Nenhum usuário encontrado na sua busca.</div>
                     ) : (
                         filteredUsers.map(user => (

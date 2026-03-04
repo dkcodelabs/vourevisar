@@ -36,6 +36,7 @@ import AuditLogs from "@/pages/admin/AuditLogs";
 import AdminFeedback from "@/pages/admin/AdminFeedback";
 import ToastSpamTest from "@/pages/admin/debug/ToastSpamTest";
 import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
+import TendenciaGUT from "@/pages/admin/TendenciaGUT";
 
 import { AuthCallback } from "@/components/AuthCallback";
 import { SimpleRoleTest } from "@/components/SimpleRoleTest";
@@ -103,6 +104,7 @@ const App = () => {
                             <Route path="gerenciamento" element={<Gerenciamento />} />
                             <Route path="admin/users" element={<UserManagement />} />
                             <Route path="admin/content/import" element={<ImportQuestions />} />
+                            <Route path="admin/tendencia" element={<TendenciaGUT />} />
                             <Route path="admin/subscription" element={<SubscriptionManagement />} />
                             <Route path="admin/security/roles" element={<RolesManagement />} />
                             <Route path="admin/audit" element={<AuditLogs />} />

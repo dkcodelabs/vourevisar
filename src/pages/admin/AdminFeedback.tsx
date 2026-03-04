@@ -447,6 +447,10 @@ const AdminFeedback: React.FC = () => {
         }
     };
 
+    if (isLoading) {
+        return <LoadingSpinner size="large" showText fullPage />;
+    }
+
     return (
         <>
             <div className="space-y-6">
@@ -569,11 +573,7 @@ const AdminFeedback: React.FC = () => {
 
                 {/* ── Tabela ────────────────────────────────────── */}
                 <div className="glass-card rounded-2xl overflow-hidden border border-black/5 dark:border-white/5">
-                    {isLoading ? (
-                        <div className="flex items-center justify-center py-16">
-                            <LoadingSpinner size="medium" showText />
-                        </div>
-                    ) : error ? (
+                    {error ? (
                         <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                             <AlertTriangle size={24} className="mb-2 text-red-400" />
                             <p className="text-sm text-red-500 mb-2">{error}</p>

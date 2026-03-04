@@ -8,7 +8,6 @@ import { UserRoleBadge, ProtectedButton } from '@/components/RoleBasedUI'
 import { UserManagementModal } from '@/components/UserManagementModal'
 import { SubscriptionManagementModal } from '@/components/SubscriptionManagementModal'
 import { ImportadorQuestoes } from '@/components/ImportadorQuestoes'
-import { CalculadoraTendencia } from '@/components/CalculadoraTendencia'
 import { useNavigate } from 'react-router-dom'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
@@ -259,15 +258,7 @@ export default function Gerenciamento() {
     </div>
   )
 
-  const TendenciaSection = () => (
-    <div>
-      <h2 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>📈 Calculadora de Tendência (GUT)</h2>
-      <p style={{ color: '#64748b', marginBottom: '24px' }}>
-        Analise o volume de questões de cada tópico para definir prioridades.
-      </p>
-      <CalculadoraTendencia />
-    </div>
-  )
+
 
   const BackupSection = () => (
     <OwnerOnly>
@@ -394,12 +385,7 @@ export default function Gerenciamento() {
                   active={activeSection === 'importacao'}
                   onClick={() => setActiveSection('importacao')}
                 />
-                <SidebarItem
-                  icon="📈"
-                  label="Tendência (GUT)"
-                  active={activeSection === 'tendencia'}
-                  onClick={() => setActiveSection('tendencia')}
-                />
+
               </AdminOnly>
 
               {/* Seções EXCLUSIVAS para Owners */}
@@ -459,7 +445,7 @@ export default function Gerenciamento() {
             {activeSection === 'sistema' && <SistemaSection />}
             {activeSection === 'backup' && <BackupSection />}
             {activeSection === 'importacao' && <ImportacaoSection />}
-            {activeSection === 'tendencia' && <TendenciaSection />}
+
           </div>
         </div>
       </div>

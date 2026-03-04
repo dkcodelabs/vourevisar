@@ -89,6 +89,7 @@ const getNavItems = (isAdmin: boolean) => {
     { to: "/gerenciamento", label: "Gerenciamento V1 (Legacy)", icon: Settings },
     { to: "/admin/users", label: "Gerenciar Usuários", icon: Users },
     { to: "/admin/content/import", label: "Importar Questões", icon: FileUp },
+    { to: "/admin/tendencia", label: "Tendência (GUT)", icon: TrendingUp },
     { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
     { to: "/admin/audit", label: "Auditoria", icon: ClipboardList },
     { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },

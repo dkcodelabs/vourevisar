@@ -272,6 +272,10 @@ export default function AuditLogs() {
 
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
+    if (loading) {
+        return <LoadingSpinner size="large" showText fullPage />;
+    }
+
     return (
         <>
             <div className="space-y-6">
@@ -418,11 +422,7 @@ export default function AuditLogs() {
 
                 {/* Table */}
                 <div className="bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden">
-                    {loading ? (
-                        <div className="flex items-center justify-center py-12">
-                            <LoadingSpinner size="medium" showText />
-                        </div>
-                    ) : logs.length === 0 ? (
+                    {logs.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-500">
                             <Activity className="w-12 h-12 text-slate-300 mb-3" />
                             <p className="text-sm">Nenhum evento encontrado</p>
