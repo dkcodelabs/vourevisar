@@ -10,6 +10,7 @@ import { SubscriptionManagementModal } from '@/components/SubscriptionManagement
 import { ImportadorQuestoes } from '@/components/ImportadorQuestoes'
 import { CalculadoraTendencia } from '@/components/CalculadoraTendencia'
 import { useNavigate } from 'react-router-dom'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 export default function Gerenciamento() {
   const { user, isOwner, isAdmin, loading } = useUserRole()
@@ -304,11 +305,7 @@ export default function Gerenciamento() {
   )
 
   if (loading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse">Carregando painel de gerenciamento...</div>
-      </div>
-    )
+    return <LoadingSpinner size="large" showText fullPage />;
   }
 
   if (!isAdmin) {

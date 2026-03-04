@@ -20,6 +20,7 @@ import { DifficultyRating } from '@/components/ui/difficulty-rating';
 import TopicListItem from '@/components/topics/TopicListItem';
 import { errorService } from '@/lib/errors/errorService';
 import { useAuth } from '@/contexts/AuthContext';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const Topics = () => {
   const { user } = useAuth();
@@ -264,15 +265,7 @@ const Topics = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="w-full">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <p className="text-muted-foreground font-sans">Carregando tópicos...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner size="large" showText fullPage />;
   }
 
   return (

@@ -319,6 +319,10 @@ const UserManagement = () => {
 
 
 
+    if (loading) {
+        return <LoadingSpinner size="large" showText fullPage />;
+    }
+
     return (
         <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-900 dark:text-slate-100">
 
@@ -349,12 +353,7 @@ const UserManagement = () => {
 
             {/* 3. Table */}
             <div className="glass-card rounded-2xl overflow-hidden border border-black/5 dark:border-white/5">
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
-                        <LoadingSpinner size="small" />
-                        <span className="text-sm">Carregando usuários...</span>
-                    </div>
-                ) : error ? (
+                {error ? (
                     <div className="p-12 text-center text-rose-500 text-sm bg-rose-50 dark:bg-rose-500/10">
                         <span className="font-semibold block mb-1">Erro ao carregar usuários</span>
                         {error}
