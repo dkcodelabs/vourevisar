@@ -159,10 +159,14 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
         };
 
         let channelPromise = setupSubscription();
+        let isCancelled = false;
 
         return () => {
+            isCancelled = true;
             channelPromise.then((channel) => {
-                if (channel) supabase.removeChannel(channel);
+                if (channel && !isCancelled) {
+                    supabase.removeChannel(channel).catch(() => { });
+                }
             });
         };
     }, [applyTimer]);

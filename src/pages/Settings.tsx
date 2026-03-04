@@ -20,8 +20,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCycleState } from '@/hooks/useCycleState';
 import { useApp } from '@/contexts/AppContext';
 import { ReviewProfile, UserSettings } from '@/types/study';
-import { ProfileSelector } from '@/components/ProfileSelector';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ResetCycleConfirmDialog } from '@/components/ResetCycleConfirmDialog';
@@ -126,7 +124,6 @@ const Settings = () => {
     created_at: '',
     updated_at: ''
   });
-  const [hasReviews, setHasReviews] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [timezone, setTimezone] = useState('America/Sao_Paulo');
 
@@ -138,10 +135,10 @@ const Settings = () => {
   useEffect(() => {
     if (user) {
       fetchUserSettings();
-      checkHasReviews();
     } else {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchUserSettings = async () => {
@@ -192,17 +189,7 @@ const Settings = () => {
     }
   };
 
-  const checkHasReviews = async () => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('topics')
-      .select('id, subject_id, subjects!inner(user_id)')
-      .eq('subjects.user_id', user.id)
-      .gt('review_count', 0)
-      .limit(1);
-    if (error) setHasReviews(false);
-    setHasReviews(data && data.length > 0);
-  };
+
 
   // ─── Handlers ─────────────────────────────────────────
   const handleSubjectsPerDayChange = async (value: number[]) => {
@@ -226,20 +213,7 @@ const Settings = () => {
     }
   };
 
-  const handleProfileChange = async (newProfile: ReviewProfile) => {
-    if (hasReviews) return;
-    try {
-      const { error } = await supabase
-        .from('user_settings')
-        .update({ review_profile: newProfile })
-        .eq('user_id', user?.id);
-      if (error) throw error;
-      setSettings(prev => ({ ...prev, review_profile: newProfile }));
-      toast.success("Perfil de revisão atualizado!");
-    } catch (error) {
-      errorService.report(error, { module: 'settings', action: 'update_profile', userMessage: "Erro ao atualizar perfil" });
-    }
-  };
+
 
   const handleNotificationsToggle = (checked: boolean) => {
     setSettings(prev => ({ ...prev, notifications_enabled: checked }));
@@ -348,7 +322,7 @@ const Settings = () => {
   };
 
   if (isLoading || isCycleLoading) {
-    return <LoadingSpinner message="Carregando configurações..." />;
+    return <LoadingSpinner size="large" message="Carregando configurações..." fullPage />;
   }
 
   // ═══════════════════════════════════════════════════════
@@ -366,46 +340,18 @@ const Settings = () => {
             </Alert>
           )}
 
-          <Tabs defaultValue="estudos" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="estudos" className="text-xs sm:text-sm">Estudos</TabsTrigger>
-              <TabsTrigger value="notificacoes" className="text-xs sm:text-sm">Notificações</TabsTrigger>
-              <TabsTrigger value="conta" className="text-xs sm:text-sm">Conta</TabsTrigger>
-              <TabsTrigger value="sistema" className="text-xs sm:text-sm">Sistema</TabsTrigger>
-            </TabsList>
-
+          <div className="max-w-4xl mx-auto space-y-10">
             {/* ═══════════════════════════════════════════ */}
-            {/* ABA ESTUDOS                                */}
+            {/* SEÇÃO PREFERÊNCIAS                         */}
             {/* ═══════════════════════════════════════════ */}
-            <TabsContent value="estudos" className="space-y-4">
-              {/* Perfil de Revisão */}
-              <SettingsCard delay={0}>
-                <SectionHeader
-                  icon={BookOpen}
-                  iconColor="bg-blue-500/10 text-blue-500"
-                  label="PERFIL DE REVISÃO"
-                />
-
-                {hasReviews && (
-                  <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 mb-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span>Perfil em uso. Para alterar, reinicie o ciclo abaixo.</span>
-                  </div>
-                )}
-
-                <div className="max-w-2xl">
-                  <ProfileSelector
-                    selected={settings?.review_profile}
-                    onSelect={handleProfileChange}
-                    onboarding={false}
-                    disabled={hasReviews}
-                  />
-                </div>
-              </SettingsCard>
-
+            <section>
+              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 pl-1 font-sans">
+                Preferências Gerais
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
                 {/* Planejamento */}
-                <SettingsCard delay={1}>
+                <SettingsCard delay={0}>
                   <SectionHeader
                     icon={Settings2}
                     iconColor="bg-indigo-500/10 text-indigo-500"
@@ -441,41 +387,8 @@ const Settings = () => {
                   </div>
                 </SettingsCard>
 
-                {/* Reiniciar Ciclo */}
-                <SettingsCard delay={2}>
-                  <SectionHeader
-                    icon={RefreshCw}
-                    iconColor="bg-sky-500/10 text-sky-500"
-                    label="REINICIAR CICLO"
-                  />
-
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Reinicia seu ciclo de revisões mantendo matérias e tópicos. Ideal para ajustar o perfil ou recomeçar.
-                  </p>
-
-                  <Button
-                    variant="outline"
-                    className="w-full text-xs border-sky-500/30 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10"
-                    onClick={handleResetCycle}
-                    disabled={isResettingCycle}
-                    size="sm"
-                  >
-                    {isResettingCycle ? (
-                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Reiniciando...</>
-                    ) : (
-                      <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Reiniciar Ciclo de Revisões</>
-                    )}
-                  </Button>
-                </SettingsCard>
-              </div>
-            </TabsContent>
-
-            {/* ═══════════════════════════════════════════ */}
-            {/* ABA NOTIFICAÇÕES                           */}
-            {/* ═══════════════════════════════════════════ */}
-            <TabsContent value="notificacoes" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SettingsCard delay={0}>
+                {/* Lembretes */}
+                <SettingsCard delay={1}>
                   <SectionHeader
                     icon={Bell}
                     iconColor="bg-amber-500/10 text-amber-500"
@@ -520,17 +433,9 @@ const Settings = () => {
                     </GradientButton>
                   </div>
                 </SettingsCard>
-              </div>
-            </TabsContent>
-
-            {/* ═══════════════════════════════════════════ */}
-            {/* ABA CONTA                                  */}
-            {/* ═══════════════════════════════════════════ */}
-            <TabsContent value="conta" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                 {/* Fuso Horário */}
-                <SettingsCard delay={0}>
+                <SettingsCard delay={2}>
                   <SectionHeader
                     icon={Globe}
                     iconColor="bg-emerald-500/10 text-emerald-500"
@@ -555,7 +460,7 @@ const Settings = () => {
                 </SettingsCard>
 
                 {/* Links rápidos */}
-                <SettingsCard delay={1}>
+                <SettingsCard delay={3}>
                   <SectionHeader
                     icon={Settings2}
                     iconColor="bg-slate-500/10 text-slate-500"
@@ -587,40 +492,74 @@ const Settings = () => {
                   </div>
                 </SettingsCard>
               </div>
-            </TabsContent>
+            </section>
 
             {/* ═══════════════════════════════════════════ */}
-            {/* ABA SISTEMA                                */}
+            {/* SEÇÃO GERENCIAMENTO AVANÇADO                 */}
             {/* ═══════════════════════════════════════════ */}
-            <TabsContent value="sistema" className="space-y-4">
-              <SettingsCard delay={0}>
-                <SectionHeader
-                  icon={AlertTriangle}
-                  iconColor="bg-red-500/10 text-red-500"
-                  label="ZONA DE PERIGO"
-                />
+            <section>
+              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 pl-1 font-sans mt-8 border-t border-border/40 pt-8">
+                Gerenciamento Avançado
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                <div className="p-4 border-2 border-destructive/30 bg-destructive/5 rounded-xl space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-                    <h3 className="text-sm font-semibold text-destructive">Reset Completo</h3>
-                  </div>
-                  <p className="text-xs text-destructive/80">
-                    Remove <strong>permanentemente</strong> todas as matérias, tópicos, revisões e anotações. Esta ação é irreversível.
+                {/* Reiniciar Ciclo */}
+                <SettingsCard delay={4}>
+                  <SectionHeader
+                    icon={RefreshCw}
+                    iconColor="bg-sky-500/10 text-sky-500"
+                    label="REINICIAR CICLO"
+                  />
+
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Reinicia seu ciclo de revisões mantendo matérias e tópicos. Ideal para recomeçar seus estudos.
                   </p>
-                  <Button
-                    variant="destructive"
-                    className="w-full text-xs"
-                    size="sm"
-                    onClick={() => setResetDialogOpen(true)}
-                  >
-                    ⚠️ Reset Completo (Irreversível)
-                  </Button>
-                </div>
-              </SettingsCard>
-            </TabsContent>
 
-          </Tabs>
+                  <Button
+                    variant="outline"
+                    className="w-full text-xs border-sky-500/30 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10"
+                    onClick={handleResetCycle}
+                    disabled={isResettingCycle}
+                    size="sm"
+                  >
+                    {isResettingCycle ? (
+                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Reiniciando...</>
+                    ) : (
+                      <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Reiniciar Ciclo de Revisões</>
+                    )}
+                  </Button>
+                </SettingsCard>
+
+                {/* Zona de Perigo */}
+                <SettingsCard delay={5}>
+                  <SectionHeader
+                    icon={AlertTriangle}
+                    iconColor="bg-red-500/10 text-red-500"
+                    label="ZONA DE PERIGO"
+                  />
+
+                  <div className="p-4 border-2 border-destructive/30 bg-destructive/5 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                      <h3 className="text-sm font-semibold text-destructive">Reset Completo</h3>
+                    </div>
+                    <p className="text-xs text-destructive/80">
+                      Remove <strong>permanentemente</strong> todas as matérias, tópicos, revisões e anotações. Esta ação é irreversível.
+                    </p>
+                    <Button
+                      variant="destructive"
+                      className="w-full text-xs"
+                      size="sm"
+                      onClick={() => setResetDialogOpen(true)}
+                    >
+                      ⚠️ Reset Completo (Irreversível)
+                    </Button>
+                  </div>
+                </SettingsCard>
+
+              </div>
+            </section>
+          </div>
 
           <ResetCycleConfirmDialog
             open={resetDialogOpen}

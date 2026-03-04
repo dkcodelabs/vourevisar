@@ -9,11 +9,7 @@ export const ProtectedRoute = () => {
 
   // Show loading logo ONLY if we are actually waiting for the initial auth state without a user object
   if (loading && !user) {
-    return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-background transition-colors duration-300">
-        <LoadingSpinner size="large" showText={true} className="scale-125 sm:scale-150" />
-      </div>
-    );
+    return <LoadingSpinner size="large" showText fullPage />;
   }
 
   // If no user authenticated, redirect to login preserving the intended path

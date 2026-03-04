@@ -6,9 +6,10 @@ import {
     CalendarClock,
     User,
     CheckCircle2,
-    Target
+    Target,
+    Shield
 } from 'lucide-react';
-import { ReviewProfile } from '@/types/study';
+import { ProtectionMode } from '@/utils/calculateProtectionMode';
 
 interface ReviewsStatsCardProps {
     totalTopics: number;
@@ -21,32 +22,26 @@ interface ReviewsStatsCardProps {
     overdue: number;
     today: number;
     future: number;
-    reviewProfile: ReviewProfile;
+    protectionMode: ProtectionMode;
     maxReviews: number;
     className?: string;
 }
 
-const PROFILE_LABELS: Record<ReviewProfile, string> = {
-    [ReviewProfile.BEGINNER]: 'Iniciante',
-    [ReviewProfile.INTERMEDIATE]: 'Intermediário',
-    [ReviewProfile.ADVANCED]: 'Avançado'
-};
-
-const PROFILE_COLORS: Record<ReviewProfile, { bg: string; text: string; border: string }> = {
-    [ReviewProfile.BEGINNER]: {
-        bg: 'bg-emerald-50 dark:bg-emerald-900/20',
-        text: 'text-emerald-600 dark:text-emerald-400',
-        border: 'border-emerald-200 dark:border-emerald-800'
+const PROTECTION_COLORS: Record<ProtectionMode, { bg: string; text: string; border: string }> = {
+    'Alta': {
+        bg: 'bg-red-50 dark:bg-red-900/20',
+        text: 'text-red-600 dark:text-red-400',
+        border: 'border-red-200 dark:border-red-800'
     },
-    [ReviewProfile.INTERMEDIATE]: {
+    'Média': {
         bg: 'bg-blue-50 dark:bg-blue-900/20',
         text: 'text-blue-600 dark:text-blue-400',
         border: 'border-blue-200 dark:border-blue-800'
     },
-    [ReviewProfile.ADVANCED]: {
-        bg: 'bg-purple-50 dark:bg-purple-900/20',
-        text: 'text-purple-600 dark:text-purple-400',
-        border: 'border-purple-200 dark:border-purple-800'
+    'Baixa': {
+        bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        border: 'border-emerald-200 dark:border-emerald-800'
     }
 };
 
@@ -61,11 +56,11 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
     overdue,
     today,
     future,
-    reviewProfile,
+    protectionMode,
     maxReviews,
     className
 }) => {
-    const profileColors = PROFILE_COLORS[reviewProfile];
+    const modeColors = PROTECTION_COLORS[protectionMode] || PROTECTION_COLORS['Média'];
 
     // Percentuais para barra de 3 cores
     const completedPercentage = totalScheduledReviews > 0
@@ -82,20 +77,20 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
         <div className={`glass-card shadow-sm rounded-2xl overflow-hidden flex flex-col h-full ${className}`}>
             <div className="p-5 h-full flex flex-col">
 
-                {/* Header: Perfil do Usuário - Estrutura igual aos outros cards */}
+                {/* Header: Modo de Proteção */}
                 <div className="flex items-center justify-between mb-4 shrink-0">
                     <div className="flex items-center gap-2.5">
-                        <div className={`p-2 rounded-lg ${profileColors.bg} shrink-0`}>
-                            <User className={`w-4 h-4 ${profileColors.text}`} />
+                        <div className={`p-2 rounded-lg ${modeColors.bg} shrink-0`}>
+                            <Shield className={`w-4 h-4 ${modeColors.text}`} />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Perfil</p>
-                            <p className={`text-[10px] font-medium ${profileColors.text}`}>
-                                {PROFILE_LABELS[reviewProfile]}
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Modo de Proteção</p>
+                            <p className={`text-[10px] font-bold uppercase tracking-widest ${modeColors.text}`}>
+                                {protectionMode}
                             </p>
                         </div>
                     </div>
-                    <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${profileColors.bg} ${profileColors.text} border ${profileColors.border}`}>
+                    <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${modeColors.bg} ${modeColors.text} border ${modeColors.border}`}>
                         {maxReviews} revisões/tópico
                     </div>
                 </div>
@@ -148,7 +143,7 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                             <div className="p-1.5 bg-white dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 shadow-sm">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             </div>
-                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Tópicos Completos</span>
+                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Tópicos Estudados</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-slate-800 dark:text-slate-200">

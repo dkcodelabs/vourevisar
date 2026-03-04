@@ -9,6 +9,11 @@ export interface TopicReviewHistoryEntry {
   reviewed_at: string;
   created_at: string;
   study_duration_minutes?: number | null;
+  difficulty_numeric?: number | null;
+  memory_stability_after_review?: number | null;
+  interval_after_review?: number | null;
+  trend_delta?: number | null;
+  trend_label?: string | null;
 }
 
 export interface TopicReviewHistory {
@@ -17,7 +22,9 @@ export interface TopicReviewHistory {
   nextReviews: ReviewEntry[];
   totalReviews: number;
   completedReviews: number;
-  totalStudyTime: number; // New field for accumulated time
+  totalStudyTime: number;
+  latestTrendLabel?: string;
+  latestTrendDelta?: number | null;
 }
 
 export interface ReviewEntry {
@@ -44,7 +51,7 @@ export const REVIEW_STAGES = {
   REVIEW_15D: '15d',
   REVIEW_30D: '30d',
   REVIEW_60D: '60d',
-  COMPLETED: 'Concluído'
+  COMPLETED: 'Consolidado'
 } as const;
 
 export const REVIEW_STAGE_LABELS: Record<string, string> = {
@@ -54,7 +61,7 @@ export const REVIEW_STAGE_LABELS: Record<string, string> = {
   '15d': 'Revisão 15 dias',
   '30d': 'Revisão 30 dias',
   '60d': 'Revisão 60 dias',
-  'Concluído': 'Concluído'
+  'Consolidado': 'Consolidado'
 };
 
 export const REVIEW_STAGE_ORDER: Record<string, number> = {
@@ -64,5 +71,5 @@ export const REVIEW_STAGE_ORDER: Record<string, number> = {
   '15d': 3,
   '30d': 4,
   '60d': 5,
-  'Concluído': 6
+  'Consolidado': 6
 };

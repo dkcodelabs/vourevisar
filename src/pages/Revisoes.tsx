@@ -66,10 +66,12 @@ export const Revisoes = () => {
     todayTopics,
     futureTopics,
     completedTopics,
+    consolidatedTopics,
     isRecoveryMode,
     recoveryReason,
     focusTopics,
-    totalPendingCount
+    totalPendingCount,
+    suggestedDailyReviews
   } = useReviewsData();
 
   const { settings, getProfileInfo } = useUserSettings();
@@ -153,7 +155,8 @@ export const Revisoes = () => {
   const [reviewStageFilter, setReviewStageFilter] = useState<string>('all');
   const [loadingActions, setLoadingActions] = useState<Record<string, string>>({});
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
-    [RevisionStatus.COMPLETED]: true
+    [RevisionStatus.COMPLETED]: true,
+    [RevisionStatus.CONSOLIDATED]: true
   });
   const [selectedItemForAI, setSelectedItemForAI] = useState<RevisionItem | null>(null);
   const [aiExplanation, setAiExplanation] = useState<string>('');
@@ -188,8 +191,8 @@ export const Revisoes = () => {
 
       // Determine Status Dynamically
       let status = RevisionStatus.UNSTARTED;
-      if (topic.completed || topic.review_stage === 'Concluído') {
-        status = RevisionStatus.COMPLETED;
+      if (topic.learningStatus === 'Dominando' || topic.completed || topic.review_stage === 'Concluído') {
+        status = RevisionStatus.CONSOLIDATED;
       } else if (topic.next_review) {
         const todayStr = new Date().toISOString().split('T')[0];
         const reviewDateStr = new Date(topic.next_review).toISOString().split('T')[0];
@@ -209,7 +212,9 @@ export const Revisoes = () => {
         status: status,
         ownerImage: '',
         reviewCount,
-        maxReviews
+        maxReviews,
+        learningStatus: topic.learningStatus,
+        memoryStability: topic.memory_stability
       };
     };
 
@@ -227,14 +232,14 @@ export const Revisoes = () => {
 
     // Safety filters for legacy tabs
     if (activeTab === 'FUTURE') result = result.filter(i => i.status === RevisionStatus.FUTURE);
-    if (activeTab === 'COMPLETED') result = result.filter(i => i.status === RevisionStatus.COMPLETED);
+    if (activeTab === 'COMPLETED') result = result.filter(i => i.status === RevisionStatus.CONSOLIDATED);
 
     return result;
   }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews]);
 
 
   const stats = useMemo(() => {
-    const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics];
+    const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics, ...consolidatedTopics];
     const totalTopics = allTopics.length;
     const totalScheduledReviews = totalTopics * maxReviews;
     const startedTopicsCount = allTopics.filter(t => (t.review_count >= 1 || t.first_studied_at)).length;
@@ -246,7 +251,7 @@ export const Revisoes = () => {
       today: todayTopics.length,
       overdue: delayedTopics.length,
       future: futureTopics.length,
-      completedTopicsCount: completedTopics.length,
+      completedTopicsCount: consolidatedTopics.length,
       focusCount: focusTopics.length, // Added
       totalTopics,
       totalScheduledReviews,
@@ -254,8 +259,9 @@ export const Revisoes = () => {
       completedReviews,
       pendingReviews,
       notStartedReviews,
+      suggestedDailyReviews
     };
-  }, [todayTopics, delayedTopics, futureTopics, completedTopics, focusTopics, maxReviews]);
+  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, maxReviews, suggestedDailyReviews]);
 
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: RevisionItem[] } = {};
@@ -274,7 +280,7 @@ export const Revisoes = () => {
       } else {
         const targets: string[] = [];
         if (activeTab === 'FUTURE') targets.push(RevisionStatus.FUTURE);
-        else if (activeTab === 'COMPLETED') targets.push(RevisionStatus.COMPLETED);
+        else if (activeTab === 'COMPLETED') targets.push(RevisionStatus.CONSOLIDATED);
         targets.forEach(s => groups[s] = []);
         items.forEach(i => { if (targets.includes(i.status)) groups[i.status].push(i); });
       }
@@ -292,7 +298,7 @@ export const Revisoes = () => {
   useEffect(() => {
     const topicId = (location.state as any)?.focusTopicId || searchParams.get('topicId');
     if (topicId) {
-      const allRaw = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics];
+      const allRaw = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics, ...consolidatedTopics];
       const raw = allRaw.find(t => t.id === topicId);
       if (raw) {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -310,7 +316,21 @@ export const Revisoes = () => {
         if (!searchParams.get('topicId')) setSearchParams(prev => { prev.set('topicId', topicId); return prev; });
       }
     }
-  }, [location.state, searchParams, delayedTopics, todayTopics, futureTopics, completedTopics, activeTab]);
+  }, [
+    searchParams,
+    delayedTopics,
+    todayTopics,
+    futureTopics,
+    completedTopics,
+    consolidatedTopics,
+    focusTopics,
+    activeTab,
+    searchTerm,
+    reviewStageFilter,
+    setSearchParams,
+    setSearchTerm,
+    setReviewStageFilter
+  ]);
 
   // When coming from "Parar e Avaliar" in FocusModal: auto-open the review modal
   useEffect(() => {
@@ -427,11 +447,7 @@ export const Revisoes = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <LoadingSpinner size="medium" />
-      </div>
-    );
+    return <LoadingSpinner size="large" showText fullPage />;
   }
 
   return (
@@ -439,30 +455,33 @@ export const Revisoes = () => {
       <div className="flex-1 flex flex-col relative w-full max-w-[1600px] mx-auto pb-24 lg:pb-8">
 
         {/* 1. Header (KPIs) - Order 1 (Default) */}
-        <div className="mt-0 mb-4 shrink-0 px-4 md:px-8 w-full order-1">
-          <RevisoesHeader
-            stats={stats}
-            isCollapsed={headerCardsCollapsed}
-            onToggle={(val) => {
-              setHeaderCardsCollapsed(val);
-              localStorage.setItem('revisoes-header-collapsed', String(val));
-            }}
-          />
-        </div>
+        {stats.totalTopics > 0 && (
+          <div className="mt-0 mb-4 shrink-0 px-4 md:px-8 w-full order-1">
+            <RevisoesHeader
+              stats={stats}
+              isCollapsed={headerCardsCollapsed}
+              onToggle={(val) => {
+                setHeaderCardsCollapsed(val);
+                localStorage.setItem('revisoes-header-collapsed', String(val));
+              }}
+            />
+          </div>
+        )}
 
         {/* 2. Charts - Order 2 (Both Mobile & Desktop) */}
         {/* Previously order-last on mobile. User requested "Cards" before Toolbar. */}
-        <div className="px-4 md:px-8 shrink-0 w-full mb-4 order-2">
-          <RevisoesChartsWrapper
-            isVisible={!headerCardsCollapsed}
-            stats={stats}
-            topics={items}
-            reviewData={reviewData || []}
-            subjects={subjects}
-            userProfile={userProfile}
-            maxReviews={maxReviews}
-          />
-        </div>
+        {stats.totalTopics > 0 && (
+          <div className="px-4 md:px-8 shrink-0 w-full mb-4 order-2">
+            <RevisoesChartsWrapper
+              isVisible={!headerCardsCollapsed}
+              stats={stats}
+              topics={items}
+              reviewData={reviewData || []}
+              subjects={subjects}
+              maxReviews={maxReviews}
+            />
+          </div>
+        )}
 
         {/* 3. Toolbar - Sticky - Order 3 */}
         <div className="sticky top-14 z-20 bg-transparent px-4 md:px-8 py-2 shrink-0 transition-all w-full order-3">
@@ -483,22 +502,32 @@ export const Revisoes = () => {
             </div>
           )}
 
+          {/* Sugestão de Hoje */}
+          {suggestedDailyReviews > 0 && (
+            <div className="mb-4 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-black/10 px-4 py-2 rounded-xl border border-slate-200 dark:border-white/[0.05]">
+              <span className="font-medium text-slate-800 dark:text-slate-200">Sugestão de hoje: {suggestedDailyReviews} revisões.</span>
+              <span className="opacity-90">Sugerimos este volume para manter consistência sem sobrecarga.</span>
+            </div>
+          )}
+
           {/* 4. Toolbar (Search, Filter, Tabs) */}
-          <RevisoesToolbar
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            reviewStageFilter={reviewStageFilter}
-            setReviewStageFilter={setReviewStageFilter}
-            stats={stats}
-            areAllExpanded={areAllExpanded}
-            onToggleAll={handleToggleAll}
-            onToggleSubjectView={() => setActiveTab(prev => prev === 'SUBJECTS' ? 'FOCUS' : 'SUBJECTS')}
-            onOpenInfoModal={() => setIsInfoModalOpen(true)}
-            className="mb-6 sticky top-[72px] z-30" // Sticky top adjusted for 72px header
-            isRecoveryMode={isRecoveryMode}
-          />
+          {stats.totalTopics > 0 && (
+            <RevisoesToolbar
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              reviewStageFilter={reviewStageFilter}
+              setReviewStageFilter={setReviewStageFilter}
+              stats={stats}
+              areAllExpanded={areAllExpanded}
+              onToggleAll={handleToggleAll}
+              onToggleSubjectView={() => setActiveTab(prev => prev === 'SUBJECTS' ? 'FOCUS' : 'SUBJECTS')}
+              onOpenInfoModal={() => setIsInfoModalOpen(true)}
+              className="mb-6 sticky top-[72px] z-30" // Sticky top adjusted for 72px header
+              isRecoveryMode={isRecoveryMode}
+            />
+          )}
           {/* Search Notification (Feedback) */}
           {(searchTerm || reviewStageFilter !== 'all') && (
             <div className="mt-1 animate-in fade-in slide-in-from-top-2 duration-300">

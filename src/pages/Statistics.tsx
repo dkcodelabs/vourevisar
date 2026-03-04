@@ -68,12 +68,12 @@ const Statistics = () => {
   }, [fetchSubjects, user]);
 
   if (isLoading) {
-    return <LoadingSpinner message="Analisando seus dados de estudo" />;
+    return <LoadingSpinner size="large" message="Analisando seus dados de estudo" fullPage />;
   }
 
   if (hasError) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="w-full">
         <div className="container mx-auto p-4">
           <div className="flex flex-col items-center justify-center h-96 space-y-4">
             <div className="p-4 rounded-full bg-red-100">
@@ -101,9 +101,9 @@ const Statistics = () => {
 
   if (!hasData) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="w-full">
         <div className="container mx-auto p-4">
-          <div className="flex flex-col items-center justify-center min-h-[70vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="flex flex-col items-center justify-center py-12 text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             {/* Ícone Principal */}
             <div className="w-24 h-24 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 dark:from-blue-900/30 dark:via-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
               <span className="text-5xl">📈</span>
@@ -172,9 +172,7 @@ const Statistics = () => {
     <TooltipProvider>
       <div className="space-y-8">
         {/* Header */}
-        {/* Header */}
-        {/* Header */}
-        <div className="mt-0 px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
+        <div className="mt-0 px-4 md:px-6 py-4 mb-6 bg-transparent rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -253,7 +251,7 @@ const Statistics = () => {
 
         {/* Tabs Navigation */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 h-auto p-1 bg-gray-100 rounded-xl">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 h-auto p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-xl">
             <TabsTrigger
               value="overview"
               className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg transition-all duration-200"

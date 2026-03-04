@@ -30,8 +30,6 @@ import Gerenciamento from "@/pages/Gerenciamento";
 import UserManagement from "@/pages/admin/UserManagement";
 import ImportQuestions from "@/pages/admin/content/ImportQuestions";
 import SubscriptionManagement from "@/pages/admin/SubscriptionManagement";
-import SystemManagement from "@/pages/admin/SystemManagement";
-import SecurityAudit from "@/pages/admin/SecurityAudit";
 import SystemErrors from "@/pages/admin/system/SystemErrors";
 import RolesManagement from "@/pages/admin/security/RolesManagement";
 import AuditLogs from "@/pages/admin/AuditLogs";
@@ -106,8 +104,6 @@ const App = () => {
                             <Route path="admin/users" element={<UserManagement />} />
                             <Route path="admin/content/import" element={<ImportQuestions />} />
                             <Route path="admin/subscription" element={<SubscriptionManagement />} />
-                            <Route path="admin/system" element={<SystemManagement />} />
-                            <Route path="admin/security" element={<SecurityAudit />} />
                             <Route path="admin/security/roles" element={<RolesManagement />} />
                             <Route path="admin/audit" element={<AuditLogs />} />
                             <Route path="admin/system/errors" element={<SystemErrors />} />

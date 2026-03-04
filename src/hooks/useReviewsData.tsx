@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfDay } from 'date-fns';
+import { SRS_THRESHOLDS, LearningStatus } from '@/utils/calculateNextReview';
 
 interface Topic {
   id: string;
@@ -22,6 +23,15 @@ interface Topic {
     color: string;
   };
   difficulty_level?: number;
+  memory_stability?: number;
+  current_interval?: number;
+  learningStatus?: LearningStatus;
+}
+
+// Interface for export group
+export interface GroupedTopicStats {
+  learningStatus: LearningStatus;
+  count: number;
 }
 
 // Helper: Calculate Risk Score
@@ -47,6 +57,17 @@ const calculateRiskScore = (topic: Topic): number => {
 
   // Formula
   return (daysOverdue * 3.0) + (difficulty * 2.0) + (studyGapDays * 0.5);
+};
+
+export const determineLearningStatus = (stability: number, interval: number, reviewCount: number): LearningStatus => {
+  if (reviewCount < SRS_THRESHOLDS.MIN_CONSISTENCY || stability < SRS_THRESHOLDS.STABILITY_LOW) {
+    return 'Aprendendo';
+  }
+  if (stability >= SRS_THRESHOLDS.STABILITY_MID && interval >= SRS_THRESHOLDS.INTERVAL_LONG && reviewCount >= SRS_THRESHOLDS.MIN_CONSISTENCY) {
+    return 'Dominando';
+  }
+  // Se não for nem frágil demais nem totalmente maduro:
+  return 'Fixando';
 };
 
 export const useReviewsData = () => {
@@ -79,6 +100,8 @@ export const useReviewsData = () => {
           last_reviewed_at,
           completed,
           difficulty_level,
+          memory_stability,
+          current_interval,
           notes,
           subjects!inner (
             id,
@@ -102,6 +125,9 @@ export const useReviewsData = () => {
         last_reviewed_at: topic.last_reviewed_at,
         completed: topic.completed ?? false,
         difficulty_level: topic.difficulty_level,
+        memory_stability: topic.memory_stability,
+        current_interval: topic.current_interval,
+        learningStatus: determineLearningStatus(topic.memory_stability || 0, topic.current_interval || 0, topic.review_count || 0),
         notes: topic.notes,
         subject_name: topic.subjects?.name || 'Sem disciplina',
         subjects: {
@@ -230,10 +256,18 @@ export const useReviewsData = () => {
   // CORREÇÃO: Usar comparação de strings de data para evitar problemas de timezone
   const todayDateString = format(startOfDay(new Date()), 'yyyy-MM-dd');
 
-  const { delayedTopics, todayTopics, futureTopics, completedTopics, totalPendingCount } = filteredTopics.reduce(
+  const { delayedTopics, todayTopics, futureTopics, completedTopics, consolidatedTopics, totalPendingCount } = filteredTopics.reduce(
     (acc, topic) => {
+      // Remover a lógica de "concluído" manual = completed status.
+      // E agora enviar todos do grupo "Dominando" e completados para "consolidatedTopics".
+      if (topic.learningStatus === 'Dominando') {
+        acc.consolidatedTopics.push(topic);
+        return acc;
+      }
+
+      // Retro-compatibilidade: Alguns topicos antigos podem estar marcados localmente como completos
       if (topic.completed || topic.review_stage === 'Concluído') {
-        acc.completedTopics.push(topic);
+        acc.consolidatedTopics.push(topic);
         return acc;
       }
 
@@ -262,9 +296,14 @@ export const useReviewsData = () => {
       todayTopics: [] as Topic[],
       futureTopics: [] as Topic[],
       completedTopics: [] as Topic[],
+      consolidatedTopics: [] as Topic[],
       totalPendingCount: 0
     }
   );
+
+  // Suggested Daily Volume Calculation
+  // We recommend at least 15 reviews, or up to the total overdue if less. 
+  const suggestedDailyReviews = totalPendingCount === 0 ? 0 : Math.max(15, Math.min(totalPendingCount || 0, 30));
 
   // Apply Recovery Mode Logic to 'todayTopics' (which usually merges delayed + today)
   // But wait, the hook returns separate arrays. The UI merges them for 'FOCUS' tab.
@@ -323,10 +362,12 @@ export const useReviewsData = () => {
     todayTopics,
     futureTopics,
     completedTopics,
+    consolidatedTopics,
     // New Recovery Props
     isRecoveryMode,
     recoveryReason,
     totalPendingCount,
+    suggestedDailyReviews,
     focusTopics // Exported
   };
 };

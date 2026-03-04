@@ -272,7 +272,7 @@ export default function AuditLogs() {
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
     return (
-        <PageContainer>
+        <>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -672,6 +672,6 @@ export default function AuditLogs() {
                     </div>
                 )}
             </div>
-        </PageContainer>
+        </>
     );
 }

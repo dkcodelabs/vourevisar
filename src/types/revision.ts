@@ -3,7 +3,8 @@ export enum RevisionStatus {
     TODAY = 'TODAY',
     FUTURE = 'FUTURE',
     COMPLETED = 'COMPLETED',
-    UNSTARTED = 'UNSTARTED'
+    UNSTARTED = 'UNSTARTED',
+    CONSOLIDATED = 'CONSOLIDATED'
 }
 
 export enum GroupingMode {
@@ -23,6 +24,8 @@ export interface RevisionItem {
     ownerImage: string; // Placeholder for UI consistency
     reviewCount?: number; // Number of reviews completed
     maxReviews?: number; // Maximum reviews for user profile
+    learningStatus?: 'Aprendendo' | 'Fixando' | 'Dominando';
+    memoryStability?: number;
 }
 
 export interface GroupedData {

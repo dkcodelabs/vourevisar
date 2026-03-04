@@ -238,16 +238,7 @@ const ResetPassword = () => {
   };
 
   if (isCheckingToken) {
-    return (
-      <div className="dark min-h-screen w-full flex items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans">
-        <div className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-8 shadow-2xl flex flex-col items-center justify-center backdrop-blur-xl bg-card border-white/5">
-          <LoadingSpinner size="medium" />
-          <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-6 animate-pulse">
-            Validando link...
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner size="large" message="Validando link..." fullPage />;
   }
 
   if (!isValidToken) {

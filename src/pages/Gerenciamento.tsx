@@ -9,9 +9,11 @@ import { UserManagementModal } from '@/components/UserManagementModal'
 import { SubscriptionManagementModal } from '@/components/SubscriptionManagementModal'
 import { ImportadorQuestoes } from '@/components/ImportadorQuestoes'
 import { CalculadoraTendencia } from '@/components/CalculadoraTendencia'
+import { useNavigate } from 'react-router-dom'
 
 export default function Gerenciamento() {
   const { user, isOwner, isAdmin, loading } = useUserRole()
+  const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState('usuarios')
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [userModalMode, setUserModalMode] = useState<'list' | 'assign' | 'manage'>('list')
@@ -221,6 +223,13 @@ export default function Gerenciamento() {
             isOwnerOnly={true}
           />
           <ActionCard
+            icon="🚨"
+            title="Logs de Erros e Alertas"
+            description="Monitoramento de falhas técnicas"
+            onClick={() => navigate('/admin/system/errors')}
+            isOwnerOnly={true}
+          />
+          <ActionCard
             icon="🗄️"
             title="Banco de Dados"
             description="Gerenciar banco de dados"
@@ -317,7 +326,7 @@ export default function Gerenciamento() {
       {/* Header */}
       {/* Header */}
       {/* Header */}
-      <div className="mt-0 px-4 md:px-8 pt-6 pb-6 mb-6 bg-white rounded-2xl border border-gray-200 shadow-md">
+      <div className="mt-0 px-4 md:px-8 pt-6 pb-6 mb-6 bg-transparent rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
         <div style={{ margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -341,9 +350,9 @@ export default function Gerenciamento() {
 
           {/* Sidebar de Navegação */}
           <div style={{
-            background: '#ffffff',
-            borderRadius: '8px',
-            border: '1px solid #e2e8f0',
+            background: 'transparent',
+            borderRadius: '16px',
+            border: '1px solid rgba(0,0,0,0.05)',
             height: 'fit-content'
           }}>
             <div style={{
@@ -439,9 +448,9 @@ export default function Gerenciamento() {
 
           {/* Conteúdo Principal */}
           <div style={{
-            background: '#ffffff',
-            borderRadius: '8px',
-            border: '1px solid #e2e8f0',
+            background: 'transparent',
+            borderRadius: '16px',
+            border: '1px solid rgba(0,0,0,0.05)',
             padding: '24px'
           }}>
             {activeSection === 'usuarios' && <UsuariosSection />}

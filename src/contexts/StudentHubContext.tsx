@@ -107,7 +107,7 @@ export const StudentHubProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         return () => {
             console.log('[StudentHubContext] Cleaning up Realtime');
-            supabase.removeChannel(channel);
+            if (channel) supabase.removeChannel(channel).catch(() => { });
         };
     }, [user?.id, fetchNotifications, fetchFeedbacks]);
 

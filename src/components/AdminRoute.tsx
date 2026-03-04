@@ -7,11 +7,7 @@ export const AdminRoute = () => {
     const { isAdmin, loading } = useUserRole();
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-[50vh]">
-                <LoadingSpinner size="medium" />
-            </div>
-        );
+        return <LoadingSpinner size="large" fullPage />;
     }
 
     if (!isAdmin) {

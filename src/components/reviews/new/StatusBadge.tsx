@@ -27,7 +27,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, daysDiff, revi
             break;
         case RevisionStatus.COMPLETED:
             bgClass = 'bg-green-100 text-green-700 hover:bg-green-200';
-            text = 'Concluído';
+            text = 'Consolidado';
             break;
         case RevisionStatus.UNSTARTED:
             bgClass = 'bg-slate-100 text-slate-700 hover:bg-slate-200';
@@ -35,10 +35,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, daysDiff, revi
             break;
     }
 
-    // Formato inline: "3/4 - texto"
-    const displayText = (reviewCount !== undefined && maxReviews !== undefined && status !== RevisionStatus.COMPLETED)
-        ? `${reviewCount}/${maxReviews} - ${text}`
-        : text;
+    // A contagem X/Y de revisões foi removida para não misturar com retenção
+    const displayText = text;
 
     return (
         <div className={`w-full flex items-center justify-center px-2 py-1 rounded-full text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap ${bgClass}`}>

@@ -277,7 +277,7 @@ const Profile = () => {
     return level ? map[level] || level : '—';
   };
 
-  if (!user) return <LoadingSpinner />;
+  if (!user) return <LoadingSpinner size="large" fullPage />;
 
   const academic = ((profile?.preferences as Record<string, any>) || {}).academic as AcademicInfo | undefined;
 

@@ -80,7 +80,8 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
             case RevisionStatus.OVERDUE: return { title: 'Atrasadas', color: 'border-red-400', text: 'text-red-500' };
             case RevisionStatus.TODAY: return { title: 'Hoje', color: 'border-orange-500', text: 'text-orange-600' };
             case RevisionStatus.FUTURE: return { title: 'Futuras', color: 'border-blue-500', text: 'text-blue-600' };
-            case RevisionStatus.COMPLETED: return { title: 'Concluídas', color: 'border-green-500', text: 'text-green-600' };
+            case RevisionStatus.COMPLETED: return { title: 'Concluídas (Antigas)', color: 'border-emerald-500', text: 'text-emerald-600' };
+            case RevisionStatus.CONSOLIDATED: return { title: 'Já dominados', color: 'border-slate-300', text: 'text-slate-500' };
             case RevisionStatus.UNSTARTED: return { title: 'Não Iniciados', color: 'border-slate-300', text: 'text-slate-500' };
             default: return { title: groupKey, color: 'border-purple-500', text: 'text-purple-600' };
         }
@@ -265,9 +266,9 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Enforce Order: Overdue -> Today -> Future -> Unstarted -> Completed */}
-            {['FOCUS_MERGED', RevisionStatus.OVERDUE, RevisionStatus.TODAY, RevisionStatus.FUTURE, RevisionStatus.UNSTARTED, RevisionStatus.COMPLETED, ...Object.keys(groupedItems).filter(k =>
-                ![RevisionStatus.OVERDUE, RevisionStatus.TODAY, RevisionStatus.FUTURE, RevisionStatus.UNSTARTED, RevisionStatus.COMPLETED, 'FOCUS_MERGED'].includes(k)
+            {/* Enforce Order: Overdue -> Today -> Future -> Unstarted -> Completed -> Consolidado */}
+            {['FOCUS_MERGED', RevisionStatus.OVERDUE, RevisionStatus.TODAY, RevisionStatus.FUTURE, RevisionStatus.UNSTARTED, RevisionStatus.COMPLETED, RevisionStatus.CONSOLIDATED, ...Object.keys(groupedItems).filter(k =>
+                ![RevisionStatus.OVERDUE, RevisionStatus.TODAY, RevisionStatus.FUTURE, RevisionStatus.UNSTARTED, RevisionStatus.COMPLETED, RevisionStatus.CONSOLIDATED, 'FOCUS_MERGED'].includes(k)
             )].map((key) => {
                 const groupItems = groupedItems[key];
                 if (!groupItems || groupItems.length === 0) return null;
@@ -356,25 +357,28 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
 
                                                     {/* 3. Progresso (Mobile: row) */}
                                                     <div className="flex items-center justify-between lg:justify-center pl-4 lg:pl-0">
-                                                        <span className="lg:hidden text-xs text-slate-400 font-medium">Ciclo:</span>
+                                                        <span className="lg:hidden text-xs text-slate-400 font-medium">Status:</span>
                                                         <div className="flex flex-col gap-1.5 w-24">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`px-2 py-1 rounded-md text-xs font-black uppercase tracking-wider ${item.status === 'TODAY' || item.status === 'OVERDUE'
-                                                                    ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
-                                                                    : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                                                                    }`}>
-                                                                    R{item.reviewCount || 1}
-                                                                </span>
                                                                 {(item.status === 'OVERDUE') && (
                                                                     <span className="text-rose-600 dark:text-rose-400 text-[11px] font-bold">Atrasada</span>
                                                                 )}
+                                                                {item.learningStatus ? (
+                                                                    <span
+                                                                        className="text-slate-500 dark:text-slate-400 text-[10px] font-semibold border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded cursor-help w-full text-center tracking-wide shadow-sm bg-slate-50 dark:bg-slate-800/50"
+                                                                        title={`Representa a retenção estimada com base na estabilidade da memória (Curva do Esquecimento + revisões): ${item.memoryStability?.toFixed(1) || 0}`}
+                                                                    >
+                                                                        {item.learningStatus}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span
+                                                                        className="text-slate-500 dark:text-slate-400 text-[10px] font-semibold border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded cursor-help w-full text-center tracking-wide"
+                                                                    >
+                                                                        Novo
+                                                                    </span>
+                                                                )}
                                                             </div>
-                                                            <div className="w-full h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className={`h-full ${item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-400' : 'bg-indigo-400'}`}
-                                                                    style={{ width: `${((item.reviewCount || 1) / 5) * 100}%` }}
-                                                                />
-                                                            </div>
+                                                            {/* Progresso visual omitido, evitando barras de progresso fixo X de Y */}
                                                         </div>
                                                     </div>
 

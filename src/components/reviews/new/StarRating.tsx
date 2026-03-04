@@ -8,7 +8,7 @@ interface StarRatingProps {
 export const StarRating: React.FC<StarRatingProps> = ({ rating }) => {
     return (
         <div className="flex gap-0.5">
-            {[1, 2, 3, 4, 5].map((star) => (
+            {[1, 2, 3].map((star) => (
                 <Star
                     key={star}
                     size={16}

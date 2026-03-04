@@ -56,19 +56,18 @@ const SubjectProgressCard: React.FC<SubjectProgressCardProps> = ({
             <div className="w-1.5 h-6 rounded bg-muted" style={{ backgroundColor: color }} />
             <span className="font-bold text-foreground text-base uppercase">{subject}</span>
           </div>
-          <span className={`font-semibold text-sm px-2 py-1 rounded-full ${
-            percentage >= 80
+          <span className={`font-semibold text-sm px-2 py-1 rounded-full ${percentage >= 80
               ? 'bg-green-500 text-white'
               : percentage >= 60
-              ? 'bg-blue-500 text-white'
-              : percentage >= 40
-              ? 'bg-yellow-400 text-white'
-              : 'bg-red-500 text-white'
-          }`}>
+                ? 'bg-blue-500 text-white'
+                : percentage >= 40
+                  ? 'bg-yellow-400 text-white'
+                  : 'bg-red-500 text-white'
+            }`}>
             {percentage}%
           </span>
         </div>
-        <div className="text-xs text-muted-foreground mb-2">{completedTopics}/{totalTopics} tópicos concluídos</div>
+        <div className="text-xs text-muted-foreground mb-2">Cobertura: {completedTopics}/{totalTopics} tópicos estudados</div>
 
         {/* Tópicos (expandido) */}
         {isExpanded && (

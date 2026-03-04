@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useUserProfile } from '../contexts/UserProfileContext';
-import { ReviewProfile, REVIEW_PROFILES } from '../types/study';
+import { ReviewProfile } from '../types/study';
 import { Star, Rocket, Medal, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ProfileSelectorProps {
@@ -37,8 +37,7 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ selected, onSe
     <div className="flex flex-col items-center gap-4 sm:grid sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
 
       {Object.values(ReviewProfile).map((profileType) => {
-        const profileConfig = REVIEW_PROFILES[profileType];
-        const showIntervals = !isMobile || expanded[profileType];
+        const showDetails = !isMobile || expanded[profileType];
         const isSelected = profile === profileType;
 
         return (
@@ -67,12 +66,12 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ selected, onSe
             </div>
             <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed text-left w-full">
               {profileType === ReviewProfile.BEGINNER && 'Ideal para quem está começando e precisa de mais revisões para fixar o conteúdo.'}
-              {profileType === ReviewProfile.INTERMEDIATE && 'Perfil padrão, com um bom equilíbrio entre revisões e progresso.'}
-              {profileType === ReviewProfile.ADVANCED && 'Para quem já tem experiência e precisa de menos revisões para manter o conteúdo.'}
+              {profileType === ReviewProfile.INTERMEDIATE && 'Perfil padrão, com um bom equilíbrio entre revisões e progresso inicial.'}
+              {profileType === ReviewProfile.ADVANCED && 'Para quem já tem experiência e precisa de menos revisões iniciais para manter o conteúdo.'}
             </p>
-            <div className="mt-1 w-full">
+            <div className="mt-auto w-full">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-medium text-muted-foreground/80 mb-1">Intervalos de revisão:</p>
+                <p className="text-[11px] font-medium text-muted-foreground/80 mb-1 border-t border-border/50 pt-2 w-full">Algoritmo Inteligente SRS</p>
                 {isMobile && (
                   <button
                     type="button"
@@ -80,17 +79,30 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ selected, onSe
                     onClick={e => { e.stopPropagation(); handleToggleExpand(profileType); }}
                   >
                     {expanded[profileType] ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    {expanded[profileType] ? 'Ocultar' : 'Ver'}
+                    {expanded[profileType] ? 'Ocultar' : 'Detalhes'}
                   </button>
                 )}
               </div>
-              {showIntervals && (
-                <ul className="space-y-0.5 text-[11px] text-muted-foreground list-disc list-inside pl-2">
-                  {profileConfig.intervals.map((interval, index) => (
-                    <li key={index} className="pl-1">
-                      {index + 1}ª revisão: {interval} dias
-                    </li>
-                  ))}
+              {showDetails && (
+                <ul className="space-y-1 mt-1 text-[10px] text-muted-foreground list-disc list-inside pl-1 opacity-90">
+                  {profileType === ReviewProfile.BEGINNER && (
+                    <>
+                      <li>Crescimento mais lento da estabilidade.</li>
+                      <li>Maior proteção contra intervalos longos.</li>
+                    </>
+                  )}
+                  {profileType === ReviewProfile.INTERMEDIATE && (
+                    <>
+                      <li>Crescimento equilibrado da estabilidade.</li>
+                      <li>Fatores de expansão moderados.</li>
+                    </>
+                  )}
+                  {profileType === ReviewProfile.ADVANCED && (
+                    <>
+                      <li>Crescimento rápido da estabilidade.</li>
+                      <li>Fatores de expansão acelerados.</li>
+                    </>
+                  )}
                 </ul>
               )}
             </div>
@@ -109,4 +121,4 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ selected, onSe
       })}
     </div>
   );
-}; 
+};

@@ -39,15 +39,18 @@ import {
     X,
     MapPin,
     User,
-    Globe
+    Globe,
+    ArrowLeft
 } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
+import { useNavigate } from 'react-router-dom';
 
 export default function SystemErrors() {
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [errors, setErrors] = useState<ErrorLogRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -365,13 +368,25 @@ export default function SystemErrors() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4 mb-2">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate(-1)}
+                    className="h-8 w-8 hover:bg-slate-100"
+                    title="Voltar"
+                >
+                    <ArrowLeft className="h-5 w-5 text-slate-500" />
+                </Button>
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Erros do Sistema</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                         Monitore falhas técnicas e acompanhe a resolução de incidentes.
                     </p>
                 </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
                 <Button onClick={fetchErrors} variant="outline" size="sm" className="gap-2">
                     <RefreshCw size={16} />
                     Atualizar

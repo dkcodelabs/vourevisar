@@ -98,16 +98,7 @@ export function AuthCallback() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background transition-colors duration-300">
-        <div className="text-center flex flex-col items-center">
-          <LoadingSpinner size="medium" />
-          <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-6 animate-pulse">
-            Autenticando...
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner size="large" message="Autenticando..." fullPage />;
   }
 
   return <Navigate to={redirectPath} replace />;

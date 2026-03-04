@@ -3,7 +3,7 @@ import { Sparkles, Calendar, Clock } from 'lucide-react';
 import { ReviewsTrendChart } from '@/components/reviews/ReviewsTrendChart';
 import { WeeklyEngagementChart } from '@/components/reviews/WeeklyEngagementChart';
 import { ReviewsStatsCard } from '@/components/reviews/ReviewsStatsCard';
-import { ReviewProfile } from '@/types/study';
+import { calculateProtectionMode } from '@/utils/calculateProtectionMode';
 import { RevisionItem } from '@/types/revision';
 
 interface RevisoesChartsWrapperProps {
@@ -12,7 +12,6 @@ interface RevisoesChartsWrapperProps {
     topics: RevisionItem[];
     reviewData: any[];
     subjects: any[];
-    userProfile: ReviewProfile;
     maxReviews: number;
 }
 
@@ -22,10 +21,11 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
     topics,
     reviewData,
     subjects,
-    userProfile,
     maxReviews
 }) => {
     const [trendViewMode, setTrendViewMode] = useState<'days' | 'hours'>('days');
+
+    const protectionMode = calculateProtectionMode(topics);
 
     if (!isVisible) return null;
 
@@ -111,7 +111,7 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
                     overdue={stats.overdue}
                     today={stats.today}
                     future={stats.future}
-                    reviewProfile={userProfile}
+                    protectionMode={protectionMode}
                     maxReviews={maxReviews}
                     className="h-full"
                 />

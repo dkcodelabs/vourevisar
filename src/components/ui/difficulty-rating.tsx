@@ -12,17 +12,17 @@ interface DifficultyRatingProps {
 }
 
 const difficultyLabels = {
-  1: 'Muito Fácil',
-  2: 'Fácil',
-  3: 'Médio',
+  1: 'Fácil',
+  2: 'Médio',
+  3: 'Difícil',
   4: 'Difícil',
   5: 'Muito Difícil'
 };
 
 const difficultyColors = {
   1: 'text-green-500',
-  2: 'text-lime-500',
-  3: 'text-yellow-500',
+  2: 'text-yellow-500',
+  3: 'text-red-500',
   4: 'text-orange-500',
   5: 'text-red-500'
 };
@@ -45,7 +45,7 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
 
   const handleClick = (rating: number) => {
     if (readonly || !onChange) return;
-    
+
     // Se clicar na mesma estrela, remove a avaliação
     if (value === rating) {
       onChange(null);
@@ -71,9 +71,9 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
   if (readonly) {
     return (
       <div className={cn('flex items-center gap-1', className)}>
-        {[1, 2, 3, 4, 5].map((rating) => {
+        {[1, 2, 3].map((rating) => {
           const isFilled = rating <= displayValue;
-          
+
           return (
             <Star
               key={rating}
@@ -96,13 +96,13 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
       <div className="flex items-center gap-2">
         {/* Label "Fácil" */}
         <span className="text-xs text-gray-500 font-medium">Fácil</span>
-        
+
         {/* Estrelas */}
         <div className="flex items-center gap-1">
-          {[1, 2, 3, 4, 5].map((rating) => {
+          {[1, 2, 3].map((rating) => {
             const isFilled = rating <= displayValue;
             const isClickable = !readonly && onChange;
-            
+
             return (
               <button
                 key={rating}
@@ -129,11 +129,11 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
             );
           })}
         </div>
-        
+
         {/* Label "Difícil" */}
         <span className="text-xs text-gray-500 font-medium">Difícil</span>
       </div>
-      
+
       {/* Label da dificuldade selecionada */}
       {showLabel && value && (
         <span className={cn(
@@ -143,7 +143,7 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
           {difficultyLabels[value as keyof typeof difficultyLabels]}
         </span>
       )}
-      
+
       {/* Botão Limpar embaixo */}
       {!readonly && onChange && (
         <button

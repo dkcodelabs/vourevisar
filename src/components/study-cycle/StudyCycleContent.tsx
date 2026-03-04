@@ -515,8 +515,8 @@ export const StudyCycleContent: React.FC = () => {
   }
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] w-full text-gray-900 overflow-hidden">
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+    <div className="flex flex-col flex-1 w-full text-gray-900">
+      <div className="flex-1 flex flex-col relative">
         {/* Banner de Estudos Concluídos - Sempre visível quando todos estudos estão concluídos */}
         {areAllStudiesCompleted && (
           <div className="shrink-0">
@@ -528,165 +528,165 @@ export const StudyCycleContent: React.FC = () => {
           </div>
         )}
 
-        <header className="mt-0 px-4 py-3 mb-4 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md mx-4 md:mx-6">
-          <div className="mb-2">
-            <p className="text-xs text-muted-foreground mt-0.5">Gerencie seu progresso e metas diárias</p>
-          </div>
+        {subjects.length === 0 ? (
+          <main className="flex-1 flex flex-col items-center justify-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700 overflow-hidden">
+            <div className="w-16 h-16 bg-sky-50 dark:bg-sky-900/20 rounded-full flex items-center justify-center mb-4 shadow-inner">
+              <Target className="h-8 w-8 text-sky-600 dark:text-sky-400" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-2 text-center">Seu Ciclo Está Esperando por Você! 🎯</h2>
+            <p className="text-sm md:text-base text-slate-600 dark:text-slate-400 mb-4 max-w-md mx-auto leading-relaxed text-center">
+              O Ciclo de Estudos é o coração da sua preparação. Aqui você organiza suas matérias e mantém a constância necessária para a aprovação.
+            </p>
+            <div className="bg-sky-50 dark:bg-sky-900/10 border border-sky-100 dark:border-sky-800 p-4 rounded-xl mb-6 max-w-sm shadow-sm text-center">
+              <p className="text-sm text-slate-700 dark:text-slate-300 font-medium italic">
+                "O segredo do sucesso é a constância no objetivo."
+              </p>
+              <p className="text-[10px] text-slate-500 mt-1">— Benjamin Disraeli</p>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-500 mb-6 font-medium text-center">
+              Cadastre suas matérias e tópicos para gerar seu primeiro ciclo automático.
+            </p>
+            <button
+              onClick={() => window.location.href = '/materias'}
+              className="px-8 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 flex items-center gap-2 text-sm"
+            >
+              <BookOpen className="h-4 w-4" />
+              Começar Agora
+            </button>
+          </main>
+        ) : (
+          <>
+            <header className="mt-0 px-4 py-3 mb-4 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md mx-4 md:mx-6">
+              <div className="mb-2">
+                <p className="text-xs text-muted-foreground mt-0.5">Gerencie seu progresso e metas diárias</p>
+              </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-row gap-2 items-center">
-              {/* Campo de Busca */}
-              <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-8">
-                <svg className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    const query = e.target.value;
-                    const previousQuery = searchQuery;
-                    setSearchQuery(query);
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-row gap-2 items-center">
+                  {/* Campo de Busca */}
+                  <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-8">
+                    <svg className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        const query = e.target.value;
+                        const previousQuery = searchQuery;
+                        setSearchQuery(query);
 
-                    // Se está começando a buscar (antes estava vazio), salvar estado atual
-                    if (!previousQuery && query.trim()) {
-                      setExpandedBeforeSearch(new Set(expandedSubjects));
-                    }
-
-                    // Se há busca, expandir matérias que têm tópicos correspondentes
-                    if (query.trim()) {
-                      const normalizeText = (text: string) =>
-                        text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
-                      const normalizedQuery = normalizeText(query);
-                      const newExpanded = new Set<string>();
-
-                      subjects.forEach(subject => {
-                        const hasMatchingTopic = subject.topics?.some(topic =>
-                          normalizeText(topic.name).includes(normalizedQuery)
-                        );
-                        if (hasMatchingTopic) {
-                          newExpanded.add(subject.id);
+                        // Se está começando a buscar (antes estava vazio), salvar estado atual
+                        if (!previousQuery && query.trim()) {
+                          setExpandedBeforeSearch(new Set(expandedSubjects));
                         }
-                      });
 
-                      setExpandedSubjects(newExpanded);
-                    } else {
-                      // Se apagou tudo, restaurar estado anterior
-                      setExpandedSubjects(expandedBeforeSearch);
-                      setExpandedBeforeSearch(new Set());
-                    }
-                  }}
-                  placeholder="Buscar..."
-                  className="w-full pl-8 pr-8 py-1 text-xs md:text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full"
-                />
-                {searchQuery && (
+                        // Se há busca, expandir matérias que têm tópicos correspondentes
+                        if (query.trim()) {
+                          const normalizeText = (text: string) =>
+                            text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+                          const normalizedQuery = normalizeText(query);
+                          const newExpanded = new Set<string>();
+
+                          subjects.forEach(subject => {
+                            const hasMatchingTopic = subject.topics?.some(topic =>
+                              normalizeText(topic.name).includes(normalizedQuery)
+                            );
+                            if (hasMatchingTopic) {
+                              newExpanded.add(subject.id);
+                            }
+                          });
+
+                          setExpandedSubjects(newExpanded);
+                        } else {
+                          // Se apagou tudo, restaurar estado anterior
+                          setExpandedSubjects(expandedBeforeSearch);
+                          setExpandedBeforeSearch(new Set());
+                        }
+                      }}
+                      placeholder="Buscar..."
+                      className="w-full pl-8 pr-8 py-1 text-xs md:text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={handleClearSearch}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    {viewMode === 'list' && (
+                      <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg mr-1 h-8">
+                        <button
+                          onClick={handleToggleAll}
+                          className="p-1 px-3 h-full rounded-md text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center min-w-[3rem]"
+                          aria-label={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
+                          title={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
+                        >
+                          {areAllExpanded ? <ChevronsUpIcon className="w-3.5 h-3.5" /> : <ChevronsDownIcon className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg h-8">
+                      <button
+                        onClick={() => setViewMode('grid')}
+                        className={`p-1 px-2 h-full rounded-md transition-colors flex items-center justify-center ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
+                        aria-label="Visualização em Grade"
+                      >
+                        <GridIcon className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-1 px-2 h-full rounded-md transition-colors flex items-center justify-center ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
+                        aria-label="Visualização em Lista"
+                      >
+                        <ListIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            {searchQuery && (
+              <div className="px-4 md:px-8 mb-4 shrink-0 animate-in fade-in slide-in-from-top-2">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-full text-amber-600">
+                      <AlertCircle size={18} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-amber-900">
+                        Filtrando por: <span className="font-bold">"{searchQuery}"</span>
+                      </p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        O filtro é aplicado nos nomes dos tópicos.
+                      </p>
+                    </div>
+                  </div>
                   <button
                     onClick={handleClearSearch}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 hover:bg-gray-100 rounded-full transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 shadow-sm rounded-md text-xs font-medium text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
+                    title="Limpar e mostrar tudo"
                   >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1 shrink-0">
-                {viewMode === 'list' && (
-                  <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg mr-1 h-8">
-                    <button
-                      onClick={handleToggleAll}
-                      className="p-1 px-3 h-full rounded-md text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center min-w-[3rem]"
-                      aria-label={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
-                      title={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
-                    >
-                      {areAllExpanded ? <ChevronsUpIcon className="w-3.5 h-3.5" /> : <ChevronsDownIcon className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                )}
-                <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg h-8">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-1 px-2 h-full rounded-md transition-colors flex items-center justify-center ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
-                    aria-label="Visualização em Grade"
-                  >
-                    <GridIcon className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-1 px-2 h-full rounded-md transition-colors flex items-center justify-center ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
-                    aria-label="Visualização em Lista"
-                  >
-                    <ListIcon className="w-3.5 h-3.5" />
+                    <X size={14} />
+                    Limpar
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </header>
+            )}
 
-        {searchQuery && (
-          <div className="px-4 md:px-8 mb-4 shrink-0 animate-in fade-in slide-in-from-top-2">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-full text-amber-600">
-                  <AlertCircle size={18} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-amber-900">
-                    Filtrando por: <span className="font-bold">"{searchQuery}"</span>
-                  </p>
-                  <p className="text-xs text-amber-700 mt-0.5">
-                    O filtro é aplicado nos nomes dos tópicos.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={handleClearSearch}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 shadow-sm rounded-md text-xs font-medium text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
-                title="Limpar e mostrar tudo"
-              >
-                <X size={14} />
-                Limpar
-              </button>
-            </div>
-          </div>
-        )}
-
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pt-0">
-          {subjects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="w-24 h-24 bg-sky-50 dark:bg-sky-900/20 rounded-full flex items-center justify-center mb-8 shadow-inner">
-                <Target className="h-12 w-12 text-sky-600 dark:text-sky-400" />
-              </div>
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Seu Ciclo Está Esperando por Você! 🎯</h2>
-              <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-lg mx-auto leading-relaxed">
-                O Ciclo de Estudos é o coração da sua preparação. Aqui você organiza suas matérias e mantém a constância necessária para a aprovação.
-              </p>
-              <div className="bg-sky-50 dark:bg-sky-900/10 border border-sky-100 dark:border-sky-800 p-6 rounded-2xl mb-10 max-w-md shadow-sm">
-                <p className="text-slate-700 dark:text-slate-300 font-medium">
-                  "O segredo do sucesso é a constância no objetivo."
-                </p>
-                <p className="text-xs text-slate-500 mt-2">— Benjamin Disraeli</p>
-              </div>
-              <p className="text-slate-500 dark:text-slate-500 mb-8 font-medium">
-                Cadastre suas matérias e tópicos para gerar seu primeiro ciclo automático.
-              </p>
-              <button
-                onClick={() => window.location.href = '/materias'}
-                className="px-10 py-4 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 flex items-center gap-2"
-              >
-                <BookOpen className="h-5 w-5" />
-                Começar Agora
-              </button>
-            </div>
-          ) : (
-            <>
+            <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pt-0">
               {renderSection(SubjectStatus.ACTIVE)}
               {renderSection(SubjectStatus.COMPLETED_CYCLE)}
               {renderSection(SubjectStatus.FINISHED)}
-            </>
-          )}
-        </main>
+            </main>
+          </>
+        )}
       </div>
 
       {/* Topic Notes Modal */}

@@ -7,8 +7,17 @@ const LandingPage = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  // Handle direct recovery links that might hit the root path instead of /reset-password
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const type = searchParams.get('type');
+    const token_hash = searchParams.get('token_hash');
 
-
+    // If it's a recovery link, redirect to the reset password page preserving the params
+    if (type === 'recovery' && token_hash) {
+      navigate(`/reset-password${window.location.search}`);
+    }
+  }, [navigate]);
 
   if (loading) return null;
 

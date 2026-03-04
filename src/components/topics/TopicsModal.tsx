@@ -87,13 +87,13 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onU
   };
 
   const getStatusBadge = (topic: Topic) => {
-    if (topic.completed || topic.reviewStage === 'Concluído') {
-      return <Badge className="bg-green-100 text-green-800 border-green-300 w-[90px] justify-center shadow-none font-medium">Concluído</Badge>;
+    // Regra principal de Cobertura: primeiro contato é nosso definidor raiz. Fallback no reviewCount > 0 se o DB for legado.
+    const hasBeenStudied = Boolean(topic.first_studied_at) || topic.reviewCount > 0;
+
+    if (hasBeenStudied) {
+      return <Badge className="bg-green-100 text-green-800 border-green-300 w-[100px] justify-center shadow-none font-medium">✔ Estudado</Badge>;
     }
-    if (topic.reviewCount > 0 || topic.reviewStage) {
-      return <Badge className="bg-blue-100 text-blue-800 border-blue-300 w-[90px] justify-center shadow-none font-medium">Em Revisão</Badge>;
-    }
-    return <Badge className="bg-gray-100 text-gray-800 border-gray-300 w-[90px] justify-center shadow-none font-medium">Novo</Badge>;
+    return <Badge className="bg-slate-100 text-slate-800 border-slate-300 w-[100px] justify-center shadow-none font-medium">Não estudado</Badge>;
   };
 
   // Auto-focus no campo de adição quando o modal abre
@@ -209,7 +209,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onU
                               </h4>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span className="text-xs text-gray-500">
-                                  {topic.reviewCount || 0} revisões
+                                  {Boolean(topic.first_studied_at) || topic.reviewCount > 0 ? "Cobertura: Estudado" : "Cobertura: Não iniciado"}
                                 </span>
                               </div>
                             </div>
@@ -242,7 +242,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onU
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Total de tópicos: {localTopics.length}</span>
                 <span>
-                  Concluídos: {localTopics.filter(t => t.completed || t.reviewStage === 'Concluído').length}
+                  Cobertura: {localTopics.filter(t => Boolean(t.first_studied_at) || t.reviewCount > 0).length} estudados
                 </span>
               </div>
             </div>

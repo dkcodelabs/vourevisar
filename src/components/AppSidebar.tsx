@@ -90,8 +90,6 @@ const getNavItems = (isAdmin: boolean) => {
     { to: "/admin/users", label: "Gerenciar Usuários", icon: Users },
     { to: "/admin/content/import", label: "Importar Questões", icon: FileUp },
     { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
-    { to: "/admin/system", label: "Sistema", icon: Monitor },
-    { to: "/admin/security", label: "Segurança", icon: Shield },
     { to: "/admin/audit", label: "Auditoria", icon: ClipboardList },
     { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   ] : [];

@@ -108,11 +108,7 @@ const Dashboard = () => {
 
     if (isLoading || cycleLoading) {
         console.log('[DEBUG] Dashboard renderizando LoadingSpinner. AppContext isLoading:', isLoading, 'cycleLoading:', cycleLoading);
-        return (
-            <div className="w-full h-[70vh] flex flex-col items-center justify-center">
-                <LoadingSpinner size="large" showText />
-            </div>
-        );
+        return <LoadingSpinner size="large" showText fullPage />;
     }
 
     if (error) {

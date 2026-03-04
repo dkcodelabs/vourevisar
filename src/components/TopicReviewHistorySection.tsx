@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, CheckCircle2, Clock, TrendingUp, AlertCircle, ChevronRight } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, TrendingUp, TrendingDown, Minus, AlertCircle, ChevronRight } from 'lucide-react';
 import { useTopicReviewHistory } from '@/hooks/useTopicReviewHistory';
 import { ReviewProfile } from '@/types/study';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,19 +46,15 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
         </div>
         <div className="flex items-center gap-2 text-xs">
           <span className="text-slate-600 dark:text-slate-400">
-            {history.completedReviews}/{history.totalReviews} revisões
+            {history.firstContact ? "✔ Estudado" : "Não estudado"}
           </span>
-          <div className="flex items-center gap-1">
-            <div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
-                style={{ width: `${progressPercentage}%` }}
-              />
+          {history.firstContact && (
+            <div className="flex items-center gap-1">
+              <span className="text-slate-600 dark:text-slate-400 font-medium">
+                (Cobertura Ativa)
+              </span>
             </div>
-            <span className="text-slate-600 dark:text-slate-400 font-medium">
-              {progressPercentage}%
-            </span>
-          </div>
+          )}
         </div>
       </div>
 
@@ -183,6 +179,48 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
           );
         })}
       </div>
+
+      {/* Footer Explicativo do SRS Adaptativo (se tiver algo pendente) */}
+      {history.nextReviews?.length > 0 && (
+        <div className="mt-3 bg-white/60 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
+          <p className="font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Após esta revisão, o sistema recalcula automaticamente o próximo intervalo com base no seu desempenho.
+          </p>
+          <ul className="list-disc list-inside opacity-90 pl-1">
+            <li>Se for fácil: o intervalo tende a aumentar (mais dias até a próxima revisão).</li>
+            <li>Se for difícil: o intervalo tende a encurtar (menos dias até a próxima revisão).</li>
+          </ul>
+        </div>
+      )}
+
+      {/* Tendência recente */}
+      {history.latestTrendLabel && (
+        <div className="mt-3 flex items-center gap-2 px-2 py-2 bg-white/60 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+          {history.latestTrendLabel === 'Melhorando' && (
+            <TrendingUp className="w-4 h-4 text-emerald-500" />
+          )}
+          {history.latestTrendLabel === 'Piorando' && (
+            <TrendingDown className="w-4 h-4 text-rose-500" />
+          )}
+          {(history.latestTrendLabel === 'Estável' || history.latestTrendLabel === 'Sem histórico suficiente') && (
+            <Minus className="w-4 h-4 text-slate-400" />
+          )}
+          <span
+            className={`text-xs font-semibold cursor-help ${history.latestTrendLabel === 'Melhorando' ? 'text-emerald-600 dark:text-emerald-400' :
+                history.latestTrendLabel === 'Piorando' ? 'text-rose-600 dark:text-rose-400' :
+                  'text-slate-500 dark:text-slate-400'
+              }`}
+            title="Baseado nas últimas avaliações de dificuldade registradas."
+          >
+            Tendência recente: {history.latestTrendLabel}
+          </span>
+          {history.latestTrendDelta != null && (
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+              (Δ {history.latestTrendDelta > 0 ? '+' : ''}{history.latestTrendDelta.toFixed(1)})
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -210,6 +210,7 @@ const Subjects = () => {
 
   // Estado para o modal de upload de conteúdo
   const [contentUploadModal, setContentUploadModal] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
 
   // Estado para o modal de anotações de matéria
   const [subjectNotesModal, setSubjectNotesModal] = useState<{
@@ -799,16 +800,16 @@ const Subjects = () => {
     return 'text-blue-500';
   };
 
-  // Função corrigida para calcular o progresso baseado em tópicos concluídos
+  // Função corrigida para calcular a Cobertura (progresso real de contato inicial)
   const getSubjectProgress = (subject: Subject) => {
     if (subject.topics.length === 0) return 0;
 
-    // Contar tópicos que estão realmente concluídos (flag boolean ou status 'Concluído')
-    const completedTopics = subject.topics.filter(topic =>
-      topic.completed || topic.reviewStage === 'Concluído'
+    // Contar tópicos que já foram estudados
+    const studiedTopics = subject.topics.filter(topic =>
+      Boolean(topic.first_studied_at) || topic.reviewCount > 0 || topic.completed || topic.reviewStage === 'Concluído'
     ).length;
 
-    return Math.round((completedTopics / subject.topics.length) * 100);
+    return Math.round((studiedTopics / subject.topics.length) * 100);
   };
 
   const handleViewTopics = (subject: Subject) => {
@@ -890,114 +891,110 @@ const Subjects = () => {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <LoadingSpinner size="medium" />
-      </div>
-    );
+    return <LoadingSpinner size="large" showText fullPage />;
   }
 
 
 
   return (
-    <div className="flex h-[calc(100vh-2rem)] w-full text-slate-900 overflow-hidden font-sans">
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
+    <div className="flex w-full text-slate-900 font-sans">
+      <div className="flex-1 flex flex-col relative w-full">
 
         {/* Header Outside Card */}
-        <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar pt-0">
+        <main className="flex-1 px-4 md:px-8 pb-8 pt-0">
           <div className="space-y-6 w-full"> {/* Changed space-y-4 to 6 to match Topics */}
 
-            {/* Unified Header Card - Sticky at top of scroll container */}
-            <div className="sticky top-0 z-20 px-4 md:px-6 pt-4 pb-4 mb-4 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-md">
-              <div className="mb-4">
-                <p className="text-xs text-muted-foreground mt-1">Gerencie suas matérias e acompanhe seu progresso detalhado.</p>
-              </div>
-
-              {/* Add Subject Section */}
-              <div className="mb-6">
-                <div className="flex gap-2 items-center h-9">
-                  <div
-                    className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-full"
-                  >
-                    <div className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">
-                      <Search size={14} />
-                    </div>
-                    <input
-                      placeholder="Ex: Direito Constitucional, Matemática Financeira..."
-                      value={newSubjectName}
-                      onChange={(e) => setNewSubjectName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSaveSubject()}
-                      className="w-full pl-8 pr-8 py-1.5 text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full !outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={handleSaveSubject}
-                    disabled={isAddingSubject || !newSubjectName.trim()}
-                    className="flex items-center justify-center gap-2 rounded-lg text-xs font-medium px-4 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-full whitespace-nowrap !min-h-[36px] !h-[36px]"
-                  >
-                    {isAddingSubject ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <>
-                        <Plus className="h-3 w-3" />
-                        Adicionar
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="mt-2 flex items-center flex-wrap gap-2 text-xs text-slate-500">
+            {/* Unified Header Card - Visível apenas quando há matérias ou modo manual ativo */}
+            {(localSubjects.length > 0 || showManualInput) && (
+              <div className="sticky top-0 z-20 px-4 md:px-6 pt-4 pb-4 mb-4 bg-transparent rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground mt-1">Gerencie suas matérias e acompanhe seu progresso detalhado.</p>
                   <button
                     onClick={() => setContentUploadModal(true)}
-                    className="text-indigo-500 hover:text-indigo-700 font-medium underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-500 transition-all"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shadow-purple-200/50 dark:shadow-purple-900/30 hover:shadow-lg transition-all duration-300 shrink-0"
                   >
-                    Carregar Conteúdo Programático
-                  </button>
-                </div>
-              </div>
-
-              {/* Filters */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto no-scrollbar">
-                  <button
-                    onClick={() => setActiveTab('all')}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'all'
-                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                      : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                      }`}
-                  >
-                    Todas
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('in_progress')}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'in_progress'
-                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                      : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                      }`}
-                  >
-                    Em Estudo
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('completed')}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'completed'
-                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                      : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                      }`}
-                  >
-                    Concluídas
+                    <span>🪄</span>
+                    Importar Edital
                   </button>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-1 text-slate-400">
-                  <div className="p-1 rounded cursor-pointer hover:bg-slate-100 hover:text-slate-600 transition-colors">
-                    <LayoutGrid className="h-5 w-5" />
+                {/* Add Subject Section */}
+                <div className="mb-6">
+                  <div className="flex gap-2 items-center h-9">
+                    <div
+                      className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-full"
+                    >
+                      <div className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">
+                        <Search size={14} />
+                      </div>
+                      <input
+                        placeholder="Ex: Direito Constitucional, Matemática Financeira..."
+                        value={newSubjectName}
+                        onChange={(e) => setNewSubjectName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveSubject()}
+                        className="w-full pl-8 pr-8 py-1.5 text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full !outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveSubject}
+                      disabled={isAddingSubject || !newSubjectName.trim()}
+                      className="flex items-center justify-center gap-2 rounded-lg text-xs font-medium px-4 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-full whitespace-nowrap !min-h-[36px] !h-[36px]"
+                    >
+                      {isAddingSubject ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="h-3 w-3" />
+                          Adicionar
+                        </>
+                      )}
+                    </button>
                   </div>
-                  <div className="p-1 rounded cursor-pointer hover:bg-slate-100 hover:text-slate-600 transition-colors">
-                    <List className="h-5 w-5" />
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto no-scrollbar">
+                    <button
+                      onClick={() => setActiveTab('all')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'all'
+                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                        : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      Todas
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('in_progress')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'in_progress'
+                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                        : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      Em Estudo
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('completed')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'completed'
+                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                        : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      Concluídas
+                    </button>
+                  </div>
+
+                  <div className="hidden sm:flex items-center gap-1 text-slate-400">
+                    <div className="p-1 rounded cursor-pointer hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                      <LayoutGrid className="h-5 w-5" />
+                    </div>
+                    <div className="p-1 rounded cursor-pointer hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                      <List className="h-5 w-5" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <DndContext
               sensors={sensors}
@@ -1019,8 +1016,8 @@ const Subjects = () => {
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-4 max-w-full">
-                  {localSubjects.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center min-h-[40vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  {localSubjects.length === 0 && !showManualInput ? (
+                    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
                       {/* Ícone Principal */}
                       <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
                         <span className="text-4xl">📖</span>
@@ -1032,16 +1029,48 @@ const Subjects = () => {
                       </h3>
 
                       {/* Descrição */}
-                      <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                      <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
                         Cadastre suas matérias e tópicos — o sistema cuida de tudo para você, agendando automaticamente suas revisões.
                       </p>
 
-                      {/* Frase Motivacional */}
-                      <div className="flex items-center gap-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-100 dark:border-amber-800/30 px-5 py-3 rounded-2xl mb-8 shadow-sm">
-                        <span className="text-xl flex-shrink-0">✨</span>
-                        <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-                          Use o campo acima para adicionar sua primeira matéria!
-                        </p>
+                      {/* Cards de Ação */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
+                        {/* Card 1: Importar Edital (Destaque Primário) */}
+                        <button
+                          onClick={() => setContentUploadModal(true)}
+                          className="group relative flex flex-col items-center gap-4 p-6 rounded-2xl border-2 border-violet-300 dark:border-violet-500/40 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 shadow-lg shadow-violet-100/50 dark:shadow-violet-900/20 hover:shadow-xl hover:shadow-violet-200/60 dark:hover:shadow-violet-800/30 hover:border-violet-400 dark:hover:border-violet-400/60 hover:-translate-y-1 transition-all duration-300 text-left cursor-pointer"
+                        >
+                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-400/10 to-purple-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-300/50 dark:shadow-violet-800/50 group-hover:scale-110 transition-transform duration-300">
+                            <span className="text-2xl">🪄</span>
+                          </div>
+                          <div className="relative z-10 text-center">
+                            <h4 className="text-lg font-bold text-violet-900 dark:text-violet-200 mb-1">
+                              Importar Edital Completo
+                            </h4>
+                            <p className="text-sm text-violet-600 dark:text-violet-400 leading-relaxed">
+                              Busque um concurso pronto ou use nossa IA para ler seu PDF em segundos.
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* Card 2: Adicionar Manualmente (Secundário) */}
+                        <button
+                          onClick={() => setShowManualInput(true)}
+                          className="group flex flex-col items-center gap-4 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/30 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 hover:-translate-y-1 transition-all duration-300 text-left cursor-pointer"
+                        >
+                          <div className="w-14 h-14 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                            <span className="text-2xl">✍️</span>
+                          </div>
+                          <div className="text-center">
+                            <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">
+                              Adicionar Manualmente
+                            </h4>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                              Cadastre suas disciplinas e tópicos um por um.
+                            </p>
+                          </div>
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -1070,7 +1099,7 @@ const Subjects = () => {
                               <div
                                 className="w-full max-w-full"
                               >
-                                <Card data-subject-id={subject.id} className="group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 mb-4 overflow-hidden relative">
+                                <Card data-subject-id={subject.id} className="group bg-transparent rounded-xl border border-black/5 dark:border-white/5 shadow-sm hover:shadow-md transition-all duration-300 mb-4 overflow-hidden relative">
                                   {/* Interactive Status Border (Left) */}
                                   <div
                                     className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBorderColor(calculatedStatus).replace('border-l-', 'bg-')}`}
@@ -1285,7 +1314,7 @@ const Subjects = () => {
                                                         {topic.name}
                                                       </span>
                                                       <span className="text-[10px] text-slate-400">
-                                                        {(topic.reviewCount || 0) + (topic.review_count || 0)} de {REVIEW_PROFILES[ReviewProfile.INTERMEDIATE].maxReviews} revisões feitas
+                                                        {Boolean(topic.first_studied_at) || topic.reviewCount > 0 ? "Cobertura: Estudado" : "Cobertura: Não iniciado"}
                                                       </span>
                                                     </div>
                                                   )}

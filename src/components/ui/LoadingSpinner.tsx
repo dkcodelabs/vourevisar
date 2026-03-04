@@ -13,8 +13,9 @@ export const LoadingSpinner = ({
   size = 'medium',
   variant = 'default',
   showText = false,
-  message
-}: LoadingSpinnerProps) => {
+  message,
+  fullPage = false
+}: LoadingSpinnerProps & { fullPage?: boolean }) => {
   const sizeClasses = {
     xs: "w-16 h-10",
     small: "w-24 h-16",
@@ -24,7 +25,7 @@ export const LoadingSpinner = ({
 
   const displayMessage = message || (showText ? "Carregando..." : null);
 
-  return (
+  const spinnerContent = (
     <div className={cn("flex flex-col justify-center items-center gap-2", className)}>
       <style>{`
         /* CONFIGURAÇÃO INICIAL */
@@ -126,12 +127,24 @@ export const LoadingSpinner = ({
       </div>
 
       {displayMessage && (
-        <p className="text-xs font-bold text-muted-foreground animate-pulse tracking-[0.2em] uppercase mt-2">
+        <p className="text-xs font-bold text-muted-foreground animate-pulse tracking-[0.2em] uppercase mt-2 text-center">
           {displayMessage}
         </p>
       )}
     </div>
   );
+
+  if (fullPage) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+        <div className="pointer-events-auto bg-background/0 backdrop-blur-[2px] rounded-3xl p-8">
+          {spinnerContent}
+        </div>
+      </div>
+    );
+  }
+
+  return spinnerContent;
 };
 
 export default LoadingSpinner; 

@@ -2,21 +2,21 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { motion } from 'framer-motion';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell
 } from 'recharts';
-import { 
-  Star, 
-  Trophy, 
-  Target, 
+import {
+  Star,
+  Trophy,
+  Target,
   Zap,
   Award
 } from 'lucide-react';
@@ -57,18 +57,18 @@ interface DifficultyStatsSectionProps {
 }
 
 const DIFFICULTY_COLORS = {
-  '1': '#10B981', // Verde - Muito Fácil
-  '2': '#84CC16', // Verde claro - Fácil  
-  '3': '#F59E0B', // Amarelo - Médio
-  '4': '#F97316', // Laranja - Difícil
-  '5': '#EF4444', // Vermelho - Muito Difícil
+  '1': '#10B981', // Verde
+  '2': '#F59E0B', // Amarelo
+  '3': '#EF4444', // Vermelho
+  '4': '#F97316', // Laranja - Fallback
+  '5': '#EF4444', // Vermelho - Fallback
   'unrated': '#9CA3AF' // Cinza - Não avaliado
 };
 
 const DIFFICULTY_LABELS = {
-  '1': 'Muito Fácil',
-  '2': 'Fácil',
-  '3': 'Médio', 
+  '1': 'Fácil',
+  '2': 'Médio',
+  '3': 'Difícil',
   '4': 'Difícil',
   '5': 'Muito Difícil',
   'unrated': 'Não Avaliado'
@@ -229,13 +229,12 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
                   <div className="w-24">
                     <Progress value={item.efficiency} className="h-2" />
                   </div>
-                  <div className={`px-2 py-1 rounded text-xs font-medium ${
-                    item.efficiency >= 80 ? 'bg-green-100 text-green-800' :
-                    item.efficiency >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
+                  <div className={`px-2 py-1 rounded text-xs font-medium ${item.efficiency >= 80 ? 'bg-green-100 text-green-800' :
+                      item.efficiency >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                    }`}>
                     {item.efficiency >= 80 ? 'Excelente' :
-                     item.efficiency >= 60 ? 'Bom' : 'Precisa melhorar'}
+                      item.efficiency >= 60 ? 'Bom' : 'Precisa melhorar'}
                   </div>
                 </div>
               </motion.div>
@@ -260,12 +259,12 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
                 <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <XAxis dataKey="level" />
                   <YAxis />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value, name) => [value, 'Tópicos']}
                     labelFormatter={(label) => label}
                   />
-                  <Bar 
-                    dataKey="count" 
+                  <Bar
+                    dataKey="count"
                     fill="#3B82F6"
                     radius={[4, 4, 0, 0]}
                   />
@@ -327,7 +326,7 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  <div 
+                  <div
                     className="w-4 h-4 rounded-full"
                     style={{ backgroundColor: item.color }}
                   />
@@ -366,7 +365,7 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
                     <span className="font-medium text-amber-800">Tópico Mais Difícil Dominado</span>
                   </div>
                   <p className="text-sm text-amber-700">
-                    <strong>{data.hardestCompletedTopic.name}</strong> 
+                    <strong>{data.hardestCompletedTopic.name}</strong>
                     {' '}({'⭐'.repeat(data.hardestCompletedTopic.difficulty)})
                   </p>
                   <p className="text-xs text-amber-600">
@@ -374,7 +373,7 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
                   </p>
                 </div>
               )}
-              
+
               <div className="p-3 bg-amber-100 rounded-lg">
                 <div className="flex items-center gap-2 mb-1">
                   <Star className="h-4 w-4 text-amber-600" />
@@ -384,9 +383,9 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
                   <strong>{data.completedPoints}</strong> de {data.totalPoints} pontos possíveis
                 </p>
                 <div className="mt-2">
-                  <Progress 
-                    value={data.totalPoints > 0 ? (data.completedPoints / data.totalPoints) * 100 : 0} 
-                    className="h-2" 
+                  <Progress
+                    value={data.totalPoints > 0 ? (data.completedPoints / data.totalPoints) * 100 : 0}
+                    className="h-2"
                   />
                 </div>
               </div>
@@ -441,7 +440,7 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
                   <div className="space-y-1">
                     {data.easiestPendingTopics.slice(0, 3).map((topic, index) => (
                       <div key={index} className="text-sm text-green-700">
-                        • <strong>{topic.name}</strong> 
+                        • <strong>{topic.name}</strong>
                         {topic.difficulty > 0 && (
                           <span className="ml-1">
                             ({'⭐'.repeat(topic.difficulty)})
@@ -470,9 +469,9 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
                   Faltam <strong>{data.totalPoints - data.completedPoints}</strong> pontos para completar tudo
                 </p>
                 <div className="mt-2">
-                  <Progress 
-                    value={data.totalPoints > 0 ? (data.completedPoints / data.totalPoints) * 100 : 0} 
-                    className="h-2" 
+                  <Progress
+                    value={data.totalPoints > 0 ? (data.completedPoints / data.totalPoints) * 100 : 0}
+                    className="h-2"
                   />
                 </div>
               </div>
@@ -494,10 +493,10 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
               </h3>
               <div className="space-y-2 text-indigo-800">
                 <p>
-                  • Sua dificuldade média é <strong>{data.averageDifficulty.toFixed(1)} estrelas</strong> - 
-                  {data.averageDifficulty >= 4 ? ' você gosta de desafios!' : 
-                   data.averageDifficulty >= 3 ? ' um bom equilíbrio!' : 
-                   ' foque em consolidar o básico!'}
+                  • Sua dificuldade média é <strong>{data.averageDifficulty.toFixed(1)} estrelas</strong> -
+                  {data.averageDifficulty >= 4 ? ' você gosta de desafios!' :
+                    data.averageDifficulty >= 3 ? ' um bom equilíbrio!' :
+                      ' foque em consolidar o básico!'}
                 </p>
                 {data.averageCompletedDifficulty > 0 && (
                   <p>
@@ -505,7 +504,7 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
                   </p>
                 )}
                 <p>
-                  • Você conquistou <strong>{data.completedPoints}</strong> de {data.totalPoints} pontos possíveis 
+                  • Você conquistou <strong>{data.completedPoints}</strong> de {data.totalPoints} pontos possíveis
                   ({data.totalPoints > 0 ? Math.round((data.completedPoints / data.totalPoints) * 100) : 0}%)
                 </p>
                 <p>
