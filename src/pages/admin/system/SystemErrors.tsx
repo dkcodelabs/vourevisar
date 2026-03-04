@@ -48,6 +48,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { useNavigate } from 'react-router-dom';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export default function SystemErrors() {
     const navigate = useNavigate();
@@ -718,8 +719,8 @@ export default function SystemErrors() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                                            Carregando...
+                                        <TableCell colSpan={10} className="text-center py-8">
+                                            <LoadingSpinner size="medium" showText />
                                         </TableCell>
                                     </TableRow>
                                 ) : errors.length === 0 ? (

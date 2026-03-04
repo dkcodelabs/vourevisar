@@ -308,9 +308,8 @@ const SubscriptionManagement = () => {
 
                 <div className="divide-y divide-black/5 dark:divide-white/5 px-4 pb-2">
                     {loading ? (
-                        <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-4">
-                            <LoadingSpinner size="small" />
-                            <span className="text-xs uppercase tracking-widest font-bold">Carregando usuários</span>
+                        <div className="p-12 text-center">
+                            <LoadingSpinner size="medium" showText />
                         </div>
                     ) : filteredUsers.length === 0 ? (
                         <div className="p-12 text-center text-muted-foreground font-medium">Nenhum usuário encontrado na sua busca.</div>

@@ -80,7 +80,7 @@ const Statistics = () => {
               <BarChart3 className="h-12 w-12 text-red-600" />
             </div>
             <h2 className="text-2xl font-bold text-red-600">Erro ao Carregar Dados</h2>
-            <p className="text-gray-600 text-center max-w-md">
+            <p className="text-gray-600 dark:text-slate-400 text-center max-w-md">
               Não foi possível carregar os dados estatísticos. Verifique sua conexão e tente novamente.
             </p>
             <button
@@ -110,12 +110,12 @@ const Statistics = () => {
             </div>
 
             {/* Título */}
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
               Seu Painel de Controle Completo
             </h2>
 
             {/* Descrição Principal */}
-            <p className="text-gray-600 max-w-lg mx-auto mb-6 leading-relaxed">
+            <p className="text-gray-600 dark:text-slate-400 max-w-lg mx-auto mb-6 leading-relaxed">
               Acompanhe sua evolução com dados reais e tome decisões inteligentes sobre seus estudos.
             </p>
 
@@ -175,11 +175,11 @@ const Statistics = () => {
         <div className="mt-0 px-4 md:px-6 py-4 mb-6 bg-transparent rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <BarChart3 className="h-6 w-6 text-blue-600" />
                 Dashboard de Estatísticas
               </h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
                 Análise completa do seu progresso de estudos com insights inteligentes
               </p>
             </div>

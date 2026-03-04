@@ -9,6 +9,7 @@ import {
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PageContainer from '@/components/layout/PageContainer';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 // Types
 interface AuditLog {
@@ -407,271 +408,271 @@ export default function AuditLogs() {
                 </div>
 
                 {/* Results count */}
-                <div className="text-sm text-slate-500">
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                    {totalCount > 0 ? (
                         <span>{totalCount.toLocaleString('pt-BR')} registro(s) encontrado(s)</span>
-                        ) : (
+                    ) : (
                         <span>Nenhum registro encontrado</span>
                     )}
-                    </div>
+                </div>
 
-                    {/* Table */}
-                    <div className="bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden">
-                        {loading ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="w-6 h-6 animate-spin text-brand-blue" />
-                            </div>
-                        ) : logs.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                                <Activity className="w-12 h-12 text-slate-300 mb-3" />
-                                <p className="text-sm">Nenhum evento encontrado</p>
-                                <p className="text-xs text-slate-400 mt-1">Tente ajustar os filtros</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
-                                            <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Data/Hora</th>
-                                            <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Evento</th>
-                                            <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Alvo</th>
-                                            <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Ator</th>
-                                            <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Origem</th>
-                                            <th className="px-4 py-3 text-center font-semibold text-slate-600 dark:text-slate-400">Status</th>
-                                            <th className="px-4 py-3 text-center font-semibold text-slate-600 dark:text-slate-400">Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                                        {logs.map((log) => (
-                                            <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span
-                                                        className="text-slate-900 dark:text-slate-200 cursor-help"
-                                                        title={formatFullDateTime(log.occurred_at)}
+                {/* Table */}
+                <div className="bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <LoadingSpinner size="medium" showText />
+                        </div>
+                    ) : logs.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                            <Activity className="w-12 h-12 text-slate-300 mb-3" />
+                            <p className="text-sm">Nenhum evento encontrado</p>
+                            <p className="text-xs text-slate-400 mt-1">Tente ajustar os filtros</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
+                                        <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Data/Hora</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Evento</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Alvo</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Ator</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-400">Origem</th>
+                                        <th className="px-4 py-3 text-center font-semibold text-slate-600 dark:text-slate-400">Status</th>
+                                        <th className="px-4 py-3 text-center font-semibold text-slate-600 dark:text-slate-400">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                    {logs.map((log) => (
+                                        <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <span
+                                                    className="text-slate-900 dark:text-slate-200 cursor-help"
+                                                    title={formatFullDateTime(log.occurred_at)}
+                                                >
+                                                    {formatDateTime(log.occurred_at)}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${SEVERITY_COLORS[log.event_type] || 'text-slate-600 bg-slate-50'}`}>
+                                                    {EVENT_ICONS[log.event_type] || <Activity className="w-3.5 h-3.5" />}
+                                                    {EVENT_LABELS[log.event_type] || log.event_type}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {log.target_user_name || log.target_user_email ? (
+                                                    <div>
+                                                        <p className="text-slate-900 dark:text-slate-200 font-medium">{log.target_user_name || '-'}</p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{log.target_user_email}</p>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {log.actor_user_id ? (
+                                                    <div>
+                                                        <p className="text-slate-900 dark:text-slate-200 font-medium">{log.actor_user_name || '-'}</p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{log.actor_user_email}</p>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400 italic">Sistema</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-slate-600 dark:text-slate-400">{log.origin || '-'}</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                {log.status === 'SUCCESS' ? (
+                                                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                                        <CheckCircle className="w-4 h-4" />
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+                                                        <XCircle className="w-4 h-4" />
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <button
+                                                        onClick={() => setSelectedLog(log)}
+                                                        className="p-1.5 text-slate-400 hover:text-brand-blue hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                        title="Ver detalhes"
                                                     >
-                                                        {formatDateTime(log.occurred_at)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${SEVERITY_COLORS[log.event_type] || 'text-slate-600 bg-slate-50'}`}>
-                                                        {EVENT_ICONS[log.event_type] || <Activity className="w-3.5 h-3.5" />}
-                                                        {EVENT_LABELS[log.event_type] || log.event_type}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    {log.target_user_name || log.target_user_email ? (
-                                                        <div>
-                                                            <p className="text-slate-900 dark:text-slate-200 font-medium">{log.target_user_name || '-'}</p>
-                                                            <p className="text-xs text-slate-500 dark:text-slate-400">{log.target_user_email}</p>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-slate-400">-</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    {log.actor_user_id ? (
-                                                        <div>
-                                                            <p className="text-slate-900 dark:text-slate-200 font-medium">{log.actor_user_name || '-'}</p>
-                                                            <p className="text-xs text-slate-500 dark:text-slate-400">{log.actor_user_email}</p>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-slate-400 italic">Sistema</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span className="text-slate-600 dark:text-slate-400">{log.origin || '-'}</span>
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    {log.status === 'SUCCESS' ? (
-                                                        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                                            <CheckCircle className="w-4 h-4" />
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
-                                                            <XCircle className="w-4 h-4" />
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <div className="flex items-center justify-center gap-1">
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
+                                                    {log.target_user_id && (
                                                         <button
-                                                            onClick={() => setSelectedLog(log)}
+                                                            onClick={() => navigate(`/admin/users?search=${log.target_user_email}`)}
                                                             className="p-1.5 text-slate-400 hover:text-brand-blue hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
-                                                            title="Ver detalhes"
+                                                            title="Ir para perfil"
                                                         >
-                                                            <Eye className="w-4 h-4" />
+                                                            <User className="w-4 h-4" />
                                                         </button>
-                                                        {log.target_user_id && (
-                                                            <button
-                                                                onClick={() => navigate(`/admin/users?search=${log.target_user_email}`)}
-                                                                className="p-1.5 text-slate-400 hover:text-brand-blue hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
-                                                                title="Ir para perfil"
-                                                            >
-                                                                <User className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                            <div className="text-sm text-slate-500 dark:text-slate-400">
+                                Página {currentPage} de {totalPages}
                             </div>
-                        )}
-
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-                                <div className="text-sm text-slate-500 dark:text-slate-400">
-                                    Página {currentPage} de {totalPages}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
-                                        className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        <ChevronLeft className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                        disabled={currentPage === totalPages}
-                                        className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Details Modal */}
-                    {selectedLog && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden">
-                                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10">
-                                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Detalhes do Evento</h3>
-                                    <button
-                                        onClick={() => setSelectedLog(null)}
-                                        className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"
-                                    >
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-                                <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh]">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">ID</p>
-                                            <p className="text-sm text-slate-900 dark:text-slate-200 font-mono">{selectedLog.id}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Status</p>
-                                            <p className={`text-sm font-medium ${selectedLog.status === 'SUCCESS' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                                                {selectedLog.status === 'SUCCESS' ? 'Sucesso' : 'Falha'}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Evento</p>
-                                            <p className="text-sm text-slate-900 dark:text-slate-200">{EVENT_LABELS[selectedLog.event_type] || selectedLog.event_type}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Origem</p>
-                                            <p className="text-sm text-slate-900 dark:text-slate-200">{selectedLog.origin || '-'}</p>
-                                        </div>
-                                        <div className="col-span-2">
-                                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Data/Hora</p>
-                                            <p className="text-sm text-slate-900 dark:text-slate-200">{formatFullDateTime(selectedLog.occurred_at)}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-slate-100 dark:border-white/10 pt-4">
-                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-2">Alvo</p>
-                                        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-3">
-                                            <p className="text-sm font-medium text-slate-900 dark:text-slate-200">{selectedLog.target_user_name || 'N/A'}</p>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400">{selectedLog.target_user_email || 'N/A'}</p>
-                                            <p className="text-xs text-slate-400 font-mono mt-1">{selectedLog.target_user_id || 'N/A'}</p>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-2">Ator</p>
-                                        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-3">
-                                            {selectedLog.actor_user_id ? (
-                                                <>
-                                                    <p className="text-sm font-medium text-slate-900 dark:text-slate-200">{selectedLog.actor_user_name || 'N/A'}</p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">{selectedLog.actor_user_email || 'N/A'}</p>
-                                                    <p className="text-xs text-slate-400 font-mono mt-1">{selectedLog.actor_user_id}</p>
-                                                </>
-                                            ) : (
-                                                <p className="text-sm text-slate-500 dark:text-slate-400 italic">Sistema (automático)</p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
-                                        <div className="border-t border-slate-100 dark:border-white/10 pt-4">
-                                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-2">Metadados</p>
-
-                                            {/* Critical audit fields - formatted */}
-                                            <div className="space-y-2 mb-3">
-                                                {(selectedLog.metadata.source || selectedLog.metadata.request_id) && (
-                                                    <div className="flex items-start gap-2">
-                                                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Fonte:</span>
-                                                        <span className="text-sm text-slate-900 dark:text-slate-200">
-                                                            {selectedLog.metadata.source || selectedLog.metadata.request_id}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {selectedLog.metadata.reason && (
-                                                    <div className="flex items-start gap-2">
-                                                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Motivo:</span>
-                                                        <span className="text-sm text-slate-900 dark:text-slate-200">{selectedLog.metadata.reason}</span>
-                                                    </div>
-                                                )}
-                                                {selectedLog.metadata.old_role && selectedLog.metadata.new_role && (
-                                                    <div className="flex items-start gap-2">
-                                                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Alteração:</span>
-                                                        <span className="text-sm text-slate-900 dark:text-slate-200">
-                                                            {selectedLog.metadata.old_role} → {selectedLog.metadata.new_role}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {selectedLog.metadata.ip && (
-                                                    <div className="flex items-start gap-2">
-                                                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">IP:</span>
-                                                        <span className="text-sm text-slate-900 dark:text-slate-200 font-mono">{selectedLog.metadata.ip}</span>
-                                                    </div>
-                                                )}
-                                                {selectedLog.metadata.user_agent && (
-                                                    <div className="flex items-start gap-2">
-                                                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Navegador:</span>
-                                                        <span className="text-sm text-slate-900 dark:text-slate-200 break-all">{selectedLog.metadata.user_agent}</span>
-                                                    </div>
-                                                )}
-                                                {selectedLog.metadata.tz && (
-                                                    <div className="flex items-start gap-2">
-                                                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Fuso:</span>
-                                                        <span className="text-sm text-slate-900 dark:text-slate-200">{selectedLog.metadata.tz}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Full JSON - collapsible */}
-                                            <details className="group">
-                                                <summary className="text-xs text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300">
-                                                    Ver JSON completo
-                                                </summary>
-                                                <pre className="bg-slate-900 text-slate-100 rounded-lg p-4 text-xs overflow-x-auto font-mono mt-2">
-                                                    {JSON.stringify(selectedLog.metadata, null, 2)}
-                                                </pre>
-                                            </details>
-                                        </div>
-                                    )}
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
                     )}
                 </div>
-            </>
-            );
+
+                {/* Details Modal */}
+                {selectedLog && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden">
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10">
+                                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Detalhes do Evento</h3>
+                                <button
+                                    onClick={() => setSelectedLog(null)}
+                                    className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh]">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">ID</p>
+                                        <p className="text-sm text-slate-900 dark:text-slate-200 font-mono">{selectedLog.id}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Status</p>
+                                        <p className={`text-sm font-medium ${selectedLog.status === 'SUCCESS' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                            {selectedLog.status === 'SUCCESS' ? 'Sucesso' : 'Falha'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Evento</p>
+                                        <p className="text-sm text-slate-900 dark:text-slate-200">{EVENT_LABELS[selectedLog.event_type] || selectedLog.event_type}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Origem</p>
+                                        <p className="text-sm text-slate-900 dark:text-slate-200">{selectedLog.origin || '-'}</p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Data/Hora</p>
+                                        <p className="text-sm text-slate-900 dark:text-slate-200">{formatFullDateTime(selectedLog.occurred_at)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-slate-100 dark:border-white/10 pt-4">
+                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-2">Alvo</p>
+                                    <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-3">
+                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-200">{selectedLog.target_user_name || 'N/A'}</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">{selectedLog.target_user_email || 'N/A'}</p>
+                                        <p className="text-xs text-slate-400 font-mono mt-1">{selectedLog.target_user_id || 'N/A'}</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-2">Ator</p>
+                                    <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-3">
+                                        {selectedLog.actor_user_id ? (
+                                            <>
+                                                <p className="text-sm font-medium text-slate-900 dark:text-slate-200">{selectedLog.actor_user_name || 'N/A'}</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">{selectedLog.actor_user_email || 'N/A'}</p>
+                                                <p className="text-xs text-slate-400 font-mono mt-1">{selectedLog.actor_user_id}</p>
+                                            </>
+                                        ) : (
+                                            <p className="text-sm text-slate-500 dark:text-slate-400 italic">Sistema (automático)</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
+                                    <div className="border-t border-slate-100 dark:border-white/10 pt-4">
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-2">Metadados</p>
+
+                                        {/* Critical audit fields - formatted */}
+                                        <div className="space-y-2 mb-3">
+                                            {(selectedLog.metadata.source || selectedLog.metadata.request_id) && (
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Fonte:</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200">
+                                                        {selectedLog.metadata.source || selectedLog.metadata.request_id}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {selectedLog.metadata.reason && (
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Motivo:</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200">{selectedLog.metadata.reason}</span>
+                                                </div>
+                                            )}
+                                            {selectedLog.metadata.old_role && selectedLog.metadata.new_role && (
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Alteração:</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200">
+                                                        {selectedLog.metadata.old_role} → {selectedLog.metadata.new_role}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {selectedLog.metadata.ip && (
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">IP:</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200 font-mono">{selectedLog.metadata.ip}</span>
+                                                </div>
+                                            )}
+                                            {selectedLog.metadata.user_agent && (
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Navegador:</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200 break-all">{selectedLog.metadata.user_agent}</span>
+                                                </div>
+                                            )}
+                                            {selectedLog.metadata.tz && (
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Fuso:</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200">{selectedLog.metadata.tz}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Full JSON - collapsible */}
+                                        <details className="group">
+                                            <summary className="text-xs text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300">
+                                                Ver JSON completo
+                                            </summary>
+                                            <pre className="bg-slate-900 text-slate-100 rounded-lg p-4 text-xs overflow-x-auto font-mono mt-2">
+                                                {JSON.stringify(selectedLog.metadata, null, 2)}
+                                            </pre>
+                                        </details>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </>
+    );
 }

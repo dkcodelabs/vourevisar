@@ -570,9 +570,8 @@ const AdminFeedback: React.FC = () => {
                 {/* ── Tabela ────────────────────────────────────── */}
                 <div className="glass-card rounded-2xl overflow-hidden border border-black/5 dark:border-white/5">
                     {isLoading ? (
-                        <div className="flex items-center justify-center py-16 text-slate-400">
-                            <Loader2 size={24} className="animate-spin mr-2" />
-                            <span className="text-sm font-medium">Carregando feedbacks...</span>
+                        <div className="flex items-center justify-center py-16">
+                            <LoadingSpinner size="medium" showText />
                         </div>
                     ) : error ? (
                         <div className="flex flex-col items-center justify-center py-16 text-slate-400">

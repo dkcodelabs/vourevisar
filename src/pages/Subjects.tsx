@@ -87,10 +87,10 @@ const calculateSubjectStatus = (subject: Subject): Status => {
 
 const getStatusColor = (status: Status) => {
   switch (status) {
-    case 'Nova': return 'bg-slate-100 text-slate-600 border-slate-200';
-    case 'Em Estudo': return 'bg-blue-100 text-blue-700 border-blue-200';
-    case 'Concluída': return 'bg-green-100 text-green-700 border-green-200';
-    default: return 'bg-slate-100 text-slate-600 border-slate-200';
+    case 'Nova': return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+    case 'Em Estudo': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800';
+    case 'Concluída': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800';
+    default: return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
   }
 };
 
@@ -897,7 +897,7 @@ const Subjects = () => {
 
 
   return (
-    <div className="flex w-full text-slate-900 font-sans">
+    <div className="flex w-full text-slate-900 dark:text-slate-100 font-sans">
       <div className="flex-1 flex flex-col relative w-full">
 
         {/* Header Outside Card */}
@@ -922,9 +922,9 @@ const Subjects = () => {
                 <div className="mb-6">
                   <div className="flex gap-2 items-center h-9">
                     <div
-                      className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-full"
+                      className="relative flex-1 min-w-0 bg-gray-50/50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm hover:border-gray-300 dark:hover:border-slate-600 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-full"
                     >
-                      <div className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">
+                      <div className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500">
                         <Search size={14} />
                       </div>
                       <input
@@ -932,7 +932,7 @@ const Subjects = () => {
                         value={newSubjectName}
                         onChange={(e) => setNewSubjectName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSaveSubject()}
-                        className="w-full pl-8 pr-8 py-1.5 text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full !outline-none"
+                        className="w-full pl-8 pr-8 py-1.5 text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 dark:placeholder:text-slate-500 dark:text-white h-full !outline-none"
                       />
                     </div>
                     <button
@@ -958,8 +958,8 @@ const Subjects = () => {
                     <button
                       onClick={() => setActiveTab('all')}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'all'
-                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                        : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                        : 'border border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800'
                         }`}
                     >
                       Todas
@@ -967,8 +967,8 @@ const Subjects = () => {
                     <button
                       onClick={() => setActiveTab('in_progress')}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'in_progress'
-                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                        : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                        : 'border border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800'
                         }`}
                     >
                       Em Estudo
@@ -976,8 +976,8 @@ const Subjects = () => {
                     <button
                       onClick={() => setActiveTab('completed')}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === 'completed'
-                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                        : 'border border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                        : 'border border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800'
                         }`}
                     >
                       Concluídas
@@ -985,10 +985,10 @@ const Subjects = () => {
                   </div>
 
                   <div className="hidden sm:flex items-center gap-1 text-slate-400">
-                    <div className="p-1 rounded cursor-pointer hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                    <div className="p-1 rounded cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
                       <LayoutGrid className="h-5 w-5" />
                     </div>
-                    <div className="p-1 rounded cursor-pointer hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                    <div className="p-1 rounded cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
                       <List className="h-5 w-5" />
                     </div>
                   </div>
@@ -1142,7 +1142,7 @@ const Subjects = () => {
                                         </div>
                                       ) : (
                                         <h3
-                                          className="text-[14px] font-semibold leading-[20px] text-slate-800 cursor-pointer hover:text-indigo-600 transition-colors capitalize flex-1 min-w-0 flex items-center gap-2"
+                                          className="text-[14px] font-semibold leading-[20px] text-slate-800 dark:text-slate-200 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors capitalize flex-1 min-w-0 flex items-center gap-2"
                                           onClick={(e) => { e.stopPropagation(); handleStartEdit(subject); }}
                                         >
                                           <span className="whitespace-normal break-words">{subject.name.toLowerCase()}</span>
@@ -1158,7 +1158,7 @@ const Subjects = () => {
                                         <span className="whitespace-nowrap text-[12px] font-normal leading-[16px] text-slate-500">{subject.topics.length} tópicos</span>
                                         {subject.topics.length > 0 && (
                                           <div className="flex items-center gap-2 flex-1 min-w-[60px]">
-                                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                               <div
                                                 className="h-full bg-indigo-500 rounded-full transition-all duration-500"
                                                 style={{ width: `${progress}%` }}

@@ -285,13 +285,13 @@ const Topics = () => {
                     {/* Campo de Pesquisa e Filtros na mesma linha */}
                     <div className="flex flex-col lg:flex-row gap-3">
                       {/* Campo de Pesquisa */}
-                      <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <div className="relative flex-1 min-w-0 bg-gray-50/50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm hover:border-gray-300 dark:hover:border-slate-600 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-slate-500 h-4 w-4" />
                         <Input
                           placeholder="Pesquisar tópicos..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10 h-8 py-0.5 w-full bg-transparent border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400 text-sm"
+                          className="pl-10 h-8 py-0.5 w-full bg-transparent border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400 dark:placeholder:text-slate-500 text-sm dark:text-white"
                         />
                       </div>
 
@@ -444,7 +444,7 @@ const Topics = () => {
                         return (
                           <>
                             <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
-                              <Search className="h-10 w-10 text-gray-400" />
+                              <Search className="h-10 w-10 text-gray-400 dark:text-slate-500" />
                             </div>
                             <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-3">
                               Nenhum tópico encontrado
@@ -490,7 +490,7 @@ const Topics = () => {
                   <>
                     <div className="bg-transparent rounded-lg shadow-sm border border-black/5 dark:border-white/5 overflow-hidden">
                       {/* Table Header - INTEGRATED */}
-                      <div className="hidden lg:grid grid-cols-[1fr_100px_110px_160px_120px] gap-0 border-b border-gray-200 bg-gray-50/80 py-3 text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                      <div className="hidden lg:grid grid-cols-[1fr_100px_110px_160px_120px] gap-0 border-b border-gray-200 dark:border-slate-700 bg-gray-50/80 dark:bg-slate-800/50 py-3 text-[10px] text-gray-500 dark:text-slate-400 font-semibold uppercase tracking-wide">
                         <div className="pl-8">Tópico / Matéria</div>
                         <div className="text-center">Dificuldade</div>
                         <div className="text-center">Contexto</div>
