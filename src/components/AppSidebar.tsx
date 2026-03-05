@@ -86,7 +86,6 @@ const getNavItems = (isAdmin: boolean) => {
   ];
 
   const adminItems: NavItem[] = isAdmin ? [
-    { to: "/gerenciamento", label: "Gerenciamento V1 (Legacy)", icon: Settings },
     { to: "/admin/users", label: "Gerenciar Usuários", icon: Users },
     { to: "/admin/content/import", label: "Importar Questões", icon: FileUp },
     { to: "/admin/tendencia", label: "Tendência (GUT)", icon: TrendingUp },

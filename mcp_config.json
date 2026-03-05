@@ -12,6 +12,16 @@
                 "-y",
                 "@upstash/context7-mcp@latest"
             ]
+        },
+        "google-ai-studio": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "aistudio-mcp-server"
+            ],
+            "env": {
+                "GEMINI_API_KEY": "AIzaSyB9boPcMR2_Ivju-b9naBTr2JSRZhxcgYs"
+            }
         }
     }
 }

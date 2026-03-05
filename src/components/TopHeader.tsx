@@ -30,10 +30,6 @@ const getNavItems = (isAdmin: boolean): NavItem[] => {
     { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
   ];
 
-  // Adiciona Gerenciamento no início para admins/owners
-  if (isAdmin) {
-    baseItems.unshift({ to: "/gerenciamento", label: "Gerenciamento", icon: Settings });
-  }
 
   return baseItems;
 };

@@ -26,7 +26,7 @@ import ConfirmEmail from "@/pages/ConfirmEmail";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
 import StudyCycle from "@/pages/StudyCycle";
-import Gerenciamento from "@/pages/Gerenciamento";
+
 import UserManagement from "@/pages/admin/UserManagement";
 import ImportQuestions from "@/pages/admin/content/ImportQuestions";
 import SubscriptionManagement from "@/pages/admin/SubscriptionManagement";
@@ -97,11 +97,9 @@ const App = () => {
                           <Route path="revisoes" element={<Revisoes />} />
                           <Route path="ciclo-estudos" element={<StudyCycle />} />
                           <Route path="ciclo-estudos" element={<StudyCycle />} />
-                          {/* <Route path="gerenciamento" element={<Gerenciamento />} /> - REMOVED: Monolith dismantled */}
 
                           {/* Admin Routes - Protected */}
                           <Route element={<AdminRoute />}>
-                            <Route path="gerenciamento" element={<Gerenciamento />} />
                             <Route path="admin/users" element={<UserManagement />} />
                             <Route path="admin/content/import" element={<ImportQuestions />} />
                             <Route path="admin/tendencia" element={<TendenciaGUT />} />
@@ -131,7 +129,7 @@ const App = () => {
           </ThemeProvider>
         </TooltipProvider>
       </QueryClientProvider>
-    </div>
+    </div >
   );
 };
 
