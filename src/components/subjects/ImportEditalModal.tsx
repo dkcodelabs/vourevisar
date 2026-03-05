@@ -3,6 +3,19 @@ import { motion } from 'framer-motion';
 import { Search, FileText, Sparkles, Loader2, Undo2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X } from 'lucide-react';
 import { Subject } from '@/types';
 
+interface AiTopic {
+    name: string;
+    selected: boolean;
+}
+
+interface AiSubject {
+    id: string;
+    title: string;
+    selected: boolean;
+    expanded: boolean;
+    topics: AiTopic[];
+}
+
 interface ImportEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -26,7 +39,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
     const [inputText, setInputText] = useState('');
     const [iaStage, setIaStage] = useState<'input' | 'processing' | 'review'>('input');
     const [processingMsg, setProcessingMsg] = useState('Lendo edital...');
-    const [aiResult, setAiResult] = useState<any[]>([]);
+    const [aiResult, setAiResult] = useState<AiSubject[]>([]);
 
     // Mock editais
     const editais = [
@@ -98,7 +111,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                 id: `ia-subj-${Date.now()}-${sIdx}`,
                 name: r.title,
                 status: 'Nova',
-                topics: r.topics.filter((t: any) => t.selected).map((t: any, idx: number) => ({
+                topics: r.topics.filter((t) => t.selected).map((t, idx) => ({
                     id: `ia-top-${Date.now()}-${idx}`,
                     name: t.name,
                     completed: false,
@@ -130,32 +143,35 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
             >
                 <div className="p-6 border-b border-black/5 dark:border-white/5 flex items-center justify-between shrink-0">
                     <div>
-                        <h2 className="text-xl font-black text-content-main tracking-tight">Importar Edital</h2>
-                        <p className="text-xs text-content-muted font-medium mt-1">Escolha um edital pronto ou use nossa IA</p>
+                        <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Importar Edital</h2>
+                        <p className="text-sm text-content-muted font-medium mt-1">Escolha um edital pronto ou use nossa IA</p>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted">
+                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
                         <X size={20} />
                     </button>
                 </div>
 
                 <div className="p-6 overflow-y-auto no-scrollbar flex-1">
-                    <div className="flex gap-2 bg-zinc-950 p-1 rounded-[20px] mb-6 w-fit mx-auto border border-black/5 dark:border-white/5">
+                    <div className="flex gap-2 bg-zinc-900/50 p-1.5 rounded-2xl mb-8 w-fit mx-auto border border-white/5">
                         <button
                             onClick={() => setActiveTab('ready')}
-                            className={`px-4 py-2.5 rounded-[14px] text-[9px] font-black transition-all uppercase tracking-widest ${activeTab === 'ready' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-content-muted hover:text-primary'}`}
+                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'ready' ? 'bg-emerald-500 text-white shadow-sm' : 'text-content-muted hover:text-emerald-500 hover:bg-emerald-500/10'}`}
                         >
+                            <FileText size={14} />
                             Editais Prontos
                         </button>
                         <button
                             onClick={() => setActiveTab('ia')}
-                            className={`px-4 py-2.5 rounded-[14px] text-[9px] font-black transition-all uppercase tracking-widest ${activeTab === 'ia' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-content-muted hover:text-primary'}`}
+                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'ia' ? 'bg-emerald-500 text-white shadow-sm' : 'text-content-muted hover:text-emerald-500 hover:bg-emerald-500/10'}`}
                         >
+                            <Sparkles size={14} />
                             Importar com IA
                         </button>
                         <button
                             onClick={() => setActiveTab('manual')}
-                            className={`px-4 py-2.5 rounded-[14px] text-[9px] font-black transition-all uppercase tracking-widest ${activeTab === 'manual' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-content-muted hover:text-primary'}`}
+                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'manual' ? 'bg-emerald-500 text-white shadow-sm' : 'text-content-muted hover:text-emerald-500 hover:bg-emerald-500/10'}`}
                         >
+                            <Plus size={14} />
                             Adicionar Manual
                         </button>
                     </div>
@@ -164,21 +180,21 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                         <div className="space-y-8">
                             <div className="space-y-4">
                                 <div className="relative">
-                                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-content-muted" size={20} />
+                                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-content-muted" size={18} />
                                     <input
                                         type="text"
                                         placeholder="Buscar concurso (ex: PCES, PMES, INSS...)"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full h-16 bg-zinc-950 border border-black/5 dark:border-white/5 rounded-[24px] pl-16 pr-6 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
+                                        className="w-full h-14 bg-zinc-950 border border-black/5 dark:border-white/5 rounded-[20px] pl-14 pr-6 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
                                     />
                                 </div>
-                                <div className="flex flex-wrap gap-3">
+                                <div className="flex flex-wrap gap-2">
                                     {['Todos', 'Carreiras Policiais', 'Tribunais', 'Bancárias'].map(cat => (
                                         <button
                                             key={cat}
                                             onClick={() => setSelectedCategory(cat)}
-                                            className={`px-6 py-2.5 rounded-full text-[10px] font-black transition-all uppercase tracking-widest ${selectedCategory === cat ? 'bg-primary text-white' : 'bg-zinc-950 text-content-muted hover:text-primary'}`}
+                                            className={`px-4 py-2 rounded-full text-[11px] font-semibold transition-all tracking-wide border ${selectedCategory === cat ? 'bg-zinc-200 text-zinc-900 border-zinc-200' : 'bg-transparent border-white/10 text-content-muted hover:border-white/30 hover:text-zinc-200'}`}
                                         >
                                             {cat}
                                         </button>
@@ -189,16 +205,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                             <div className="grid grid-cols-1 gap-4">
                                 {filteredEditais.length > 0 ? (
                                     filteredEditais.map(edital => (
-                                        <div key={edital.id} className="p-6 rounded-[32px] flex items-center justify-between group hover:border-primary/30 transition-all bg-zinc-800/30">
-                                            <div className="flex items-center gap-6">
-                                                <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/10">
-                                                    <FileText size={28} />
+                                        <div key={edital.id} className="p-5 rounded-3xl flex items-center justify-between group hover:border-white/10 border border-transparent hover:bg-zinc-800/50 transition-all bg-zinc-800/20">
+                                            <div className="flex items-center gap-5">
+                                                <div className="w-12 h-12 bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400 border border-white/5 group-hover:text-primary group-hover:border-primary/20 group-hover:bg-primary/5 transition-colors">
+                                                    <FileText size={22} />
                                                 </div>
                                                 <div>
-                                                    <h4 className="font-black text-content-main text-base tracking-tight">{edital.organ} - {edital.position}</h4>
-                                                    <div className="flex items-center gap-4 mt-1">
-                                                        <span className="text-[11px] font-black text-secondary uppercase tracking-widest">{edital.status} {edital.year}</span>
-                                                        <span className="text-[11px] font-bold text-content-muted uppercase tracking-widest">{edital.subjectsCount} matérias</span>
+                                                    <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-base tracking-tight">{edital.organ} - {edital.position}</h4>
+                                                    <div className="flex items-center gap-3 mt-1.5">
+                                                        <span className="text-[10px] font-black text-secondary uppercase tracking-widest bg-secondary/10 px-2 py-0.5 rounded-md">{edital.status} {edital.year}</span>
+                                                        <span className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-white/5">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
+                                                            {edital.subjectsCount} matérias
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -206,9 +225,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                                 onClick={() => {
                                                     onImport([{ id: edital.id.toString(), name: edital.organ, status: 'Nova', topics: [] }]);
                                                 }}
-                                                className="px-8 py-3 bg-primary text-white text-[11px] font-black rounded-[18px] hover:bg-primary/90 transition-all uppercase tracking-widest shadow-lg shadow-primary/20"
+                                                className="px-6 py-2.5 bg-zinc-100 text-zinc-900 dark:bg-white dark:text-black text-[11px] font-bold rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm shrink-0"
                                             >
-                                                IMPORTAR EDITAL
+                                                Importar Edital
                                             </button>
                                         </div>
                                     ))
@@ -248,14 +267,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                             />
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={handleIaImport}
-                                        disabled={!inputText.trim()}
-                                        className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-black py-4 rounded-[20px] shadow-xl shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 text-xs tracking-widest uppercase"
-                                    >
-                                        <Sparkles size={18} />
-                                        ESTRUTURAR COM IA
-                                    </button>
+                                    <div className="pt-6">
+                                        <button
+                                            onClick={handleIaImport}
+                                            disabled={!inputText.trim()}
+                                            className="w-full sm:w-auto px-8 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm mx-auto"
+                                        >
+                                            <Sparkles size={18} />
+                                            Estruturar com IA
+                                        </button>
+                                    </div>
                                 </motion.div>
                             )}
 
@@ -329,7 +350,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                                 </div>
                                                 {subject.selected && subject.expanded && (
                                                     <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-900/20">
-                                                        {subject.topics.map((topic: any, tIdx: number) => (
+                                                        {subject.topics.map((topic, tIdx) => (
                                                             <div key={tIdx} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 group transition-colors">
                                                                 <input
                                                                     type="checkbox"
@@ -362,13 +383,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                         ))}
                                     </div>
 
-                                    <button
-                                        onClick={handleSaveAiResult}
-                                        className="w-full bg-primary hover:bg-primary/90 text-white font-black py-4 rounded-[20px] shadow-xl shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 text-xs tracking-widest uppercase"
-                                    >
-                                        <Save size={18} />
-                                        SALVAR E IMPORTAR
-                                    </button>
+                                    <div className="pt-6">
+                                        <button
+                                            onClick={handleSaveAiResult}
+                                            className="w-full sm:w-auto px-10 bg-primary hover:bg-primary/90 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm mx-auto"
+                                        >
+                                            <Save size={18} />
+                                            Salvar e Importar
+                                        </button>
+                                    </div>
                                 </motion.div>
                             )}
                         </div>
@@ -441,33 +464,35 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={() => {
-                                        if (!manualTitle.trim()) return;
-                                        const newSubject: Subject = {
-                                            id: `manual-subj-${Date.now()}`,
-                                            name: manualTitle,
-                                            status: 'Nova',
-                                            topics: manualTopics.filter(t => t.trim()).map((t, idx) => ({
-                                                id: `manual-top-${Date.now()}-${idx}`,
-                                                name: t,
-                                                completed: false,
-                                                reviewCount: 0,
-                                                review_count: 0
-                                            }))
-                                        };
-                                        onImport([newSubject]);
-                                        onClose();
-                                        setManualTitle('');
-                                        setManualTopics(['']);
-                                        setSourceName('');
-                                    }}
-                                    disabled={!manualTitle.trim()}
-                                    className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-black py-4 rounded-[20px] shadow-xl shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 text-xs tracking-widest uppercase"
-                                >
-                                    <Save size={18} />
-                                    SALVAR MATÉRIA
-                                </button>
+                                <div className="pt-4">
+                                    <button
+                                        onClick={() => {
+                                            if (!manualTitle.trim()) return;
+                                            const newSubject: Subject = {
+                                                id: `manual-subj-${Date.now()}`,
+                                                name: manualTitle,
+                                                status: 'Nova',
+                                                topics: manualTopics.filter(t => t.trim()).map((t, idx) => ({
+                                                    id: `manual-top-${Date.now()}-${idx}`,
+                                                    name: t,
+                                                    completed: false,
+                                                    reviewCount: 0,
+                                                    review_count: 0
+                                                }))
+                                            };
+                                            onImport([newSubject]);
+                                            onClose();
+                                            setManualTitle('');
+                                            setManualTopics(['']);
+                                            setSourceName('');
+                                        }}
+                                        disabled={!manualTitle.trim()}
+                                        className="w-full sm:w-auto px-10 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm ml-auto mr-auto"
+                                    >
+                                        <Save size={18} />
+                                        Salvar Matéria
+                                    </button>
+                                </div>
                             </motion.div>
                         )
                     )}

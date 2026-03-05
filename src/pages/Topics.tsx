@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Plus, Search, Edit, FileText, Trash2, Star } from 'lucide-react';
@@ -27,7 +27,8 @@ const Topics = () => {
   const navigate = useNavigate();
   const { subjects, deleteTopic, updateTopic, isLoading } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
-  const [subjectFilter, setSubjectFilter] = useState<string>('all');
+  const { subjectId } = useParams<{ subjectId: string }>();
+  const [subjectFilter, setSubjectFilter] = useState<string>(subjectId || 'all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
@@ -275,7 +276,7 @@ const Topics = () => {
           <main className="flex-1 px-4 md:px-8 pb-8 pt-0">
             <div className="space-y-6">
               {/* Header com Pesquisa e Filtros - Sticky at top of scroll container */}
-              {subjects.length > 0 && (
+              {allTopics.length > 0 && (
                 <div className="sticky top-0 z-20 px-4 md:px-8 pt-6 pb-6 mb-6 bg-transparent rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
                   <div className="mb-4">
                     <p className="text-xs text-muted-foreground mt-1">Visualize e gerencie todos os seus tópicos de estudo</p>
@@ -415,10 +416,19 @@ const Topics = () => {
                     {/* Lógica de Renderização Condicional do Empty State */}
                     {(() => {
                       const hasSubjects = subjects.length > 0;
-                      const hasTopics = allTopics.length > 0;
-                      const isFiltering = searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all' || subjectFilter !== 'all';
+                      // Só considera que o usuário está ativamente pesquisando se ele digitou algo,
+                      // usou status ou usou dificuldade. Filtrar por matéria apenas define "Materia Atual".
+                      const isActivelyFiltering = searchTerm || statusFilter !== 'all' || difficultyFilter !== 'all';
 
-                      // CASO 1: Nenhuma matéria cadastrada (Prioridade Máxima conforme pedido)
+                      // Tem filtro por matéria ativado via URL ou Select?
+                      const hasSubjectSelected = subjectFilter !== 'all';
+
+                      // Conta se a matéria atual selecionada tem pelo menos 1 tópico
+                      const currentSubjectHasTopics = hasSubjectSelected
+                        ? allTopics.some(t => t.subjectId === subjectFilter)
+                        : allTopics.length > 0;
+
+                      // CASO 1: Nenhuma matéria cadastrada (Prioridade Máxima)
                       if (!hasSubjects) {
                         return (
                           <>
@@ -439,8 +449,8 @@ const Topics = () => {
                         );
                       }
 
-                      // CASO 2: Filtros ativos sem resultados
-                      if (isFiltering) {
+                      // CASO 2: Filtros ativos sem resultados (Pesquisa, Status, Dificuldade)
+                      if (isActivelyFiltering) {
                         return (
                           <>
                             <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
@@ -467,7 +477,11 @@ const Topics = () => {
                         );
                       }
 
-                      // CASO 3: Tem matérias, mas nenhum tópico (Empty State Global)
+                      // CASO 3: Sem tópicos na visualização atual (Pode ser Global ou de uma Matéria específica)
+                      const subjectName = hasSubjectSelected
+                        ? subjects.find(s => s.id === subjectFilter)?.name || 'esta matéria'
+                        : 'suas matérias';
+
                       return (
                         <>
                           <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
@@ -477,7 +491,9 @@ const Topics = () => {
                             Adicione Seus Tópicos
                           </h3>
                           <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-                            Você já tem matérias, mas ainda não criou tópicos. Vá para a tela de matérias para adicionar conteúdo.
+                            {hasSubjectSelected
+                              ? `Você ainda não criou tópicos para ${subjectName}. Vá para a tela de matérias e adicione conteúdo.`
+                              : 'Você já tem matérias, mas ainda não criou tópicos. Vá para a tela de matérias para adicionar conteúdo.'}
                           </p>
                           <Button onClick={() => navigate('/materias')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">
                             Ir para Matérias

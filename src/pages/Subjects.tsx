@@ -1005,7 +1005,7 @@ const Subjects = () => {
                 className="h-10 px-4 bg-primary text-white text-[10px] font-bold rounded-xl hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
               >
                 {isAddingSubject ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                <span className="hidden lg:inline">{isImportEditalModalOpen ? "SALVAR MATÉRIA" : "+ NOVA MATÉRIA"}</span>
+                <span className="hidden lg:inline">{isImportEditalModalOpen ? "SALVAR MATÉRIA" : "NOVA MATÉRIA"}</span>
               </button>
             </div>
           </div>
@@ -1180,11 +1180,11 @@ const Subjects = () => {
                                 </div>
                               )}
 
-                              <div className="w-8 h-6 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
-                                <span className="text-[10px] font-bold text-primary">#{position}</span>
+                              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
+                                <span className="text-[10px] sm:text-[11px] font-black text-primary">#{position}</span>
                               </div>
 
-                              <div className="flex flex-col">
+                              <div className="flex flex-col min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   {isEditing ? (
                                     <div className="flex items-center gap-3 w-full" onClick={e => e.stopPropagation()}>
@@ -1232,6 +1232,10 @@ const Subjects = () => {
                                   {calculatedStatus === 'Concluída' && (
                                     <span className="px-1.5 py-0.5 bg-green-500/10 text-green-500 text-[8px] font-black rounded-md border border-green-500/20">CONCLUÍDO</span>
                                   )}
+                                  <span className="flex items-center gap-1.5 text-[9px] sm:text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                                    {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
+                                  </span>
                                 </div>
                               </div>
                             </div>
