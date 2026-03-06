@@ -102,8 +102,13 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                     <span className="text-4xl">📚</span>
                                 </div>
                                 <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Comece sua jornada de revisões!</h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-                                    Adicione suas matérias e tópicos — o sistema agenda automaticamente suas revisões usando a técnica de repetição espaçada.
+                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed flex flex-col gap-2">
+                                    Para ativar as revisões, siga a sequência:
+                                    <span className="text-left bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm mt-2">
+                                        <b className="text-indigo-600 dark:text-indigo-400">1.</b> Cadastre matérias e tópicos.<br />
+                                        <b className="text-indigo-600 dark:text-indigo-400">2.</b> Inicie o estudo de um tópico na página Ciclo de Estudos.<br />
+                                        <b className="text-indigo-600 dark:text-indigo-400">3.</b> Suas revisões aparecerão agendadas aqui!
+                                    </span>
                                 </p>
                                 <button
                                     onClick={() => navigate('/materias')}
@@ -112,8 +117,25 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                     Adicionar Matérias
                                 </button>
                             </>
+                        ) : stats.startedTopicsCount === 0 ? (
+                            /* Caso 2: Tem tópicos mas nunca iniciou nenhum estudo */
+                            <>
+                                <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                                    <Sparkles size={32} className="text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Tudo pronto para começar!</h3>
+                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                                    Você já tem matérias cadastradas. Agora, vá para o <b className="text-indigo-600 dark:text-indigo-400">Ciclo de Estudos</b> e inicie a primeira sessão de estudo de um tópico. Assim que registrar o tempo lá, as revisões automáticas aparecerão aqui.
+                                </p>
+                                <button
+                                    onClick={() => navigate('/ciclo-estudos')}
+                                    className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                                >
+                                    Ir para o Ciclo de Estudos
+                                </button>
+                            </>
                         ) : (
-                            /* Caso 2: Usuário zerou as revisões de hoje e atrasadas */
+                            /* Caso 3: Usuário zerou as revisões de hoje e atrasadas */
                             <>
                                 <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50 dark:ring-emerald-900/10">
                                     <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400" />
@@ -165,7 +187,9 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                         </div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Sem revisões futuras</h3>
                         <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-                            Não há revisões agendadas para os próximos dias.
+                            {stats.startedTopicsCount === 0
+                                ? "Você ainda não tem tópicos em estudo ativo. Inicie um tópico no Ciclo de Estudos para que suas futuras revisões comecem a ser agendadas."
+                                : "Não há revisões agendadas para os próximos dias."}
                         </p>
 
                         {(stats.totalTopics - stats.startedTopicsCount > 0) && (
@@ -180,10 +204,10 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                     <div className="text-left">
                                         <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-1">Explore novos conteúdos</p>
                                         <p className="text-xs text-indigo-700 dark:text-indigo-400/90 mb-3 leading-relaxed">
-                                            Existem <span className="font-bold bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded text-indigo-800 dark:text-indigo-200">{stats.totalTopics - stats.startedTopicsCount} tópicos</span> aguardando início. Ótima oportunidade para avançar.
+                                            Existem <span className="font-bold bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded text-indigo-800 dark:text-indigo-200">{stats.totalTopics - stats.startedTopicsCount} tópicos</span> aguardando início. Vá para o Ciclo de Estudos para testar seus conhecimentos e começar a jornada!
                                         </p>
                                         <div className="flex items-center text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">
-                                            Ver Matérias <ChevronRight size={14} className="ml-0.5" />
+                                            Ir para o Ciclo <ChevronRight size={14} className="ml-0.5" />
                                         </div>
                                     </div>
                                 </div>
@@ -200,7 +224,9 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                         </div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Construindo sua jornada</h3>
                         <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-                            Você tem <span className="font-bold text-slate-700 dark:text-slate-300">{stats.startedTopicsCount} tópicos</span> em fase de estudos. <br /> Continue revisando com consistência para vê-los aqui em breve.
+                            {stats.startedTopicsCount === 0
+                                ? "Inicie os estudos no Ciclo de Estudos. Suas matérias concluídas aparecerão aqui no futuro."
+                                : <>Você tem <span className="font-bold text-slate-700 dark:text-slate-300">{stats.startedTopicsCount} tópicos</span> em fase de estudos. <br /> Continue revisando com consistência para vê-los aqui em breve.</>}
                         </p>
                     </>
                 )}
@@ -214,8 +240,11 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                     <span className="text-4xl">📋</span>
                                 </div>
                                 <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Central de Revisões</h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
-                                    Aqui você terá a visão completa de todos os seus tópicos organizados por status de revisão.
+                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed flex flex-col gap-2">
+                                    Aqui você terá a visão completa de todos os seus tópicos.
+                                    <span className="text-left bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm mt-2">
+                                        <b className="text-indigo-600 dark:text-indigo-400">Dica:</b> Vá em <b>Matérias</b> para cadastrar. Depois vá ao <b>Ciclo de Estudos</b> para iniciar.
+                                    </span>
                                 </p>
 
                                 {/* Features */}

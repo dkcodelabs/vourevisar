@@ -155,21 +155,21 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                     <div className="flex gap-2 bg-zinc-900/50 p-1.5 rounded-2xl mb-8 w-fit mx-auto border border-white/5">
                         <button
                             onClick={() => setActiveTab('ready')}
-                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'ready' ? 'bg-emerald-500 text-white shadow-sm' : 'text-content-muted hover:text-emerald-500 hover:bg-emerald-500/10'}`}
+                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'ready' ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-primary hover:bg-primary/10'}`}
                         >
                             <FileText size={14} />
                             Editais Prontos
                         </button>
                         <button
                             onClick={() => setActiveTab('ia')}
-                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'ia' ? 'bg-emerald-500 text-white shadow-sm' : 'text-content-muted hover:text-emerald-500 hover:bg-emerald-500/10'}`}
+                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'ia' ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-primary hover:bg-primary/10'}`}
                         >
                             <Sparkles size={14} />
                             Importar com IA
                         </button>
                         <button
                             onClick={() => setActiveTab('manual')}
-                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'manual' ? 'bg-emerald-500 text-white shadow-sm' : 'text-content-muted hover:text-emerald-500 hover:bg-emerald-500/10'}`}
+                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'manual' ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-primary hover:bg-primary/10'}`}
                         >
                             <Plus size={14} />
                             Adicionar Manual
@@ -211,13 +211,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                                     <FileText size={22} />
                                                 </div>
                                                 <div>
-                                                    <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-base tracking-tight">{edital.organ} - {edital.position}</h4>
-                                                    <div className="flex items-center gap-3 mt-1.5">
-                                                        <span className="text-[10px] font-black text-secondary uppercase tracking-widest bg-secondary/10 px-2 py-0.5 rounded-md">{edital.status} {edital.year}</span>
+                                                    <div className="flex items-center gap-3">
+                                                        <h4 className="font-bold text-content-main text-base tracking-tight">{edital.organ} - {edital.position}</h4>
                                                         <span className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-white/5">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
                                                             {edital.subjectsCount} matérias
                                                         </span>
+                                                    </div>
+                                                    <div className="mt-1.5">
+                                                        <span className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em]">{edital.status} {edital.year}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -225,7 +227,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                                 onClick={() => {
                                                     onImport([{ id: edital.id.toString(), name: edital.organ, status: 'Nova', topics: [] }]);
                                                 }}
-                                                className="px-6 py-2.5 bg-zinc-100 text-zinc-900 dark:bg-white dark:text-black text-[11px] font-bold rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm shrink-0"
+                                                className="px-6 py-2.5 bg-zinc-100 text-zinc-900 dark:bg-emerald-500 dark:text-white text-[11px] font-bold rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm shrink-0"
                                             >
                                                 Importar Edital
                                             </button>
@@ -386,7 +388,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                     <div className="pt-6">
                                         <button
                                             onClick={handleSaveAiResult}
-                                            className="w-full sm:w-auto px-10 bg-primary hover:bg-primary/90 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm mx-auto"
+                                            className="w-full sm:w-auto px-10 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm mx-auto"
                                         >
                                             <Save size={18} />
                                             Salvar e Importar
@@ -427,7 +429,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
 
                                 <div className="p-8 rounded-[40px] space-y-6 bg-zinc-800/30">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Tópicos</label>
+                                        <div className="flex items-center gap-3">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Tópicos</label>
+                                            <span className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-white/5">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
+                                                {manualTopics.filter(t => t.trim() !== '').length} tópicos
+                                            </span>
+                                        </div>
                                         <button
                                             onClick={() => setManualTopics([...manualTopics, ''])}
                                             className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest hover:opacity-80 transition-all"

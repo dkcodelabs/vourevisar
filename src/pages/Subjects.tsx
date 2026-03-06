@@ -193,6 +193,10 @@ const Subjects = () => {
     if (user) {
       localStorage.removeItem(`subjects_${user.id} `);
       await loadSubjects();
+
+      // Comunica com o AppContext para forçar recarregamento global 
+      // e evitar que as outras páginas fiquem com cache sujo (0 tópicos em Topics.tsx)
+      window.dispatchEvent(new CustomEvent('subjectUpdated'));
     }
   };
 
@@ -1002,7 +1006,7 @@ const Subjects = () => {
                     setIsImportEditalModalOpen(true);
                   }
                 }}
-                className="h-10 px-4 bg-primary text-white text-[10px] font-bold rounded-xl hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
+                className="h-10 px-4 bg-emerald-500 text-white text-[10px] font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
               >
                 {isAddingSubject ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                 <span className="hidden lg:inline">{isImportEditalModalOpen ? "SALVAR MATÉRIA" : "NOVA MATÉRIA"}</span>
@@ -1185,8 +1189,8 @@ const Subjects = () => {
                               </div>
 
                               <div className="flex flex-col min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  {isEditing ? (
+                                {isEditing ? (
+                                  <div className="flex flex-wrap items-center gap-2">
                                     <div className="flex items-center gap-3 w-full" onClick={e => e.stopPropagation()}>
                                       <div className="flex items-center gap-2 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
                                         <Input
@@ -1207,36 +1211,37 @@ const Subjects = () => {
                                         </Button>
                                       </div>
                                     </div>
-                                  ) : (
-                                    <div className="flex flex-col">
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-start gap-1">
+                                    <div className="flex flex-wrap items-center gap-2">
                                       <h4
-                                        className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase truncate max-w-[200px] sm:max-w-xs hover:text-primary"
+                                        className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase truncate max-w-[200px] sm:max-w-xs hover:text-primary cursor-pointer"
                                         onClick={(e) => { e.stopPropagation(); handleStartEdit(subject); }}
                                       >{subject.name}</h4>
-                                      {/* Temporary logic to display origin from local storage until backend support */}
-                                      {(() => {
-                                        const cachedOrigins = JSON.parse(localStorage.getItem('temp_origins') || '{}');
-                                        const source = (subject as any).source || cachedOrigins[subject.name];
-                                        return source ? (
-                                          <div className="mt-1">
-                                            <Badge variant="outline" className="text-[10px] text-content-muted border-primary/20 bg-primary/5">{source}</Badge>
-                                          </div>
-                                        ) : null;
-                                      })()}
+                                      {isView && (
+                                        <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[8px] font-black rounded-md border border-primary/20 cursor-help" title="Matéria Duplicada (Cópia da original no ciclo)">DUP</span>
+                                      )}
+                                      {calculatedStatus === 'Concluída' && (
+                                        <span className="px-1.5 py-0.5 bg-green-500/10 text-green-500 text-[8px] font-black rounded-md border border-green-500/20">CONCLUÍDO</span>
+                                      )}
+                                      <span className="flex items-center gap-1.5 text-[9px] sm:text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                                        {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
+                                      </span>
                                     </div>
-                                  )}
-
-                                  {isView && (
-                                    <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[8px] font-black rounded-md border border-primary/20 cursor-help" title="Matéria Duplicada (Cópia da original no ciclo)">DUP</span>
-                                  )}
-                                  {calculatedStatus === 'Concluída' && (
-                                    <span className="px-1.5 py-0.5 bg-green-500/10 text-green-500 text-[8px] font-black rounded-md border border-green-500/20">CONCLUÍDO</span>
-                                  )}
-                                  <span className="flex items-center gap-1.5 text-[9px] sm:text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
-                                    {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
-                                  </span>
-                                </div>
+                                    {/* Temporary logic to display origin from local storage until backend support */}
+                                    {(() => {
+                                      const cachedOrigins = JSON.parse(localStorage.getItem('temp_origins') || '{}');
+                                      const source = (subject as any).source || cachedOrigins[subject.name];
+                                      return source ? (
+                                        <div>
+                                          <Badge variant="outline" className="text-[10px] text-content-muted border-primary/20 bg-primary/5">{source}</Badge>
+                                        </div>
+                                      ) : null;
+                                    })()}
+                                  </div>
+                                )}
                               </div>
                             </div>
 

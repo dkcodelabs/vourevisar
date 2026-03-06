@@ -59,7 +59,7 @@ const Topics = () => {
 
     // Aplicar filtro por disciplina
     if (subjectFilter !== 'all') {
-      filtered = filtered.filter(topic => topic.subjectId === subjectFilter);
+      filtered = filtered.filter(topic => String(topic.subjectId) === String(subjectFilter));
     }
 
     // Aplicar filtro de pesquisa (apenas pelo nome do tópico)
@@ -307,7 +307,7 @@ const Topics = () => {
                             <SelectContent className="z-50 bg-popover max-w-[calc(100vw-2rem)]">
                               <SelectItem value="all" className="text-xs">Todas as disciplinas</SelectItem>
                               {subjects.map((s) => (
-                                <SelectItem key={s.id} value={s.id} className="text-xs whitespace-normal break-words">{s.name}</SelectItem>
+                                <SelectItem key={s.id} value={String(s.id)} className="text-xs whitespace-normal break-words">{s.name}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -425,7 +425,7 @@ const Topics = () => {
 
                       // Conta se a matéria atual selecionada tem pelo menos 1 tópico
                       const currentSubjectHasTopics = hasSubjectSelected
-                        ? allTopics.some(t => t.subjectId === subjectFilter)
+                        ? allTopics.some(t => String(t.subjectId) === String(subjectFilter))
                         : allTopics.length > 0;
 
                       // CASO 1: Nenhuma matéria cadastrada (Prioridade Máxima)
@@ -479,7 +479,7 @@ const Topics = () => {
 
                       // CASO 3: Sem tópicos na visualização atual (Pode ser Global ou de uma Matéria específica)
                       const subjectName = hasSubjectSelected
-                        ? subjects.find(s => s.id === subjectFilter)?.name || 'esta matéria'
+                        ? subjects.find(s => String(s.id) === String(subjectFilter))?.name || 'esta matéria'
                         : 'suas matérias';
 
                       return (
