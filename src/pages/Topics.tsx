@@ -21,6 +21,7 @@ import TopicListItem from '@/components/topics/TopicListItem';
 import { errorService } from '@/lib/errors/errorService';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
 
 const Topics = () => {
   const { user } = useAuth();
@@ -43,6 +44,8 @@ const Topics = () => {
     topicName: string;
     subjectName: string;
   }>({ isOpen: false, topicId: '', topicName: '', subjectName: '' });
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const allTopics = subjects.flatMap(subject =>
     subject.topics.map(topic => ({
@@ -278,10 +281,20 @@ const Topics = () => {
               {/* Header com Pesquisa e Filtros - Sticky at top of scroll container */}
               {allTopics.length > 0 && (
                 <div className="sticky top-0 z-20 px-4 md:px-8 pt-6 pb-6 mb-6 bg-transparent rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
-                  <div className="mb-4">
-                    <p className="text-xs text-muted-foreground mt-1">Visualize e gerencie todos os seus tópicos de estudo</p>
-                    <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">Meus Tópicos</h2>
+                      <p className="text-xs text-muted-foreground mt-1">Visualize e gerencie todos os seus tópicos de estudo</p>
+                    </div>
+                    <Button
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-sm flex items-center gap-2"
+                    >
+                      <Plus size={16} />
+                      Novo Tópico
+                    </Button>
                   </div>
+                  <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-300 to-transparent shadow-[0_1px_2px_rgba(0,0,0,0.05)] my-4"></div>
                   <div className="flex flex-col gap-3">
                     {/* Campo de Pesquisa e Filtros na mesma linha */}
                     <div className="flex flex-col lg:flex-row gap-3">
@@ -495,9 +508,15 @@ const Topics = () => {
                               ? `Você ainda não criou tópicos para ${subjectName}. Vá para a tela de matérias e adicione conteúdo.`
                               : 'Você já tem matérias, mas ainda não criou tópicos. Vá para a tela de matérias para adicionar conteúdo.'}
                           </p>
-                          <Button onClick={() => navigate('/materias')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">
-                            Ir para Matérias
-                          </Button>
+                          <div className="flex gap-3">
+                            <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold rounded-xl shadow-md">
+                              <Plus className="h-5 w-5 mr-2" />
+                              Novo Tópico
+                            </Button>
+                            <Button variant="outline" onClick={() => navigate('/materias')} className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-bold rounded-xl shadow-sm">
+                              Ir para Matérias
+                            </Button>
+                          </div>
                         </>
                       );
                     })()}
@@ -575,11 +594,19 @@ const Topics = () => {
                 subjectName={notesModal.subjectName}
                 showSubjectNotes={false}
               />
+
+              <CreateTopicModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onTopicCreated={() => {
+                  // Pode-se implementar algum scroll ou feedback visual automático aqui se desejado
+                }}
+              />
             </div>
           </main>
         </div>
-      </div>
-    </TooltipProvider>
+      </div >
+    </TooltipProvider >
   );
 };
 

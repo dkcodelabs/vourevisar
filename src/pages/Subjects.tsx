@@ -24,6 +24,7 @@ import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { SmartMergeModal } from '@/components/subjects/SmartMergeModal';
 import { MergeModal } from '@/components/subjects/MergeModal';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
+import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
 import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
@@ -98,6 +99,7 @@ const Subjects = () => {
   const [isSmartMergeModalOpen, setIsSmartMergeModalOpen] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isImportEditalModalOpen, setIsImportEditalModalOpen] = useState(false);
+  const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState<'ready' | 'ia' | 'manual'>('ready');
 
   const handleSuggestMerges = () => {
@@ -517,7 +519,6 @@ const Subjects = () => {
         // Usaremos o notes em JSON temporariamente ou simplesmente não salvar no BD se a coluna não existir.
         // Já que a instrução diz que o backend será feito pelo usuário depois, não passarei pro backend para evitar crash.
       });
-
       // Como o DB ainda não suporta a coluna de Origem, injetamos ela localmente no cache/localSubjects para aparecer no UI agora.
       const tempId = Date.now().toString(); // Fallback id if the refresh is too slow or we need optimistic UI (refreshData will override anyway, but we will keep origin in local storage)
       const cachedOrigins = JSON.parse(localStorage.getItem('temp_origins') || '{}');
@@ -997,6 +998,7 @@ const Subjects = () => {
                 </>
               )}
 
+
               <button
                 onClick={() => {
                   if (isImportEditalModalOpen) {
@@ -1225,8 +1227,8 @@ const Subjects = () => {
                                       {calculatedStatus === 'Concluída' && (
                                         <span className="px-1.5 py-0.5 bg-green-500/10 text-green-500 text-[8px] font-black rounded-md border border-green-500/20">CONCLUÍDO</span>
                                       )}
-                                      <span className="flex items-center gap-1.5 text-[9px] sm:text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                                      <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-2 py-0.5 rounded-md border border-black/5 dark:border-white/5">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
                                         {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                       </span>
                                     </div>
@@ -1445,6 +1447,12 @@ const Subjects = () => {
 
         {/* Modals positioned within the layout */}
         <div className="relative z-50">
+          <CreateTopicModal
+            isOpen={isCreateTopicModalOpen}
+            onClose={() => setIsCreateTopicModalOpen(false)}
+            onTopicCreated={() => refreshData()}
+          />
+
           {topicsModal.subject && (
             <TopicsModal
               isOpen={topicsModal.isOpen}

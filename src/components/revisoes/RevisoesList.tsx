@@ -28,6 +28,7 @@ interface RevisoesListProps {
         overdue: number;
         future: number;
         totalTopics: number;
+        totalSubjects: number;
         startedTopicsCount: number;
     };
     activeTimer: any;
@@ -102,23 +103,22 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                     <span className="text-4xl">📚</span>
                                 </div>
                                 <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">
-                                    {(stats as any).totalSubjects === 0
+                                    {stats.totalSubjects === 0
                                         ? "Comece sua jornada de revisões!"
                                         : "Quase lá! Faltam os Tópicos"}
                                 </h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed flex flex-col gap-2">
-                                    Para ativar as revisões, siga a sequência:
-                                    <span className="text-left bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm mt-2">
-                                        <b className="text-indigo-600 dark:text-indigo-400">1.</b> Cadastre matérias e tópicos.<br />
-                                        <b className="text-indigo-600 dark:text-indigo-400">2.</b> Inicie o estudo de um tópico na página Ciclo de Estudos.<br />
-                                        <b className="text-indigo-600 dark:text-indigo-400">3.</b> Suas revisões aparecerão agendadas aqui!
-                                    </span>
+                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                                    {stats.totalSubjects === 0 ? (
+                                        "Cadastre matéria, tópico e inicie o estudo de um tópico na página Ciclo de Estudos."
+                                    ) : (
+                                        "Cadastre tópico e vá para a página Ciclo de Estudos para iniciar estudo e posteriormente as revisões aparecerem."
+                                    )}
                                 </p>
                                 <button
-                                    onClick={() => navigate((stats as any).totalSubjects === 0 ? '/materias' : '/topicos')}
+                                    onClick={() => navigate('/materias')}
                                     className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                                 >
-                                    {(stats as any).totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}
+                                    {stats.totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}
                                 </button>
                             </>
                         ) : stats.startedTopicsCount === 0 ? (
@@ -129,7 +129,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 </div>
                                 <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Tudo pronto para começar!</h3>
                                 <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-                                    Você já tem matérias cadastradas. Agora, vá para o <b className="text-indigo-600 dark:text-indigo-400">Ciclo de Estudos</b> e inicie a primeira sessão de estudo de um tópico. Assim que registrar o tempo lá, as revisões automáticas aparecerão aqui.
+                                    Você tem matérias e tópicos cadastrados. Inicie o estudo na página Ciclo de Estudos.
                                 </p>
                                 <button
                                     onClick={() => navigate('/ciclo-estudos')}
@@ -244,11 +244,12 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                     <span className="text-4xl">📋</span>
                                 </div>
                                 <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Central de Revisões</h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed flex flex-col gap-2">
-                                    Aqui você terá a visão completa de todos os seus tópicos.
-                                    <span className="text-left bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm mt-2">
-                                        <b className="text-indigo-600 dark:text-indigo-400">Dica:</b> Vá em <b>Matérias</b> para cadastrar. Depois vá ao <b>Ciclo de Estudos</b> para iniciar.
-                                    </span>
+                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                                    {stats.totalSubjects === 0 ? (
+                                        "Cadastre matéria, tópico e inicie o estudo de um tópico na página Ciclo de Estudos."
+                                    ) : (
+                                        "Cadastre tópico e vá para a página Ciclo de Estudos para iniciar estudo e posteriormente as revisões aparecerem."
+                                    )}
                                 </p>
 
                                 {/* Features */}
@@ -268,10 +269,10 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 </div>
 
                                 <button
-                                    onClick={() => navigate((stats as any).totalSubjects === 0 ? '/materias' : '/topicos')}
+                                    onClick={() => navigate('/materias')}
                                     className="px-6 py-3 bg-gradient-to-r from-slate-700 to-indigo-600 hover:from-slate-800 hover:to-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                                 >
-                                    {(stats as any).totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}
+                                    {stats.totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}
                                 </button>
                             </>
                         ) : (
