@@ -241,6 +241,7 @@ export const Revisoes = () => {
   const stats = useMemo(() => {
     const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics, ...consolidatedTopics];
     const totalTopics = allTopics.length;
+    const totalSubjects = subjects.length; // Added
     const totalScheduledReviews = totalTopics * maxReviews;
     const startedTopicsCount = allTopics.filter(t => (t.review_count >= 1 || t.first_studied_at)).length;
     const completedReviews = allTopics.reduce((sum, t) => sum + Math.min(t.review_count || 0, maxReviews), 0);
@@ -252,8 +253,9 @@ export const Revisoes = () => {
       overdue: delayedTopics.length,
       future: futureTopics.length,
       completedTopicsCount: consolidatedTopics.length,
-      focusCount: focusTopics.length, // Added
+      focusCount: focusTopics.length,
       totalTopics,
+      totalSubjects, // Added
       totalScheduledReviews,
       startedTopicsCount,
       completedReviews,
@@ -261,7 +263,7 @@ export const Revisoes = () => {
       notStartedReviews,
       suggestedDailyReviews
     };
-  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, maxReviews, suggestedDailyReviews]);
+  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, maxReviews, suggestedDailyReviews, subjects]);
 
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: RevisionItem[] } = {};

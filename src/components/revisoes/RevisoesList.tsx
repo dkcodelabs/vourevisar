@@ -101,7 +101,11 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
                                     <span className="text-4xl">📚</span>
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Comece sua jornada de revisões!</h3>
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">
+                                    {(stats as any).totalSubjects === 0
+                                        ? "Comece sua jornada de revisões!"
+                                        : "Quase lá! Faltam os Tópicos"}
+                                </h3>
                                 <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed flex flex-col gap-2">
                                     Para ativar as revisões, siga a sequência:
                                     <span className="text-left bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm mt-2">
@@ -111,10 +115,10 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                     </span>
                                 </p>
                                 <button
-                                    onClick={() => navigate('/materias')}
+                                    onClick={() => navigate((stats as any).totalSubjects === 0 ? '/materias' : '/topicos')}
                                     className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                                 >
-                                    Adicionar Matérias
+                                    {(stats as any).totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}
                                 </button>
                             </>
                         ) : stats.startedTopicsCount === 0 ? (
@@ -264,10 +268,10 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 </div>
 
                                 <button
-                                    onClick={() => navigate('/materias')}
+                                    onClick={() => navigate((stats as any).totalSubjects === 0 ? '/materias' : '/topicos')}
                                     className="px-6 py-3 bg-gradient-to-r from-slate-700 to-indigo-600 hover:from-slate-800 hover:to-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                                 >
-                                    Adicionar Matérias
+                                    {(stats as any).totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}
                                 </button>
                             </>
                         ) : (
