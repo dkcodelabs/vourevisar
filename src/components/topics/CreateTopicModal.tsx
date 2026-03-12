@@ -116,71 +116,71 @@ export const CreateTopicModal: React.FC<CreateTopicModalProps> = ({ isOpen, onCl
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="sm:max-w-[450px] p-0 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden bg-white dark:bg-slate-900">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
-
+            <DialogContent className="sm:max-w-[500px] p-0 border border-black/10 dark:border-white/10 shadow-2xl overflow-hidden bg-white dark:bg-zinc-900">
                 <DialogHeader className="px-6 pt-6 pb-2">
-                    <DialogTitle className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                            <Plus className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <DialogTitle className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                            <Plus className="h-4 w-4 text-zinc-900 dark:text-zinc-100" />
                         </div>
                         Adicionar Tópicos
                     </DialogTitle>
-                    <DialogDescription className="text-slate-500 dark:text-slate-400">
+                    <DialogDescription className="text-zinc-500 dark:text-zinc-400 font-medium">
                         Adicione múltiplos tópicos rapidamente. A matéria permanece selecionada.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="px-6 py-4 space-y-5">
-                    {/* Concurso / Origem */}
-                    <div className="space-y-2">
-                        <Label htmlFor="concursoInput" className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <Book className="w-4 h-4 text-slate-400" /> Concurso / Origem
-                        </Label>
-                        <Input
-                            id="concursoInput"
-                            placeholder="Ex: Polícia Federal, Receita Federal..."
-                            value={concurso}
-                            onChange={(e) => setConcurso(e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 h-11"
-                            autoComplete="off"
-                        />
-                    </div>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        {/* Matéria */}
+                        <div className="flex-1 space-y-2">
+                            <Label htmlFor="subjectSelect" className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                <Book className="w-4 h-4 text-zinc-400" /> Matéria
+                            </Label>
+                            <Select
+                                value={selectedSubjectId}
+                                onValueChange={setSelectedSubjectId}
+                                disabled={subjects.length === 0}
+                            >
+                                <SelectTrigger id="subjectSelect" className="bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-white/10 h-11 focus:ring-primary">
+                                    <SelectValue placeholder={subjects.length === 0 ? "Nenhuma matéria cadastrada" : "Selecione a matéria"} />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[250px] z-[100] bg-white dark:bg-zinc-900 border-black/10 dark:border-white/10">
+                                    {subjects.map((subject) => (
+                                        <SelectItem key={subject.id} value={subject.id} className="cursor-pointer focus:bg-zinc-100 dark:focus:bg-zinc-800">
+                                            {subject.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                    {/* Matéria */}
-                    <div className="space-y-2">
-                        <Label htmlFor="subjectSelect" className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <Book className="w-4 h-4 text-slate-400" /> Matéria
-                        </Label>
-                        <Select
-                            value={selectedSubjectId}
-                            onValueChange={setSelectedSubjectId}
-                            disabled={subjects.length === 0}
-                        >
-                            <SelectTrigger id="subjectSelect" className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 h-11">
-                                <SelectValue placeholder={subjects.length === 0 ? "Nenhuma matéria cadastrada" : "Selecione a matéria"} />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[250px] z-[100]">
-                                {subjects.map((subject) => (
-                                    <SelectItem key={subject.id} value={subject.id} className="cursor-pointer">
-                                        {subject.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {/* Concurso / Origem */}
+                        <div className="flex-1 space-y-2">
+                            <Label htmlFor="concursoInput" className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                <Book className="w-4 h-4 text-zinc-400" /> Concurso / Origem
+                            </Label>
+                            <Input
+                                id="concursoInput"
+                                placeholder="Ex: PF, RFB..."
+                                value={concurso}
+                                onChange={(e) => setConcurso(e.target.value)}
+                                className="bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-white/10 h-11 focus:border-primary/50"
+                                autoComplete="off"
+                            />
+                        </div>
                     </div>
 
                     {/* Nome do Tópico */}
                     <div className="space-y-2">
-                        <Label htmlFor="topicName" className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <Bookmark className="w-4 h-4 text-slate-400" /> Nome do Tópico
+                        <Label htmlFor="topicName" className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                            <Bookmark className="w-4 h-4 text-zinc-400" /> Nome do Tópico
                         </Label>
                         <Input
                             id="topicName"
                             placeholder="Ex: Licitações (Lei 14.133), Direitos Individuais..."
                             value={topicName}
                             onChange={(e) => setTopicName(e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 h-11"
+                            className="bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-white/10 h-11 focus:border-primary/50 text-zinc-900 dark:text-zinc-100"
                             autoComplete="off"
                             autoFocus
                         />

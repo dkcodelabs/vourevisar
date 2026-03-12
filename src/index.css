@@ -557,9 +557,9 @@ video {
   @apply bg-app-blue/20 text-app-blue;
 }
 
-/* Focus */
+/* Focus - Estilo moderno e sutil */
 *:focus-visible {
-  @apply outline-none ring-2 ring-app-blue ring-offset-2;
+  @apply outline-none ring-0 border-primary/40 transition-all duration-300;
 }
 
 /* Loading States */

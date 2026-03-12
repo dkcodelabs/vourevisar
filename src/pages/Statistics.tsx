@@ -157,7 +157,7 @@ const Statistics = () => {
 
             {/* CTA Button */}
             <button
-              onClick={() => navigate('/materias')}
+              onClick={() => navigate('/meus-editais')}
               className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
             >
               Começar Agora

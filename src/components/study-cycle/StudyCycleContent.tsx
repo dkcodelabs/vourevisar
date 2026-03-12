@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
 import { SubjectStatus } from '@/types/study-cycle';
 import { useStudyCycleData } from '@/hooks/useStudyCycleData';
@@ -47,7 +48,7 @@ const CompletionMessage: React.FC<{ onStartNewCycle: () => void }> = ({ onStartN
 };
 
 export const StudyCycleContent: React.FC = () => {
-  // Removido hook de visibilidade problemático
+  const navigate = useNavigate();
 
   // Use the new hook for real database data
   const {
@@ -454,7 +455,23 @@ export const StudyCycleContent: React.FC = () => {
 
 
   const renderSection = (status: SubjectStatus) => {
-    const sectionSubjects = groupedSubjects[status] || [];
+    let sectionSubjects = groupedSubjects[status] || [];
+
+    // Filtragem de busca
+    if (searchQuery.trim()) {
+      const normalizeText = (text: string) =>
+        text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const normalizedQuery = normalizeText(searchQuery);
+
+      sectionSubjects = sectionSubjects.filter(subject => {
+        const matchesSubject = normalizeText(subject.name).includes(normalizedQuery);
+        const hasMatchingTopic = subject.topics?.some(topic =>
+          normalizeText(topic.name).includes(normalizedQuery)
+        );
+        return matchesSubject || hasMatchingTopic;
+      });
+    }
+
     const config = STATUS_CONFIG[status];
 
     if (!config || sectionSubjects.length === 0) return null;
@@ -547,7 +564,7 @@ export const StudyCycleContent: React.FC = () => {
               Cadastre suas matérias e tópicos para gerar seu primeiro ciclo automático.
             </p>
             <button
-              onClick={() => window.location.href = '/materias'}
+              onClick={() => navigate('/meus-editais')}
               className="px-8 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 flex items-center gap-2 text-sm"
             >
               <BookOpen className="h-4 w-4" />
@@ -588,12 +605,12 @@ export const StudyCycleContent: React.FC = () => {
 
                           const normalizedQuery = normalizeText(query);
                           const newExpanded = new Set<string>();
-
                           subjects.forEach(subject => {
+                            const matchesSubject = normalizeText(subject.name).includes(normalizedQuery);
                             const hasMatchingTopic = subject.topics?.some(topic =>
                               normalizeText(topic.name).includes(normalizedQuery)
                             );
-                            if (hasMatchingTopic) {
+                            if (matchesSubject || hasMatchingTopic) {
                               newExpanded.add(subject.id);
                             }
                           });

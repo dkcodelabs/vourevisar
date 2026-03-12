@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Search, FileText, Sparkles, Loader2, Undo2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, FileText, Sparkles, Loader2, Undo2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Subject } from '@/types';
+import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
+import { supabase } from '@/integrations/supabase/client';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface AiTopic {
     name: string;
@@ -19,14 +24,19 @@ interface AiSubject {
 interface ImportEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (data: Subject[]) => void;
+    onImport: (data: Subject[], editalName?: string) => void;
     subjects: Subject[];
     initialTab?: 'ready' | 'ia' | 'manual';
     manualModeChildren?: React.ReactNode;
 }
 
 export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initialTab = 'ready', manualModeChildren }: ImportEditalModalProps) => {
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'ready' | 'ia' | 'manual'>(initialTab);
+    const [showSuggestSlide, setShowSuggestSlide] = useState(false);
+    const [suggestConcurso, setSuggestConcurso] = useState('');
+    const [isSendingSuggestion, setIsSendingSuggestion] = useState(false);
+    const [suggestionSent, setSuggestionSent] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
     const [sourceName, setSourceName] = useState('');
@@ -34,6 +44,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
     // Manual States
     const [manualTitle, setManualTitle] = useState('');
     const [manualTopics, setManualTopics] = useState<string[]>(['']);
+    const [examDate, setExamDate] = useState('');
 
     // IA States
     const [inputText, setInputText] = useState('');
@@ -41,13 +52,32 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
     const [processingMsg, setProcessingMsg] = useState('Lendo edital...');
     const [aiResult, setAiResult] = useState<AiSubject[]>([]);
 
-    // Mock editais
-    const editais = [
-        { id: 1, organ: 'Polícia Civil ES', position: 'Investigador', status: 'PÓS-EDITAL', year: '2026', subjectsCount: 12, category: 'Carreiras Policiais' },
-        { id: 2, organ: 'INSS', position: 'Técnico do Seguro Social', status: 'PREVISTO', year: '2025', subjectsCount: 8, category: 'Outros' },
-        { id: 3, organ: 'Banco do Brasil', position: 'Escriturário', status: 'CONCLUÍDO', year: '2024', subjectsCount: 10, category: 'Bancárias' },
-        { id: 4, organ: 'Polícia Militar ES', position: 'Soldado', status: 'PÓS-EDITAL', year: '2026', subjectsCount: 10, category: 'Carreiras Policiais' },
-    ];
+    // State for dynamic editais from database
+    const [editais, setEditais] = useState<any[]>([]);
+    const [loadingEditais, setLoadingEditais] = useState(true);
+
+    useEffect(() => {
+        const fetchPublicEditais = async () => {
+            try {
+                const { data, error } = await (supabase as any)
+                    .from('public_editais')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (!error && data) {
+                    setEditais(data);
+                }
+            } catch (err) {
+                console.error('Error fetching global editais:', err);
+            } finally {
+                setLoadingEditais(false);
+            }
+        };
+
+        if (isOpen) {
+            fetchPublicEditais();
+        }
+    }, [isOpen]);
 
     const filteredEditais = editais.filter(e => {
         const matchesSearch = `${e.organ} ${e.position}`.toLowerCase().includes(searchQuery.toLowerCase());
@@ -63,8 +93,36 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
             setAiResult([]);
             setManualTitle('');
             setManualTopics(['']);
+            setExamDate('');
+            setShowSuggestSlide(false);
+            setSuggestionSent(false);
         }
     }, [initialTab, isOpen]);
+
+    const handleOpenSuggest = () => {
+        setSuggestConcurso(searchQuery.trim());
+        setSuggestionSent(false);
+        setShowSuggestSlide(true);
+    };
+
+    const handleSendSuggestion = async () => {
+        if (!suggestConcurso.trim()) return;
+        setIsSendingSuggestion(true);
+        try {
+            await (supabase as any)
+                .from('edital_suggestions')
+                .insert({
+                    user_id: user?.id,
+                    concurso: suggestConcurso.trim().toUpperCase(),
+                    status: 'pending'
+                });
+            setSuggestionSent(true);
+        } catch (err) {
+            console.error('Erro ao enviar sugestão:', err);
+        } finally {
+            setIsSendingSuggestion(false);
+        }
+    };
 
     const handleIaImport = () => {
         setIaStage('processing');
@@ -121,8 +179,34 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
             });
         });
 
-        onImport(newSubjects);
+        onImport(newSubjects, sourceName.trim() || 'Importado com IA');
         onClose();
+        setSourceName('');
+    };
+
+    const handleSaveManual = () => {
+        if (!manualTitle.trim()) {
+            toastGate.notifyError('Preencha o nome do edital/concurso', 'VAL-01', { severity: 'low' });
+            return;
+        }
+
+        const validSubjects = manualTopics.filter(t => t.trim() !== '');
+        if (validSubjects.length === 0) {
+            toastGate.notifyError('Adicione pelo menos uma matéria', 'VAL-02', { severity: 'low' });
+            return;
+        }
+
+        const newSubjects: Subject[] = validSubjects.map((name, idx) => ({
+            id: `manual-subj-${Date.now()}-${idx}`,
+            name: name.trim().toUpperCase(),
+            status: 'Nova',
+            topics: []
+        }));
+
+        onImport(newSubjects, manualTitle.trim());
+        onClose();
+        setManualTitle('');
+        setManualTopics(['']);
     };
 
     if (!isOpen) return null;
@@ -190,7 +274,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                     />
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    {['Todos', 'Carreiras Policiais', 'Tribunais', 'Bancárias'].map(cat => (
+                                    {['Todos', 'Carreiras Policiais', 'Tribunais', 'Bancárias', 'Administrativo', 'Educação'].map(cat => (
                                         <button
                                             key={cat}
                                             onClick={() => setSelectedCategory(cat)}
@@ -202,80 +286,130 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4">
-                                {filteredEditais.length > 0 ? (
-                                    filteredEditais.map(edital => (
-                                        <div key={edital.id} className="p-5 rounded-3xl flex items-center justify-between group hover:border-white/10 border border-transparent hover:bg-zinc-800/50 transition-all bg-zinc-800/20">
-                                            <div className="flex items-center gap-5">
-                                                <div className="w-12 h-12 bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400 border border-white/5 group-hover:text-primary group-hover:border-primary/20 group-hover:bg-primary/5 transition-colors">
-                                                    <FileText size={22} />
+                            {loadingEditais ? (
+                                <div className="py-20 flex flex-col items-center justify-center">
+                                    <LoadingSpinner size="medium" />
+                                    <p className="text-xs text-content-muted mt-4 font-bold uppercase tracking-widest animate-pulse">Carregando catálogo...</p>
+                                </div>
+                            ) : filteredEditais.length > 0 ? (
+                                <div className="flex flex-col gap-3">
+                                    {filteredEditais.map(edital => (
+                                        <motion.div 
+                                            key={edital.id} 
+                                            whileHover={{ scale: 1.01 }}
+                                            onClick={() => {
+                                                const importSubjects: Subject[] = edital.subjects.map((s: any, i: number) => ({
+                                                    id: `imp-${edital.id}-${i}-${Date.now()}`,
+                                                    name: s.name,
+                                                    status: 'Nova',
+                                                    topics: s.topics.map((tName: string, ti: number) => ({
+                                                        id: `imp-top-${edital.id}-${i}-${ti}-${Date.now()}`,
+                                                        name: tName,
+                                                        completed: false,
+                                                        reviewCount: 0,
+                                                        review_count: 0,
+                                                    }))
+                                                }));
+                                                onImport(importSubjects, `${edital.organ} - ${edital.position}`);
+                                                onClose();
+                                            }}
+                                            className="p-4 rounded-2xl group border border-white/5 bg-zinc-800/20 hover:bg-zinc-800/50 hover:border-primary/30 transition-all cursor-pointer relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4"
+                                        >
+                                            {/* Glow effect on hover */}
+                                            <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity blur-xl z-0" />
+                                            
+                                            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0 z-10 hidden sm:flex">
+                                                <FileText size={20} className="text-primary" />
+                                            </div>
+
+                                            <div className="flex-1 min-w-0 z-10 w-full border-b border-white/5 sm:border-b-0 pb-3 sm:pb-0">
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="font-bold text-content-main text-sm sm:text-base tracking-tight uppercase group-hover:text-primary transition-colors truncate">
+                                                        {edital.organ}
+                                                    </h4>
+                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border shrink-0 ${
+                                                        edital.status === 'PÓS-EDITAL' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                                                        edital.status === 'PREVISTO' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                                                        'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+                                                    }`}>
+                                                        {edital.status} {edital.year}
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <div className="flex items-center gap-3">
-                                                        <h4 className="font-bold text-content-main text-base tracking-tight">{edital.organ} - {edital.position}</h4>
-                                                        <span className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-white/5">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
-                                                            {edital.subjectsCount} matérias
+                                                <p className="text-xs text-content-muted font-medium mt-0.5 truncate">{edital.position}</p>
+                                            </div>
+
+                                            <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto z-10">
+                                                <div className="flex flex-wrap items-center gap-1.5 flex-1 sm:max-w-[240px] lg:max-w-[320px]">
+                                                    {edital.subjects.slice(0, 3).map((s: any, idx: number) => (
+                                                        <span key={idx} className="px-1.5 py-0.5 bg-zinc-900/50 text-[9px] font-bold rounded-md border border-white/5 text-zinc-400 truncate max-w-[100px] sm:max-w-none">
+                                                            {s.name}
                                                         </span>
-                                                    </div>
-                                                    <div className="mt-1.5">
-                                                        <span className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em]">{edital.status} {edital.year}</span>
-                                                    </div>
+                                                    ))}
+                                                    {edital.subjects.length > 3 && (
+                                                        <span className="text-[9px] font-bold text-primary/60">+{edital.subjects.length - 3} mats.</span>
+                                                    )}
+                                                </div>
+
+                                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-all scale-100 sm:scale-75 sm:group-hover:scale-100 shrink-0">
+                                                    <Plus size={16} />
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => {
-                                                    onImport([{ id: edital.id.toString(), name: edital.organ, status: 'Nova', topics: [] }]);
-                                                }}
-                                                className="px-6 py-2.5 bg-zinc-100 text-zinc-900 dark:bg-emerald-500 dark:text-white text-[11px] font-bold rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm shrink-0"
-                                            >
-                                                Importar Edital
-                                            </button>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="py-20 text-center">
-                                        <div className="w-20 h-20 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-6">
-                                            <Search className="text-content-muted" size={32} />
-                                        </div>
-                                        <p className="text-lg font-black text-content-main mb-2">Não encontramos esse edital pré-cadastrado.</p>
-                                        <p className="text-sm text-content-muted font-medium">Use a aba 'Importar com IA' para cadastrar o seu agora mesmo.</p>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="py-16 text-center">
+                                    <div className="w-20 h-20 bg-zinc-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <Search className="text-content-muted" size={32} />
                                     </div>
-                                )}
-                            </div>
+                                    <p className="text-lg font-black text-content-main mb-2 tracking-tight">SEM RESULTADOS</p>
+                                    {searchQuery.trim() ? (
+                                        <p className="text-sm text-content-muted font-medium mb-6">Não encontramos concursos para <span className="text-zinc-300 font-bold">&ldquo;{searchQuery}&rdquo;</span></p>
+                                    ) : (
+                                        <p className="text-sm text-content-muted font-medium mb-6">Ainda não há editais no catálogo. Seja o primeiro a sugerir!</p>
+                                    )}
+                                    <button
+                                        onClick={handleOpenSuggest}
+                                        className="inline-flex items-center gap-2 text-[11px] font-bold text-primary/80 hover:text-primary transition-colors uppercase tracking-widest bg-primary/10 hover:bg-primary/20 px-6 py-3 rounded-full"
+                                    >
+                                        <MessageSquare size={14} />
+                                        Sugerir Edital
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ) : activeTab === 'ia' ? (
                         <div className="space-y-8">
                             {iaStage === 'input' && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                                    <div className="grid grid-cols-1 gap-6">
-                                        <div className="p-8 rounded-[40px] space-y-4 bg-zinc-800/30">
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 max-w-3xl mx-auto">
+                                    <div className="space-y-4">
+                                        <div className="p-6 rounded-3xl space-y-3 bg-zinc-800/20 border border-white/5">
                                             <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Concurso / Origem</label>
                                             <input
                                                 type="text"
                                                 value={sourceName}
                                                 onChange={(e) => setSourceName(e.target.value)}
                                                 placeholder="Ex: PC-ES, Faculdade, TRT..."
-                                                className="w-full bg-zinc-900/50 border border-white/5 focus:border-primary/40 rounded-[24px] px-8 py-4 text-sm font-medium text-content-main outline-none transition-all"
+                                                className="w-full bg-[#111114] border border-white/5 focus:border-primary/40 rounded-2xl px-6 py-3.5 text-sm font-medium text-content-main outline-none transition-all shadow-inner"
                                             />
                                         </div>
-                                        <div className="p-8 rounded-[40px] space-y-4 bg-zinc-800/30">
+                                        <div className="p-6 rounded-3xl space-y-3 bg-zinc-800/20 border border-white/5">
                                             <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Conteúdo Programático</label>
                                             <textarea
                                                 value={inputText}
                                                 onChange={(e) => setInputText(e.target.value)}
                                                 placeholder="Cole aqui o texto do conteúdo programático do edital (Ctrl+V)..."
-                                                className="w-full h-80 bg-zinc-900/50 border border-white/5 focus:border-primary/40 rounded-[24px] p-8 text-sm font-medium text-content-main outline-none transition-all resize-none no-scrollbar"
+                                                className="w-full h-64 bg-[#111114] border border-white/5 focus:border-primary/40 rounded-2xl p-6 text-sm font-medium text-content-main outline-none transition-all resize-none no-scrollbar shadow-inner"
                                             />
                                         </div>
                                     </div>
-                                    <div className="pt-6">
+                                    <div className="pt-2">
                                         <button
                                             onClick={handleIaImport}
                                             disabled={!inputText.trim()}
-                                            className="w-full sm:w-auto px-8 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm mx-auto"
+                                            className="w-full sm:w-auto px-10 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-black py-4 rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-xs mx-auto uppercase tracking-widest"
                                         >
-                                            <Sparkles size={18} />
+                                            <Sparkles size={16} />
                                             Estruturar com IA
                                         </button>
                                     </div>
@@ -302,58 +436,48 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                         </button>
                                     </div>
 
-                                    <div className="space-y-4">
-                                        {aiResult.map((subject, sIdx) => (
-                                            <div key={subject.id} className="rounded-[32px] overflow-hidden border border-white/5 bg-zinc-800/20">
-                                                <div className="p-6 flex items-center justify-between bg-zinc-800/40">
+                                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 no-scrollbar">
+                                        {aiResult.map((subj, sIdx) => (
+                                            <div key={subj.id} className="p-5 rounded-3xl bg-zinc-800/10 border border-white/5">
+                                                <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-4">
                                                         <input
                                                             type="checkbox"
-                                                            checked={subject.selected}
+                                                            checked={subj.selected}
                                                             onChange={() => {
                                                                 const newResult = [...aiResult];
                                                                 newResult[sIdx].selected = !newResult[sIdx].selected;
                                                                 setAiResult(newResult);
                                                             }}
-                                                            className="w-5 h-5 rounded-lg border-white/10 text-primary focus:ring-primary bg-zinc-900"
+                                                            className="w-5 h-5 rounded-lg accent-primary"
                                                         />
-                                                        <div className="flex items-center gap-2">
-                                                            <input
-                                                                type="text"
-                                                                value={subject.title}
-                                                                onChange={(e) => {
-                                                                    const newResult = [...aiResult];
-                                                                    newResult[sIdx].title = e.target.value;
-                                                                    setAiResult(newResult);
-                                                                }}
-                                                                className="bg-transparent font-black text-base text-content-main focus:outline-none border-b border-transparent focus:border-primary/40 tracking-tight"
-                                                            />
-                                                            <Edit3 size={14} className="text-content-muted/50" />
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => {
+                                                        <input
+                                                            type="text"
+                                                            value={subj.title}
+                                                            onChange={(e) => {
                                                                 const newResult = [...aiResult];
-                                                                newResult[sIdx].expanded = !newResult[sIdx].expanded;
+                                                                newResult[sIdx].title = e.target.value;
                                                                 setAiResult(newResult);
                                                             }}
-                                                            className="p-2 text-content-muted hover:text-primary transition-colors"
-                                                        >
-                                                            {subject.expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setAiResult(aiResult.filter((_, i) => i !== sIdx))}
-                                                            className="p-2 text-content-muted hover:text-secondary transition-colors"
-                                                        >
-                                                            <Trash2 size={18} />
-                                                        </button>
+                                                            className="bg-transparent border-none font-bold text-content-main outline-none focus:text-primary transition-colors text-lg"
+                                                        />
                                                     </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const newResult = [...aiResult];
+                                                            newResult[sIdx].expanded = !newResult[sIdx].expanded;
+                                                            setAiResult(newResult);
+                                                        }}
+                                                        className="text-content-muted hover:text-primary transition-colors"
+                                                    >
+                                                        {subj.expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                                    </button>
                                                 </div>
-                                                {subject.selected && subject.expanded && (
-                                                    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-900/20">
-                                                        {subject.topics.map((topic, tIdx) => (
-                                                            <div key={tIdx} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 group transition-colors">
+
+                                                {subj.expanded && (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-8">
+                                                        {subj.topics.map((topic, tIdx) => (
+                                                            <div key={tIdx} className="flex items-center gap-2 p-2 px-3 rounded-xl hover:bg-zinc-800/30 transition-colors">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={topic.selected}
@@ -362,21 +486,18 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                                                         newResult[sIdx].topics[tIdx].selected = !newResult[sIdx].topics[tIdx].selected;
                                                                         setAiResult(newResult);
                                                                     }}
-                                                                    className="w-4 h-4 rounded border-white/10 text-primary focus:ring-primary bg-zinc-900"
+                                                                    className="w-4 h-4 rounded accent-primary/60"
                                                                 />
-                                                                <div className="flex items-center gap-2 flex-1">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={topic.name}
-                                                                        onChange={(e) => {
-                                                                            const newResult = [...aiResult];
-                                                                            newResult[sIdx].topics[tIdx].name = e.target.value;
-                                                                            setAiResult(newResult);
-                                                                        }}
-                                                                        className="flex-1 bg-transparent text-sm text-content-muted font-medium focus:text-content-main focus:outline-none border-b border-transparent focus:border-primary/40"
-                                                                    />
-                                                                    <Edit3 size={12} className="text-content-muted/30 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                                </div>
+                                                                <input
+                                                                    type="text"
+                                                                    value={topic.name}
+                                                                    onChange={(e) => {
+                                                                        const newResult = [...aiResult];
+                                                                        newResult[sIdx].topics[tIdx].name = e.target.value;
+                                                                        setAiResult(newResult);
+                                                                    }}
+                                                                    className="bg-transparent border-none text-sm text-content-main outline-none"
+                                                                />
                                                             </div>
                                                         ))}
                                                     </div>
@@ -385,127 +506,224 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                         ))}
                                     </div>
 
-                                    <div className="pt-6">
+                                    <div className="pt-6 border-t border-white/5 flex justify-center">
                                         <button
                                             onClick={handleSaveAiResult}
-                                            className="w-full sm:w-auto px-10 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm mx-auto"
+                                            className="px-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-3xl shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98]"
                                         >
-                                            <Save size={18} />
-                                            Salvar e Importar
+                                            IMPORTAR SELECIONADOS
                                         </button>
                                     </div>
                                 </motion.div>
                             )}
                         </div>
                     ) : (
-                        manualModeChildren ? (
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 w-full">
-                                {manualModeChildren}
-                            </motion.div>
-                        ) : (
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="p-8 rounded-[40px] space-y-4 bg-zinc-800/30">
-                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Nome da Matéria</label>
-                                        <input
-                                            type="text"
-                                            value={manualTitle}
-                                            onChange={(e) => setManualTitle(e.target.value)}
-                                            placeholder="Ex: Matemática, Direito Penal..."
-                                            className="w-full bg-zinc-900/50 border border-white/5 focus:border-primary/40 rounded-[24px] px-8 py-4 text-sm font-medium text-content-main outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="p-8 rounded-[40px] space-y-4 bg-zinc-800/30">
-                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Concurso / Origem</label>
-                                        <input
-                                            type="text"
-                                            value={sourceName}
-                                            onChange={(e) => setSourceName(e.target.value)}
-                                            placeholder="Ex: PC-ES, Faculdade, TRT..."
-                                            className="w-full bg-zinc-900/50 border border-white/5 focus:border-primary/40 rounded-[24px] px-8 py-4 text-sm font-medium text-content-main outline-none transition-all"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="p-8 rounded-[40px] space-y-6 bg-zinc-800/30">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Tópicos</label>
-                                            <span className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-white/5">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
-                                                {manualTopics.filter(t => t.trim() !== '').length} tópicos
-                                            </span>
-                                        </div>
-                                        <button
-                                            onClick={() => setManualTopics([...manualTopics, ''])}
-                                            className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest hover:opacity-80 transition-all"
-                                        >
-                                            <Plus size={14} />
-                                            ADICIONAR TÓPICO
-                                        </button>
-                                    </div>
-
-                                    <div className="space-y-3 max-h-[300px] overflow-y-auto no-scrollbar pr-2">
-                                        {manualTopics.map((topic, idx) => (
-                                            <div key={idx} className="flex gap-3">
-                                                <div className="flex-1 relative">
-                                                    <input
-                                                        type="text"
-                                                        value={topic}
-                                                        onChange={(e) => {
-                                                            const newTopics = [...manualTopics];
-                                                            newTopics[idx] = e.target.value;
-                                                            setManualTopics(newTopics);
-                                                        }}
-                                                        placeholder={`Tópico ${idx + 1}`}
-                                                        className="w-full bg-zinc-900/50 border border-white/5 focus:border-primary/40 rounded-[18px] px-6 py-3 text-xs font-medium text-content-main outline-none transition-all"
-                                                    />
-                                                </div>
-                                                <button
-                                                    onClick={() => setManualTopics(manualTopics.filter((_, i) => i !== idx))}
-                                                    className="w-12 h-12 flex items-center justify-center rounded-[18px] border border-rose-500/30 bg-rose-500/5 text-rose-500 hover:bg-rose-500/20 transition-all"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                        <div className="space-y-6 max-w-4xl mx-auto pt-2 pb-8">
+                            {/* Modern Bar Style for Adding Subjects */}
+                            <div className="glow-card p-4 rounded-2xl flex flex-col items-start gap-4 mb-4 relative z-20">
+                                <div className="flex flex-col sm:flex-row w-full gap-4 items-center justify-between">
+                                    <div className="flex-1 w-full flex flex-col sm:flex-row gap-2">
+                                        {/* Edital Name (Origin) Field */}
+                                        <div className="relative flex-1">
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-primary/60">
+                                                <Database size={14} />
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                            <input
+                                                type="text"
+                                                value={manualTitle}
+                                                onChange={(e) => setManualTitle(e.target.value)}
+                                                placeholder="Concurso / Origem (ex: PC-ES)"
+                                                className="w-full h-11 bg-[#111114] border border-black/5 dark:border-white/5 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/40 shadow-inner"
+                                            />
+                                        </div>
 
-                                <div className="pt-4">
+                                        {/* Subject Input Field */}
+                                        <div className="relative flex-[1.5]">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
+                                            <input
+                                                type="text"
+                                                value={manualTopics[manualTopics.length - 1] === '' && manualTopics.length > 1 ? '' : manualTopics[manualTopics.length - 1]}
+                                                onChange={(e) => {
+                                                    const newTopics = [...manualTopics];
+                                                    newTopics[newTopics.length - 1] = e.target.value;
+                                                    setManualTopics(newTopics);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && manualTopics[manualTopics.length - 1].trim()) {
+                                                        setManualTopics([...manualTopics, '']);
+                                                    }
+                                                }}
+                                                placeholder="Nome da matéria (Português, RLM...)"
+                                                className="w-full h-11 bg-[#111114] border border-black/5 dark:border-white/5 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/40 shadow-inner"
+                                            />
+                                        </div>
+                                    </div>
+
                                     <button
                                         onClick={() => {
-                                            if (!manualTitle.trim()) return;
-                                            const newSubject: Subject = {
-                                                id: `manual-subj-${Date.now()}`,
-                                                name: manualTitle,
-                                                status: 'Nova',
-                                                topics: manualTopics.filter(t => t.trim()).map((t, idx) => ({
-                                                    id: `manual-top-${Date.now()}-${idx}`,
-                                                    name: t,
-                                                    completed: false,
-                                                    reviewCount: 0,
-                                                    review_count: 0
-                                                }))
-                                            };
-                                            onImport([newSubject]);
-                                            onClose();
-                                            setManualTitle('');
-                                            setManualTopics(['']);
-                                            setSourceName('');
+                                            if (manualTopics[manualTopics.length - 1].trim()) {
+                                                setManualTopics([...manualTopics, '']);
+                                            }
                                         }}
-                                        disabled={!manualTitle.trim()}
-                                        className="w-full sm:w-auto px-10 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm ml-auto mr-auto"
+                                        disabled={!manualTopics[manualTopics.length - 1]?.trim()}
+                                        className="h-11 px-6 bg-emerald-500 text-white text-[10px] font-black rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-40 uppercase tracking-widest"
                                     >
-                                        <Save size={18} />
-                                        Salvar Matéria
+                                        <Plus size={14} />
+                                        ADICIONAR MATÉRIA
                                     </button>
                                 </div>
-                            </motion.div>
-                        )
+                            </div>
+
+                            {/* List of Added Subjects */}
+                            <div className="flex flex-wrap gap-2 min-h-[100px] p-6 rounded-3xl bg-black/20 border border-white/5 relative">
+                                {manualTopics.filter(t => t.trim() !== '').length === 0 ? (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center opacity-40 pointer-events-none">
+                                        <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-2">
+                                            <FileText size={20} className="text-content-muted" />
+                                        </div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-content-muted">Nenhuma matéria adicionada</p>
+                                    </div>
+                                ) : (
+                                    manualTopics.filter(t => t.trim() !== '').map((topic, index) => {
+                                        const realIndex = manualTopics.indexOf(topic);
+                                        return (
+                                            <motion.div
+                                                initial={{ scale: 0.9, opacity: 0 }}
+                                                animate={{ scale: 1, opacity: 1 }}
+                                                key={`${topic}-${index}`}
+                                                className="group flex items-center gap-2 pl-4 pr-2 py-2 bg-zinc-800 border border-white/10 rounded-xl transition-all hover:border-primary/40"
+                                            >
+                                                <span className="text-xs font-bold text-zinc-200">{topic}</span>
+                                                <button
+                                                    onClick={() => {
+                                                        const newTopics = manualTopics.filter((_, i) => i !== realIndex);
+                                                        setManualTopics(newTopics.length === 0 ? [''] : newTopics);
+                                                    }}
+                                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </motion.div>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            <div className="pt-8 flex flex-col items-center gap-4">
+                                <button
+                                    onClick={handleSaveManual}
+                                    disabled={!manualTitle.trim() || !manualTopics.some(t => t.trim())}
+                                    className="px-16 py-4 bg-primary text-white font-black rounded-[24px] shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3"
+                                >
+                                    <Save size={20} />
+                                    SALVAR EDITAL MANUAL
+                                </button>
+                                <p className="text-[10px] text-content-muted font-bold uppercase tracking-[0.2em]">O edital ficará salvo em &ldquo;Meus Editais&rdquo;</p>
+                            </div>
+                        </div>
                     )}
                 </div>
             </motion.div>
+
+            {/* ── Sugerir Edital Drawer ── */}
+            <AnimatePresence>
+                {showSuggestSlide && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowSuggestSlide(false)}
+                            className="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-[32px] z-10"
+                        />
+                        <motion.div
+                            initial={{ x: '100%', opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: '100%', opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            className="absolute inset-y-0 right-0 w-full max-w-sm bg-zinc-900 border-l border-white/10 rounded-r-[32px] flex flex-col z-20 shadow-2xl"
+                        >
+                            <div className="px-6 pt-7 pb-5 border-b border-white/5 flex items-center justify-between shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center">
+                                        <MessageSquare size={18} className="text-primary" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black text-zinc-100 tracking-tight">Sugerir Edital</h3>
+                                        <p className="text-[11px] text-content-muted mt-0.5">Vamos analisar e cadastrar em breve</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowSuggestSlide(false)}
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-100"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 flex flex-col justify-center px-6 pb-8">
+                                {suggestionSent ? (
+                                    <motion.div
+                                        initial={{ scale: 0.9, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        className="text-center py-8"
+                                    >
+                                        <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-5">
+                                            <CheckCircle2 className="text-emerald-400" size={32} />
+                                        </div>
+                                        <h4 className="text-base font-black text-zinc-100 mb-2">Sugestão Enviada!</h4>
+                                        <p className="text-sm text-content-muted mb-6 leading-relaxed">
+                                            Recebemos sua sugestão para <span className="text-zinc-300 font-bold">{suggestConcurso}</span>. Iremos analisar e te notificaremos quando disponível.
+                                        </p>
+                                        <button
+                                            onClick={() => setShowSuggestSlide(false)}
+                                            className="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold rounded-xl transition-all"
+                                        >
+                                            FECHAR
+                                        </button>
+                                    </motion.div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em]">
+                                                Nome do Concurso / Edital
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={suggestConcurso}
+                                                onChange={e => setSuggestConcurso(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && suggestConcurso.trim() && handleSendSuggestion()}
+                                                placeholder="Ex: PCES, PMES, INSS, TRT..."
+                                                autoFocus
+                                                className="w-full h-12 bg-zinc-950/80 border border-white/8 rounded-2xl px-5 text-sm font-medium text-content-main placeholder:text-content-muted/40 focus:outline-none focus:border-primary/40 transition-all"
+                                            />
+                                            <p className="text-[10px] text-content-muted pl-1">
+                                                Informe o nome ou sigla do concurso que deseja ter disponível no catálogo.
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            onClick={handleSendSuggestion}
+                                            disabled={!suggestConcurso.trim() || isSendingSuggestion}
+                                            className="w-full h-12 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                        >
+                                            {isSendingSuggestion ? (
+                                                <Loader2 size={16} className="animate-spin" />
+                                            ) : (
+                                                <>
+                                                    <Send size={15} />
+                                                    ENVIAR SUGESTÃO
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
+

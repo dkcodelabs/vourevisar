@@ -199,3 +199,13 @@ export const loadUserCycle = async (userId: string) => {
   console.log('📋 Ciclo carregado:', cycleData);
   return cycleData;
 };
+
+export const cleanCycle = (
+  currentCycle: string[],
+  allSubjects: any[]
+): string[] => {
+  const allExistantSubjectIds = allSubjects.map(s => s.id);
+  
+  // Agora remove APENAS matérias que foram deletadas do banco de dados
+  return currentCycle.filter(id => allExistantSubjectIds.includes(id));
+};

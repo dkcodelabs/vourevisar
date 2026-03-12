@@ -65,80 +65,7 @@ function getDateGroup(dateStr: string): 'hoje' | 'ontem' | 'anterior' {
   return 'anterior';
 }
 
-const MOCK_NOTIFICATIONS: UserNotification[] = [
-  {
-    id: 'mock-1',
-    user_id: '123',
-    type: 'estudo',
-    title: 'Revisão vence hoje',
-    message: 'Direito Civil expira em 2h',
-    category: 'estudo',
-    read: false,
-    action_url: null,
-    data: null,
-    created_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
-  },
-  {
-    id: 'mock-2',
-    user_id: '123',
-    type: 'progresso',
-    title: 'Meta Semanal',
-    message: '80% da meta atingida!',
-    category: 'estudo',
-    read: false,
-    action_url: null,
-    data: null,
-    created_at: new Date(Date.now() - 5 * 3600_000).toISOString(),
-  },
-  {
-    id: 'mock-3',
-    user_id: '123',
-    type: 'sistema',
-    title: 'Novo Material',
-    message: 'Processo Penal atualizado.',
-    category: 'sistema',
-    read: true,
-    action_url: null,
-    data: null,
-    created_at: new Date(Date.now() - 25 * 3600_000).toISOString(),
-  },
-  {
-    id: 'mock-4',
-    user_id: '123',
-    type: 'alerta',
-    title: 'Matéria com baixo rendimento',
-    message: 'Seu rendimento em Raciocínio Lógico caiu 15% nesta semana.',
-    category: 'estudo',
-    read: true,
-    action_url: null,
-    data: null,
-    created_at: new Date(Date.now() - 48 * 3600_000).toISOString(),
-  },
-  {
-    id: 'mock-5',
-    user_id: '123',
-    type: 'progresso',
-    title: 'Desempenho Excelente!',
-    message: 'Você estudou 3 horas a mais esta semana em comparação com a semana passada.',
-    category: 'estudo',
-    read: true,
-    action_url: null,
-    data: null,
-    created_at: new Date(Date.now() - 72 * 3600_000).toISOString(),
-  },
-  {
-    id: 'mock-6',
-    user_id: '123',
-    type: 'alerta',
-    title: 'Tópico Atrasado',
-    message: 'O tópico de Direito Constitucional está 2 dias atrasado em relação ao cronograma.',
-    category: 'estudo',
-    read: false,
-    action_url: null,
-    data: null,
-    created_at: new Date(Date.now() - 5 * 3600_000).toISOString(),
-  }
-];
+
 
 /** Helper para formatar mensagens de notificação humanizadas */
 function formatNotificationMessage(msg: string): string {
@@ -262,9 +189,9 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   }, [isOpen, studyUnreadCount, feedbackUnreadCount, refetchNotifs, refetchFeedbacks]);
 
 
-  // Filtrar notificações (Exclusivo Estudo) + Mocks
+  // Filtrar notificações (Exclusivo Estudo)
   const filteredNotifications = React.useMemo(() => {
-    const allNotifs = [...MOCK_NOTIFICATIONS, ...notifications];
+    const allNotifs = notifications || [];
     return allNotifs.filter((n) => {
       // Regra: Não mostrar feedback/solicitação na aba de notificações
       const isFeedbackRelated = /feedback|solicita[çc][ãa]o|pedido/i.test(n.message) || /feedback|solicita[çc][ãa]o|pedido/i.test(n.title);

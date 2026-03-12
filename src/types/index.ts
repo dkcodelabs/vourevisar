@@ -25,17 +25,25 @@ export interface Topic {
   reviewStatus?: RevisionStatus;
   lastReviewedAt?: Date;
   firstStudiedAt?: Date;
+
+  // Snake case fields from Supabase
+  user_id?: string;
+  subject_id?: string;
   review_count: number;
-  first_studied_at?: Date;
-  last_reviewed_at?: Date;
+  next_review?: string | null;
+  first_studied_at?: string | null;
+  last_reviewed_at?: string | null;
+  review_stage?: string | null;
   is_completed?: boolean;
   notes?: TopicNotes;
   difficulty_level?: DifficultyLevel | null;
   subtopics?: TopicSubtopic[];
-  difficulty_set_at?: Date;
+  difficulty_set_at?: string | null;
   last_search_context?: string | null;
   last_used_query?: string | null;
   last_audit_log?: any | null;
+  created_at?: string;
+  position?: number;
 }
 
 export interface Subject {
@@ -105,4 +113,19 @@ export interface AppContextType {
   createSubject: (subject: Omit<Subject, 'id'>) => Promise<void>;
   fetchSubjects: () => Promise<void>;
   fetchUserSettings: () => Promise<void>;
+}
+
+export interface UserEdital {
+  id: string;
+  user_id: string;
+  name: string;
+  exam_date?: string;
+  is_imported: boolean;
+  source_id?: string;
+  subject_ids: string[];
+  active_subject_ids: string[];
+  merged_with?: string[];
+  merged_into_cycle: boolean;
+  created_at: string;
+  updated_at: string;
 }

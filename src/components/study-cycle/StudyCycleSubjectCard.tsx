@@ -191,7 +191,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     }
   };
 
-  const cardBaseClasses = "bg-card rounded-2xl shadow-md overflow-hidden transition-all duration-300";
+  const cardBaseClasses = `bg-card rounded-2xl shadow-md overflow-hidden transition-all duration-300 ${isFullyCompleted ? 'opacity-60 grayscale-[0.5] hover:opacity-80 hover:grayscale-0' : ''}`;
   const focusClasses = isStudyFocus
     ? 'relative transform scale-[1.03] shadow-[0_0_20px_rgba(14,165,233,0.2)] dark:shadow-[0_0_20px_rgba(56,189,248,0.15)] z-10'
     : '';
@@ -204,6 +204,11 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             <div className="flex items-center space-x-2 flex-1 min-w-0">
               <CyclePositionBadge />
               <h3 className="text-sm font-semibold text-card-foreground line-clamp-2">{subject.name.replace(/(\d+ª) visualização/g, '$1')}</h3>
+              {isFullyCompleted && (
+                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 py-0 px-1.5 h-5 shrink-0">
+                  Concluída
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-4 mt-4 relative">
@@ -339,6 +344,11 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               <div className="flex items-center space-x-2 flex-1 min-w-0 pr-4">
                 <CyclePositionBadge />
                 <h3 className="text-sm font-semibold text-card-foreground break-words leading-tight">{subject.name.replace(/(\d+ª) visualização/g, '$1')}</h3>
+                {isFullyCompleted && (
+                  <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 py-0 px-1.5 h-5 shrink-0">
+                    Concluída
+                  </Badge>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
@@ -458,6 +468,11 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <CyclePositionBadge />
             <h3 className="text-sm font-semibold text-card-foreground break-words leading-tight">{subject.name.replace(/(\d+ª) visualização/g, '$1')}</h3>
+            {isFullyCompleted && (
+              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 py-0 px-1.5 h-5 shrink-0">
+                Concluída
+              </Badge>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-4 mt-4 relative">

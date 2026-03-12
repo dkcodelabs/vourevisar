@@ -168,7 +168,7 @@ const Dashboard = () => {
 
                         {/* Botão CTA */}
                         <Button
-                            onClick={() => navigate('/materias')}
+                            onClick={() => navigate('/meus-editais')}
                             size="lg"
                             className="px-10 py-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 text-base"
                         >

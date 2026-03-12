@@ -3,8 +3,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { useDailySubjectsWithViews } from '@/hooks/useDailySubjectsWithViews';
-import type { StudyCycleSubject, StudyCycleTopic, SubjectStatus, ReviewInterval, Difficulty } from '@/types/study-cycle';
-import type { Subject, Topic, UserCycle } from '@/types';
+import { SubjectStatus, ReviewInterval, Difficulty } from '@/types/study-cycle';
+import { cleanCycle } from '@/utils/cycleUtils';
+import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
+import type { Subject, Topic, UserCycle, UserEdital } from '@/types';
 
 const STUDY_FOCUS_COUNT = 2;
 
@@ -13,77 +15,70 @@ const mapStatusToStudyCycleStatus = (status: string): SubjectStatus => {
   switch (status) {
     case 'Nova':
     case 'Em Estudo':
-      return 'ACTIVE' as SubjectStatus;
+      return SubjectStatus.ACTIVE;
     case 'Concluída':
-      return 'FINISHED' as SubjectStatus;
+      return SubjectStatus.FINISHED;
     default:
-      return 'ACTIVE' as SubjectStatus;
+      return SubjectStatus.ACTIVE;
   }
 };
 
 const mapReviewStageToInterval = (reviewStage?: string, completed?: boolean): ReviewInterval => {
-  if (completed || reviewStage === 'Concluído') return 'COMPLETED' as ReviewInterval;
+  if (completed || reviewStage === 'Concluído') return ReviewInterval.COMPLETED;
 
   switch (reviewStage) {
     case 'Primeiro Contato':
-      return 'FIRST_CONTACT' as ReviewInterval; // Primeiro contato -> aguardando primeira revisão
+      return ReviewInterval.FIRST_CONTACT;
     case '24h':
     case '1d':
-      return 'REVISED_24H' as ReviewInterval; // Primeira revisão (24h) -> mostra como "Revisado (24h)"
+      return ReviewInterval.REVISED_24H;
     case '3d':
-      return 'REVISED_7D' as ReviewInterval; // Segunda revisão (3d) -> mostra como "Revisado (3d)"
     case '7 dias':
     case '7d':
-      return 'REVISED_7D' as ReviewInterval; // Segunda revisão (7d) -> mostra como "Revisado (7d)"
+      return ReviewInterval.REVISED_7D;
     case '15 dias':
     case '15d':
-      return 'REVISED_15D' as ReviewInterval; // Terceira revisão (15d) -> mostra como "Revisado (15d)"
+      return ReviewInterval.REVISED_15D;
     case '30 dias':
     case '30d':
-      return 'REVISED_30D' as ReviewInterval; // Quarta revisão (30d) -> mostra como "Revisado (30d)"
+      return ReviewInterval.REVISED_30D;
     case '60d':
-      return 'REVISED_30D' as ReviewInterval; // Quinta revisão (60d) -> mostra como "Revisado (30d)"
+      return ReviewInterval.REVISED_30D;
     default:
-      return 'NOT_STARTED' as ReviewInterval;
+      return ReviewInterval.NOT_STARTED;
   }
 };
 
 const mapDifficultyLevel = (level?: number | string): Difficulty => {
-  // Se for número (novo formato)
   if (typeof level === 'number') {
     switch (level) {
       case 1:
-        return 'EASY' as Difficulty;
       case 2:
-        return 'EASY' as Difficulty;
+        return Difficulty.EASY;
       case 3:
-        return 'MEDIUM' as Difficulty;
+        return Difficulty.MEDIUM;
       case 4:
-        return 'HARD' as Difficulty;
       case 5:
-        return 'HARD' as Difficulty;
+        return Difficulty.HARD;
       default:
-        return 'MEDIUM' as Difficulty;
+        return Difficulty.MEDIUM;
     }
   }
 
-  // Se for string (formato antigo - compatibilidade)
   switch (level) {
     case 'easy':
-      return 'EASY' as Difficulty;
+      return Difficulty.EASY;
     case 'hard':
-      return 'HARD' as Difficulty;
+      return Difficulty.HARD;
     default:
-      return 'MEDIUM' as Difficulty;
+      return Difficulty.MEDIUM;
   }
 };
 
 const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
-  // Pegar campos diretamente do objeto (vem do banco como snake_case)
-  const nextReviewRaw = (topic as any).next_review;
-  const lastReviewedAtRaw = (topic as any).last_reviewed_at;
-  const reviewStageRaw = (topic as any).review_stage || topic.reviewStage;
-
+  const nextReviewRaw = topic.next_review;
+  const lastReviewedAtRaw = topic.last_reviewed_at;
+  const reviewStageRaw = topic.review_stage || topic.reviewStage;
 
   return {
     id: topic.id,
@@ -94,85 +89,62 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
     notes: topic.notes?.content || '',
     difficulty: mapDifficultyLevel(topic.difficulty_level),
     subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || [],
-    createdAt: (topic as any).created_at,
-    position: (topic as any).position
+    createdAt: topic.created_at,
+    position: topic.position
   };
 };
 
 const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
-  const mappedTopics = subject.topics
-    .map(mapTopicToStudyCycleTopic);
-
-  // Verificar se todos os tópicos estão concluídos para determinar o status correto
-  const isFullyCompleted = mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === 'COMPLETED');
+  const mappedTopics = subject.topics.map(mapTopicToStudyCycleTopic);
+  const isFullyCompleted = mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === ReviewInterval.COMPLETED);
 
   return {
     id: subject.id,
     name: subject.name,
     topics: mappedTopics,
-    status: isFullyCompleted ? 'FINISHED' as SubjectStatus : mapStatusToStudyCycleStatus(subject.status)
+    status: isFullyCompleted ? SubjectStatus.FINISHED : mapStatusToStudyCycleStatus(subject.status)
   };
-};
-
-// Reverse mapping functions for database updates
-const mapIntervalToReviewStage = (interval: ReviewInterval): string => {
-  switch (interval) {
-    case 'REVISED_24H':
-      return '24h';
-    case 'REVISED_7D':
-      return '7d';
-    case 'REVISED_15D':
-      return '15d';
-    case 'REVISED_30D':
-      return '30d';
-    case 'COMPLETED':
-      return 'Concluído';
-    default:
-      return '';
-  }
 };
 
 const mapDifficultyToLevel = (difficulty: Difficulty): number => {
   switch (difficulty) {
-    case 'EASY':
-      return 2; // Fácil = 2 estrelas
-    case 'HARD':
-      return 4; // Difícil = 4 estrelas
+    case Difficulty.EASY:
+      return 2;
+    case Difficulty.HARD:
+      return 4;
     default:
-      return 3; // Médio = 3 estrelas
+      return 3;
   }
 };
 
 export const useStudyCycleData = () => {
   const { user } = useAuth();
-
-  // Estado de loading
   const [isLoading, setIsLoading] = useState(true);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [userEditais, setUserEditais] = useState<UserEdital[]>([]);
+  const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
 
-  // Safety timeout to prevent infinite loading
+  const { markTopicAsReviewed } = useTopicReview();
+
+  // Safety timeout
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setIsLoading((prev) => {
+      setIsLoading(prev => {
         if (prev) {
           console.warn('⚠️ Force stopping loading state after timeout');
           return false;
         }
         return prev;
       });
-    }, 10000); // 10 seconds
+    }, 10000);
 
     return () => clearTimeout(timeoutId);
   }, []);
 
-  // Estado local simples - SEM useApp()
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-
-  // Função para carregar dados localmente - SEM useCallback
-  const loadSubjects = async () => {
+  const loadSubjects = useCallback(async () => {
     if (!user) return;
 
     try {
-      // 1. Tentar ler do cache primeiro
       const cacheKey = `subjects_cache_${user.id}_v2`;
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
@@ -180,11 +152,12 @@ export const useStudyCycleData = () => {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setSubjects(parsed);
-            // Se temos userCycle em cache tb, podemos parar o loading
             const cycleCached = localStorage.getItem(`user_cycle_cache_${user.id}`);
             if (cycleCached) setIsLoading(false);
           }
-        } catch (e) { console.error('Invalid subjects cache', e); }
+        } catch (e) {
+          console.error('Invalid subjects cache', e);
+        }
       }
 
       const { data, error } = await supabase
@@ -202,42 +175,38 @@ export const useStudyCycleData = () => {
 
       const newSubjects = (data as any) || [];
       setSubjects(newSubjects);
-
-      // 2. Atualizar cache
       localStorage.setItem(cacheKey, JSON.stringify(newSubjects));
 
+      // Carregar editais
+      const { data: editalData, error: editalError } = await (supabase as any)
+        .from('user_editais')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (!editalError && editalData) {
+        setUserEditais(editalData as UserEdital[]);
+      }
     } catch (error) {
       console.error('Erro ao carregar matérias:', error);
     }
-  };
+  }, [user]);
 
-  // Carregar dados apenas uma vez - SEM DEPENDÊNCIAS
   useEffect(() => {
-    if (user) {
-      loadSubjects();
-    }
-  }, [user?.id]); // Apenas user.id como dependência
-
-  const refreshData = () => {
     loadSubjects();
-  };
+  }, [loadSubjects]);
 
-  const updateTopic = async (topicId: string, updates: any) => {
+  const updateTopic = useCallback(async (topicId: string, updates: any) => {
     try {
-      await supabase
-        .from('topics')
-        .update(updates)
-        .eq('id', topicId);
+      await supabase.from('topics').update(updates).eq('id', topicId);
       await loadSubjects();
     } catch (error) {
       console.error('Erro ao atualizar tópico:', error);
     }
-  };
-  const { markTopicAsReviewed } = useTopicReview();
-  const [studyFocusSubjectIds, setStudyFocusSubjectIds] = useState<Set<string>>(new Set());
-  const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
+  }, [loadSubjects]);
 
-  // Debug removido
+  const refreshData = useCallback(() => {
+    loadSubjects();
+  }, [loadSubjects]);
 
   // Load user cycle data
   useEffect(() => {
@@ -247,17 +216,17 @@ export const useStudyCycleData = () => {
         return;
       }
 
-      // 1. Ler do cache do User Cycle
       const cacheKey = `user_cycle_cache_${user.id}`;
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
           setUserCycle(parsed);
-          // Se temos subjects em cache tb (verificado em loadSubjects ou aqui), podemos parar o load
           const subjectsCached = localStorage.getItem(`subjects_cache_${user.id}_v2`);
           if (subjectsCached) setIsLoading(false);
-        } catch (e) { console.error('Invalid cycle cache', e); }
+        } catch (e) {
+          console.error('Invalid cycle cache', e);
+        }
       }
 
       try {
@@ -269,24 +238,27 @@ export const useStudyCycleData = () => {
 
         if (error) {
           console.error('Erro ao carregar ciclo:', error);
-          // Se falhar e não tiver cache, parar loading
           if (!cached) setIsLoading(false);
           return;
         }
 
-        const cycleData = data?.[0] || null;
+        const cycleData = (data?.[0] as UserCycle) || null;
 
-        // Se o ciclo existe mas está vazio, adicionar matérias ativas
         if (cycleData && (!cycleData.ciclo_atual || cycleData.ciclo_atual.length === 0)) {
-          // ... (Lógica de ciclo vazio mantida) ...
-          // Nota: Para brevidade, assumimos que a lógica interna segue igual, 
-          // mas precisamos garantir que o setUserCycle no final atualize o cache.
-
-          // ... IMPLANTAR LÓGICA DE CICLO VAZIO INTEGRA ...
-          console.log('🔍 Ciclo vazio, adicionando matérias ativas...'); // Placeholder para lógica existente
-          // (Devido à limitação de caracteres, vou simplificar: se caiu aqui, vai fazer o fetch normal de activeSubjects)
-          // Recomendo manter o bloco original se possível, ou reimplementar.
-          // VOU REESCREVER O BLOCO TODO ABAIXO PARA GARANTIR
+          // Quando criar um novo ciclo, precisamos filtrar matérias de editais que ainda não foram importados (merged_into_cycle = false)
+          const { data: userEditaisData } = await (supabase as any)
+            .from('user_editais')
+            .select('subject_ids, merged_into_cycle')
+            .eq('user_id', user.id);
+          
+          const subjectsInNonMergedEditais = new Set<string>();
+          if (userEditaisData) {
+            userEditaisData.forEach((ed: any) => {
+              if (!ed.merged_into_cycle && ed.subject_ids) {
+                ed.subject_ids.forEach((id: string) => subjectsInNonMergedEditais.add(id));
+              }
+            });
+          }
 
           const { data: activeSubjects, error: subjectsError } = await supabase
             .from('subjects')
@@ -296,36 +268,35 @@ export const useStudyCycleData = () => {
             .order('priority', { ascending: true });
 
           if (!subjectsError && activeSubjects && activeSubjects.length > 0) {
-            const subjectIds = activeSubjects.map(s => s.id);
+            // Filtrar as matérias que pertencem a editais não mesclados
+            const filteredSubjectIds = activeSubjects
+              .map(s => s.id)
+              .filter(id => !subjectsInNonMergedEditais.has(id));
 
-            const { error: updateError } = await supabase
-              .from('user_cycles')
-              .update({
-                ciclo_atual: subjectIds,
-                atualizado_em: new Date().toISOString()
-              })
-              .eq('user_id', user.id);
-
-            if (!updateError) {
-              const { data: updatedCycle } = await supabase
+            if (filteredSubjectIds.length > 0) {
+              const { error: updateError } = await supabase
                 .from('user_cycles')
-                .select('*')
-                .eq('user_id', user.id)
-                .limit(1);
+                .update({ ciclo_atual: filteredSubjectIds, atualizado_em: new Date().toISOString() })
+                .eq('user_id', user.id);
 
-              const cycleData = updatedCycle?.[0] || null;
-
-              setUserCycle(cycleData);
-              localStorage.setItem(cacheKey, JSON.stringify(cycleData)); // Update Cache
-              setIsLoading(false);
-              return;
+              if (!updateError) {
+                const { data: updatedCycle } = await supabase
+                  .from('user_cycles')
+                  .select('*')
+                  .eq('user_id', user.id)
+                  .limit(1);
+                const newCycleData = (updatedCycle?.[0] as UserCycle) || null;
+                setUserCycle(newCycleData);
+                localStorage.setItem(cacheKey, JSON.stringify(newCycleData));
+                setIsLoading(false);
+                return;
+              }
             }
           }
         }
 
         setUserCycle(cycleData);
-        localStorage.setItem(cacheKey, JSON.stringify(cycleData)); // Update Cache
-
+        localStorage.setItem(cacheKey, JSON.stringify(cycleData));
       } catch (error) {
         console.error('Erro ao carregar ciclo:', error);
       } finally {
@@ -339,61 +310,82 @@ export const useStudyCycleData = () => {
   // Auto-adicionar matérias novas ao ciclo
   useEffect(() => {
     const addNewSubjectsToCycle = async () => {
+      // Importante: subjects e userEditais devem estar carregados
+      // Se subjects > 0 mas userEditais está vazio, pode ser que ainda esteja carregando os editais
+      // Para evitar vazamento, esperamos ter carregado os editais se o usuário tiver algum
       if (!user || !userCycle?.ciclo_atual || subjects.length === 0) return;
 
-      // Encontrar matérias que não estão no ciclo
+      const subjectsInNonMergedEditais = new Set<string>();
+      userEditais.forEach(edital => {
+        if (!edital.merged_into_cycle && edital.subject_ids) {
+          edital.subject_ids.forEach(id => subjectsInNonMergedEditais.add(id));
+        }
+      });
+
       const subjectsNotInCycle = subjects.filter(subject =>
         !userCycle.ciclo_atual.includes(subject.id) &&
-        subject.status !== 'Concluída'
+        subject.status !== 'Concluída' &&
+        !subjectsInNonMergedEditais.has(subject.id)
       );
 
       if (subjectsNotInCycle.length > 0) {
-        console.log('🔄 Adicionando matérias novas ao ciclo:', subjectsNotInCycle.map(s => s.name));
-
-        // Adicionar as novas matérias ao ciclo
+        // Debounce simples para evitar multiplas atualizações se carregando em partes
         const newSubjectIds = subjectsNotInCycle.map(s => s.id);
         const updatedCycle = [...userCycle.ciclo_atual, ...newSubjectIds];
 
         try {
           const { error } = await supabase
             .from('user_cycles')
-            .update({
-              ciclo_atual: updatedCycle,
-              atualizado_em: new Date().toISOString()
-            })
+            .update({ ciclo_atual: updatedCycle, atualizado_em: new Date().toISOString() })
             .eq('user_id', user.id);
 
           if (!error) {
-            // Atualizar o estado local
             setUserCycle(prev => prev ? { ...prev, ciclo_atual: updatedCycle } : null);
           }
         } catch (error) {
-          console.error('Erro ao adicionar matérias ao ciclo:', error);
+          console.error('Erro ao auto-adicionar matérias ao ciclo:', error);
         }
       }
     };
 
     addNewSubjectsToCycle();
-  }, [user?.id, subjects.length]); // Usar apenas user.id e subjects.length para evitar loops
+  }, [user, userCycle?.ciclo_atual, subjects, userEditais]);
 
-  // Get daily subjects with views
+  // Limpar ciclo (remover matérias excluídas ou concluídas)
+  useEffect(() => {
+    if (!user || !userCycle?.ciclo_atual || subjects.length === 0) return;
+
+    const cleanedCycle = cleanCycle(userCycle.ciclo_atual, subjects);
+    if (cleanedCycle.length !== userCycle.ciclo_atual.length) {
+      const updateCycleInDb = async () => {
+        try {
+          const { error } = await supabase
+            .from('user_cycles')
+            .update({ ciclo_atual: cleanedCycle, atualizado_em: new Date().toISOString() })
+            .eq('user_id', user.id);
+
+          if (!error) {
+            const updated = { ...userCycle, ciclo_atual: cleanedCycle };
+            setUserCycle(updated);
+            localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(updated));
+          }
+        } catch (error) {
+          console.error('Erro ao limpar ciclo:', error);
+        }
+      };
+      updateCycleInDb();
+    }
+  }, [user, userCycle?.ciclo_atual, subjects]);
+
   const dailySubjectsWithViews = useDailySubjectsWithViews(subjects, userCycle);
 
-  // Transform subjects from database to study cycle format, considering views
   const studyCycleSubjects = useMemo(() => {
-    // Evitar logs excessivos - só logar quando necessário
     if (subjects.length === 0) return [];
+    if (!userCycle?.ciclo_atual || userCycle.ciclo_atual.length === 0) return [];
 
-    if (!userCycle?.ciclo_atual) {
-      // Fallback to regular subjects if no cycle
-      return subjects.map(mapSubjectToStudyCycleSubject);
-    }
-
-    // Create subjects based on cycle order with views
     const cycleSubjects: StudyCycleSubject[] = [];
     const processedSubjects = new Map<string, number>();
 
-    // 1. Adicionar matérias do ciclo ativo
     userCycle.ciclo_atual.forEach((subjectId, index) => {
       const subject = subjects.find(s => s.id === subjectId);
       if (!subject) return;
@@ -403,20 +395,21 @@ export const useStudyCycleData = () => {
 
       try {
         const studyCycleSubject = mapSubjectToStudyCycleSubject(subject);
+        const isStudiedInCycle = userCycle.materias_estudadas_ciclo?.includes(subject.id);
+        if (isStudiedInCycle && studyCycleSubject.status !== SubjectStatus.FINISHED) {
+          studyCycleSubject.status = SubjectStatus.COMPLETED_CYCLE;
+        }
 
-        // Add view information to the subject
         if (viewNumber > 1) {
           studyCycleSubject.name = `${subject.name} (${viewNumber}ª visualização)`;
-          // Use consistent ID format for views
           studyCycleSubject.id = `${subject.id}-view-${viewNumber}`;
         } else {
-          // Keep original ID for first occurrence
           studyCycleSubject.id = subject.id;
         }
 
         studyCycleSubject.originalId = subject.id;
         studyCycleSubject.viewNumber = viewNumber;
-        studyCycleSubject.cyclePosition = index + 1; // Posição específica no ciclo
+        studyCycleSubject.cyclePosition = index + 1;
 
         cycleSubjects.push(studyCycleSubject);
       } catch (error) {
@@ -424,21 +417,12 @@ export const useStudyCycleData = () => {
       }
     });
 
-    // 2. Adicionar matérias 100% concluídas que NÃO estão no ciclo ativo
     const completedSubjects = subjects.filter(subject => {
-      // Verificar se não está no ciclo ativo
-      const isInActiveCycle = userCycle.ciclo_atual.includes(subject.id);
-      if (isInActiveCycle) return false;
-
-      // Verificar se está 100% concluída
-      const mappedTopics = subject.topics
-        .map(mapTopicToStudyCycleTopic);
-
-      const isFullyCompleted = mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === 'COMPLETED');
-      return isFullyCompleted;
+      if (userCycle.ciclo_atual.includes(subject.id)) return false;
+      const mappedTopics = subject.topics.map(mapTopicToStudyCycleTopic);
+      return mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === ReviewInterval.COMPLETED);
     });
 
-    // Adicionar matérias 100% concluídas à lista
     completedSubjects.forEach(subject => {
       try {
         const studyCycleSubject = mapSubjectToStudyCycleSubject(subject);
@@ -452,208 +436,86 @@ export const useStudyCycleData = () => {
     return cycleSubjects;
   }, [subjects, userCycle]);
 
-  // Sistema simplificado - remover lógica de foco diário
-
-  // Group subjects by status
   const groupedSubjects = useMemo(() => {
     return studyCycleSubjects.reduce((acc, subject) => {
       const status = subject.status;
-      if (!acc[status]) {
-        acc[status] = [];
-      }
+      if (!acc[status]) acc[status] = [];
       acc[status].push(subject);
       return acc;
     }, {} as Record<SubjectStatus, StudyCycleSubject[]>);
   }, [studyCycleSubjects]);
 
-  const activeSubjects = groupedSubjects['ACTIVE'] || [];
-  const completedCycleSubjects = groupedSubjects['COMPLETED_CYCLE'] || [];
+  const activeSubjects = groupedSubjects[SubjectStatus.ACTIVE] || [];
+  const completedCycleSubjects = groupedSubjects[SubjectStatus.COMPLETED_CYCLE] || [];
 
-  // Remover lógica de isDayCompleted - sistema simplificado
-
-  // Check if all studies are completed (all subjects are finished and all topics are completed)
   const areAllStudiesCompleted = useMemo(() => {
     if (studyCycleSubjects.length === 0) return false;
-
-    return studyCycleSubjects.every(subject => {
-      // Subject must be finished
-      if (subject.status !== 'FINISHED') return false;
-
-      // All topics must be completed
-      return subject.topics.every(topic => topic.reviewStatus === 'COMPLETED');
-    });
+    return studyCycleSubjects.every(subject =>
+      subject.status === SubjectStatus.FINISHED && subject.topics.every(topic => topic.reviewStatus === ReviewInterval.COMPLETED)
+    );
   }, [studyCycleSubjects]);
 
-  // Handle starting new cycle
   const handleStartNewCycle = useCallback(async () => {
     if (!user) return;
-
     try {
-      // Reset subjects that completed cycle back to active
       const subjectsToReset = subjects.filter(s => s.status === 'Concluída');
-
       for (const subject of subjectsToReset) {
-        await supabase
-          .from('subjects')
-          .update({ status: 'Em Estudo' })
-          .eq('id', subject.id)
-          .eq('user_id', user.id);
+        await supabase.from('subjects').update({ status: 'Em Estudo' }).eq('id', subject.id).eq('user_id', user.id);
       }
-
-      // Refresh data to get updated subjects
       await refreshData();
 
-      // Set new focus subjects
-      const newActiveSubjects = subjects.filter(s => s.status !== 'Concluída');
-      const newFocusIds = new Set(newActiveSubjects.slice(0, STUDY_FOCUS_COUNT).map(s => s.id));
-      setStudyFocusSubjectIds(newFocusIds);
+      await supabase.from('user_cycles').update({
+        materias_estudadas_hoje: [],
+        data_ultimo_reset: new Date().toISOString().split('T')[0],
+        data_inicio_ciclo: new Date().toISOString(),
+        atualizado_em: new Date().toISOString()
+      }).eq('user_id', user.id);
 
-      // CORREÇÃO: Resetar progresso diário quando novo ciclo é iniciado
-      const { error: resetError } = await supabase
-        .from('user_cycles')
-        .update({
-          materias_estudadas_hoje: [],
-          data_ultimo_reset: new Date().toISOString().split('T')[0],
-          data_inicio_ciclo: new Date().toISOString(),
-          atualizado_em: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-
-      if (resetError) {
-        console.error('Erro ao resetar progresso diário:', resetError);
-      } else {
-        console.log('✅ Progresso diário resetado para novo ciclo');
-      }
-
-      // Disparar eventos para atualizar componentes
-      window.dispatchEvent(new CustomEvent('cycleUpdated', {
-        detail: {
-          isNewCycle: true,
-          reason: 'newCycleStarted',
-          timestamp: Date.now()
-        }
-      }));
-
-      window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
-        detail: {
-          isReset: true,
-          reason: 'newCycleStarted',
-          timestamp: Date.now()
-        }
-      }));
-
-      window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
-        detail: {
-          isReset: true,
-          reason: 'newCycleStarted',
-          timestamp: Date.now()
-        }
-      }));
-
+      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { isNewCycle: true, timestamp: Date.now() } }));
+      window.dispatchEvent(new CustomEvent('dailyProgressUpdated', { detail: { isReset: true, timestamp: Date.now() } }));
     } catch (error) {
       console.error('Error starting new cycle:', error);
     }
   }, [user, subjects, refreshData]);
 
-
-  // Handle completing a study session - simplified for internal cycle management
   const handleCompleteSession = useCallback(async (subjectId: string) => {
     try {
-      console.log('🔵 handleCompleteSession - Completando sessão:', {
-        subjectId
-      });
-
-      // Recarregar dados dos subjects
       await refreshData();
-
-      // Recarregar dados do ciclo
       if (user) {
-        try {
-          const { data, error } = await supabase
-            .from('user_cycles')
-            .select('*')
-            .eq('user_id', user.id)
-            .limit(1);
-
-          if (!error && data && data.length > 0) {
-            setUserCycle(data[0]);
-          }
-        } catch (error) {
-          console.error('Erro ao recarregar ciclo:', error);
-        }
+        const { data } = await supabase.from('user_cycles').select('*').eq('user_id', user.id).limit(1);
+        if (data && data.length > 0) setUserCycle(data[0] as UserCycle);
       }
-
-      console.log('✅ handleCompleteSession - Sessão completada com sucesso');
-
-      // Disparar evento para atualizar estatísticas
-      window.dispatchEvent(new CustomEvent('cycleUpdated', {
-        detail: {
-          subjectId,
-          completed: true
-        }
-      }));
-
+      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { subjectId, completed: true } }));
     } catch (error) {
-      console.error('❌ Error completing session:', error);
+      console.error('Error completing session:', error);
       throw error;
     }
   }, [refreshData, user]);
 
-  // Handle saving topic notes
   const handleSaveNotes = useCallback(async (subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
     try {
-      console.log('🔵 handleSaveNotes - Salvando dados do tópico:', {
-        subjectId,
-        topicId,
-        updatedData
-      });
-
       const updatePayload: any = {};
-
-      if (updatedData.notes !== undefined) {
-        updatePayload.notes = { content: updatedData.notes };
-      }
-
+      if (updatedData.notes !== undefined) updatePayload.notes = { content: updatedData.notes };
       if (updatedData.difficulty !== undefined) {
         updatePayload.difficulty_level = mapDifficultyToLevel(updatedData.difficulty);
         updatePayload.difficulty_set_at = new Date();
       }
-
-      if (updatedData.subTopics !== undefined) {
-        updatePayload.subtopics = updatedData.subTopics;
-      }
+      if (updatedData.subTopics !== undefined) updatePayload.subtopics = updatedData.subTopics;
 
       await updateTopic(topicId, updatePayload);
       await refreshData();
-
-      console.log('✅ handleSaveNotes - Notas salvas com sucesso');
-
     } catch (error) {
-      console.error('❌ Error saving topic notes:', error);
+      console.error('Error saving topic notes:', error);
       throw error;
     }
   }, [updateTopic, refreshData]);
 
-  // Function to refresh cycle data
   const refreshCycleData = useCallback(async () => {
     if (!user) return;
-
     try {
-      // Refresh subjects data to show updated review status
       await refreshData();
-
-      const { data, error } = await supabase
-        .from('user_cycles')
-        .select('*')
-        .eq('user_id', user.id)
-        .limit(1);
-
-      if (error) {
-        console.error('Erro ao recarregar ciclo:', error);
-        return;
-      }
-
-      setUserCycle(data?.[0] || null);
+      const { data } = await supabase.from('user_cycles').select('*').eq('user_id', user.id).limit(1);
+      setUserCycle((data?.[0] as UserCycle) || null);
     } catch (error) {
       console.error('Erro ao recarregar ciclo:', error);
     }
@@ -665,7 +527,6 @@ export const useStudyCycleData = () => {
     activeSubjects,
     completedCycleSubjects,
     areAllStudiesCompleted,
-
     userCycle,
     dailySubjectsWithViews,
     handleStartNewCycle,
@@ -676,20 +537,16 @@ export const useStudyCycleData = () => {
   };
 };
 
-// Helper function to get next review interval
-const reviewProgression = [
-  'NOT_STARTED' as ReviewInterval,
-  'REVISED_24H' as ReviewInterval,
-  'REVISED_7D' as ReviewInterval,
-  'REVISED_15D' as ReviewInterval,
-  'REVISED_30D' as ReviewInterval,
-  'COMPLETED' as ReviewInterval,
+const reviewProgression: ReviewInterval[] = [
+  ReviewInterval.NOT_STARTED,
+  ReviewInterval.REVISED_24H,
+  ReviewInterval.REVISED_7D,
+  ReviewInterval.REVISED_15D,
+  ReviewInterval.REVISED_30D,
+  ReviewInterval.COMPLETED
 ];
 
-const getNextReviewInterval = (currentStatus: ReviewInterval): ReviewInterval => {
+export const getNextReviewInterval = (currentStatus: ReviewInterval): ReviewInterval => {
   const currentIndex = reviewProgression.indexOf(currentStatus);
-  if (currentIndex === -1 || currentIndex === reviewProgression.length - 1) {
-    return currentStatus;
-  }
-  return reviewProgression[currentIndex + 1];
+  return (currentIndex === -1 || currentIndex === reviewProgression.length - 1) ? currentStatus : reviewProgression[currentIndex + 1];
 };

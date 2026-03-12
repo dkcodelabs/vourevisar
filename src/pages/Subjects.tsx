@@ -30,6 +30,10 @@ import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { errorService } from '@/lib/errors/errorService';
+import { useEditalOrigins } from '@/hooks/useEditalOrigins';
+import { suggestMerges, MergeSuggestion } from '@/utils/subjectSimilarity';
+import { suggestContentBasedMerges } from '@/edutrack-review-manager/services/geminiService';
+import { Suggestion as SmartMergeSuggestion } from '@/components/subjects/SmartMergeModal';
 
 const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) {
@@ -86,6 +90,7 @@ const getStatusBorderColor = (status: Status) => {
 
 const Subjects = () => {
   const { user } = useAuth();
+  const { originsMap, editaisNoCiclo, activeSubjectIdsSet, refresh } = useEditalOrigins();
   const navigate = useNavigate();
   // Estado local simples - sem contextos
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -94,6 +99,8 @@ const Subjects = () => {
 
   // Novos modais V2 states
   const [isMergeMode, setIsMergeMode] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(25);
+  const ITEMS_PER_PAGE = 25;
   const [selectedSubjectsToMerge, setSelectedSubjectsToMerge] = useState<string[]>([]);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [isSmartMergeModalOpen, setIsSmartMergeModalOpen] = useState(false);
@@ -101,13 +108,100 @@ const Subjects = () => {
   const [isImportEditalModalOpen, setIsImportEditalModalOpen] = useState(false);
   const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState<'ready' | 'ia' | 'manual'>('ready');
+  const [smartMergeSuggestions, setSmartMergeSuggestions] = useState<SmartMergeSuggestion[]>([]);
 
-  const handleSuggestMerges = () => {
+  const location = useLocation();
+
+  // ── Efeito para abrir modal baseado no estado de navegação ──
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.openImportModal) {
+      setIsImportEditalModalOpen(true);
+      if (state?.importTab) {
+        setModalInitialTab(state.importTab);
+      }
+      // Limpa o estado para evitar que reabra ao atualizar a página
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  // Helper para gerenciar a tabela de editais (não inclusa nos types automáticos)
+  const getOrCreateUserEdital = async (name: string, isImported: boolean = false) => {
+    if (!user) return null;
+    const sanitizedName = name.trim();
+    
+    // 1. Tentar buscar edital existente
+    const { data: existing, error: fetchError } = await (supabase as any)
+      .from('user_editais')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('name', sanitizedName)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Erro ao buscar edital:', fetchError);
+      return null;
+    }
+
+    if (existing) return existing;
+
+    // 2. Criar novo se não existir
+    const { data: created, error: createError } = await (supabase as any)
+      .from('user_editais')
+      .insert({
+        user_id: user.id,
+        name: sanitizedName,
+        is_imported: isImported,
+        merged_into_cycle: true,
+        subject_ids: []
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('Erro ao criar edital:', createError);
+      return null;
+    }
+
+    return created;
+  };
+
+  const handleSuggestMerges = async () => {
     setIsSuggesting(true);
-    setTimeout(() => {
+    try {
+      // 1. Tentar primeiro com Gemini (Conteúdo + Nome)
+      console.log('🤖 Chamando Gemini para sugestões de mescla...');
+      const aiSuggestions = await suggestContentBasedMerges(subjects);
+      
+      let finalSuggestions: SmartMergeSuggestion[] = [];
+
+      if (aiSuggestions && aiSuggestions.length > 0) {
+        finalSuggestions = aiSuggestions.map((s: any) => ({
+          ...s,
+          approved: true
+        }));
+      } else {
+        // 2. Fallback para similaridade de nome se Gemini não retornar nada
+        console.log('⚠️ Gemini não retornou sugestões, usando fallback de similaridade...');
+        finalSuggestions = suggestMerges(subjects) as SmartMergeSuggestion[];
+      }
+
+      setSmartMergeSuggestions(finalSuggestions);
+      
+      if (finalSuggestions.length === 0) {
+        toast.info('Nenhuma sugestão de mescla encontrada no momento.');
+      } else {
+        setIsSmartMergeModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Erro ao sugerir mesclas:', error);
+      // Fallback final
+      const fallback = suggestMerges(subjects) as SmartMergeSuggestion[];
+      setSmartMergeSuggestions(fallback);
+      if (fallback.length > 0) setIsSmartMergeModalOpen(true);
+    } finally {
       setIsSuggesting(false);
-      setIsSmartMergeModalOpen(true);
-    }, 1500);
+    }
   };
 
   const toggleSelectionForMerge = (subjectId: string) => {
@@ -134,7 +228,7 @@ const Subjects = () => {
 
     if (!user) return;
 
-    const cacheKey = `subjects_${user.id} `;
+    const cacheKey = `subjects_${user.id}`;
     const cached = localStorage.getItem(cacheKey);
 
     if (cached) {
@@ -191,25 +285,145 @@ const Subjects = () => {
     }
   };
 
+  const handleApplySmartMerge = async (approvedSuggestions: SmartMergeSuggestion[]) => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      for (const suggestion of approvedSuggestions) {
+        const [targetId, ...sourceIds] = suggestion.subjectIds;
+        
+        // 1. Atualizar nome da matéria alvo
+        await supabase
+          .from('subjects')
+          .update({ name: suggestion.suggestedName.toUpperCase() })
+          .eq('id', targetId);
+          
+        // 2. Mover todos os tópicos das matérias fontes para a alvo
+        for (const sourceId of sourceIds) {
+          const { error: moveError } = await supabase
+            .from('topics')
+            .update({ subject_id: targetId })
+            .eq('subject_id', sourceId);
+            
+          if (moveError) throw moveError;
+          
+          // 3. Deletar a matéria original
+          await supabase
+            .from('subjects')
+            .delete()
+            .eq('id', sourceId);
+            
+          // 4. Atualizar referências em user_editais (Essencial para manter Origem/Concurso)
+          const { data: editaisWithSubject } = await (supabase as any)
+            .from('user_editais')
+            .select('id, subject_ids')
+            .contains('subject_ids', [sourceId]);
+            
+          if (editaisWithSubject) {
+            for (const edital of editaisWithSubject) {
+              const currentIds = (edital.subject_ids as string[]) || [];
+              // Substituir o ID antigo pelo novo na lista desse edital
+              const updatedIds = currentIds.map(id => 
+                id === sourceId ? targetId : id
+              );
+              // Remover duplicatas caso o targetId já estivesse nesse mesmo edital
+              const uniqueIds = [...new Set(updatedIds)];
+              
+              const { error: editalUpdateError } = await (supabase as any)
+                .from('user_editais')
+                .update({ subject_ids: uniqueIds })
+                .eq('id', edital.id);
+
+              if (editalUpdateError) {
+                console.error(`Erro ao atualizar edital ${edital.id}:`, editalUpdateError);
+              }
+            }
+          }
+        }
+      }
+      
+      await refreshData();
+      toast.success(`${approvedSuggestions.length} mesclas realizadas com sucesso!`);
+      setIsSmartMergeModalOpen(false);
+    } catch (error) {
+      errorService.report(error, { 
+        module: 'Subjects', 
+        action: 'handleApplySmartMerge', 
+        userMessage: 'Erro ao aplicar mesclas inteligentes.' 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const refreshData = async () => {
     if (user) {
-      localStorage.removeItem(`subjects_${user.id} `);
+      localStorage.removeItem(`subjects_${user.id}`);
+      localStorage.removeItem(`subjects_${user.id} `); // limpa chave antiga com espaço por segurança
       await loadSubjects();
-
-      // Comunica com o AppContext para forçar recarregamento global 
-      // e evitar que as outras páginas fiquem com cache sujo (0 tópicos em Topics.tsx)
+      refresh(); // Atualiza origens do hook
       window.dispatchEvent(new CustomEvent('subjectUpdated'));
+    }
+  };
+
+  const handleUnloadCycle = async (editalId: string, editalName: string, subjectIds: string[]) => {
+    if (!user) return;
+    setUnloadingEditalId(editalId);
+    try {
+      const { data: existingCycle } = await supabase
+        .from('user_cycles')
+        .select('id, ciclo_atual')
+        .eq('user_id', user.id)
+        .single();
+
+      if (existingCycle) {
+        const currentIds = (existingCycle.ciclo_atual as string[]) || [];
+        const newIds = currentIds.filter(id => !subjectIds.includes(id));
+
+        const { error } = await supabase
+          .from('user_cycles')
+          .update({
+            ciclo_atual: newIds,
+            atualizado_em: new Date().toISOString(),
+          })
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+
+      const { error: editalErr } = await (supabase as any)
+        .from('user_editais')
+        .update({ merged_into_cycle: false, active_subject_ids: [] })
+        .eq('id', editalId);
+
+      if (editalErr) throw editalErr;
+
+      toast.success(`"${editalName}" removido do seu ciclo.`);
+      window.dispatchEvent(new CustomEvent('subjectUpdated'));
+      await refreshData();
+    } catch (error) {
+      errorService.report(error, { module: 'Subjects', action: 'unloadCycle', userMessage: 'Erro ao remover edital do ciclo.' });
+    } finally {
+      setUnloadingEditalId(null);
     }
   };
 
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectSource, setNewSubjectSource] = useState('');
   const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
+  // IDs de subjects ocultos localmente (otimismo para handleDelete)
+  const [hiddenSubjectIds, setHiddenSubjectIds] = useState<Set<string>>(new Set());
+  // Estado de loading por edital (para botão Remover do Ciclo)
+  const [unloadingEditalId, setUnloadingEditalId] = useState<string | null>(null);
+  // Confirmação inline de exclusão de matéria
+  const [confirmHideSubjectId, setConfirmHideSubjectId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
+  const [expandedBeforeSearch, setExpandedBeforeSearch] = useState<string[]>([]);
   const [isAddingSubject, setIsAddingSubject] = useState(false);
 
   // Estados para edição inline
@@ -319,13 +533,11 @@ const Subjects = () => {
 
   // Carregar dados apenas uma vez por usuário
   useEffect(() => {
-    console.log('🚀 SUBJECTS useEffect TRIGGERED:', {
-      user: !!user,
-      userId: user?.id,
-      timestamp: new Date().toISOString()
-    });
-
     if (user) {
+      // Limpar chaves de cache antigas (tinham espaço extra no final - bug corrigido)
+      localStorage.removeItem(`subjects_${user.id} `);
+      localStorage.removeItem(`user_cycle_cache_${user.id} `);
+
       loadSubjects().finally(() => {
         setLoading(false);
       });
@@ -339,7 +551,7 @@ const Subjects = () => {
     const loadUserCycle = async () => {
       if (!user) return;
 
-      const cacheKey = `user_cycle_cache_${user.id} `;
+      const cacheKey = `user_cycle_cache_${user.id}`;
 
       // 1. Tentar ler do cache primeiro para evitar flicker
       const cached = localStorage.getItem(cacheKey);
@@ -389,8 +601,20 @@ const Subjects = () => {
 
   // Criar lista expandida de matérias com visualizações usando useMemo
   const expandedSubjectList = useMemo(() => {
-    if (!userCycle?.ciclo_atual || !localSubjects.length) {
-      return localSubjects.map(subject => ({
+    // ── Filtrar: só exibir subjects "liberados" ──────────────────────────
+    // Um subject é visível se:
+    //   (a) não pertence a nenhum edital (adicionado diretamente na página), OU
+    //   (b) está em active_subject_ids de algum edital carregado no ciclo
+    // ── Filtrar: só exibir subjects "liberados" e não ocultos localmente ──
+    const visibleSubjects = localSubjects.filter(subject => {
+      if (hiddenSubjectIds.has(subject.id)) return false;   // oculto otimisticamente
+      const hasOrigin = originsMap.has(subject.id);
+      if (!hasOrigin) return true;                          // sem edital → sempre visível
+      return activeSubjectIdsSet.has(subject.id);           // com edital → só se ativo
+    });
+
+    if (!userCycle?.ciclo_atual || !visibleSubjects.length) {
+      return visibleSubjects.map(subject => ({
         id: `${subject.id} -0`,
         subject,
         viewIndex: 0,
@@ -407,7 +631,7 @@ const Subjects = () => {
 
     // Primeiro, adicionar todas as matérias do ciclo com suas visualizações
     userCycle.ciclo_atual.forEach((subjectId: string, cycleIndex: number) => {
-      const subject = localSubjects.find(s => s.id === subjectId);
+      const subject = visibleSubjects.find(s => s.id === subjectId);
       if (!subject) return;
 
       // Contar quantas vezes esta matéria já apareceu antes neste ciclo
@@ -423,9 +647,9 @@ const Subjects = () => {
       });
     });
 
-    // Depois, adicionar matérias que não estão no ciclo (novas matérias)
+    // Depois, adicionar matérias visíveis que não estão no ciclo (novas matérias sem edital)
     const subjectsInCycle = new Set(userCycle.ciclo_atual);
-    localSubjects.forEach(subject => {
+    visibleSubjects.forEach(subject => {
       if (!subjectsInCycle.has(subject.id)) {
         expanded.push({
           id: `${subject.id} -0`,
@@ -436,10 +660,8 @@ const Subjects = () => {
       }
     });
 
-
-
     return expanded;
-  }, [userCycle?.ciclo_atual, localSubjects]);
+  }, [userCycle?.ciclo_atual, localSubjects, originsMap, activeSubjectIdsSet, hiddenSubjectIds]);
 
   useEffect(() => {
     console.log('📋 SET LOCAL SUBJECTS useEffect TRIGGERED:', {
@@ -507,25 +729,38 @@ const Subjects = () => {
     setIsAddingSubject(true);
 
     try {
-      // Adicionar nova matéria
+      // 1. Criar ou Vincular ao Edital (Origem/Concurso)
+      const currentOrigin = newSubjectSource.trim() || 'MEUS ESTUDOS';
+      const edital = await getOrCreateUserEdital(currentOrigin, false); // Manual (is_imported = false)
+
+      // 2. Adicionar nova matéria
       const maxPriority = localSubjects.length > 0 ? Math.max(...localSubjects.map(s => s.priority || 0)) : 0;
 
-      await supabase.from('subjects').insert({
-        user_id: user.id,
-        name: newSubjectName.trim().toUpperCase(),
-        status: 'Nova',
-        color: '#3B82F6',
-        priority: maxPriority + 1,
-        // Usaremos o notes em JSON temporariamente ou simplesmente não salvar no BD se a coluna não existir.
-        // Já que a instrução diz que o backend será feito pelo usuário depois, não passarei pro backend para evitar crash.
-      });
-      // Como o DB ainda não suporta a coluna de Origem, injetamos ela localmente no cache/localSubjects para aparecer no UI agora.
-      const tempId = Date.now().toString(); // Fallback id if the refresh is too slow or we need optimistic UI (refreshData will override anyway, but we will keep origin in local storage)
-      const cachedOrigins = JSON.parse(localStorage.getItem('temp_origins') || '{}');
-      cachedOrigins[newSubjectName.trim().toUpperCase()] = newSubjectSource.trim();
-      localStorage.setItem('temp_origins', JSON.stringify(cachedOrigins));
+      const { data: savedSubject, error: subjectError } = await supabase
+        .from('subjects')
+        .insert({
+          user_id: user.id,
+          name: newSubjectName.trim().toUpperCase(),
+          status: 'Nova',
+          color: '#3B82F6',
+          priority: maxPriority + 1
+        })
+        .select()
+        .single();
+
+      if (subjectError) throw subjectError;
+
+      // 3. Vincular matéria ao edital no banco (Persistente)
+      if (edital && savedSubject) {
+        const updatedIds = [...(edital.subject_ids || []), savedSubject.id];
+        await (supabase as any)
+          .from('user_editais')
+          .update({ subject_ids: updatedIds })
+          .eq('id', edital.id);
+      }
 
       await refreshData();
+      refresh(); // Atualizar hook de origens
 
       toast.success("Matéria adicionada com sucesso!");
 
@@ -592,44 +827,38 @@ const Subjects = () => {
   };
 
   const handleDelete = async (id: string) => {
+    // Otimismo: oculta imediatamente da view local
+    setHiddenSubjectIds(prev => new Set([...prev, id]));
+    setConfirmHideSubjectId(null);
     try {
-      // 1. Buscar tópicos dessa matéria para limpar histórico
-      const { data: subjectTopics } = await supabase
-        .from('topics')
-        .select('id')
-        .eq('subject_id', id);
+      // Remove de active_subject_ids (não deleta permanentemente)
+      const { data: relatedEditais } = await (supabase as any)
+        .from('user_editais')
+        .select('id, active_subject_ids')
+        .contains('active_subject_ids', [id]);
 
-      if (subjectTopics && subjectTopics.length > 0) {
-        const topicIds = subjectTopics.map(t => t.id);
-
-        // 2. Deletar histórico dos tópicos
-        await supabase
-          .from('topic_review_history')
-          .delete()
-          .in('topic_id', topicIds);
-
-        // 3. Deletar tópicos (embora o cascade da FK devesse cuidar disso, garantimos aqui)
-        await supabase
-          .from('topics')
-          .delete()
-          .eq('subject_id', id);
+      if (relatedEditais && relatedEditais.length > 0) {
+        for (const edital of relatedEditais) {
+          const newActiveIds = (edital.active_subject_ids as string[]).filter(sid => sid !== id);
+          await (supabase as any)
+            .from('user_editais')
+            .update({ active_subject_ids: newActiveIds })
+            .eq('id', edital.id);
+        }
       }
 
-      // 4. Deletar a matéria
-      await supabase
-        .from('subjects')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
-
-      await refreshData();
+      refresh(); // atualiza activeSubjectIdsSet no hook
+      window.dispatchEvent(new CustomEvent('subjectUpdated'));
+      toast.success('Matéria ocultada da lista. Ela continua salva no edital.');
     } catch (error) {
+      // Reverte otimismo
+      setHiddenSubjectIds(prev => { const s = new Set(prev); s.delete(id); return s; });
       await errorService.report(
         error,
         {
           module: 'Subjects',
           action: 'handleDelete',
-          userMessage: 'Erro ao excluir matéria. Tente novamente.',
+          userMessage: 'Erro ao ocultar matéria. Tente novamente.',
           severity: 'high',
           scope: 'core',
           userId: user.id
@@ -916,6 +1145,41 @@ const Subjects = () => {
       // Refresh será feito automaticamente pelo recarregamento do ciclo
     }
   };
+  // Lista filtrada baseada no status selecionado
+  const filteredList = useMemo(() => {
+    let list = expandedSubjectList;
+
+    // Filtragem de busca
+    if (newSubjectName.trim() && !isImportEditalModalOpen) {
+      const normalizeText = (text: string) =>
+        text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const normalizedQuery = normalizeText(newSubjectName);
+
+      list = list.filter(item => {
+        const matchesSubject = normalizeText(item.subject.name).includes(normalizedQuery);
+        const hasMatchingTopic = item.subject.topics?.some(topic =>
+          normalizeText(topic.name).includes(normalizedQuery)
+        );
+        return matchesSubject || hasMatchingTopic;
+      });
+    }
+
+    if (activeTab === 'in_progress') {
+      list = list.filter(item => calculateSubjectStatus(item.subject) === 'Em Estudo');
+    } else if (activeTab === 'completed') {
+      list = list.filter(item => calculateSubjectStatus(item.subject) === 'Concluída');
+    }
+
+    return list;
+  }, [expandedSubjectList, activeTab, calculateSubjectStatus, newSubjectName, isImportEditalModalOpen]);
+
+  // Lista para renderizar (com paginação - Lazy Loading)
+  const displayList = useMemo(() => {
+    return filteredList.slice(0, visibleCount);
+  }, [filteredList, visibleCount]);
+
+  const hasMore = filteredList.length > visibleCount;
+
   if (loading) {
     return <div>Carregando...</div>;
   }
@@ -923,6 +1187,10 @@ const Subjects = () => {
   if (isLoading) {
     return <LoadingSpinner size="large" showText fullPage />;
   }
+
+  const handleLoadMore = () => {
+    setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+  };
 
   const mainSubjectUI = (
     <div className="space-y-6 w-full"> {/* Changed space-y-4 to 6 to match Topics */}
@@ -940,7 +1208,41 @@ const Subjects = () => {
                   type="text"
                   placeholder={isImportEditalModalOpen ? "Nome da matéria..." : "Buscar ou cadastrar..."}
                   value={newSubjectName}
-                  onChange={(e) => setNewSubjectName(e.target.value)}
+                  onChange={(e) => {
+                    const query = e.target.value;
+                    const previousName = newSubjectName;
+                    setNewSubjectName(query);
+
+                    if (isImportEditalModalOpen) return;
+
+                    // Implementação de "Expandir na busca"
+                    if (!previousName && query.trim()) {
+                      setExpandedBeforeSearch([...expandedSubjectIds]);
+                    }
+
+                    if (query.trim()) {
+                      const normalizeText = (text: string) =>
+                        text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+                      const normalizedQuery = normalizeText(query);
+                      const newExpanded: string[] = [];
+
+                      expandedSubjectList.forEach(item => {
+                        const matchesSubject = normalizeText(item.subject.name).includes(normalizedQuery);
+                        const hasMatchingTopic = item.subject.topics?.some(topic =>
+                          normalizeText(topic.name).includes(normalizedQuery)
+                        );
+                        if (matchesSubject || hasMatchingTopic) {
+                          newExpanded.push(item.id);
+                        }
+                      });
+
+                      setExpandedSubjectIds(newExpanded);
+                    } else {
+                      setExpandedSubjectIds(expandedBeforeSearch);
+                      setExpandedBeforeSearch([]);
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       if (isImportEditalModalOpen) {
@@ -1053,385 +1355,436 @@ const Subjects = () => {
         </div>
       )}
 
+      {/* ── Header: Editais Ativos no Ciclo ── */}
+      {(() => {
+        const activeEditais = editaisNoCiclo.filter(e =>
+          e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
+        );
+        if (activeEditais.length === 0 || isImportEditalModalOpen) return null;
+        return (
+          <div className="mb-6 p-4 rounded-2xl bg-zinc-900 border border-white/5 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Database className="text-primary" size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-zinc-100 uppercase tracking-widest">Editais no Ciclo Ativo</h3>
+                  <p className="text-[10px] text-content-muted font-medium">As matérias destes editais estão disponíveis para estudo no Ciclo</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-content-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+                {activeEditais.length} edital{activeEditais.length !== 1 ? 'is' : ''}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {activeEditais.map(edital => {
+                const activeCount = edital.subject_ids.filter(sid => localSubjects.find(s => s.id === sid)).length;
+                return (
+                  <div
+                    key={edital.id}
+                    className="group flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl bg-zinc-800 border border-white/5 hover:border-primary/30 transition-all shadow-sm"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-zinc-200">{edital.name}</span>
+                      <span className="text-[9px] text-content-muted font-medium">{activeCount} matéria{activeCount !== 1 ? 's' : ''}</span>
+                    </div>
+                    <button
+                      onClick={() => handleUnloadCycle(edital.id, edital.name, edital.subject_ids)}
+                      disabled={unloadingEditalId === edital.id}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-black/20 text-content-muted hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100"
+                      title="Remover do ciclo"
+                    >
+                      {unloadingEditalId === edital.id
+                        ? <Loader2 size={14} className="animate-spin text-red-400" />
+                        : <X size={14} />}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext
-          items={expandedSubjectList
-            .filter(item => {
-              if (activeTab === 'all') return true;
-              // We need status here. calculateSubjectStatus(item.subject)
-              const status = calculateSubjectStatus(item.subject);
-              if (activeTab === 'in_progress') return status !== 'Concluída';
-              if (activeTab === 'completed') return status === 'Concluída';
-              return true;
-            })
-            .map(item => item.id)
-          }
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-4 max-w-full">
-            {localSubjects.length === 0 && !showManualInput && !isImportEditalModalOpen ? (
-              <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                {/* Ícone Principal */}
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                  <span className="text-4xl">📖</span>
-                </div>
-
-                {/* Título */}
-                <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-3">
-                  Organize seu Conteúdo de Estudos
-                </h3>
-
-                {/* Descrição */}
-                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-                  Cadastre suas matérias e tópicos — o sistema cuida de tudo para você, agendando automaticamente suas revisões.
-                </p>
-
-                {/* Cards de Ação */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
-                  {/* Card 1: Importar Edital (Destaque Primário) */}
+        <div className="w-full">
+          {displayList.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-500 w-full mb-12">
+            {localSubjects.length === 0 ? (
+                <>
+                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                      <span className="text-4xl">📚</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">
+                      Nenhuma matéria por aqui
+                  </h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                      Comece adicionando sua primeira matéria ou importe um edital pronto para iniciar seus estudos.
+                  </p>
                   <button
-                    onClick={() => { setModalInitialTab('ready'); setIsImportEditalModalOpen(true); }}
-                    className="group relative flex flex-col items-center gap-4 p-6 rounded-2xl border-2 border-violet-300 dark:border-violet-500/40 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 shadow-lg shadow-violet-100/50 dark:shadow-violet-900/20 hover:shadow-xl hover:shadow-violet-200/60 dark:hover:shadow-violet-800/30 hover:border-violet-400 dark:hover:border-violet-400/60 hover:-translate-y-1 transition-all duration-300 text-left cursor-pointer"
+                      onClick={() => {
+                        setModalInitialTab('manual');
+                        setIsImportEditalModalOpen(true);
+                      }}
+                      className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                   >
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-400/10 to-purple-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-300/50 dark:shadow-violet-800/50 group-hover:scale-110 transition-transform duration-300">
-                      <span className="text-2xl">🪄</span>
-                    </div>
-                    <div className="relative z-10 text-center">
-                      <h4 className="text-lg font-bold text-violet-900 dark:text-violet-200 mb-1">
-                        Importar Edital Completo
-                      </h4>
-                      <p className="text-sm text-violet-600 dark:text-violet-400 leading-relaxed">
-                        Busque um concurso pronto ou use nossa IA para ler seu PDF em segundos.
-                      </p>
-                    </div>
+                      Adicionar Matéria
                   </button>
-
-                  {/* Card 2: Adicionar Manualmente (Secundário) */}
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                      <Search size={32} className="text-slate-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Nenhuma matéria ativa</h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-6">
+                      Todas as matérias foram ocultadas ou o edital foi removido do ciclo. Ative matérias via
+                      &ldquo;Meus Editais&rdquo; ou carregue um edital no ciclo.
+                  </p>
                   <button
-                    onClick={() => { setModalInitialTab('manual'); setIsImportEditalModalOpen(true); }}
-                    className="group flex flex-col items-center gap-4 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/30 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 hover:-translate-y-1 transition-all duration-300 text-left cursor-pointer"
+                      onClick={() => navigate('/meus-editais')}
+                      className="px-5 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all shadow-sm"
                   >
-                    <div className="w-14 h-14 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <span className="text-2xl">✍️</span>
-                    </div>
-                    <div className="text-center">
-                      <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">
-                        Adicionar Manualmente
-                      </h4>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Cadastre suas disciplinas e tópicos um por um.
-                      </p>
-                    </div>
+                      Ir para Meus Editais
                   </button>
-                </div>
-              </div>
-            ) : (
-              expandedSubjectList
-                .filter(item => {
-                  if (activeTab === 'all') return true;
-                  const status = calculateSubjectStatus(item.subject);
-                  if (activeTab === 'in_progress') return status !== 'Concluída';
-                  if (activeTab === 'completed') return status === 'Concluída';
-                  return true;
-                })
-                .map((item, index) => {
-                  const { subject, viewIndex, isView } = item;
-                  const progress = getSubjectProgress(subject);
-                  const calculatedStatus = calculateSubjectStatus(subject);
-                  const isEditing = editingSubjectId === subject.id;
-                  const viewCount = userCycle?.ciclo_atual ? getSubjectViewCount(subject.id, userCycle.ciclo_atual) : 0;
+                </>
+              )}
+            </div>
+          ) : (
+            <SortableContext
+              items={displayList.map(item => item.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-4">
+                {displayList.map((item, index) => {
+                const { subject, isView, viewIndex } = item;
+                const progress = getSubjectProgress(subject);
+                const calculatedStatus = calculateSubjectStatus(subject);
+                const isEditing = editingSubjectId === subject.id;
+                const viewCount = userCycle?.ciclo_atual ? getSubjectViewCount(subject.id, userCycle.ciclo_atual) : 0;
 
-                  // Force visual sequence based on list order
-                  const position = index + 1;
+                // Forçar sequência visual baseada na ordem da lista
+                const position = index + 1;
 
-
-                  return (
-                    <SortableItem key={item.id} id={item.id}>
-                      {({ listeners, attributes }) => (
+                return (
+                  <SortableItem key={item.id} id={item.id}>
+                    {({ listeners, attributes }) => (
+                      <div className="w-full max-w-full">
                         <div
-                          className="w-full max-w-full"
+                          data-subject-id={subject.id}
+                          onClick={(e) => {
+                            if (isMergeMode) {
+                              toggleSelectionForMerge(subject.id);
+                            } else {
+                              toggleExpand(item.id);
+                            }
+                          }}
+                          className={`glow-card p-4 rounded-2xl flex items-center justify-between group hover:border-primary/20 transition-all cursor-pointer mb-2 relative overflow-hidden ${expandedSubjectIds.includes(item.id) ? 'border-primary/30 shadow-primary/5' : ''
+                            } ${selectedSubjectsToMerge.includes(subject.id) ? 'border-primary/50 bg-primary/5' : ''}`}
                         >
+                          {/* Left Status Border */}
                           <div
-                            data-subject-id={subject.id}
-                            onClick={(e) => {
-                              if (isMergeMode) {
-                                toggleSelectionForMerge(subject.id);
-                              } else {
-                                toggleExpand(item.id);
-                              }
-                            }}
-                            className={`glow-card p-4 rounded-2xl flex items-center justify-between group hover:border-primary/20 transition-all cursor-pointer mb-4 relative overflow-hidden ${expandedSubjectIds.includes(item.id) ? 'border-primary/30 shadow-primary/5' : ''
-                              } ${selectedSubjectsToMerge.includes(subject.id) ? 'border-primary/50 bg-primary/5' : ''}`}
-                          >
-                            {/* Left Status Border */}
-                            <div
-                              className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBorderColor(calculatedStatus).replace('border-l-', 'bg-')}`}
-                              title={`Status: ${calculatedStatus}`}
-                            />
+                            className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBorderColor(calculatedStatus).replace('border-l-', 'bg-')}`}
+                            title={`Status: ${calculatedStatus}`}
+                          />
 
-                            <div className="flex items-center gap-3 pl-2">
-                              {/* Action icon (checkbox for merge, grip for DnD) */}
-                              {isMergeMode ? (
-                                <div className="text-primary" onClick={(e) => { e.stopPropagation(); toggleSelectionForMerge(subject.id); }}>
-                                  {selectedSubjectsToMerge.includes(subject.id) ? <CheckSquare size={18} /> : <div className="w-[18px] h-[18px] rounded border-2 border-primary/50 opacity-50" />}
-                                </div>
-                              ) : (
-                                <div className="cursor-move text-content-muted hover:text-primary transition-colors p-1 -ml-2" onClick={(e) => e.stopPropagation()} {...listeners} {...attributes}>
-                                  <GripVertical size={16} />
-                                </div>
-                              )}
-
-                              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
-                                <span className="text-[10px] sm:text-[11px] font-black text-primary">#{position}</span>
+                          <div className="flex items-center gap-3 pl-2">
+                            {/* Action icon */}
+                            {isMergeMode ? (
+                              <div className="text-primary" onClick={(e) => { e.stopPropagation(); toggleSelectionForMerge(subject.id); }}>
+                                {selectedSubjectsToMerge.includes(subject.id) ? <CheckSquare size={18} /> : <div className="w-[18px] h-[18px] rounded border-2 border-primary/50 opacity-50" />}
                               </div>
-
-                              <div className="flex flex-col min-w-0">
-                                {isEditing ? (
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex items-center gap-3 w-full" onClick={e => e.stopPropagation()}>
-                                      <div className="flex items-center gap-2 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
-                                        <Input
-                                          value={editingName}
-                                          onChange={(e) => setEditingName(e.target.value)}
-                                          className="h-8 text-sm flex-1 min-w-0"
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleSaveEdit();
-                                            if (e.key === 'Escape') handleCancelEdit();
-                                          }}
-                                          autoFocus
-                                        />
-                                        <Button size="sm" variant="ghost" onClick={handleSaveEdit} className="h-8 w-8 p-0 text-green-600">
-                                          <Check className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 p-0 text-red-600">
-                                          <X className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col items-start gap-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <h4
-                                        className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase truncate max-w-[200px] sm:max-w-xs hover:text-primary cursor-pointer"
-                                        onClick={(e) => { e.stopPropagation(); handleStartEdit(subject); }}
-                                      >{subject.name}</h4>
-                                      {isView && (
-                                        <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[8px] font-black rounded-md border border-primary/20 cursor-help" title="Matéria Duplicada (Cópia da original no ciclo)">DUP</span>
-                                      )}
-                                      {calculatedStatus === 'Concluída' && (
-                                        <span className="px-1.5 py-0.5 bg-green-500/10 text-green-500 text-[8px] font-black rounded-md border border-green-500/20">CONCLUÍDO</span>
-                                      )}
-                                      <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-2 py-0.5 rounded-md border border-black/5 dark:border-white/5">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
-                                        {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
-                                      </span>
-                                    </div>
-                                    {/* Temporary logic to display origin from local storage until backend support */}
-                                    {(() => {
-                                      const cachedOrigins = JSON.parse(localStorage.getItem('temp_origins') || '{}');
-                                      const source = (subject as any).source || cachedOrigins[subject.name];
-                                      return source ? (
-                                        <div>
-                                          <Badge variant="outline" className="text-[10px] text-content-muted border-primary/20 bg-primary/5">{source}</Badge>
-                                        </div>
-                                      ) : null;
-                                    })()}
-                                  </div>
-                                )}
+                            ) : (
+                              <div className="cursor-move text-content-muted hover:text-primary transition-colors p-1 -ml-2" onClick={(e) => e.stopPropagation()} {...listeners} {...attributes}>
+                                <GripVertical size={16} />
                               </div>
+                            )}
+
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
+                              <span className="text-[10px] sm:text-[11px] font-black text-primary">#{position}</span>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              {/* Progress Circle (V2) */}
-                              <div className="hidden sm:flex items-center justify-center relative w-8 h-8 rounded-full bg-deep-slate border border-black/5 dark:border-white/5 mr-2">
-                                <svg className="w-full h-full -rotate-90 transform p-0.5" viewBox="0 0 36 36">
-                                  <circle className="text-black/5 dark:text-white/5" strokeWidth="3" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
-                                  <circle className="text-primary transition-all duration-1000 ease-out" strokeWidth="3" strokeDasharray={`${progress}, 100`} strokeLinecap="round" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
-                                </svg>
-                                <span className="absolute text-[8px] font-bold text-content-main">{progress}%</span>
-                              </div>
-
-                              <div className="flex items-center gap-0.5">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setSubjectNotesModal({ isOpen: true, subjectId: subject.id, subjectName: subject.name }); }}
-                                  title="Anotações"
-                                  className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-primary"
-                                >
-                                  <FileText size={14} />
-                                </button>
-
-                                {isView ? (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleRemoveSubjectView(subject.id, viewIndex, subject.name); }}
-                                    title="Remover Cópia"
-                                    className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                ) : (
-                                  <>
-                                    {calculatedStatus !== 'Concluída' && (
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); handleAddSubjectView(subject); }}
-                                        title="Duplicar no Ciclo"
-                                        className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-content-muted hover:text-primary relative"
-                                      >
-                                        <Files size={14} />
-                                        {!isView && viewCount > 1 && (
-                                          <span className="absolute -top-1 -right-1 h-3 w-3 flex items-center justify-center rounded-full text-[8px] font-bold bg-primary text-white">
-                                            {viewCount - 1}
-                                          </span>
-                                        )}
-                                      </button>
+                            <div className="flex flex-col min-w-0">
+                              {isEditing ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="flex items-center gap-3 w-full" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <Input
+                                        value={editingName}
+                                        onChange={(e) => setEditingName(e.target.value)}
+                                        className="h-8 text-sm flex-1 min-w-0"
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSaveEdit();
+                                          if (e.key === 'Escape') handleCancelEdit();
+                                        }}
+                                        autoFocus
+                                      />
+                                      <Button size="sm" variant="ghost" onClick={handleSaveEdit} className="h-8 w-8 p-0 text-green-600">
+                                        <Check className="h-4 w-4" />
+                                      </Button>
+                                      <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 p-0 text-red-600">
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-start gap-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h4
+                                      className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase truncate max-w-[200px] sm:max-w-xs hover:text-primary cursor-pointer"
+                                      onClick={(e) => { e.stopPropagation(); handleStartEdit(subject); }}
+                                    >{subject.name}</h4>
+                                    {isView && (
+                                      <Badge variant="outline" className="text-[8px] px-1 bg-primary/10 text-primary border-primary/20">DUP</Badge>
                                     )}
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <button onClick={(e) => e.stopPropagation()} className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500">
-                                          <Trash2 size={14} />
-                                        </button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            Tem certeza que deseja excluir a matéria "{subject.name}"?
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                          <AlertDialogAction onClick={() => handleDelete(subject.id)} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  </>
-                                )}
-                              </div>
-
-                              <div className="w-px h-4 bg-black/5 dark:bg-white/5 mx-0.5"></div>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); toggleExpand(item.id); }}
-                                className={`p-1.5 hover:bg-primary/10 rounded-lg transition-all text-content-muted hover:text-primary ${expandedSubjectIds.includes(item.id) ? 'rotate-180 text-primary' : ''
-                                  }`}
-                              >
-                                <ChevronDown size={16} />
-                              </button>
+                                    {calculatedStatus === 'Concluída' && (
+                                      <Badge variant="outline" className="text-[8px] px-1 bg-green-500/10 text-green-500 border-green-500/20">CONCLUÍDO</Badge>
+                                    )}
+                                    <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-2 py-0.5 rounded-md border border-black/5 dark:border-white/5">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
+                                      {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
+                                    </span>
+                                  </div>
+                                  {(originsMap.get(subject.id) || []).length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {originsMap.get(subject.id)!.map((originName) => (
+                                        <Badge key={originName} variant="outline" className="text-[10px] text-content-muted border-primary/20 bg-primary/5">{originName}</Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
-                          {/* Expanded Content (Topics List) */}
-                          {expandedSubjectIds.includes(item.id) && (
-                            <div className="mt-2 ml-4 p-3 rounded-xl bg-black/5 dark:bg-black/20 space-y-2 border border-black/5 dark:border-white/5 relative z-10" onClick={e => e.stopPropagation()}>
-                              {/* Inline Topic Input */}
-                              <div className="relative group">
-                                <input
-                                  type="text"
-                                  placeholder="Novo tópico..."
-                                  value={newTopicTexts[subject.id] || ''}
-                                  onChange={(e) => setNewTopicTexts(prev => ({ ...prev, [subject.id]: e.target.value }))}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSaveNewTopic(subject.id);
-                                  }}
-                                  className="w-full bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-lg py-1.5 px-3 pr-8 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/50"
-                                />
+
+                          <div className="flex items-center gap-2">
+                            {/* Progress Circle */}
+                            <div className="hidden sm:flex items-center justify-center relative w-8 h-8 rounded-full bg-deep-slate border border-black/5 dark:border-white/5 mr-2">
+                              <svg className="w-full h-full -rotate-90 transform p-0.5" viewBox="0 0 36 36">
+                                <circle className="text-black/5 dark:text-white/5" strokeWidth="3" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
+                                <circle className="text-primary transition-all duration-1000 ease-out" strokeWidth="3" strokeDasharray={`${progress}, 100`} strokeLinecap="round" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
+                              </svg>
+                              <span className="absolute text-[8px] font-bold text-content-main">{progress}%</span>
+                            </div>
+
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSubjectNotesModal({ isOpen: true, subjectId: subject.id, subjectName: subject.name }); }}
+                                title="Anotações"
+                                className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-primary"
+                              >
+                                <FileText size={14} />
+                              </button>
+
+                              {isView ? (
                                 <button
-                                  onClick={() => handleSaveNewTopic(subject.id)}
-                                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-all"
-                                  title="Adicionar Tópico"
+                                  onClick={(e) => { e.stopPropagation(); handleRemoveSubjectView(subject.id, viewIndex, subject.name); }}
+                                  title="Remover Cópia"
+                                  className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
                                 >
-                                  <Plus size={14} />
+                                  <Trash2 size={14} />
                                 </button>
-                              </div>
-
-                              {subject.topics.length === 0 ? (
-                                <div className="py-4 text-center text-[10px] text-content-muted uppercase font-bold tracking-widest">Nenhum tópico cadastrado</div>
                               ) : (
-                                <div className="space-y-1">
-                                  {subject.topics.map((topic, idx) => {
-                                    const isCompleted = topic.completed || topic.reviewStage === 'Concluído';
-                                    const iconClass = getTopicIconClass(topic);
-
-                                    return (
-                                      <div key={topic.id} data-topic-item className="flex items-center justify-between p-2 rounded-lg bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all group/topic relative">
-                                        <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
-                                          <span className="text-[9px] font-bold text-content-muted w-4 flex-shrink-0">{idx + 1}.</span>
-                                          <div className={`flex-shrink-0 transition-colors ${iconClass}`}>
-                                            {isCompleted ? <CheckCircle2 size={16} className="fill-green-100 dark:fill-green-900/40 text-green-600" /> : <Circle size={16} className="text-content-muted" />}
-                                          </div>
-
-                                          {editingTopicId === topic.id ? (
-                                            <div className="flex items-center gap-1 flex-1 min-w-0">
-                                              <input
-                                                type="text"
-                                                value={editingTopicName}
-                                                onChange={(e) => setEditingTopicName(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Enter') handleSaveTopicEdit();
-                                                  if (e.key === 'Escape') handleCancelTopicEdit();
-                                                  e.stopPropagation();
-                                                }}
-                                                className="h-7 text-xs py-1 px-2 w-full bg-white dark:bg-slate-800 border border-primary/30 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                                                autoFocus
-                                              />
-                                              <button onClick={handleSaveTopicEdit} className="h-6 w-6 flex items-center justify-center text-green-600 hover:bg-green-100 rounded">
-                                                <Check size={14} />
-                                              </button>
-                                              <button onClick={handleCancelTopicEdit} className="h-6 w-6 flex items-center justify-center text-red-600 hover:bg-red-100 rounded">
-                                                <X size={14} />
-                                              </button>
-                                            </div>
-                                          ) : (
-                                            <div
-                                              className="flex flex-col flex-1 min-w-0 cursor-text"
-                                              onClick={() => handleStartTopicEdit(topic)}
-                                            >
-                                              <span className={`text-xs font-medium truncate ${isCompleted ? 'text-content-muted line-through' : 'text-content-main'}`}>
-                                                {topic.name}
-                                              </span>
-                                              <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest mt-0.5">
-                                                {Boolean(topic.first_studied_at) || topic.reviewCount > 0 ? "ESTUDADO" : "NÃO INICIADO"}
-                                              </span>
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                          {/* Action Buttons Example (Non-functional placeholders as requested) */}
-                                          <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-opacity mr-2">
-                                            <button className="h-6 px-2 flex items-center gap-1 rounded bg-black/5 dark:bg-white/5 text-content-muted hover:text-primary transition-colors text-[9px] font-bold">
-                                              <Sparkles size={10} /> Qtd. Questões
-                                            </button>
-                                            <button className="h-6 px-2 flex items-center gap-1 rounded bg-black/5 dark:bg-white/5 text-content-muted hover:text-primary transition-colors text-[9px] font-bold">
-                                              <Wand2 size={10} /> Resumo IA
-                                            </button>
-                                          </div>
+                                <>
+                                  {calculatedStatus !== 'Concluída' && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleAddSubjectView(subject); }}
+                                      title="Duplicar no Ciclo"
+                                      className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-content-muted hover:text-primary relative"
+                                    >
+                                      <Files size={14} />
+                                      {!isView && viewCount > 1 && (
+                                        <span className="absolute -top-1 -right-1 h-3 w-3 flex items-center justify-center rounded-full text-[8px] font-bold bg-primary text-white">
+                                          {viewCount - 1}
+                                        </span>
+                                      )}
+                                    </button>
+                                  )}
+                                  {/* Botão Ocultar (confirmação inline) */}
+                                  {!isView && (
+                                    <>
+                                      {confirmHideSubjectId === subject.id ? (
+                                        <div
+                                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs animate-in fade-in duration-150"
+                                          onClick={e => e.stopPropagation()}
+                                        >
+                                          <span className="text-amber-300 font-medium text-[11px] leading-snug">
+                                            Ocultar da lista?<br />
+                                            <span className="text-amber-300/60 font-normal">Fica salva no edital.</span>
+                                          </span>
                                           <button
-                                            onClick={() => handleDeleteTopic(topic, subject.name)}
-                                            className="opacity-0 group-hover/topic:opacity-100 p-1 text-content-muted hover:text-red-500 transition-all"
-                                            title="Excluir tópico"
+                                            onClick={() => handleDelete(subject.id)}
+                                            className="px-2 py-0.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg text-[10px] transition-all shrink-0"
                                           >
-                                            <Trash2 size={14} />
+                                            Ocultar
+                                          </button>
+                                          <button
+                                            onClick={() => setConfirmHideSubjectId(null)}
+                                            className="p-0.5 hover:bg-white/10 rounded text-amber-300/60 hover:text-amber-300 transition-all"
+                                          >
+                                            <X size={12} />
                                           </button>
                                         </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                                      ) : (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setConfirmHideSubjectId(subject.id); }}
+                                          className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
+                                          title="Ocultar matéria da lista"
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </>
                               )}
+
                             </div>
-                          )}
+
+                            <div className="w-px h-4 bg-black/5 dark:bg-white/5 mx-0.5"></div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleExpand(item.id); }}
+                              className={`p-1.5 hover:bg-primary/10 rounded-lg transition-all text-content-muted hover:text-primary ${expandedSubjectIds.includes(item.id) ? 'rotate-180 text-primary' : ''
+                                }`}
+                            >
+                              <ChevronDown size={16} />
+                            </button>
+                          </div>
                         </div>
-                      )}
-                    </SortableItem>
-                  );
-                })
-            )}
-          </div>
-        </SortableContext>
+                        {/* Expanded Content (Topics List) */}
+                        {expandedSubjectIds.includes(item.id) && (
+                          <div className="mt-2 ml-4 p-3 rounded-xl bg-black/5 dark:bg-black/20 space-y-2 border border-black/5 dark:border-white/5 relative z-10" onClick={e => e.stopPropagation()}>
+                            {/* Inline Topic Input */}
+                            <div className="relative group">
+                              <input
+                                type="text"
+                                placeholder="Novo tópico..."
+                                value={newTopicTexts[subject.id] || ''}
+                                onChange={(e) => setNewTopicTexts(prev => ({ ...prev, [subject.id]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveNewTopic(subject.id);
+                                }}
+                                className="w-full bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-lg py-1.5 px-3 pr-8 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/50"
+                              />
+                              <button
+                                onClick={() => handleSaveNewTopic(subject.id)}
+                                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-all"
+                                title="Adicionar Tópico"
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+
+                            {subject.topics.length === 0 ? (
+                              <div className="py-4 text-center text-[10px] text-content-muted uppercase font-bold tracking-widest">Nenhum tópico cadastrado</div>
+                            ) : (
+                              <div className="space-y-1">
+                                {subject.topics.map((topic, idx) => {
+                                  const isCompleted = topic.completed || topic.reviewStage === 'Concluído';
+                                  const iconClass = getTopicIconClass(topic);
+
+                                  return (
+                                    <div key={topic.id} data-topic-item className="flex items-center justify-between p-2 rounded-lg bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all group/topic relative">
+                                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
+                                        <span className="text-[9px] font-bold text-content-muted w-4 flex-shrink-0">{idx + 1}.</span>
+                                        <div className={`flex-shrink-0 transition-colors ${iconClass}`}>
+                                          {isCompleted ? <CheckCircle2 size={16} className="fill-green-100 dark:fill-green-900/40 text-green-600" /> : <Circle size={16} className="text-content-muted" />}
+                                        </div>
+
+                                        {editingTopicId === topic.id ? (
+                                          <div className="flex items-center gap-1 flex-1 min-w-0">
+                                            <input
+                                              type="text"
+                                              value={editingTopicName}
+                                              onChange={(e) => setEditingTopicName(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveTopicEdit();
+                                                if (e.key === 'Escape') handleCancelTopicEdit();
+                                                e.stopPropagation();
+                                              }}
+                                              className="h-7 text-xs py-1 px-2 w-full bg-white dark:bg-slate-800 border border-primary/30 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                              autoFocus
+                                            />
+                                            <button onClick={handleSaveTopicEdit} className="h-6 w-6 flex items-center justify-center text-green-600 hover:bg-green-100 rounded">
+                                              <Check size={14} />
+                                            </button>
+                                            <button onClick={handleCancelTopicEdit} className="h-6 w-6 flex items-center justify-center text-red-600 hover:bg-red-100 rounded">
+                                              <X size={14} />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div
+                                            className="flex flex-col flex-1 min-w-0 cursor-text"
+                                            onClick={() => handleStartTopicEdit(topic)}
+                                          >
+                                            <span className={`text-xs font-medium truncate ${isCompleted ? 'text-content-muted line-through' : 'text-content-main'}`}>
+                                              {topic.name}
+                                            </span>
+                                            <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest mt-0.5">
+                                              {Boolean(topic.first_studied_at) || topic.reviewCount > 0 ? "ESTUDADO" : "NÃO INICIADO"}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-center gap-2 flex-shrink-0">
+                                        {/* Action Buttons Example (Non-functional placeholders as requested) */}
+                                        <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-opacity mr-2">
+                                          <button className="h-6 px-2 flex items-center gap-1 rounded bg-black/5 dark:bg-white/5 text-content-muted hover:text-primary transition-colors text-[9px] font-bold">
+                                            <Sparkles size={10} /> Qtd. Questões
+                                          </button>
+                                          <button className="h-6 px-2 flex items-center gap-1 rounded bg-black/5 dark:bg-white/5 text-content-muted hover:text-primary transition-colors text-[9px] font-bold">
+                                            <Wand2 size={10} /> Resumo IA
+                                          </button>
+                                        </div>
+                                        <button
+                                          onClick={() => handleDeleteTopic(topic, subject.name)}
+                                          className="opacity-0 group-hover/topic:opacity-100 p-1 text-content-muted hover:text-red-500 transition-all"
+                                          title="Excluir tópico"
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </SortableItem>
+                );
+              })}
+            </div>
+            </SortableContext>
+          )}
+
+          {/* Load More Button */}
+          {hasMore && (
+            <div className="mt-8 flex justify-center pb-12">
+              <button
+                onClick={handleLoadMore}
+                className="group relative px-8 py-3 bg-zinc-900 border border-white/5 rounded-2xl flex items-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-xl overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <RefreshCw size={16} className="text-primary group-hover:rotate-180 transition-transform duration-500" />
+                <span className="text-xs font-bold text-zinc-300 group-hover:text-primary tracking-widest uppercase">
+                  Ver mais matérias ({filteredList.length - visibleCount} restantes)
+                </span>
+                <ChevronDown size={14} className="text-content-muted group-hover:translate-y-0.5 transition-transform" />
+              </button>
+            </div>
+          )}
+        </div>
       </DndContext>
     </div >
   );
@@ -1486,8 +1839,70 @@ const Subjects = () => {
             onClose={() => setIsImportEditalModalOpen(false)}
             initialTab={modalInitialTab}
             manualModeChildren={mainSubjectUI}
-            onImport={(data) => {
-              toast.success('Matérias importadas com sucesso! Implementar lógica de backend...');
+            onImport={async (importedSubjects, editalName) => {
+              if (!user) return;
+              setIsLoading(true);
+              try {
+                // 1. Obter ou Criar o Edital
+                const originName = editalName || 'IMPORTADO';
+                const edital = await getOrCreateUserEdital(originName, true); // (is_imported = true)
+                const newSubjectIds: string[] = [];
+
+                // 2. Processar cada matéria
+                for (const subj of importedSubjects) {
+                  // Inserir Matéria
+                  const { data: newSubj, error: sErr } = await supabase
+                    .from('subjects')
+                    .insert({
+                      user_id: user.id,
+                      name: subj.name.trim().toUpperCase(),
+                      status: 'Nova',
+                      priority: localSubjects.length + newSubjectIds.length + 1
+                    })
+                    .select()
+                    .single();
+                  
+                  if (sErr) throw sErr;
+                  if (newSubj) {
+                    newSubjectIds.push(newSubj.id);
+                    
+                    // Inserir Tópicos
+                    if (subj.topics && subj.topics.length > 0) {
+                      const topicsToInsert = subj.topics.map((t, idx) => ({
+                        user_id: user.id,
+                        subject_id: newSubj.id,
+                        name: t.name,
+                        position: idx
+                      }));
+                      
+                      const { error: tErr } = await supabase
+                        .from('topics')
+                        .insert(topicsToInsert);
+                        
+                      if (tErr) throw tErr;
+                    }
+                  }
+                }
+
+                // 3. Vincular ao Edital
+                if (edital) {
+                  const combinedIds = [...(edital.subject_ids || []), ...newSubjectIds];
+                  await (supabase as any)
+                    .from('user_editais')
+                    .update({ subject_ids: combinedIds })
+                    .eq('id', edital.id);
+                }
+
+                await refreshData();
+                refresh(); // Atualizar hook useEditalOrigins
+                window.dispatchEvent(new CustomEvent('subjectUpdated'));
+                toast.success(`${importedSubjects.length} matérias vinculadas a "${originName}" com sucesso!`);
+                setIsImportEditalModalOpen(false);
+              } catch (err) {
+                errorService.report(err, { module: 'Subjects', action: 'import', userMessage: 'Erro ao importar matérias.' });
+              } finally {
+                setIsLoading(false);
+              }
             }}
             subjects={subjects}
           />
@@ -1508,10 +1923,8 @@ const Subjects = () => {
             isOpen={isSmartMergeModalOpen}
             onClose={() => setIsSmartMergeModalOpen(false)}
             subjects={subjects}
-            onApply={(approvedSuggestions) => {
-              toast.success(`${approvedSuggestions.length} sugestões aplicadas com sucesso! Implementar lógica de backend...`);
-              setIsSmartMergeModalOpen(false);
-            }}
+            suggestions={smartMergeSuggestions}
+            onApply={handleApplySmartMerge}
           />
 
           <ContentUploadModal

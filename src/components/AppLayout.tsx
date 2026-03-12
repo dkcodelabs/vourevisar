@@ -32,6 +32,7 @@ import { features } from "@/lib/features";
 
 const routeTitles: Record<string, string> = {
   "/dashboard": "Painel",
+  "/meus-editais": "Meus Editais",
   "/ciclo-estudos": "Ciclo de Estudos",
   "/revisoes": "Revisões",
   "/materias": "Matérias",
@@ -43,6 +44,7 @@ const routeTitles: Record<string, string> = {
   "/admin/feedback": "Feedbacks dos Alunos",
   "/admin/users": "Gestão de Usuários",
   "/admin/tendencia": "Tendência (GUT)",
+  "/admin/editais": "Gerenciar Editais",
 };
 
 const routeDescriptions: Record<string, string> = {

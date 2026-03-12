@@ -312,6 +312,13 @@ const Settings = () => {
       await supabase.from('subjects').delete().eq('user_id', user.id);
       await supabase.from('user_cycles').delete().eq('user_id', user.id);
       await supabase.from('study_sessions').delete().eq('user_id', user.id);
+      
+      // Também excluir user_editais (Agrupamentos/Editais importados)
+      await (supabase as any).from('user_editais').delete().eq('user_id', user.id);
+
+      // Limpar os caches locais para não exibir dados "fantasmas" na montagem
+      localStorage.removeItem(`subjects_${user.id} `);
+      localStorage.removeItem(`user_cycle_cache_${user.id} `);
 
       await Promise.all([refreshData(), fetchUserCycle(), fetchUserSettingsContext()]);
       toast.success("Sistema limpo com sucesso!");

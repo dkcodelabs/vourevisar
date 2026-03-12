@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { Topic } from '@/types';
 import { updateStudiedSubjects, addStudiedSubject, resetCycle, isSubjectStudiedGlobal } from '@/utils/cycleState';
+import { cleanCycle } from '@/utils/cycleUtils';
 
 // Tipo estendido para UserCycle com propriedades adicionais
 interface ExtendedUserCycle {
@@ -216,27 +217,9 @@ export const useCycleStatus = () => {
         addStudiedSubject(subjectId);
       }
 
-      // SEMPRE limpar matérias 100% concluídas do ciclo
+      // Usar utilitário unificado para limpar o ciclo
       const currentCycle = typedFreshCycle.ciclo_atual || [];
-      const cleanedCycle = currentCycle.filter((id: string) => {
-        const subject = typedSubjects.find(s => s.id === id);
-        if (!subject) return false;
-
-        // Remover matérias 100% concluídas do ciclo
-        if (subject.topics && subject.topics.length > 0) {
-          const completedTopics = subject.topics.filter((topic: any) =>
-            topic.reviewStage === 'Concluído' || topic.completed === true
-          ).length;
-
-          const progress = Math.round((completedTopics / subject.topics.length) * 100);
-          if (progress >= 100) {
-            console.log(`🗑️ Removendo matéria 100% concluída do ciclo: ${subject.name}`);
-            return false;
-          }
-        }
-
-        return true;
-      });
+      const cleanedCycle = cleanCycle(currentCycle, typedSubjects);
 
       // Sempre atualizar o ciclo limpo
       updateData.ciclo_atual = cleanedCycle;
@@ -532,10 +515,8 @@ export const useCycleStatus = () => {
         return isCompleted;
       });
 
-      // LIMPAR matérias 100% concluídas do ciclo_atual
-      const completedSubjectIds = completedSubjects.map(s => s.id);
       const currentCycle = typedFreshUserCycle.ciclo_atual || [];
-      const cleanedCycle = currentCycle.filter(id => !completedSubjectIds.includes(id));
+      const cleanedCycle = cleanCycle(currentCycle, allSubjects);
 
       // Log removido para evitar spam
 

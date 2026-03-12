@@ -26,6 +26,8 @@ import ConfirmEmail from "@/pages/ConfirmEmail";
 import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
 import StudyCycle from "@/pages/StudyCycle";
+import Editais from "@/pages/Editais";
+import RevealCardDemo from "@/components/ui/RevealCardDemo";
 
 import UserManagement from "@/pages/admin/UserManagement";
 import ImportQuestions from "@/pages/admin/content/ImportQuestions";
@@ -37,6 +39,7 @@ import AdminFeedback from "@/pages/admin/AdminFeedback";
 import ToastSpamTest from "@/pages/admin/debug/ToastSpamTest";
 import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
 import TendenciaGUT from "@/pages/admin/TendenciaGUT";
+import AdminEditais from "@/pages/admin/AdminEditais";
 
 import { AuthCallback } from "@/components/AuthCallback";
 import { SimpleRoleTest } from "@/components/SimpleRoleTest";
@@ -90,6 +93,7 @@ const App = () => {
                       <Route path="/*" element={<ProtectedRoute />}>
                         <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
                           <Route path="dashboard" element={<Dashboard />} />
+                          <Route path="meus-editais" element={<Editais />} />
                           <Route path="materias" element={<Subjects />} />
                           <Route path="estatisticas" element={<Statistics />} />
                           <Route path="materias/:subjectId/topicos" element={<Topics />} />
@@ -108,6 +112,7 @@ const App = () => {
                             <Route path="admin/audit" element={<AuditLogs />} />
                             <Route path="admin/system/errors" element={<SystemErrors />} />
                             <Route path="admin/feedback" element={<AdminFeedback />} />
+                            <Route path="admin/editais" element={<AdminEditais />} />
                             <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
                           </Route>
 
@@ -117,6 +122,7 @@ const App = () => {
                           <Route path="test-roles" element={<SimpleRoleTest />} />
                           <Route path="perfil" element={<Profile />} />
                           <Route path="configuracoes" element={<Settings />} />
+                          <Route path="reveal-cards" element={<RevealCardDemo />} />
 
                         </Route>
                       </Route>

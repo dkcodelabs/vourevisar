@@ -115,7 +115,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                     )}
                                 </p>
                                 <button
-                                    onClick={() => navigate('/materias')}
+                                    onClick={() => navigate('/meus-editais')}
                                     className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                                 >
                                     {stats.totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}
@@ -269,7 +269,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 </div>
 
                                 <button
-                                    onClick={() => navigate('/materias')}
+                                    onClick={() => navigate('/meus-editais')}
                                     className="px-6 py-3 bg-gradient-to-r from-slate-700 to-indigo-600 hover:from-slate-800 hover:to-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                                 >
                                     {stats.totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}

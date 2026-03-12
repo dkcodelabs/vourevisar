@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Book, Calendar, Users, Settings, List, Clock,
   Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
   ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Monitor, FileSearch,
-  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList
+  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Layers
 } from "lucide-react";
 
 import { AnimatedLogo } from './AnimatedLogo';
@@ -78,16 +78,19 @@ interface NavItem {
 const getNavItems = (isAdmin: boolean) => {
   const mainItems: NavItem[] = [
     { to: "/dashboard", label: "Painel", icon: LayoutDashboard, end: true },
+    { to: "/meus-editais", label: "Meus Editais", icon: Library },
     { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: RotateCcw },
     { to: "/revisoes", label: "Revisões", icon: Clock },
     { to: "/materias", label: "Matérias", icon: Book },
     { to: "/topicos", label: "Tópicos", icon: List },
     { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
+    { to: "/reveal-cards", label: "Componentes UI", icon: Layers },
   ];
 
   const adminItems: NavItem[] = isAdmin ? [
     { to: "/admin/users", label: "Gerenciar Usuários", icon: Users },
     { to: "/admin/content/import", label: "Importar Questões", icon: FileUp },
+    { to: "/admin/editais", label: "Gerenciar Editais", icon: Library },
     { to: "/admin/tendencia", label: "Tendência (GUT)", icon: TrendingUp },
     { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
     { to: "/admin/audit", label: "Auditoria", icon: ClipboardList },

@@ -4,8 +4,8 @@ import { Sparkles, Search, RotateCcw, PenLine, X } from 'lucide-react';
 import { Subject } from '@/types';
 
 // Mock types locally adapted
-type Suggestion = {
-    subjectIds: number[];
+export type Suggestion = {
+    subjectIds: string[];
     suggestedName: string;
     approved: boolean;
 };
@@ -14,16 +14,17 @@ interface SmartMergeModalProps {
     isOpen: boolean;
     onClose: () => void;
     subjects: Subject[];
+    suggestions: Suggestion[];
     onApply: (approvedSuggestions: Suggestion[]) => void;
 }
 
-const MOCK_SUGGESTIONS: Suggestion[] = [
-    { subjectIds: [1, 3], suggestedName: 'Português', approved: true },
-    { subjectIds: [2, 4], suggestedName: 'Direito Constitucional', approved: false }
-];
 
-export const SmartMergeModal = ({ isOpen, onClose, subjects, onApply }: SmartMergeModalProps) => {
-    const [localSuggestions, setLocalSuggestions] = useState<Suggestion[]>(MOCK_SUGGESTIONS);
+export const SmartMergeModal = ({ isOpen, onClose, subjects, suggestions, onApply }: SmartMergeModalProps) => {
+    const [localSuggestions, setLocalSuggestions] = useState<Suggestion[]>(suggestions);
+
+    React.useEffect(() => {
+        setLocalSuggestions(suggestions);
+    }, [suggestions]);
 
     if (!isOpen) return null;
 
@@ -76,9 +77,8 @@ export const SmartMergeModal = ({ isOpen, onClose, subjects, onApply }: SmartMer
                         </div>
                     ) : (
                         localSuggestions.map((suggestion, idx) => {
-                            // const subjectsToMerge = subjects.filter(s => suggestion.subjectIds.includes(s.id));
-                            // Temporarily mocking for UI, in reality backend fetches it
-                            const mockSubjectsToMerge = subjects.length ? [subjects[0], subjects[1]].filter(Boolean) : [
+                            const subjectsToMerge = subjects.filter(s => suggestion.subjectIds.includes(s.id));
+                            const mockSubjectsToMerge = subjectsToMerge.length > 0 ? subjectsToMerge : [
                                 { id: 'mock-1', name: 'Português', status: 'Nova' as const, topics: [] },
                                 { id: 'mock-2', name: 'Gramática', status: 'Nova' as const, topics: [] }
                             ];
