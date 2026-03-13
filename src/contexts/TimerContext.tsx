@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
+import { useAuth } from './AuthContext';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -73,8 +74,14 @@ const TimerContext = createContext<TimerContextType | undefined>(undefined);
 export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     // Inicialização rápida via localStorage para evitar flicker
     const [activeTimer, setActiveTimerState] = useState<ActiveTimer | null>(readFromLocalStorage);
-    const userIdRef = useRef<string | null>(null);
+    const { user } = useAuth();
+    const userIdRef = useRef<string | null>(user?.id || null);
     const syncingRef = useRef(false); // evita loops de sync
+
+    // Sincronizar userIdRef com o context de autenticação
+    useEffect(() => {
+        userIdRef.current = user?.id || null;
+    }, [user?.id]);
 
     /** Atualiza estado local + localStorage (cache offline) */
     const applyTimer = useCallback((timer: ActiveTimer | null) => {
@@ -82,94 +89,66 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
         writeToLocalStorage(timer);
     }, []);
 
-    // ── Auth: descobre user_id atual ──────────────────────────────────────────
+    // ── Ciclo de Vida: Carga Inicial + Realtime ──────────────────────────────────
     useEffect(() => {
-        supabase.auth.getUser().then(({ data }) => {
-            userIdRef.current = data.user?.id ?? null;
-        });
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-            userIdRef.current = session?.user?.id ?? null;
-        });
-        return () => subscription.unsubscribe();
-    }, []);
+        if (!user?.id) {
+            applyTimer(null);
+            return;
+        }
 
-    // ── Carrega estado inicial do Supabase (sobrepõe localStorage se necessário) ──
-    useEffect(() => {
-        let cancelled = false;
-        const load = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user || cancelled) return;
+        let isCancelled = false;
+        let channel: any = null;
 
+        const initTimer = async () => {
+            // 1. Carrega estado inicial do Supabase
             const { data, error } = await supabase
                 .from('active_study_timers')
                 .select('topic_id, status, started_at, accumulated_ms')
                 .eq('user_id', user.id)
                 .maybeSingle();
 
-            if (error || cancelled) return;
+            if (!error && !isCancelled) {
+                const remoteTimer = data ? dbRowToTimer(data) : null;
+                applyTimer(remoteTimer);
+            }
 
-            const remoteTimer = data ? dbRowToTimer(data) : null;
-            // O estado remoto é sempre a fonte de verdade
-            applyTimer(remoteTimer);
-        };
-        load();
-        return () => { cancelled = true; };
-    }, [applyTimer]);
+            if (isCancelled) return;
 
-    // ── Supabase Realtime: sincroniza mudanças de qualquer browser ────────────
-    useEffect(() => {
-        let userId: string | null = null;
-
-        const setupSubscription = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-            userId = user.id;
-
-            const channel = supabase
+            // 2. Configura canal Realtime para sincronização
+            channel = supabase
                 .channel(`timer_sync_${user.id}`)
                 .on(
                     'postgres_changes',
                     {
-                        event: '*', // INSERT, UPDATE, DELETE
+                        event: '*',
                         schema: 'public',
                         table: 'active_study_timers',
                         filter: `user_id=eq.${user.id}`,
                     },
                     (payload) => {
-                        if (syncingRef.current) return; // mudança gerada por este mesmo cliente
+                        if (syncingRef.current || isCancelled) return;
 
                         if (payload.eventType === 'DELETE') {
                             applyTimer(null);
-                            return;
+                        } else {
+                            const row = payload.new as any;
+                            const remoteTimer = dbRowToTimer(row);
+                            applyTimer(remoteTimer);
                         }
-
-                        const row = payload.new as {
-                            topic_id: string | null;
-                            status: string;
-                            started_at: string | null;
-                            accumulated_ms: number;
-                        };
-                        const remoteTimer = dbRowToTimer(row);
-                        applyTimer(remoteTimer);
                     }
                 )
                 .subscribe();
-
-            return channel;
         };
 
-        let channelPromise = setupSubscription();
-        let isCancelled = false;
+        initTimer();
 
         return () => {
             isCancelled = true;
-            channelPromise.then((channel) => {
-                if (channel && !isCancelled) {
-                    supabase.removeChannel(channel).catch(() => { });
-                }
-            });
+            if (channel) {
+                supabase.removeChannel(channel).catch(() => { });
+            }
         };
-    }, [applyTimer]);
+    }, [user?.id, applyTimer]);
 
     // ── Listener de storage (sincronização entre abas do mesmo browser) ───────
     useEffect(() => {

@@ -115,7 +115,11 @@ const Login = () => {
           return;
         }
 
-        const result = await signIn(email.trim(), password);
+        const result = await Promise.race([
+          signIn(email.trim(), password),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 15000))
+        ]);
+
         console.log('[DEBUG] Login.tsx: Resultado do signIn:', result);
         if (!result.success) {
           if (result.error?.includes('Invalid login credentials')) {
@@ -124,14 +128,21 @@ const Login = () => {
             toastManager.error('Email não confirmado. Verifique sua caixa de entrada.');
           } else if (result.error?.includes('Too many requests') || result.error?.includes('rate limit')) {
             toastManager.error('Muitas tentativas. Tente novamente em alguns minutos.');
+          } else if (result.error?.includes('FetchError') || result.error?.includes('AbortError') || result.error?.includes('Failed to fetch')) {
+            toastManager.error('Erro de conexão. Verifique sua internet ou tente novamente mais tarde.');
           } else {
             toastManager.error('Erro ao fazer login. Tente novamente.');
           }
           setIsLoading(false);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login/Signup error:', error);
+      if (error.message === 'TIMEOUT') {
+        toastManager.error('O servidor demorou muito para responder. Tente novamente.');
+      } else {
+        toastManager.error('Ocorreu um erro inesperado. Tente novamente.');
+      }
       setIsLoading(false);
     }
   };

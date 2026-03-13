@@ -37,6 +37,7 @@ const Topics = () => {
     topicName?: string;
     subjectName?: string;
   }>({ isOpen: false, topicId: '', subjectId: '' });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [notesModal, setNotesModal] = useState<{
     isOpen: boolean;
@@ -151,6 +152,7 @@ const Topics = () => {
 
   const confirmDelete = async () => {
     if (!deleteModal.topicId || !deleteModal.subjectId) return;
+    setIsDeleting(true);
 
     try {
       await deleteTopic(deleteModal.subjectId, deleteModal.topicId);
@@ -168,6 +170,8 @@ const Topics = () => {
           userId: user?.id
         }
       );
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -405,6 +409,7 @@ const Topics = () => {
         onConfirm={confirmDelete}
         topicName={deleteModal.topicName || ''}
         subjectName={deleteModal.subjectName || ''}
+        isLoading={isDeleting}
       />
 
       {notesModal.isOpen && (

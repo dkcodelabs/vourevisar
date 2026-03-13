@@ -86,24 +86,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Verificar se há sessão existente
     const checkSession = async () => {
       try {
+        const startTime = performance.now();
         const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (!error && session?.user) {
-          if (isMounted) {
-            setUser(session.user);
-            // We set the signature here too to prevent "SIGNED_IN" from firing a log if it happens after checkSession
-            if (session.access_token) {
-              lastLoginSignature.current = session.access_token.slice(-16);
-            }
-            setTimeout(() => {
-              if (isMounted) {
-                fetchProfile(session.user.id);
-              }
-            }, 100);
+        if (error) {
+          if (error.message?.includes('FetchError') || error.message?.includes('AbortError')) {
+            console.warn("[AuthContext] Latência ou Abort detectado no boot. Aguardando listener...");
+            return;
           }
+          throw error;
         }
-      } catch (error) {
-        // Silenciar erros para não poluir o console
+
+        if (session?.user && isMounted) {
+          setUser(session.user);
+          if (session.access_token) {
+            lastLoginSignature.current = session.access_token.slice(-16);
+          }
+          await fetchProfile(session.user.id);
+          const duration = (performance.now() - startTime).toFixed(0);
+          console.log(`[AuthContext] Sessão recuperada em ${duration}ms`);
+        }
+      } catch (error: any) {
+        if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+          console.warn("[AuthContext] Chamada de sessão abortada (comum em remounts ou rede instável)");
+        } else {
+          console.error("[AuthContext] Erro ao verificar sessão:", error);
+        }
       } finally {
         if (isMounted) {
           setLoading(false);

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, CalendarDays, AlertTriangle, Wand2, PlusCircle, RefreshCw, BellOff, MessageSquarePlus, SearchX } from 'lucide-react';
 import { FeedbackModal } from './FeedbackModal';
 import { useNotifications, type UserNotification, type NotificationFilter } from '@/hooks/useNotifications';
@@ -126,6 +127,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
     }
   }, [isOpen]);
   const [activeTab, setActiveTab] = React.useState<'notificacoes' | 'feedbacks'>('notificacoes');
+  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = React.useState<NotificationFilter>('todas');
   const [statusFilter, setStatusFilter] = React.useState<StatusFilterOption | 'respondido'>('em_aberto');
   const [expandedFeedback, setExpandedFeedback] = React.useState<string | null>(null);
@@ -305,6 +307,19 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
       // Erro: Modal permanece aberto
       console.error("Erro ao enviar feedback:", error);
       return null;
+    }
+  };
+
+  const handleNotificationClick = (notification: UserNotification) => {
+    // 1. Marcar como lida se necessário
+    if (!notification.read) {
+      markNotificationAsRead(notification.id);
+    }
+
+    // 2. Redirecionar se houver URL
+    if (notification.action_url) {
+      navigate(notification.action_url);
+      onClose(); // Fechar o painel lateral
     }
   };
 
@@ -488,38 +503,41 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                           {items.map((notification) => {
                             const iconInfo = getNotificationIcon(notification.type);
                             return (
-                              <div
-                                key={notification.id}
-                                className={`relative pl-14 py-2 group cursor-pointer ${isOlder ? 'opacity-70 hover:opacity-100 transition-opacity' : ''}`}
-                                onClick={() => !notification.read && markNotificationAsRead(notification.id)}
-                              >
-                                {/* Ícone circular */}
                                 <div
-                                  className={`absolute left-0 top-3 w-10 h-10 rounded-full flex items-center justify-center z-10 ${iconInfo.bgClass} ${iconInfo.textClass}`}
-                                  aria-hidden="true"
+                                  key={notification.id}
+                                  className={`relative pl-14 py-2 group cursor-pointer ${isOlder ? 'opacity-70 hover:opacity-100 transition-opacity' : ''}`}
+                                  onClick={() => handleNotificationClick(notification)}
                                 >
-                                  {React.cloneElement(iconInfo.icon as React.ReactElement, { size: 18 })}
-                                  {/* Blue dot no ícone — igual ao padrão da aba Feedback */}
-                                  {!notification.read && (
-                                    <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse ring-2 ring-white dark:ring-[#181A1C]" title="Não lida" />
-                                  )}
-                                </div>
-
-                                {/* Conteúdo */}
-                                <div className="flex flex-col gap-0.5">
-                                  <div className="flex justify-between items-baseline">
-                                    <h3 className={`text-[13px] text-slate-900 dark:text-white ${!notification.read ? 'font-bold' : 'font-medium'}`}>
-                                      {notification.title}
-                                    </h3>
-                                    <span className="text-[10px] text-slate-400 uppercase font-semibold flex-shrink-0 ml-2">
-                                      {formatRelativeDate(notification.created_at)}
-                                    </span>
+                                  {/* Ícone circular */}
+                                  <div
+                                    className={`absolute left-0 top-3 w-10 h-10 rounded-full flex items-center justify-center z-10 ${iconInfo.bgClass} ${iconInfo.textClass}`}
+                                    aria-hidden="true"
+                                  >
+                                    {React.cloneElement(iconInfo.icon as React.ReactElement, { size: 18 })}
+                                    {/* Blue dot no ícone — igual ao padrão da aba Feedback */}
+                                    {!notification.read && (
+                                      <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse ring-2 ring-white dark:ring-[#181A1C]" title="Não lida" />
+                                    )}
                                   </div>
-                                  <p className="text-[13px] text-slate-500 dark:text-slate-400 leading-snug">
-                                    {formatNotificationMessage(notification.message)}
-                                  </p>
+
+                                  {/* Conteúdo */}
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex justify-between items-baseline">
+                                      <h3 className={`text-[13px] text-slate-900 dark:text-white ${!notification.read ? 'font-bold' : 'font-medium'}`}>
+                                        {notification.title}
+                                      </h3>
+                                      <span className="text-[10px] text-slate-400 uppercase font-semibold flex-shrink-0 ml-2">
+                                        {formatRelativeDate(notification.created_at)}
+                                      </span>
+                                    </div>
+                                    <p className={`text-[13px] leading-snug transition-colors ${notification.action_url
+                                      ? 'text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 font-medium'
+                                      : 'text-slate-500 dark:text-slate-400'
+                                      }`}>
+                                      {formatNotificationMessage(notification.message)}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
                             );
                           })}
                         </div>

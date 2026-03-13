@@ -160,31 +160,34 @@ export const useStudyCycleData = () => {
         }
       }
 
-      const { data, error } = await supabase
-        .from('subjects')
-        .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position)`)
-        .eq('user_id', user.id)
-        .order('priority', { ascending: true })
-        .order('position', { foreignTable: 'topics', ascending: true })
-        .order('created_at', { foreignTable: 'topics', ascending: true });
+      // Executa as buscas em paralelo para evitar race conditions
+      const [subjectsRes, editaisRes] = await Promise.all([
+        supabase
+          .from('subjects')
+          .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position)`)
+          .eq('user_id', user.id)
+          .order('priority', { ascending: true })
+          .order('position', { foreignTable: 'topics', ascending: true })
+          .order('created_at', { foreignTable: 'topics', ascending: true }),
+        (supabase as any)
+          .from('user_editais')
+          .select('*')
+          .eq('user_id', user.id)
+      ]);
 
-      if (error) {
-        console.error('Erro ao carregar matérias:', error);
+      if (subjectsRes.error) {
+        console.error('Erro ao carregar matérias:', subjectsRes.error);
         return;
       }
 
-      const newSubjects = (data as any) || [];
+      const newSubjects = (subjectsRes.data as any) || [];
       setSubjects(newSubjects);
       localStorage.setItem(cacheKey, JSON.stringify(newSubjects));
 
-      // Carregar editais
-      const { data: editalData, error: editalError } = await (supabase as any)
-        .from('user_editais')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (!editalError && editalData) {
-        setUserEditais(editalData as UserEdital[]);
+      if (editaisRes.error) {
+        console.error('Erro ao carregar editais:', editaisRes.error);
+      } else {
+        setUserEditais((editaisRes.data || []) as UserEdital[]);
       }
     } catch (error) {
       console.error('Erro ao carregar matérias:', error);
@@ -310,11 +313,13 @@ export const useStudyCycleData = () => {
   // Auto-adicionar matérias novas ao ciclo
   useEffect(() => {
     const addNewSubjectsToCycle = async () => {
-      // Importante: subjects e userEditais devem estar carregados
-      // Se subjects > 0 mas userEditais está vazio, pode ser que ainda esteja carregando os editais
-      // Para evitar vazamento, esperamos ter carregado os editais se o usuário tiver algum
+      // Importante: subjects e userCycle devem estar carregados
       if (!user || !userCycle?.ciclo_atual || subjects.length === 0) return;
 
+      // Para evitar race conditions durante o carregamento inicial, 
+      // verificamos se temos ao menos alguma tentativa de carregar editais
+      // No loadSubjects, garantimos que ambos carreguem juntos via Promise.all
+      
       const subjectsInNonMergedEditais = new Set<string>();
       userEditais.forEach(edital => {
         if (!edital.merged_into_cycle && edital.subject_ids) {
@@ -329,7 +334,6 @@ export const useStudyCycleData = () => {
       );
 
       if (subjectsNotInCycle.length > 0) {
-        // Debounce simples para evitar multiplas atualizações se carregando em partes
         const newSubjectIds = subjectsNotInCycle.map(s => s.id);
         const updatedCycle = [...userCycle.ciclo_atual, ...newSubjectIds];
 

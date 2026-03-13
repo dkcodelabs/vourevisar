@@ -454,6 +454,7 @@ const Subjects = () => {
     subjectName: ''
   });
   const [topicToDelete, setTopicToDelete] = useState<{ id: string; name: string; subjectName: string } | null>(null);
+  const [isDeletingTopic, setIsDeletingTopic] = useState(false);
 
   // Estados para edição inline de tópicos
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
@@ -873,6 +874,7 @@ const Subjects = () => {
 
   const confirmDeleteTopic = async () => {
     if (!topicToDelete) return;
+    setIsDeletingTopic(true);
 
     try {
       // 1. Deletar histórico primeiro
@@ -908,6 +910,8 @@ const Subjects = () => {
           userId: user?.id
         }
       );
+    } finally {
+      setIsDeletingTopic(false);
     }
   };
 
@@ -1826,8 +1830,20 @@ const Subjects = () => {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDeleteTopic} className="bg-red-600 hover:bg-red-700">
+                <AlertDialogCancel disabled={isDeletingTopic}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    confirmDeleteTopic();
+                  }}
+                  disabled={isDeletingTopic}
+                  className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
+                >
+                  {isDeletingTopic ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                   Excluir
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -1839,13 +1855,13 @@ const Subjects = () => {
             onClose={() => setIsImportEditalModalOpen(false)}
             initialTab={modalInitialTab}
             manualModeChildren={mainSubjectUI}
-            onImport={async (importedSubjects, editalName) => {
+            onImport={async (importedSubjects, editalName, isImported = true) => {
               if (!user) return;
               setIsLoading(true);
               try {
                 // 1. Obter ou Criar o Edital
                 const originName = editalName || 'IMPORTADO';
-                const edital = await getOrCreateUserEdital(originName, true); // (is_imported = true)
+                const edital = await getOrCreateUserEdital(originName, isImported); // Use provided isImported flag
                 const newSubjectIds: string[] = [];
 
                 // 2. Processar cada matéria

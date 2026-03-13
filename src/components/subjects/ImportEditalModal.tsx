@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileText, Sparkles, Loader2, Undo2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2 } from 'lucide-react';
+import { Search, FileText, Sparkles, Loader2, Undo2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Subject } from '@/types';
 import { toast } from '@/lib/toast';
@@ -24,7 +24,7 @@ interface AiSubject {
 interface ImportEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (data: Subject[], editalName?: string) => void;
+    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string) => Promise<void> | void;
     subjects: Subject[];
     initialTab?: 'ready' | 'ia' | 'manual';
     manualModeChildren?: React.ReactNode;
@@ -43,7 +43,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
 
     // Manual States
     const [manualTitle, setManualTitle] = useState('');
-    const [manualTopics, setManualTopics] = useState<string[]>(['']);
+    const [manualSubjects, setManualSubjects] = useState<string[]>([]);
+    const [currentManualSubject, setCurrentManualSubject] = useState('');
+    const [isSavingManual, setIsSavingManual] = useState(false);
     const [examDate, setExamDate] = useState('');
 
     // IA States
@@ -55,6 +57,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
     // State for dynamic editais from database
     const [editais, setEditais] = useState<any[]>([]);
     const [loadingEditais, setLoadingEditais] = useState(true);
+    const [isLoadingReady, setIsLoadingReady] = useState(false); // New state for ready tab import
 
     useEffect(() => {
         const fetchPublicEditais = async () => {
@@ -92,10 +95,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
             setInputText('');
             setAiResult([]);
             setManualTitle('');
-            setManualTopics(['']);
+            setManualSubjects([]);
+            setCurrentManualSubject('');
+            setIsSavingManual(false);
             setExamDate('');
             setShowSuggestSlide(false);
             setSuggestionSent(false);
+            setSourceName(''); // Reset sourceName on close
         }
     }, [initialTab, isOpen]);
 
@@ -161,7 +167,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
         }, 1500);
     };
 
-    const handleSaveAiResult = () => {
+    const handleSaveAiResult = async () => {
         const newSubjects: Subject[] = [];
 
         aiResult.filter(r => r.selected).forEach((r, sIdx) => {
@@ -179,34 +185,76 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
             });
         });
 
-        onImport(newSubjects, sourceName.trim() || 'Importado com IA');
+        await onImport(newSubjects, sourceName.trim() || 'Importado com IA', true); // isImported = true
         onClose();
         setSourceName('');
     };
 
-    const handleSaveManual = () => {
+    const handleSaveManual = async () => {
         if (!manualTitle.trim()) {
             toastGate.notifyError('Preencha o nome do edital/concurso', 'VAL-01', { severity: 'low' });
             return;
         }
 
-        const validSubjects = manualTopics.filter(t => t.trim() !== '');
-        if (validSubjects.length === 0) {
+        if (manualSubjects.length === 0) {
             toastGate.notifyError('Adicione pelo menos uma matéria', 'VAL-02', { severity: 'low' });
             return;
         }
 
-        const newSubjects: Subject[] = validSubjects.map((name, idx) => ({
-            id: `manual-subj-${Date.now()}-${idx}`,
-            name: name.trim().toUpperCase(),
-            status: 'Nova',
-            topics: []
-        }));
+        setIsSavingManual(true);
+        try {
+            const newSubjects: Subject[] = manualSubjects.map((name, idx) => ({
+                id: `manual-subj-${Date.now()}-${idx}`,
+                name: name.trim().toUpperCase(),
+                status: 'Nova',
+                topics: []
+            }));
 
-        onImport(newSubjects, manualTitle.trim());
-        onClose();
-        setManualTitle('');
-        setManualTopics(['']);
+            await onImport(newSubjects, manualTitle.trim(), false); // isImported = false
+            onClose();
+            setManualTitle('');
+            setManualSubjects([]);
+            setCurrentManualSubject('');
+        } catch (error) {
+            console.error('Erro ao salvar edital manual:', error);
+        } finally {
+            setIsSavingManual(false);
+        }
+    };
+
+    const handleImportReadyEdital = async (edital: any) => {
+        setIsLoadingReady(true);
+        try {
+            // If no subjects, just log it silently or ignore as requested by user
+            if (!edital.subjects || !Array.isArray(edital.subjects) || edital.subjects.length === 0) {
+                console.log("[ImportEditalModal] Edital sem matérias, mas importação permitida conforme regra de negócio.");
+            }
+
+            const subjectsList = Array.isArray(edital.subjects) ? edital.subjects : [];
+
+            const importSubjects: Subject[] = subjectsList.map((s: any, i: number) => {
+                return {
+                    id: `imp-${edital.id}-${i}-${Date.now()}`,
+                    name: s.name,
+                    status: 'Nova',
+                    topics: (s.topics || []).map((t: any, ti: number) => ({
+                        id: `imp-top-${edital.id}-${i}-${ti}-${Date.now()}`,
+                        name: typeof t === 'string' ? t : t.name,
+                        completed: false,
+                        reviewCount: 0,
+                        review_count: 0,
+                    }))
+                };
+            });
+            await onImport(importSubjects, `${edital.organ} - ${edital.position}`, true, edital.id);
+            onClose();
+        } catch (error) {
+            console.error('Erro ao importar edital pronto:', error);
+            // Re-throw or handle error to show in UI
+            toastGate.notifyError(error instanceof Error ? error.message : 'Erro ao importar edital selecionado', 'IMP-01');
+        } finally {
+            setIsLoadingReady(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -297,23 +345,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                         <motion.div 
                                             key={edital.id} 
                                             whileHover={{ scale: 1.01 }}
-                                            onClick={() => {
-                                                const importSubjects: Subject[] = edital.subjects.map((s: any, i: number) => ({
-                                                    id: `imp-${edital.id}-${i}-${Date.now()}`,
-                                                    name: s.name,
-                                                    status: 'Nova',
-                                                    topics: s.topics.map((tName: string, ti: number) => ({
-                                                        id: `imp-top-${edital.id}-${i}-${ti}-${Date.now()}`,
-                                                        name: tName,
-                                                        completed: false,
-                                                        reviewCount: 0,
-                                                        review_count: 0,
-                                                    }))
-                                                }));
-                                                onImport(importSubjects, `${edital.organ} - ${edital.position}`);
-                                                onClose();
-                                            }}
-                                            className="p-4 rounded-2xl group border border-white/5 bg-zinc-800/20 hover:bg-zinc-800/50 hover:border-primary/30 transition-all cursor-pointer relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4"
+                                            className="p-4 rounded-2xl group border border-white/5 bg-zinc-800/20 hover:bg-zinc-800/50 hover:border-primary/30 transition-all relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4"
                                         >
                                             {/* Glow effect on hover */}
                                             <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity blur-xl z-0" />
@@ -339,20 +371,35 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                             </div>
 
                                             <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto z-10">
-                                                <div className="flex flex-wrap items-center gap-1.5 flex-1 sm:max-w-[240px] lg:max-w-[320px]">
-                                                    {edital.subjects.slice(0, 3).map((s: any, idx: number) => (
-                                                        <span key={idx} className="px-1.5 py-0.5 bg-zinc-900/50 text-[9px] font-bold rounded-md border border-white/5 text-zinc-400 truncate max-w-[100px] sm:max-w-none">
-                                                            {s.name}
-                                                        </span>
-                                                    ))}
-                                                    {edital.subjects.length > 3 && (
-                                                        <span className="text-[9px] font-bold text-primary/60">+{edital.subjects.length - 3} mats.</span>
-                                                    )}
-                                                </div>
+                                                 <div className="flex flex-wrap items-center gap-1.5 flex-1 sm:max-w-[240px] lg:max-w-[320px]">
+                                                     {edital.subjects && edital.subjects.length > 0 ? (
+                                                         <>
+                                                             {edital.subjects.slice(0, 3).map((s: any, idx: number) => (
+                                                                 <span key={idx} className="px-1.5 py-0.5 bg-zinc-900/50 text-[9px] font-bold rounded-md border border-white/5 text-zinc-400 truncate max-w-[100px] sm:max-w-none">
+                                                                     {s.name}
+                                                                 </span>
+                                                             ))}
+                                                             {edital.subjects.length > 3 && (
+                                                                 <span className="text-[9px] font-bold text-primary/60">+{edital.subjects.length - 3} mats.</span>
+                                                             )}
+                                                         </>
+                                                     ) : (
+                                                         <span className="text-[10px] font-bold text-amber-500/60 flex items-center gap-1 uppercase tracking-wider bg-amber-500/5 px-2 py-1 rounded-md border border-amber-500/10">
+                                                             <AlertTriangle size={10} /> Sem conteúdos
+                                                         </span>
+                                                     )}
+                                                 </div>
 
-                                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-all scale-100 sm:scale-75 sm:group-hover:scale-100 shrink-0">
-                                                    <Plus size={16} />
-                                                </div>
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleImportReadyEdital(edital);
+                                                    }}
+                                                    disabled={isLoadingReady}
+                                                    className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-all scale-100 sm:scale-75 sm:group-hover:scale-100 shrink-0 hover:bg-primary hover:text-white disabled:opacity-50"
+                                                >
+                                                    {isLoadingReady ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
+                                                </button>
                                             </div>
                                         </motion.div>
                                     ))}
@@ -542,15 +589,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
                                             <input
                                                 type="text"
-                                                value={manualTopics[manualTopics.length - 1] === '' && manualTopics.length > 1 ? '' : manualTopics[manualTopics.length - 1]}
-                                                onChange={(e) => {
-                                                    const newTopics = [...manualTopics];
-                                                    newTopics[newTopics.length - 1] = e.target.value;
-                                                    setManualTopics(newTopics);
-                                                }}
+                                                value={currentManualSubject}
+                                                onChange={(e) => setCurrentManualSubject(e.target.value)}
                                                 onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && manualTopics[manualTopics.length - 1].trim()) {
-                                                        setManualTopics([...manualTopics, '']);
+                                                    if (e.key === 'Enter' && currentManualSubject.trim()) {
+                                                        e.preventDefault();
+                                                        setManualSubjects(prev => [...prev, currentManualSubject.trim()]);
+                                                        setCurrentManualSubject('');
                                                     }
                                                 }}
                                                 placeholder="Nome da matéria (Português, RLM...)"
@@ -561,11 +606,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
 
                                     <button
                                         onClick={() => {
-                                            if (manualTopics[manualTopics.length - 1].trim()) {
-                                                setManualTopics([...manualTopics, '']);
+                                            if (currentManualSubject.trim()) {
+                                                setManualSubjects(prev => [...prev, currentManualSubject.trim()]);
+                                                setCurrentManualSubject('');
                                             }
                                         }}
-                                        disabled={!manualTopics[manualTopics.length - 1]?.trim()}
+                                        disabled={!currentManualSubject.trim()}
                                         className="h-11 px-6 bg-emerald-500 text-white text-[10px] font-black rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-40 uppercase tracking-widest"
                                     >
                                         <Plus size={14} />
@@ -576,7 +622,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
 
                             {/* List of Added Subjects */}
                             <div className="flex flex-wrap gap-2 min-h-[100px] p-6 rounded-3xl bg-black/20 border border-white/5 relative">
-                                {manualTopics.filter(t => t.trim() !== '').length === 0 ? (
+                                {manualSubjects.length === 0 ? (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center opacity-40 pointer-events-none">
                                         <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-2">
                                             <FileText size={20} className="text-content-muted" />
@@ -584,39 +630,44 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-content-muted">Nenhuma matéria adicionada</p>
                                     </div>
                                 ) : (
-                                    manualTopics.filter(t => t.trim() !== '').map((topic, index) => {
-                                        const realIndex = manualTopics.indexOf(topic);
-                                        return (
-                                            <motion.div
-                                                initial={{ scale: 0.9, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
-                                                key={`${topic}-${index}`}
-                                                className="group flex items-center gap-2 pl-4 pr-2 py-2 bg-zinc-800 border border-white/10 rounded-xl transition-all hover:border-primary/40"
+                                    manualSubjects.map((topic, index) => (
+                                        <motion.div
+                                            initial={{ scale: 0.9, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            key={`${topic}-${index}`}
+                                            className="group flex items-center gap-2 pl-4 pr-2 py-2 bg-zinc-800 border border-white/10 rounded-xl transition-all hover:border-primary/40"
+                                        >
+                                            <span className="text-xs font-bold text-zinc-200">{topic}</span>
+                                            <button
+                                                onClick={() => {
+                                                    setManualSubjects(prev => prev.filter((_, i) => i !== index));
+                                                }}
+                                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
                                             >
-                                                <span className="text-xs font-bold text-zinc-200">{topic}</span>
-                                                <button
-                                                    onClick={() => {
-                                                        const newTopics = manualTopics.filter((_, i) => i !== realIndex);
-                                                        setManualTopics(newTopics.length === 0 ? [''] : newTopics);
-                                                    }}
-                                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
-                                                >
-                                                    <X size={12} />
-                                                </button>
-                                            </motion.div>
-                                        );
-                                    })
+                                                <X size={12} />
+                                            </button>
+                                        </motion.div>
+                                    ))
                                 )}
                             </div>
 
                             <div className="pt-8 flex flex-col items-center gap-4">
                                 <button
                                     onClick={handleSaveManual}
-                                    disabled={!manualTitle.trim() || !manualTopics.some(t => t.trim())}
-                                    className="px-16 py-4 bg-primary text-white font-black rounded-[24px] shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3"
+                                    disabled={!manualTitle.trim() || manualSubjects.length === 0 || isSavingManual}
+                                    className="px-16 py-4 bg-primary text-white font-black rounded-[24px] shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3 relative min-w-[280px] justify-center"
                                 >
-                                    <Save size={20} />
-                                    SALVAR EDITAL MANUAL
+                                    {isSavingManual ? (
+                                        <>
+                                            <Loader2 size={20} className="animate-spin" />
+                                            SALVANDO...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save size={20} />
+                                            SALVAR EDITAL MANUAL
+                                        </>
+                                    )}
                                 </button>
                                 <p className="text-[10px] text-content-muted font-bold uppercase tracking-[0.2em]">O edital ficará salvo em &ldquo;Meus Editais&rdquo;</p>
                             </div>

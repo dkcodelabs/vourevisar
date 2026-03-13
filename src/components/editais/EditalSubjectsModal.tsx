@@ -345,7 +345,15 @@ export const EditalSubjectsModal = ({
                                 <GraduationCap className="text-primary" size={18} />
                             </div>
                             <div className="min-w-0">
-                                <h2 className="text-sm font-bold text-zinc-100 tracking-tight truncate">{edital.name}</h2>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-sm font-bold text-zinc-100 tracking-tight truncate">{edital.name}</h2>
+                                    {edital.isImported && (
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
+                                            <Database size={8} className="text-sky-400" />
+                                            <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">SISTEMA</span>
+                                        </div>
+                                    )}
+                                </div>
                                 <p className="text-[11px] text-content-muted mt-0.5">
                                     {localSubjects.length} matéria{localSubjects.length !== 1 ? 's' : ''} • {completedTopics}/{totalTopics} tópicos
                                 </p>
@@ -398,51 +406,57 @@ export const EditalSubjectsModal = ({
                         </button>
                     </div>
 
-                    {/* ── Input nova matéria ── */}
-                    <div className="px-6 pb-6 pt-2 shrink-0">
-                        <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20">
-                            <div className="relative flex-1">
-                                <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
-                                <input
-                                    type="text"
-                                    placeholder="Nome da matéria (ex: Português)"
-                                    value={newSubjectName}
-                                    onChange={e => setNewSubjectName(e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
-                                    className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
-                                />
-                            </div>
-                            <div className="w-px h-6 bg-white/10 shrink-0 mx-1" />
-                            <div className="flex items-center gap-2 pr-2">
-                                <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-950/30 border border-white/5">
-                                    <Database size={10} className="text-primary/60" />
-                                    <span className="text-[10px] font-bold text-content-muted truncate max-w-[100px] uppercase tracking-wider">{edital.name}</span>
+                    {/* ── Input nova matéria (SÓ MANUAL) ── */}
+                    {!edital.isImported && (
+                        <div className="px-6 pb-6 pt-2 shrink-0">
+                            <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20">
+                                <div className="relative flex-1">
+                                    <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
+                                    <input
+                                        type="text"
+                                        placeholder="Nome da matéria (ex: Português)"
+                                        value={newSubjectName}
+                                        onChange={e => setNewSubjectName(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
+                                        className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
+                                    />
                                 </div>
-                                <button
-                                    onClick={handleSaveSubject}
-                                    disabled={!newSubjectName.trim() || isSavingSubject}
-                                    className="flex items-center gap-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-emerald-500/20"
-                                >
-                                    {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                                    <span className="hidden xs:inline uppercase tracking-widest">SALVAR</span>
-                                </button>
+                                <div className="w-px h-6 bg-white/10 shrink-0 mx-1" />
+                                <div className="flex items-center gap-2 pr-2">
+                                    <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-950/30 border border-white/5">
+                                        <Database size={10} className="text-primary/60" />
+                                        <span className="text-[10px] font-bold text-content-muted truncate max-w-[100px] uppercase tracking-wider">{edital.name}</span>
+                                    </div>
+                                    <button
+                                        onClick={handleSaveSubject}
+                                        disabled={!newSubjectName.trim() || isSavingSubject}
+                                        className="flex items-center gap-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+                                    >
+                                        {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                        <span className="hidden xs:inline uppercase tracking-widest">SALVAR</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* ── Lista de matérias ── */}
                     <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 no-scrollbar">
                         {filteredSubjects.length === 0 ? (
-                            <div className="py-14 flex flex-col items-center text-center">
-                                <div className="w-14 h-14 bg-zinc-800 rounded-full flex items-center justify-center mb-3">
-                                    <BookOpen size={24} className="text-content-muted" />
+                            <div className="py-20 flex flex-col items-center text-center">
+                                <div className="w-16 h-16 bg-zinc-800/50 rounded-full flex items-center justify-center mb-4 border border-white/5 shadow-inner">
+                                    <BookOpen size={28} className="text-content-muted/40" />
                                 </div>
-                                <p className="text-sm font-semibold text-content-muted">
-                                    {searchQuery ? 'Nenhum resultado.' : 'Nenhuma matéria neste edital.'}
+                                <h3 className="text-base font-bold text-content-main mb-2">
+                                    {searchQuery ? 'Nenhum resultado' : 'Edital sem matérias'}
+                                </h3>
+                                <p className="text-xs text-content-muted/60 max-w-[280px] leading-relaxed">
+                                    {searchQuery 
+                                        ? `Não encontramos nada para "${searchQuery}". Tente outro termo.` 
+                                        : edital.isImported 
+                                            ? 'Este edital do sistema está aguardando a inserção de conteúdos pela nossa equipe.' 
+                                            : 'Você ainda não adicionou nenhuma matéria. Use o campo acima para começar seu edital manual!'}
                                 </p>
-                                {!searchQuery && (
-                                    <p className="text-xs text-content-muted/50 mt-1">Use o campo acima para adicionar.</p>
-                                )}
                             </div>
                         ) : (
                             filteredSubjects.map((subject, index) => {
@@ -602,24 +616,26 @@ export const EditalSubjectsModal = ({
                                                 >
                                                     <div className="mt-1 ml-3 p-3 rounded-xl bg-black/20 space-y-2 border border-white/5">
 
-                                                        {/* Input "Novo tópico..." */}
-                                                        <div className="relative">
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Novo tópico..."
-                                                                value={newTopicTexts[subject.id] || ''}
-                                                                onChange={e => setNewTopicTexts(prev => ({ ...prev, [subject.id]: e.target.value }))}
-                                                                onKeyDown={e => { if (e.key === 'Enter') handleSaveNewTopic(subject.id); }}
-                                                                className="w-full bg-white/5 border border-white/5 rounded-lg py-1.5 px-3 pr-8 text-xs outline-none ring-0 focus:border-primary/30 transition-colors text-content-main placeholder:text-content-muted/50"
-                                                            />
-                                                            <button
-                                                                onClick={() => handleSaveNewTopic(subject.id)}
-                                                                disabled={savingTopics[subject.id] || !newTopicTexts[subject.id]?.trim()}
-                                                                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center bg-primary/10 text-primary rounded hover:bg-primary/20 transition-all disabled:opacity-40"
-                                                            >
-                                                                {savingTopics[subject.id] ? <Loader2 size={11} className="animate-spin" /> : <Plus size={12} />}
-                                                            </button>
-                                                        </div>
+                                                        {/* Input "Novo tópico..." (SÓ MANUAL) */}
+                                                        {!edital.isImported && (
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Novo tópico..."
+                                                                    value={newTopicTexts[subject.id] || ''}
+                                                                    onChange={e => setNewTopicTexts(prev => ({ ...prev, [subject.id]: e.target.value }))}
+                                                                    onKeyDown={e => { if (e.key === 'Enter') handleSaveNewTopic(subject.id); }}
+                                                                    className="w-full bg-white/5 border border-white/5 rounded-lg py-1.5 px-3 pr-8 text-xs outline-none ring-0 focus:border-primary/30 transition-colors text-content-main placeholder:text-content-muted/50"
+                                                                />
+                                                                <button
+                                                                    onClick={() => handleSaveNewTopic(subject.id)}
+                                                                    disabled={savingTopics[subject.id] || !newTopicTexts[subject.id]?.trim()}
+                                                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center bg-primary/10 text-primary rounded hover:bg-primary/20 transition-all disabled:opacity-40"
+                                                                >
+                                                                    {savingTopics[subject.id] ? <Loader2 size={11} className="animate-spin" /> : <Plus size={12} />}
+                                                                </button>
+                                                            </div>
+                                                        )}
 
                                                         {/* Tópicos */}
                                                         {subject.topics.length === 0 ? (
@@ -647,7 +663,7 @@ export const EditalSubjectsModal = ({
                                                                                     }
                                                                                 </div>
 
-                                                                                {!isTmpTopic && editingTopicId === topic.id ? (
+                                                                                {!isTmpTopic && !edital.isImported && editingTopicId === topic.id ? (
                                                                                     <div className="flex items-center gap-1 flex-1">
                                                                                         <input
                                                                                             type="text"
@@ -666,9 +682,9 @@ export const EditalSubjectsModal = ({
                                                                                     </div>
                                                                                 ) : (
                                                                                     <div
-                                                                                        className={`flex flex-col flex-1 min-w-0 ${isTmpTopic ? '' : 'cursor-text'}`}
+                                                                                        className={`flex flex-col flex-1 min-w-0 ${isTmpTopic || edital.isImported ? '' : 'cursor-text'}`}
                                                                                         onClick={() => {
-                                                                                            if (!isTmpTopic) { setEditingTopicId(topic.id); setEditingTopicName(topic.name); }
+                                                                                            if (!isTmpTopic && !edital.isImported) { setEditingTopicId(topic.id); setEditingTopicName(topic.name); }
                                                                                         }}
                                                                                     >
                                                                                         <span className={`text-xs font-medium truncate ${topic.completed ? 'text-content-muted line-through' : 'text-content-main'}`}>
@@ -683,7 +699,7 @@ export const EditalSubjectsModal = ({
                                                                                 )}
                                                                             </div>
 
-                                                                            {!isTmpTopic && (
+                                                                            {!isTmpTopic && !edital.isImported && (
                                                                                 confirmDeleteTopicId === topic.id ? (
                                                                                     // Confirmação inline no tópico
                                                                                     <div className="flex items-center gap-1 shrink-0">

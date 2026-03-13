@@ -5,13 +5,15 @@ import {
     AlertCircle, MessageSquare, 
     Clock, CheckCheck, Loader2, Globe, EyeOff, 
     Send, CheckSquare, Info, XCircle, FileText,
-    CalendarDays
+    CalendarDays, AlertTriangle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { errorService } from '@/lib/errors/errorService';
+import { AdminEditalSubjectsModal } from '@/components/admin/AdminEditalSubjectsModal';
+
 
 interface PublicEdital {
     id: string;
@@ -22,6 +24,7 @@ interface PublicEdital {
     is_public?: boolean;
     status?: string;
     created_at?: string;
+    subjects?: any[];
 }
 
 interface EditalSuggestion {
@@ -79,6 +82,11 @@ const AdminEditais = () => {
     const [selectedTemplate, setSelectedTemplate] = useState<keyof typeof RESPONSE_TEMPLATES>('cadastrado');
     const [customMessage, setCustomMessage] = useState('');
     const [sendingResponse, setSendingResponse] = useState(false);
+    
+    // Subjects modal state
+    const [selectedEditalForSubjects, setSelectedEditalForSubjects] = useState<PublicEdital | null>(null);
+    const [isSubjectsModalOpen, setIsSubjectsModalOpen] = useState(false);
+
 
     const fetchEditais = useCallback(async () => {
         setIsLoading(true);
@@ -404,11 +412,15 @@ const AdminEditais = () => {
                                         <motion.div
                                             key={edital.id}
                                             layout
-                                            className="group relative flex flex-col md:flex-row md:items-center justify-between p-4 px-5 rounded-xl transition-all hover:bg-white/5"
+                                            onClick={() => {
+                                                setSelectedEditalForSubjects(edital);
+                                                setIsSubjectsModalOpen(true);
+                                            }}
+                                            className="group relative flex flex-col md:flex-row md:items-center justify-between p-4 px-5 rounded-xl transition-all hover:bg-white/5 cursor-pointer"
                                         >
                                             <div className="flex flex-col gap-1 min-w-0">
                                                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                                                    <span className="font-bold text-white text-base">{edital.organ}</span>
+                                                    <span className="font-bold text-white text-base group-hover:text-cyan-400 transition-colors">{edital.organ}</span>
                                                     <span className="text-zinc-600">·</span>
                                                     <span className="text-zinc-400 font-medium">{edital.position}</span>
                                                     <span className="text-zinc-600">·</span>
@@ -418,23 +430,45 @@ const AdminEditais = () => {
                                                     ) : (
                                                         <span className="text-red-400/90 font-medium text-[11px] flex items-center gap-1 ml-2"><EyeOff size={11}/> Privado</span>
                                                     )}
+                                                    <span className="text-[10px] font-black text-cyan-500/0 group-hover:text-cyan-500/60 uppercase tracking-widest ml-auto transition-all hidden md:inline">Gerenciar Conteúdo</span>
                                                 </div>
-                                                <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mt-1">
-                                                    {edital.category}
+                                                <div className="flex items-center justify-between mt-1">
+                                                    <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                                                        {edital.category}
+                                                    </div>
+                                                    {edital.subjects && edital.subjects.length > 0 ? (
+                                                        <div className="flex items-center gap-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest pr-4">
+                                                            <span>{edital.subjects.length} Matérias</span>
+                                                            <span className="text-zinc-700 mx-1">•</span>
+                                                            <span>{edital.subjects.reduce((acc: number, s: any) => acc + (s.topics?.length || 0), 0)} Tópicos</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                                                            <AlertTriangle size={12} /> Sem matérias
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
                                             <div className="flex items-center gap-2 mt-3 md:mt-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => openEditForm(edital)} className="w-9 h-9 flex items-center justify-center bg-zinc-800/80 rounded-lg text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-all">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); openEditForm(edital); }} 
+                                                    className="w-9 h-9 flex items-center justify-center bg-zinc-800/80 rounded-lg text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-all"
+                                                    title="Editar Detalhes"
+                                                >
                                                     <Edit3 size={15} />
                                                 </button>
-                                                <button onClick={() => setConfirmDeleteId(edital.id)} className="w-9 h-9 flex items-center justify-center bg-zinc-800/80 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition-all">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(edital.id); }} 
+                                                    className="w-9 h-9 flex items-center justify-center bg-zinc-800/80 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition-all"
+                                                    title="Excluir Edital"
+                                                >
                                                     <Trash2 size={15} />
                                                 </button>
                                             </div>
 
                                             {confirmDeleteId === edital.id && (
-                                                <div className="absolute inset-0 bg-red-950/90 rounded-xl flex items-center justify-center gap-4 z-10">
+                                                <div onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-red-950/90 rounded-xl flex items-center justify-center gap-4 z-10">
                                                     <span className="text-sm text-red-100 font-bold">Excluir edital?</span>
                                                     <button onClick={() => setConfirmDeleteId(null)} className="px-3 py-1.5 text-xs text-red-200 hover:text-white transition-all">Cancelar</button>
                                                     <button onClick={() => handleDelete(edital.id)} className="px-5 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-500 shadow-lg">Sim, excluir</button>
@@ -560,6 +594,17 @@ const AdminEditais = () => {
                 {/* Margem final para o scroll respirar na lista */}
                 <div className="h-20" />
             </div>
+
+            {/* Admin Subjects Management Modal */}
+            <AdminEditalSubjectsModal
+                isOpen={isSubjectsModalOpen}
+                onClose={() => {
+                    setIsSubjectsModalOpen(false);
+                    fetchEditais(); // Refresh background data
+                }}
+                edital={selectedEditalForSubjects}
+                onUpdate={fetchEditais}
+            />
         </div>
     );
 };

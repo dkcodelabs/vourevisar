@@ -102,9 +102,6 @@ export const AppLayout = () => {
 
     // Security Check: Active Status
     const checkActiveStatus = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile, error } = await supabase
@@ -114,15 +111,13 @@ export const AppLayout = () => {
         .single();
 
       if (error) {
-        console.error("Error checking active status:", error);
+        // Silenciar erros de rede no background check
         return;
       }
 
       if (profile && profile.is_active === false) {
-        console.warn("USER DEACTIVATED - Force Logout");
+        console.warn("[AppLayout] USUÁRIO DESATIVADO - Logout forçado");
         await signOut();
-        // signOut already navigates to /login. We can add query param if needed, but context might overwrite.
-        // Let's trust signOut handling, or force navigation after.
         navigate("/login?reason=deactivated");
         toastManager.error(
           "Sua conta foi desativada. Entre em contato com o suporte.",
@@ -131,13 +126,12 @@ export const AppLayout = () => {
       }
     };
 
-    checkActiveStatus();
-    // Optional: Set up an interval or subscription for real-time kick
-    const interval = setInterval(checkActiveStatus, 60000); // Check every minute
-    return () => clearInterval(interval);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (user) {
+      checkActiveStatus();
+      const interval = setInterval(checkActiveStatus, 120000); // Check every 2 minutes instead of 1
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, signOut, navigate, logSessionStart]);
 
   // Encontrar o título correspondente
   const pageTitle =

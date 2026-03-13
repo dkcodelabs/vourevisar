@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Loader2, Trash2 } from 'lucide-react';
 
 interface ConfirmDeleteModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface ConfirmDeleteModalProps {
   onConfirm: () => void;
   topicName: string;
   subjectName: string;
+  isLoading?: boolean;
 }
 
 const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
@@ -24,7 +26,8 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   onClose,
   onConfirm,
   topicName,
-  subjectName
+  subjectName,
+  isLoading = false
 }) => {
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
@@ -39,11 +42,20 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onClose}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel onClick={onClose} disabled={isLoading}>Cancelar</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={(e) => {
+              e.preventDefault();
+              onConfirm();
+            }}
+            disabled={isLoading}
+            className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center gap-2"
           >
+            {isLoading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Trash2 size={16} />
+            )}
             Excluir
           </AlertDialogAction>
         </AlertDialogFooter>
