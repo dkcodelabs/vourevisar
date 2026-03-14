@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Plus, Search, Trash2, Edit3, Save, X,
-    AlertCircle, MessageSquare, 
-    Clock, CheckCheck, Loader2, Globe, EyeOff, 
-    Send, CheckSquare, Info, XCircle, FileText,
-    CalendarDays, AlertTriangle
+    Eye, EyeOff, Plus, Search, Trash2, Edit3, Save, X, Globe, AlertCircle,
+    ChevronDown, ChevronUp, AlertTriangle, Send, CheckSquare, XCircle, MessageSquare, Clock,
+    GraduationCap, BookOpen, List, Info, Loader2, FileText
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
@@ -14,6 +12,17 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { errorService } from '@/lib/errors/errorService';
 import { AdminEditalSubjectsModal } from '@/components/admin/AdminEditalSubjectsModal';
 
+
+interface Topic {
+    id: string;
+    name: string;
+}
+
+interface Subject {
+    id: string;
+    name: string;
+    topics: Topic[];
+}
 
 interface PublicEdital {
     id: string;
@@ -24,7 +33,7 @@ interface PublicEdital {
     is_public?: boolean;
     status?: string;
     created_at?: string;
-    subjects?: any[];
+    subjects?: Subject[];
 }
 
 interface EditalSuggestion {
@@ -164,7 +173,6 @@ const AdminEditais = () => {
                 const { error: err } = await (supabase as any).from('public_editais').update(payload).eq('id', editingId);
                 error = err;
             } else {
-                // Remove subject data completely if any legacy reference tries to assert it
                 const { error: err } = await (supabase as any).from('public_editais').insert([payload]);
                 error = err;
             }
@@ -205,7 +213,7 @@ const AdminEditais = () => {
             }).eq('id', suggestion.id);
             if (suggErr) throw suggErr;
 
-            await (supabase as any).from('user_notifications').insert({
+            await supabase.from('user_notifications').insert({
                 user_id: suggestion.user_id,
                 title: `Resposta sobre "${suggestion.concurso}"`,
                 message: msg,
@@ -235,31 +243,31 @@ const AdminEditais = () => {
     const isFormOpen = isAddingNew || !!editingId;
 
     return (
-        <div className="min-h-screen p-4 md:p-8 bg-background text-foreground">
-            <div className="max-w-4xl mx-auto space-y-6">
+        <div className="min-h-screen p-4 md:p-6 lg:p-8 space-y-6">
+            <div className="max-w-5xl mx-auto space-y-6">
                 
                 {/* ─── TOOLBAR SUPERIOR ─── */}
-                <div className="flex flex-col md:flex-row gap-4 items-center justify-between w-full mb-8">
+                <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between w-full mb-8">
                     
                     {/* Abas Esquerda */}
-                    <div className="flex items-center p-1.5 bg-zinc-900/50 rounded-full border border-white/5 backdrop-blur-md shrink-0 w-full md:w-auto">
+                    <div className="flex bg-zinc-900/60 p-1.5 rounded-2xl border border-white/5 backdrop-blur-md shrink-0 w-full md:w-auto">
                         <button
                             onClick={() => setActiveTab('editais')}
-                            className={`flex flex-1 md:flex-none items-center justify-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition-all ${
-                                activeTab === 'editais' ? 'bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'text-zinc-400 hover:text-white'
+                            className={`flex flex-1 md:flex-none items-center justify-center gap-2 px-6 h-10 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                activeTab === 'editais' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-content-muted hover:text-content-main'
                             }`}
                         >
                             <FileText size={16} /> Editais
                         </button>
                         <button
                             onClick={() => setActiveTab('solicitacoes')}
-                            className={`flex flex-1 md:flex-none relative items-center justify-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition-all ${
-                                activeTab === 'solicitacoes' ? 'bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'text-zinc-400 hover:text-white'
+                            className={`flex flex-1 md:flex-none relative items-center justify-center gap-2 px-6 h-10 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                activeTab === 'solicitacoes' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-content-muted hover:text-content-main'
                             }`}
                         >
                             <MessageSquare size={16} /> Solicitações
                             {pendingCount > 0 && (
-                                <span className="absolute top-1 right-2 w-5 h-5 rounded-full bg-amber-500 text-amber-950 font-black text-[10px] flex items-center justify-center border-2 border-zinc-900">
+                                <span className="absolute -top-1 -right-1 min-w-[18px] h-18 px-1 rounded-full bg-amber-500 text-black font-black text-[9px] flex items-center justify-center border-2 border-zinc-900 animate-bounce">
                                     {pendingCount}
                                 </span>
                             )}
@@ -267,22 +275,23 @@ const AdminEditais = () => {
                     </div>
 
                     {/* Controles Direita */}
-                    <div className="flex items-center gap-3 w-full md:w-auto shrink-0 justify-end">
-                        <div className="relative w-full md:w-64">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto shrink-0">
+                        {/* Busca */}
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-content-muted" size={16} />
                             <input
-                                placeholder="Buscar por cargo/órgão..."
+                                placeholder="Buscar nos editais..."
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full h-11 bg-zinc-900/70 border-none rounded-full pl-11 pr-5 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-zinc-600"
+                                className="w-full h-11 bg-zinc-900/40 border border-white/5 rounded-2xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
                             />
                         </div>
 
                         <button
                             onClick={openAddForm}
-                            className="h-11 px-6 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-full transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 shrink-0"
+                            className="w-full sm:w-auto h-11 px-6 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group active:scale-95 shrink-0"
                         >
-                            <Plus size={18} /> Cadastrar
+                            <Plus size={18} className="group-hover:rotate-90 transition-transform" /> Novo Edital
                         </button>
                     </div>
                 </div>
@@ -296,66 +305,88 @@ const AdminEditais = () => {
                             <AnimatePresence>
                                 {isFormOpen && (
                                     <motion.div
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        className="overflow-hidden mb-6"
+                                        initial={{ opacity: 0, height: 0, y: -20 }}
+                                        animate={{ opacity: 1, height: 'auto', y: 0 }}
+                                        exit={{ opacity: 0, height: 0, y: -20 }}
+                                        className="overflow-hidden mb-8"
                                     >
-                                        <div className="bg-[#1A1A1F] border border-white/5 rounded-2xl p-6 shadow-2xl mx-auto w-full">
-                                            <div className="flex items-center justify-between mb-6">
-                                                <div className="flex items-center gap-2 text-emerald-400">
-                                                    <Plus size={18} className={editingId ? 'text-cyan-400' : 'text-emerald-400'} />
-                                                    <h2 className={`text-base font-bold ${editingId ? 'text-white' : 'text-white'}`}>
-                                                        {editingId ? 'Editar Edital' : 'Cadastrar Novo Edital'}
-                                                    </h2>
+                                        <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl mx-auto w-full relative">
+                                            <div className="flex items-center justify-between mb-8">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${editingId ? 'bg-primary/10 text-primary' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                                                        {editingId ? <Edit3 size={24} /> : <Plus size={24} />}
+                                                    </div>
+                                                    <div>
+                                                        <h2 className="text-xl font-black text-white tracking-tight">
+                                                            {editingId ? 'Editar Edital' : 'Cadastrar Novo Edital'}
+                                                        </h2>
+                                                        <p className="text-sm text-content-muted font-medium">
+                                                            {editingId ? 'Atualize as informações do concurso' : 'Preencha os dados do novo concurso'}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <button onClick={() => { setIsAddingNew(false); setEditingId(null); }} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
-                                                    <X size={16} />
+                                                <button 
+                                                    onClick={() => { setIsAddingNew(false); setEditingId(null); }} 
+                                                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 text-content-muted hover:text-white hover:bg-white/10 transition-all border border-white/10"
+                                                >
+                                                    <X size={20} />
                                                 </button>
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                                                 <div className="space-y-2">
-                                                    <label className="text-[10px] font-bold text-zinc-500 uppercase ml-1 tracking-wider">Órgão / Sigla</label>
+                                                    <label className="text-xs font-black text-content-muted uppercase tracking-widest px-1">Órgão</label>
                                                     <input
                                                         value={form.organ}
                                                         onChange={e => setForm(p => ({ ...p, organ: e.target.value }))}
-                                                        placeholder="PMES"
-                                                        className="w-full h-11 bg-zinc-950 border border-transparent rounded-xl px-4 text-sm text-white focus:border-emerald-500/50 outline-none transition-all"
+                                                        placeholder="Ex: PMES, PCES, TJ..."
+                                                        className="w-full h-12 bg-zinc-900/40 border border-white/5 rounded-2xl px-5 text-sm font-medium text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <label className="text-[10px] font-bold text-zinc-500 uppercase ml-1 tracking-wider">Cargo</label>
+                                                    <label className="text-xs font-black text-content-muted uppercase tracking-widest px-1">Cargo</label>
                                                     <input
                                                         value={form.position}
                                                         onChange={e => setForm(p => ({ ...p, position: e.target.value }))}
-                                                        placeholder="Soldado"
-                                                        className="w-full h-11 bg-zinc-950 border border-transparent rounded-xl px-4 text-sm text-white focus:border-emerald-500/50 outline-none transition-all"
+                                                        placeholder="Ex: Soldado, Delegado, Analista..."
+                                                        className="w-full h-12 bg-zinc-900/40 border border-white/5 rounded-2xl px-5 text-sm font-medium text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <label className="text-[10px] font-bold text-zinc-500 uppercase ml-1 tracking-wider">Ano</label>
+                                                    <label className="text-xs font-black text-content-muted uppercase tracking-widest px-1">Ano</label>
                                                     <input
                                                         value={form.year}
                                                         onChange={e => setForm(p => ({ ...p, year: e.target.value }))}
-                                                        placeholder="2026"
-                                                        className="w-full h-11 bg-zinc-950 border border-transparent rounded-xl px-4 text-sm text-white focus:border-emerald-500/50 outline-none transition-all"
+                                                        placeholder="Ex: 2024, 2025..."
+                                                        className="w-full h-12 bg-zinc-900/40 border border-white/5 rounded-2xl px-5 text-sm font-medium text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                 </div>
                                                 <div className="space-y-2 relative">
-                                                    <label className="text-[10px] font-bold text-zinc-500 uppercase ml-1 tracking-wider">Categoria</label>
+                                                    <label className="text-xs font-black text-content-muted uppercase tracking-widest px-1">Categoria</label>
                                                     <input
                                                         value={categoryDraft}
                                                         onChange={e => { setCategoryDraft(e.target.value); setShowCategoryDropdown(true); }}
                                                         onFocus={() => setShowCategoryDropdown(true)}
                                                         onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
-                                                        className="w-full h-11 bg-zinc-950 border border-transparent rounded-xl px-4 text-sm text-white focus:border-emerald-500/50 outline-none transition-all"
+                                                        placeholder="Selecione ou digite..."
+                                                        className="w-full h-12 bg-zinc-900/40 border border-white/5 rounded-2xl px-5 text-sm font-medium text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                     <AnimatePresence>
                                                         {showCategoryDropdown && (
-                                                            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute z-30 top-[60px] left-0 right-0 bg-background border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 max-h-48 overflow-y-auto">
+                                                            <motion.div 
+                                                                initial={{ opacity: 0, y: -10 }} 
+                                                                animate={{ opacity: 1, y: 0 }} 
+                                                                exit={{ opacity: 0, y: -10 }} 
+                                                                className="absolute z-30 top-[80px] left-0 right-0 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-2 max-h-56 overflow-y-auto"
+                                                            >
                                                                 {PRESET_CATEGORIES.filter(c => c.toLowerCase().includes(categoryDraft.toLowerCase())).map(cat => (
-                                                                    <button key={cat} onMouseDown={() => { setCategoryDraft(cat); setShowCategoryDropdown(false); }} className="w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-zinc-300 transition-all">{cat}</button>
+                                                                    <button 
+                                                                        key={cat} 
+                                                                        onMouseDown={() => { setCategoryDraft(cat); setShowCategoryDropdown(false); }} 
+                                                                        className="w-full text-left px-5 py-3 hover:bg-white/5 text-sm font-medium text-content-muted hover:text-white transition-all capitalize"
+                                                                    >
+                                                                        {cat}
+                                                                    </button>
                                                                 ))}
                                                             </motion.div>
                                                         )}
@@ -363,34 +394,44 @@ const AdminEditais = () => {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-3 mb-6">
-                                                <button
-                                                    onClick={() => setForm(p => ({ ...p, is_public: !p.is_public }))}
-                                                >
-                                                    <div className={`w-10 h-5 rounded-full relative transition-colors duration-200 ${form.is_public ? 'bg-emerald-500' : 'bg-zinc-700'}`}>
-                                                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 ${form.is_public ? 'translate-x-5' : 'translate-x-0'}`} />
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-6 bg-white/5 border border-white/5 rounded-2xl">
+                                                <div className="flex items-center gap-4">
+                                                    <button
+                                                        onClick={() => setForm(p => ({ ...p, is_public: !p.is_public }))}
+                                                        className={`w-12 h-6 rounded-full relative transition-colors duration-300 shadow-inner ${form.is_public ? 'bg-emerald-500' : 'bg-red-500/20'}`}
+                                                    >
+                                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-lg transition-transform duration-300 ${form.is_public ? 'translate-x-7' : 'translate-x-1'}`} />
+                                                    </button>
+                                                    <div className="flex flex-col cursor-pointer" onClick={() => setForm(p => ({ ...p, is_public: !p.is_public }))}>
+                                                        <span className="text-sm font-black text-white flex items-center gap-2">
+                                                            <Globe size={16} className={form.is_public ? "text-emerald-500" : "text-content-muted"} />
+                                                            Visibilidade Pública
+                                                        </span>
+                                                        <span className="text-xs text-content-muted font-medium">
+                                                            {form.is_public ? 'Visível para todos os alunos' : 'Acesso restrito apenas via Admin'}
+                                                        </span>
                                                     </div>
-                                                </button>
-                                                <div className="flex items-center gap-2 text-sm text-zinc-300 font-medium cursor-pointer" onClick={() => setForm(p => ({ ...p, is_public: !p.is_public }))}>
-                                                    <Globe size={14} className="text-emerald-400" />
-                                                    Visível no catálogo para todos
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-3 px-4 py-2 bg-amber-500/10 border border-amber-500/10 text-[11px] font-bold text-amber-500 rounded-xl leading-tight">
+                                                    <Info size={16} className="shrink-0" /> Configuração de matérias disponível após salvar.
                                                 </div>
                                             </div>
 
-                                            {/* Disclaimer visual conforme solicitado */}
-                                            <div className="flex items-center gap-2 text-xs text-zinc-400 mb-6 font-medium italic">
-                                                <span className="text-yellow-500/80 text-base">💡</span> Após salvar, clique no edital para adicionar matérias e tópicos.
-                                            </div>
-
-                                            <div className="flex justify-end gap-3 pt-6 border-t border-white/5">
-                                                <button onClick={() => { setIsAddingNew(false); setEditingId(null); }} className="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-white transition-colors">Cancelar</button>
+                                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-8 pt-6 border-t border-white/5">
+                                                <button 
+                                                    onClick={() => { setIsAddingNew(false); setEditingId(null); }} 
+                                                    className="px-6 py-3 text-sm font-black text-content-muted hover:text-white transition-colors"
+                                                >
+                                                    DESCARTAR
+                                                </button>
                                                 <button
                                                     onClick={handleSave}
                                                     disabled={savingEdital}
-                                                    className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-2"
+                                                    className="h-12 px-10 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-sm font-black rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                                                 >
-                                                    {savingEdital ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                                    Salvar Edital
+                                                    {savingEdital ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                                                    SALVAR EDITAL
                                                 </button>
                                             </div>
                                         </div>
@@ -398,84 +439,138 @@ const AdminEditais = () => {
                                 )}
                             </AnimatePresence>
 
-                            {/* Lista Clean de Editais (Row-like) */}
-                            <div className="flex flex-col gap-2 bg-[#1A1A1F]/50 rounded-2xl p-2">
+                            {/* Lista de Editais - Layout Híbrido Linear (Fidelidade Absoluta + PT-BR) */}
+                            <div className="flex flex-col gap-2">
                                 {isLoading ? (
                                     <div className="py-20 text-center"><LoadingSpinner size="large" /></div>
                                 ) : filteredEditais.length === 0 ? (
-                                    <div className="py-12 text-center">
-                                        <AlertCircle size={32} className="mx-auto text-zinc-700 mb-3" />
-                                        <p className="text-zinc-500 text-sm">Nenhum edital corresponde à busca ou o catálogo está vazio.</p>
+                                    <div className="py-20 text-center bg-zinc-900/40 border border-white/5 rounded-3xl">
+                                        <AlertCircle size={48} className="mx-auto text-zinc-800 mb-4" />
+                                        <p className="text-content-muted font-black text-xs uppercase tracking-widest">Nenhum edital encontrado</p>
                                     </div>
                                 ) : (
-                                    filteredEditais.map(edital => (
-                                        <motion.div
-                                            key={edital.id}
-                                            layout
-                                            onClick={() => {
-                                                setSelectedEditalForSubjects(edital);
-                                                setIsSubjectsModalOpen(true);
-                                            }}
-                                            className="group relative flex flex-col md:flex-row md:items-center justify-between p-4 px-5 rounded-xl transition-all hover:bg-white/5 cursor-pointer"
-                                        >
-                                            <div className="flex flex-col gap-1 min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2 text-sm">
-                                                    <span className="font-bold text-white text-base group-hover:text-cyan-400 transition-colors">{edital.organ}</span>
-                                                    <span className="text-zinc-600">·</span>
-                                                    <span className="text-zinc-400 font-medium">{edital.position}</span>
-                                                    <span className="text-zinc-600">·</span>
-                                                    <span className="text-zinc-400 font-medium flex items-center gap-1"><CalendarDays size={14}/> {edital.year}</span>
-                                                    {edital.is_public ? (
-                                                        <span className="text-emerald-400/90 font-medium text-[11px] flex items-center gap-1 ml-2"><Globe size={11}/> Público</span>
-                                                    ) : (
-                                                        <span className="text-red-400/90 font-medium text-[11px] flex items-center gap-1 ml-2"><EyeOff size={11}/> Privado</span>
-                                                    )}
-                                                    <span className="text-[10px] font-black text-cyan-500/0 group-hover:text-cyan-500/60 uppercase tracking-widest ml-auto transition-all hidden md:inline">Gerenciar Conteúdo</span>
-                                                </div>
-                                                <div className="flex items-center justify-between mt-1">
-                                                    <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-                                                        {edital.category}
+                                    filteredEditais.map((edital, idx) => {
+                                        const subjectsCount = edital.subjects?.length || 0;
+                                        const topicsCount = edital.subjects?.reduce((acc: number, s) => acc + (s.topics?.length || 0), 0) || 0;
+
+                                        return (
+                                            <motion.div
+                                                key={edital.id}
+                                                layout
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: idx * 0.02 }}
+                                                className="group relative bg-zinc-900/40 border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all duration-200 rounded-xl overflow-hidden cursor-pointer h-20"
+                                                onClick={() => {
+                                                    setSelectedEditalForSubjects(edital);
+                                                    setIsSubjectsModalOpen(true);
+                                                }}
+                                            >
+                                                <div className="px-6 h-full flex flex-row items-center gap-8">
+                                                    {/* Indicador de Seleção Lateral */}
+                                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-12 bg-white/5 group-hover:bg-primary transition-colors" />
+                                                    
+                                                    {/* Órgão Section (Esquerda) */}
+                                                    <div className="w-56 shrink-0">
+                                                        <h3 className="text-xl font-black text-white uppercase tracking-tighter leading-none mb-1 group-hover:text-primary transition-colors">
+                                                            {edital.organ}
+                                                        </h3>
+                                                        <p className="text-[11px] font-medium text-zinc-600 uppercase tracking-[0.2em]">
+                                                            {edital.year}
+                                                        </p>
                                                     </div>
-                                                    {edital.subjects && edital.subjects.length > 0 ? (
-                                                        <div className="flex items-center gap-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest pr-4">
-                                                            <span>{edital.subjects.length} Matérias</span>
-                                                            <span className="text-zinc-700 mx-1">•</span>
-                                                            <span>{edital.subjects.reduce((acc: number, s: any) => acc + (s.topics?.length || 0), 0)} Tópicos</span>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                                                            <AlertTriangle size={12} /> Sem matérias
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
 
-                                            <div className="flex items-center gap-2 mt-3 md:mt-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); openEditForm(edital); }} 
-                                                    className="w-9 h-9 flex items-center justify-center bg-zinc-800/80 rounded-lg text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-all"
-                                                    title="Editar Detalhes"
-                                                >
-                                                    <Edit3 size={15} />
-                                                </button>
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(edital.id); }} 
-                                                    className="w-9 h-9 flex items-center justify-center bg-zinc-800/80 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition-all"
-                                                    title="Excluir Edital"
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            </div>
+                                                    {/* Detalhes Empilhados (Centro) */}
+                                                    <div className="flex-1 flex flex-col justify-center gap-2 min-w-0">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest w-16 text-right shrink-0">Cargo:</span>
+                                                            <span className="text-sm font-black text-white uppercase italic tracking-tight truncate">
+                                                                {edital.position}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest w-16 text-right shrink-0 py-1">Categoria:</span>
+                                                            <div className="px-2 py-1 bg-white/5 border border-white/5 rounded text-[10px] font-black text-zinc-400 uppercase tracking-wider truncate inline-block max-w-[200px] leading-tight">
+                                                                {edital.category}
+                                                            </div>
+                                                        </div>
+                                                    </div>
 
-                                            {confirmDeleteId === edital.id && (
-                                                <div onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-red-950/90 rounded-xl flex items-center justify-center gap-4 z-10">
-                                                    <span className="text-sm text-red-100 font-bold">Excluir edital?</span>
-                                                    <button onClick={() => setConfirmDeleteId(null)} className="px-3 py-1.5 text-xs text-red-200 hover:text-white transition-all">Cancelar</button>
-                                                    <button onClick={() => handleDelete(edital.id)} className="px-5 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-500 shadow-lg">Sim, excluir</button>
+                                                    {/* Métricas e Status (Direita) */}
+                                                    <div className="flex items-center shrink-0 border-l border-white/5 pl-8 pr-1 min-w-[280px]">
+                                                        {/* Métricas Independentes */}
+                                                        <div className="flex flex-col items-end gap-1.5 w-24">
+                                                            <div className="flex items-baseline gap-1.5">
+                                                                <span className={`text-base font-black leading-none tracking-tighter ${subjectsCount === 0 ? 'text-amber-500 animate-pulse' : 'text-primary'}`}>{subjectsCount}</span>
+                                                                <span className={`text-[10px] font-black uppercase tracking-tighter ${subjectsCount === 0 ? 'text-amber-500/60' : 'text-primary/60'}`}>Matérias</span>
+                                                            </div>
+                                                            <div className={`flex items-baseline gap-1.5 ${topicsCount === 0 ? 'opacity-100' : 'opacity-30'}`}>
+                                                                <span className={`text-xs font-black leading-none tracking-tighter ${topicsCount === 0 ? 'text-amber-500' : 'text-white'}`}>{topicsCount}</span>
+                                                                <span className={`text-[9px] font-black uppercase tracking-tighter ${topicsCount === 0 ? 'text-amber-500/60' : 'text-white'}`}>Tópicos</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Separador Vertical (Deslocado mais p/ direita) */}
+                                                        <div className="h-10 w-px bg-white/10 ml-auto mr-0" />
+                                                        
+                                                        {/* Segmento Final: Centralizado entre Barra e Fim */}
+                                                        <div className="w-24 flex items-center justify-center">
+                                                            <div className="relative w-full flex items-center justify-center">
+                                                                {/* Visibilidade Padrão: Status */}
+                                                                <div className="flex flex-col items-center gap-1 group-hover:opacity-0 group-hover:scale-75 transition-all duration-300">
+                                                                    {edital.is_public ? (
+                                                                        <>
+                                                                            <Globe size={18} className="text-emerald-500" />
+                                                                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Pub</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <EyeOff size={18} className="text-zinc-600" />
+                                                                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Priv</span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Visibilidade Hover: Ações Verticais */}
+                                                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
+                                                                    <button 
+                                                                        onClick={(e) => { e.stopPropagation(); openEditForm(edital); }} 
+                                                                        className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                                                        title="Editar Edital"
+                                                                    >
+                                                                        <Edit3 size={18} />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(edital.id); }} 
+                                                                        className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                                                        title="Excluir Edital"
+                                                                    >
+                                                                        <Trash2 size={18} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            )}
-                                        </motion.div>
-                                    ))
+
+                                                {/* Overlay de Confirmação de Exclusão */}
+                                                {confirmDeleteId === edital.id && (
+                                                    <div onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-red-950/95 backdrop-blur-md flex items-center justify-center px-6 z-20">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <AlertTriangle size={18} className="text-red-500 animate-bounce" />
+                                                                <h4 className="text-white font-black uppercase tracking-widest text-xs">Excluir edital?</h4>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <button onClick={() => setConfirmDeleteId(null)} className="h-9 px-5 bg-white/10 text-white text-[10px] font-black rounded-lg hover:bg-white/20 transition-all uppercase">Não</button>
+                                                                <button onClick={() => handleDelete(edital.id)} className="h-9 px-5 bg-red-600 text-white text-[10px] font-black rounded-lg hover:bg-red-500 transition-all uppercase">Sim, Excluir</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </motion.div>
+                                        );
+                                    })
                                 )}
                             </div>
                         </motion.div>
@@ -487,34 +582,36 @@ const AdminEditais = () => {
                             {loadingSuggestions ? (
                                 <div className="py-20 text-center"><LoadingSpinner size="large" /></div>
                             ) : suggestions.length === 0 ? (
-                                <div className="py-20 text-center">
-                                    <MessageSquare size={32} className="mx-auto text-zinc-700 mb-3" />
-                                    <h3 className="text-base font-bold text-zinc-400">Tudo limpo!</h3>
-                                    <p className="text-zinc-600 text-sm">Nenhuma solicitação nova por aqui.</p>
+                                <div className="py-20 text-center bg-zinc-900/40 border border-white/5 rounded-3xl">
+                                    <MessageSquare size={48} className="mx-auto text-zinc-800 mb-4" />
+                                    <h3 className="text-sm font-black text-content-muted uppercase tracking-widest">Tudo limpo!</h3>
+                                    <p className="text-xs text-zinc-600 mt-1">Nenhuma solicitação pendente.</p>
                                 </div>
                             ) : (
                                 suggestions.map(s => (
                                     <motion.div 
                                         key={s.id} 
                                         layout 
-                                        className="bg-[#1A1A1F]/80 border border-white/5 rounded-2xl p-6 transition-all shadow-sm"
+                                        className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 transition-all hover:border-white/10 relative overflow-hidden group"
                                     >
-                                        <div className="flex items-start justify-between gap-4">
+                                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border border-current ${STATUS_BADGE[s.status].cls}`}>
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <span className={`text-[10px] font-black px-2 py-1 rounded-lg border uppercase tracking-widest ${STATUS_BADGE[s.status].cls}`}>
                                                         {STATUS_BADGE[s.status].label}
                                                     </span>
-                                                    <span className="text-xs text-zinc-500 flex items-center gap-1">
+                                                    <span className="text-[10px] font-medium text-zinc-500 flex items-center gap-1.5">
                                                         <Clock size={12} /> {new Date(s.created_at).toLocaleDateString('pt-BR')}
                                                     </span>
                                                 </div>
-                                                <p className="text-lg font-bold text-white tracking-tight">{s.concurso}</p>
+                                                <h3 className="text-lg font-black text-white tracking-tight uppercase mb-2">
+                                                    {s.concurso}
+                                                </h3>
                                                 
                                                 {s.response_message && (
-                                                    <div className="mt-4 inline-block bg-zinc-950/50 rounded-lg p-3 border border-white/5">
-                                                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">Resposta enviada</p>
-                                                        <p className="text-sm text-zinc-300 italic">{s.response_message}</p>
+                                                    <div className="mt-4 p-4 bg-white/5 border border-white/5 rounded-2xl">
+                                                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-black mb-1">Resposta do Sistema:</p>
+                                                        <p className="text-sm text-content-muted italic">"{s.response_message}"</p>
                                                     </div>
                                                 )}
                                             </div>
@@ -522,9 +619,9 @@ const AdminEditais = () => {
                                             {s.status === 'pending' && respondingId !== s.id && (
                                                 <button
                                                     onClick={() => { setRespondingId(s.id); setSelectedTemplate('cadastrado'); setCustomMessage(RESPONSE_TEMPLATES['cadastrado']); }}
-                                                    className="px-5 py-2.5 bg-cyan-500/10 text-cyan-400 text-sm font-bold rounded-xl hover:bg-cyan-500/20 transition-all flex items-center gap-2 shrink-0 border border-cyan-500/20"
+                                                    className="h-11 px-6 bg-primary/10 text-primary text-xs font-black rounded-2xl hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2 shrink-0 border border-primary/20 uppercase tracking-widest sm:self-start"
                                                 >
-                                                    <Send size={15} /> Responder
+                                                    <Send size={14} /> Responder
                                                 </button>
                                             )}
                                         </div>
@@ -535,49 +632,50 @@ const AdminEditais = () => {
                                                     initial={{ opacity: 0, height: 0 }}
                                                     animate={{ opacity: 1, height: 'auto' }}
                                                     exit={{ opacity: 0, height: 0 }}
-                                                    className="mt-6 pt-6 border-t border-white/5 space-y-5 overflow-hidden"
+                                                    className="mt-6 pt-6 border-t border-white/5 space-y-6 overflow-hidden"
                                                 >
                                                     <div>
-                                                        <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Selecionar Resposta</p>
+                                                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 block">Selecione um Modelo</label>
                                                         <div className="flex flex-wrap gap-2">
                                                             <button
                                                                 onClick={() => { setSelectedTemplate('cadastrado'); setCustomMessage(RESPONSE_TEMPLATES['cadastrado']); }}
-                                                                className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${selectedTemplate === 'cadastrado' ? 'bg-zinc-800 border-zinc-700 text-emerald-400' : 'border-transparent text-zinc-500 hover:text-emerald-400/70'}`}
+                                                                className={`flex items-center gap-2 px-4 h-10 border text-[10px] font-black transition-all uppercase tracking-widest rounded-xl ${selectedTemplate === 'cadastrado' ? 'bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-white/5 border-white/5 text-content-muted hover:text-white hover:bg-white/10'}`}
                                                             >
-                                                                <CheckSquare size={14} /> FOI CADASTRADO
+                                                                <CheckSquare size={14} /> Cadastrado
                                                             </button>
                                                             <button
                                                                 onClick={() => { setSelectedTemplate('ja_cadastrado'); setCustomMessage(RESPONSE_TEMPLATES['ja_cadastrado']); }}
-                                                                className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${selectedTemplate === 'ja_cadastrado' ? 'bg-zinc-800 border-zinc-700 text-cyan-400' : 'border-transparent text-zinc-500 hover:text-cyan-400/70'}`}
+                                                                className={`flex items-center gap-2 px-4 h-10 border text-[10px] font-black transition-all uppercase tracking-widest rounded-xl ${selectedTemplate === 'ja_cadastrado' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/5 text-content-muted hover:text-white hover:bg-white/10'}`}
                                                             >
-                                                                <Info size={14} /> JÁ CADASTRADO
+                                                                <Info size={14} /> Já Existe
                                                             </button>
                                                             <button
                                                                 onClick={() => { setSelectedTemplate('nao_cadastrado'); setCustomMessage(RESPONSE_TEMPLATES['nao_cadastrado']); }}
-                                                                className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${selectedTemplate === 'nao_cadastrado' ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'border-transparent text-zinc-500 hover:text-red-500/70'}`}
+                                                                className={`flex items-center gap-2 px-4 h-10 border text-[10px] font-black transition-all uppercase tracking-widest rounded-xl ${selectedTemplate === 'nao_cadastrado' ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20' : 'bg-white/5 border-white/5 text-content-muted hover:text-white hover:bg-white/10'}`}
                                                             >
-                                                                <XCircle size={14} /> NÃO CADASTRADO
+                                                                <XCircle size={14} /> Rejeitar
                                                             </button>
                                                         </div>
                                                     </div>
 
-                                                    <div className="bg-zinc-950 border border-white/5 rounded-xl overflow-hidden p-1">
+                                                    <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden p-1 focus-within:border-primary/30 transition-all">
                                                         <textarea
                                                             value={customMessage}
                                                             onChange={e => setCustomMessage(e.target.value)}
-                                                            rows={2}
-                                                            className="w-full bg-transparent px-3 py-3 text-sm text-zinc-300 outline-none resize-none font-medium"
+                                                            rows={3}
+                                                            className="w-full bg-transparent px-5 py-4 text-sm font-medium text-white outline-none resize-none placeholder:text-zinc-700"
+                                                            placeholder="Escreva sua mensagem personalizada..."
                                                         />
                                                     </div>
 
                                                     <div className="flex justify-end gap-3 items-center">
-                                                        <button onClick={() => setRespondingId(null)} className="px-5 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-300 transition-colors">Cancelar</button>
+                                                        <button onClick={() => setRespondingId(null)} className="px-6 py-2 text-xs font-black text-zinc-500 hover:text-white transition-colors uppercase">Cancelar</button>
                                                         <button
                                                             onClick={() => handleRespond(s)}
                                                             disabled={sendingResponse}
-                                                            className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg"
+                                                            className="h-11 px-8 bg-primary hover:bg-primary/90 text-white text-xs font-black rounded-2xl transition-all flex items-center gap-2 shadow-lg shadow-primary/20 uppercase tracking-widest"
                                                         >
-                                                            {sendingResponse ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                                            {sendingResponse ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                                                             Enviar Resposta
                                                         </button>
                                                     </div>

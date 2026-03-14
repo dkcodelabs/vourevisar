@@ -202,10 +202,17 @@ export const loadUserCycle = async (userId: string) => {
 
 export const cleanCycle = (
   currentCycle: string[],
-  allSubjects: any[]
+  allSubjects: any[],
+  allowedSubjectIds?: Set<string>
 ): string[] => {
   const allExistantSubjectIds = allSubjects.map(s => s.id);
   
-  // Agora remove APENAS matérias que foram deletadas do banco de dados
-  return currentCycle.filter(id => allExistantSubjectIds.includes(id));
+  // Agora remove:
+  // 1. Matérias deletadas do banco
+  // 2. Matérias órfãs ou de editais descarregados (se a whitelist for fornecida)
+  return currentCycle.filter(id => {
+    const exists = allExistantSubjectIds.includes(id);
+    const isAllowed = allowedSubjectIds ? allowedSubjectIds.has(id) : true;
+    return exists && isAllowed;
+  });
 };

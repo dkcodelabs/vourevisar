@@ -211,6 +211,16 @@ export const useStudyCycleData = () => {
     loadSubjects();
   }, [loadSubjects]);
 
+  // Event listener para atualizações globais de matérias/editais
+  useEffect(() => {
+    window.addEventListener('subjectStatusUpdated', refreshData);
+    window.addEventListener('subjectUpdated', refreshData);
+    return () => {
+      window.removeEventListener('subjectStatusUpdated', refreshData);
+      window.removeEventListener('subjectUpdated', refreshData);
+    };
+  }, [refreshData]);
+
   // Load user cycle data
   useEffect(() => {
     const loadUserCycle = async () => {
@@ -249,32 +259,32 @@ export const useStudyCycleData = () => {
 
         if (cycleData && (!cycleData.ciclo_atual || cycleData.ciclo_atual.length === 0)) {
           // Quando criar um novo ciclo, precisamos filtrar matérias de editais que ainda não foram importados (merged_into_cycle = false)
-          const { data: userEditaisData } = await (supabase as any)
-            .from('user_editais')
-            .select('subject_ids, merged_into_cycle')
-            .eq('user_id', user.id);
-          
-          const subjectsInNonMergedEditais = new Set<string>();
-          if (userEditaisData) {
-            userEditaisData.forEach((ed: any) => {
-              if (!ed.merged_into_cycle && ed.subject_ids) {
-                ed.subject_ids.forEach((id: string) => subjectsInNonMergedEditais.add(id));
-              }
-            });
-          }
-
           const { data: activeSubjects, error: subjectsError } = await supabase
             .from('subjects')
             .select('id')
             .eq('user_id', user.id)
-            .neq('status', 'Concluída')
-            .order('priority', { ascending: true });
+            .neq('status', 'Concluída');
 
           if (!subjectsError && activeSubjects && activeSubjects.length > 0) {
-            // Filtrar as matérias que pertencem a editais não mesclados
+            // Whitelist: Apenas matérias de editais que estão no ciclo
+            // Tentar buscar os editais atuais para validar a whitelist
+            const { data: userEditaisData } = await (supabase as any)
+              .from('user_editais')
+              .select('subject_ids, merged_into_cycle')
+              .eq('user_id', user.id);
+
+            const allowedSubjectIds = new Set<string>();
+            if (userEditaisData) {
+              userEditaisData.forEach((ed: any) => {
+                if (ed.merged_into_cycle && ed.subject_ids) {
+                  ed.subject_ids.forEach((id: string) => allowedSubjectIds.add(id));
+                }
+              });
+            }
+
             const filteredSubjectIds = activeSubjects
               .map(s => s.id)
-              .filter(id => !subjectsInNonMergedEditais.has(id));
+              .filter(id => allowedSubjectIds.has(id));
 
             if (filteredSubjectIds.length > 0) {
               const { error: updateError } = await supabase
@@ -320,17 +330,18 @@ export const useStudyCycleData = () => {
       // verificamos se temos ao menos alguma tentativa de carregar editais
       // No loadSubjects, garantimos que ambos carreguem juntos via Promise.all
       
-      const subjectsInNonMergedEditais = new Set<string>();
+      // Whitelist logic: Só entram no ciclo matérias de editais com merged_into_cycle = true
+      const allowedSubjectIds = new Set<string>();
       userEditais.forEach(edital => {
-        if (!edital.merged_into_cycle && edital.subject_ids) {
-          edital.subject_ids.forEach(id => subjectsInNonMergedEditais.add(id));
+        if (edital.merged_into_cycle && edital.subject_ids) {
+          edital.subject_ids.forEach(id => allowedSubjectIds.add(id));
         }
       });
 
       const subjectsNotInCycle = subjects.filter(subject =>
         !userCycle.ciclo_atual.includes(subject.id) &&
         subject.status !== 'Concluída' &&
-        !subjectsInNonMergedEditais.has(subject.id)
+        allowedSubjectIds.has(subject.id)
       );
 
       if (subjectsNotInCycle.length > 0) {
@@ -359,7 +370,15 @@ export const useStudyCycleData = () => {
   useEffect(() => {
     if (!user || !userCycle?.ciclo_atual || subjects.length === 0) return;
 
-    const cleanedCycle = cleanCycle(userCycle.ciclo_atual, subjects);
+    // Faxina Rigorosa: Remover matérias órfãs ou de editais descarregados
+    const allowedSubjectIds = new Set<string>();
+    userEditais.forEach(edital => {
+      if (edital.merged_into_cycle && edital.subject_ids) {
+        edital.subject_ids.forEach(id => allowedSubjectIds.add(id));
+      }
+    });
+
+    const cleanedCycle = cleanCycle(userCycle.ciclo_atual, subjects, allowedSubjectIds);
     if (cleanedCycle.length !== userCycle.ciclo_atual.length) {
       const updateCycleInDb = async () => {
         try {
@@ -379,7 +398,7 @@ export const useStudyCycleData = () => {
       };
       updateCycleInDb();
     }
-  }, [user, userCycle?.ciclo_atual, subjects]);
+  }, [user, userCycle?.ciclo_atual, subjects, userEditais]);
 
   const dailySubjectsWithViews = useDailySubjectsWithViews(subjects, userCycle);
 

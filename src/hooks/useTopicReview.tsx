@@ -258,7 +258,6 @@ export const useTopicReview = () => {
         if (histError) throw histError;
       } catch (e) {
         console.error("⚠️ Falha vital: Colunas de histórico (prompt 3) provavelmente não existem no DB.", e);
-        toastManager.error("Erro ao inserir log! Crie as colunas em topic_review_history!");
         throw e;
       }
 

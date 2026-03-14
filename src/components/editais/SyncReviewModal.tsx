@@ -33,7 +33,7 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
 
         // 1. Detectar Inclusões (Admin adicionou no oficial)
         sourceSubjects.forEach(ss => {
-            const ssName = (ss.name || (ss as any).title || '').trim().toUpperCase();
+            const ssName = (ss.name || (ss.name || '')).trim().toUpperCase();
             if (!ssName) return;
 
             const local = localSubjects.find(ls => (ls.name || '').trim().toUpperCase() === ssName);
@@ -43,7 +43,7 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
             } else {
                 // Matéria existe, ver tópicos
                 const newTopics = (ss.topics || []).filter((st: Topic | string) => {
-                    const stName = (typeof st === 'string' ? st : (st.name || '')).trim().toUpperCase();
+                    const stName = (typeof st === 'string' ? st : st.name || '').trim().toUpperCase();
                     if (!stName) return false;
                     return !local.topics?.some(lt => (lt.name || '').trim().toUpperCase() === stName);
                 });
@@ -58,18 +58,18 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
             const lsName = (ls.name || '').trim().toUpperCase();
             if (!lsName) return;
 
-            const inSource = sourceSubjects.some(ss => (ss.name || (ss as any).title || '').trim().toUpperCase() === lsName);
+            const inSource = sourceSubjects.some(ss => (ss.name || '').trim().toUpperCase() === lsName);
             if (!inSource) {
                 removals.subjects.push(ls);
             } else {
-                const ss = sourceSubjects.find(ss => (ss.name || (ss as any).title || '').trim().toUpperCase() === lsName);
+                const ss = sourceSubjects.find(ss => (ss.name || '').trim().toUpperCase() === lsName);
                 if (!ss) return;
                 const removedTopics = (ls.topics || []).filter(lt => {
                     const ltName = (lt.name || '').trim().toUpperCase();
                     if (!ltName) return false;
 
-                    const stillInSource = (ss.topics || []).some((st: any) => 
-                        (typeof st === 'string' ? st : (st.name || '')).trim().toUpperCase() === ltName
+                    const stillInSource = (ss.topics || []).some((st: Topic | string) => 
+                        (typeof st === 'string' ? st : st.name || '').trim().toUpperCase() === ltName
                     );
                     return !stillInSource;
                 });
@@ -188,244 +188,343 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={onClose}
-                    className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                    className="absolute inset-0 bg-zinc-950/60 backdrop-blur-xl"
                 />
                 
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    initial={{ opacity: 0, scale: 0.9, y: 30 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative w-full max-w-lg bg-zinc-950 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+                    exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    className="relative w-full max-w-lg bg-zinc-900/70 border border-white/10 rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[90vh] backdrop-blur-2xl"
                 >
-                    {/* Header */}
-                    <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between bg-zinc-900/30">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center">
-                                <RefreshCw className="text-primary" size={18} />
+                    {/* Header with Glass Effect */}
+                    <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-white/5 backdrop-blur-md">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-primary/20 rounded-2xl flex items-center justify-center border border-primary/20 shadow-[0_0_20px_rgba(59,130,246,0.2)]">
+                                <RefreshCw className="text-primary animate-[spin_4s_linear_infinite]" size={20} />
                             </div>
                             <div>
-                                <h2 className="text-sm font-bold text-white tracking-tight">Revisar Atualizações</h2>
-                                <p className="text-[10px] text-zinc-500 font-medium">{editalName}</p>
+                                <h2 className="text-base font-bold text-white tracking-tight">Revisar Atualizações</h2>
+                                <p className="text-[11px] text-zinc-400 font-medium uppercase tracking-wider opacity-70">{editalName}</p>
                             </div>
                         </div>
-                        <button onClick={onClose} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
-                            <X size={18} className="text-zinc-500" />
+                        <button 
+                            onClick={onClose} 
+                            className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-2xl transition-all border border-transparent hover:border-white/10"
+                        >
+                            <X size={20} className="text-zinc-400 hover:text-white transition-colors" />
                         </button>
                     </div>
 
-                    {/* Content */}
-                    <div className="p-4 overflow-y-auto space-y-6">
+                    {/* Content Area with Custom Scrollbar */}
+                    <div className="p-5 overflow-y-auto custom-scrollbar space-y-8 min-h-[300px]">
                         {!hasChanges ? (
-                            <div className="text-center py-10">
-                                <Check className="mx-auto text-emerald-500 mb-3" size={40} />
-                                <p className="text-sm text-zinc-400 font-medium">Seu edital já está totalmente sincronizado!</p>
-                            </div>
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="text-center py-16"
+                            >
+                                <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20 shadow-[0_0_40px_rgba(16,185,129,0.1)]">
+                                    <Check className="text-emerald-500" size={32} />
+                                </div>
+                                <h3 className="text-lg font-bold text-white mb-1">Tudo em dia!</h3>
+                                <p className="text-sm text-zinc-500 max-w-[240px] mx-auto leading-relaxed">Seu edital já está totalmente sincronizado conforme a última atualização oficial.</p>
+                            </motion.div>
                         ) : (
-                            <>
-                                {/* Inclusões */}
+                            <div className="space-y-12 pb-4">
+                                {/* Section: Inclusões */}
                                 {(diff.additions.subjects.length > 0 || Object.keys(diff.additions.topics).length > 0) && (
-                                    <div className="space-y-3">
-                                        <h3 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                                            <Plus size={12} /> Adicionado no edital
-                                        </h3>
+                                    <div className="space-y-6">
+                                        <div className="flex items-center justify-between px-1">
+                                            <h3 className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                                Novas Inclusões (Adicionar ao Ciclo)
+                                            </h3>
+                                            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/20 font-bold">
+                                                {diff.additions.subjects.length + Object.values(diff.additions.topics).flat().length} itens
+                                            </span>
+                                        </div>
                                         
-                                        <div className="grid gap-2">
+                                        <div className="space-y-8">
+                                            {/* Novas Matérias */}
                                             {diff.additions.subjects.map((s, i) => {
-                                                const sName = s.name || (s as any).title;
+                                                const sName = s.name;
+                                                const isSelected = selectedAdditions.has(`subj-${s.id || s.name}`);
                                                 return (
-                                                    <React.Fragment key={`add-s-group-${i}`}>
-                                                        {/* Card da Matéria */}
+                                                    <motion.div 
+                                                        key={`add-s-group-${i}`}
+                                                        initial={{ opacity: 0, y: 10 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        transition={{ delay: i * 0.05 }}
+                                                        className="space-y-2"
+                                                    >
+                                                        {/* Matéria Toggle Card - Unified Identity */}
                                                         <button
                                                             onClick={() => handleToggleAddition(`subj-${s.id || s.name}`)}
-                                                            className={`flex items-start gap-3 p-3 rounded-2xl border transition-all text-left ${
-                                                                selectedAdditions.has(`subj-${s.id || s.name}`)
-                                                                ? 'bg-emerald-500/10 border-emerald-500/20'
-                                                                : 'bg-white/5 border-white/5 hover:border-white/10'
+                                                            className={`w-full group relative flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300 ${
+                                                                isSelected
+                                                                ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_4px_12px_rgba(16,185,129,0.1)]'
+                                                                : 'bg-zinc-800/30 border-white/5 hover:border-white/10'
                                                             }`}
                                                         >
-                                                            <div className={`mt-0.5 w-5 h-5 rounded-lg flex items-center justify-center border shrink-0 ${
-                                                                selectedAdditions.has(`subj-${s.id || s.name}`)
+                                                            {/* Sidebar Indicator Integrated */}
+                                                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-2/3 rounded-r-full transition-all duration-300 ${isSelected ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-zinc-700'}`} />
+
+                                                            <div className={`ml-2 w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-300 ${
+                                                                isSelected
                                                                 ? 'bg-emerald-500 border-emerald-500 text-white'
-                                                                : 'border-white/20 text-transparent'
+                                                                : 'border-white/10 text-transparent'
                                                             }`}>
-                                                                <Check size={12} />
+                                                                <Check size={12} strokeWidth={3} />
                                                             </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <span className="text-sm font-bold text-white block truncate">{sName}</span>
-                                                                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">
-                                                                    Nova Matéria
-                                                                </span>
+                                                            <div className="flex-1 text-left min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-black text-white uppercase tracking-tight truncate">{sName}</span>
+                                                                    <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-widest px-1.5 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/20 shrink-0">Novo</span>
+                                                                </div>
+                                                                <span className="text-[10px] text-zinc-500 font-medium">Adicionar matéria e todos os tópicos</span>
                                                             </div>
                                                         </button>
 
-                                                        {/* Cards dos Tópicos que vêm com a matéria nova */}
-                                                        {s.topics && s.topics.length > 0 && s.topics.map((t, idx) => (
-                                                            <button
-                                                                key={`add-s-${i}-t-${idx}`}
-                                                                onClick={() => handleToggleAddition(`subj-${s.id || s.name}-t-${idx}`)}
-                                                                className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all text-left ml-4 ${
-                                                                    selectedAdditions.has(`subj-${s.id || s.name}-t-${idx}`)
-                                                                    ? 'bg-emerald-500/10 border-emerald-500/20'
-                                                                    : 'bg-white/5 border-white/5 hover:border-white/10'
-                                                                }`}
-                                                            >
-                                                                <div className={`w-5 h-5 rounded-lg flex items-center justify-center border shrink-0 ${
-                                                                    selectedAdditions.has(`subj-${s.id || s.name}-t-${idx}`)
-                                                                    ? 'bg-emerald-500 border-emerald-500 text-white'
-                                                                    : 'border-white/20 text-transparent'
-                                                                }`}>
-                                                                    <Check size={12} />
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <span className="text-xs font-medium text-white block truncate">
-                                                                        {typeof t === 'string' ? t : t.name}
-                                                                    </span>
-                                                                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">
-                                                                        Tópico incluído na matéria <span className="text-zinc-400">{sName}</span>
-                                                                    </span>
-                                                                </div>
-                                                            </button>
-                                                        ))}
-                                                    </React.Fragment>
+                                                        {/* Tópicos aninhados */}
+                                                        {s.topics && s.topics.length > 0 && (
+                                                            <div className="ml-5 border-l border-white/10 pl-5 grid gap-2 py-1">
+                                                                {s.topics.map((t, idx) => {
+                                                                    const tSelected = selectedAdditions.has(`subj-${s.id || s.name}-t-${idx}`);
+                                                                    return (
+                                                                        <button
+                                                                            key={`add-s-${i}-t-${idx}`}
+                                                                            onClick={() => handleToggleAddition(`subj-${s.id || s.name}-t-${idx}`)}
+                                                                            className={`relative flex items-center gap-2.5 p-2 rounded-xl border transition-all duration-200 text-left ${
+                                                                                tSelected
+                                                                                ? 'bg-emerald-500/5 border-emerald-500/10'
+                                                                                : 'bg-white/5 border-transparent hover:border-white/10'
+                                                                            }`}
+                                                                        >
+                                                                            <div className="absolute -left-5 top-1/2 w-3 h-px bg-white/10" />
+                                                                            <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-all duration-300 ${
+                                                                                tSelected
+                                                                                ? 'bg-emerald-500 border-emerald-500 text-white'
+                                                                                : 'border-white/10 text-transparent'
+                                                                            }`}>
+                                                                                <Check size={9} strokeWidth={4} />
+                                                                            </div>
+                                                                            <span className="text-[11px] font-medium text-zinc-300 truncate flex-1">
+                                                                                {typeof t === 'string' ? t : t.name}
+                                                                            </span>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </motion.div>
                                                 );
                                             })}
 
-                                            {Object.entries(diff.additions.topics).map(([sId, topics]) => {
+                                            {/* Novos Tópicos em Matérias Existentes */}
+                                            {Object.entries(diff.additions.topics).map(([sId, topics], sIter) => {
                                                 const subj = localSubjects.find(ls => ls.id === sId);
-                                                return topics.map((t, i) => (
-                                                    <button
-                                                        key={`add-t-${sId}-${i}`}
-                                                        onClick={() => handleToggleAddition(`top-${sId}-${i}`)}
-                                                        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all text-left ${
-                                                            selectedAdditions.has(`top-${sId}-${i}`)
-                                                            ? 'bg-emerald-500/10 border-emerald-500/20'
-                                                            : 'bg-white/5 border-white/5 hover:border-white/10'
-                                                        }`}
-                                                    >
-                                                        <div className={`w-5 h-5 rounded-lg flex items-center justify-center border shrink-0 ${
-                                                            selectedAdditions.has(`top-${sId}-${i}`)
-                                                            ? 'bg-emerald-500 border-emerald-500 text-white'
-                                                            : 'border-white/20 text-transparent'
-                                                        }`}>
-                                                            <Check size={12} />
+                                                return (
+                                                    <div key={`add-t-group-${sId}`} className="space-y-2">
+                                                        <div className="flex items-center gap-2 px-1 opacity-70">
+                                                            <div className="w-0.5 h-3 bg-primary/50 rounded-full" />
+                                                            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">{subj?.name}</span>
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <span className="text-xs font-medium text-white block truncate">{typeof t === 'string' ? t : (t as any).name}</span>
-                                                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">
-                                                                Tópico incluído na matéria <span className="text-zinc-400">{subj?.name}</span>
-                                                            </span>
+                                                        <div className="ml-2 pl-3 grid gap-2">
+                                                            {topics.map((t, i) => {
+                                                                const isSelected = selectedAdditions.has(`top-${sId}-${i}`);
+                                                                return (
+                                                                    <button
+                                                                        key={`add-t-${sId}-${i}`}
+                                                                        onClick={() => handleToggleAddition(`top-${sId}-${i}`)}
+                                                                        className={`relative flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-300 text-left ${
+                                                                            isSelected
+                                                                            ? 'bg-emerald-500/10 border-emerald-500/30'
+                                                                            : 'bg-zinc-800/30 border-white/5 hover:border-white/10'
+                                                                        }`}
+                                                                    >
+                                                                        <div className={`w-4 h-4 rounded-md flex items-center justify-center border-2 transition-all duration-300 shrink-0 ${
+                                                                            isSelected
+                                                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_8px_rgba(16,185,129,0.3)]'
+                                                                            : 'border-white/10 text-transparent'
+                                                                        }`}>
+                                                                            <Check size={10} strokeWidth={4} />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <span className="text-xs font-bold text-white block truncate">{t}</span>
+                                                                            <span className="text-[8px] text-emerald-400/80 font-bold uppercase tracking-widest">Adicionar Tópico</span>
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            })}
                                                         </div>
-                                                    </button>
-                                                ));
+                                                    </div>
+                                                );
                                             })}
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Remoções */}
+                                {/* Section: Remoções */}
                                 {(diff.removals.subjects.length > 0 || Object.keys(diff.removals.topics).length > 0) && (
-                                    <div className="space-y-3">
-                                        <h3 className="text-[10px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                                            <Trash2 size={12} /> Removidos do edital
-                                        </h3>
+                                    <div className="space-y-6 pt-4 border-t border-white/5">
+                                        <div className="flex items-center justify-between px-1">
+                                            <h3 className="text-[11px] font-black text-rose-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
+                                                Removidos do Edital
+                                            </h3>
+                                            <span className="text-[10px] bg-rose-500/10 text-rose-400 px-2.5 py-1 rounded-full border border-rose-500/20 font-bold">
+                                                {diff.removals.subjects.length + Object.values(diff.removals.topics).flat().length} itens
+                                            </span>
+                                        </div>
                                         
-                                        <div className="grid gap-2">
-                                            {diff.removals.subjects.map((s) => {
+                                        <div className="space-y-8">
+                                            {diff.removals.subjects.map((s, i) => {
                                                 const hasProgress = s.topics.some(t => t.completed || t.review_count > 0);
+                                                const isSelected = selectedRemovals.has(`rem-subj-${s.id}`);
                                                 return (
-                                                    <button
-                                                        key={`rem-s-${s.id}`}
-                                                        onClick={() => handleToggleRemoval(`rem-subj-${s.id}`)}
-                                                        className={`flex items-start gap-3 p-3 rounded-2xl border transition-all text-left ${
-                                                            selectedRemovals.has(`rem-subj-${s.id}`)
-                                                            ? 'bg-rose-500/10 border-rose-500/20'
-                                                            : 'bg-white/5 border-white/5 hover:border-white/10'
-                                                        }`}
-                                                    >
-                                                        <div className={`mt-0.5 w-5 h-5 rounded-lg flex items-center justify-center border shrink-0 ${
-                                                            selectedRemovals.has(`rem-subj-${s.id}`)
-                                                            ? 'bg-rose-500 border-rose-500 text-white'
-                                                            : 'border-white/20 text-transparent'
-                                                        }`}>
-                                                            <Check size={12} />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <span className="text-sm font-bold text-white block truncate">{s.name}</span>
-                                                            <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider block">
-                                                                Matéria removida
-                                                            </span>
-                                                            {hasProgress && (
-                                                                <span className="text-[8px] text-amber-500 font-black uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full inline-block mt-1">
-                                                                    Possui Progresso
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </button>
+                                                    <div key={`rem-s-group-${s.id}`} className="space-y-2">
+                                                        {/* Matéria Toggle Card - Unified Removal */}
+                                                        <button
+                                                            onClick={() => handleToggleRemoval(`rem-subj-${s.id}`)}
+                                                            className={`w-full group relative flex items-start gap-4 p-3 rounded-2xl border transition-all duration-300 text-left ${
+                                                                isSelected
+                                                                ? 'bg-rose-500/10 border-rose-500/40 shadow-[0_4px_12px_rgba(244,63,94,0.1)]'
+                                                                : 'bg-zinc-800/20 border-white/5 hover:border-white/10'
+                                                            }`}
+                                                        >
+                                                            {/* Sidebar Indicator Integrated */}
+                                                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-2/3 rounded-r-full transition-all duration-300 ${isSelected ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-zinc-700'}`} />
+
+                                                            <div className={`mt-0.5 ml-2 w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-300 shrink-0 ${
+                                                                isSelected
+                                                                ? 'bg-rose-500 border-rose-500 text-white'
+                                                                : 'border-white/10 text-transparent'
+                                                            }`}>
+                                                                <Check size={12} strokeWidth={3} />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`text-sm font-black text-rose-100 uppercase tracking-tight truncate ${isSelected ? 'line-through decoration-rose-500/50' : ''}`}>{s.name}</span>
+                                                                    <span className="text-[8px] text-rose-400 font-bold uppercase tracking-widest px-1.5 py-0.5 bg-rose-500/10 rounded-md border border-rose-500/20 shrink-0">Remover</span>
+                                                                </div>
+                                                                <span className="text-[10px] text-zinc-500 font-medium">Parar de estudar esta matéria</span>
+                                                                
+                                                                {hasProgress && (
+                                                                    <div className="mt-2 flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg w-fit">
+                                                                        <AlertCircle size={10} className="text-amber-500 shrink-0" />
+                                                                        <span className="text-[8px] text-amber-500 font-black uppercase tracking-wider">Histórico será mantido</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </button>
+                                                    </div>
                                                 );
                                             })}
 
                                             {Object.entries(diff.removals.topics).map(([sId, topics]) => {
                                                 const subj = localSubjects.find(ls => ls.id === sId);
-                                                return topics.map((t) => (
-                                                    <button
-                                                        key={`rem-t-${sId}-${t.id}`}
-                                                        onClick={() => handleToggleRemoval(`rem-top-${sId}-${t.id}`)}
-                                                        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all text-left ${
-                                                            selectedRemovals.has(`rem-top-${sId}-${t.id}`)
-                                                            ? 'bg-rose-500/10 border-rose-500/20'
-                                                            : 'bg-white/5 border-white/5 hover:border-white/10'
-                                                        }`}
-                                                    >
-                                                        <div className={`w-5 h-5 rounded-lg flex items-center justify-center border shrink-0 ${
-                                                            selectedRemovals.has(`rem-top-${sId}-${t.id}`)
-                                                            ? 'bg-rose-500 border-rose-500 text-white'
-                                                            : 'border-white/20 text-transparent'
-                                                        }`}>
-                                                            <Check size={12} />
+                                                return (
+                                                    <div key={`rem-t-group-${sId}`} className="space-y-2 pt-2">
+                                                        <div className="flex items-center gap-2 px-1 opacity-70">
+                                                            <div className="w-0.5 h-3 bg-zinc-600 rounded-full" />
+                                                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{subj?.name}</span>
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <span className="text-xs font-medium text-white block truncate">{t.name}</span>
-                                                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">
-                                                                Tópico da matéria <span className="text-zinc-400">{subj?.name}</span> foi removido
-                                                            </span>
-                                                            {(t.completed || t.review_count > 0) && (
-                                                                <span className="text-[8px] text-amber-500 font-bold uppercase tracking-wider block mt-1">
-                                                                    Estudado em {subj?.name}
-                                                                </span>
-                                                            )}
+                                                        <div className="ml-2 pl-3 grid gap-2">
+                                                            {topics.map((t, i) => {
+                                                                const isSelected = selectedRemovals.has(`rem-top-${sId}-${t.id}`);
+                                                                const studied = t.completed || t.review_count > 0;
+                                                                return (
+                                                                    <button
+                                                                        key={`rem-t-${sId}-${t.id}`}
+                                                                        onClick={() => handleToggleRemoval(`rem-top-${sId}-${t.id}`)}
+                                                                        className={`relative flex items-start gap-3 p-3 rounded-xl border transition-all duration-300 text-left ${
+                                                                            isSelected
+                                                                            ? 'bg-rose-500/10 border-rose-500/30'
+                                                                            : 'bg-zinc-800/30 border-white/5 hover:border-white/10'
+                                                                        }`}
+                                                                    >
+                                                                        <div className={`mt-0.5 w-4 h-4 rounded-md flex items-center justify-center border-2 transition-all duration-300 shrink-0 ${
+                                                                            isSelected
+                                                                            ? 'bg-rose-500 border-rose-500 text-white shadow-[0_0_8px_rgba(244,63,94,0.3)]'
+                                                                            : 'border-white/10 text-transparent'
+                                                                        }`}>
+                                                                            <Check size={10} strokeWidth={4} />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <span className={`text-[11px] font-bold text-white block truncate ${isSelected ? 'line-through decoration-rose-500/50' : ''}`}>{t.name}</span>
+                                                                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                                                <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider bg-white/5 px-1.5 py-0.5 rounded-md border border-white/5">Remover Tópico</span>
+                                                                                {studied && (
+                                                                                    <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md">
+                                                                                        <AlertCircle size={9} className="text-amber-500" />
+                                                                                        <span className="text-[7px] text-amber-500 font-black uppercase tracking-wider">Estudado</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            })}
                                                         </div>
-                                                    </button>
-                                                ));
+                                                    </div>
+                                                );
                                             })}
                                         </div>
                                     </div>
                                 )}
-                            </>
+                            </div>
                         )}
                     </div>
 
-                    {/* Footer */}
-                    <div className="p-4 border-t border-white/5 bg-zinc-900/30 flex gap-2">
+                    {/* Footer with Glass Effect */}
+                    <div className="p-6 border-t border-white/5 bg-white/5 backdrop-blur-md flex gap-4">
                         <button
                             onClick={onClose}
-                            className="flex-1 h-10 bg-white/5 hover:bg-white/10 text-white text-xs font-bold rounded-xl transition-all"
+                            className="flex-1 h-12 bg-white/5 hover:bg-white/10 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all border border-transparent hover:border-white/10"
                         >
                             Cancelar
                         </button>
                         <button
                             onClick={handleConfirm}
                             disabled={!hasChanges || isApplying}
-                            className="flex-[2] h-10 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                            className="flex-[2] h-12 relative overflow-hidden group bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center gap-3 active:scale-95"
                         >
                             {isApplying ? (
-                                <RefreshCw className="animate-spin" size={16} />
+                                <RefreshCw className="animate-spin" size={18} />
                             ) : (
-                                <Check size={16} />
+                                <>
+                                    <Check size={18} strokeWidth={3} />
+                                    <span>Aplicar Alterações</span>
+                                </>
                             )}
-                            Aplicar Alterações
+                            {/* Hover Shine Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
                         </button>
                     </div>
                 </motion.div>
+
+                {/* Inline CSS for necessary high-quality animations not in Tailwind */}
+                <style dangerouslySetInnerHTML={{ __html: `
+                    @keyframes shimmer {
+                        0% { transform: translateX(-100%); }
+                        100% { transform: translateX(100%); }
+                    }
+                    .custom-scrollbar::-webkit-scrollbar {
+                        width: 4px;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-track {
+                        background: transparent;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb {
+                        background: rgba(255, 255, 255, 0.05);
+                        border-radius: 10px;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                        background: rgba(255, 255, 255, 0.1);
+                    }
+                ` }} />
             </div>
         </AnimatePresence>
     );
