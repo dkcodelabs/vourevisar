@@ -44,6 +44,8 @@ export interface Topic {
   last_audit_log?: any | null;
   created_at?: string;
   position?: number;
+  edital_id?: string;
+  origin_id?: string;
 }
 
 export interface Subject {
@@ -54,6 +56,8 @@ export interface Subject {
   priority?: number;
   color?: string;
   notes?: TopicNotes;
+  edital_id?: string;
+  origin_id?: string;
 }
 
 // DailyStudyPlan removida - não mais necessária
@@ -85,6 +89,8 @@ export interface StudyProgress {
 export interface UserCycle {
   id: string;
   user_id: string;
+  name?: string | null;
+  status: 'active' | 'completed' | 'archived';
   ciclo_atual: string[];
   disciplinas_do_dia: string[];
   materias_pendentes: string[];

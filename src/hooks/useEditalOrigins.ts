@@ -60,19 +60,36 @@ export const useEditalOrigins = () => {
         return () => window.removeEventListener('subjectUpdated', handler);
     }, [fetchEditais]);
 
-    /** Map<subjectId, string[]> — todas as origens de cada matéria (pelo subject_ids completo) */
+    /** Map<subjectId, {name, isImported}[]> — somente as origens de editais carregados no ciclo */
     const originsMap = useMemo(() => {
-        const map = new Map<string, string[]>();
+        const map = new Map<string, { name: string; isImported: boolean }[]>();
         for (const edital of editaisData) {
+            // Somente incluir se o edital estiver carregado no ciclo
+            if (!edital.merged_into_cycle) continue;
+
             for (const subjectId of edital.subject_ids) {
                 const existing = map.get(subjectId) || [];
-                if (!existing.includes(edital.name)) {
-                    map.set(subjectId, [...existing, edital.name]);
+                if (!existing.some(e => e.name === edital.name)) {
+                    map.set(subjectId, [...existing, { name: edital.name, isImported: edital.is_imported }]);
                 }
             }
         }
         return map;
     }, [editaisData]);
+
+    /** 
+     * Retorna os nomes e metadados dos editais de uma matéria. 
+     * Se contextualEditalId for passado, verifica se a matéria pertence especificamente àquela origem.
+     */
+    const getOriginsForSubject = useCallback((subjectId: string, contextualEditalId?: string) => {
+        if (contextualEditalId) {
+            const edital = editaisData.find(e => e.id === contextualEditalId);
+            if (edital && edital.subject_ids.includes(subjectId) && edital.merged_into_cycle) {
+                return [{ name: edital.name, isImported: edital.is_imported }];
+            }
+        }
+        return originsMap.get(subjectId) || [];
+    }, [editaisData, originsMap]);
 
     /** Editais que estão marcados como carregados no ciclo */
     const editaisNoCiclo = useMemo(() =>
@@ -94,5 +111,12 @@ export const useEditalOrigins = () => {
         return set;
     }, [editaisNoCiclo]);
 
-    return { originsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, refresh: fetchEditais };
+    return { 
+        originsMap, 
+        editaisData, 
+        editaisNoCiclo, 
+        activeSubjectIdsSet, 
+        getOriginsForSubject,
+        refresh: fetchEditais 
+    };
 };

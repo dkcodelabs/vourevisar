@@ -5,6 +5,8 @@
 export interface TopicReviewHistoryEntry {
   id: string;
   topic_id: string;
+  edital_id?: string | null;
+  cycle_id?: string | null;
   review_stage: string;
   reviewed_at: string;
   created_at: string;

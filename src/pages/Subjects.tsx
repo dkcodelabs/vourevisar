@@ -90,7 +90,7 @@ const getStatusBorderColor = (status: Status) => {
 
 const Subjects = () => {
   const { user } = useAuth();
-  const { originsMap, editaisNoCiclo, activeSubjectIdsSet, refresh } = useEditalOrigins();
+  const { originsMap, editaisNoCiclo, activeSubjectIdsSet, getOriginsForSubject, refresh } = useEditalOrigins();
   const navigate = useNavigate();
   // Estado local simples - sem contextos
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -416,6 +416,17 @@ const Subjects = () => {
   const [hiddenSubjectIds, setHiddenSubjectIds] = useState<Set<string>>(new Set());
   // Estado de loading por edital (para botão Remover do Ciclo)
   const [unloadingEditalId, setUnloadingEditalId] = useState<string | null>(null);
+  const [unloadConfirm, setUnloadConfirm] = useState<{ 
+    isOpen: boolean; 
+    editalId: string | null; 
+    editalName: string | null; 
+    subjectIds: string[] 
+  }>({
+    isOpen: false,
+    editalId: null,
+    editalName: null,
+    subjectIds: []
+  });
   // Confirmação inline de exclusão de matéria
   const [confirmHideSubjectId, setConfirmHideSubjectId] = useState<string | null>(null);
 
@@ -602,21 +613,34 @@ const Subjects = () => {
 
   // Criar lista expandida de matérias com visualizações usando useMemo
   const expandedSubjectList = useMemo(() => {
+    // ── Obter IDs no ciclo para garantir visibilidade ─────────────────────
+    const subjectsInCycleSet = new Set(userCycle?.ciclo_atual || []);
+
     // ── Filtrar: só exibir subjects "liberados" ──────────────────────────
     // Um subject é visível se:
     //   (a) não pertence a nenhum edital (adicionado diretamente na página), OU
-    //   (b) está em active_subject_ids de algum edital carregado no ciclo
-    // ── Filtrar: só exibir subjects "liberados" e não ocultos localmente ──
+    //   (b) está em active_subject_ids de algum edital carregado no ciclo, OU
+    //   (c) já está presente no ciclo atual (garante alinhamento)
     const visibleSubjects = localSubjects.filter(subject => {
       if (hiddenSubjectIds.has(subject.id)) return false;   // oculto otimisticamente
-      const hasOrigin = originsMap.has(subject.id);
-      if (!hasOrigin) return true;                          // sem edital → sempre visível
-      return activeSubjectIdsSet.has(subject.id);           // com edital → só se ativo
+      
+      const isInCycle = subjectsInCycleSet.has(subject.id);
+      const isFromActiveEdital = activeSubjectIdsSet.has(subject.id);
+      
+      // Se está no ciclo (mesclado ou manual ativo) ou pertence a um edital carregado, mostra.
+      if (isInCycle || isFromActiveEdital) return true;
+      
+      // Se não há nenhum edital nem ciclo carregado (estado inicial), mostra tudo.
+      if (subjectsInCycleSet.size === 0 && activeSubjectIdsSet.size === 0) {
+        return true;
+      }
+      
+      return false; // Filtra vazamentos (matérias de outros editais ou não carregadas)
     });
 
     if (!userCycle?.ciclo_atual || !visibleSubjects.length) {
       return visibleSubjects.map(subject => ({
-        id: `${subject.id} -0`,
+        id: `${subject.id}-0`,
         subject,
         viewIndex: 0,
         isView: false
@@ -1394,7 +1418,12 @@ const Subjects = () => {
                       <span className="text-[9px] text-content-muted font-medium">{activeCount} matéria{activeCount !== 1 ? 's' : ''}</span>
                     </div>
                     <button
-                      onClick={() => handleUnloadCycle(edital.id, edital.name, edital.subject_ids)}
+                      onClick={() => setUnloadConfirm({ 
+                        isOpen: true, 
+                        editalId: edital.id, 
+                        editalName: edital.name, 
+                        subjectIds: edital.subject_ids 
+                      })}
                       disabled={unloadingEditalId === edital.id}
                       className="w-7 h-7 flex items-center justify-center rounded-lg bg-black/20 text-content-muted hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100"
                       title="Remover do ciclo"
@@ -1556,13 +1585,23 @@ const Subjects = () => {
                                       {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                     </span>
                                   </div>
-                                  {(originsMap.get(subject.id) || []).length > 0 && (
-                                    <div className="flex flex-wrap gap-1">
-                                      {originsMap.get(subject.id)!.map((originName) => (
-                                        <Badge key={originName} variant="outline" className="text-[10px] text-content-muted border-primary/20 bg-primary/5">{originName}</Badge>
-                                      ))}
-                                    </div>
-                                  )}
+                                  {getOriginsForSubject(subject.id, subject.edital_id).length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {getOriginsForSubject(subject.id, subject.edital_id).map((origin) => (
+                                          <Badge 
+                                            key={origin.name} 
+                                            variant="outline" 
+                                            className="text-[10px] text-primary bg-primary/5 border-primary/10"
+                                          >
+                                            {origin.name}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500/30">
+                                        Sem Edital
+                                      </span>
+                                    )}
                                 </div>
                               )}
                             </div>
@@ -1738,23 +1777,37 @@ const Subjects = () => {
                                         )}
                                       </div>
 
-                                      <div className="flex items-center gap-2 flex-shrink-0">
-                                        {/* Action Buttons Example (Non-functional placeholders as requested) */}
-                                        <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-opacity mr-2">
-                                          <button className="h-6 px-2 flex items-center gap-1 rounded bg-black/5 dark:bg-white/5 text-content-muted hover:text-primary transition-colors text-[9px] font-bold">
-                                            <Sparkles size={10} /> Qtd. Questões
+                                      <div className="flex items-center justify-end relative min-w-[100px]">
+                                        {/* Indicador de Origem (Mostra em estado normal) */}
+                                        <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-4">
+                                          {getOriginsForSubject(subject.id, subject.edital_id).map((origin, i) => (
+                                            <span 
+                                              key={i} 
+                                              className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border text-primary/60 bg-primary/5 border-primary/10"
+                                            >
+                                              {origin.name}
+                                            </span>
+                                          ))}
+                                          {(!originsMap.get(subject.id) || originsMap.get(subject.id)!.length === 0) && (
+                                            <span className="text-[9px] font-black text-zinc-500/20 uppercase tracking-widest whitespace-nowrap">
+                                              Manual
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Action Buttons (Mostra no HOVER) */}
+                                        <div className="absolute right-0 flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-4 group-hover/topic:translate-x-0">
+                                          <button className="h-6 px-2 flex items-center gap-1 rounded bg-primary/10 text-primary hover:bg-primary transition-all hover:text-white text-[9px] font-bold uppercase tracking-tight">
+                                            <Wand2 size={10} /> IA
                                           </button>
-                                          <button className="h-6 px-2 flex items-center gap-1 rounded bg-black/5 dark:bg-white/5 text-content-muted hover:text-primary transition-colors text-[9px] font-bold">
-                                            <Wand2 size={10} /> Resumo IA
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic, subject.name); }}
+                                            className="h-6 w-6 flex items-center justify-center text-content-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                            title="Excluir tópico"
+                                          >
+                                            <Trash2 size={14} />
                                           </button>
                                         </div>
-                                        <button
-                                          onClick={() => handleDeleteTopic(topic, subject.name)}
-                                          className="opacity-0 group-hover/topic:opacity-100 p-1 text-content-muted hover:text-red-500 transition-all"
-                                          title="Excluir tópico"
-                                        >
-                                          <Trash2 size={14} />
-                                        </button>
                                       </div>
                                     </div>
                                   );
@@ -1845,6 +1898,43 @@ const Subjects = () => {
                     <Trash2 className="w-4 h-4" />
                   )}
                   Excluir
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog 
+            open={unloadConfirm.isOpen} 
+            onOpenChange={(open) => !open && setUnloadConfirm(prev => ({ ...prev, isOpen: false }))}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Remover do Ciclo Ativo</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja remover o edital <strong>"{unloadConfirm.editalName}"</strong> do seu ciclo de estudos?
+                  <br /><br />
+                  As matérias vinculadas a este edital não serão excluídas da sua conta, mas deixarão de aparecer na lista de matérias ativas para estudo.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={unloadingEditalId === unloadConfirm.editalId}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (unloadConfirm.editalId) {
+                      handleUnloadCycle(unloadConfirm.editalId, unloadConfirm.editalName || '', unloadConfirm.subjectIds);
+                      setUnloadConfirm(prev => ({ ...prev, isOpen: false }));
+                    }
+                  }}
+                  disabled={unloadingEditalId === unloadConfirm.editalId}
+                  className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
+                >
+                  {unloadingEditalId === unloadConfirm.editalId ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <X className="w-4 h-4" />
+                  )}
+                  Remover
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

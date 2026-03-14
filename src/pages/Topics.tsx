@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
@@ -15,12 +15,14 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { InlineTopicCreator } from '@/components/topics/InlineTopicCreator';
 import { errorService } from '@/lib/errors/errorService';
 import { useEditalOrigins } from '@/hooks/useEditalOrigins';
+import { supabase } from '@/integrations/supabase/client';
 
 const Topics = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { subjects, deleteTopic, isLoading } = useApp();
-  const { originsMap } = useEditalOrigins();
+  const { originsMap, getOriginsForSubject, activeSubjectIdsSet } = useEditalOrigins();
+  const [userCycle, setUserCycle] = useState<any>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
@@ -46,15 +48,54 @@ const Topics = () => {
     subjectName: string;
   }>({ isOpen: false, topicId: '', topicName: '', subjectName: '' });
 
+  // Carregar ciclo do usuário (similar ao Subjects.tsx)
+  useEffect(() => {
+    const loadUserCycle = async () => {
+      if (!user) return;
+      try {
+        const { data } = await supabase
+          .from('user_cycles')
+          .select('*')
+          .eq('user_id', user.id)
+          .limit(1);
+        if (data?.[0]) setUserCycle(data[0]);
+      } catch (error) {
+        console.error('Erro ao carregar ciclo em Topics:', error);
+      }
+    };
+    loadUserCycle();
+  }, [user]);
+
   const allTopics = useMemo(() => {
-    return subjects.flatMap(subject =>
+    // ── Obter IDs no ciclo para garantir alinhamento com Subjects.tsx ──────
+    const subjectsInCycleSet = new Set(userCycle?.ciclo_atual || []);
+
+    // Filtrar matérias visíveis baseadas no ciclo ativo
+    const visibleSubjects = subjects.filter(subject => {
+      const isInCycle = subjectsInCycleSet.has(subject.id);
+      const isFromActiveEdital = activeSubjectIdsSet.has(subject.id);
+      
+      // Se está no ciclo (mesclado ou manual ativo) ou pertence a um edital carregado, mostra.
+      if (isInCycle || isFromActiveEdital) return true;
+      
+      // Se não há nenhum edital nem ciclo carregado (estado inicial), mostra tudo.
+      if (subjectsInCycleSet.size === 0 && activeSubjectIdsSet.size === 0) {
+        return true;
+      }
+      
+      return false; // Filtra vazamentos (matérias de outros editais ou não carregadas)
+    });
+
+    return visibleSubjects.flatMap(subject =>
       subject.topics.map(topic => ({
         ...topic,
         subjectId: subject.id,
         subjectName: subject.name,
+        edital_id: topic.edital_id || subject.edital_id,
+        origin_id: topic.origin_id || subject.origin_id,
       }))
     );
-  }, [subjects]);
+  }, [subjects, userCycle, activeSubjectIdsSet, originsMap]);
 
   const getTopicStatusInfo = (topic: any) => {
     if (topic.completed) {
@@ -311,11 +352,16 @@ const Topics = () => {
                                     <span className="text-[13px] font-bold text-content-main mb-0.5">{topic.name}</span>
                                     <div className="flex items-center gap-2">
                                       <span className="text-[11px] text-zinc-500 font-medium">{topic.subjectName}</span>
-                                      {(originsMap.get(topic.subjectId) || []).map((originName) => (
-                                        <span key={originName} className="text-[9px] font-bold text-primary/70 bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10">
-                                          {originName}
+                                      {getOriginsForSubject(topic.subjectId, topic.edital_id).map((origin) => (
+                                        <span key={origin.name} className="text-[9px] font-bold px-1.5 py-0.5 rounded border text-primary bg-primary/5 border-primary/10">
+                                          {origin.name}
                                         </span>
                                       ))}
+                                      {getOriginsForSubject(topic.subjectId, topic.edital_id).length === 0 && (
+                                        <span className="text-[8px] font-bold uppercase tracking-wider text-zinc-500/30">
+                                          Sem Edital
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </td>

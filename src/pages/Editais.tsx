@@ -73,6 +73,7 @@ const Editais = () => {
     const [importModalTab, setImportModalTab] = useState<'ready' | 'ia' | 'manual'>('ready');
     const [subjectsModal, setSubjectsModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
+    const [unloadConfirm, setUnloadConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [cycleConflict, setCycleConflict] = useState<{
         isOpen: boolean;
         edital: UserEdital | null;
@@ -199,28 +200,28 @@ const Editais = () => {
 
     // ── Métricas por edital ──
     const getEditalMetrics = useCallback((edital: UserEdital) => {
-        // Se ainda não temos subjects carregados, mostramos zeros mas permitimos que o React renderize novamente assim que chegarem
         if (!subjects || subjects.length === 0) {
             return { totalTopics: 0, completedTopics: 0, totalStudyMinutes: 0, subjectsCount: 0 };
         }
         
-        // Garantir que edital.subjectIds seja tratado sempre como array
         const ids = Array.isArray(edital.subjectIds) ? edital.subjectIds : [];
+        // Filtramos os subjects que pertencem a este edital
         const editalSubjects = subjects.filter(s => ids.includes(s.id));
         
-        // Se temos IDs mas não encontramos no global, pode ser delay de cache/refresh
-        // Mas se o subjectsCount for zero aqui, o card mostrará vazio.
-        
-        const totalTopics = editalSubjects.reduce((acc, s) => acc + (s.topics?.length || 0), 0);
-        const completedTopics = editalSubjects.reduce((acc, s) => acc + (s.topics?.filter(t => t.completed).length || 0), 0);
-        const totalStudyMinutes = editalSubjects.reduce((acc, s) =>
+        // CORREÇÃO: Evitar contagem inflada se o edital tiver o mesmo ID de subject múltiplas vezes (improvável mas possível no DB)
+        // Ou se subjects.filter retornar duplicatas. Usamos um Map para garantir unicidade por ID.
+        const uniqueSubjects = Array.from(new Map(editalSubjects.map(s => [s.id, s])).values());
+
+        const totalTopics = uniqueSubjects.reduce((acc, s) => acc + (s.topics?.length || 0), 0);
+        const completedTopics = uniqueSubjects.reduce((acc, s) => acc + (s.topics?.filter(t => t.completed).length || 0), 0);
+        const totalStudyMinutes = uniqueSubjects.reduce((acc, s) =>
             acc + (s.topics?.reduce((tAcc, t) => tAcc + (t.review_count || 0) * 25, 0) || 0), 0);
         
         return { 
             totalTopics, 
             completedTopics, 
             totalStudyMinutes, 
-            subjectsCount: editalSubjects.length 
+            subjectsCount: uniqueSubjects.length 
         };
     }, [subjects]);
 
@@ -357,10 +358,12 @@ const Editais = () => {
 
             const existingIds = (existingCycle?.ciclo_atual as string[] | null) || [];
 
-            // Encontrar quais editais já estão no ciclo (origens)
+            // CORREÇÃO: Encontrar quais editais já estão no ciclo (origens) 
+            // Buscamos em TODO o array 'editais' (estado) para ignorar filtros de busca/tipo ativos
             const origins = new Set<string>();
             for (const e of editais) {
                 if (e.id === edital.id) continue;
+                // Se algum subject ID do edital 'e' está no ciclo atual, ele é uma origem
                 const hasCommon = e.subjectIds.some(id => existingIds.includes(id));
                 if (hasCommon) {
                     origins.add(e.name);
@@ -443,7 +446,7 @@ const Editais = () => {
 
     const finalPreviewIds = useMemo(() => {
         if (!cycleConflict.edital) return [];
-        if (cycleConflict.action === 'replace') return cycleConflict.edital.subjectIds;
+        // Sempre incluímos as existentes para poder mostrar o "diff" (o que sai e o que entra)
         return [...new Set([...cycleConflict.existingIds, ...cycleConflict.edital.subjectIds])];
     }, [cycleConflict]);
 
@@ -930,7 +933,7 @@ const Editais = () => {
                                     })}
                                     onViewSubjects={() => setSubjectsModal({ isOpen: true, edital })}
                                     onLoadCycle={() => handleLoadCycle(edital)}
-                                    onUnloadCycle={() => handleUnloadCycle(edital)}
+                                    onUnloadCycle={() => setUnloadConfirm({ isOpen: true, edital })}
                                     onDelete={() => setDeleteConfirm({ isOpen: true, edital })}
                                     onSync={() => handleSyncEdital(edital)}
                                     hasUpdate={!!hasUpdate}
@@ -1106,8 +1109,121 @@ const Editais = () => {
                         </motion.div>
                     </div>
                 )}
+            </AnimatePresence>
 
-                {/* ── Modal: Gerenciar Ciclo (Carga e Conflito) ── */}
+            {/* ── Confirm Unload Cycle Modal ── */}
+            <AnimatePresence>
+                {unloadConfirm.isOpen && unloadConfirm.edital && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setUnloadConfirm({ isOpen: false, edital: null })}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="relative w-full max-w-md bg-zinc-900 border border-white/10 rounded-[28px] p-8 shadow-2xl"
+                        >
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center shrink-0">
+                                    <Unlink className="text-amber-400" size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-semibold text-content-main tracking-tight">Remover do Ciclo</h3>
+                                    <p className="text-xs text-content-muted mt-0.5">
+                                        As matérias deste edital deixarão de aparecer no seu ciclo de estudos.
+                                    </p>
+                                </div>
+                            </div>
+                            <p className="text-zinc-400 text-sm leading-relaxed mb-8">
+                                Tem certeza que deseja remover o edital <strong>"{unloadConfirm.edital.name}"</strong> do seu ciclo atual?
+                                <br /><br />
+                                <span className="text-emerald-400/90 flex items-start gap-2">
+                                    <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+                                    Seu progresso nos tópicos e histórico de revisões <strong>não serão perdidos</strong>.
+                                </span>
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setUnloadConfirm({ isOpen: false, edital: null })}
+                                    className="flex-1 py-3 bg-zinc-800 text-content-muted font-bold rounded-xl hover:bg-zinc-700 transition-all text-xs uppercase tracking-widest"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        handleUnloadCycle(unloadConfirm.edital!);
+                                        setUnloadConfirm({ isOpen: false, edital: null });
+                                    }}
+                                    className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-all text-xs uppercase tracking-widest shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                                >
+                                    Remover
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Modal: Confirmação de Exclusão Permanente ── */}
+            <AnimatePresence>
+                {deleteConfirm.isOpen && deleteConfirm.edital && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setDeleteConfirm({ isOpen: false, edital: null })}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-md bg-zinc-900 border border-white/10 rounded-[32px] shadow-2xl p-8 flex flex-col items-center text-center gap-6"
+                        >
+                            <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500">
+                                <Trash2 size={32} />
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-bold text-white tracking-tight">Excluir Edital?</h3>
+                                <p className="text-sm text-zinc-400 leading-relaxed px-4">
+                                    Isso removerápermanentemente <span className="text-white font-bold">{deleteConfirm.edital.name}</span> e todas as matérias vinculadas exclusivamente a ele. Esta ação não pode ser desfeita.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 w-full mt-2">
+                                <button
+                                    onClick={() => setDeleteConfirm({ isOpen: false, edital: null })}
+                                    className="flex-1 py-4 bg-zinc-800 text-zinc-400 font-bold rounded-2xl hover:bg-zinc-700 transition-all text-xs uppercase tracking-widest"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    disabled={processingId === deleteConfirm.edital.id}
+                                    onClick={() => handleDeleteEdital(deleteConfirm.edital!)}
+                                    className="flex-1 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {processingId === deleteConfirm.edital.id ? (
+                                        <Loader2 className="animate-spin" size={16} />
+                                    ) : (
+                                        <Trash2 size={16} />
+                                    )}
+                                    Confirmar
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Modal: Gerenciar Ciclo (Carga e Conflito) ── */}
+            <AnimatePresence>
                 {cycleConflict.isOpen && cycleConflict.edital && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div
@@ -1233,16 +1349,71 @@ const Editais = () => {
                                                     : 'Limpando o ciclo atual e carregando as matérias do novo edital.'}
                                             </p>
                                         </div>
-                                        <div className="p-4 rounded-2xl bg-sky-500/5 border border-sky-500/10 flex flex-wrap gap-1.5">
-                                            {subjects.filter(s => finalPreviewIds.includes(s.id)).map(s => (
-                                                <span key={s.id} className={`text-[9px] font-bold px-2 py-1 rounded-lg border ${
-                                                    cycleConflict.edital?.subjectIds.includes(s.id)
-                                                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                                                        : 'bg-zinc-800/50 border-white/5 text-zinc-400'
-                                                }`}>
-                                                    {s.name}
-                                                </span>
-                                            ))}
+
+                                        {/* Seção: Origem da Mudança (Resumo dos Editais) */}
+                                        <div className="px-4 py-3 rounded-2xl bg-zinc-800/20 border border-white/5 space-y-2">
+                                            {cycleConflict.action === 'merge' ? (
+                                                <div className="flex flex-col gap-1.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] w-20 shrink-0">Atualmente</span>
+                                                        <span className="text-[10px] text-zinc-400 font-medium truncate">
+                                                            {cycleConflict.currentOrigins.map(o => o.replace(/\s-\s/g, ' • ')).join(' + ')}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] w-20 shrink-0">Resultado</span>
+                                                        <span className="text-[10px] text-white font-black truncate uppercase tracking-tight">
+                                                            {[...cycleConflict.currentOrigins.map(o => o.replace(/\s-\s/g, ' • ')), cycleConflict.edital.name.replace(/\s-\s/g, ' • ')].join(' + ')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col gap-1.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] w-20 shrink-0">Saindo</span>
+                                                        <span className="text-[10px] text-rose-400/70 font-medium line-through truncate">
+                                                            {cycleConflict.currentOrigins.length > 0 
+                                                                ? cycleConflict.currentOrigins.map(o => o.replace(/\s-\s/g, ' • ')).join(' + ') 
+                                                                : 'Manual'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] w-20 shrink-0">Entrando</span>
+                                                        <span className="text-[10px] text-white font-black truncate uppercase tracking-tight">
+                                                            {cycleConflict.edital.name.replace(/\s-\s/g, ' • ')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="p-4 rounded-2xl bg-zinc-800/30 border border-white/5 flex flex-wrap gap-1.5">
+                                            {subjects.filter(s => finalPreviewIds.includes(s.id)).map(s => {
+                                                const isNew = cycleConflict.edital?.subjectIds.includes(s.id);
+                                                const isCurrent = cycleConflict.existingIds.includes(s.id);
+                                                
+                                                let style = 'bg-zinc-800/50 border-white/5 text-zinc-400';
+                                                
+                                                if (cycleConflict.action === 'replace') {
+                                                    if (isNew && !isCurrent) {
+                                                        style = 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
+                                                    } else if (!isNew && isCurrent) {
+                                                        style = 'bg-red-500/10 border-red-500/20 text-red-400/80 line-through';
+                                                    } else if (isNew && isCurrent) {
+                                                        style = 'bg-zinc-800/80 border-white/10 text-white/70';
+                                                    }
+                                                } else {
+                                                    // Merge
+                                                    if (isNew && !isCurrent) {
+                                                        style = 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
+                                                    }
+                                                }
+
+                                                return (
+                                                    <span key={s.id} className={`text-[9px] font-bold px-2 py-1 rounded-lg border transition-all ${style}`}>
+                                                        {s.name}
+                                                    </span>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}

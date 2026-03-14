@@ -116,9 +116,7 @@ export const EditalCard = ({
                             {edital.name}
                         </h3>
                         <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded-md border ${
-                                edital.isImported ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                            }`}>
+                            <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded-md border bg-primary/10 text-primary border-primary/20">
                                 {edital.isImported ? 'IMPORTADO' : 'MANUAL'}
                             </span>
                             <span className="text-[10px] text-content-muted">•</span>

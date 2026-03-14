@@ -1,17 +1,22 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { useStudySessionTracking } from './useStudySessionTracking';
+import { useCycleState } from './useCycleState';
 import { calculateNextReview, formatDateForDB, describeCalculation } from '@/utils/calculateNextReview';
+import { Topic } from '@/types';
 
 export const useTopicReview = () => {
   const { user } = useAuth();
   const { refreshData } = useApp();
   const [isLoading, setIsLoading] = useState(false);
   const { recordTopicCompletion } = useStudySessionTracking();
+  const { userCycle } = useCycleState();
+  const cycleId = userCycle?.id;
 
   // Estado para controlar o modal de dificuldade
   const [difficultyModalData, setDifficultyModalData] = useState<{
@@ -46,14 +51,16 @@ export const useTopicReview = () => {
       console.log('🔵 openReviewModal chamado para topicId:', topicId);
 
       // Buscar o tópico atual para obter as métricas atuais
-      const { data: topic, error: topicError } = await supabase
+      const { data, error: topicError } = await supabase
         .from('topics')
         .select('*')
         .eq('id', topicId)
         .single();
 
       if (topicError) throw topicError;
-      if (!topic) throw new Error('Tópico não encontrado');
+      if (!data) throw new Error('Tópico não encontrado');
+
+      const topic = data as unknown as Topic;
 
       const currentReviewCount = topic.review_count || 0;
       const nextReviewCount = currentReviewCount + 1;
@@ -81,7 +88,7 @@ export const useTopicReview = () => {
         isOpen: true,
         topicId: topicId,
         topicName: topic.name,
-        subjectId: topic.subject_id,
+        subjectId: topic.subject_id || '',
         subjectName: subjectData.name,
         currentDifficulty: topic.difficulty_level ? Number(topic.difficulty_level) : null,
         reviewStage,
@@ -104,14 +111,16 @@ export const useTopicReview = () => {
       console.log('🔵 markTopicAsReviewed iniciado para topicId:', topicId);
 
       // Buscar o tópico atual
-      const { data: topic, error: topicError } = await supabase
+      const { data, error: topicError } = await supabase
         .from('topics')
         .select('*')
         .eq('id', topicId)
         .single();
 
       if (topicError) throw topicError;
-      if (!topic) throw new Error('Tópico não encontrado');
+      if (!data) throw new Error('Tópico não encontrado');
+
+      const topic = data as unknown as Topic;
 
       // --- TRAVA DE CONCORRÊNCIA ---
       if (expectedReviewCount !== undefined) {
@@ -151,9 +160,6 @@ export const useTopicReview = () => {
       const newReviewCount = topic.review_count + 1;
 
       // 1. Converter dificuldade recebida (1-5 ou 1-3 do UI legado) para o padrão interno (1=Difícil, 2=Médio, 3=Fácil).
-      // Assumindo fallback 2 (Médio). Se vier 1 (estrela) = Muito Difícil/Difícil -> 1.
-      // Se vier 2 = Médio -> 2. Se vier 3 = Fácil -> 3.
-      // Vamos normalizar.
       let numericDifficulty = 2;
       if (difficulty !== undefined && difficulty !== null) {
         if (difficulty <= 1) numericDifficulty = 1; // Difícil
@@ -187,7 +193,6 @@ export const useTopicReview = () => {
       }
 
       // Aplicar o algoritmo Ebbinghaus Adaptativo
-      // Preparar os parâmetros lendo as colunas do DB. Mapear default 0 onde null.
       const stability = topic.memory_stability || 0;
       const currentInt = topic.current_interval || 0;
 
@@ -232,20 +237,20 @@ export const useTopicReview = () => {
       }
 
       // Atualizar o tópico no banco
-      const { data: updatedTopic, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('topics')
         .update(updateData)
-        .eq('id', topicId)
-        .select('id, review_count, review_stage, next_review, completed')
-        .single();
+        .eq('id', topicId);
 
       if (updateError) throw updateError;
 
-      // Registrar histórico no DB (Usando insert manual em vez de esperar trigger, a pedido PROMPT 3)
+      // Registrar histórico no DB
       const sessionDuration = durationOverride ?? difficultyModalData.duration ?? 0;
       try {
         const { error: histError } = await supabase.from('topic_review_history').insert({
           topic_id: topicId,
+          edital_id: topic.edital_id || topic.origin_id, // Capturar o contexto do edital
+          cycle_id: cycleId, // Capturar o ciclo ativo
           review_stage: reviewStage,
           reviewed_at: now,
           study_duration_minutes: sessionDuration > 0 ? sessionDuration : null,
@@ -257,7 +262,7 @@ export const useTopicReview = () => {
         });
         if (histError) throw histError;
       } catch (e) {
-        console.error("⚠️ Falha vital: Colunas de histórico (prompt 3) provavelmente não existem no DB.", e);
+        console.error("⚠️ Falha vital ao registrar histórico contextual:", e);
         throw e;
       }
 
@@ -270,7 +275,7 @@ export const useTopicReview = () => {
 
         if (subjectData) {
           await recordTopicCompletion(
-            topic.subject_id,
+            topic.subject_id || '',
             subjectData.name,
             topicId,
             topic.name,
@@ -303,7 +308,6 @@ export const useTopicReview = () => {
         const allCompleted = allTopicsOfSubject.every(t => t.completed);
         if (allCompleted) {
           await supabase.from('subjects').update({ status: 'Concluída' }).eq('id', topic.subject_id);
-          // ... Emitir os alertas de curso finalizado...
           setTimeout(() => {
             window.dispatchEvent(new CustomEvent('studiesCompleted', { detail: { reason: 'allTopicsCompleted', timestamp: Date.now() } }));
           }, 100);

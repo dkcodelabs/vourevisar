@@ -11,6 +11,8 @@ export const transformSubjectsData = (data: any[]): Subject[] => {
     status: subject.status,
     priority: subject.priority,
     color: subject.color,
+    edital_id: subject.edital_id,
+    origin_id: subject.origin_id,
     topics: subject.topics ? subject.topics.map((topic: any) => transformTopicData(topic)) : []
   }));
 };
@@ -34,6 +36,8 @@ export const transformTopicData = (topic: any): Topic => {
     is_completed: topic.completed || false,
     difficulty_level: topic.difficulty_level,
     notes: notes,
+    edital_id: topic.edital_id,
+    origin_id: topic.origin_id,
     subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [],
     last_search_context: topic.last_search_context
   };

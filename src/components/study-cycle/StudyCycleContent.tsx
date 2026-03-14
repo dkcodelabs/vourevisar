@@ -14,10 +14,13 @@ import { CycleStatsModal } from './CycleStatsModal';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTopicReview } from '@/hooks/useTopicReview';
+import { useEditalOrigins } from '@/hooks/useEditalOrigins';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
-import { Loader2, AlertCircle, X, Target, BookOpen } from 'lucide-react';
+import { Loader2, AlertCircle, X, Target, BookOpen, Database, RefreshCw, Search } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 // Removido hook de visibilidade que causava recarregamentos
 
 
@@ -61,6 +64,63 @@ export const StudyCycleContent: React.FC = () => {
     refreshCycleData,
     isLoading
   } = useStudyCycleData();
+
+  const { editaisNoCiclo, refresh: refreshOrigins } = useEditalOrigins();
+  const [unloadingEditalId, setUnloadingEditalId] = useState<string | null>(null);
+  const [unloadConfirm, setUnloadConfirm] = useState<{
+    isOpen: boolean;
+    editalId: string | null;
+    editalName: string | null;
+    subjectIds: string[];
+  }>({
+    isOpen: false,
+    editalId: null,
+    editalName: null,
+    subjectIds: []
+  });
+
+  const handleUnloadCycle = async (editalId: string, editalName: string, subjectIds: string[]) => {
+    if (!user) return;
+    setUnloadingEditalId(editalId);
+    try {
+      const { data: existingCycle } = await supabase
+        .from('user_cycles')
+        .select('id, ciclo_atual')
+        .eq('user_id', user.id)
+        .single();
+
+      if (existingCycle) {
+        const currentIds = (existingCycle.ciclo_atual as string[]) || [];
+        const newIds = currentIds.filter(id => !subjectIds.includes(id));
+
+        const { error } = await supabase
+          .from('user_cycles')
+          .update({
+            ciclo_atual: newIds,
+            atualizado_em: new Date().toISOString(),
+          })
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+
+      const { error: editalErr } = await (supabase as any)
+        .from('user_editais')
+        .update({ merged_into_cycle: false, active_subject_ids: [] })
+        .eq('id', editalId);
+
+      if (editalErr) throw editalErr;
+
+      toast.success(`"${editalName}" removido do seu ciclo.`);
+      window.dispatchEvent(new CustomEvent('subjectUpdated'));
+      await refreshCycleData();
+      await refreshOrigins();
+    } catch (error) {
+      errorService.report(error, { module: 'StudyCycle', action: 'unloadCycle', userMessage: 'Erro ao remover edital do ciclo.' });
+    } finally {
+      setUnloadingEditalId(null);
+    }
+  };
 
 
 
@@ -532,7 +592,7 @@ export const StudyCycleContent: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col flex-1 w-full text-gray-900">
+    <div className="flex flex-col flex-1 w-full text-zinc-100">
       <div className="flex-1 flex flex-col relative">
         {/* Banner de Estudos Concluídos - Sempre visível quando todos estudos estão concluídos */}
         {areAllStudiesCompleted && (
@@ -573,101 +633,147 @@ export const StudyCycleContent: React.FC = () => {
           </main>
         ) : (
           <>
-            <header className="mt-0 px-4 py-3 mb-4 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-md mx-4 md:mx-6">
-              <div className="mb-2">
-                <p className="text-xs text-muted-foreground mt-0.5">Gerencie seu progresso e metas diárias</p>
-              </div>
+            <header className="mt-0 px-4 mb-4 shrink-0 bg-zinc-900 border border-white/5 shadow-2xl mx-4 md:mx-6 rounded-3xl p-5 transition-all duration-300">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col flex-1">
+                  <p className="text-[10px] text-content-muted font-bold uppercase tracking-widest mb-2 pl-1">Gerencie seu progresso e metas diárias</p>
+                  
+                  <div className="flex flex-row gap-3 items-center">
+                    {/* Campo de Busca */}
+                    <div className="relative flex-1 min-w-0 bg-deep-slate border border-white/5 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-300 h-11 flex items-center px-4">
+                      <Search className="h-4 w-4 text-content-muted shrink-0" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const previousQuery = searchQuery;
+                          setSearchQuery(val);
 
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-row gap-2 items-center">
-                  {/* Campo de Busca */}
-                  <div className="relative flex-1 min-w-0 bg-gray-50/50 border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 h-8">
-                    <svg className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        const query = e.target.value;
-                        const previousQuery = searchQuery;
-                        setSearchQuery(query);
+                          if (!previousQuery && val.trim()) {
+                            setExpandedBeforeSearch(new Set(expandedSubjects));
+                          }
 
-                        // Se está começando a buscar (antes estava vazio), salvar estado atual
-                        if (!previousQuery && query.trim()) {
-                          setExpandedBeforeSearch(new Set(expandedSubjects));
-                        }
-
-                        // Se há busca, expandir matérias que têm tópicos correspondentes
-                        if (query.trim()) {
-                          const normalizeText = (text: string) =>
-                            text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
-                          const normalizedQuery = normalizeText(query);
-                          const newExpanded = new Set<string>();
-                          subjects.forEach(subject => {
-                            const matchesSubject = normalizeText(subject.name).includes(normalizedQuery);
-                            const hasMatchingTopic = subject.topics?.some(topic =>
-                              normalizeText(topic.name).includes(normalizedQuery)
-                            );
-                            if (matchesSubject || hasMatchingTopic) {
-                              newExpanded.add(subject.id);
-                            }
-                          });
-
-                          setExpandedSubjects(newExpanded);
-                        } else {
-                          // Se apagou tudo, restaurar estado anterior
-                          setExpandedSubjects(expandedBeforeSearch);
-                          setExpandedBeforeSearch(new Set());
-                        }
-                      }}
-                      placeholder="Buscar..."
-                      className="w-full pl-8 pr-8 py-1 text-xs md:text-sm bg-transparent border-none shadow-none focus:ring-0 placeholder:text-gray-400 h-full"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={handleClearSearch}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 hover:bg-gray-100 rounded-full transition-colors"
-                      >
-                        <X size={13} />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    {viewMode === 'list' && (
-                      <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg mr-1 h-8">
+                          if (val.trim()) {
+                            const newExpanded = new Set(expandedSubjects);
+                            subjects.forEach(s => {
+                              if (s.name.toLowerCase().includes(val.toLowerCase()) || 
+                                  s.topics?.some(t => t.name.toLowerCase().includes(val.toLowerCase()))) {
+                                newExpanded.add(s.id);
+                              }
+                            });
+                            setExpandedSubjects(newExpanded);
+                          } else {
+                            setExpandedSubjects(expandedBeforeSearch);
+                            setExpandedBeforeSearch(new Set());
+                          }
+                        }}
+                        placeholder="Buscar..."
+                        className="w-full bg-transparent border-none shadow-none focus:ring-0 text-zinc-100 placeholder:text-content-muted/50 h-full text-sm pl-3"
+                      />
+                      {searchQuery && (
                         <button
-                          onClick={handleToggleAll}
-                          className="p-1 px-3 h-full rounded-md text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center min-w-[3rem]"
-                          aria-label={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
-                          title={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
+                          onClick={handleClearSearch}
+                          className="text-content-muted hover:text-zinc-100 p-1 hover:bg-white/5 rounded-full transition-colors"
                         >
-                          {areAllExpanded ? <ChevronsUpIcon className="w-3.5 h-3.5" /> : <ChevronsDownIcon className="w-3.5 h-3.5" />}
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {viewMode === 'list' && (
+                        <div className="flex items-center gap-0.5 p-1 bg-deep-slate rounded-xl h-11 border border-white/5">
+                          <button
+                            onClick={handleToggleAll}
+                            className="p-1.5 px-4 h-full rounded-lg text-content-muted hover:text-zinc-100 hover:bg-white/5 transition-colors flex items-center justify-center"
+                            aria-label={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
+                            title={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
+                          >
+                            {areAllExpanded ? <ChevronsUpIcon className="w-4 h-4" /> : <ChevronsDownIcon className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 p-1 bg-deep-slate rounded-xl h-11 border border-white/5">
+                        <button
+                          onClick={() => setViewMode('grid')}
+                          className={`p-1.5 px-3 h-full rounded-lg transition-all flex items-center justify-center shrink-0 ${viewMode === 'grid' ? 'bg-primary/20 text-primary shadow-lg shadow-primary/10' : 'text-content-muted hover:text-zinc-100 hover:bg-white/5'}`}
+                          aria-label="Visualização em Grade"
+                        >
+                          <GridIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setViewMode('list')}
+                          className={`p-1.5 px-3 h-full rounded-lg transition-all flex items-center justify-center shrink-0 ${viewMode === 'list' ? 'bg-primary/20 text-primary shadow-lg shadow-primary/10' : 'text-content-muted hover:text-zinc-100 hover:bg-white/5'}`}
+                          aria-label="Visualização em Lista"
+                        >
+                          <ListIcon className="w-4 h-4" />
                         </button>
                       </div>
-                    )}
-                    <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg h-8">
-                      <button
-                        onClick={() => setViewMode('grid')}
-                        className={`p-1 px-2 h-full rounded-md transition-colors flex items-center justify-center ${viewMode === 'grid' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
-                        aria-label="Visualização em Grade"
-                      >
-                        <GridIcon className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setViewMode('list')}
-                        className={`p-1 px-2 h-full rounded-md transition-colors flex items-center justify-center ${viewMode === 'list' ? 'bg-card text-sky-500 shadow' : 'text-muted-foreground hover:text-foreground'}`}
-                        aria-label="Visualização em Lista"
-                      >
-                        <ListIcon className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   </div>
                 </div>
               </div>
             </header>
+            
+            {/* ── Header: Editais Ativos no Ciclo ── */}
+            {(() => {
+              const activeEditais = editaisNoCiclo.filter(e =>
+                e.subject_ids.some(sid => subjects.find(s => s.originalId === sid))
+              );
+              if (activeEditais.length === 0) return null;
+              return (
+                <div className="px-4 md:px-6 mb-6">
+                  <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Database className="text-primary" size={16} />
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-black text-zinc-100 uppercase tracking-widest leading-none">Editais no Ciclo Ativo</h3>
+                          <p className="text-[10px] text-content-muted font-medium mt-1">As matérias destes editais estão disponíveis para estudo no Ciclo</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-content-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+                        {activeEditais.length} edital{activeEditais.length !== 1 ? 'is' : ''}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {activeEditais.map(edital => {
+                        const activeCount = edital.subject_ids.filter(sid => subjects.find(s => s.originalId === sid)).length;
+                        return (
+                          <div
+                            key={edital.id}
+                            className="group flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl bg-zinc-800 border border-white/5 hover:border-primary/30 transition-all shadow-sm"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-zinc-200">{edital.name}</span>
+                              <span className="text-[9px] text-content-muted font-medium">{activeCount} matéria{activeCount !== 1 ? 's' : ''}</span>
+                            </div>
+                            <button
+                              onClick={() => setUnloadConfirm({ 
+                                isOpen: true, 
+                                editalId: edital.id, 
+                                editalName: edital.name, 
+                                subjectIds: edital.subject_ids 
+                              })}
+                              disabled={unloadingEditalId === edital.id}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-black/20 text-content-muted hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100"
+                              title="Remover do ciclo"
+                            >
+                              {unloadingEditalId === edital.id
+                                ? <Loader2 size={14} className="animate-spin text-red-400" />
+                                : <X size={14} />}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {searchQuery && (
               <div className="px-4 md:px-8 mb-4 shrink-0 animate-in fade-in slide-in-from-top-2">

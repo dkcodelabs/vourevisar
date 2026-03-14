@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Plus, X, Trash2, Check, BookOpen, GraduationCap,
     ChevronDown, ChevronUp, ChevronsUpDown, FileText, Circle, CheckCircle2, Loader2, AlertTriangle,
-    Database, Save, Sparkles, Undo2, FileUp, Edit3, Eye, EyeOff
+    Database, Save, Sparkles, Undo2, FileUp, Edit3, Eye, EyeOff, RefreshCw
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
@@ -87,18 +87,16 @@ export const AdminEditalSubjectsModal = ({
         }
     }, [isOpen, edital]);
 
-    const handleSaveToDatabase = async (updatedSubjects: Subject[]) => {
+    const handleSaveToDatabase = async (updatedSubjects: Subject[], shouldNotify = false) => {
         setIsSaving(true);
         try {
-            // Structure data for database (we can keep the IDs or simplify to just names if preferred, 
-            // but keeping structure is better for consistency)
             const dbSubjects = updatedSubjects.map(s => ({
                 id: s.id,
                 name: s.name,
                 topics: s.topics.map(t => ({ id: t.id, name: t.name }))
             }));
 
-            const { error } = await (supabase as any)
+            const { error: updateErr } = await (supabase as any)
                 .from('public_editais')
                 .update({ 
                     subjects: dbSubjects,
@@ -106,63 +104,44 @@ export const AdminEditalSubjectsModal = ({
                 })
                 .eq('id', edital?.id);
 
-            if (error) throw error;
-            // --- NOTIFICAÇÕES GLOBAIS ---
-            try {
-                console.log('Iniciando disparos de notificações globais para edital:', edital?.id);
-                
-                // 1. Buscar todos os usuários que importaram este edital usando RPC para ignorar RLS
-                if (!edital?.id) {
-                    console.warn('ID do edital não encontrado para notificações.');
-                    return;
-                }
+            if (updateErr) throw updateErr;
 
-                console.log('Buscando alunos para o edital ID:', edital.id);
-                const { data: rpcData, error: usersErr } = await (supabase as any)
-                    .rpc('get_users_by_edital_source', { source_uuid: edital.id });
+            if (shouldNotify) {
+                try {
+                    console.log('Iniciando disparos de notificações globais...');
+                    const { data: rpcData, error: usersErr } = await (supabase as any)
+                        .rpc('get_users_by_edital_source', { source_uuid: edital?.id });
 
-                if (usersErr) {
-                    console.error('Erro ao buscar usuários para notificar via RPC:', usersErr);
-                    // Não dar toast.error aqui para não confundir o usuário se o edital foi salvo mas a notificação falhou
-                } else if (rpcData && rpcData.length > 0) {
-                    const uniqueUserIds = Array.from(new Set(rpcData.map((u: any) => u.user_id)));
-                    console.log(`Encontrados ${uniqueUserIds.length} usuários únicos para notificar.`);
-                    
-                    const notificationsToInsert = uniqueUserIds.map(userId => ({
-                        user_id: userId,
-                        type: 'update_edital',
-                        category: 'sistema',
-                        title: 'Meus editais',
-                        message: `O edital ${(edital as any).organ || 'que você segue'} foi atualizado. Clique para ver as mudanças.`,
-                        action_url: `/meus-editais?sourceId=${edital.id}`,
-                        read: false,
-                        created_at: new Date().toISOString()
-                    }));
+                    if (!usersErr && rpcData && rpcData.length > 0) {
+                        const uniqueUserIds = Array.from(new Set(rpcData.map((u: any) => u.user_id)));
+                        const notificationsToInsert = uniqueUserIds.map(userId => ({
+                            user_id: userId,
+                            type: 'update_edital',
+                            category: 'sistema',
+                            title: 'Meus editais',
+                            message: `O edital ${(edital as any).organ || 'que você segue'} foi atualizado.`,
+                            action_url: `/meus-editais?sourceId=${edital?.id}`,
+                            read: false,
+                            created_at: new Date().toISOString()
+                        }));
 
-                    console.log('Inserindo notificações...');
-                    const { error: insErr } = await (supabase as any).from('user_notifications').insert(notificationsToInsert);
-                    if (insErr) {
-                        console.error('Erro ao inserir notificações:', insErr);
-                    } else {
-                        console.log('Notificações enviadas com sucesso!');
+                        await (supabase as any).from('user_notifications').insert(notificationsToInsert);
                         toast.success(`${uniqueUserIds.length} alunos serão notificados.`);
                     }
-                } else {
-                    console.log('Nenhum aluno encontrado para este edital.');
+                } catch (notifErr) {
+                    console.error('Erro ao notificar usuários:', notifErr);
                 }
-            } catch (notifErr) {
-                console.error('Erro fatal ao disparar notificações globais:', notifErr);
+                toast.success('Edital sincronizado com sucesso!');
+            } else {
+                toast.success('Alterações salvas com sucesso.');
+                onClose();
             }
-            toast.success('Alterações salvas e notificações enviadas!');
+
             setHasUnsavedChanges(false);
             if (onUpdate) onUpdate();
         } catch (err: any) {
-            console.error('Erro detalhado no saveToDatabase:', err);
-            errorService.report(err, { 
-                module: 'AdminEditalSubjectsModal', 
-                action: 'saveToDatabase', 
-                userMessage: `Erro ao salvar: ${err.message || 'Erro desconhecido'}` 
-            });
+            console.error('Erro ao salvar edital:', err);
+            errorService.report(err, { module: 'AdminEditalSubjectsModal', action: 'save' });
         } finally {
             setIsSaving(false);
         }
@@ -340,9 +319,11 @@ export const AdminEditalSubjectsModal = ({
                             <GraduationCap className="text-primary" size={18} />
                         </div>
                         <div className="min-w-0">
-                            <h2 className="text-sm font-bold text-zinc-100 tracking-tight truncate">Gerenciar Conteúdo</h2>
-                            <p className="text-[11px] text-content-muted mt-0.5">
+                            <h2 className="text-sm font-black text-zinc-100 tracking-tight truncate uppercase">
                                 {edital.organ} • {edital.position} ({edital.year})
+                            </h2>
+                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mt-0.5">
+                                Gerenciar Conteúdo
                             </p>
                         </div>
                     </div>
@@ -811,22 +792,28 @@ export const AdminEditalSubjectsModal = ({
 
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={onClose}
-                            className="px-6 h-11 text-[11px] font-bold text-content-muted hover:text-zinc-100 transition-all uppercase tracking-widest"
+                            onClick={() => handleSaveToDatabase(subjects, false)}
+                            disabled={isSaving || !hasUnsavedChanges}
+                            className="px-6 h-11 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-100 font-bold rounded-2xl transition-all flex items-center gap-2 text-[11px] uppercase tracking-widest active:scale-[0.98] border border-white/5"
                         >
-                            Fechar
+                            {isSaving ? (
+                                <Loader2 className="animate-spin" size={16} />
+                            ) : (
+                                <Save size={16} />
+                            )}
+                            Salvar e Sair
                         </button>
                         <button
-                            onClick={() => handleSaveToDatabase(subjects)}
+                            onClick={() => handleSaveToDatabase(subjects, true)}
                             disabled={isSaving || !hasUnsavedChanges}
                             className="px-8 h-11 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:bg-zinc-800 text-white font-black rounded-2xl transition-all shadow-xl shadow-primary/20 flex items-center gap-3 text-[11px] uppercase tracking-widest active:scale-[0.98]"
                         >
                             {isSaving ? (
                                 <Loader2 className="animate-spin" size={18} />
                             ) : (
-                                <Save size={18} />
+                                <RefreshCw size={18} />
                             )}
-                            Salvar e Notificar Alunos
+                            Sincronizar
                         </button>
                     </div>
                 </div>

@@ -65,6 +65,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                 const { data, error } = await (supabase as any)
                     .from('public_editais')
                     .select('*')
+                    .eq('is_public', true)
                     .order('created_at', { ascending: false });
                 
                 if (!error && data) {
