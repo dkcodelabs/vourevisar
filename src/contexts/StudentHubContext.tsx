@@ -25,7 +25,7 @@ export const StudentHubProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // ── Fetchers ──────────────────────────────────────────────
     const fetchNotifications = useCallback(async (options: { silent?: boolean } = {}) => {
-        if (!user) return;
+        if (!user?.id) return;
         if (!options.silent) setIsLoading(true);
         try {
             const { data, error: fetchError } = await supabase
@@ -41,10 +41,10 @@ export const StudentHubProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         } finally {
             if (!options.silent) setIsLoading(false);
         }
-    }, [user]);
+    }, [user?.id]);
 
     const fetchFeedbacks = useCallback(async (options: { silent?: boolean } = {}) => {
-        if (!user) return;
+        if (!user?.id) return;
         try {
             const { data, error: fetchError } = await supabase
                 .from('user_feedback_events')
@@ -57,7 +57,7 @@ export const StudentHubProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         } catch (err) {
             console.error('[StudentHubContext] Error fetching feedbacks:', err);
         }
-    }, [user]);
+    }, [user?.id]);
 
     const refreshAll = useCallback(async (options: { silent?: boolean } = {}) => {
         await Promise.all([
@@ -68,14 +68,14 @@ export const StudentHubProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // ── Initial Load ──────────────────────────────────────────
     useEffect(() => {
-        if (user) {
+        if (user?.id) {
             refreshAll();
         } else {
             setNotifications([]);
             setFeedbacks([]);
             setIsLoading(false);
         }
-    }, [user, refreshAll]);
+    }, [user?.id, refreshAll]);
 
     // ── Realtime Native Subscriptions (Singleton) ───────────────
     useEffect(() => {

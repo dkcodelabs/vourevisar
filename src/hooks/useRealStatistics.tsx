@@ -226,7 +226,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
           .from('user_study_analytics')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         // Carregar sessões do pomodoro
         let pomodoroQuery = supabase
@@ -261,7 +261,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
               .from('user_study_analytics')
               .select('*')
               .eq('user_id', user.id)
-              .single();
+              .maybeSingle();
             
             setUserAnalytics(newAnalyticsData as UserAnalytics);
           } catch (rpcError) {

@@ -123,7 +123,7 @@ const Editais = () => {
 
     // ── Fetch editais do Supabase ──
     const fetchEditais = useCallback(async () => {
-        if (!user) return;
+        if (!user?.id) return;
         try {
             const { data, error } = await editaisTable()
                 .select('*')
@@ -137,7 +137,7 @@ const Editais = () => {
         } finally {
             setLoadingEditais(false);
         }
-    }, [user]);
+    }, [user?.id]);
     
     // ── Salvar Edital ──
     const handleSaveEdital = useCallback(async (id: string, updates: { organ: string; position: string; year: string }) => {

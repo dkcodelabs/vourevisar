@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(session.user);
           }
           // Buscar perfil apenas se não estiver já carregando
-          if (!profileLoading) {
+          if (!isFetchingProfileRef.current) {
             setTimeout(() => {
               if (isMounted) {
                 fetchProfile(session.user.id);
@@ -184,7 +184,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [logEvent, fetchProfile, user?.id, profileLoading]);
+  }, [logEvent, fetchProfile, user?.id]);
 
   const signUp = useCallback(async (email: string, password: string, name: string, phone?: string) => {
     try {

@@ -42,6 +42,15 @@ const Dashboard = () => {
     // Buscar dados do edital ativo para o cabeçalho usando o hook compartilhado
     const { editaisNoCiclo: activeEditais } = useEditalOrigins();
 
+    const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
+
+    // Se não houver ciclo ativo, mudar o filtro para "Tudo" automaticamente para mostrar dados legados/manuais
+    React.useEffect(() => {
+        if (!cycleLoading && !hasActiveCycle && subjects.length > 0 && statsFilter.type === 'cycle') {
+            setStatsFilter({ type: 'all' });
+        }
+    }, [cycleLoading, hasActiveCycle, subjects.length, statsFilter.type]);
+
     const editalDisplayName = useMemo(() => {
         if (!activeEditais || activeEditais.length === 0) return null;
         
@@ -136,7 +145,7 @@ const Dashboard = () => {
         return subjects;
     }, [subjects, statsFilter, userCycle]);
 
-    const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
+
 
     if (isLoading || cycleLoading) {
         return <LoadingSpinner size="large" showText fullPage />;
@@ -162,7 +171,7 @@ const Dashboard = () => {
         <div className="pb-10 h-full w-full">
             <div className="w-full pb-8 pt-0">
 
-                {!hasActiveCycle ? (
+                {(!hasActiveCycle && subjects.length === 0) ? (
                     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
                         <div className="w-24 h-24 bg-secondary dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8 mx-auto -rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
                             <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shadow-sm">

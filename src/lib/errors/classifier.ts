@@ -21,7 +21,7 @@ export function classifyError(input: ErrorReportInput): ClassificationResult {
     const technicalMessage = (input.technicalMessage || error?.message || '').toLowerCase();
 
     // 2. Default: Unknown / Medium / Non-retryable
-    let result: ClassificationResult = {
+    const result: ClassificationResult = {
         severity: input.severity || 'medium',
         category: input.category || 'unknown',
         recoverability: input.recoverability || 'non_retryable',
@@ -49,13 +49,20 @@ export function classifyError(input: ErrorReportInput): ClassificationResult {
         if (!input.userMessage) result.userMessage = 'Verifique os dados informados e tente novamente.';
     }
 
-    // Network & Timeout (503, 504, fetch failed)
-    else if (['503', '504'].includes(code) || technicalMessage.includes('fetch failed') || technicalMessage.includes('network') || technicalMessage.includes('timeout')) {
-        result.severity = 'high';
+    // Network & Timeout (503, 504, fetch failed, CORS aborted)
+    else if (
+        ['503', '504', '0'].includes(code) || 
+        technicalMessage.includes('fetch failed') || 
+        technicalMessage.includes('network') || 
+        technicalMessage.includes('timeout') ||
+        technicalMessage.includes('cors') ||
+        technicalMessage.includes('failed to fetch')
+    ) {
+        result.severity = 'medium'; // Baixado de high para medium se for conexao transient
         result.category = 'network';
         result.recoverability = 'system_retryable';
-        result.recommendedAction = 'Verificar conectividade e status dos serviços externos.';
-        if (!input.userMessage) result.userMessage = 'Falha de conexão. Verifique sua internet.';
+        result.recommendedAction = 'Verificar conectividade. Se persistir, validar configuração de CORS no Supabase.';
+        if (!input.userMessage) result.userMessage = 'Conexão instável ou falha ao carregar dados. Verifique sua internet.';
     }
 
     // Database & System (500, PGRST*, Postgrest)

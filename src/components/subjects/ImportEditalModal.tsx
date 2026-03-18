@@ -54,8 +54,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     // IA States
     const [inputText, setInputText] = useState('');
+    const [pdfFile, setPdfFile] = useState<File | null>(null);
     const [iaStage, setIaStage] = useState<'input' | 'processing' | 'review'>('input');
     const [processingMsg, setProcessingMsg] = useState('Lendo edital...');
+    const [iaEditalName, setIaEditalName] = useState('');
     const [aiResult, setAiResult] = useState<AiSubject[]>([]);
 
     // State for dynamic editais from database
@@ -113,6 +115,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         if (!isOpen) {
             setIaStage('input');
             setInputText('');
+            setPdfFile(null);
             setAiResult([]);
             setManualOrigin('');
             setManualPosition('');
@@ -150,41 +153,99 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
     };
 
-    const handleIaImport = () => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            if (file.size > 5 * 1024 * 1024) {
+                toastGate.notifyError('O arquivo deve ter no máximo 5MB. Use o campo de texto se o arquivo for maior.', 'PDF-01', { severity: 'low' });
+                e.target.value = '';
+                return;
+            }
+            if (file.type !== 'application/pdf') {
+                toastGate.notifyError('Apenas arquivos PDF são aceitos.', 'PDF-02', { severity: 'low' });
+                e.target.value = '';
+                return;
+            }
+            setPdfFile(file);
+            setInputText(''); // limpa texto se enviar pdf
+        }
+    };
+
+    const convertToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const result = reader.result as string;
+                // remove "data:application/pdf;base64," prefix
+                resolve(result.split(',')[1]);
+            };
+            reader.onerror = error => reject(error);
+        });
+    };
+
+    const handleIaImport = async () => {
         setIaStage('processing');
         setProcessingMsg('Analisando edital com IA...');
 
-        setTimeout(() => {
-            setProcessingMsg('Estruturando matérias e tópicos...');
-            setTimeout(() => {
-                setAiResult([
-                    {
-                        id: 'm1',
-                        title: 'Língua Portuguesa',
-                        selected: true,
-                        expanded: true,
-                        topics: [
-                            { name: 'Compreensão e interpretação de textos', selected: true },
-                            { name: 'Tipologia textual', selected: true },
-                            { name: 'Ortografia oficial', selected: true },
-                            { name: 'Acentuação gráfica', selected: true }
-                        ]
-                    },
-                    {
-                        id: 'm2',
-                        title: 'Raciocínio Lógico',
-                        selected: true,
-                        expanded: false,
-                        topics: [
-                            { name: 'Estruturas lógicas', selected: true },
-                            { name: 'Lógica de argumentação', selected: true },
-                            { name: 'Diagramas lógicos', selected: true }
-                        ]
-                    }
-                ]);
+        try {
+            let pdfBase64 = null;
+            if (pdfFile) {
+                setProcessingMsg('Lendo arquivo PDF...');
+                pdfBase64 = await convertToBase64(pdfFile);
+            }
+
+            setProcessingMsg('Extraindo matérias e tópicos com Gemini...');
+            
+            const { data: sessionData } = await supabase.auth.getSession();
+            
+            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-edital`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionData.session?.access_token}`,
+                },
+                body: JSON.stringify({
+                    inputText: pdfFile ? null : inputText,
+                    pdfBase64: pdfBase64,
+                    origin: iaOrigin,
+                    position: iaPosition,
+                    year: iaYear
+                })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Erro desconhecido da IA');
+            }
+
+            const data = await res.json();
+            
+            if (data.result && Array.isArray(data.result)) {
+                const mappedResult: AiSubject[] = data.result.map((s: any, idx: number) => ({
+                    id: `m${idx}`,
+                    title: s.title,
+                    selected: true,
+                    expanded: idx === 0,
+                    topics: (s.topics || []).map((t: any) => ({
+                        name: t.name,
+                        selected: true
+                    }))
+                }));
+                
+                const defaultName = [iaOrigin.trim(), iaPosition.trim(), iaYear.trim()].filter(Boolean).join(' - ') || 'Edital Importado por IA';
+                setIaEditalName(defaultName);
+                
+                setAiResult(mappedResult);
                 setIaStage('review');
-            }, 2000);
-        }, 1500);
+            } else {
+                throw new Error('A resposta da IA não está no formato esperado.');
+            }
+        } catch (error: any) {
+            console.error('Erro na IA:', error);
+            toastGate.notifyError(error.message, 'IA-01');
+            setIaStage('input');
+        }
     };
 
     const handleSaveAiResult = async () => {
@@ -201,21 +262,18 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             }))
         } as Subject));
 
-        const finalName = iaPosition.trim() 
-            ? `${iaOrigin.trim()} - ${iaPosition.trim()}` 
-            : (iaOrigin.trim() || 'Importado com IA');
+        const finalName = iaEditalName.trim() || 'Edital Importado por IA';
 
         // Validação de duplicidade por nome
         const normalizedName = finalName.toLowerCase().trim();
         const exists = userEditais.some(e => e.name.toLowerCase().trim() === normalizedName);
         
         if (exists) {
-            toastGate.notifyError('Você já possui um edital com este nome/instituição e cargo.', 'VAL-DUP-01', { severity: 'medium' });
+            toastGate.notifyError('Você já possui um edital com este nome.', 'VAL-DUP-01', { severity: 'medium' });
             return;
         }
         
-        const extraInfo = { organ: iaOrigin, position: iaPosition, year: iaYear };
-        await onImport(newSubjects, finalName, true, undefined, extraInfo);
+        await onImport(newSubjects, finalName, true);
         onClose();
     };
 
@@ -501,82 +559,109 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     ) : activeTab === 'ia' ? (
                         <div className="space-y-8">
                             {iaStage === 'input' && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 w-full">
-                                    <div className="text-center space-y-2 mb-4">
-                                        <h3 className="text-2xl font-black text-content-main tracking-tight uppercase">Estruturar com Inteligência Artificial</h3>
-                                        <p className="text-sm text-content-muted font-medium">Informe a origem, cargo e cole o conteúdo para a IA organizar sua jornada.</p>
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 w-full flex flex-col items-center">
+                                    <div className="text-center space-y-1 mb-2">
+                                        <h3 className="text-xl font-black text-content-main tracking-tight uppercase">Estruturar com Inteligência Artificial</h3>
+                                        <p className="text-[11px] text-content-muted font-medium">Preencha os dados básicos e anexe o documento PDF.</p>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-[2.5fr_2.5fr_1fr] gap-6">
-                                        {/* Origin Field */}
-                                        <div className="space-y-3 group">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Origem / Instituição</label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-[800px] px-2 mb-2">
+                                        <div className="space-y-1.5 group">
+                                            <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Instituição</label>
                                             <div className="relative">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                                    <Database size={18} />
-                                                </div>
                                                 <input
                                                     type="text"
                                                     value={iaOrigin}
                                                     onChange={(e) => setIaOrigin(e.target.value)}
-                                                    placeholder="Ex: PC-ES, INSS, Receita Federal..."
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                    placeholder="Ex: PC-ES"
+                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
                                                 />
                                             </div>
                                         </div>
 
-                                        {/* Position Field */}
-                                        <div className="space-y-3 group">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Cargo / Função</label>
+                                        <div className="space-y-1.5 group">
+                                            <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo</label>
                                             <div className="relative">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                                    <Sparkles size={18} />
-                                                </div>
                                                 <input
                                                     type="text"
                                                     value={iaPosition}
                                                     onChange={(e) => setIaPosition(e.target.value)}
-                                                    placeholder="Ex: Agente, Analista Judiciário..."
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                    placeholder="Ex: Investigador"
+                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
                                                 />
                                             </div>
                                         </div>
 
-                                        {/* Year Field */}
-                                        <div className="space-y-3 group">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Ano</label>
+                                        <div className="space-y-1.5 group">
+                                            <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano</label>
                                             <div className="relative">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                                    <CalendarDays size={18} />
-                                                </div>
                                                 <input
                                                     type="text"
                                                     value={iaYear}
                                                     onChange={(e) => setIaYear(e.target.value)}
                                                     placeholder="Ex: 2024"
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
                                                 />
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3 group">
-                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Conteúdo Programático do Edital</label>
-                                        <textarea
-                                            value={inputText}
-                                            onChange={(e) => setInputText(e.target.value)}
-                                            placeholder="Cole aqui o texto do conteúdo programático do edital (Ctrl+V)..."
-                                            className="w-full h-80 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl p-6 text-xs font-medium text-content-main outline-none transition-all resize-none no-scrollbar shadow-inner"
-                                        />
+                                    <div className="w-full max-w-[800px] space-y-4">
+                                        <div className="flex items-center justify-between px-2">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em]">Documento ou Texto</label>
+                                            
+                                            <div className="relative overflow-hidden group/upload">
+                                                <input 
+                                                    type="file" 
+                                                    accept="application/pdf"
+                                                    onChange={handleFileChange}
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                                    title="Fazer upload de PDF" 
+                                                />
+                                                <button type="button" className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider">
+                                                    <FileText size={12} />
+                                                    {pdfFile ? 'Trocar PDF' : 'Anexar PDF (até 5MB)'}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {pdfFile ? (
+                                            <div className="w-full h-44 bg-secondary/50 dark:bg-zinc-950/30 border border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center text-center transition-all px-4">
+                                                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3">
+                                                    <FileText size={20} className="text-primary animate-pulse" />
+                                                </div>
+                                                <h4 className="text-sm font-black text-content-main mb-1">Arquivo PDF Anexado</h4>
+                                                <p className="text-xs text-content-muted font-medium mb-4 truncate max-w-full px-4">{pdfFile.name}</p>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setPdfFile(null)} 
+                                                    className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold rounded-xl transition-colors uppercase tracking-wider flex items-center gap-1.5"
+                                                >
+                                                    <Trash2 size={12} />
+                                                    Remover
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <textarea
+                                                value={inputText}
+                                                onChange={(e) => setInputText(e.target.value)}
+                                                placeholder="Cole aqui o texto do conteúdo programático do edital..."
+                                                className="w-full h-44 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl p-4 text-xs font-medium text-content-main outline-none transition-all resize-none no-scrollbar shadow-inner"
+                                            />
+                                        )}
                                     </div>
 
-                                    <div className="pt-2 flex justify-center">
+                                    <div className="pt-2 flex justify-center w-full max-w-[800px]">
                                         <button
                                             onClick={handleIaImport}
-                                            disabled={!inputText.trim() || !iaOrigin.trim() || !iaPosition.trim()}
-                                            className="w-full sm:w-auto px-16 py-5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-black rounded-[24px] shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-3 justify-center text-xs uppercase tracking-widest"
+                                            disabled={!inputText.trim() && !pdfFile}
+                                            className={`w-full py-4 font-black rounded-[20px] shadow-lg transition-all flex items-center gap-2 justify-center text-[11px] uppercase tracking-widest ${
+                                                (!inputText.trim() && !pdfFile) 
+                                                ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80' 
+                                                : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20 hover:scale-[1.01] active:scale-95'
+                                            }`}
                                         >
-                                            <Sparkles size={18} />
+                                            <Sparkles size={16} />
                                             Estruturar com IA
                                         </button>
                                     </div>
@@ -595,19 +680,70 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                             )}
 
                             {iaStage === 'review' && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-xl font-black text-content-main tracking-tight">Revisão da Estrutura</h3>
-                                        <button onClick={() => setIaStage('input')} className="flex items-center gap-2 px-6 py-2.5 text-[10px] font-black text-content-muted hover:text-primary transition-colors uppercase tracking-widest bg-secondary dark:bg-zinc-800 rounded-full">
-                                            <Undo2 size={14} /> Voltar
-                                        </button>
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex flex-col">
+                                            <h3 className="text-lg font-black text-foreground flex items-center gap-2">
+                                                Revisão da Estrutura
+                                                <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                                                    {aiResult.length} Matérias
+                                                </span>
+                                            </h3>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    const allExpanded = aiResult.every(s => s.expanded);
+                                                    setAiResult(aiResult.map(s => ({ ...s, expanded: !allExpanded })));
+                                                }}
+                                                className="px-4 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+                                            >
+                                                {aiResult.every(s => s.expanded) ? 'Recolher Tudo' : 'Expandir Tudo'}
+                                            </button>
+                                            <button onClick={() => setIaStage('input')} className="px-4 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-bold rounded-xl transition-all flex items-center gap-2">
+                                                <Undo2 size={14} /> Voltar
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 no-scrollbar">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full pb-4 border-b border-border dark:border-white/5 mb-4">
+                                        <div className="space-y-1">
+                                            <span className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Instituição</span>
+                                            <input
+                                                type="text"
+                                                value={iaOrigin}
+                                                onChange={(e) => setIaOrigin(e.target.value)}
+                                                placeholder="Instituição"
+                                                className="w-full px-3 py-2.5 bg-secondary dark:bg-zinc-900/50 rounded-xl text-xs font-bold text-content-main uppercase shadow-inner border border-transparent focus:border-primary/40 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <span className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo</span>
+                                            <input
+                                                type="text"
+                                                value={iaPosition}
+                                                onChange={(e) => setIaPosition(e.target.value)}
+                                                placeholder="Cargo"
+                                                className="w-full px-3 py-2.5 bg-secondary dark:bg-zinc-900/50 rounded-xl text-xs font-bold text-content-main uppercase shadow-inner border border-transparent focus:border-primary/40 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <span className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano</span>
+                                            <input
+                                                type="text"
+                                                value={iaYear}
+                                                onChange={(e) => setIaYear(e.target.value)}
+                                                placeholder="Ano"
+                                                className="w-full px-3 py-2.5 bg-secondary dark:bg-zinc-900/50 rounded-xl text-xs font-bold text-content-main uppercase shadow-inner border border-transparent focus:border-primary/40 outline-none transition-all"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4 no-scrollbar">
                                         {aiResult.map((subj, sIdx) => (
                                             <div key={subj.id} className="p-5 rounded-3xl bg-secondary/30 dark:bg-zinc-800/10 border border-border dark:border-white/5">
                                                 <div className="flex items-center justify-between mb-4">
-                                                    <div className="flex items-center gap-4">
+                                                    <div className="flex items-center gap-4 flex-1 min-w-0">
                                                         <input
                                                             type="checkbox"
                                                             checked={subj.selected}
@@ -626,25 +762,30 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 newResult[sIdx].title = e.target.value;
                                                                 setAiResult(newResult);
                                                             }}
-                                                            className="bg-transparent border-none font-bold text-content-main outline-none focus:text-primary transition-colors text-lg"
+                                                            className="bg-transparent border-none font-bold text-content-main outline-none focus:text-primary transition-colors text-lg w-full"
                                                         />
                                                     </div>
-                                                    <button
-                                                        onClick={() => {
-                                                            const newResult = [...aiResult];
-                                                            newResult[sIdx].expanded = !newResult[sIdx].expanded;
-                                                            setAiResult(newResult);
-                                                        }}
-                                                        className="text-content-muted hover:text-primary transition-colors"
-                                                    >
-                                                        {subj.expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                                    </button>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-[10px] font-bold bg-secondary dark:bg-zinc-800 text-muted-foreground px-2 py-0.5 rounded-lg border border-border dark:border-white/5 whitespace-nowrap">
+                                                            {subj.topics.length} Tópicos
+                                                        </span>
+                                                        <button
+                                                            onClick={() => {
+                                                                const newResult = [...aiResult];
+                                                                newResult[sIdx].expanded = !newResult[sIdx].expanded;
+                                                                setAiResult(newResult);
+                                                            }}
+                                                            className="text-content-muted hover:text-primary transition-colors"
+                                                        >
+                                                            <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${subj.expanded ? 'rotate-180' : ''}`} />
+                                                        </button>
+                                                    </div>
                                                 </div>
 
                                                 {subj.expanded && (
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-8">
+                                                    <div className="flex flex-col gap-2 pl-8">
                                                         {subj.topics.map((topic, tIdx) => (
-                                                            <div key={tIdx} className="flex items-center gap-2 p-2 px-3 rounded-xl hover:bg-secondary/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                                            <div key={tIdx} className="flex items-start gap-3 p-2 px-3 rounded-xl hover:bg-secondary/50 dark:hover:bg-zinc-800/30 transition-colors w-full">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={topic.selected}
@@ -653,17 +794,24 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                         newResult[sIdx].topics[tIdx].selected = !newResult[sIdx].topics[tIdx].selected;
                                                                         setAiResult(newResult);
                                                                     }}
-                                                                    className="w-4 h-4 rounded accent-primary/60"
+                                                                    className="w-4 h-4 rounded accent-primary/60 mt-0.5 shrink-0"
                                                                 />
-                                                                <input
-                                                                    type="text"
+                                                                <textarea
                                                                     value={topic.name}
                                                                     onChange={(e) => {
                                                                         const newResult = [...aiResult];
                                                                         newResult[sIdx].topics[tIdx].name = e.target.value;
                                                                         setAiResult(newResult);
+                                                                        // Auto-resize
+                                                                        e.target.style.height = 'auto';
+                                                                        e.target.style.height = e.target.scrollHeight + 'px';
                                                                     }}
-                                                                    className="bg-transparent border-none text-sm text-content-main outline-none"
+                                                                    className="bg-transparent border-none text-sm text-content-main outline-none w-full resize-none py-0 min-h-[20px] overflow-hidden leading-tight"
+                                                                    rows={1}
+                                                                    onFocus={(e) => {
+                                                                        e.target.style.height = 'auto';
+                                                                        e.target.style.height = e.target.scrollHeight + 'px';
+                                                                    }}
                                                                 />
                                                             </div>
                                                         ))}

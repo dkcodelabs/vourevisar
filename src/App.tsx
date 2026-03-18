@@ -42,6 +42,7 @@ import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
 import TendenciaGUT from "@/pages/admin/TendenciaGUT";
 import AdminEditais from "@/pages/admin/AdminEditais";
 import PlanCouponManager from "@/pages/admin/PlanCouponManager";
+import AISettings from "@/pages/admin/AISettings";
 
 import { AuthCallback } from "@/components/AuthCallback";
 import { SimpleRoleTest } from "@/components/SimpleRoleTest";
@@ -116,7 +117,8 @@ const App = () => {
                             <Route path="admin/editais" element={<AdminEditais />} />
                             <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
                             <Route path="admin/pricing" element={<PlanCouponManager />} />
-                          </Route>
+                            <Route path="admin/ai-settings" element={<AISettings />} />
+                        </Route>
 
                           {/* Statistics Routes */}
                           <Route path="estatisticas/tendencia" element={<TrendAnalysis />} />

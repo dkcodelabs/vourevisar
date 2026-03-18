@@ -90,7 +90,7 @@ const getStatusBorderColor = (status: Status) => {
 
 const Subjects = () => {
   const { user } = useAuth();
-  const { originsMap, editaisNoCiclo, activeSubjectIdsSet, getOriginsForSubject, refresh } = useEditalOrigins();
+  const { originsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, getOriginsForSubject, refresh } = useEditalOrigins();
   const navigate = useNavigate();
   // Estado local simples - sem contextos
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -660,10 +660,15 @@ const Subjects = () => {
       const isInCycle = subjectsInCycleSet.has(subject.id);
       const isFromActiveEdital = activeSubjectIdsSet.has(subject.id);
 
-      // Se está no ciclo (mesclado ou manual ativo) ou pertence a um edital carregado, mostra.
-      if (isInCycle || isFromActiveEdital) return true;
+      // NOVO: Verificar se a matéria é "órfã" (não pertence a nenhum edital cadastrado)
+      // Matérias legadas ou adicionadas manualmente sem vínculo devem aparecer para gestão
+      const editalSubjectIds = new Set(editaisData.flatMap(e => e.subject_ids || []));
+      const isOrphaned = !editalSubjectIds.has(subject.id);
+
+      // Se está no ciclo (mesclado ou manual ativo) ou pertence a um edital carregado, ou é avulsa, mostra.
+      if (isInCycle || isFromActiveEdital || isOrphaned) return true;
       
-      return false; // Filtra vazamentos (matérias de outros editais ou não carregadas)
+      return false; // Filtra vazamentos (matérias de outros editais não carregados)
     });
 
     if (!userCycle?.ciclo_atual || !visibleSubjects.length) {
@@ -714,7 +719,7 @@ const Subjects = () => {
     });
 
     return expanded;
-  }, [userCycle?.ciclo_atual, localSubjects, activeSubjectIdsSet, hiddenSubjectIds]);
+  }, [userCycle?.ciclo_atual, localSubjects, activeSubjectIdsSet, hiddenSubjectIds, editaisData]);
 
   useEffect(() => {
     console.log('📋 SET LOCAL SUBJECTS useEffect TRIGGERED:', {

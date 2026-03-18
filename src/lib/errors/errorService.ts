@@ -29,11 +29,24 @@ class ErrorService {
         return ErrorService.instance;
     }
 
-    private isIgnorableError(error: any): boolean {
-        // AbortController cancellations
-        if (error?.name === 'AbortError') return true;
+    private isIgnorableError(error: unknown): boolean {
+        const err = error as any;
+        // 1. AbortController cancellations (Client or Browser side)
+        if (err?.name === 'AbortError') return true;
         if (error?.code === 20) return true; // DOMException: AbortError
         if (error?.message?.includes('The user aborted a request')) return true;
+
+        // 2. Network Transitions (ERR_NETWORK_CHANGED)
+        // Browsers often kill active fetches when network interface changes state.
+        // We catch common strings thrown by Chrome/Fetch when this happens.
+        const msg = (error?.message || '').toLowerCase();
+        if (msg.includes('net::err_network_changed')) return true;
+        
+        // 3. Silent Supabase Artifacts
+        // If it's a generic failed fetch without a structured code, it's usually 
+        // a connection drop we shouldn't alert if it's transient.
+        // But we only ignore if it's clearly a network-level abort.
+
         return false;
     }
 

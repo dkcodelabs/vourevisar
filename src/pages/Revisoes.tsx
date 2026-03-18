@@ -457,7 +457,7 @@ export const Revisoes = () => {
     return <LoadingSpinner size="large" showText fullPage />;
   }
 
-  if (!hasActiveCycle) {
+  if (!hasActiveCycle && subjects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700 w-full">
         <div className="w-24 h-24 bg-secondary dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8 mx-auto rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">

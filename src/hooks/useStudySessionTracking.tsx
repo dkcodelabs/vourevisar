@@ -180,7 +180,7 @@ export const useStudySessionTracking = () => {
         .from('user_study_analytics')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         console.error('Erro ao buscar analytics:', error);
