@@ -80,8 +80,8 @@ export const StudyHabitsSection: React.FC<StudyHabitsSectionProps> = ({ data }) 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Activity className="h-6 w-6 text-blue-600" />
-        <h2 className="text-2xl font-bold text-gray-900">Hábitos e Padrões de Estudo</h2>
+        <Activity className="h-6 w-6 text-primary" />
+        <h2 className="text-2xl font-bold text-foreground">Hábitos e Padrões de Estudo</h2>
       </div>
 
       {/* Cards principais */}
@@ -96,7 +96,7 @@ export const StudyHabitsSection: React.FC<StudyHabitsSectionProps> = ({ data }) 
               <Flame className="h-8 w-8 mx-auto mb-3 text-orange-500" />
               <div className="text-3xl font-bold mb-1">{data.currentStreak}</div>
               <p className="text-sm font-medium mb-1">Dias Consecutivos</p>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-content-muted">
                 Recorde: {data.longestStreak} dias
               </p>
             </CardContent>
@@ -110,10 +110,10 @@ export const StudyHabitsSection: React.FC<StudyHabitsSectionProps> = ({ data }) 
         >
           <Card>
             <CardContent className="p-6 text-center">
-              <Calendar className="h-8 w-8 mx-auto mb-3 text-blue-500" />
-              <div className="text-3xl font-bold mb-1">{data.mostProductiveDay}</div>
-              <p className="text-sm font-medium mb-1">Dia Mais Produtivo</p>
-              <p className="text-xs text-gray-600">
+              <Calendar className="h-8 w-8 mx-auto mb-3 text-primary" />
+              <div className="text-3xl font-bold mb-1 text-foreground">{data.mostProductiveDay}</div>
+              <p className="text-sm font-medium mb-1 text-foreground">Dia Mais Produtivo</p>
+              <p className="text-xs text-content-muted">
                 Baseado no histórico
               </p>
             </CardContent>
@@ -128,9 +128,9 @@ export const StudyHabitsSection: React.FC<StudyHabitsSectionProps> = ({ data }) 
           <Card>
             <CardContent className="p-6 text-center">
               <Clock className="h-8 w-8 mx-auto mb-3 text-purple-500" />
-              <div className="text-3xl font-bold mb-1">{data.mostProductiveHour}</div>
-              <p className="text-sm font-medium mb-1">Horário Preferido</p>
-              <p className="text-xs text-gray-600">
+              <div className="text-3xl font-bold mb-1 text-foreground">{data.mostProductiveHour}</div>
+              <p className="text-sm font-medium mb-1 text-foreground">Horário Preferido</p>
+              <p className="text-xs text-content-muted">
                 Pico de produtividade
               </p>
             </CardContent>
@@ -148,8 +148,8 @@ export const StudyHabitsSection: React.FC<StudyHabitsSectionProps> = ({ data }) 
               <div className={`text-3xl font-bold mb-1 ${getConsistencyColor(data.consistencyRate)}`}>
                 {data.consistencyRate}%
               </div>
-              <p className="text-sm font-medium mb-1">Consistência</p>
-              <p className="text-xs text-gray-600">
+              <p className="text-sm font-medium mb-1 text-foreground">Consistência</p>
+              <p className="text-xs text-content-muted">
                 Últimos 30 dias
               </p>
             </CardContent>

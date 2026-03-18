@@ -7,13 +7,14 @@ import { supabase } from '@/integrations/supabase/client';
 import {
     Search, Plus, Library, Trash2, Play, Eye, CalendarDays, Clock,
     BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, ArrowRight, Sparkles, Send, Loader2,
-    AlertCircle, Info
+    AlertCircle, Info, GraduationCap, Target
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { EditalCard } from '@/components/editais/EditalCard';
 import { EditalSubjectsModal } from '@/components/editais/EditalSubjectsModal';
 import { SyncReviewModal } from '@/components/editais/SyncReviewModal';
+import { EditEditalModal } from '@/components/editais/EditEditalModal'; // Added
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import { Subject } from '@/types';
 import { errorService } from '@/lib/errors/errorService';
@@ -22,9 +23,12 @@ import { errorService } from '@/lib/errors/errorService';
 export interface UserEdital {
     id: string;
     name: string;
+    organ?: string; // Added
+    position?: string; // Added
+    year?: string; // Added
     examDate?: string;
     createdAt: string;
-    updatedAt: string; // Added this
+    updatedAt: string;
     isImported: boolean;
     sourceId?: string;
     subjectIds: string[];
@@ -43,9 +47,12 @@ const getDaysUntilExam = (dateStr?: string): number | null => {
 const rowToEdital = (row: Record<string, unknown>): UserEdital => ({
     id: row.id as string,
     name: row.name as string,
+    organ: (row.organ as string) || undefined, // Added
+    position: (row.position as string) || undefined, // Added
+    year: (row.year as string) || undefined, // Added
     examDate: (row.exam_date as string) || undefined,
     createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string, // Added this
+    updatedAt: row.updated_at as string,
     isImported: row.is_imported as boolean,
     sourceId: (row.source_id as string) || undefined,
     subjectIds: (row.subject_ids as string[]) || [],
@@ -100,6 +107,7 @@ const Editais = () => {
         localSubjects: Subject[];
         sourceSubjects: any[];
     }>({ isOpen: false, edital: null, localSubjects: [], sourceSubjects: [] });
+    const [editModal, setEditModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
 
     // ── Efeito para abrir modal baseado no estado de navegação ──
     useEffect(() => {
@@ -130,6 +138,27 @@ const Editais = () => {
             setLoadingEditais(false);
         }
     }, [user]);
+    
+    // ── Salvar Edital ──
+    const handleSaveEdital = useCallback(async (id: string, updates: { organ: string; position: string; year: string }) => {
+        try {
+            const { error } = await editaisTable()
+                .update({
+                    organ: updates.organ,
+                    position: updates.position,
+                    year: updates.year,
+                    name: updates.position ? `${updates.organ} - ${updates.position}` : updates.organ,
+                    updated_at: new Date().toISOString()
+                } as any)
+                .eq('id', id);
+
+            if (error) throw error;
+            toast.success('Edital atualizado com sucesso!');
+            await fetchEditais();
+        } catch (err) {
+            errorService.report(err, { module: 'editais', action: 'save', userMessage: 'Erro ao salvar alterações.' });
+        }
+    }, [fetchEditais]);
 
     const [searchParams] = useSearchParams();
     const highlightedSourceId = searchParams.get('sourceId');
@@ -214,6 +243,10 @@ const Editais = () => {
 
         const totalTopics = uniqueSubjects.reduce((acc, s) => acc + (s.topics?.length || 0), 0);
         const completedTopics = uniqueSubjects.reduce((acc, s) => acc + (s.topics?.filter(t => t.completed).length || 0), 0);
+        const completedSubjectsCount = uniqueSubjects.filter(s => 
+            s.topics && s.topics.length > 0 && s.topics.every(t => t.completed)
+        ).length;
+        
         const totalStudyMinutes = uniqueSubjects.reduce((acc, s) =>
             acc + (s.topics?.reduce((tAcc, t) => tAcc + (t.review_count || 0) * 25, 0) || 0), 0);
         
@@ -221,7 +254,8 @@ const Editais = () => {
             totalTopics, 
             completedTopics, 
             totalStudyMinutes, 
-            subjectsCount: uniqueSubjects.length 
+            subjectsCount: uniqueSubjects.length,
+            completedSubjectsCount
         };
     }, [subjects]);
 
@@ -232,8 +266,7 @@ const Editais = () => {
             const subjectIds = edital.subjectIds || [];
             if (subjectIds.length > 0) {
                 // Identificar matérias exclusivas deste edital (não compartilhadas com outros)
-                const { data: otherEditais } = await (supabase as any)
-                    .from('user_editais')
+                const { data: otherEditais } = await editaisTable()
                     .select('subject_ids')
                     .neq('id', edital.id)
                     .eq('user_id', user!.id);
@@ -358,20 +391,23 @@ const Editais = () => {
 
             const existingIds = (existingCycle?.ciclo_atual as string[] | null) || [];
 
+            // CORREÇÃO: Filtrar apenas IDs que realmente existem no sistema para evitar "fantasmas" no preview
+            const realExistingIds = existingIds.filter(id => subjects.some(s => s.id === id));
+
             // CORREÇÃO: Encontrar quais editais já estão no ciclo (origens) 
             // Buscamos em TODO o array 'editais' (estado) para ignorar filtros de busca/tipo ativos
             const origins = new Set<string>();
             for (const e of editais) {
                 if (e.id === edital.id) continue;
                 // Se algum subject ID do edital 'e' está no ciclo atual, ele é uma origem
-                const hasCommon = e.subjectIds.some(id => existingIds.includes(id));
+                const hasCommon = e.subjectIds.some(id => realExistingIds.includes(id));
                 if (hasCommon) {
                     origins.add(e.name);
                 }
             }
             
             // Se há IDs existentes no ciclo mas nenhuma origem de edital foi encontrada, é "Manual"
-            if (origins.size === 0 && existingIds.length > 0) {
+            if (origins.size === 0 && realExistingIds.length > 0) {
                 origins.add('Manual');
             }
 
@@ -379,17 +415,17 @@ const Editais = () => {
             setCycleConflict({
                 isOpen: true,
                 edital: edital,
-                existingIds,
+                existingIds: realExistingIds,
                 currentOrigins: Array.from(origins),
-                step: existingIds.length > 0 ? 'select' : 'preview',
-                action: existingIds.length > 0 ? null : 'replace'
+                step: realExistingIds.length > 0 ? 'select' : 'preview',
+                action: realExistingIds.length > 0 ? null : 'replace'
             });
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'loadCycle', userMessage: 'Erro ao preparar carga do ciclo.' });
         } finally {
             setProcessingId(null);
         }
-    }, [user, editais]);
+    }, [user, editais, subjects]);
 
     const executeCycleLoad = useCallback(async (subjectIds: string[]) => {
         if (!user) return;
@@ -468,6 +504,13 @@ const Editais = () => {
                 
                 await executeCycleLoad(edital.subjectIds);
                 await markEditalMerged(edital.id, edital.subjectIds);
+
+                // Limpar data da prova ao substituir ciclo
+                await supabase
+                    .from('user_settings')
+                    .update({ data_prova_meta: null } as any)
+                    .eq('user_id', user!.id);
+
                 toast.success(`Ciclo substituído com sucesso por "${edital.name}".`);
             } else {
                 // Mescla: une os IDs atuais com os novos
@@ -536,7 +579,7 @@ const Editais = () => {
             // 3. Nome do edital: usar editalName (do concurso) ou fallback
             const finalName = editalName || 'Novo Edital';
 
-            const { error: editalErr } = await editaisTable().insert({
+            const { data: newEditalRow, error: editalErr } = await editaisTable().insert({
                 user_id: user.id,
                 name: finalName,
                 is_imported: isImported,
@@ -544,7 +587,8 @@ const Editais = () => {
                 subject_ids: realSubjectIds,
                 active_subject_ids: realSubjectIds,
                 merged_into_cycle: false,
-            } as any);
+            } as any).select().single();
+
             if (editalErr) throw editalErr;
 
             // 4. Atualizar tudo
@@ -556,7 +600,16 @@ const Editais = () => {
             window.dispatchEvent(new CustomEvent('topicUpdated'));
             
             setIsImportModalOpen(false);
-            toast.success(`Edital "${finalName}" com ${realSubjectIds.length} matéria(s) importado com sucesso!`);
+            const finalEdital = rowToEdital(newEditalRow);
+            
+            // Abrir automaticamente o modal de matérias se for criação manual 
+            // ou se o usuário desejar (no caso manual é obrigatório abrir agora)
+            if (!isImported) {
+                setSubjectsModal({ isOpen: true, edital: finalEdital });
+                toast.success(`Edital "${finalName}" criado! Agora adicione as matérias.`);
+            } else {
+                toast.success(`Edital "${finalName}" com ${realSubjectIds.length} matéria(s) importado com sucesso!`);
+            }
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'import', userMessage: 'Erro ao importar edital.' });
         } finally {
@@ -779,12 +832,12 @@ const Editais = () => {
                                 placeholder="Buscar edital..."
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full h-11 bg-zinc-900/40 border border-white/5 rounded-2xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
+                                className="w-full h-11 bg-secondary border border-border dark:border-white/5 rounded-2xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-foreground placeholder:text-content-muted/50 shadow-sm"
                             />
                         </div>
 
                         {/* Filtros de Tipo */}
-                        <div className="flex bg-zinc-900/60 p-1 rounded-xl border border-white/5 h-11">
+                        <div className="flex bg-secondary p-1 rounded-xl border border-border h-11">
                             {[
                                 { id: 'all', label: 'Todos' },
                                 { id: 'imported', label: 'Importados' },
@@ -792,11 +845,11 @@ const Editais = () => {
                             ].map((f) => (
                                 <button
                                     key={f.id}
-                                    onClick={() => setActiveFilter(f.id as any)}
+                                    onClick={() => setActiveFilter(f.id as 'all' | 'imported' | 'manual')}
                                     className={`px-4 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                                         activeFilter === f.id 
-                                            ? 'bg-primary text-white shadow-lg shadow-primary/20' 
-                                            : 'text-content-muted hover:text-content-main'
+                                            ? 'bg-card text-foreground shadow-sm' 
+                                            : 'text-content-muted hover:text-foreground'
                                     }`}
                                 >
                                     {f.label}
@@ -845,22 +898,108 @@ const Editais = () => {
                     )}
                 </div>
             </div>
+            
+            {/* Banner de Alerta Amigável (Ciclo Vazio) */}
+            {editais.length > 0 && !editais.some(e => e.mergedIntoCycle) && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex items-center gap-4 text-orange-600 dark:text-orange-400 animate-pulse-subtle"
+                >
+                    <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
+                        <AlertTriangle size={20} />
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-sm font-bold leading-tight">
+                            Você tem editais cadastrados, mas nenhum está carregado no seu ciclo ativo de estudos.
+                        </p>
+                        <p className="text-xs font-medium opacity-80">
+                            Clique em <span className="font-bold">"Carregar Ciclo"</span> em um edital abaixo para começar seu planejamento inteligente!
+                        </p>
+                    </div>
+                </motion.div>
+            )}
 
             {/* ── Grid de Cards / Empty State ── */}
             {filteredEditais.length === 0 ? (
-                <div className="glow-card p-12 md:p-20 flex flex-col items-center justify-center text-center">
-                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-                        <Library className="text-primary" size={36} />
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="glow-card p-12 md:p-24 flex flex-col items-center justify-center text-center border border-border bg-card shadow-xl rounded-[2.5rem] overflow-hidden relative"
+                >
+                    {/* Elementos Decorativos de Fundo */}
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
+                    <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl" />
+
+                    <div className="relative">
+                        <div className="w-24 h-24 bg-secondary dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8 mx-auto rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
+                            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shadow-sm">
+                                <Library className="text-primary" size={40} />
+                            </div>
+                        </div>
                     </div>
-                    {editais.length === 0 || searchQuery.trim() ? (
-                        <>
-                            <h2 className="text-xl font-bold text-foreground tracking-tight mb-2">
-                                Não encontramos concursos para "{searchQuery}"
-                            </h2>
-                            <p className="text-sm text-content-muted mb-8 max-w-md font-medium">
-                                Se você não encontrou o concurso que procura, pode sugerir a inclusão para nossa equipe!
-                            </p>
-                            <div className="flex flex-col sm:flex-row items-center gap-3">
+
+                    {editais.length === 0 ? (
+                        <div className="max-w-xl mx-auto space-y-6 relative">
+                            <div>
+                                <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tight mb-4">
+                                    Vamos começar sua aprovação?
+                                </h2>
+                                <p className="text-base text-content-muted leading-relaxed font-medium">
+                                    Parece que você ainda não tem nenhum edital. <br className="hidden md:block" />
+                                    Importe um edital pronto da nossa biblioteca ou use nossa IA para estruturar um do zero!
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                                <button
+                                    onClick={() => setIsImportModalOpen(true)}
+                                    className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-emerald-500/25 hover:-translate-y-1 active:scale-95"
+                                >
+                                    <Plus size={20} />
+                                    Importar Primeiro Edital
+                                </button>
+                                
+                                <button
+                                    onClick={() => {
+                                        setSuggestionName("");
+                                        setIsSuggestionOpen(true);
+                                    }}
+                                    className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-secondary dark:bg-white/5 text-foreground hover:bg-secondary/80 border border-border dark:border-white/10 text-sm font-black uppercase tracking-widest rounded-2xl transition-all hover:-translate-y-1 active:scale-95"
+                                >
+                                    <Sparkles className="text-primary" size={18} />
+                                    Sugerir Concurso
+                                </button>
+                            </div>
+
+                            <div className="pt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {[
+                                    { icon: GraduationCap, title: 'Foco Total', desc: 'Conteúdo organizado' },
+                                    { icon: Target, title: 'Ciclos IA', desc: 'Estudo adaptativo' },
+                                    { icon: Clock, title: 'Evolução', desc: 'Acompanhe seu progresso' }
+                                ].map((item, i) => (
+                                    <div key={i} className="flex flex-col items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-secondary dark:bg-white/5 flex items-center justify-center mb-1">
+                                            <item.icon size={14} className="text-primary/60" />
+                                        </div>
+                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground">{item.title}</h3>
+                                        <p className="text-[10px] text-content-muted font-medium">{item.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : searchQuery.trim() ? (
+                        <div className="max-w-md mx-auto space-y-6">
+                            <div>
+                                <h2 className="text-xl font-bold text-foreground tracking-tight mb-2">
+                                    Nenhum resultado para "{searchQuery}"
+                                </h2>
+                                <p className="text-sm text-content-muted font-medium">
+                                    Não encontramos nenhum edital nos seus registros com esse nome. Deseja sugerir a inclusão desse concurso?
+                                </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                                 <button
                                     onClick={() => {
                                         setSuggestionName(searchQuery);
@@ -872,32 +1011,33 @@ const Editais = () => {
                                     Sugerir Edital
                                 </button>
                                 <button
-                                    onClick={() => setIsImportModalOpen(true)}
-                                    className="flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+                                    onClick={() => setSearchQuery("")}
+                                    className="flex items-center gap-2 px-6 py-3 text-content-muted hover:text-foreground transition-all text-sm font-bold"
                                 >
-                                    <Plus size={18} />
-                                    Cadastrar Manualmente
+                                    Limpar busca
                                 </button>
                             </div>
-                        </>
+                        </div>
                     ) : (
-                        <>
-                            <h2 className="text-lg font-semibold text-foreground tracking-tight mb-2">
-                                Nenhum edital cadastrado
+                        <div className="max-w-md mx-auto space-y-4">
+                            <h2 className="text-lg font-semibold text-foreground tracking-tight">
+                                Nenhum edital disponível nos filtros ativos
                             </h2>
-                            <p className="text-sm text-content-muted mb-6 max-w-md font-medium">
-                                Importe um edital pronto da plataforma, use nossa IA para estruturar ou crie manualmente para começar a estudar.
+                            <p className="text-sm text-content-muted font-medium mb-6">
+                                Mude os filtros acima ou importe um novo edital.
                             </p>
                             <button
-                                onClick={() => setIsImportModalOpen(true)}
-                                className="flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+                                onClick={() => {
+                                    setActiveFilter('all');
+                                    setSearchQuery("");
+                                }}
+                                className="px-6 py-3 bg-secondary text-foreground text-sm font-bold rounded-xl border border-border"
                             >
-                                <Plus size={18} />
-                                Importar/Cadastrar editais
+                                Resetar Filtros
                             </button>
-                        </>
+                        </div>
                     )}
-                </div>
+                </motion.div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                     {filteredEditais.map(edital => {
@@ -912,6 +1052,9 @@ const Editais = () => {
                         
                         const hasUpdate = source && sourceTime > localCreatedTime && sourceTime > localUpdatedTime;
 
+                        // Variáveis para o SyncReviewModal (para evitar o erro de lint)
+                        const editalSubjects = subjects.filter(s => (edital.subjectIds || []).includes(s.id));
+
                         return (
                             <div 
                                 key={edital.id} 
@@ -924,20 +1067,21 @@ const Editais = () => {
                                     metrics={metrics}
                                     daysLeft={daysLeft}
                                     isSelected={selectedIds.has(edital.id)}
-                                    isHighlighted={edital.sourceId === highlightedSourceId || edital.id === highlightedSourceId}
-                                    onToggleSelect={() => setSelectedIds(prev => {
-                                        const next = new Set(prev);
-                                        if (next.has(edital.id)) next.delete(edital.id);
-                                        else next.add(edital.id);
-                                        return next;
-                                    })}
+                                    onToggleSelect={() => toggleSelect(edital.id)}
                                     onViewSubjects={() => setSubjectsModal({ isOpen: true, edital })}
                                     onLoadCycle={() => handleLoadCycle(edital)}
                                     onUnloadCycle={() => setUnloadConfirm({ isOpen: true, edital })}
                                     onDelete={() => setDeleteConfirm({ isOpen: true, edital })}
-                                    onSync={() => handleSyncEdital(edital)}
-                                    hasUpdate={!!hasUpdate}
+                                    onSync={() => setSyncReview({ 
+                                        isOpen: true, 
+                                        edital, 
+                                        localSubjects: editalSubjects, 
+                                        sourceSubjects: source?.subjects || [] 
+                                    })}
+                                    onEdit={() => setEditModal({ isOpen: true, edital })}
                                     isProcessing={processingId === edital.id}
+                                    hasUpdate={!!hasUpdate}
+                                    isHighlighted={highlightedSourceId === edital.sourceId || highlightedSourceId === edital.id}
                                 />
                             </div>
                         );
@@ -956,26 +1100,26 @@ const Editais = () => {
                             onClick={() => setIsSuggestionOpen(false)}
                             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110]"
                         />
-                        <motion.div
+                            <motion.div
                             initial={{ x: '100%' }}
                             animate={{ x: 0 }}
                             exit={{ x: '100%' }}
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-zinc-950 border-l border-white/10 z-[120] p-6 shadow-2xl overflow-y-auto"
+                            className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-card dark:bg-zinc-950 border-l border-border dark:border-white/10 z-[120] p-6 shadow-2xl overflow-y-auto"
                         >
                             <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                                    <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
                                         <Sparkles className="text-primary" size={20} />
                                     </div>
                                     <div>
-                                        <h2 className="text-lg font-bold text-white tracking-tight">Sugerir Edital</h2>
-                                        <p className="text-xs text-zinc-400">Solicite a inclusão de um concurso</p>
+                                        <h2 className="text-lg font-bold text-foreground tracking-tight">Sugerir Edital</h2>
+                                        <p className="text-xs text-content-muted font-medium">Solicite a inclusão de um concurso</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setIsSuggestionOpen(false)}
-                                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white transition-colors"
+                                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary dark:bg-white/5 text-content-muted hover:text-foreground transition-colors"
                                 >
                                     <X size={20} />
                                 </button>
@@ -989,7 +1133,7 @@ const Editais = () => {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest pl-1">
+                                    <label className="text-xs font-bold text-content-muted uppercase tracking-widest pl-1">
                                         Nome do Concurso/Edital
                                     </label>
                                     <input
@@ -997,7 +1141,7 @@ const Editais = () => {
                                         placeholder="Ex: PC-ES 2024, INSS, Receita Federal..."
                                         value={suggestionName}
                                         onChange={(e) => setSuggestionName(e.target.value)}
-                                        className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl px-4 text-sm text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all"
+                                        className="w-full h-12 bg-secondary dark:bg-white/5 border border-border dark:border-white/10 rounded-2xl px-4 text-sm text-foreground focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all"
                                         autoFocus
                                     />
                                 </div>
@@ -1026,6 +1170,7 @@ const Editais = () => {
                 onClose={() => setIsImportModalOpen(false)}
                 initialTab={importModalTab}
                 subjects={subjects}
+                userEditais={editais}
                 onImport={handleImportDone}
             />
 
@@ -1052,58 +1197,72 @@ const Editais = () => {
                             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         />
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-md bg-zinc-900 border border-white/10 rounded-[28px] p-8 shadow-2xl"
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-md bg-card border border-border rounded-[32px] p-8 shadow-2xl flex flex-col gap-6"
                         >
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                                    <Trash2 className="text-red-400" size={22} />
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center shrink-0">
+                                    <Trash2 className="text-red-500" size={28} />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-semibold text-content-main tracking-tight">Excluir Edital</h3>
-                                    <p className="text-xs text-content-muted mt-0.5">
-                                        {deleteConfirm.edital.isImported
-                                            ? 'O edital original da plataforma não será afetado.'
-                                            : 'Esta ação é permanente e não pode ser desfeita.'}
+                                    <h3 className="text-xl font-bold text-foreground tracking-tight">Excluir Edital?</h3>
+                                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                                        Esta ação afetará suas matérias e progresso.
                                     </p>
                                 </div>
                             </div>
-                                <p className="text-zinc-400 text-sm leading-relaxed mb-8">
-                                    Tem certeza que deseja excluir o edital <strong>"{deleteConfirm.edital.name}"</strong>?
-                                    <br /><br />
-                                    {deleteConfirm.edital.isImported ? (
-                                        <span className="text-sky-400/90 flex items-start gap-2">
-                                            <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
-                                            Este edital foi importado do sistema e poderá ser importado novamente mais tarde se desejar.
-                                        </span>
-                                    ) : (
-                                        <span className="text-amber-400/90 flex items-start gap-2">
-                                            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                                            Este edital foi criado manualmente. A exclusão removerá permanentemente todos os registros de estudo vinculados.
-                                        </span>
-                                    )}
-                                </p>
-                                <div className="flex gap-3">
+
+                            <div className="text-zinc-400 text-sm leading-relaxed">
+                                <p className="mb-4">Tem certeza que deseja excluir o edital <strong>"{deleteConfirm.edital.name}"</strong>?</p>
+                                
+                                {deleteConfirm.edital.isImported ? (
+                                    <div className="bg-sky-500/10 border border-sky-500/20 p-4 rounded-xl text-sky-400 text-sm">
+                                        <div className="flex items-start gap-3">
+                                            <Info size={18} className="shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-bold uppercase text-[10px] tracking-widest mb-1">Edital Importado</p>
+                                                <p className="opacity-90 leading-normal">
+                                                    Este edital foi importado. Se você excluí-lo, poderá <strong>adicioná-lo novamente</strong> da biblioteca sem perda de dados históricos.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 text-sm">
+                                        <div className="flex items-start gap-3">
+                                            <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-bold uppercase text-[10px] tracking-widest mb-1">Criação Manual</p>
+                                                <p className="opacity-90 leading-normal">
+                                                    Este edital foi criado manualmente. A exclusão é <strong>permanente</strong> e todos os registros vinculados serão removidos ("já era").
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 mt-2">
                                 <button
                                     onClick={() => setDeleteConfirm({ isOpen: false, edital: null })}
                                     disabled={processingId === deleteConfirm.edital.id}
-                                    className="flex-1 py-3 bg-zinc-800 text-content-muted font-bold rounded-xl hover:bg-zinc-700 transition-all text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 py-4 bg-secondary dark:bg-zinc-800 text-content-muted dark:text-zinc-400 font-bold rounded-2xl hover:bg-secondary/80 dark:hover:bg-zinc-700 transition-all text-xs uppercase tracking-widest disabled:opacity-50"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     onClick={() => handleDeleteEdital(deleteConfirm.edital!)}
                                     disabled={processingId === deleteConfirm.edital.id}
-                                    className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-all text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
                                     {processingId === deleteConfirm.edital.id ? (
                                         <RefreshCw size={16} className="animate-spin" />
                                     ) : (
                                         <Trash2 size={16} />
                                     )}
-                                    Excluir
+                                    Confirmar
                                 </button>
                             </div>
                         </motion.div>
@@ -1126,7 +1285,7 @@ const Editais = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-md bg-zinc-900 border border-white/10 rounded-[28px] p-8 shadow-2xl"
+                            className="relative w-full max-w-md bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-[28px] p-8 shadow-2xl"
                         >
                             <div className="flex items-center gap-4 mb-6">
                                 <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center shrink-0">
@@ -1142,15 +1301,20 @@ const Editais = () => {
                             <p className="text-zinc-400 text-sm leading-relaxed mb-8">
                                 Tem certeza que deseja remover o edital <strong>"{unloadConfirm.edital.name}"</strong> do seu ciclo atual?
                                 <br /><br />
-                                <span className="text-emerald-400/90 flex items-start gap-2">
-                                    <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
-                                    Seu progresso nos tópicos e histórico de revisões <strong>não serão perdidos</strong>.
-                                </span>
+                                 <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-400 text-sm">
+                                    <div className="flex items-start gap-3">
+                                        <Info size={18} className="shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="font-bold">Informação importante:</p>
+                                            <p className="mt-1 opacity-90">Seu progresso nos tópicos e histórico de revisões <strong>não serão perdidos</strong>. Você encontrará esses dados no Histórico Total.</p>
+                                        </div>
+                                    </div>
+                                 </div>
                             </p>
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setUnloadConfirm({ isOpen: false, edital: null })}
-                                    className="flex-1 py-3 bg-zinc-800 text-content-muted font-bold rounded-xl hover:bg-zinc-700 transition-all text-xs uppercase tracking-widest"
+                                    className="flex-1 py-3 bg-secondary dark:bg-zinc-800 text-content-muted font-bold rounded-xl hover:bg-secondary/80 dark:hover:bg-zinc-700 transition-all text-xs uppercase tracking-widest"
                                 >
                                     Cancelar
                                 </button>
@@ -1169,74 +1333,23 @@ const Editais = () => {
                 )}
             </AnimatePresence>
 
-            {/* ── Modal: Confirmação de Exclusão Permanente ── */}
-            <AnimatePresence>
-                {deleteConfirm.isOpen && deleteConfirm.edital && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setDeleteConfirm({ isOpen: false, edital: null })}
-                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-md bg-zinc-900 border border-white/10 rounded-[32px] shadow-2xl p-8 flex flex-col items-center text-center gap-6"
-                        >
-                            <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500">
-                                <Trash2 size={32} />
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <h3 className="text-xl font-bold text-white tracking-tight">Excluir Edital?</h3>
-                                <p className="text-sm text-zinc-400 leading-relaxed px-4">
-                                    Isso removerápermanentemente <span className="text-white font-bold">{deleteConfirm.edital.name}</span> e todas as matérias vinculadas exclusivamente a ele. Esta ação não pode ser desfeita.
-                                </p>
-                            </div>
 
-                            <div className="flex gap-3 w-full mt-2">
-                                <button
-                                    onClick={() => setDeleteConfirm({ isOpen: false, edital: null })}
-                                    className="flex-1 py-4 bg-zinc-800 text-zinc-400 font-bold rounded-2xl hover:bg-zinc-700 transition-all text-xs uppercase tracking-widest"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    disabled={processingId === deleteConfirm.edital.id}
-                                    onClick={() => handleDeleteEdital(deleteConfirm.edital!)}
-                                    className="flex-1 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
-                                >
-                                    {processingId === deleteConfirm.edital.id ? (
-                                        <Loader2 className="animate-spin" size={16} />
-                                    ) : (
-                                        <Trash2 size={16} />
-                                    )}
-                                    Confirmar
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
 
             {/* ── Modal: Gerenciar Ciclo (Carga e Conflito) ── */}
             <AnimatePresence>
                 {cycleConflict.isOpen && cycleConflict.edital && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div
+                            <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null })}
-                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                            className="absolute inset-0 bg-black/40 dark:bg-black/80 backdrop-blur-md"
                         />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            className="relative w-full max-w-2xl bg-zinc-900 border border-white/10 rounded-[28px] shadow-2xl p-7 flex flex-col gap-6"
+                            className="relative w-full max-w-2xl bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-[28px] shadow-2xl p-7 flex flex-col gap-6"
                         >
                             {/* Header */}
                             <div className="flex items-start justify-between">
@@ -1249,20 +1362,24 @@ const Editais = () => {
                                         )}
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-bold text-white tracking-tight leading-tight">
-                                            {cycleConflict.step === 'select' ? 'Gerenciar Ciclo' : 'Confirmar Ação'}
+                                        <h3 className="text-lg font-bold text-foreground tracking-tight leading-tight">
+                                            {cycleConflict.existingIds.length === 0 
+                                                ? 'Novo Ciclo' 
+                                                : (cycleConflict.step === 'select' ? 'Gerenciar Ciclo' : 'Confirmar Ação')}
                                         </h3>
-                                        <p className="text-xs text-zinc-500 font-medium">
-                                            {cycleConflict.step === 'select' 
-                                                ? 'Escolha como carregar este edital' 
-                                                : `Revise como ficará seu ciclo ao ${cycleConflict.action === 'merge' ? 'mesclar' : 'substituir'}`
+                                        <p className="text-xs text-content-muted font-medium">
+                                            {cycleConflict.existingIds.length === 0
+                                                ? 'Prepare seu novo ciclo de estudos'
+                                                : (cycleConflict.step === 'select' 
+                                                    ? 'Escolha como carregar este edital' 
+                                                    : `Revise como ficará seu ciclo ao ${cycleConflict.action === 'merge' ? 'mesclar' : 'substituir'}`)
                                             }
                                         </p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null })}
-                                    className="p-2 hover:bg-white/5 rounded-xl transition-colors text-zinc-500"
+                                    className="p-2 hover:bg-secondary dark:hover:bg-white/5 rounded-xl transition-colors text-content-muted"
                                 >
                                     <X size={20} />
                                 </button>
@@ -1273,27 +1390,27 @@ const Editais = () => {
                                 {cycleConflict.step === 'select' && cycleConflict.existingIds.length > 0 && (
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between px-1">
-                                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">ATUALMENTE NO CICLO</span>
+                                            <span className="text-[10px] font-black text-content-muted uppercase tracking-widest">ATUALMENTE NO CICLO</span>
                                             <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md">
                                                 {cycleConflict.existingIds.length} matérias
                                             </span>
                                         </div>
-                                        <div className="p-3.5 rounded-2xl bg-zinc-800/40 border border-white/5 space-y-3">
+                                        <div className="p-3.5 rounded-2xl bg-secondary border border-border space-y-3">
                                             <div className="flex flex-wrap gap-1.5">
                                                 {cycleConflict.currentOrigins.map((origin, i) => (
-                                                    <span key={i} className="text-[9px] font-bold text-zinc-400 bg-zinc-950/40 px-2 py-1 rounded-lg border border-white/5">
+                                                    <span key={i} className="text-[9px] font-bold text-content-muted bg-card px-2 py-1 rounded-lg border border-border">
                                                         {origin}
                                                     </span>
                                                 ))}
                                             </div>
                                             <div className="flex flex-wrap gap-1">
                                                 {subjects.filter(s => cycleConflict.existingIds.includes(s.id)).slice(0, 8).map(s => (
-                                                    <span key={s.id} className="text-[9px] font-medium text-zinc-500 bg-white/5 px-1.5 py-0.5 rounded-md">
+                                                    <span key={s.id} className="text-[9px] font-medium text-content-muted bg-card/50 px-1.5 py-0.5 rounded-md border border-border/10">
                                                         {s.name}
                                                     </span>
                                                 ))}
                                                 {cycleConflict.existingIds.length > 8 && (
-                                                    <span className="text-[9px] font-bold text-zinc-600 px-1.5 py-0.5">+{cycleConflict.existingIds.length - 8}</span>
+                                                    <span className="text-[9px] font-bold text-content-muted/60 px-1.5 py-0.5">+{cycleConflict.existingIds.length - 8}</span>
                                                 )}
                                             </div>
                                         </div>
@@ -1312,7 +1429,7 @@ const Editais = () => {
                                         <div className="p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-1.5 h-4 bg-emerald-500 rounded-full" />
-                                                <span className="text-xs font-bold text-white uppercase">{cycleConflict.edital.name}</span>
+                                                <span className="text-xs font-bold text-foreground uppercase">{cycleConflict.edital.name}</span>
                                             </div>
                                             <div className="flex flex-wrap gap-1">
                                                 {cycleConflict.edital.subjectIds.slice(0, 10).map(sid => {
@@ -1337,61 +1454,69 @@ const Editais = () => {
                                         <div className="flex flex-col gap-1 px-1">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[10px] font-black text-sky-500 uppercase tracking-widest">
-                                                    {cycleConflict.action === 'merge' ? 'PREVIEW APÓS A MESCLA' : 'PREVIEW DO NOVO CICLO'}
+                                                    {cycleConflict.existingIds.length === 0 
+                                                        ? 'CONFIGURAÇÃO DO NOVO CICLO' 
+                                                        : (cycleConflict.action === 'merge' ? 'PREVIEW APÓS A MESCLA' : 'PREVIEW DO NOVO CICLO')}
                                                 </span>
                                                 <span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded-md">
                                                     {finalPreviewIds.length} matérias no total
                                                 </span>
                                             </div>
-                                            <p className="text-[10px] text-zinc-500 italic">
-                                                {cycleConflict.action === 'merge' 
-                                                    ? 'Unindo as matérias atuais com as do novo edital.'
-                                                    : 'Limpando o ciclo atual e carregando as matérias do novo edital.'}
+                                            <p className="text-[10px] text-content-muted italic">
+                                                {cycleConflict.existingIds.length === 0
+                                                    ? 'Carregando matérias do edital selecionado.'
+                                                    : (cycleConflict.action === 'merge' 
+                                                        ? 'Unindo as matérias atuais com as do novo edital.'
+                                                        : 'Limpando o ciclo atual e carregando as matérias do novo edital.')}
                                             </p>
                                         </div>
 
                                         {/* Seção: Origem da Mudança (Resumo dos Editais) */}
-                                        <div className="px-4 py-3 rounded-2xl bg-zinc-800/20 border border-white/5 space-y-2">
+                                        <div className="px-4 py-3 rounded-2xl bg-secondary border border-border space-y-2">
                                             {cycleConflict.action === 'merge' ? (
                                                 <div className="flex flex-col gap-1.5">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] w-20 shrink-0">Atualmente</span>
-                                                        <span className="text-[10px] text-zinc-400 font-medium truncate">
-                                                            {cycleConflict.currentOrigins.map(o => o.replace(/\s-\s/g, ' • ')).join(' + ')}
-                                                        </span>
-                                                    </div>
+                                                    {cycleConflict.existingIds.length > 0 && (
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] w-20 shrink-0">Atualmente</span>
+                                                            <span className="text-[10px] text-foreground font-medium truncate">
+                                                                {cycleConflict.currentOrigins.map(o => o.replace(/\s-\s/g, ' • ')).join(' + ')}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] w-20 shrink-0">Resultado</span>
-                                                        <span className="text-[10px] text-white font-black truncate uppercase tracking-tight">
+                                                        <span className="text-[10px] text-foreground font-black truncate uppercase tracking-tight">
                                                             {[...cycleConflict.currentOrigins.map(o => o.replace(/\s-\s/g, ' • ')), cycleConflict.edital.name.replace(/\s-\s/g, ' • ')].join(' + ')}
                                                         </span>
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-col gap-1.5">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] w-20 shrink-0">Saindo</span>
-                                                        <span className="text-[10px] text-rose-400/70 font-medium line-through truncate">
-                                                            {cycleConflict.currentOrigins.length > 0 
-                                                                ? cycleConflict.currentOrigins.map(o => o.replace(/\s-\s/g, ' • ')).join(' + ') 
-                                                                : 'Manual'}
-                                                        </span>
-                                                    </div>
+                                                    {cycleConflict.existingIds.length > 0 && (
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] w-20 shrink-0">Saindo</span>
+                                                            <span className="text-[10px] text-rose-500/70 font-medium truncate">
+                                                                {cycleConflict.currentOrigins.length > 0 
+                                                                    ? cycleConflict.currentOrigins.map(o => o.replace(/\s-\s/g, ' • ')).join(' + ') 
+                                                                    : 'Manual'}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] w-20 shrink-0">Entrando</span>
-                                                        <span className="text-[10px] text-white font-black truncate uppercase tracking-tight">
+                                                        <span className="text-[10px] text-foreground font-black truncate uppercase tracking-tight">
                                                             {cycleConflict.edital.name.replace(/\s-\s/g, ' • ')}
                                                         </span>
                                                     </div>
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="p-4 rounded-2xl bg-zinc-800/30 border border-white/5 flex flex-wrap gap-1.5">
+                                        <div className="p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 flex flex-wrap gap-1.5">
                                             {subjects.filter(s => finalPreviewIds.includes(s.id)).map(s => {
                                                 const isNew = cycleConflict.edital?.subjectIds.includes(s.id);
                                                 const isCurrent = cycleConflict.existingIds.includes(s.id);
                                                 
-                                                let style = 'bg-zinc-800/50 border-white/5 text-zinc-400';
+                                                let style = 'bg-secondary dark:bg-zinc-800/50 border-border dark:border-white/5 text-content-muted';
                                                 
                                                 if (cycleConflict.action === 'replace') {
                                                     if (isNew && !isCurrent) {
@@ -1399,7 +1524,7 @@ const Editais = () => {
                                                     } else if (!isNew && isCurrent) {
                                                         style = 'bg-red-500/10 border-red-500/20 text-red-400/80 line-through';
                                                     } else if (isNew && isCurrent) {
-                                                        style = 'bg-zinc-800/80 border-white/10 text-white/70';
+                                                        style = 'bg-secondary/80 dark:bg-zinc-800/80 border-border dark:border-white/10 text-foreground/70';
                                                     }
                                                 } else {
                                                     // Merge
@@ -1457,27 +1582,31 @@ const Editais = () => {
                                             ) : (
                                                 <CheckCircle2 size={18} />
                                             )}
-                                            {cycleConflict.action === 'merge' ? 'Confirmar Mesclagem' : 'Confirmar Substituição'}
+                                            {cycleConflict.existingIds.length === 0 
+                                                ? 'Criar Ciclo de Estudos' 
+                                                : (cycleConflict.action === 'merge' ? 'Confirmar Mesclagem' : 'Confirmar Substituição')}
                                         </button>
                                         
-                                        <button
-                                            onClick={() => setCycleConflict(prev => ({ ...prev, step: 'select', action: null }))}
-                                            className="w-full py-3 text-xs font-bold text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-widest"
-                                        >
-                                            Voltar e Alterar Escolha
-                                        </button>
+                                        {cycleConflict.existingIds.length > 0 && (
+                                            <button
+                                                onClick={() => setCycleConflict(prev => ({ ...prev, step: 'select', action: null }))}
+                                                className="w-full py-3 text-xs font-bold text-content-muted hover:text-foreground transition-colors uppercase tracking-widest"
+                                            >
+                                                Voltar e Alterar Escolha
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
 
                             {/* Progress Preservation Note */}
-                            <div className="p-3 rounded-2xl bg-zinc-800/20 border border-white/5 flex gap-3">
+                            <div className="p-3 rounded-2xl bg-secondary dark:bg-zinc-800/20 border border-border dark:border-white/5 flex gap-3">
                                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
                                     <Info className="text-emerald-400" size={14} />
                                 </div>
                                 <div className="space-y-0.5">
-                                    <p className="text-[10px] font-black text-white/90 uppercase tracking-tight">Preservação de Progresso</p>
-                                    <p className="text-[10px] text-zinc-500 leading-snug">
+                                    <p className="text-[10px] font-black text-foreground/90 uppercase tracking-tight">Preservação de Progresso</p>
+                                    <p className="text-[10px] text-content-muted leading-snug">
                                         Seu progresso (temas concluídos e revisões) <strong className="text-emerald-500/80">nunca é perdido</strong>. Se uma matéria for removida do ciclo, seu histórico permanece salvo com segurança no banco de dados.
                                     </p>
                                 </div>
@@ -1485,7 +1614,7 @@ const Editais = () => {
 
                             <button
                                 onClick={() => setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null })}
-                                className="w-full py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-colors"
+                                className="w-full py-3 text-[10px] font-black uppercase tracking-[0.2em] text-content-muted hover:text-foreground transition-colors"
                             >
                                 Cancelar e Fechar
                             </button>
@@ -1505,6 +1634,13 @@ const Editais = () => {
                     editalName={syncReview.edital.name}
                 />
             )}
+
+            <EditEditalModal
+                isOpen={editModal.isOpen}
+                onClose={() => setEditModal({ isOpen: false, edital: null })}
+                edital={editModal.edital}
+                onSave={handleSaveEdital}
+            />
         </div>
     );
 };

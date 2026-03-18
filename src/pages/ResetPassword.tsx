@@ -246,15 +246,15 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="dark min-h-screen w-full flex items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans overflow-y-auto">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border-white/5 my-4"
+        className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border border-border dark:border-white/5 my-4"
       >
         {/* Header */}
         <div className="flex items-center gap-3 mb-4 sm:mb-6">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-foreground">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-secondary dark:bg-white/5 rounded-xl flex items-center justify-center text-foreground">
             <Lock size={16} className="sm:size-[18px]" />
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">

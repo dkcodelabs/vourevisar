@@ -25,14 +25,13 @@ export function useSubscriptionStats() {
   const fetchStats = async () => {
     try {
       setLoading(true)
-      console.log('📊 Fetching subscription stats...')
 
       // Buscar todos os usuários
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id')
 
-      console.log('👥 Profiles found:', profiles?.length || 0)
+
       if (profilesError) {
         console.error('❌ Profiles error:', profilesError)
         throw profilesError
@@ -43,7 +42,7 @@ export function useSubscriptionStats() {
         .from('user_subscriptions')
         .select('user_id, plan, status, trial_ends_at, subscription_ends_at')
 
-      console.log('💳 Subscriptions found:', subscriptions?.length || 0)
+
       if (subscriptionsError) {
         console.error('❌ Subscriptions error:', subscriptionsError)
         throw subscriptionsError
@@ -101,13 +100,6 @@ export function useSubscriptionStats() {
         // Usuários "Free" (sem subscription ou subscription inativa e sem 'expired' explícito caso exista) não contam para 'Expirados' 
       })
 
-      console.log('📊 Subscription stats calculated:', {
-        totalUsers,
-        freeActiveUsers,
-        monthlyUsers,
-        annualUsers,
-        expiredUsers
-      })
 
       setStats({
         freeActiveUsers,
@@ -116,7 +108,6 @@ export function useSubscriptionStats() {
         expiredUsers,
         totalUsers
       })
-
     } catch (err) {
       console.error('❌ Error fetching subscription stats:', err)
     } finally {
@@ -132,7 +123,6 @@ export function useSubscriptionStats() {
   // Escutar mudanças
   useEffect(() => {
     const handleChange = () => {
-      console.log('🔄 Refreshing subscription stats')
       setTimeout(() => fetchStats(), 500)
     }
 

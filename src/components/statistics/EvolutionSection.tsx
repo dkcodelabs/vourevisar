@@ -71,8 +71,8 @@ export const EvolutionSection: React.FC<EvolutionSectionProps> = ({ data }) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <TrendingUp className="h-6 w-6 text-blue-600" />
-        <h2 className="text-2xl font-bold text-gray-900">Consistência e Evolução</h2>
+        <TrendingUp className="h-6 w-6 text-primary" />
+        <h2 className="text-2xl font-bold text-foreground">Consistência e Evolução</h2>
       </div>
 
       {/* Cards de métricas principais */}
@@ -82,18 +82,18 @@ export const EvolutionSection: React.FC<EvolutionSectionProps> = ({ data }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Card className={`border-2 ${getTrendColor(data.weeklyComparison)}`}>
+          <Card className={`border-2 ${data.weeklyComparison >= 0 ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/5 border-rose-500/20 text-rose-600'}`}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Comparação Semanal</p>
+                  <p className="text-sm font-medium text-content-muted">Comparação Semanal</p>
                   <div className="flex items-center gap-2 mt-1">
                     {getTrendIcon(data.weeklyComparison)}
-                    <span className="text-2xl font-bold">
+                    <span className="text-2xl font-bold text-foreground">
                       {data.weeklyComparison > 0 ? '+' : ''}{data.weeklyComparison}%
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-content-muted mt-1">
                     vs. semana anterior
                   </p>
                 </div>
@@ -135,11 +135,11 @@ export const EvolutionSection: React.FC<EvolutionSectionProps> = ({ data }) => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Metas Atingidas</p>
-                  <div className="text-2xl font-bold mt-1 mb-1">
+                  <p className="text-sm font-medium text-content-muted">Metas Atingidas</p>
+                  <div className="text-2xl font-bold mt-1 mb-1 text-foreground">
                     {data.goalsAchieved}
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-content-muted">
                     Este mês
                   </p>
                 </div>
@@ -244,11 +244,11 @@ export const EvolutionSection: React.FC<EvolutionSectionProps> = ({ data }) => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-secondary/50 border border-border rounded-lg">
                 <span className="text-sm font-medium">Progresso semanal</span>
                 <div className="flex items-center gap-2">
                   {getTrendIcon(data.weeklyComparison)}
-                  <span className={`font-bold ${data.weeklyComparison > 0 ? 'text-green-600' : data.weeklyComparison < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                  <span className={`font-bold ${data.weeklyComparison > 0 ? 'text-emerald-600' : data.weeklyComparison < 0 ? 'text-rose-600' : 'text-foreground'}`}>
                     {data.weeklyComparison > 0 ? '+' : ''}{data.weeklyComparison}%
                   </span>
                 </div>

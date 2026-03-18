@@ -70,18 +70,16 @@ const Topics = () => {
     // ── Obter IDs no ciclo para garantir alinhamento com Subjects.tsx ──────
     const subjectsInCycleSet = new Set(userCycle?.ciclo_atual || []);
 
-    // Filtrar matérias visíveis baseadas no ciclo ativo
+    // Filtrar matérias visíveis baseadas no ciclo ativo e flag is_visible
     const visibleSubjects = subjects.filter(subject => {
+      // Se marcado como invisível no registro real (banco), oculta
+      if (subject.is_visible === false) return false;
+      
       const isInCycle = subjectsInCycleSet.has(subject.id);
       const isFromActiveEdital = activeSubjectIdsSet.has(subject.id);
-      
+
       // Se está no ciclo (mesclado ou manual ativo) ou pertence a um edital carregado, mostra.
       if (isInCycle || isFromActiveEdital) return true;
-      
-      // Se não há nenhum edital nem ciclo carregado (estado inicial), mostra tudo.
-      if (subjectsInCycleSet.size === 0 && activeSubjectIdsSet.size === 0) {
-        return true;
-      }
       
       return false; // Filtra vazamentos (matérias de outros editais ou não carregadas)
     });
@@ -95,9 +93,9 @@ const Topics = () => {
         origin_id: topic.origin_id || subject.origin_id,
       }))
     );
-  }, [subjects, userCycle, activeSubjectIdsSet, originsMap]);
+  }, [subjects, userCycle, activeSubjectIdsSet]);
 
-  const getTopicStatusInfo = (topic: any) => {
+  const getTopicStatusInfo = (topic: Topic) => {
     if (topic.completed) {
       return { label: 'Concluído', type: 'concluido' };
     }
@@ -247,20 +245,22 @@ const Topics = () => {
             ) : (
               <>
                 {/* Main Header / Search Area */}
-                <div className="glow-card p-3 rounded-[20px] shadow-sm flex flex-col sm:flex-row items-center border border-black/5 dark:border-white/5 bg-white dark:bg-zinc-900/40 relative z-20">
-                  <div className="relative flex-1 w-full flex items-center">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 relative z-20">
+                  <div className="relative w-full sm:w-[320px] lg:w-[400px] flex items-center group transition-all duration-300">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-content-muted group-focus-within:text-primary transition-colors" size={16} />
                     <input
                       type="text"
-                      placeholder="Pesquisar tópicos ou matérias..."
+                      placeholder="Pesquisar..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-12 bg-transparent border-none py-2 pl-11 pr-4 text-sm focus:outline-none transition-all text-content-main placeholder:text-zinc-400/80 font-medium"
+                      className="w-full h-11 bg-card border border-border rounded-xl py-2 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/50 transition-all text-foreground placeholder:text-content-muted/60 font-medium shadow-sm hover:border-border-hover"
                     />
                   </div>
+                  
                   <Button
                     onClick={() => setIsInlineCreatorOpen(!isInlineCreatorOpen)}
-                    className={`h-10 px-6 font-bold text-xs uppercase tracking-widest shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 rounded-xl shrink-0 border-none ${isInlineCreatorOpen
+                    size="sm"
+                    className={`h-11 px-6 font-bold text-[11px] uppercase tracking-widest shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 rounded-xl shrink-0 border-none ${isInlineCreatorOpen
                       ? 'bg-[#f97316] hover:bg-[#ea580c] text-white shadow-[#f97316]/20' // Orange state
                       : 'bg-[#00c881] hover:bg-[#00b374] text-white shadow-[#00c881]/20' // Green state
                       }`}
@@ -296,24 +296,24 @@ const Topics = () => {
 
                 {/* Topics Table */}
                 {filteredTopics.length > 0 ? (
-                  <div className="glow-card rounded-[24px] overflow-hidden border border-black/5 dark:border-white/5 shadow-sm bg-white dark:bg-zinc-900/40">
+                  <div className="glow-card rounded-[24px] overflow-hidden border border-border shadow-sm bg-card">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-black/5 dark:border-white/5">
+                        <thead className="bg-muted/30">
+                          <tr className="border-b border-border">
                             <th
-                              className="px-6 py-6 text-[10px] font-bold text-zinc-500 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors"
+                              className="px-6 py-4 text-[10px] font-bold text-content-muted uppercase tracking-widest cursor-pointer hover:text-primary transition-colors text-left"
                               onClick={toggleTopicSort}
                             >
                               <div className="flex items-center gap-2">
                                 TÓPICO / MATÉRIA
-                                <span className="text-[8px] bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded leading-none uppercase">
+                                <span className="text-[8px] bg-primary/10 text-primary px-1.5 py-0.5 rounded leading-none uppercase">
                                   {sortBy === 'name' ? 'Nome' : 'Matéria'}
                                 </span>
                               </div>
                             </th>
                             <th
-                              className="px-6 py-6 text-[10px] font-bold text-zinc-500 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors text-center"
+                              className="px-4 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors text-center w-[120px]"
                               onClick={cycleDifficultyFilter}
                             >
                               <div className="flex flex-col items-center gap-1.5">
@@ -327,21 +327,21 @@ const Topics = () => {
                               </div>
                             </th>
                             <th
-                              className="px-6 py-6 text-[10px] font-bold text-zinc-500 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors text-center"
+                              className="px-4 py-4 text-[10px] font-bold text-content-muted uppercase tracking-widest cursor-pointer hover:text-primary transition-colors text-center w-[140px]"
                               onClick={cycleStatusFilter}
                             >
                               <div className="flex flex-col items-center gap-1.5">
                                 <span>STATUS</span>
-                                <span className={`text-[8px] px-1.5 py-0.5 rounded leading-none uppercase font-black transition-all ${statusFilter === 'Todos' ? 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800' : 'bg-primary/10 text-primary'
+                                <span className={`text-[8px] px-1.5 py-0.5 rounded leading-none uppercase font-black transition-all ${statusFilter === 'Todos' ? 'bg-secondary text-content-muted' : 'bg-primary/10 text-primary'
                                   }`}>
                                   {statusFilter}
                                 </span>
                               </div>
                             </th>
-                            <th className="px-6 py-6 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center">AÇÕES</th>
+                            <th className="px-4 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center w-[80px]">AÇÕES</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-black/5 dark:divide-white/5">
+                        <tbody className="divide-y divide-border">
                           {filteredTopics.map((topic) => {
                             const statusInfo = getTopicStatusInfo(topic);
 
@@ -365,7 +365,7 @@ const Topics = () => {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-3 text-center align-middle">
+                                <td className="px-4 py-4 text-center align-middle">
                                   <div className="flex items-center justify-center gap-0.5">
                                     {[1, 2, 3].map((star) => {
                                       const validCount = Math.min(Math.max(topic.difficulty_level || 0, 0), 3);
@@ -379,7 +379,7 @@ const Topics = () => {
                                     })}
                                   </div>
                                 </td>
-                                <td className="px-6 py-3 text-center align-middle">
+                                <td className="px-4 py-4 text-center align-middle">
                                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap inline-block ${statusInfo.type === 'atrasado' ? 'bg-red-50 text-red-500 dark:bg-red-500/10' :
                                     statusInfo.type === 'hoje' ? 'bg-blue-50 text-blue-500 dark:bg-blue-500/10' :
                                       statusInfo.type === 'concluido' ? 'bg-emerald-50 text-[#00a86b] dark:bg-emerald-500/10 dark:text-emerald-400' :
@@ -388,8 +388,8 @@ const Topics = () => {
                                     {statusInfo.label}
                                   </span>
                                 </td>
-                                <td className="px-6 py-3 text-center align-middle">
-                                  <div className="flex items-center justify-center gap-4">
+                                <td className="px-4 py-4 text-center align-middle">
+                                  <div className="flex items-center justify-center gap-3">
                                     <button
                                       onClick={() => setNotesModal({
                                         isOpen: true,
@@ -397,7 +397,7 @@ const Topics = () => {
                                         topicName: topic.name,
                                         subjectName: topic.subjectName
                                       })}
-                                      className="text-zinc-400 hover:text-primary transition-colors"
+                                      className="text-zinc-400 hover:text-primary transition-colors p-1"
                                       title="Anotações"
                                     >
                                       <FileText size={14} />
@@ -410,7 +410,7 @@ const Topics = () => {
                                         topicName: topic.name,
                                         subjectName: topic.subjectName
                                       })}
-                                      className="text-zinc-400 hover:text-red-500 transition-colors"
+                                      className="text-zinc-400 hover:text-red-500 transition-colors p-1"
                                       title="Excluir Tópico"
                                     >
                                       <Trash2 size={14} />
@@ -426,16 +426,16 @@ const Topics = () => {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500 my-8 w-full">
-                    <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
-                      <Search size={32} className="text-slate-400" />
+                    <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mb-6">
+                      <Search size={32} className="text-content-muted" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Nenhum resultado encontrado</h3>
-                    <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto text-center">
+                    <h3 className="text-lg font-bold text-foreground mb-2">Nenhum resultado encontrado</h3>
+                    <p className="text-content-muted max-w-sm mx-auto text-center">
                       Não encontramos tópicos que correspondam aos seus filtros atuais.
                     </p>
                     <button
                       onClick={() => { setSearchQuery(''); setStatusFilter('Todos'); setDifficultyFilter(0); }}
-                      className="px-5 py-2 mt-6 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
+                      className="px-5 py-2 mt-6 bg-secondary hover:bg-secondary/80 text-foreground font-medium rounded-xl border border-border transition-all"
                     >
                       Limpar Filtros
                     </button>

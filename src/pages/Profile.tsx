@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { errorService } from '@/lib/errors/errorService';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +130,11 @@ const DataRow = ({
   </div>
 );
 
+// ─── Interfaces de Formulário ──────────────────────────
+type ProfileFormValues = z.infer<typeof profileSchema>;
+type AcademicFormValues = z.infer<typeof academicSchema>;
+type ResetFormValues = z.infer<typeof resetPasswordSchema>;
+
 // ═══════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
@@ -168,11 +174,10 @@ const Profile = () => {
     defaultValues: { email: user?.email || '' },
   });
 
-  // ─── Populate forms ───────────────────────────────────
   useEffect(() => {
     if (profile) {
       profileForm.reset({ name: profile.name || '', phone: profile.phone || '' });
-      const prefs = (profile.preferences as Record<string, any>) || {};
+      const prefs = (profile.preferences as Record<string, unknown>) || {};
       const academic = prefs.academic as AcademicInfo | undefined;
       if (academic) {
         academicForm.reset({
@@ -184,7 +189,7 @@ const Profile = () => {
         });
       }
     }
-  }, [profile]);
+  }, [profile, profileForm, academicForm]);
 
   useEffect(() => {
     if (profile?.avatar_url) setAvatarPreview(profile.avatar_url);
@@ -192,38 +197,38 @@ const Profile = () => {
   }, [profile, user]);
 
   // ─── Handlers ─────────────────────────────────────────
-  const handleSaveProfile = async (values: any) => {
+  const handleSaveProfile = async (values: ProfileFormValues) => {
     if (!user) return;
     setIsSaving(true);
     try {
       await updateProfile({ name: values.name, phone: values.phone });
       toast.success('Perfil atualizado!');
       setIsEditingProfile(false);
-    } catch (error: any) {
-      toast.error('Erro ao salvar: ' + error.message);
+    } catch (error: unknown) {
+      errorService.report(error as Error, { module: 'profile', action: 'save-profile', userMessage: 'Erro ao salvar perfil.' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSaveAcademic = async (values: any) => {
+  const handleSaveAcademic = async (values: AcademicFormValues) => {
     if (!user) return;
     setIsSavingAcademic(true);
     try {
-      const currentPrefs = (profile?.preferences as Record<string, any>) || {};
+      const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
       await updateProfile({ preferences: { ...currentPrefs, academic: values } });
       toast.success('Informações acadêmicas salvas!');
       setIsEditingAcademic(false);
-    } catch (error: any) {
-      toast.error('Erro ao salvar: ' + error.message);
+    } catch (error: unknown) {
+      errorService.report(error as Error, { module: 'profile', action: 'save-academic', userMessage: 'Erro ao salvar informações acadêmicas.' });
     } finally {
       setIsSavingAcademic(false);
     }
   };
 
-  const handleResetPassword = async (values: any) => {
+  const handleResetPassword = async (values: ResetFormValues) => {
     if (values.email !== user?.email) {
-      toast.error('O email deve ser o mesmo da sua conta atual');
+      errorService.report(new Error('Email divergente'), { module: 'profile', action: 'reset-password', userMessage: 'O email deve ser o mesmo da sua conta atual.' });
       return;
     }
     try {
@@ -232,8 +237,8 @@ const Profile = () => {
       setIsResetDialogOpen(false);
       resetForm.reset();
       toast.success('Email enviado! Verifique sua caixa de entrada.');
-    } catch (error: any) {
-      toast.error('Erro ao enviar email: ' + error.message);
+    } catch (error: unknown) {
+      errorService.report(error as Error, { module: 'profile', action: 'reset-password', userMessage: 'Erro ao enviar email de redefinição.' });
     } finally {
       setIsSaving(false);
     }
@@ -242,8 +247,14 @@ const Profile = () => {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    if (file.size > 2 * 1024 * 1024) { toast.error('Máximo 2MB'); return; }
-    if (!file.type.startsWith('image/')) { toast.error('Selecione uma imagem'); return; }
+    if (file.size > 2 * 1024 * 1024) { 
+      errorService.report(new Error('File too large'), { module: 'profile', action: 'avatar-upload', userMessage: 'Máximo 2MB' });
+      return; 
+    }
+    if (!file.type.startsWith('image/')) { 
+      errorService.report(new Error('Invalid file type'), { module: 'profile', action: 'avatar-upload', userMessage: 'Selecione uma imagem' });
+      return; 
+    }
 
     setIsUploadingAvatar(true);
     try {
@@ -255,8 +266,8 @@ const Profile = () => {
       await updateProfile({ avatar_url: publicUrl });
       setAvatarPreview(publicUrl);
       toast.success('Foto atualizada!');
-    } catch (error: any) {
-      toast.error('Erro ao enviar foto.');
+    } catch (error: unknown) {
+      errorService.report(error as Error, { module: 'profile', action: 'avatar-upload', userMessage: 'Erro ao enviar foto.' });
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -279,7 +290,7 @@ const Profile = () => {
 
   if (!user) return <LoadingSpinner size="large" fullPage />;
 
-  const academic = ((profile?.preferences as Record<string, any>) || {}).academic as AcademicInfo | undefined;
+  const academic = ((profile?.preferences as Record<string, unknown>) || {}).academic as AcademicInfo | undefined;
 
   // ═══════════════════════════════════════════════════════
   // RENDER
@@ -380,20 +391,25 @@ const Profile = () => {
 
                   <DataRow
                     icon={Calendar}
+                    label="Ativado em"
+                    value={formatDate(subscriptionInfo.subscription_started_at || subscriptionInfo.trial_started_at || subscriptionInfo.created_at)}
+                  />
+                  <DataRow
+                    icon={Calendar}
                     label={subscriptionInfo.status === 'trial' ? 'Fim do teste' : 'Renovação'}
                     value={formatDate(subscriptionInfo.trial_ends_at || subscriptionInfo.subscription_ends_at)}
                   />
                   {subscriptionInfo.days_remaining !== null && (
                     <DataRow
                       icon={Clock}
-                      label="Dias restantes"
-                      value={`${subscriptionInfo.days_remaining} dias`}
+                      label="Tempo restante"
+                      value={subscriptionInfo.days_remaining === 0 ? 'Último dia' : `${subscriptionInfo.days_remaining} dias`}
                       valueColor={
-                        subscriptionInfo.days_remaining <= 7
+                        subscriptionInfo.days_remaining <= 3
                           ? 'text-red-500'
-                          : subscriptionInfo.days_remaining <= 30
+                          : subscriptionInfo.days_remaining <= 7
                             ? 'text-amber-500'
-                            : 'text-emerald-500'
+                            : 'text-emerald-500 font-bold'
                       }
                     />
                   )}
@@ -681,7 +697,7 @@ const Profile = () => {
                         className="text-xs py-1.5 px-3"
                         onClick={() => {
                           setIsEditingAcademic(false);
-                          const prefs = (profile?.preferences as Record<string, any>) || {};
+                          const prefs = (profile?.preferences as Record<string, unknown>) || {};
                           const ac = prefs.academic as AcademicInfo | undefined;
                           academicForm.reset({
                             targetExam: ac?.targetExam || '',

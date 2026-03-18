@@ -142,7 +142,7 @@ export const WeeklyEngagementChart: React.FC<WeeklyEngagementChartProps> = ({
 
     return (
         <>
-            <Card className="glass-card border-0 shadow-sm h-full overflow-hidden">
+            <Card className="glow-card group relative overflow-hidden bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 hover:border-border-strong dark:hover:border-white/10 transition-all duration-300 rounded-3xl h-full shadow-sm">
                 <CardContent className="p-5 h-full flex flex-col">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-4 shrink-0">

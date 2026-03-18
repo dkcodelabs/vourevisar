@@ -159,6 +159,7 @@ export const loadUserCycle = async (userId: string) => {
     .from('user_cycles')
     .select('*')
     .eq('user_id', userId)
+    .eq('status', 'active')
     .limit(1);
 
   if (error) {

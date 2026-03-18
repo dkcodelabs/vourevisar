@@ -3,7 +3,19 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { errorService } from '@/lib/errors/errorService';
 import { Loader2, RefreshCw, Trophy, Sparkles } from 'lucide-react';
+import { useCycleState } from '@/hooks/useCycleState';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface AllStudiesCompletedBannerProps {
   onResetComplete?: () => void;
@@ -13,34 +25,55 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
   onResetComplete 
 }) => {
   const { user } = useAuth();
+  const { resetCycle } = useCycleState();
   const [isResetting, setIsResetting] = useState(false);
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [nextCycleName, setNextCycleName] = useState('');
 
   const handleResetReviews = async () => {
     if (!user) {
-      toast.error("Usuário não autenticado.");
+      errorService.report(new Error("Usuário não autenticado"), { 
+        module: 'StudyCycle', 
+        action: 'resetReviews', 
+        userMessage: 'Usuário não autenticado.' 
+      });
       return;
     }
 
-    if (!window.confirm("Tem certeza que deseja resetar as revisões? As matérias e tópicos serão mantidos, mas todo o progresso será zerado.")) {
+    setShowNameDialog(true);
+  };
+
+  const confirmReset = async () => {
+    if (!nextCycleName.trim()) {
+      errorService.report(new Error("Nome do ciclo vazio"), { 
+        module: 'StudyCycle', 
+        action: 'confirmReset', 
+        userMessage: 'Por favor, informe um nome para o novo ciclo.' 
+      });
       return;
     }
 
     setIsResetting(true);
+    setShowNameDialog(false);
+    
     try {
-      console.log('🔄 Iniciando reset das revisões para usuário:', user.id);
+      console.log('🔄 Iniciando arquivamento e reset das revisões para usuário:', user?.id);
       
-      // 1. Buscar todas as matérias do usuário
-      const { data: subjectsData, error: subjectsError } = await supabase
+      // 1. Arquivar e Criar Novo Ciclo
+      await resetCycle(nextCycleName);
+      console.log('✅ Ciclo arquivado e novo criado');
+
+      // 2. Buscar todas as matérias do usuário para resetar status
+      const { data: subjectsData, error: subjectsError } = await (supabase as any)
         .from('subjects')
         .select('id')
-        .eq('user_id', user.id);
-      if (subjectsError) throw subjectsError;
-      const subjectIds = (subjectsData || []).map(s => s.id);
-      console.log('🔄 Matérias encontradas:', subjectIds.length);
+        .eq('user_id', user?.id || '');
       
-      // 2. Resetar TODOS os campos de revisão dos tópicos
+      if (subjectsError) throw subjectsError;
+      const subjectIds = (subjectsData || []).map((s: any) => s.id);
+      
       if (subjectIds.length > 0) {
-        const { error: topicsError } = await supabase
+        const { error: topicsError } = await (supabase as any)
           .from('topics')
           .update({
             review_stage: null,
@@ -53,71 +86,27 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
           .in('subject_id', subjectIds);
         
         if (topicsError) throw topicsError;
-        console.log('✅ Tópicos resetados');
+        
+        const { error: subjectsUpdateError } = await (supabase as any)
+          .from('subjects')
+          .update({ 
+            status: 'Nova',
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user?.id || '');
+        
+        if (subjectsUpdateError) throw subjectsUpdateError;
       }
       
-      // 3. Resetar status das matérias
-      const { error: subjectsUpdateError } = await supabase
-        .from('subjects')
-        .update({ 
-          status: 'Nova',
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-      
-      if (subjectsUpdateError) throw subjectsUpdateError;
-      console.log('✅ Status das matérias resetado');
-      
-      // 4. Resetar COMPLETAMENTE o ciclo do usuário E o progresso diário
-      const { error: cycleError } = await supabase
-        .from('user_cycles')
-        .update({
-          ciclo_atual: [],
-          disciplinas_do_dia: [],
-          materias_estudadas_ciclo: [],
-          ciclos_realizados: 0,
-          data_inicio_ciclo: null,
-          data_fim_ciclo: null,
-          // CORREÇÃO: Resetar também o progresso diário
-          materias_estudadas_hoje: [],
-          data_ultimo_reset: new Date().toISOString().split('T')[0],
-          atualizado_em: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-      
-      if (cycleError) throw cycleError;
-      console.log('✅ Ciclo resetado completamente');
-      
-      // 5. Deletar sessões de estudo
-      const { error: sessionsError } = await supabase
-        .from('study_sessions')
-        .delete()
-        .eq('user_id', user.id);
-      
-      if (sessionsError) {
-        console.warn('⚠️ Erro ao deletar sessões (não crítico):', sessionsError);
-      } else {
-        console.log('✅ Sessões de estudo deletadas');
-      }
-      
-      // 6. Limpar estado global do frontend
-      console.log('🔄 Limpando estado global...');
-      const { updateStudiedSubjects, resetCycle } = await import('@/utils/cycleState');
-      updateStudiedSubjects([]);
-      resetCycle(0);
-      
-      // 7. Disparar eventos para atualizar componentes
-      console.log('🔄 Disparando eventos de atualização...');
       window.dispatchEvent(new CustomEvent('cycleUpdated', {
         detail: { 
           isReset: true,
-          isNewCycle: true, // Importante: marcar como novo ciclo
+          isNewCycle: true,
           reason: 'reviewsCleared',
           timestamp: Date.now()
         }
       }));
 
-      // CORREÇÃO: Disparar evento específico para reset do progresso diário
       window.dispatchEvent(new CustomEvent('dailyProgressUpdated', {
         detail: { 
           isReset: true,
@@ -130,86 +119,116 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
         detail: { reason: 'reviewsCleared', timestamp: Date.now() }
       }));
       
-      console.log('✅ Reset das revisões concluído com sucesso');
-      toast.success("Revisões resetadas com sucesso! Você pode começar um novo ciclo de estudos.");
+      toast.success("Novo ciclo iniciado com sucesso! O histórico do ciclo anterior foi preservado.");
       
-      // Callback para o componente pai
       if (onResetComplete) {
         onResetComplete();
       }
       
-      // Aguardar um pouco para garantir que os eventos foram processados
-      setTimeout(() => {
-        console.log('✅ Reset concluído - eventos disparados para atualização dos componentes');
-      }, 500);
-      
     } catch (err: any) {
-      console.error('❌ Erro ao resetar revisões:', err);
-      toast.error(`Erro ao resetar revisões: ${err.message || 'Erro desconhecido'}`);
+      console.error('❌ Erro ao iniciar novo ciclo:', err);
+      errorService.report(err, { 
+        module: 'StudyCycle', 
+        action: 'confirmReset', 
+        userMessage: 'Erro ao iniciar novo ciclo.' 
+      });
     } finally {
       setIsResetting(false);
     }
   };
 
   return (
-    <div className="mb-6 p-6 bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-xl shadow-lg">
-      <div className="flex items-start gap-4">
-        <div className="flex-shrink-0">
-          <div className="relative">
-            <Trophy className="h-12 w-12 text-emerald-600" />
-            <Sparkles className="h-6 w-6 text-yellow-500 absolute -top-1 -right-1 animate-pulse" />
-          </div>
-        </div>
-        
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-2xl font-bold text-emerald-700">
-              🎉 Parabéns! Estudos Concluídos!
-            </h3>
+    <>
+      <div className="mb-6 p-6 bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-xl shadow-lg">
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0">
+            <div className="relative">
+              <Trophy className="h-12 w-12 text-emerald-600" />
+              <Sparkles className="h-6 w-6 text-yellow-500 absolute -top-1 -right-1 animate-pulse" />
+            </div>
           </div>
           
-          <p className="text-emerald-600 mb-4 text-base leading-relaxed">
-            Você completou todas as revisões de todas as suas matérias! 
-            Excelente trabalho! Seus estudos estão 100% concluídos.
-          </p>
-          
-          <div className="bg-white/60 rounded-lg p-4 mb-4">
-            <p className="text-sm text-emerald-700 mb-3">
-              <strong>O que fazer agora?</strong>
-            </p>
-            <ul className="text-sm text-emerald-600 space-y-1 ml-4">
-              <li>• Você pode descansar e comemorar sua conquista!</li>
-              <li>• Ou resetar as revisões para começar um novo ciclo de estudos</li>
-              <li>• Adicionar novas matérias e tópicos para continuar estudando</li>
-            </ul>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={handleResetReviews}
-              disabled={isResetting}
-              variant="outline"
-              className="border-emerald-500 text-emerald-700 hover:bg-emerald-50"
-            >
-              {isResetting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Resetando...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Resetar Revisões
-                </>
-              )}
-            </Button>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-2xl font-bold text-emerald-700">
+                🎉 Parabéns! Estudos Concluídos!
+              </h3>
+            </div>
             
-            <span className="text-xs text-emerald-600">
-              Manterá suas matérias e tópicos, mas zerará o progresso
-            </span>
+            <p className="text-emerald-600 mb-4 text-base leading-relaxed">
+              Você completou todas as revisões de todas as suas matérias! 
+              Excelente trabalho! Seus estudos estão 100% concluídos.
+            </p>
+            
+            <div className="bg-white/60 rounded-lg p-4 mb-4">
+              <p className="text-sm text-emerald-700 mb-3">
+                <strong>O que fazer agora?</strong>
+              </p>
+              <ul className="text-sm text-emerald-600 space-y-1 ml-4">
+                <li>• Você pode descansar e comemorar sua conquista!</li>
+                <li>• Ou resetar as revisões para começar um novo ciclo de estudos (preservando o histórico)</li>
+                <li>• Adicionar novas matérias e tópicos para continuar estudando</li>
+              </ul>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleResetReviews}
+                disabled={isResetting}
+                variant="outline"
+                className="border-emerald-500 text-emerald-700 hover:bg-emerald-50"
+              >
+                {isResetting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Iniciando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Próximo Ciclo (Reset)
+                  </>
+                )}
+              </Button>
+              
+              <span className="text-xs text-emerald-600">
+                Inicia um novo ciclo e arquiva os dados atuais
+              </span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Iniciar Novo Ciclo</DialogTitle>
+            <DialogDescription>
+              Dê um nome para o seu novo ciclo de estudos. O ciclo atual será arquivado com todo o seu progresso preservado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Nome
+              </Label>
+              <Input
+                id="name"
+                value={nextCycleName}
+                onChange={(e) => setNextCycleName(e.target.value)}
+                placeholder="Ex: PMES - Soldado"
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNameDialog(false)}>Cancelar</Button>
+            <Button onClick={confirmReset} disabled={isResetting}>
+              Começar Novo Ciclo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

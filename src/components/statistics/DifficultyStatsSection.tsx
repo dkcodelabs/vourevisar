@@ -95,7 +95,7 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Star className="h-6 w-6 text-yellow-500" />
-        <h2 className="text-2xl font-bold text-gray-900">Análise de Dificuldade</h2>
+        <h2 className="text-2xl font-bold text-foreground">Análise de Dificuldade</h2>
       </div>
 
       {/* Cards principais */}
@@ -105,13 +105,13 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
+          <Card className="bg-amber-500/10 border-amber-200/50">
             <CardContent className="p-6 text-center">
               <Star className="h-8 w-8 mx-auto mb-3 text-yellow-500" />
-              <div className="text-3xl font-bold mb-1 text-yellow-700">
+              <div className="text-3xl font-bold mb-1 text-foreground">
                 {data.averageDifficulty.toFixed(1)}
               </div>
-              <p className="text-sm font-medium mb-1 text-yellow-800">Dificuldade Média</p>
+              <p className="text-sm font-medium mb-1 text-content-muted">Dificuldade Média</p>
               <p className="text-xs text-yellow-600">
                 {'⭐'.repeat(Math.round(data.averageDifficulty))}
               </p>
@@ -124,14 +124,14 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <Card className="bg-primary/10 border-primary/20">
             <CardContent className="p-6 text-center">
-              <Trophy className="h-8 w-8 mx-auto mb-3 text-blue-500" />
-              <div className="text-3xl font-bold mb-1 text-blue-700">
+              <Trophy className="h-8 w-8 mx-auto mb-3 text-primary" />
+              <div className="text-3xl font-bold mb-1 text-foreground">
                 {data.completedPoints}
               </div>
-              <p className="text-sm font-medium mb-1 text-blue-800">Pontos Conquistados</p>
-              <p className="text-xs text-blue-600">
+              <p className="text-sm font-medium mb-1 text-content-muted">Pontos Conquistados</p>
+              <p className="text-xs text-primary/80">
                 de {data.totalPoints} possíveis
               </p>
             </CardContent>
@@ -143,14 +143,14 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+          <Card className="bg-emerald-500/10 border-emerald-500/20">
             <CardContent className="p-6 text-center">
-              <Target className="h-8 w-8 mx-auto mb-3 text-green-500" />
-              <div className="text-3xl font-bold mb-1 text-green-700">
+              <Target className="h-8 w-8 mx-auto mb-3 text-emerald-500" />
+              <div className="text-3xl font-bold mb-1 text-foreground">
                 {data.ratingProgress}%
               </div>
-              <p className="text-sm font-medium mb-1 text-green-800">Tópicos Avaliados</p>
-              <p className="text-xs text-green-600">
+              <p className="text-sm font-medium mb-1 text-content-muted">Tópicos Avaliados</p>
+              <p className="text-xs text-emerald-600">
                 {data.ratedTopics} de {data.totalTopics}
               </p>
             </CardContent>
@@ -162,13 +162,13 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+          <Card className="bg-purple-500/10 border-purple-500/20">
             <CardContent className="p-6 text-center">
               <Zap className="h-8 w-8 mx-auto mb-3 text-purple-500" />
-              <div className="text-3xl font-bold mb-1 text-purple-700">
+              <div className="text-3xl font-bold mb-1 text-foreground">
                 {formatTime(data.completedTime)}
               </div>
-              <p className="text-sm font-medium mb-1 text-purple-800">Tempo Estudado</p>
+              <p className="text-sm font-medium mb-1 text-content-muted">Tempo Estudado</p>
               <p className="text-xs text-purple-600">
                 de {formatTime(data.estimatedTime)} total
               </p>
@@ -181,13 +181,13 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
         >
-          <Card className="bg-gradient-to-r from-rose-50 to-red-50 border-rose-200">
+          <Card className="bg-rose-500/10 border-rose-500/20">
             <CardContent className="p-6 text-center">
               <Award className="h-8 w-8 mx-auto mb-3 text-rose-500" />
-              <div className="text-3xl font-bold mb-1 text-rose-700">
+              <div className="text-3xl font-bold mb-1 text-foreground">
                 {data.averageCompletedDifficulty > 0 ? data.averageCompletedDifficulty.toFixed(1) : '0.0'}
               </div>
-              <p className="text-sm font-medium mb-1 text-rose-800">Dificuldade Concluída</p>
+              <p className="text-sm font-medium mb-1 text-content-muted">Dificuldade Concluída</p>
               <p className="text-xs text-rose-600">
                 {data.averageCompletedDifficulty > 0 ? '⭐'.repeat(Math.round(data.averageCompletedDifficulty)) : 'Nenhuma'}
               </p>

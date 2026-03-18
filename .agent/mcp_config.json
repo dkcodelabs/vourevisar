@@ -15,10 +15,15 @@
                 "shadcn@latest",
                 "mcp"
             ]
+        },
+        "asaas": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "mcp-stdio-proxy",
+                "https://docs.asaas.com/mcp"
+            ]
         }
         //other mcp servers
     }
 }
-
-// setup mcp server in  ~/.gemini\antigravity\mcp_config.json
-

@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Plus, X, Trash2, Check, BookOpen, GraduationCap,
     ChevronDown, ChevronUp, ChevronsUpDown, FileText, Circle, CheckCircle2, Loader2, AlertTriangle, EyeOff, Eye,
-    Database, Save
+    Database, Save, Cloud, CloudOff
 } from 'lucide-react';
 import { Subject, Topic } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,6 +92,7 @@ export const EditalSubjectsModal = ({
     const [notesModal, setNotesModal] = useState<{ isOpen: boolean; subjectId: string; subjectName: string }>({
         isOpen: false, subjectId: '', subjectName: ''
     });
+    const [syncStatus, setSyncStatus] = useState<'saved' | 'saving' | 'error'>('saved');
 
     // ── Fechar modal + sync ───────────────────────────────────────────────
     const handleClose = useCallback(() => {
@@ -146,8 +147,9 @@ export const EditalSubjectsModal = ({
         } as unknown as Subject;
 
         setLocalSubjects(prev => [...prev, placeholder]);
-        setExpandedIds([placeholderId]);
+        setExpandedIds(prev => [...prev, placeholderId]);
         setNewSubjectName('');
+        setSyncStatus('saving');
 
         try {
             const { data: newSubj, error: subjErr } = await supabase
@@ -164,10 +166,12 @@ export const EditalSubjectsModal = ({
             setLocalEditalIds(updatedIds);
             onUpdate({ ...edital, subjectIds: updatedIds });
             hasPendingSync.current = true;
+            setSyncStatus('saved');
             toast.success(`Matéria "${name}" criada!`);
         } catch (err) {
             setLocalSubjects(prev => prev.filter(s => s.id !== placeholderId));
             setExpandedIds(prev => prev.filter(id => id !== placeholderId));
+            setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'saveSubject', userMessage: 'Erro ao criar matéria.' });
         } finally {
             setIsSavingSubject(false);
@@ -260,6 +264,7 @@ export const EditalSubjectsModal = ({
         ));
         setNewTopicTexts(prev => ({ ...prev, [subjectId]: '' }));
         setSavingTopics(prev => ({ ...prev, [subjectId]: true }));
+        setSyncStatus('saving');
 
         try {
             const { data: newTopic, error } = await supabase.from('topics').insert({
@@ -273,10 +278,12 @@ export const EditalSubjectsModal = ({
                     : s
             ));
             hasPendingSync.current = true;
+            setSyncStatus('saved');
         } catch (err) {
             setLocalSubjects(prev => prev.map(s =>
                 s.id === subjectId ? { ...s, topics: s.topics.filter(t => t.id !== placeholderTopic.id) } : s
             ));
+            setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'saveTopic', userMessage: 'Erro ao adicionar tópico.' });
         } finally {
             setSavingTopics(prev => ({ ...prev, [subjectId]: false }));
@@ -292,11 +299,14 @@ export const EditalSubjectsModal = ({
         })));
         setEditingTopicId(null);
         setEditingTopicName('');
+        setSyncStatus('saving');
         try {
             const { error } = await supabase.from('topics').update({ name: newName }).eq('id', editingTopicId);
             if (error) throw error;
             hasPendingSync.current = true;
+            setSyncStatus('saved');
         } catch (err) {
+            setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'editTopic', userMessage: 'Erro ao renomear.' });
         }
     }, [editingTopicId, editingTopicName]);
@@ -346,16 +356,41 @@ export const EditalSubjectsModal = ({
                             </div>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-sm font-bold text-zinc-100 tracking-tight truncate">{edital.name}</h2>
+                                    <h2 className="text-sm font-bold text-zinc-100 tracking-tight truncate">
+                                        {edital.name} {edital.year && <span className="text-zinc-500 font-medium whitespace-nowrap">| {edital.year}</span>}
+                                    </h2>
                                     {edital.isImported && (
                                         <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
                                             <Database size={8} className="text-sky-400" />
                                             <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">SISTEMA</span>
                                         </div>
                                     )}
+                                    
+                                    {/* Status de Sincronização */}
+                                    <div className="flex items-center gap-1.5 ml-1 shrink-0">
+                                        <div className="w-px h-3 bg-white/10 mx-1" />
+                                        {syncStatus === 'saving' && (
+                                            <div className="flex items-center gap-1.5">
+                                                <Loader2 size={10} className="animate-spin text-primary" />
+                                                <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest">Salvando...</span>
+                                            </div>
+                                        )}
+                                        {syncStatus === 'saved' && (
+                                            <div className="flex items-center gap-1.5">
+                                                <CheckCircle2 size={10} className="text-emerald-500" />
+                                                <span className="text-[9px] font-bold text-emerald-500/70 uppercase tracking-widest">Sincronizado</span>
+                                            </div>
+                                        )}
+                                        {syncStatus === 'error' && (
+                                            <div className="flex items-center gap-1.5">
+                                                <AlertTriangle size={10} className="text-red-500" />
+                                                <span className="text-[9px] font-bold text-red-500/70 uppercase tracking-widest">Erro ao salvar</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <p className="text-[11px] text-content-muted mt-0.5">
-                                    {localSubjects.length} matéria{localSubjects.length !== 1 ? 's' : ''} • {completedTopics}/{totalTopics} tópicos
+                                    {localSubjects.length} {localSubjects.length === 1 ? 'matéria' : 'matérias'} e {totalTopics} {totalTopics === 1 ? 'tópico' : 'tópicos'}
                                 </p>
                             </div>
                         </div>

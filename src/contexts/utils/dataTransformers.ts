@@ -11,6 +11,7 @@ export const transformSubjectsData = (data: any[]): Subject[] => {
     status: subject.status,
     priority: subject.priority,
     color: subject.color,
+    is_visible: subject.is_visible !== false, // default true
     edital_id: subject.edital_id,
     origin_id: subject.origin_id,
     topics: subject.topics ? subject.topics.map((topic: any) => transformTopicData(topic)) : []

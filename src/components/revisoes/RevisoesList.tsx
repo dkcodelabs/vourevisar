@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 const DifficultyStars = ({ rating }: { rating: number }) => {
     return (
-        <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-200">
+        <div className="flex items-center gap-1.5 font-bold text-foreground">
             <span className="text-sm">{rating}</span>
             <Star
                 size={14}
@@ -82,8 +82,8 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
             case RevisionStatus.TODAY: return { title: 'Hoje', color: 'border-orange-500', text: 'text-orange-600' };
             case RevisionStatus.FUTURE: return { title: 'Futuras', color: 'border-blue-500', text: 'text-blue-600' };
             case RevisionStatus.COMPLETED: return { title: 'Concluídas (Antigas)', color: 'border-emerald-500', text: 'text-emerald-600' };
-            case RevisionStatus.CONSOLIDATED: return { title: 'Já dominados', color: 'border-slate-300', text: 'text-slate-500' };
-            case RevisionStatus.UNSTARTED: return { title: 'Não Iniciados', color: 'border-slate-300', text: 'text-slate-500' };
+            case RevisionStatus.CONSOLIDATED: return { title: 'Já dominados', color: 'border-border', text: 'text-muted-foreground' };
+            case RevisionStatus.UNSTARTED: return { title: 'Não Iniciados', color: 'border-border', text: 'text-muted-foreground' };
             default: return { title: groupKey, color: 'border-purple-500', text: 'text-purple-600' };
         }
     };
@@ -102,12 +102,12 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
                                     <span className="text-4xl">📚</span>
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">
+                                <h3 className="text-xl font-bold text-foreground mb-3">
                                     {stats.totalSubjects === 0
                                         ? "Comece sua jornada de revisões!"
                                         : "Quase lá! Faltam os Tópicos"}
                                 </h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                                <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
                                     {stats.totalSubjects === 0 ? (
                                         "Cadastre matéria, tópico e inicie o estudo de um tópico na página Ciclo de Estudos."
                                     ) : (
@@ -127,9 +127,9 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
                                     <Sparkles size={32} className="text-indigo-600 dark:text-indigo-400" />
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Tudo pronto para começar!</h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-                                    Você tem matérias e tópicos cadastrados. Inicie o estudo na página Ciclo de Estudos.
+                                <h3 className="text-xl font-bold text-foreground mb-3">Nenhuma revisão iniciada</h3>
+                                <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
+                                    Ainda não foi iniciada nenhuma revisão deste ciclo. As revisões aparecerão automaticamente após você iniciar o estudo no Ciclo de Estudos e marcar como revisado.
                                 </p>
                                 <button
                                     onClick={() => navigate('/ciclo-estudos')}
@@ -144,15 +144,15 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50 dark:ring-emerald-900/10">
                                     <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400" />
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Parabéns! Tudo em dia!</h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                                <h3 className="text-lg font-bold text-foreground mb-2">Parabéns! Tudo em dia!</h3>
+                                <p className="text-content-muted max-w-md mx-auto mb-6 leading-relaxed">
                                     Você zerou suas revisões de hoje e atrasadas. <br /> Seu foco e disciplina estão rendendo frutos.
                                 </p>
 
                                 {/* Frase Motivacional - Responsiva */}
-                                <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100 dark:border-emerald-800/30 px-5 py-3 rounded-2xl mb-8 shadow-sm">
+                                <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-success/20 px-5 py-3 rounded-2xl mb-8 shadow-sm">
                                     <span className="text-xl flex-shrink-0">✅</span>
-                                    <p className="text-sm md:text-base text-slate-700 dark:text-slate-300 font-medium whitespace-normal md:whitespace-nowrap">
+                                    <p className="text-sm md:text-base text-foreground font-medium whitespace-normal md:whitespace-nowrap">
                                         Cada revisão concluída é uma etapa mais perto da sua conquista.
                                     </p>
                                 </div>
@@ -189,8 +189,8 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                         <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-blue-50 dark:ring-blue-900/10">
                             <CalendarOff size={32} className="text-blue-600 dark:text-blue-400" />
                         </div>
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Sem revisões futuras</h3>
-                        <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                        <h3 className="text-lg font-bold text-foreground mb-2">Sem revisões futuras</h3>
+                        <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
                             {stats.startedTopicsCount === 0
                                 ? "Você ainda não tem tópicos em estudo ativo. Inicie um tópico no Ciclo de Estudos para que suas futuras revisões comecem a ser agendadas."
                                 : "Não há revisões agendadas para os próximos dias."}
@@ -223,14 +223,14 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                 {/* COMPLETED TAB EMPTY STATE */}
                 {activeTab === 'COMPLETED' && (
                     <>
-                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
-                            <CheckCircle2 size={32} className="text-slate-400" />
+                        <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mb-6">
+                            <CheckCircle2 size={32} className="text-muted-foreground" />
                         </div>
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Construindo sua jornada</h3>
-                        <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                        <h3 className="text-lg font-bold text-foreground mb-2">Construindo sua jornada</h3>
+                        <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
                             {stats.startedTopicsCount === 0
                                 ? "Inicie os estudos no Ciclo de Estudos. Suas matérias concluídas aparecerão aqui no futuro."
-                                : <>Você tem <span className="font-bold text-slate-700 dark:text-slate-300">{stats.startedTopicsCount} tópicos</span> em fase de estudos. <br /> Continue revisando com consistência para vê-los aqui em breve.</>}
+                                : <>Você tem <span className="font-bold text-foreground">{stats.startedTopicsCount} tópicos</span> em fase de estudos. <br /> Continue revisando com consistência para vê-los aqui em breve.</>}
                         </p>
                     </>
                 )}
@@ -243,8 +243,8 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-indigo-100 dark:from-slate-800 dark:to-indigo-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
                                     <span className="text-4xl">📋</span>
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">Central de Revisões</h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                                <h3 className="text-xl font-bold text-foreground mb-3">Central de Revisões</h3>
+                                <p className="text-content-muted max-w-md mx-auto mb-6 leading-relaxed">
                                     {stats.totalSubjects === 0 ? (
                                         "Cadastre matéria, tópico e inicie o estudo de um tópico na página Ciclo de Estudos."
                                     ) : (
@@ -280,13 +280,13 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50 dark:ring-emerald-900/10">
                                     <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400" />
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Nenhum tópico corresponde aos filtros</h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+                                <h3 className="text-lg font-bold text-foreground mb-2">Nenhum tópico corresponde aos filtros</h3>
+                                <p className="text-content-muted max-w-md mx-auto mb-6 leading-relaxed">
                                     Tente ajustar a pesquisa ou os filtros de ciclo para visualizar seus tópicos.
                                 </p>
                                 <button
                                     onClick={() => { setSearchTerm(''); setReviewStageFilter('all'); }}
-                                    className="px-5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
+                                    className="px-5 py-2 bg-secondary hover:bg-accent text-foreground font-medium rounded-xl border border-border transition-all"
                                 >
                                     Limpar Filtros
                                 </button>
@@ -321,21 +321,21 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                             onClick={() => {
                                 setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }));
                             }}
-                            className="w-full flex items-center justify-between px-8 py-5 bg-slate-50/50 dark:bg-white/[0.02] hover:bg-slate-100/50 dark:hover:bg-white/[0.05] transition-colors border-b border-slate-100 dark:border-white/[0.05]"
+                            className="w-full flex items-center justify-between px-8 py-5 bg-card/30 hover:bg-accent/30 transition-colors border-b border-border"
                         >
                             <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${activeTab === 'SUBJECTS' ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${activeTab === 'SUBJECTS' ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>
                                     <ChevronRight size={18} className={`transition-transform duration-300 ${isGroupExpanded ? 'rotate-90' : ''}`} />
                                 </div>
-                                <div className={`text-base font-bold ${activeTab === 'SUBJECTS' ? 'text-slate-800 dark:text-slate-200' : style.text}`}>
+                                <div className={`text-base font-bold ${activeTab === 'SUBJECTS' ? 'text-foreground' : style.text}`}>
                                     {groupTitle}
                                 </div>
-                                <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-full">
+                                <span className="px-2 py-0.5 bg-secondary text-content-muted text-[10px] font-black rounded-full">
                                     {groupItems.length} {groupItems.length === 1 ? 'item' : 'itens'}
                                 </span>
                             </div>
                             <div className="flex items-center gap-4">
-                                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium italic hidden sm:block">Clique para alternar visão</p>
+                                <p className="text-xs text-muted-foreground/60 font-medium italic hidden sm:block">Clique para alternar visão</p>
                             </div>
                         </button>
 
@@ -343,24 +343,24 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                         {isGroupExpanded && (
                             <div className="overflow-hidden transition-all duration-500 animate-in fade-in slide-in-from-top-2">
                                 {/* Desktop Header */}
-                                <div className="hidden lg:grid lg:grid-cols-[1.5fr,120px,120px,140px] gap-4 px-6 py-4 bg-slate-50/30 dark:bg-black/20 border-b border-slate-200 dark:border-white/[0.05]">
-                                    <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-2">Tópico & Disciplina</div>
-                                    <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Dificuldade</div>
-                                    <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Progresso</div>
-                                    <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Ações</div>
+                                <div className="hidden lg:grid lg:grid-cols-[1.5fr,120px,120px,140px] gap-4 px-6 py-4 bg-secondary/30 border-b border-border">
+                                    <div className="text-[11px] font-black text-muted-foreground uppercase tracking-widest pl-2">Tópico & Disciplina</div>
+                                    <div className="text-[11px] font-black text-muted-foreground uppercase tracking-widest text-center">Dificuldade</div>
+                                    <div className="text-[11px] font-black text-muted-foreground uppercase tracking-widest text-center">Progresso</div>
+                                    <div className="text-[11px] font-black text-muted-foreground uppercase tracking-widest text-center">Ações</div>
                                 </div>
 
                                 {/* List Items Grid */}
-                                <div className="divide-y divide-slate-100 dark:divide-white/[0.05]">
+                                <div className="divide-y divide-border">
                                     {groupItems.map(item => {
                                         const isActive = activeTimer?.topicId === item.id;
                                         return (
                                             <div
                                                 id={`topic-${item.id}`}
                                                 key={item.id}
-                                                className={`group transition-all duration-300 ${isActive ? 'bg-indigo-50/50 dark:bg-indigo-500/10' :
+                                                className={`group transition-all duration-300 ${isActive ? 'bg-primary/5' :
                                                     highlightedTopicId === item.id ? 'highlight-blink z-10' :
-                                                        'hover:bg-slate-50/80 dark:hover:bg-white/[0.03]'} min-w-0`}
+                                                        'hover:bg-accent/30'} min-w-0`}
                                             >
                                                 {/* Mobile: Stacked / Desktop: Grid */}
                                                 <div className="grid grid-cols-1 lg:grid-cols-[1.5fr,120px,120px,140px] gap-4 p-4 md:px-6 md:py-5 items-center">
@@ -368,30 +368,30 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                     {/* 1. Tópico */}
                                                     <div className="pl-2 min-w-0 w-full">
                                                         <div className="flex items-start gap-3">
-                                                            <div className={`w-1.5 h-10 rounded-full shrink-0 transition-all ${isActive ? 'bg-indigo-500 dark:bg-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)] dark:shadow-[0_0_15px_rgba(129,140,248,0.6)] scale-y-110' :
-                                                                item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-500 dark:bg-rose-500' :
-                                                                    item.status === 'FUTURE' ? 'bg-indigo-500 dark:bg-indigo-500' :
-                                                                        'bg-emerald-500 dark:bg-emerald-500'
+                                                            <div className={`w-1.5 h-10 rounded-full shrink-0 transition-all ${isActive ? 'bg-primary shadow-[0_0_10px_rgba(0,191,255,0.5)] scale-y-110' :
+                                                                item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-500' :
+                                                                    item.status === 'FUTURE' ? 'bg-primary' :
+                                                                        'bg-success'
                                                                 }`} />
                                                             <div className="min-w-0 flex-1">
-                                                                <p className={`text-sm font-bold break-words line-clamp-2 ${isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                                                                <p className={`text-sm font-bold break-words line-clamp-2 ${isActive ? 'text-primary' : 'text-foreground'}`}>
                                                                     {item.topic}
-                                                                    {isActive && <span className="ml-2 inline-block text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-500/30 dark:text-indigo-300 dark:border dark:border-indigo-500/40 px-1.5 py-0.5 rounded-full animate-pulse">Em andamento</span>}
+                                                                    {isActive && <span className="ml-2 inline-block text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full animate-pulse">Em andamento</span>}
                                                                 </p>
-                                                                {item.subject && <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-bold uppercase truncate">{item.subject}</p>}
+                                                                {item.subject && <p className="text-xs text-content-muted mt-1 font-bold uppercase truncate">{item.subject}</p>}
                                                             </div>
                                                         </div>
                                                     </div>
 
                                                     {/* 2. Dificuldade (Mobile: row) */}
                                                     <div className="flex items-center justify-between lg:justify-center pl-4 lg:pl-0">
-                                                        <span className="lg:hidden text-xs text-slate-400 font-medium">Dificuldade:</span>
+                                                        <span className="lg:hidden text-xs text-muted-foreground font-medium">Dificuldade:</span>
                                                         <DifficultyStars rating={item.difficulty || 0} />
                                                     </div>
 
                                                     {/* 3. Progresso (Mobile: row) */}
                                                     <div className="flex items-center justify-between lg:justify-center pl-4 lg:pl-0">
-                                                        <span className="lg:hidden text-xs text-slate-400 font-medium">Status:</span>
+                                                        <span className="lg:hidden text-xs text-muted-foreground font-medium">Status:</span>
                                                         <div className="flex flex-col gap-1.5 w-24">
                                                             <div className="flex items-center gap-2">
                                                                 {(item.status === 'OVERDUE') && (
@@ -399,14 +399,14 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                 )}
                                                                 {item.learningStatus ? (
                                                                     <span
-                                                                        className="text-slate-500 dark:text-slate-400 text-[10px] font-semibold border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded cursor-help w-full text-center tracking-wide shadow-sm bg-slate-50 dark:bg-slate-800/50"
+                                                                        className="text-content-muted text-[10px] font-semibold border border-border px-2 py-0.5 rounded cursor-help w-full text-center tracking-wide shadow-sm bg-secondary"
                                                                         title={`Representa a retenção estimada com base na estabilidade da memória (Curva do Esquecimento + revisões): ${item.memoryStability?.toFixed(1) || 0}`}
                                                                     >
                                                                         {item.learningStatus}
                                                                     </span>
                                                                 ) : (
                                                                     <span
-                                                                        className="text-slate-500 dark:text-slate-400 text-[10px] font-semibold border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded cursor-help w-full text-center tracking-wide"
+                                                                        className="text-content-muted text-[10px] font-semibold border border-border px-2 py-0.5 rounded cursor-help w-full text-center tracking-wide"
                                                                     >
                                                                         Novo
                                                                     </span>
@@ -417,10 +417,10 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                     </div>
 
                                                     {/* 4. Ações */}
-                                                    <div className="flex justify-end lg:justify-center pr-2 lg:pr-0 pt-2 lg:pt-0 border-t lg:border-0 border-slate-100 dark:border-slate-800 mt-2 lg:mt-0">
+                                                    <div className="flex justify-end lg:justify-center pr-2 lg:pr-0 pt-2 lg:pt-0 border-t lg:border-0 border-border mt-2 lg:mt-0">
                                                         <div className="flex items-center gap-2 w-full justify-between lg:justify-center">
                                                             {/* Mobile Label */}
-                                                            <span className="lg:hidden text-xs text-slate-400 font-medium">Ações:</span>
+                                                            <span className="lg:hidden text-xs text-muted-foreground font-medium">Ações:</span>
 
                                                             <div className="flex gap-2">
                                                                 {/* Botão IA */}

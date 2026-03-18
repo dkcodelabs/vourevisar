@@ -2,11 +2,26 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
+import { CheckoutModal } from '@/components/CheckoutModal';
+import { PricingSection } from '@/components/PricingSection';
 
 const LandingPage = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = React.useState(false);
+  const [selectedPlan, setSelectedPlan] = React.useState<'monthly' | 'annual'>('annual');
+
+  const handlePlanClick = (plan: 'monthly' | 'annual', e?: React.MouseEvent) => {
+    e?.preventDefault();
+    if (user) {
+      setSelectedPlan(plan);
+      setIsCheckoutOpen(true);
+    } else {
+      navigate('/login?redirect=subscriptions');
+    }
+  };
+
   // Handle direct recovery links that might hit the root path instead of /reset-password
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -283,80 +298,7 @@ const LandingPage = () => {
       </section>
 
       {/* PRICING */}
-      <section id="precos" className="py-24 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-slate-900">Investimento Acessível</h2>
-            <p className="text-slate-500 mt-4 max-w-2xl mx-auto">Menos que um café por mês para garantir sua aprovação.</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Monthly Plan */}
-            <div className="p-8 rounded-3xl bg-white border border-slate-200 hover:border-brand-blue/30 transition-all shadow-sm hover:shadow-md">
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">Mensal</h3>
-              <div className="flex items-baseline gap-1 mb-6">
-                <span className="text-4xl font-bold text-slate-900">R$ 9,90</span>
-                <span className="text-slate-500">/mês</span>
-              </div>
-              <p className="text-slate-600 mb-8">Para quem quer flexibilidade total.</p>
-              <ul className="space-y-4 mb-8">
-                {[
-                  "Acesso completo a todas as funções",
-                  "Sem fidelidade, cancele quando quiser",
-                  "Suporte prioritário",
-                  "7 dias de teste grátis"
-                ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-brand-green flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm text-slate-600">{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link to="/login" className="block w-full">
-                <button className="w-full h-12 rounded-xl border-2 border-slate-200 text-slate-700 font-bold hover:border-brand-blue hover:text-brand-blue transition">
-                  Escolher Mensal
-                </button>
-              </Link>
-            </div>
-
-            {/* Annual Plan */}
-            <div className="p-8 rounded-3xl bg-white border-2 border-brand-blue relative shadow-xl shadow-blue-900/5 transform md:-translate-y-4">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-brand-blue text-white text-sm font-bold rounded-full shadow-lg">
-                MAIS POPULAR
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">Anual</h3>
-              <div className="flex items-baseline gap-1 mb-6">
-                <span className="text-4xl font-bold text-slate-900">R$ 99,90</span>
-                <span className="text-slate-500">/ano</span>
-              </div>
-              <p className="text-slate-600 mb-8">Economize e garanta seu ano de estudos.</p>
-              <ul className="space-y-4 mb-8">
-                {[
-                  "Tudo do plano mensal",
-                  "2 meses grátis (economize 16%)",
-                  "Acesso antecipado a novidades",
-                  "Badge exclusivo de assinante",
-                  "7 dias de teste grátis"
-                ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-brand-green flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm font-medium text-slate-700">{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link to="/login" className="block w-full">
-                <button className="w-full h-12 rounded-xl bg-brand-blue hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/30 transition">
-                  Começar Teste Grátis
-                </button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      <PricingSection onPlanSelect={handlePlanClick} />
 
       {/* CTA FINAL */}
       <section className="py-20 bg-slate-900 text-white relative overflow-hidden">
@@ -391,6 +333,12 @@ const LandingPage = () => {
           <p className="text-slate-400 text-sm">© 2023 vouRevisar. Todos os direitos reservados.</p>
         </div>
       </footer>
+      {/* Checkout Modal */}
+      <CheckoutModal 
+        isOpen={isCheckoutOpen} 
+        onClose={() => setIsCheckoutOpen(false)} 
+        selectedPlan={selectedPlan} 
+      />
     </div>
   );
 };

@@ -25,9 +25,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { UserCheck, User, Crown, Shield, Users, Calendar, DollarSign, XCircle, ArrowLeft, RefreshCw, Smartphone, Search } from 'lucide-react';
+import { UserCheck, User, Crown, Shield, Users, Calendar, DollarSign, XCircle, ArrowLeft, RefreshCw, Smartphone, Search, CreditCard, ExternalLink } from 'lucide-react';
 import { useSubscriptionStats } from '@/hooks/useSubscriptionStats';
 import { useNavigate } from 'react-router-dom';
+import { asaasAdminService, AsaasSubscription, AsaasPayment } from '@/services/asaasAdminService';
 import { errorService } from '@/lib/errors/errorService';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -43,6 +44,8 @@ interface UserWithSubscription {
     days_remaining: number | null;
     subscription_ends_at: string | null;
     avatar_url?: string | null;
+    asaas_subscription_id?: string | null;
+    billing_type?: string | null;
 }
 
 const SubscriptionManagement = () => {
@@ -53,6 +56,11 @@ const SubscriptionManagement = () => {
     const [processingUserId, setProcessingUserId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const stats = useSubscriptionStats();
+    
+    // Asaas Integration State
+    const [selectedAsaasUser, setSelectedAsaasUser] = useState<UserWithSubscription | null>(null);
+    const [asaasDetails, setAsaasDetails] = useState<{ subscription: AsaasSubscription | null, payments: AsaasPayment[] } | null>(null);
+    const [loadingAsaas, setLoadingAsaas] = useState(false);
 
     // Fetch users and subscriptions
     const fetchUsers = async () => {
@@ -75,13 +83,20 @@ const SubscriptionManagement = () => {
 
             const { data: subscriptions, error: subscriptionsError } = await supabase
                 .from('user_subscriptions')
-                .select('user_id, plan, status, trial_ends_at, subscription_ends_at, trial_started_at, subscription_started_at');
+                .select('user_id, plan, status, trial_ends_at, subscription_ends_at, trial_started_at, subscription_started_at, asaas_subscription_id, billing_type');
 
             if (subscriptionsError) throw subscriptionsError;
 
             const processedUsers: UserWithSubscription[] = profiles.map(user => {
                 const userRole = roles?.find(r => r.user_id === user.id);
-                const subscription = subscriptions?.find(s => s.user_id === user.id);
+                const subscription = subscriptions?.find(s => s.user_id === user.id) as {
+                    plan?: 'free_trial' | 'monthly' | 'annual';
+                    status?: 'trial' | 'active' | 'expired' | 'canceled' | 'suspended';
+                    trial_ends_at?: string;
+                    subscription_ends_at?: string;
+                    asaas_subscription_id?: string;
+                    billing_type?: string;
+                } | undefined;
                 const role = userRole?.role || 'user';
 
                 let daysRemaining = null;
@@ -111,7 +126,9 @@ const SubscriptionManagement = () => {
                     is_active: isActive,
                     days_remaining: daysRemaining,
                     subscription_ends_at: subscription?.subscription_ends_at || subscription?.trial_ends_at || null,
-                    avatar_url: user.avatar_url || null
+                    avatar_url: user.avatar_url || null,
+                    asaas_subscription_id: subscription?.asaas_subscription_id || null,
+                    billing_type: subscription?.billing_type || null
                 };
             });
 
@@ -134,6 +151,26 @@ const SubscriptionManagement = () => {
     useEffect(() => {
         fetchUsers();
     }, []);
+
+    const handleViewAsaas = async (user: UserWithSubscription) => {
+        if (!user.asaas_subscription_id) return;
+        setSelectedAsaasUser(user);
+        setLoadingAsaas(true);
+        try {
+            const [subscription, payments] = await Promise.all([
+                asaasAdminService.getSubscription(user.asaas_subscription_id),
+                asaasAdminService.getSubscriptionPayments(user.asaas_subscription_id)
+            ]);
+            setAsaasDetails({ subscription, payments });
+        } catch (e) {
+            errorService.report(e as Error, {
+                module: 'subscriptions',
+                action: 'fetch_asaas_data'
+            });
+        } finally {
+            setLoadingAsaas(false);
+        }
+    };
 
     const changeSubscription = async (userId: string, action: 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate') => {
         try {
@@ -347,6 +384,17 @@ const SubscriptionManagement = () => {
                                 </div>
 
                                 <div className="flex items-center gap-3 pr-2">
+                                    {user.asaas_subscription_id && (
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="h-8 gap-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20 shadow-none rounded-lg shrink-0 px-3 flex items-center"
+                                            onClick={() => handleViewAsaas(user)}
+                                        >
+                                            <DollarSign className="w-3.5 h-3.5" />
+                                            <span className="text-xs font-semibold">Asaas</span>
+                                        </Button>
+                                    )}
                                     {getSubscriptionBadge(user)}
 
                                     <div className="w-px h-8 bg-black/10 dark:bg-white/10 mx-2 hidden sm:block"></div>
@@ -380,6 +428,99 @@ const SubscriptionManagement = () => {
                     )}
                 </div>
             </div>
+
+            {/* Asaas Modal */}
+            {selectedAsaasUser && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedAsaasUser(null)}>
+                    <div className="bg-background border border-black/10 dark:border-white/10 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-black/5 dark:border-white/5 flex justify-between items-center bg-black/5 dark:bg-white/5">
+                            <div>
+                                <h2 className="text-xl font-black text-foreground flex items-center gap-2">Detalhes Asaas</h2>
+                                <p className="text-sm text-muted-foreground mt-1 font-medium">{selectedAsaasUser.name || selectedAsaasUser.email}</p>
+                            </div>
+                            <Button variant="ghost" size="icon" className="rounded-full hover:bg-black/10 dark:hover:bg-white/10" onClick={() => setSelectedAsaasUser(null)}>
+                                <XCircle className="w-6 h-6 text-muted-foreground" />
+                            </Button>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto flex-1">
+                            {loadingAsaas ? (
+                                <div className="py-12 flex flex-col items-center justify-center">
+                                    <LoadingSpinner size="large" />
+                                    <p className="text-muted-foreground mt-4 font-medium text-sm">Buscando dados no Asaas...</p>
+                                </div>
+                            ) : asaasDetails ? (
+                                <div className="space-y-6">
+                                    <div className="bg-black/5 dark:bg-white/5 rounded-2xl p-5 border border-black/5 dark:border-white/5">
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Assinatura Atual</h3>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            <div>
+                                                <div className="text-xs text-muted-foreground mb-1">Status</div>
+                                                <div className="font-semibold text-foreground">{asaasDetails.subscription?.status || 'N/A'}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-muted-foreground mb-1">Valor</div>
+                                                <div className="font-semibold text-foreground">
+                                                    {asaasDetails.subscription?.value ? `R$ ${asaasDetails.subscription.value.toFixed(2)}` : 'N/A'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-muted-foreground mb-1">Método</div>
+                                                <div className="font-semibold text-foreground">{asaasDetails.subscription?.billingType || 'N/A'}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-muted-foreground mb-1">Próx. Vencimento</div>
+                                                <div className="font-semibold text-foreground">
+                                                    {asaasDetails.subscription?.nextDueDate ? new Date(asaasDetails.subscription.nextDueDate).toLocaleDateString('pt-BR') : 'N/A'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 px-1">Histórico de Cobranças</h3>
+                                        {asaasDetails.payments && asaasDetails.payments.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {asaasDetails.payments.map((payment: AsaasPayment) => (
+                                                    <div key={payment.id} className="bg-black/5 dark:bg-white/5 rounded-xl p-4 flex justify-between items-center border border-black/5 dark:border-white/5">
+                                                        <div>
+                                                            <div className="font-bold text-foreground mb-1">R$ {payment.value.toFixed(2)}</div>
+                                                            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                                                <Calendar className="w-3 h-3" /> Vencimento: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-col items-end gap-2">
+                                                            <Badge className={`shadow-none ${
+                                                                payment.status === 'RECEIVED' || payment.status === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 
+                                                                payment.status === 'PENDING' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' : 
+                                                                payment.status === 'OVERDUE' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' :
+                                                                'bg-black/10 dark:bg-white/10 text-foreground border-black/20 dark:border-white/20'
+                                                            }`}>{payment.status}</Badge>
+                                                            {payment.invoiceUrl && (
+                                                                <a href={payment.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
+                                                                    Ver Fatura <ExternalLink className="w-3 h-3" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="p-6 text-center text-muted-foreground bg-black/5 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/5 font-medium">
+                                                Nenhuma cobrança encontrada.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="py-12 flex flex-col items-center justify-center">
+                                    <p className="text-red-500 font-medium bg-red-500/10 px-6 py-4 rounded-xl border border-red-500/20">Não foi possível carregar os dados do Asaas.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

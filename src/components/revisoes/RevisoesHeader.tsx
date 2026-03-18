@@ -20,12 +20,12 @@ export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollaps
         <div className={`w-full ${className || ''}`}>
             {/* Toggle Button Row */}
             <div className="flex items-center justify-between mb-3 px-1">
-                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <h3 className="text-xs font-bold text-content-muted uppercase tracking-wider">
                     Visão Geral
                 </h3>
                 <button
                     onClick={() => onToggle(!isCollapsed)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all"
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-secondary hover:bg-accent rounded-lg transition-all"
                     title={isCollapsed ? 'Expandir cards' : 'Minimizar cards'}
                 >
                     {isCollapsed ? (
@@ -51,29 +51,29 @@ export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollaps
                     <div className="flex items-center justify-around gap-4 flex-wrap pr-10">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-rose-500"></div>
-                            <span className="text-xs text-slate-600 dark:text-slate-400">Hoje & Atrasadas:</span>
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{stats.today + stats.overdue}</span>
+                            <span className="text-xs text-content-muted">Hoje & Atrasadas:</span>
+                            <span className="text-sm font-bold text-foreground">{stats.today + stats.overdue}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                            <span className="text-xs text-slate-600 dark:text-slate-400">Futuras:</span>
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{stats.future}</span>
+                            <span className="text-xs text-content-muted">Futuras:</span>
+                            <span className="text-sm font-bold text-foreground">{stats.future}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                            <span className="text-xs text-slate-600 dark:text-slate-400">Concluídas:</span>
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{stats.completedTopicsCount}</span>
+                            <span className="text-xs text-content-muted">Concluídas:</span>
+                            <span className="text-sm font-bold text-foreground">{stats.completedTopicsCount}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                            <span className="text-xs text-slate-600 dark:text-slate-400">Revisões Feitas:</span>
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{stats.completedReviews}/{stats.totalScheduledReviews}</span>
+                            <span className="text-xs text-content-muted">Revisões Feitas:</span>
+                            <span className="text-sm font-bold text-foreground">{stats.completedReviews}/{stats.totalScheduledReviews}</span>
                         </div>
                     </div>
                     {/* Integrated Expand Button */}
                     <button
                         onClick={() => onToggle(false)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-indigo-500"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-primary"
                         title="Expandir estatísticas"
                     >
                         <ChevronDown size={20} />

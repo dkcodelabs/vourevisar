@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '@/components/SortableItem';
-import { Subject, Topic, Status } from '@/types';
+import { Subject, Topic, Status, UserEdital } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { transformSubjectsData } from '@/contexts/utils/dataTransformers';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,9 +53,9 @@ const calculateSubjectStatus = (subject: Subject): Status => {
   const hasStartedTopics = subject.topics.some(topic =>
     (topic.reviewCount > 0 || topic.review_count > 0) ||
     (topic.reviewStage && topic.reviewStage !== '') ||
-    ((topic as any).review_stage && (topic as any).review_stage !== '') ||
+    (topic.review_stage && topic.review_stage !== '') ||
     (topic.nextReview !== undefined && topic.nextReview !== null) ||
-    ((topic as any).next_review !== undefined && (topic as any).next_review !== null) ||
+    (topic.next_review !== undefined && topic.next_review !== null) ||
     topic.completed === true ||
     (topic.lastReviewedAt !== null && topic.lastReviewedAt !== undefined) ||
     (topic.last_reviewed_at !== null && topic.last_reviewed_at !== undefined) ||
@@ -72,10 +72,10 @@ const calculateSubjectStatus = (subject: Subject): Status => {
 
 const getStatusColor = (status: Status) => {
   switch (status) {
-    case 'Nova': return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
-    case 'Em Estudo': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800';
-    case 'Concluída': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800';
-    default: return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+    case 'Nova': return 'bg-secondary text-content-muted border-border';
+    case 'Em Estudo': return 'bg-primary/10 text-primary border-primary/20';
+    case 'Concluída': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+    default: return 'bg-secondary text-content-muted border-border';
   }
 };
 
@@ -114,7 +114,7 @@ const Subjects = () => {
 
   // ── Efeito para abrir modal baseado no estado de navegação ──
   useEffect(() => {
-    const state = location.state as any;
+    const state = location.state as { openImportModal?: boolean; importTab?: 'ready' | 'ia' | 'manual' } | null;
     if (state?.openImportModal) {
       setIsImportEditalModalOpen(true);
       if (state?.importTab) {
@@ -131,7 +131,7 @@ const Subjects = () => {
     const sanitizedName = name.trim();
     
     // 1. Tentar buscar edital existente
-    const { data: existing, error: fetchError } = await (supabase as any)
+    const { data: existing, error: fetchError } = await supabase
       .from('user_editais')
       .select('*')
       .eq('user_id', user.id)
@@ -146,13 +146,13 @@ const Subjects = () => {
     if (existing) return existing;
 
     // 2. Criar novo se não existir
-    const { data: created, error: createError } = await (supabase as any)
+    const { data: created, error: createError } = await supabase
       .from('user_editais')
       .insert({
         user_id: user.id,
         name: sanitizedName,
         is_imported: isImported,
-        merged_into_cycle: true,
+        merged_into_cycle: false,
         subject_ids: []
       })
       .select()
@@ -176,10 +176,10 @@ const Subjects = () => {
       let finalSuggestions: SmartMergeSuggestion[] = [];
 
       if (aiSuggestions && aiSuggestions.length > 0) {
-        finalSuggestions = aiSuggestions.map((s: any) => ({
+        finalSuggestions = aiSuggestions.map((s) => ({
           ...s,
           approved: true
-        }));
+        })) as SmartMergeSuggestion[];
       } else {
         // 2. Fallback para similaridade de nome se Gemini não retornar nada
         console.log('⚠️ Gemini não retornou sugestões, usando fallback de similaridade...');
@@ -219,27 +219,34 @@ const Subjects = () => {
   };
 
   // Cache simples no localStorage
-  const loadSubjects = async () => {
+  const loadSubjects = useCallback(async (ignoreCache: boolean = false) => {
     console.log('📥 LOAD SUBJECTS CALLED:', {
       user: !!user,
       userId: user?.id,
+      ignoreCache,
       timestamp: new Date().toISOString()
     });
 
     if (!user) return;
 
     const cacheKey = `subjects_${user.id}`;
-    const cached = localStorage.getItem(cacheKey);
-
-    if (cached) {
-      try {
-        const data = JSON.parse(cached);
-        if (Date.now() - data.timestamp < 300000) { // 5 minutos
-          console.log('💾 USING CACHE:', { subjectsCount: data.subjects.length });
-          setSubjects(data.subjects);
-          return;
+    
+    if (ignoreCache) {
+      localStorage.removeItem(cacheKey);
+    } else {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const data = JSON.parse(cached);
+          if (Date.now() - data.timestamp < 300000) { // 5 minutos
+            console.log('💾 USING CACHE:', { subjectsCount: data.subjects.length });
+            setSubjects(data.subjects);
+            return;
+          }
+        } catch (e) {
+          console.warn('Erro ao ler cache de matérias:', e);
         }
-      } catch (e) { }
+      }
     }
 
     console.log('🔄 LOADING FROM DATABASE');
@@ -283,7 +290,7 @@ const Subjects = () => {
       setIsLoading(false);
       setDataLoaded(true);
     }
-  };
+  }, [user, dataLoaded]);
 
   const handleApplySmartMerge = async (approvedSuggestions: SmartMergeSuggestion[]) => {
     if (!user) return;
@@ -315,7 +322,7 @@ const Subjects = () => {
             .eq('id', sourceId);
             
           // 4. Atualizar referências em user_editais (Essencial para manter Origem/Concurso)
-          const { data: editaisWithSubject } = await (supabase as any)
+          const { data: editaisWithSubject } = await supabase
             .from('user_editais')
             .select('id, subject_ids')
             .contains('subject_ids', [sourceId]);
@@ -330,7 +337,7 @@ const Subjects = () => {
               // Remover duplicatas caso o targetId já estivesse nesse mesmo edital
               const uniqueIds = [...new Set(updatedIds)];
               
-              const { error: editalUpdateError } = await (supabase as any)
+              const { error: editalUpdateError } = await supabase
                 .from('user_editais')
                 .update({ subject_ids: uniqueIds })
                 .eq('id', edital.id);
@@ -357,7 +364,7 @@ const Subjects = () => {
     }
   };
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     if (user) {
       localStorage.removeItem(`subjects_${user.id}`);
       localStorage.removeItem(`subjects_${user.id} `); // limpa chave antiga com espaço por segurança
@@ -365,7 +372,7 @@ const Subjects = () => {
       refresh(); // Atualiza origens do hook
       window.dispatchEvent(new CustomEvent('subjectUpdated'));
     }
-  };
+  }, [user, loadSubjects, refresh]);
 
   const handleUnloadCycle = async (editalId: string, editalName: string, subjectIds: string[]) => {
     if (!user) return;
@@ -553,10 +560,29 @@ const Subjects = () => {
       loadSubjects().finally(() => {
         setLoading(false);
       });
+
+      // Listener para atualizar quando houver mudanças externas (ex: exclusão de edital)
+      const handleExternalUpdate = () => {
+        console.log('🔔 EXTERNAL UPDATE DETECTED - Refreshing subjects...');
+        loadSubjects(true); // Força bypass do cache
+      };
+
+      window.addEventListener('subjectUpdated', handleExternalUpdate);
+      return () => window.removeEventListener('subjectUpdated', handleExternalUpdate);
     } else {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user, loadSubjects]);
+
+  // Sincronizar localSubjects quando subjects mudar
+  useEffect(() => {
+    if (subjects.length > 0) {
+      setLocalSubjects(subjects);
+    } else if (dataLoaded) {
+      // Se carregou dados e está vazio, garante que o estado local também fique vazio
+      setLocalSubjects([]);
+    }
+  }, [subjects, dataLoaded]);
 
   // Carregar ciclo do usuário
   useEffect(() => {
@@ -601,7 +627,7 @@ const Subjects = () => {
     };
 
     loadUserCycle();
-  }, [user?.id]);
+  }, [user]);
 
   // Função auxiliar para obter a posição no ciclo
   const getCyclePosition = (itemId: string) => {
@@ -621,19 +647,21 @@ const Subjects = () => {
     //   (a) não pertence a nenhum edital (adicionado diretamente na página), OU
     //   (b) está em active_subject_ids de algum edital carregado no ciclo, OU
     //   (c) já está presente no ciclo atual (garante alinhamento)
+    // ── Filtrar: só exibir subjects "liberados" ──────────────────────────
+    // Um subject é visível se:
+    //   (a) não pertence a nenhum edital (adicionado diretamente na página), OU
+    //   (b) está em active_subject_ids de algum edital carregado no ciclo, OU
+    //   (c) já está presente no ciclo atual (garante alinhamento)
     const visibleSubjects = localSubjects.filter(subject => {
+      // Se marcado como invisível no registro real (banco), oculta
+      if (subject.is_visible === false) return false;
       if (hiddenSubjectIds.has(subject.id)) return false;   // oculto otimisticamente
       
       const isInCycle = subjectsInCycleSet.has(subject.id);
       const isFromActiveEdital = activeSubjectIdsSet.has(subject.id);
-      
+
       // Se está no ciclo (mesclado ou manual ativo) ou pertence a um edital carregado, mostra.
       if (isInCycle || isFromActiveEdital) return true;
-      
-      // Se não há nenhum edital nem ciclo carregado (estado inicial), mostra tudo.
-      if (subjectsInCycleSet.size === 0 && activeSubjectIdsSet.size === 0) {
-        return true;
-      }
       
       return false; // Filtra vazamentos (matérias de outros editais ou não carregadas)
     });
@@ -686,7 +714,7 @@ const Subjects = () => {
     });
 
     return expanded;
-  }, [userCycle?.ciclo_atual, localSubjects, originsMap, activeSubjectIdsSet, hiddenSubjectIds]);
+  }, [userCycle?.ciclo_atual, localSubjects, activeSubjectIdsSet, hiddenSubjectIds]);
 
   useEffect(() => {
     console.log('📋 SET LOCAL SUBJECTS useEffect TRIGGERED:', {
@@ -777,8 +805,8 @@ const Subjects = () => {
 
       // 3. Vincular matéria ao edital no banco (Persistente)
       if (edital && savedSubject) {
-        const updatedIds = [...(edital.subject_ids || []), savedSubject.id];
-        await (supabase as any)
+        const updatedIds = [...((edital as UserEdital).subject_ids || []), savedSubject.id];
+        await supabase
           .from('user_editais')
           .update({ subject_ids: updatedIds })
           .eq('id', edital.id);
@@ -793,9 +821,9 @@ const Subjects = () => {
       setNewSubjectName('');
       setNewSubjectSource('');
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao adicionar matéria:', error);
-      errorService.report(error, { module: 'subjects', action: 'add', userMessage: "Erro ao salvar matéria. Tente novamente." });
+      errorService.report(error as Error, { module: 'subjects', action: 'add', userMessage: "Erro ao salvar matéria. Tente novamente." });
     } finally {
       setIsAddingSubject(false);
 
@@ -856,7 +884,13 @@ const Subjects = () => {
     setHiddenSubjectIds(prev => new Set([...prev, id]));
     setConfirmHideSubjectId(null);
     try {
-      // Remove de active_subject_ids (não deleta permanentemente)
+      // 1. Persistir ocultação na tabela subjects (Manual ou Edital)
+      await (supabase as any)
+        .from('subjects')
+        .update({ is_visible: false })
+        .eq('id', id);
+
+      // 2. Se pertencer a editais, remover de active_subject_ids
       const { data: relatedEditais } = await (supabase as any)
         .from('user_editais')
         .select('id, active_subject_ids')
@@ -1199,7 +1233,7 @@ const Subjects = () => {
     }
 
     return list;
-  }, [expandedSubjectList, activeTab, calculateSubjectStatus, newSubjectName, isImportEditalModalOpen]);
+  }, [expandedSubjectList, activeTab, newSubjectName, isImportEditalModalOpen]);
 
   // Lista para renderizar (com paginação - Lazy Loading)
   const displayList = useMemo(() => {
@@ -1224,111 +1258,133 @@ const Subjects = () => {
     <div className="space-y-6 w-full"> {/* Changed space-y-4 to 6 to match Topics */}
 
       {/* Unified Header Card - Visible when there are subjects or when inside the Modal */}
+      {/* Refined Header - Final Polished Layout */}
       {(localSubjects.length > 0 || isImportEditalModalOpen) && (
-        <div className="glow-card p-4 rounded-2xl flex flex-col items-start gap-4 mb-6 relative z-20">
-          <div className="flex flex-col sm:flex-row w-full gap-4 items-center justify-between">
-            {/* Fake input text acting as Subject Add if user hits enter or types */}
-            <div className="flex-1 w-full sm:max-w-xl flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder={isImportEditalModalOpen ? "Nome da matéria..." : "Buscar ou cadastrar..."}
-                  value={newSubjectName}
-                  onChange={(e) => {
-                    const query = e.target.value;
-                    const previousName = newSubjectName;
-                    setNewSubjectName(query);
-
-                    if (isImportEditalModalOpen) return;
-
-                    // Implementação de "Expandir na busca"
-                    if (!previousName && query.trim()) {
-                      setExpandedBeforeSearch([...expandedSubjectIds]);
-                    }
-
-                    if (query.trim()) {
-                      const normalizeText = (text: string) =>
-                        text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
-                      const normalizedQuery = normalizeText(query);
-                      const newExpanded: string[] = [];
-
-                      expandedSubjectList.forEach(item => {
-                        const matchesSubject = normalizeText(item.subject.name).includes(normalizedQuery);
-                        const hasMatchingTopic = item.subject.topics?.some(topic =>
-                          normalizeText(topic.name).includes(normalizedQuery)
-                        );
-                        if (matchesSubject || hasMatchingTopic) {
-                          newExpanded.push(item.id);
-                        }
-                      });
-
-                      setExpandedSubjectIds(newExpanded);
-                    } else {
-                      setExpandedSubjectIds(expandedBeforeSearch);
-                      setExpandedBeforeSearch([]);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      if (isImportEditalModalOpen) {
-                        // Se estiver no modal, transferir foco para a origem
-                        const originInput = document.getElementById('new-subject-source');
-                        originInput?.focus();
-                      } else {
-                        handleSaveSubject();
-                      }
-                    }
-                  }}
-                  className="w-full h-10 bg-deep-slate border border-black/5 dark:border-white/5 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/50 shadow-sm"
-                />
-              </div>
-              {isImportEditalModalOpen && (
-                <div className="relative flex-1">
+        <div className="flex flex-col gap-4 mb-8 relative z-20">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            {/* Left Zone: search + tabs + cycle info */}
+            <div className="flex flex-col gap-3 flex-1 w-full max-w-full lg:max-w-2xl">
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+                {/* Search Input - Slightly Wider */}
+                <div className="relative w-full sm:w-64 lg:w-96">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
                   <input
-                    id="new-subject-source"
+                    ref={inputRef}
                     type="text"
-                    placeholder="Concurso / Origem..."
-                    value={newSubjectSource}
-                    onChange={(e) => setNewSubjectSource(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSaveSubject()}
-                    className="w-full h-10 bg-deep-slate border border-black/5 dark:border-white/5 rounded-xl py-2 px-4 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/50 shadow-sm"
+                    placeholder={isImportEditalModalOpen ? "Matéria..." : "Buscar..."}
+                    value={newSubjectName}
+                    onChange={(e) => {
+                      const query = e.target.value;
+                      const previousName = newSubjectName;
+                      setNewSubjectName(query);
+
+                      if (isImportEditalModalOpen) return;
+
+                      if (!previousName && query.trim()) {
+                        setExpandedBeforeSearch([...expandedSubjectIds]);
+                      }
+
+                      if (query.trim()) {
+                        const normalizeText = (text: string) =>
+                          text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+                        const normalizedQuery = normalizeText(query);
+                        const newExpanded: string[] = [];
+
+                        expandedSubjectList.forEach(item => {
+                          const matchesSubject = normalizeText(item.subject.name).includes(normalizedQuery);
+                          const hasMatchingTopic = item.subject.topics?.some(topic =>
+                            normalizeText(topic.name).includes(normalizedQuery)
+                          );
+                          if (matchesSubject || hasMatchingTopic) {
+                            newExpanded.push(item.id);
+                          }
+                        });
+
+                        setExpandedSubjectIds(newExpanded);
+                      } else {
+                        setExpandedSubjectIds(expandedBeforeSearch);
+                        setExpandedBeforeSearch([]);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (isImportEditalModalOpen) {
+                          const originInput = document.getElementById('new-subject-source');
+                          originInput?.focus();
+                        } else {
+                          handleSaveSubject();
+                        }
+                      }
+                    }}
+                    className="w-full h-10 bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary/50 transition-all text-foreground placeholder:text-content-muted/50 shadow-sm"
                   />
                 </div>
-              )}
+
+                {/* Tabs - Next to search */}
+                {!isImportEditalModalOpen && (
+                  <div className="flex items-center gap-1 bg-secondary/30 dark:bg-black/20 p-1 rounded-xl border border-border/50 dark:border-white/5 overflow-x-auto no-scrollbar shrink-0">
+                    {(['all', 'in_progress', 'completed'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab
+                          ? 'bg-card dark:bg-zinc-800 text-foreground shadow-sm'
+                          : 'text-content-muted hover:text-foreground'
+                          }`}
+                      >
+                        {tab === 'all' ? 'Todas' : tab === 'in_progress' ? 'Em Estudo' : 'Concluídas'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Active Cycle Chips - Below search/tabs (Font slightly larger) */}
+              {(() => {
+                const activeEditais = editaisNoCiclo.filter(e =>
+                  e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
+                );
+                if (activeEditais.length === 0 || isImportEditalModalOpen) return null;
+                
+                return (
+                  <div className="flex flex-wrap items-center gap-2 px-1 animate-in fade-in duration-500">
+                    <div className="flex items-center gap-1.5 mr-1 text-content-muted">
+                      <Database size={11} className="text-primary" />
+                      <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Ciclo:</span>
+                    </div>
+                    {activeEditais.map(edital => {
+                      const activeCount = edital.subject_ids.filter(sid => localSubjects.find(s => s.id === sid)).length;
+                      return (
+                        <div
+                          key={edital.id}
+                          className="group flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-lg bg-secondary/50 dark:bg-zinc-800/30 border border-border dark:border-white/5 hover:border-primary/20 transition-all"
+                        >
+                          <span className="text-[10px] sm:text-[11px] font-bold text-content-muted group-hover:text-foreground transition-colors">{edital.name}</span>
+                          <span className="text-[9px] sm:text-[10px] text-content-muted px-1 py-0 bg-black/5 dark:bg-black/20 rounded-md">{activeCount}</span>
+                          <button
+                            onClick={() => setUnloadConfirm({ 
+                              isOpen: true, 
+                              editalId: edital.id, 
+                              editalName: edital.name, 
+                              subjectIds: edital.subject_ids 
+                            })}
+                            disabled={unloadingEditalId === edital.id}
+                            className="w-4 h-4 flex items-center justify-center rounded-md hover:text-red-400 hover:bg-red-500/10 transition-all opacity-30 group-hover:opacity-100"
+                          >
+                            {unloadingEditalId === edital.id ? <Loader2 size={10} className="animate-spin" /> : <X size={9} />}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              {!isImportEditalModalOpen && localSubjects.length > 0 && (
-                <>
-                  <button
-                    onClick={handleSuggestMerges}
-                    disabled={isSuggesting}
-                    className="h-10 px-4 bg-deep-slate text-content-muted hover:text-primary hover:border-primary/30 transition-all border border-black/5 dark:border-white/5 rounded-xl flex items-center gap-2 shadow-sm disabled:opacity-50"
-                  >
-                    {isSuggesting ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={14} className="text-primary" />
-                    )}
-                    <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:inline">Sugerir Mesclas</span>
-                  </button>
 
-                  <button
-                    onClick={() => {
-                      setIsMergeMode(!isMergeMode);
-                      setSelectedSubjectsToMerge([]);
-                    }}
-                    className={`h-10 px-4 text-[10px] font-bold rounded-xl transition-all border border-black/5 dark:border-white/5 shadow-sm flex items-center gap-2 ${isMergeMode ? 'bg-primary text-white border-primary/30' : 'bg-deep-slate text-content-muted hover:text-primary hover:border-primary/30'}`}
-                  >
-                    <Merge size={14} />
-                    <span className="hidden lg:inline">{isMergeMode ? 'CANCELAR MESCLA' : 'MESCLAR MATÉRIAS'}</span>
-                  </button>
-                </>
-              )}
-
-
+            {/* Right Zone: Action Group (Font slightly larger) */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              {/* New Subject Action */}
               <button
                 onClick={() => {
                   if (isImportEditalModalOpen) {
@@ -1338,107 +1394,43 @@ const Subjects = () => {
                     setIsImportEditalModalOpen(true);
                   }
                 }}
-                className="h-10 px-4 bg-emerald-500 text-white text-[10px] font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
               >
-                {isAddingSubject ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                <span className="hidden lg:inline">{isImportEditalModalOpen ? "SALVAR MATÉRIA" : "NOVA MATÉRIA"}</span>
+                {isAddingSubject ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} className="text-primary transition-transform group-hover:scale-110" />}
+                <span>Nova Matéria</span>
               </button>
+
+              {/* Suggest Action */}
+              {!isImportEditalModalOpen && (
+                <button
+                  onClick={handleSuggestMerges}
+                  disabled={isSuggesting}
+                  className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group disabled:opacity-50"
+                >
+                  {isSuggesting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} className="text-primary transition-transform group-hover:scale-110" />}
+                  <span>Sugerir</span>
+                </button>
+              )}
+
+              {/* Merge Action */}
+              {!isImportEditalModalOpen && (
+                <button
+                  onClick={() => {
+                    setIsMergeMode(!isMergeMode);
+                    setSelectedSubjectsToMerge([]);
+                  }}
+                  className={`h-9 px-3 rounded-lg transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-wider group ${isMergeMode 
+                    ? 'bg-primary/10 text-primary border border-primary/20' 
+                    : 'bg-transparent text-content-muted hover:text-primary'}`}
+                >
+                  <Merge size={14} className="text-primary transition-transform group-hover:scale-110" />
+                  <span>{isMergeMode ? 'Cancelar' : 'Mesclar'}</span>
+                </button>
+              )}
             </div>
           </div>
-
-          {/* Filters Row */}
-          {!isImportEditalModalOpen && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full pt-2 border-t border-black/5 dark:border-white/5">
-              <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto no-scrollbar pb-1 sm:pb-0">
-                <button
-                  onClick={() => setActiveTab('all')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'all'
-                    ? 'bg-primary/10 text-primary border border-primary/30'
-                    : 'border border-transparent text-content-muted hover:text-content-main hover:bg-white/5'
-                    }`}
-                >
-                  Todas
-                </button>
-                <button
-                  onClick={() => setActiveTab('in_progress')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'in_progress'
-                    ? 'bg-primary/10 text-primary border border-primary/30'
-                    : 'border border-transparent text-content-muted hover:text-content-main hover:bg-white/5'
-                    }`}
-                >
-                  Em Estudo
-                </button>
-                <button
-                  onClick={() => setActiveTab('completed')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'completed'
-                    ? 'bg-primary/10 text-primary border border-primary/30'
-                    : 'border border-transparent text-content-muted hover:text-content-main hover:bg-white/5'
-                    }`}
-                >
-                  Concluídas
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
-
-      {/* ── Header: Editais Ativos no Ciclo ── */}
-      {(() => {
-        const activeEditais = editaisNoCiclo.filter(e =>
-          e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
-        );
-        if (activeEditais.length === 0 || isImportEditalModalOpen) return null;
-        return (
-          <div className="mb-6 p-4 rounded-2xl bg-zinc-900 border border-white/5 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Database className="text-primary" size={16} />
-                </div>
-                <div>
-                  <h3 className="text-xs font-black text-zinc-100 uppercase tracking-widest">Editais no Ciclo Ativo</h3>
-                  <p className="text-[10px] text-content-muted font-medium">As matérias destes editais estão disponíveis para estudo no Ciclo</p>
-                </div>
-              </div>
-              <span className="text-[10px] font-bold text-content-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
-                {activeEditais.length} edital{activeEditais.length !== 1 ? 'is' : ''}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {activeEditais.map(edital => {
-                const activeCount = edital.subject_ids.filter(sid => localSubjects.find(s => s.id === sid)).length;
-                return (
-                  <div
-                    key={edital.id}
-                    className="group flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl bg-zinc-800 border border-white/5 hover:border-primary/30 transition-all shadow-sm"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-zinc-200">{edital.name}</span>
-                      <span className="text-[9px] text-content-muted font-medium">{activeCount} matéria{activeCount !== 1 ? 's' : ''}</span>
-                    </div>
-                    <button
-                      onClick={() => setUnloadConfirm({ 
-                        isOpen: true, 
-                        editalId: edital.id, 
-                        editalName: edital.name, 
-                        subjectIds: edital.subject_ids 
-                      })}
-                      disabled={unloadingEditalId === edital.id}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-black/20 text-content-muted hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100"
-                      title="Remover do ciclo"
-                    >
-                      {unloadingEditalId === edital.id
-                        ? <Loader2 size={14} className="animate-spin text-red-400" />
-                        : <X size={14} />}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
 
 
       <DndContext
@@ -1451,13 +1443,13 @@ const Subjects = () => {
             <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-500 w-full mb-12">
             {localSubjects.length === 0 ? (
                 <>
-                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                      <span className="text-4xl">📚</span>
+                  <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-blue-500/10 dark:from-primary/20 dark:to-blue-500/20 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                      <span className="text-4xl text-primary">📚</span>
                   </div>
-                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">
+                  <h3 className="text-xl font-bold text-foreground mb-3">
                       Nenhuma matéria por aqui
                   </h3>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                  <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
                       Comece adicionando sua primeira matéria ou importe um edital pronto para iniciar seus estudos.
                   </p>
                   <button
@@ -1465,7 +1457,7 @@ const Subjects = () => {
                         setModalInitialTab('manual');
                         setIsImportEditalModalOpen(true);
                       }}
-                      className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                      className="px-6 py-3 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                   >
                       Adicionar Matéria
                   </button>
@@ -1475,8 +1467,8 @@ const Subjects = () => {
                   <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
                       <Search size={32} className="text-slate-400" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Nenhuma matéria ativa</h3>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-6">
+                  <h3 className="text-lg font-bold text-foreground mb-2">Nenhuma matéria ativa</h3>
+                  <p className="text-content-muted max-w-sm mx-auto mb-6">
                       Todas as matérias foram ocultadas ou o edital foi removido do ciclo. Ative matérias via
                       &ldquo;Meus Editais&rdquo; ou carregue um edital no ciclo.
                   </p>
@@ -1580,7 +1572,7 @@ const Subjects = () => {
                                     {calculatedStatus === 'Concluída' && (
                                       <Badge variant="outline" className="text-[8px] px-1 bg-green-500/10 text-green-500 border-green-500/20">CONCLUÍDO</Badge>
                                     )}
-                                    <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-2 py-0.5 rounded-md border border-black/5 dark:border-white/5">
+                                    <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-content-muted bg-secondary dark:bg-zinc-900 px-2 py-0.5 rounded-md border border-border dark:border-white/5">
                                       <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
                                       {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                     </span>
@@ -1598,7 +1590,7 @@ const Subjects = () => {
                                         ))}
                                       </div>
                                     ) : (
-                                      <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500/30">
+                                       <span className="text-[9px] font-bold uppercase tracking-wider text-content-muted/40">
                                         Sem Edital
                                       </span>
                                     )}
@@ -1609,7 +1601,7 @@ const Subjects = () => {
 
                           <div className="flex items-center gap-2">
                             {/* Progress Circle */}
-                            <div className="hidden sm:flex items-center justify-center relative w-8 h-8 rounded-full bg-deep-slate border border-black/5 dark:border-white/5 mr-2">
+                            <div className="hidden sm:flex items-center justify-center relative w-8 h-8 rounded-full bg-secondary dark:bg-deep-slate border border-border dark:border-white/5 mr-2">
                               <svg className="w-full h-full -rotate-90 transform p-0.5" viewBox="0 0 36 36">
                                 <circle className="text-black/5 dark:text-white/5" strokeWidth="3" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
                                 <circle className="text-primary transition-all duration-1000 ease-out" strokeWidth="3" strokeDasharray={`${progress}, 100`} strokeLinecap="round" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
@@ -1703,7 +1695,7 @@ const Subjects = () => {
                         </div>
                         {/* Expanded Content (Topics List) */}
                         {expandedSubjectIds.includes(item.id) && (
-                          <div className="mt-2 ml-4 p-3 rounded-xl bg-black/5 dark:bg-black/20 space-y-2 border border-black/5 dark:border-white/5 relative z-10" onClick={e => e.stopPropagation()}>
+                          <div className="mt-2 ml-4 p-3 rounded-xl bg-secondary dark:bg-black/20 space-y-2 border border-border dark:border-white/5 relative z-10" onClick={e => e.stopPropagation()}>
                             {/* Inline Topic Input */}
                             <div className="relative group">
                               <input
@@ -1714,7 +1706,7 @@ const Subjects = () => {
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') handleSaveNewTopic(subject.id);
                                 }}
-                                className="w-full bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-lg py-1.5 px-3 pr-8 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/50"
+                                className="w-full bg-background dark:bg-white/5 border border-border dark:border-white/5 rounded-lg py-1.5 px-3 pr-8 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/50"
                               />
                               <button
                                 onClick={() => handleSaveNewTopic(subject.id)}
@@ -1734,7 +1726,7 @@ const Subjects = () => {
                                   const iconClass = getTopicIconClass(topic);
 
                                   return (
-                                    <div key={topic.id} data-topic-item className="flex items-center justify-between p-2 rounded-lg bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all group/topic relative">
+                                    <div key={topic.id} data-topic-item className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 dark:bg-white/5 hover:bg-secondary/60 dark:hover:bg-white/10 transition-all group/topic relative">
                                       <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
                                         <span className="text-[9px] font-bold text-content-muted w-4 flex-shrink-0">{idx + 1}.</span>
                                         <div className={`flex-shrink-0 transition-colors ${iconClass}`}>
@@ -1789,7 +1781,7 @@ const Subjects = () => {
                                             </span>
                                           ))}
                                           {(!originsMap.get(subject.id) || originsMap.get(subject.id)!.length === 0) && (
-                                            <span className="text-[9px] font-black text-zinc-500/20 uppercase tracking-widest whitespace-nowrap">
+                                             <span className="text-[9px] font-black text-content-muted/40 uppercase tracking-widest whitespace-nowrap">
                                               Manual
                                             </span>
                                           )}
@@ -1830,11 +1822,11 @@ const Subjects = () => {
             <div className="mt-8 flex justify-center pb-12">
               <button
                 onClick={handleLoadMore}
-                className="group relative px-8 py-3 bg-zinc-900 border border-white/5 rounded-2xl flex items-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-xl overflow-hidden"
+                className="group relative px-8 py-3 bg-card dark:bg-zinc-900 border border-border dark:border-white/5 rounded-2xl flex items-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-xl overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <RefreshCw size={16} className="text-primary group-hover:rotate-180 transition-transform duration-500" />
-                <span className="text-xs font-bold text-zinc-300 group-hover:text-primary tracking-widest uppercase">
+                <span className="text-xs font-bold text-foreground group-hover:text-primary tracking-widest uppercase">
                   Ver mais matérias ({filteredList.length - visibleCount} restantes)
                 </span>
                 <ChevronDown size={14} className="text-content-muted group-hover:translate-y-0.5 transition-transform" />
@@ -1913,7 +1905,10 @@ const Subjects = () => {
                 <AlertDialogDescription>
                   Tem certeza que deseja remover o edital <strong>"{unloadConfirm.editalName}"</strong> do seu ciclo de estudos?
                   <br /><br />
-                  As matérias vinculadas a este edital não serão excluídas da sua conta, mas deixarão de aparecer na lista de matérias ativas para estudo.
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg text-emerald-400 text-sm">
+                    <p><strong>Fique tranquilo:</strong> Seu histórico de estudo e revisões <strong>não será perdido</strong>.</p>
+                    <p className="mt-1">Todo seu progresso ficará preservado no <strong>Histórico Total</strong> das páginas de Estatísticas e Dashboard.</p>
+                  </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

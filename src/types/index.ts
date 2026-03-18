@@ -44,6 +44,8 @@ export interface Topic {
   last_audit_log?: any | null;
   created_at?: string;
   position?: number;
+  memory_stability?: number | null;
+  current_interval?: number | null;
   edital_id?: string;
   origin_id?: string;
 }
@@ -58,6 +60,7 @@ export interface Subject {
   notes?: TopicNotes;
   edital_id?: string;
   origin_id?: string;
+  is_visible?: boolean;
 }
 
 // DailyStudyPlan removida - não mais necessária

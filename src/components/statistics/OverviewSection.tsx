@@ -80,8 +80,8 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({ data }) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <TrendingUp className="h-6 w-6 text-blue-600" />
-        <h2 className="text-2xl font-bold text-gray-900">Visão Geral do Progresso</h2>
+        <TrendingUp className="h-6 w-6 text-primary" />
+        <h2 className="text-2xl font-bold text-foreground">Visão Geral do Progresso</h2>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -96,19 +96,19 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({ data }) => {
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-600">{card.title}</p>
-                    <p className="text-3xl font-bold text-gray-900">{card.value}</p>
-                    <p className="text-sm text-gray-500">{card.subtitle}</p>
+                    <p className="text-sm font-medium text-content-muted">{card.title}</p>
+                    <p className="text-3xl font-bold text-foreground">{card.value}</p>
+                    <p className="text-sm text-content-muted">{card.subtitle}</p>
                   </div>
-                  <div className={`p-3 rounded-full ${card.bgColor}`}>
-                    <card.icon className={`h-6 w-6 ${card.color}`} />
+                  <div className={`p-3 rounded-full ${card.bgColor} md:light:${card.bgColor} md:dark:bg-white/5`}>
+                    <card.icon className={`h-6 w-6 ${card.color} md:dark:text-white`} />
                   </div>
                 </div>
                 
                 <div className="mt-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Progresso</span>
-                    <span className="font-medium">{Math.round(card.progress)}%</span>
+                    <span className="text-content-muted">Progresso</span>
+                    <span className="font-medium text-foreground">{Math.round(card.progress)}%</span>
                   </div>
                   <Progress value={card.progress} className="h-2" />
                 </div>
@@ -123,22 +123,22 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({ data }) => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-blue-600" />
+              <BookOpen className="h-5 w-5 text-primary" />
               Tópicos por Status
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Concluídos</span>
-              <span className="font-semibold text-green-600">{data.completedTopics}</span>
+              <span className="text-sm text-content-muted">Concluídos</span>
+              <span className="font-semibold text-emerald-600">{data.completedTopics}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Em andamento</span>
-              <span className="font-semibold text-blue-600">{data.inProgressTopics}</span>
+              <span className="text-sm text-content-muted">Em andamento</span>
+              <span className="font-semibold text-primary">{data.inProgressTopics}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Não iniciados</span>
-              <span className="font-semibold text-gray-600">{data.notStartedTopics}</span>
+              <span className="text-sm text-content-muted">Não iniciados</span>
+              <span className="font-semibold text-content-muted">{data.notStartedTopics}</span>
             </div>
           </CardContent>
         </Card>

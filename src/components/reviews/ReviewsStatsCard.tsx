@@ -74,7 +74,7 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
         : 0;
 
     return (
-        <div className={`glass-card shadow-sm rounded-2xl overflow-hidden flex flex-col h-full ${className}`}>
+        <div className={`glow-card group relative overflow-hidden bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 hover:border-border-strong dark:hover:border-white/10 transition-all duration-300 rounded-3xl flex flex-col h-full shadow-sm ${className}`}>
             <div className="p-5 h-full flex flex-col">
 
                 {/* Header: Modo de Proteção */}

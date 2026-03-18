@@ -210,7 +210,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
       <DialogContent
         className={isMobile ?
           "fixed inset-0 w-full h-full max-w-none m-0 rounded-none p-0 bg-card z-50" :
-          "max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden bg-card border-blue-100 !p-0 !gap-0"
+          "max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden bg-card border-border !p-0 !gap-0"
         }
         hideCloseButton={true}
         aria-describedby="topic-notes-modal-description"
@@ -224,23 +224,23 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
           margin: 0
         } : undefined}
       >
-        <div className={`${isMobile ? 'p-4 border-b border-border bg-card' : 'p-6 bg-gradient-to-r from-blue-100/50 to-white border-b border-blue-100 sm:rounded-t-lg'}`}>
+        <div className={`${isMobile ? 'p-4 border-b border-border bg-card' : 'p-6 bg-secondary/30 border-b border-border sm:rounded-token'}`}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {!isMobile && (
-                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                  <MessageSquareText size={24} />
-                </div>
-              )}
-              <div>
-                <DialogTitle className="text-lg font-bold text-gray-800">
-                  {subjectName}
-                </DialogTitle>
+              <div className="flex items-center gap-3">
                 {!isMobile && (
-                  <div className="text-sm text-gray-600 font-light">
-                    {topicName}
+                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <MessageSquareText size={24} />
                   </div>
                 )}
+                <div>
+                  <DialogTitle className="text-lg font-bold text-foreground">
+                    {subjectName}
+                  </DialogTitle>
+                  {!isMobile && (
+                    <div className="text-sm text-content-muted font-light">
+                      {topicName}
+                    </div>
+                  )}
                 <DialogDescription className="sr-only">
                   Editor de anotações para {topicName}
                 </DialogDescription>
@@ -250,13 +250,13 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600"
+              className="h-8 w-8 p-0 text-content-muted hover:text-foreground"
             >
               <X className="h-5 w-5" strokeWidth={3} />
             </Button>
           </div>
           {isMobile && (
-            <p className="text-sm text-gray-600 mt-1">{topicName}</p>
+            <p className="text-sm text-content-muted mt-1">{topicName}</p>
           )}
         </div>
 

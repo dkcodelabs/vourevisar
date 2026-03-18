@@ -123,21 +123,21 @@ const ConfirmEmail = () => {
             <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
               <Mail className="w-10 h-10 text-brand-blue" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-2xl font-bold text-foreground mb-2">
               Verifique seu email
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-content-muted">
               Enviamos um link de confirmação para:
             </p>
             {email && (
-              <p className="font-semibold text-gray-900 dark:text-white mt-2">
+              <p className="font-semibold text-foreground mt-2">
                 {email}
               </p>
             )}
           </div>
 
           {/* Instructions */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 mb-6">
+          <div className="bg-secondary dark:bg-blue-900/20 rounded-xl p-4 mb-6">
             <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
               Próximos passos:
             </h3>
@@ -176,7 +176,7 @@ const ConfirmEmail = () => {
 
             <button
               onClick={() => navigate('/login')}
-              className="w-full py-3 flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              className="w-full py-3 flex items-center justify-center gap-2 text-content-muted hover:text-foreground transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               Voltar ao login
@@ -184,8 +184,8 @@ const ConfirmEmail = () => {
           </div>
 
           {/* Tips */}
-          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+          <div className="mt-8 pt-6 border-t border-border">
+            <p className="text-sm text-content-muted text-center">
               Não encontrou o email? Verifique sua pasta de spam ou lixo eletrônico.
             </p>
           </div>

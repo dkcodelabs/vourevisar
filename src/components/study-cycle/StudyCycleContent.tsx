@@ -83,11 +83,12 @@ export const StudyCycleContent: React.FC = () => {
     if (!user) return;
     setUnloadingEditalId(editalId);
     try {
-      const { data: existingCycle } = await supabase
+      const { data: existingCycle } = await (supabase as any)
         .from('user_cycles')
         .select('id, ciclo_atual')
         .eq('user_id', user.id)
-        .single();
+        .eq('status', 'active')
+        .maybeSingle();
 
       if (existingCycle) {
         const currentIds = (existingCycle.ciclo_atual as string[]) || [];
@@ -99,7 +100,7 @@ export const StudyCycleContent: React.FC = () => {
             ciclo_atual: newIds,
             atualizado_em: new Date().toISOString(),
           })
-          .eq('user_id', user.id);
+          .eq('id', existingCycle.id);
 
         if (error) throw error;
       }
@@ -113,6 +114,7 @@ export const StudyCycleContent: React.FC = () => {
 
       toast.success(`"${editalName}" removido do seu ciclo.`);
       window.dispatchEvent(new CustomEvent('subjectUpdated'));
+      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'unload', editalId } }));
       await refreshCycleData();
       await refreshOrigins();
     } catch (error) {
@@ -204,36 +206,9 @@ export const StudyCycleContent: React.FC = () => {
     };
   }, []); // Sem dependências para evitar loops
 
-  // Refresh cycle data when component mounts
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadInitialData = async () => {
-      try {
-        if (isMounted) {
-          await refreshCycleData();
-        }
-      } catch (error) {
-        await errorService.report(
-          error,
-          {
-            module: 'StudyCycle',
-            action: 'loadInitialData',
-            userMessage: 'Erro ao carregar dados do ciclo.',
-            severity: 'high',
-            scope: 'core',
-            userId: user?.id
-          }
-        );
-      }
-    };
-
-    loadInitialData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []); // Executar apenas uma vez quando o componente monta
+  // REMOVIDO: useEffect loadInitialData redundante
+  // O hook useStudyCycleData já carrega os dados inicialmente através de seus próprios useEffects.
+  // Manter este useEffect causava chamadas duplicadas e conflitos no estado isLoading.
 
   // REMOVIDO: useEffect que detectava mudanças em ciclos_realizados
   // A mensagem de novo ciclo agora é controlada APENAS pelo evento cycleUpdated
@@ -606,42 +581,37 @@ export const StudyCycleContent: React.FC = () => {
         )}
 
         {subjects.length === 0 ? (
-          <main className="flex-1 flex flex-col items-center justify-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700 overflow-hidden">
-            <div className="w-16 h-16 bg-sky-50 dark:bg-sky-900/20 rounded-full flex items-center justify-center mb-4 shadow-inner">
-              <Target className="h-8 w-8 text-sky-600 dark:text-sky-400" />
+          <main className="flex-1 flex flex-col items-center justify-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700 overflow-hidden text-center w-full">
+            <div className="w-24 h-24 bg-secondary dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8 mx-auto -rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shadow-sm">
+                <Target className="text-primary" size={40} />
+              </div>
             </div>
-            <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-2 text-center">Seu Ciclo Está Esperando por Você! 🎯</h2>
-            <p className="text-sm md:text-base text-slate-600 dark:text-slate-400 mb-4 max-w-md mx-auto leading-relaxed text-center">
-              O Ciclo de Estudos é o coração da sua preparação. Aqui você organiza suas matérias e mantém a constância necessária para a aprovação.
-            </p>
-            <div className="bg-sky-50 dark:bg-sky-900/10 border border-sky-100 dark:border-sky-800 p-4 rounded-xl mb-6 max-w-sm shadow-sm text-center">
-              <p className="text-sm text-slate-700 dark:text-slate-300 font-medium italic">
-                "O segredo do sucesso é a constância no objetivo."
-              </p>
-              <p className="text-[10px] text-slate-500 mt-1">— Benjamin Disraeli</p>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-500 mb-6 font-medium text-center">
-              Cadastre suas matérias e tópicos para gerar seu primeiro ciclo automático.
+            <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tight mb-4">
+              Nenhum edital carregado no ciclo
+            </h2>
+            <p className="text-base text-content-muted leading-relaxed font-medium mb-8 max-w-lg mx-auto">
+              Você precisa carregar um edital no seu ciclo de estudos para iniciar o estudo e revisão. Vá até a tela "Meus Editais" para começar.
             </p>
             <button
               onClick={() => navigate('/meus-editais')}
-              className="px-8 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 flex items-center gap-2 text-sm"
+              className="h-11 px-6 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
             >
-              <BookOpen className="h-4 w-4" />
-              Começar Agora
+              <BookOpen className="w-4 h-4" />
+              Carregar Edital
             </button>
           </main>
         ) : (
           <>
-            <header className="mt-0 px-4 mb-4 shrink-0 bg-zinc-900 border border-white/5 shadow-2xl mx-4 md:mx-6 rounded-3xl p-5 transition-all duration-300">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col flex-1">
-                  <p className="text-[10px] text-content-muted font-bold uppercase tracking-widest mb-2 pl-1">Gerencie seu progresso e metas diárias</p>
-                  
-                  <div className="flex flex-row gap-3 items-center">
-                    {/* Campo de Busca */}
-                    <div className="relative flex-1 min-w-0 bg-deep-slate border border-white/5 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-300 h-11 flex items-center px-4">
-                      <Search className="h-4 w-4 text-content-muted shrink-0" />
+            {/* Refined Header - Unified with Subjects Layout */}
+            <div className="flex flex-col gap-4 mb-8 shrink-0 relative z-20">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                {/* Left Zone: Search + View Controls + Cycle Info */}
+                <div className="flex flex-col gap-3 flex-1 w-full max-w-full lg:max-w-2xl">
+                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+                    {/* Search Input - Wider */}
+                    <div className="relative w-full sm:w-64 lg:w-96">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
                       <input
                         type="text"
                         value={searchQuery}
@@ -669,111 +639,117 @@ export const StudyCycleContent: React.FC = () => {
                           }
                         }}
                         placeholder="Buscar..."
-                        className="w-full bg-transparent border-none shadow-none focus:ring-0 text-zinc-100 placeholder:text-content-muted/50 h-full text-sm pl-3"
+                        className="w-full h-10 bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary/50 transition-all text-foreground placeholder:text-content-muted/50 shadow-sm"
                       />
                       {searchQuery && (
                         <button
                           onClick={handleClearSearch}
-                          className="text-content-muted hover:text-zinc-100 p-1 hover:bg-white/5 rounded-full transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-foreground transition-colors"
                         >
                           <X size={14} />
                         </button>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    {/* View Controls - Next to search */}
+                    <div className="flex items-center gap-1 bg-secondary/30 dark:bg-black/20 p-1 rounded-xl border border-border/50 dark:border-white/5 shrink-0">
                       {viewMode === 'list' && (
-                        <div className="flex items-center gap-0.5 p-1 bg-deep-slate rounded-xl h-11 border border-white/5">
-                          <button
-                            onClick={handleToggleAll}
-                            className="p-1.5 px-4 h-full rounded-lg text-content-muted hover:text-zinc-100 hover:bg-white/5 transition-colors flex items-center justify-center"
-                            aria-label={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
-                            title={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
-                          >
-                            {areAllExpanded ? <ChevronsUpIcon className="w-4 h-4" /> : <ChevronsDownIcon className="w-4 h-4" />}
-                          </button>
-                        </div>
+                        <button
+                          onClick={handleToggleAll}
+                          className="px-3 py-1 rounded-lg text-content-muted hover:text-foreground transition-all flex items-center justify-center"
+                          title={areAllExpanded ? "Recolher Todos" : "Expandir Todos"}
+                        >
+                          {areAllExpanded ? <ChevronsUpIcon className="w-4 h-4" /> : <ChevronsDownIcon className="w-4 h-4" />}
+                        </button>
                       )}
-                      <div className="flex items-center gap-1 p-1 bg-deep-slate rounded-xl h-11 border border-white/5">
-                        <button
-                          onClick={() => setViewMode('grid')}
-                          className={`p-1.5 px-3 h-full rounded-lg transition-all flex items-center justify-center shrink-0 ${viewMode === 'grid' ? 'bg-primary/20 text-primary shadow-lg shadow-primary/10' : 'text-content-muted hover:text-zinc-100 hover:bg-white/5'}`}
-                          aria-label="Visualização em Grade"
-                        >
-                          <GridIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setViewMode('list')}
-                          className={`p-1.5 px-3 h-full rounded-lg transition-all flex items-center justify-center shrink-0 ${viewMode === 'list' ? 'bg-primary/20 text-primary shadow-lg shadow-primary/10' : 'text-content-muted hover:text-zinc-100 hover:bg-white/5'}`}
-                          aria-label="Visualização em Lista"
-                        >
-                          <ListIcon className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setViewMode('grid')}
+                        className={`p-1 rounded-lg transition-all flex items-center justify-center shrink-0 w-8 h-8 ${viewMode === 'grid' ? 'bg-card dark:bg-zinc-800 text-primary shadow-sm' : 'text-content-muted hover:text-foreground'}`}
+                        aria-label="Grade"
+                      >
+                        <GridIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-1 rounded-lg transition-all flex items-center justify-center shrink-0 w-8 h-8 ${viewMode === 'list' ? 'bg-card dark:bg-zinc-800 text-primary shadow-sm' : 'text-content-muted hover:text-foreground'}`}
+                        aria-label="Lista"
+                      >
+                        <ListIcon className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
+
+                  {/* Active Cycle Chips - Below (Compact variant) */}
+                  {(() => {
+                    const activeEditais = editaisNoCiclo.filter(e =>
+                      e.subject_ids.some(sid => subjects.find(s => s.originalId === sid))
+                    );
+                    if (activeEditais.length === 0) return null;
+                    
+                    return (
+                      <div className="flex flex-wrap items-center gap-2 px-1 animate-in fade-in duration-500">
+                        <div className="flex items-center gap-1.5 mr-1 text-content-muted">
+                          <Database size={11} className="text-primary" />
+                          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Ciclo Ativo:</span>
+                        </div>
+                        {activeEditais.map(edital => {
+                          const activeCount = edital.subject_ids.filter(sid => subjects.find(s => s.originalId === sid)).length;
+                          return (
+                            <div
+                              key={edital.id}
+                              className="group flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-lg bg-secondary/50 dark:bg-zinc-800/30 border border-border dark:border-white/5 hover:border-primary/20 transition-all font-bold"
+                            >
+                              <span className="text-[10px] sm:text-[11px] text-content-muted group-hover:text-foreground transition-colors">{edital.name}</span>
+                              <span className="text-[9px] sm:text-[10px] text-content-muted px-1 py-0 bg-black/5 dark:bg-black/20 rounded-md">{activeCount}</span>
+                              <button
+                                onClick={() => setUnloadConfirm({ 
+                                  isOpen: true, 
+                                  editalId: edital.id, 
+                                  editalName: edital.name, 
+                                  subjectIds: edital.subject_ids 
+                                })}
+                                disabled={unloadingEditalId === edital.id}
+                                className="w-4 h-4 flex items-center justify-center rounded-md hover:text-red-400 hover:bg-red-500/10 transition-all opacity-30 group-hover:opacity-100"
+                              >
+                                {unloadingEditalId === edital.id ? <Loader2 size={10} className="animate-spin" /> : <X size={9} />}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Right Zone: Action Group */}
+                <div className="flex items-center gap-1 sm:gap-2">
+                  {/* Stats Action */}
+                  <button
+                    onClick={handleOpenStatsModal}
+                    className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
+                  >
+                    <RefreshCw size={14} className="text-primary transition-transform group-hover:rotate-180 duration-500" />
+                    <span>Estatísticas</span>
+                  </button>
+
+                  <button
+                    onClick={refreshCycleData}
+                    className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
+                  >
+                    <RefreshCw size={14} className="text-primary transition-transform group-hover:scale-110" />
+                    <span>Recarregar</span>
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/meus-editais')}
+                    className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
+                  >
+                    <BookOpen size={14} className="text-primary transition-transform group-hover:scale-110" />
+                    <span>Meus Editais</span>
+                  </button>
                 </div>
               </div>
-            </header>
-            
-            {/* ── Header: Editais Ativos no Ciclo ── */}
-            {(() => {
-              const activeEditais = editaisNoCiclo.filter(e =>
-                e.subject_ids.some(sid => subjects.find(s => s.originalId === sid))
-              );
-              if (activeEditais.length === 0) return null;
-              return (
-                <div className="px-4 md:px-6 mb-6">
-                  <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="flex items-center justify-between mb-3 px-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Database className="text-primary" size={16} />
-                        </div>
-                        <div>
-                          <h3 className="text-xs font-black text-zinc-100 uppercase tracking-widest leading-none">Editais no Ciclo Ativo</h3>
-                          <p className="text-[10px] text-content-muted font-medium mt-1">As matérias destes editais estão disponíveis para estudo no Ciclo</p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold text-content-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
-                        {activeEditais.length} edital{activeEditais.length !== 1 ? 'is' : ''}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {activeEditais.map(edital => {
-                        const activeCount = edital.subject_ids.filter(sid => subjects.find(s => s.originalId === sid)).length;
-                        return (
-                          <div
-                            key={edital.id}
-                            className="group flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl bg-zinc-800 border border-white/5 hover:border-primary/30 transition-all shadow-sm"
-                          >
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-zinc-200">{edital.name}</span>
-                              <span className="text-[9px] text-content-muted font-medium">{activeCount} matéria{activeCount !== 1 ? 's' : ''}</span>
-                            </div>
-                            <button
-                              onClick={() => setUnloadConfirm({ 
-                                isOpen: true, 
-                                editalId: edital.id, 
-                                editalName: edital.name, 
-                                subjectIds: edital.subject_ids 
-                              })}
-                              disabled={unloadingEditalId === edital.id}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-black/20 text-content-muted hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100"
-                              title="Remover do ciclo"
-                            >
-                              {unloadingEditalId === edital.id
-                                ? <Loader2 size={14} className="animate-spin text-red-400" />
-                                : <X size={14} />}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+            </div>
 
             {searchQuery && (
               <div className="px-4 md:px-8 mb-4 shrink-0 animate-in fade-in slide-in-from-top-2">
@@ -895,6 +871,51 @@ export const StudyCycleContent: React.FC = () => {
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
       />
+
+      {/* Confirmação de Remoção de Edital */}
+      <AlertDialog
+        open={unloadConfirm.isOpen}
+        onOpenChange={(open) => !open && setUnloadConfirm(prev => ({ ...prev, isOpen: false }))}
+      >
+        <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold flex items-center gap-2 text-zinc-100">
+              <AlertCircle className="text-amber-500 w-5 h-5" />
+              Remover do Ciclo Atual?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Você está removendo as matérias do edital <span className="font-bold text-zinc-200">"{unloadConfirm.editalName}"</span> do seu ciclo de estudos.
+              <br /><br />
+              <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-400 text-sm shadow-sm">
+                <p className="flex items-center gap-2 mb-2 font-bold uppercase tracking-tight text-[11px]">
+                  <Database className="w-3.5 h-3.5" />
+                  Preservação de Dados
+                </p>
+                <p><strong>Fique tranquilo:</strong> Seu histórico de estudo e revisões vinculados a este edital <strong>não será perdido</strong>.</p>
+                <p className="mt-2 text-emerald-500/80 leading-relaxed">
+                  Todo seu progresso anterior ficará preservado e poderá ser consultado a qualquer momento filtrando por <strong>"Histórico Total"</strong> nas páginas de <strong>Estatísticas</strong> e <strong>Dashboard (Painel)</strong>.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-white">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white font-bold"
+              onClick={() => {
+                if (unloadConfirm.editalId && unloadConfirm.editalName) {
+                  handleUnloadCycle(unloadConfirm.editalId, unloadConfirm.editalName, unloadConfirm.subjectIds);
+                  setUnloadConfirm(prev => ({ ...prev, isOpen: false }));
+                }
+              }}
+            >
+              Remover Matérias
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div >
   );

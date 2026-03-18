@@ -54,6 +54,8 @@ export const useCycleInitialization = (
               .from('user_cycles')
               .insert({
                 user_id: user.id,
+                name: 'Ciclo Inicial',
+                status: 'active',
                 ciclo_atual: cycleSubjectIds,
                 disciplinas_do_dia: cycleSubjectIds.slice(0, subjectsPerDay),
                 materias_pendentes: [],

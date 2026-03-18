@@ -27,6 +27,7 @@ import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
 import StudyCycle from "@/pages/StudyCycle";
 import Editais from "@/pages/Editais";
+import Planos from "@/pages/Planos";
 import RevealCardDemo from "@/components/ui/RevealCardDemo";
 
 import UserManagement from "@/pages/admin/UserManagement";
@@ -40,11 +41,11 @@ import ToastSpamTest from "@/pages/admin/debug/ToastSpamTest";
 import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
 import TendenciaGUT from "@/pages/admin/TendenciaGUT";
 import AdminEditais from "@/pages/admin/AdminEditais";
+import PlanCouponManager from "@/pages/admin/PlanCouponManager";
 
 import { AuthCallback } from "@/components/AuthCallback";
 import { SimpleRoleTest } from "@/components/SimpleRoleTest";
 
-import { ProfileOnboardingGate } from "@/components/ProfileOnboardingGate";
 import { useBrowserCompatibility } from "@/hooks/useBrowserCompatibility";
 
 const queryClient = new QueryClient({
@@ -65,7 +66,8 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <ThemeProvider>
-            <BrowserRouter>
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+
               <AuthProvider>
                 <AppProvider>
                   <TimerProvider>
@@ -83,7 +85,6 @@ const App = () => {
                       stacked={false}
                       toastClassName="!rounded-xl !shadow-lg !font-medium"
                     />
-                    <ProfileOnboardingGate />
                     <Routes>
                       <Route path="/" element={<LandingPage />} />
                       <Route path="/login" element={<Login />} />
@@ -114,12 +115,14 @@ const App = () => {
                             <Route path="admin/feedback" element={<AdminFeedback />} />
                             <Route path="admin/editais" element={<AdminEditais />} />
                             <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
+                            <Route path="admin/pricing" element={<PlanCouponManager />} />
                           </Route>
 
                           {/* Statistics Routes */}
                           <Route path="estatisticas/tendencia" element={<TrendAnalysis />} />
 
                           <Route path="test-roles" element={<SimpleRoleTest />} />
+                          <Route path="planos" element={<Planos />} />
                           <Route path="perfil" element={<Profile />} />
                           <Route path="configuracoes" element={<Settings />} />
                           <Route path="reveal-cards" element={<RevealCardDemo />} />

@@ -10,7 +10,9 @@ interface SubscriptionInfo {
   status: 'trial' | 'active' | 'expired' | 'canceled' | 'suspended'
   is_active: boolean
   days_remaining: number | null
+  trial_started_at: string | null
   trial_ends_at: string | null
+  subscription_started_at: string | null
   subscription_ends_at: string | null
   created_at: string
   updated_at: string
@@ -68,7 +70,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
     } finally {
       setLoading(false)
     }
-  }, [refreshTrigger])
+  }, [])
 
   // Função para forçar atualização
   const forceRefresh = useCallback(() => {
@@ -83,7 +85,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
   // Buscar informações na montagem e quando refreshTrigger mudar
   useEffect(() => {
     fetchSubscriptionInfo()
-  }, [fetchSubscriptionInfo])
+  }, [fetchSubscriptionInfo, refreshTrigger])
 
   // Escutar mudanças de autenticação
   useEffect(() => {

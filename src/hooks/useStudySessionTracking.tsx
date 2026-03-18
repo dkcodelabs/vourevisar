@@ -10,6 +10,8 @@ interface StudySessionData {
   topicsCount?: number;
   durationMinutes?: number;
   startedAt?: Date;
+  cycleId?: string;
+  editalId?: string;
 }
 
 export const useStudySessionTracking = () => {
@@ -37,7 +39,9 @@ export const useStudySessionTracking = () => {
           hour_of_day: getHours(now),
           day_of_week: getDay(now) === 0 ? 7 : getDay(now), // Domingo = 7, Segunda = 1
           is_weekend: getDay(now) === 0 || getDay(now) === 6,
-        } as any)
+          cycle_id: sessionData.cycleId,
+          edital_id: sessionData.editalId
+        })
         .select()
         .single();
 
@@ -78,7 +82,9 @@ export const useStudySessionTracking = () => {
     topicId: string,
     topicName: string,
     sessionStartTime?: Date,
-    durationMinutes?: number
+    durationMinutes?: number,
+    cycleId?: string,
+    editalId?: string
   ) => {
     return await recordStudySession({
       subjectId,
@@ -87,6 +93,8 @@ export const useStudySessionTracking = () => {
       topicsCount: 1,
       durationMinutes: durationMinutes ?? (sessionStartTime ? Math.round((Date.now() - sessionStartTime.getTime()) / 60000) : 0),
       startedAt: sessionStartTime,
+      cycleId,
+      editalId
     });
   }, [recordStudySession]);
 

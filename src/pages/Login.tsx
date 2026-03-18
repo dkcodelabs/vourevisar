@@ -117,7 +117,7 @@ const Login = () => {
 
         const result = await Promise.race([
           signIn(email.trim(), password),
-          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 15000))
+          new Promise<{ success: boolean; user?: unknown; error?: string }>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 30000))
         ]);
 
         console.log('[DEBUG] Login.tsx: Resultado do signIn:', result);
@@ -136,9 +136,10 @@ const Login = () => {
           setIsLoading(false);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login/Signup error:', error);
-      if (error.message === 'TIMEOUT') {
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage === 'TIMEOUT') {
         toastManager.error('O servidor demorou muito para responder. Tente novamente.');
       } else {
         toastManager.error('Ocorreu um erro inesperado. Tente novamente.');
@@ -211,12 +212,45 @@ const Login = () => {
     }
   };
 
+  const clearSessionCache = async () => {
+    setIsLoading(true);
+    try {
+      console.log("[Auth] Limpando cache de sessão...");
+      
+      // Clear Supabase session items from localStorage
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('sb-') || key.includes('supabase'))) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      
+      // Also try formal sign out if possible
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        // Ignore if this fails due to connection
+      }
+      
+      toastManager.success("Cache de conexão limpo. Tente entrar novamente.");
+      window.location.reload();
+    } catch (error) {
+      console.error("Erro ao limpar cache:", error);
+      toastManager.error("Erro ao limpar cache local.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="dark min-h-screen w-full flex items-start sm:items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans overflow-y-auto pt-8 pb-8 sm:pt-4 sm:pb-4">
+    <div className="min-h-screen w-full flex items-start sm:items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans overflow-y-auto pt-8 pb-8 sm:pt-4 sm:pb-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border-white/5 my-4"
+        className="w-full max-w-[400px] glass-card rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl bg-card border border-border dark:border-white/5 my-4"
       >
         {/* Header */}
         <div className="flex items-center gap-3 mb-3 sm:mb-6">
@@ -253,7 +287,7 @@ const Login = () => {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                      className="w-full bg-secondary/50 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
                       placeholder="Seu nome completo"
                       required={isRegistering}
                     />
@@ -268,7 +302,7 @@ const Login = () => {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                      className="w-full bg-secondary/50 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
                       placeholder="(11) 99999-9999"
                     />
                   </div>
@@ -305,7 +339,7 @@ const Login = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full bg-[#0F1115] border ${shakePassword ? 'border-red-500/50' : 'border-transparent'} focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner`}
+                  className={`w-full bg-secondary/50 border ${shakePassword ? 'border-red-500/50' : 'border-transparent'} focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner`}
                   placeholder="Digite sua senha"
                   required={!showForgotPassword}
                   autoComplete={isRegistering ? "new-password" : "current-password"}
@@ -398,7 +432,7 @@ const Login = () => {
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="w-full bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/10 text-foreground font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                className="w-full bg-card dark:bg-white/5 border border-border dark:border-white/5 hover:bg-secondary dark:hover:bg-white/10 text-foreground font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -412,7 +446,7 @@ const Login = () => {
           )}
 
           {!showForgotPassword && (
-            <div className="mt-6 text-center">
+            <div className="mt-6 text-center space-y-4">
               <p className="text-sm font-medium text-muted-foreground">
                 {isRegistering ? 'Já tem uma conta?' : 'Não tem uma conta?'} {' '}
                 <button
@@ -423,6 +457,19 @@ const Login = () => {
                   {isRegistering ? 'Entre aqui' : 'Registre-se'}
                 </button>
               </p>
+
+              {!isRegistering && (
+                <div className="pt-4 border-t border-border dark:border-white/5 flex flex-col items-center gap-2">
+                  <p className="text-[10px] text-muted-foreground text-center uppercase tracking-tighter opacity-50">Problemas de conexão?</p>
+                  <button 
+                    type="button"
+                    onClick={clearSessionCache}
+                    className="text-[10px] font-bold text-brand-blue hover:text-blue-400 transition underline uppercase tracking-widest"
+                  >
+                    Limpar cache de conexão
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </form>

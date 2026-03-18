@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileText, Sparkles, Loader2, Undo2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Search, FileText, Sparkles, Loader2, Undo2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Subject } from '@/types';
+import { UserEdital } from '@/pages/Editais';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,13 +25,14 @@ interface AiSubject {
 interface ImportEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string) => Promise<void> | void;
+    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string, extraInfo?: { organ: string; position: string; year: string }) => Promise<void> | void;
     subjects: Subject[];
+    userEditais?: UserEdital[];
     initialTab?: 'ready' | 'ia' | 'manual';
     manualModeChildren?: React.ReactNode;
 }
 
-export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initialTab = 'ready', manualModeChildren }: ImportEditalModalProps) => {
+export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren }: ImportEditalModalProps) => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'ready' | 'ia' | 'manual'>(initialTab);
     const [showSuggestSlide, setShowSuggestSlide] = useState(false);
@@ -39,13 +41,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
     const [suggestionSent, setSuggestionSent] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
-    const [sourceName, setSourceName] = useState('');
+    const [iaOrigin, setIaOrigin] = useState('');
+    const [iaPosition, setIaPosition] = useState('');
 
     // Manual States
-    const [manualTitle, setManualTitle] = useState('');
-    const [manualSubjects, setManualSubjects] = useState<string[]>([]);
-    const [currentManualSubject, setCurrentManualSubject] = useState('');
-    const [isSavingManual, setIsSavingManual] = useState(false);
+    const [manualOrigin, setManualOrigin] = useState('');
+    const [manualPosition, setManualPosition] = useState('');
+    const [importingManual, setImportingManual] = useState(false);
+    const [manualYear, setManualYear] = useState('');
+    const [iaYear, setIaYear] = useState('');
     const [examDate, setExamDate] = useState('');
 
     // IA States
@@ -55,7 +59,22 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
     const [aiResult, setAiResult] = useState<AiSubject[]>([]);
 
     // State for dynamic editais from database
-    const [editais, setEditais] = useState<any[]>([]);
+    interface ReadyEdital {
+        id: string;
+        name: string;
+        organ: string;
+        origin?: string;
+        position: string;
+        year?: string;
+        status?: string;
+        subjects: {
+            name: string;
+            topics: { name: string }[];
+        }[];
+        category?: string;
+        published_at?: string;
+    }
+    const [editais, setEditais] = useState<ReadyEdital[]>([]);
     const [loadingEditais, setLoadingEditais] = useState(true);
     const [isLoadingReady, setIsLoadingReady] = useState(false); // New state for ready tab import
 
@@ -69,7 +88,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                     .order('created_at', { ascending: false });
                 
                 if (!error && data) {
-                    setEditais(data);
+                    setEditais(data as ReadyEdital[]);
                 }
             } catch (err) {
                 console.error('Error fetching global editais:', err);
@@ -95,14 +114,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
             setIaStage('input');
             setInputText('');
             setAiResult([]);
-            setManualTitle('');
-            setManualSubjects([]);
-            setCurrentManualSubject('');
-            setIsSavingManual(false);
+            setManualOrigin('');
+            setManualPosition('');
+            setImportingManual(false);
             setExamDate('');
             setShowSuggestSlide(false);
             setSuggestionSent(false);
-            setSourceName(''); // Reset sourceName on close
+            setIaOrigin('');
+            setIaPosition('');
         }
     }, [initialTab, isOpen]);
 
@@ -169,61 +188,79 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
     };
 
     const handleSaveAiResult = async () => {
-        const newSubjects: Subject[] = [];
+        const newSubjects = aiResult.filter(s => s.selected).map(s => ({
+            id: Math.random().toString(36).substr(2, 9),
+            name: s.title,
+            status: 'Nova', // Ensure status is set for new subjects
+            topics: s.topics.filter(t => t.selected).map(t => ({
+                id: Math.random().toString(36).substr(2, 9),
+                name: t.name,
+                completed: false,
+                reviewCount: 0, // Ensure reviewCount is set
+                review_count: 0 // Ensure review_count is set
+            }))
+        } as Subject));
 
-        aiResult.filter(r => r.selected).forEach((r, sIdx) => {
-            newSubjects.push({
-                id: `ia-subj-${Date.now()}-${sIdx}`,
-                name: r.title,
-                status: 'Nova',
-                topics: r.topics.filter((t) => t.selected).map((t, idx) => ({
-                    id: `ia-top-${Date.now()}-${idx}`,
-                    name: t.name,
-                    completed: false,
-                    reviewCount: 0,
-                    review_count: 0
-                }))
-            });
-        });
+        const finalName = iaPosition.trim() 
+            ? `${iaOrigin.trim()} - ${iaPosition.trim()}` 
+            : (iaOrigin.trim() || 'Importado com IA');
 
-        await onImport(newSubjects, sourceName.trim() || 'Importado com IA', true); // isImported = true
+        // Validação de duplicidade por nome
+        const normalizedName = finalName.toLowerCase().trim();
+        const exists = userEditais.some(e => e.name.toLowerCase().trim() === normalizedName);
+        
+        if (exists) {
+            toastGate.notifyError('Você já possui um edital com este nome/instituição e cargo.', 'VAL-DUP-01', { severity: 'medium' });
+            return;
+        }
+        
+        const extraInfo = { organ: iaOrigin, position: iaPosition, year: iaYear };
+        await onImport(newSubjects, finalName, true, undefined, extraInfo);
         onClose();
-        setSourceName('');
     };
 
     const handleSaveManual = async () => {
-        if (!manualTitle.trim()) {
-            toastGate.notifyError('Preencha o nome do edital/concurso', 'VAL-01', { severity: 'low' });
+        if (!manualOrigin.trim()) {
+            toastGate.notifyError('Preencha a origem/concurso', 'VAL-01', { severity: 'low' });
             return;
         }
 
-        if (manualSubjects.length === 0) {
-            toastGate.notifyError('Adicione pelo menos uma matéria', 'VAL-02', { severity: 'low' });
+        if (!manualPosition.trim()) {
+            toastGate.notifyError('Preencha o cargo/função', 'VAL-02', { severity: 'low' });
             return;
         }
 
-        setIsSavingManual(true);
+        setImportingManual(true);
         try {
-            const newSubjects: Subject[] = manualSubjects.map((name, idx) => ({
-                id: `manual-subj-${Date.now()}-${idx}`,
-                name: name.trim().toUpperCase(),
-                status: 'Nova',
-                topics: []
-            }));
+            const finalName = `${manualOrigin.trim()} - ${manualPosition.trim()}`;
+            
+            // Validação de duplicidade por nome
+            const normalizedName = finalName.toLowerCase().trim();
+            const exists = userEditais.some(e => e.name.toLowerCase().trim() === normalizedName);
+            
+            if (exists) {
+                toastGate.notifyError('Você já possui um edital com este nome/instituição e cargo.', 'VAL-DUP-02', { severity: 'medium' });
+                setImportingManual(false);
+                return;
+            }
 
-            await onImport(newSubjects, manualTitle.trim(), false); // isImported = false
+            const extraInfo = { organ: manualOrigin, position: manualPosition, year: manualYear };
+            // Ao criar manual, enviamos sem matérias inicialmente, 
+            // pois o fluxo agora abre o modal de gestão de matérias em seguida.
+            await onImport([], finalName, false, undefined, extraInfo); 
+            
             onClose();
-            setManualTitle('');
-            setManualSubjects([]);
-            setCurrentManualSubject('');
+            setManualOrigin('');
+            setManualPosition('');
+            setManualYear('');
         } catch (error) {
             console.error('Erro ao salvar edital manual:', error);
         } finally {
-            setIsSavingManual(false);
+            setImportingManual(false);
         }
     };
 
-    const handleImportReadyEdital = async (edital: any) => {
+    const handleImportReadyEdital = async (edital: ReadyEdital) => {
         setIsLoadingReady(true);
         try {
             // If no subjects, just log it silently or ignore as requested by user
@@ -233,12 +270,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
 
             const subjectsList = Array.isArray(edital.subjects) ? edital.subjects : [];
 
-            const importSubjects: Subject[] = subjectsList.map((s: any, i: number) => {
+            const importSubjects: Subject[] = subjectsList.map((s: { name: string; topics?: { name: string }[] }, i: number) => {
                 return {
                     id: `imp-${edital.id}-${i}-${Date.now()}`,
                     name: s.name,
                     status: 'Nova',
-                    topics: (s.topics || []).map((t: any, ti: number) => ({
+                    topics: (s.topics || []).map((t: { name: string }, ti: number) => ({
                         id: `imp-top-${edital.id}-${i}-${ti}-${Date.now()}`,
                         name: typeof t === 'string' ? t : t.name,
                         completed: false,
@@ -247,7 +284,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                     }))
                 };
             });
-            await onImport(importSubjects, `${edital.organ} - ${edital.position}`, true, edital.id);
+            const extraInfo = { organ: edital.organ || '', position: edital.position || '', year: edital.year || '' };
+            await onImport(importSubjects, `${edital.organ} - ${edital.position}`, true, edital.id, extraInfo);
             onClose();
         } catch (error) {
             console.error('Erro ao importar edital pronto:', error);
@@ -272,20 +310,28 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-5xl bg-zinc-900 border border-black/10 dark:border-white/10 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="relative w-full max-w-5xl h-[85vh] bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
                 <div className="p-6 border-b border-black/5 dark:border-white/5 flex items-center justify-between shrink-0">
                     <div>
-                        <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Importar Edital</h2>
-                        <p className="text-sm text-content-muted font-medium mt-1">Escolha um edital pronto ou use nossa IA</p>
+                        <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
+                            {activeTab === 'ready' ? 'Editais Prontos' : activeTab === 'ia' ? 'Importar com IA' : 'Adicionar Manual'}
+                        </h2>
+                        <p className="text-sm text-content-muted font-medium mt-1">
+                            {activeTab === 'ready' 
+                                ? 'Escolha um edital pronto do nosso catálogo oficial.' 
+                                : activeTab === 'ia' 
+                                    ? 'Use nossa inteligência artificial para extrair conteúdos de textos.' 
+                                    : 'Cadastre manualmente as matérias e tópicos do seu edital.'}
+                        </p>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
+                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
                         <X size={20} />
                     </button>
                 </div>
 
                 <div className="p-6 overflow-y-auto no-scrollbar flex-1">
-                    <div className="flex gap-2 bg-zinc-900/50 p-1.5 rounded-2xl mb-8 w-fit mx-auto border border-white/5">
+                    <div className="flex gap-2 bg-secondary dark:bg-zinc-900/50 p-1.5 rounded-2xl mb-8 w-fit mx-auto border border-border dark:border-white/5">
                         <button
                             onClick={() => setActiveTab('ready')}
                             className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'ready' ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-primary hover:bg-primary/10'}`}
@@ -319,15 +365,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                         placeholder="Buscar concurso (ex: PCES, PMES, INSS...)"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full h-14 bg-zinc-950 border border-black/5 dark:border-white/5 rounded-[20px] pl-14 pr-6 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
+                                        className="w-full h-14 bg-secondary dark:bg-zinc-950 border border-border dark:border-white/5 rounded-[20px] pl-14 pr-6 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
                                     />
                                 </div>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2 overflow-x-auto no-scrollbar pb-2">
                                     {['Todos', 'Carreiras Policiais', 'Tribunais', 'Bancárias', 'Administrativo', 'Educação'].map(cat => (
                                         <button
                                             key={cat}
                                             onClick={() => setSelectedCategory(cat)}
-                                            className={`px-4 py-2 rounded-full text-[11px] font-semibold transition-all tracking-wide border ${selectedCategory === cat ? 'bg-zinc-200 text-zinc-900 border-zinc-200' : 'bg-transparent border-white/10 text-content-muted hover:border-white/30 hover:text-zinc-200'}`}
+                                            className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all tracking-wider border uppercase ${
+                                                selectedCategory === cat 
+                                                ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' 
+                                                : 'bg-secondary dark:bg-zinc-800/20 border-border dark:border-white/5 text-content-muted hover:border-primary/30 hover:text-foreground'
+                                            }`}
                                         >
                                             {cat}
                                         </button>
@@ -342,11 +392,18 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                 </div>
                             ) : filteredEditais.length > 0 ? (
                                 <div className="flex flex-col gap-3">
-                                    {filteredEditais.map(edital => (
+                                    {filteredEditais.map(edital => {
+                                        const isAlreadyImported = userEditais.some(ue => ue.sourceId === edital.id);
+                                        
+                                        return (
                                         <motion.div 
                                             key={edital.id} 
-                                            whileHover={{ scale: 1.01 }}
-                                            className="p-4 rounded-2xl group border border-white/5 bg-zinc-800/20 hover:bg-zinc-800/50 hover:border-primary/30 transition-all relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4"
+                                            whileHover={isAlreadyImported ? {} : { scale: 1.01 }}
+                                            className={`p-4 rounded-2xl group border transition-all relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4 ${
+                                                isAlreadyImported 
+                                                ? 'border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10' 
+                                                : 'border-border dark:border-white/5 bg-secondary/30 dark:bg-zinc-800/20 hover:bg-secondary/50 dark:hover:bg-zinc-800/50 hover:border-primary/30'
+                                            }`}
                                         >
                                             {/* Glow effect on hover */}
                                             <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity blur-xl z-0" />
@@ -363,29 +420,38 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border shrink-0 ${
                                                         edital.status === 'PÓS-EDITAL' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
                                                         edital.status === 'PREVISTO' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
-                                                        'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+                                                        'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                                                     }`}>
-                                                        {edital.status} {edital.year}
+                                                        {edital.status === 'published' ? 'PUBLICADO' : edital.status} {edital.year}
                                                     </span>
+                                                    {isAlreadyImported && (
+                                                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md border bg-emerald-500 text-white border-emerald-500 flex items-center gap-1 shadow-sm">
+                                                            <CheckCircle2 size={10} /> JÁ IMPORTADO
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <p className="text-xs text-content-muted font-medium mt-0.5 truncate">{edital.position}</p>
                                             </div>
 
                                             <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto z-10">
-                                                 <div className="flex flex-wrap items-center gap-1.5 flex-1 sm:max-w-[240px] lg:max-w-[320px]">
+                                                 <div className="flex items-center gap-3">
                                                      {edital.subjects && edital.subjects.length > 0 ? (
-                                                         <>
-                                                             {edital.subjects.slice(0, 3).map((s: any, idx: number) => (
-                                                                 <span key={idx} className="px-1.5 py-0.5 bg-zinc-900/50 text-[9px] font-bold rounded-md border border-white/5 text-zinc-400 truncate max-w-[100px] sm:max-w-none">
-                                                                     {s.name}
+                                                         <div className="flex items-center gap-4">
+                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 group-hover:border-primary/20 transition-all">
+                                                                 <Database size={12} className="text-primary/60" />
+                                                                 <span className="text-[10px] font-black text-content-muted dark:text-zinc-400 group-hover:text-foreground dark:group-hover:text-zinc-200 transition-colors uppercase">
+                                                                     {edital.subjects.length} MATÉRIAS
                                                                  </span>
-                                                             ))}
-                                                             {edital.subjects.length > 3 && (
-                                                                 <span className="text-[9px] font-bold text-primary/60">+{edital.subjects.length - 3} mats.</span>
-                                                             )}
-                                                         </>
+                                                             </div>
+                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 group-hover:border-primary/20 transition-all">
+                                                                 <Info size={12} className="text-primary/60" />
+                                                                 <span className="text-[10px] font-black text-content-muted dark:text-zinc-400 group-hover:text-foreground dark:group-hover:text-zinc-200 transition-colors uppercase">
+                                                                     {edital.subjects.reduce((acc: number, s: { topics?: any[] }) => acc + (s.topics?.length || 0), 0)} TÓPICOS
+                                                                 </span>
+                                                             </div>
+                                                         </div>
                                                      ) : (
-                                                         <span className="text-[10px] font-bold text-amber-500/60 flex items-center gap-1 uppercase tracking-wider bg-amber-500/5 px-2 py-1 rounded-md border border-amber-500/10">
+                                                         <span className="text-[10px] font-bold text-amber-500/60 flex items-center gap-1 uppercase tracking-wider bg-amber-500/5 px-2 py-1 rounded-lg border border-amber-500/10">
                                                              <AlertTriangle size={10} /> Sem conteúdos
                                                          </span>
                                                      )}
@@ -394,25 +460,31 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                                 <button 
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        if (isAlreadyImported) return;
                                                         handleImportReadyEdital(edital);
                                                     }}
-                                                    disabled={isLoadingReady}
-                                                    className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-all scale-100 sm:scale-75 sm:group-hover:scale-100 shrink-0 hover:bg-primary hover:text-white disabled:opacity-50"
+                                                    disabled={isLoadingReady || isAlreadyImported}
+                                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                                                        isAlreadyImported 
+                                                        ? 'bg-emerald-500/20 text-emerald-500 cursor-default opacity-100' 
+                                                        : 'bg-primary/10 text-primary opacity-80 sm:opacity-0 sm:group-hover:opacity-100 scale-100 sm:scale-75 sm:group-hover:scale-100 hover:bg-primary hover:text-white disabled:opacity-50'
+                                                    }`}
                                                 >
-                                                    {isLoadingReady ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
+                                                    {isLoadingReady ? <Loader2 className="animate-spin" size={16} /> : isAlreadyImported ? <CheckCircle2 size={16} /> : <Plus size={16} />}
                                                 </button>
                                             </div>
                                         </motion.div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="py-16 text-center">
-                                    <div className="w-20 h-20 bg-zinc-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <div className="w-20 h-20 bg-secondary dark:bg-zinc-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
                                         <Search className="text-content-muted" size={32} />
                                     </div>
                                     <p className="text-lg font-black text-content-main mb-2 tracking-tight">SEM RESULTADOS</p>
                                     {searchQuery.trim() ? (
-                                        <p className="text-sm text-content-muted font-medium mb-6">Não encontramos concursos para <span className="text-zinc-300 font-bold">&ldquo;{searchQuery}&rdquo;</span></p>
+                                        <p className="text-sm text-content-muted font-medium mb-6">Não encontramos concursos para <span className="text-foreground font-bold">&ldquo;{searchQuery}&rdquo;</span></p>
                                     ) : (
                                         <p className="text-sm text-content-muted font-medium mb-6">Ainda não há editais no catálogo. Seja o primeiro a sugerir!</p>
                                     )}
@@ -429,35 +501,82 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                     ) : activeTab === 'ia' ? (
                         <div className="space-y-8">
                             {iaStage === 'input' && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 max-w-3xl mx-auto">
-                                    <div className="space-y-4">
-                                        <div className="p-6 rounded-3xl space-y-3 bg-zinc-800/20 border border-white/5">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Concurso / Origem</label>
-                                            <input
-                                                type="text"
-                                                value={sourceName}
-                                                onChange={(e) => setSourceName(e.target.value)}
-                                                placeholder="Ex: PC-ES, Faculdade, TRT..."
-                                                className="w-full bg-[#111114] border border-white/5 focus:border-primary/40 rounded-2xl px-6 py-3.5 text-sm font-medium text-content-main outline-none transition-all shadow-inner"
-                                            />
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 w-full">
+                                    <div className="text-center space-y-2 mb-4">
+                                        <h3 className="text-2xl font-black text-content-main tracking-tight uppercase">Estruturar com Inteligência Artificial</h3>
+                                        <p className="text-sm text-content-muted font-medium">Informe a origem, cargo e cole o conteúdo para a IA organizar sua jornada.</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-[2.5fr_2.5fr_1fr] gap-6">
+                                        {/* Origin Field */}
+                                        <div className="space-y-3 group">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Origem / Instituição</label>
+                                            <div className="relative">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                                    <Database size={18} />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={iaOrigin}
+                                                    onChange={(e) => setIaOrigin(e.target.value)}
+                                                    placeholder="Ex: PC-ES, INSS, Receita Federal..."
+                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="p-6 rounded-3xl space-y-3 bg-zinc-800/20 border border-white/5">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Conteúdo Programático</label>
-                                            <textarea
-                                                value={inputText}
-                                                onChange={(e) => setInputText(e.target.value)}
-                                                placeholder="Cole aqui o texto do conteúdo programático do edital (Ctrl+V)..."
-                                                className="w-full h-64 bg-[#111114] border border-white/5 focus:border-primary/40 rounded-2xl p-6 text-sm font-medium text-content-main outline-none transition-all resize-none no-scrollbar shadow-inner"
-                                            />
+
+                                        {/* Position Field */}
+                                        <div className="space-y-3 group">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Cargo / Função</label>
+                                            <div className="relative">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                                    <Sparkles size={18} />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={iaPosition}
+                                                    onChange={(e) => setIaPosition(e.target.value)}
+                                                    placeholder="Ex: Agente, Analista Judiciário..."
+                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Year Field */}
+                                        <div className="space-y-3 group">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Ano</label>
+                                            <div className="relative">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                                    <CalendarDays size={18} />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={iaYear}
+                                                    onChange={(e) => setIaYear(e.target.value)}
+                                                    placeholder="Ex: 2024"
+                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="pt-2">
+
+                                    <div className="space-y-3 group">
+                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Conteúdo Programático do Edital</label>
+                                        <textarea
+                                            value={inputText}
+                                            onChange={(e) => setInputText(e.target.value)}
+                                            placeholder="Cole aqui o texto do conteúdo programático do edital (Ctrl+V)..."
+                                            className="w-full h-80 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl p-6 text-xs font-medium text-content-main outline-none transition-all resize-none no-scrollbar shadow-inner"
+                                        />
+                                    </div>
+
+                                    <div className="pt-2 flex justify-center">
                                         <button
                                             onClick={handleIaImport}
-                                            disabled={!inputText.trim()}
-                                            className="w-full sm:w-auto px-10 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-black py-4 rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-xs mx-auto uppercase tracking-widest"
+                                            disabled={!inputText.trim() || !iaOrigin.trim() || !iaPosition.trim()}
+                                            className="w-full sm:w-auto px-16 py-5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-black rounded-[24px] shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-3 justify-center text-xs uppercase tracking-widest"
                                         >
-                                            <Sparkles size={16} />
+                                            <Sparkles size={18} />
                                             Estruturar com IA
                                         </button>
                                     </div>
@@ -479,14 +598,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-xl font-black text-content-main tracking-tight">Revisão da Estrutura</h3>
-                                        <button onClick={() => setIaStage('input')} className="flex items-center gap-2 px-6 py-2.5 text-[10px] font-black text-content-muted hover:text-primary transition-colors uppercase tracking-widest bg-zinc-800 rounded-full">
+                                        <button onClick={() => setIaStage('input')} className="flex items-center gap-2 px-6 py-2.5 text-[10px] font-black text-content-muted hover:text-primary transition-colors uppercase tracking-widest bg-secondary dark:bg-zinc-800 rounded-full">
                                             <Undo2 size={14} /> Voltar
                                         </button>
                                     </div>
 
                                     <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 no-scrollbar">
                                         {aiResult.map((subj, sIdx) => (
-                                            <div key={subj.id} className="p-5 rounded-3xl bg-zinc-800/10 border border-white/5">
+                                            <div key={subj.id} className="p-5 rounded-3xl bg-secondary/30 dark:bg-zinc-800/10 border border-border dark:border-white/5">
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-4">
                                                         <input
@@ -525,7 +644,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                                 {subj.expanded && (
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-8">
                                                         {subj.topics.map((topic, tIdx) => (
-                                                            <div key={tIdx} className="flex items-center gap-2 p-2 px-3 rounded-xl hover:bg-zinc-800/30 transition-colors">
+                                                            <div key={tIdx} className="flex items-center gap-2 p-2 px-3 rounded-xl hover:bg-secondary/50 dark:hover:bg-zinc-800/30 transition-colors">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={topic.selected}
@@ -566,111 +685,72 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                             )}
                         </div>
                     ) : (
-                        <div className="space-y-6 max-w-4xl mx-auto pt-2 pb-8">
-                            {/* Modern Bar Style for Adding Subjects */}
-                            <div className="glow-card p-4 rounded-2xl flex flex-col items-start gap-4 mb-4 relative z-20">
-                                <div className="flex flex-col sm:flex-row w-full gap-4 items-center justify-between">
-                                    <div className="flex-1 w-full flex flex-col sm:flex-row gap-2">
-                                        {/* Edital Name (Origin) Field */}
-                                        <div className="relative flex-1">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-primary/60">
-                                                <Database size={14} />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={manualTitle}
-                                                onChange={(e) => setManualTitle(e.target.value)}
-                                                placeholder="Concurso / Origem (ex: PC-ES)"
-                                                className="w-full h-11 bg-[#111114] border border-black/5 dark:border-white/5 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/40 shadow-inner"
-                                            />
-                                        </div>
+                        <div className="space-y-8 w-full pt-4 pb-12">
+                            <div className="text-center space-y-2 mb-4">
+                                <h3 className="text-2xl font-black text-content-main tracking-tight uppercase">Novo Edital Personalizado</h3>
+                                <p className="text-sm text-content-muted font-medium">Defina a origem e o cargo para começar a estruturar seu edital.</p>
+                            </div>
 
-                                        {/* Subject Input Field */}
-                                        <div className="relative flex-[1.5]">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
-                                            <input
-                                                type="text"
-                                                value={currentManualSubject}
-                                                onChange={(e) => setCurrentManualSubject(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && currentManualSubject.trim()) {
-                                                        e.preventDefault();
-                                                        setManualSubjects(prev => [...prev, currentManualSubject.trim()]);
-                                                        setCurrentManualSubject('');
-                                                    }
-                                                }}
-                                                placeholder="Nome da matéria (Português, RLM...)"
-                                                className="w-full h-11 bg-[#111114] border border-black/5 dark:border-white/5 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/40 shadow-inner"
-                                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Origin Field */}
+                                <div className="space-y-3 group">
+                                    <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Origem / Instituição</label>
+                                    <div className="relative">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                            <Database size={18} />
                                         </div>
+                                        <input
+                                            type="text"
+                                            value={manualOrigin}
+                                            onChange={(e) => setManualOrigin(e.target.value)}
+                                            placeholder="Ex: PC-ES, INSS, Receita Federal..."
+                                            className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                        />
                                     </div>
+                                </div>
 
-                                    <button
-                                        onClick={() => {
-                                            if (currentManualSubject.trim()) {
-                                                setManualSubjects(prev => [...prev, currentManualSubject.trim()]);
-                                                setCurrentManualSubject('');
-                                            }
-                                        }}
-                                        disabled={!currentManualSubject.trim()}
-                                        className="h-11 px-6 bg-emerald-500 text-white text-[10px] font-black rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-40 uppercase tracking-widest"
-                                    >
-                                        <Plus size={14} />
-                                        ADICIONAR MATÉRIA
-                                    </button>
+                                {/* Position Field */}
+                                <div className="space-y-3 group">
+                                    <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Cargo / Função</label>
+                                    <div className="relative">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                            <Sparkles size={18} />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={manualPosition}
+                                            onChange={(e) => setManualPosition(e.target.value)}
+                                            placeholder="Ex: Agente, Analista Judiciário, Técnico..."
+                                            className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* List of Added Subjects */}
-                            <div className="flex flex-wrap gap-2 min-h-[100px] p-6 rounded-3xl bg-black/20 border border-white/5 relative">
-                                {manualSubjects.length === 0 ? (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center opacity-40 pointer-events-none">
-                                        <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-2">
-                                            <FileText size={20} className="text-content-muted" />
-                                        </div>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-content-muted">Nenhuma matéria adicionada</p>
-                                    </div>
-                                ) : (
-                                    manualSubjects.map((topic, index) => (
-                                        <motion.div
-                                            initial={{ scale: 0.9, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            key={`${topic}-${index}`}
-                                            className="group flex items-center gap-2 pl-4 pr-2 py-2 bg-zinc-800 border border-white/10 rounded-xl transition-all hover:border-primary/40"
-                                        >
-                                            <span className="text-xs font-bold text-zinc-200">{topic}</span>
-                                            <button
-                                                onClick={() => {
-                                                    setManualSubjects(prev => prev.filter((_, i) => i !== index));
-                                                }}
-                                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
-                                            >
-                                                <X size={12} />
-                                            </button>
-                                        </motion.div>
-                                    ))
-                                )}
-                            </div>
-
-                            <div className="pt-8 flex flex-col items-center gap-4">
+                            <div className="pt-4 flex flex-col items-center gap-4">
                                 <button
                                     onClick={handleSaveManual}
-                                    disabled={!manualTitle.trim() || manualSubjects.length === 0 || isSavingManual}
-                                    className="px-16 py-4 bg-primary text-white font-black rounded-[24px] shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3 relative min-w-[280px] justify-center"
+                                    disabled={!manualOrigin.trim() || !manualPosition.trim() || importingManual}
+                                    className="w-full sm:w-auto px-16 py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-[24px] shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3 justify-center text-xs uppercase tracking-widest"
                                 >
-                                    {isSavingManual ? (
+                                    {importingManual ? (
                                         <>
-                                            <Loader2 size={20} className="animate-spin" />
-                                            SALVANDO...
+                                            <Loader2 size={18} className="animate-spin" />
+                                            Criando Edital...
                                         </>
                                     ) : (
                                         <>
-                                            <Save size={20} />
-                                            SALVAR EDITAL MANUAL
+                                            <Plus size={18} />
+                                            Criar Edital e Adicionar Matérias
                                         </>
                                     )}
                                 </button>
-                                <p className="text-[10px] text-content-muted font-bold uppercase tracking-[0.2em]">O edital ficará salvo em &ldquo;Meus Editais&rdquo;</p>
+                                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 rounded-full border border-emerald-500/10">
+                                    <Info size={12} className="text-emerald-500/70" />
+                                    <p className="text-[9px] text-emerald-500/70 font-bold uppercase tracking-widest">
+                                        Após clicar, você poderá adicionar as matérias e tópicos.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -693,7 +773,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: '100%', opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                            className="absolute inset-y-0 right-0 w-full max-w-sm bg-zinc-900 border-l border-white/10 rounded-r-[32px] flex flex-col z-20 shadow-2xl"
+                            className="absolute inset-y-0 right-0 w-full max-w-sm bg-card dark:bg-zinc-900 border-l border-border dark:border-white/10 rounded-r-[32px] flex flex-col z-20 shadow-2xl"
                         >
                             <div className="px-6 pt-7 pb-5 border-b border-white/5 flex items-center justify-between shrink-0">
                                 <div className="flex items-center gap-3">
@@ -701,13 +781,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                         <MessageSquare size={18} className="text-primary" />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-black text-zinc-100 tracking-tight">Sugerir Edital</h3>
+                                        <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Sugerir Edital</h3>
                                         <p className="text-[11px] text-content-muted mt-0.5">Vamos analisar e cadastrar em breve</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setShowSuggestSlide(false)}
-                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-100"
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100"
                                 >
                                     <X size={16} />
                                 </button>
@@ -723,13 +803,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                         <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-5">
                                             <CheckCircle2 className="text-emerald-400" size={32} />
                                         </div>
-                                        <h4 className="text-base font-black text-zinc-100 mb-2">Sugestão Enviada!</h4>
+                                        <h4 className="text-base font-black text-zinc-900 dark:text-zinc-100 mb-2">Sugestão Enviada!</h4>
                                         <p className="text-sm text-content-muted mb-6 leading-relaxed">
-                                            Recebemos sua sugestão para <span className="text-zinc-300 font-bold">{suggestConcurso}</span>. Iremos analisar e te notificaremos quando disponível.
+                                            Recebemos sua sugestão para <span className="text-primary font-bold">{suggestConcurso}</span>. Iremos analisar e te notificaremos quando disponível.
                                         </p>
                                         <button
                                             onClick={() => setShowSuggestSlide(false)}
-                                            className="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold rounded-xl transition-all"
+                                            className="px-8 py-3 bg-secondary light:bg-slate-100 dark:bg-zinc-800 hover:bg-secondary-strong light:hover:bg-slate-200 dark:hover:bg-zinc-700 text-foreground light:text-slate-700 dark:text-zinc-200 text-xs font-bold rounded-xl transition-all"
                                         >
                                             FECHAR
                                         </button>
@@ -747,7 +827,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, initial
                                                 onKeyDown={e => e.key === 'Enter' && suggestConcurso.trim() && handleSendSuggestion()}
                                                 placeholder="Ex: PCES, PMES, INSS, TRT..."
                                                 autoFocus
-                                                className="w-full h-12 bg-zinc-950/80 border border-white/8 rounded-2xl px-5 text-sm font-medium text-content-main placeholder:text-content-muted/40 focus:outline-none focus:border-primary/40 transition-all"
+                                                className="w-full h-12 bg-secondary dark:bg-zinc-950/80 border border-border dark:border-white/8 rounded-2xl px-5 text-sm font-medium text-content-main placeholder:text-content-muted/40 focus:outline-none focus:border-primary/40 transition-all"
                                             />
                                             <p className="text-[10px] text-content-muted pl-1">
                                                 Informe o nome ou sigla do concurso que deseja ter disponível no catálogo.

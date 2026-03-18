@@ -9,6 +9,9 @@ interface EditalOriginData {
     active_subject_ids: string[];
     is_imported: boolean;
     merged_into_cycle: boolean;
+    organ?: string;
+    position?: string;
+    year?: string;
 }
 
 /**
@@ -31,7 +34,7 @@ export const useEditalOrigins = () => {
         if (!user) return;
         try {
             const { data, error } = await editaisTable()
-                .select('id, name, subject_ids, active_subject_ids, is_imported, merged_into_cycle')
+                .select('id, name, subject_ids, active_subject_ids, is_imported, merged_into_cycle, organ, position, year')
                 .eq('user_id', user.id);
 
             if (error) throw error;
@@ -43,6 +46,9 @@ export const useEditalOrigins = () => {
                 active_subject_ids: (row.active_subject_ids as string[]) || [],
                 is_imported: row.is_imported as boolean,
                 merged_into_cycle: row.merged_into_cycle as boolean || false,
+                organ: row.organ as string,
+                position: row.position as string,
+                year: row.year as string,
             }));
 
             setEditaisData(parsedEditais);

@@ -65,6 +65,10 @@ When auto-applying an agent, inform the user:
 [Continue with specialized response]
 ```
 
+> [!NOTE]
+> **(PT-BR) Seleção Automática Relevante:**
+> Sempre anuncie qual "expertise" está sendo aplicada no início de cada resposta técnica significativa para que o usuário saiba quais diretrizes e skills foram carregadas.
+
 **Rules:**
 
 1. **Silent Analysis**: No verbose meta-commentary ("I am analyzing...").
@@ -81,6 +85,10 @@ When auto-applying an agent, inform the user:
 | 2 | Did I READ the agent's `.md` file (or recall its rules)? | → STOP. Open `.agent/agents/{agent}.md` |
 | 3 | Did I announce `🤖 Applying knowledge of @[agent]...`? | → STOP. Add announcement before response. |
 | 4 | Did I load required skills from agent's frontmatter? | → STOP. Check `skills:` field and read them. |
+
+> [!IMPORTANT]
+> **(PT-BR) Checklist de Transparência:**
+> Nunca pule o anúncio da expertise. É o único sinal visual de que a IA está seguindo o protocolo de agentes e habilidades.
 
 **Failure Conditions:**
 

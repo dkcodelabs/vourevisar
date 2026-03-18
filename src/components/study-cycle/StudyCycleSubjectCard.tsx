@@ -69,7 +69,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     return (
       <Badge
         variant="secondary"
-        className="bg-indigo-100 text-indigo-800 border border-indigo-300 font-mono text-xs min-w-[2.5rem] justify-center font-semibold"
+        className="bg-primary/10 text-primary border border-primary/20 font-mono text-xs min-w-[2.5rem] justify-center font-semibold"
         title={`Posição ${cyclePosition} na sequência do ciclo`}
       >
         {cyclePosition}
@@ -212,10 +212,10 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-4 mt-4 relative">
-            <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden relative">
+            <div className="w-full bg-secondary rounded-full h-2 overflow-hidden relative shadow-inner">
               {/* Layer 1: Started (Gray/Phantom) - "In Pipeline" */}
               <div
-                className="absolute top-0 left-0 h-full bg-gray-300 dark:bg-gray-600 transition-all duration-700 ease-out rounded-r-full"
+                className="absolute top-0 left-0 h-full bg-content-muted/30 transition-all duration-700 ease-out rounded-r-full"
                 style={{ width: `${progressStats.started}%` }}
               />
 
@@ -228,16 +228,16 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
             {/* Stats */}
             <div className="flex flex-col items-end min-w-[3rem]">
-              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{progressStats.completed}%</span>
+              <span className="text-sm font-bold text-foreground">{progressStats.completed}%</span>
               {progressStats.started > progressStats.completed && (
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">
+                <span className="text-[10px] text-content-muted font-medium whitespace-nowrap">
                   {progressStats.started}% iniciado
                 </span>
               )}
             </div>
 
             {/* Buttons */}
-            <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2 pl-2 border-l border-border">
               <button
                 onClick={handleStartAddingTopic}
                 className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
@@ -257,8 +257,8 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             </div>
           </div>
         </div>
-        <div className="p-4 bg-muted/30 flex-grow">
-          <h4 className="text-xs font-medium text-muted-foreground mb-3 px-2">Tópicos concluídos:</h4>
+        <div className="p-4 bg-secondary/30 flex-grow">
+          <h4 className="text-xs font-medium text-content-muted mb-3 px-2">Tópicos concluídos:</h4>
           <div className="space-y-1 max-h-48 overflow-y-auto pr-2">
             {(() => {
               const topics = filterTopicsBySearch ? filterTopicsBySearch(subject.topics) : subject.topics;
@@ -290,7 +290,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               ));
             })()}
             {isAddingTopic && (
-              <div className="flex items-center gap-2 p-3 bg-white dark:bg-slate-700/50 rounded-lg">
+              <div className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg">
                 <input
                   type="text"
                   value={newTopicName}
@@ -303,7 +303,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                     }
                   }}
                   placeholder="Nome do novo tópico..."
-                  className="flex-1 text-sm bg-transparent border-none outline-none text-zinc-800 dark:text-zinc-200"
+                  className="flex-1 text-sm bg-transparent border-none outline-none text-foreground"
                   autoFocus
                 />
                 <button
@@ -352,10 +352,10 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
-              <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden relative">
+              <div className="w-full bg-secondary rounded-full h-2 overflow-hidden relative shadow-inner">
                 {/* Layer 1: Started (Gray) */}
                 <div
-                  className="absolute top-0 left-0 h-full bg-gray-300 dark:bg-gray-600 transition-all duration-700 ease-out rounded-r-full"
+                  className="absolute top-0 left-0 h-full bg-content-muted/30 transition-all duration-700 ease-out rounded-r-full"
                   style={{ width: `${progressStats.started}%` }}
                 />
 
@@ -369,16 +369,16 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               {/* Stats moved here alongside buttons */}
               <div className="flex items-center gap-2">
                 <div className="flex flex-col items-end min-w-[2.5rem]">
-                  <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{progressStats.completed}%</span>
+                  <span className="text-xs font-bold text-foreground">{progressStats.completed}%</span>
                   {progressStats.started > progressStats.completed && (
-                    <span className="text-[9px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap leading-none mt-0.5">
+                    <span className="text-[9px] text-content-muted font-medium whitespace-nowrap leading-none mt-0.5">
                       {progressStats.started}% ini.
                     </span>
                   )}
                 </div>
 
                 {/* Action Buttons in List View Footer */}
-                <div className="flex items-center gap-1 pl-2 border-l border-gray-200 dark:border-gray-700 ml-1">
+                <div className="flex items-center gap-1 pl-2 border-l border-border ml-1">
 
                   <button
                     onClick={onSubjectNotesClick}
@@ -405,10 +405,10 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         </div>
         {isExpanded && (
           <div id={`topics-${subject.id}`} className="p-4 pt-0">
-            <div className="p-4 bg-muted/30 rounded-lg">
+            <div className="p-4 bg-secondary/30 rounded-lg">
               <div className="space-y-2">
                 {/* New Inline Topic Input (Flex Style) */}
-                <div className="flex items-center gap-2 mb-3 bg-white p-1 pl-3 rounded-lg border border-slate-200 shadow-sm" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-2 mb-3 bg-card p-1 pl-3 rounded-lg border border-border shadow-sm" onClick={e => e.stopPropagation()}>
                   <input
                     type="text"
                     placeholder="Novo tópico..."
@@ -417,7 +417,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleAddTopic();
                     }}
-                    className="flex-1 !h-7 !text-sm border-none bg-transparent outline-none !p-0 text-zinc-800 dark:text-zinc-200 placeholder:text-muted-foreground mr-2"
+                    className="flex-1 !h-7 !text-sm border-none bg-transparent outline-none !p-0 text-foreground placeholder:text-content-muted mr-2"
                   />
                   <Button
                     size="sm"
@@ -476,10 +476,10 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-4 mt-4 relative">
-          <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden relative">
+          <div className="w-full bg-secondary rounded-full h-2 overflow-hidden relative shadow-inner">
             {/* Layer 1: Started (Gray/Phantom) - "In Pipeline" */}
             <div
-              className="absolute top-0 left-0 h-full bg-gray-300 dark:bg-gray-600 transition-all duration-700 ease-out rounded-r-full"
+              className="absolute top-0 left-0 h-full bg-content-muted/30 transition-all duration-700 ease-out rounded-r-full"
               style={{ width: `${progressStats.started}%` }}
             />
 
@@ -492,16 +492,16 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
           {/* Stats */}
           <div className="flex flex-col items-end min-w-[3rem]">
-            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{progressStats.completed}%</span>
+            <span className="text-sm font-bold text-foreground">{progressStats.completed}%</span>
             {progressStats.started > progressStats.completed && (
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">
+              <span className="text-[10px] text-content-muted font-medium whitespace-nowrap">
                 {progressStats.started}% iniciado
               </span>
             )}
           </div>
 
           {/* Buttons */}
-          <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 pl-2 border-l border-border">
 
             <button
               onClick={onSubjectNotesClick}
@@ -514,10 +514,10 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
         </div>
       </div>
 
-      <div className="p-4 bg-muted/30 flex-grow flex flex-col">
+      <div className="p-4 bg-secondary/30 flex-grow flex flex-col">
         <div className="space-y-2 overflow-y-auto pr-2 flex-grow" style={{ maxHeight: '12rem' }}>
           {/* New Inline Topic Input for Grid View (Flex Style) */}
-          <div className="flex items-center gap-2 mb-3 bg-white p-1 pl-3 rounded-lg border border-slate-200 shadow-sm flex-none shrink-0" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-2 mb-3 bg-card p-1 pl-3 rounded-lg border border-border shadow-sm flex-none shrink-0" onClick={e => e.stopPropagation()}>
             <input
               type="text"
               placeholder="Novo tópico..."
@@ -526,7 +526,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleAddTopic();
               }}
-              className="flex-1 !h-7 !text-sm border-none bg-transparent outline-none !p-0 text-zinc-800 dark:text-zinc-200 placeholder:text-muted-foreground mr-2"
+              className="flex-1 !h-7 !text-sm border-none bg-transparent outline-none !p-0 text-foreground placeholder:text-content-muted mr-2"
             />
             <Button
               size="sm"

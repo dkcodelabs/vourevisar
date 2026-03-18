@@ -75,7 +75,7 @@ interface NavItem {
   end?: boolean;
 }
 
-const getNavItems = (isAdmin: boolean) => {
+const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
   const mainItems: NavItem[] = [
     { to: "/dashboard", label: "Painel", icon: LayoutDashboard, end: true },
     { to: "/meus-editais", label: "Meus Editais", icon: Library },
@@ -93,6 +93,7 @@ const getNavItems = (isAdmin: boolean) => {
     { to: "/admin/editais", label: "Gerenciar Editais", icon: Library },
     { to: "/admin/tendencia", label: "Tendência (GUT)", icon: TrendingUp },
     { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
+    ...(isOwner ? [{ to: "/admin/pricing", label: "Preços e Cupons", icon: Target }] : []),
     { to: "/admin/audit", label: "Auditoria", icon: ClipboardList },
     { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   ] : [];
@@ -102,13 +103,13 @@ const getNavItems = (isAdmin: boolean) => {
 
 export function AppSidebar() {
 
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isOwner } = useUserRole();
   const location = useLocation();
   const isMobile = useIsMobile();
 
   const [isCollapsed, setIsCollapsed] = React.useState(false);
 
-  const { mainItems, adminItems } = React.useMemo(() => getNavItems(isAdmin), [isAdmin]);
+  const { mainItems, adminItems } = React.useMemo(() => getNavItems(isAdmin, isOwner), [isAdmin, isOwner]);
 
   React.useEffect(() => {
     if (window.innerWidth >= 768 && window.innerWidth < 1024) {
@@ -156,7 +157,7 @@ export function AppSidebar() {
     <motion.aside
       initial={false}
       animate={{ width: isCollapsed && !isMobile ? 80 : (isMobile ? '100%' : 260) }}
-      className={`flex flex-col h-full bg-sidebar shrink-0 overflow-hidden relative transition-colors duration-300 z-[90] ${isMobile ? 'w-full rounded-none border-none' : 'rounded-3xl border border-white/5'
+      className={`flex flex-col h-full bg-sidebar shrink-0 overflow-hidden relative transition-colors duration-300 z-[90] ${isMobile ? 'w-full rounded-none border-none' : 'rounded-3xl border border-border dark:border-white/5'
         }`}
     >
       <div className="pl-3 pr-4 py-6 flex items-center justify-between h-[88px] relative">
@@ -167,7 +168,7 @@ export function AppSidebar() {
         {!isMobile && (
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 hover:bg-white/5 rounded-lg transition-colors text-sidebar-muted shrink-0"
+            className="p-1.5 hover:bg-secondary dark:hover:bg-white/5 rounded-lg transition-colors text-sidebar-muted shrink-0"
           >
             {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
           </button>
@@ -182,7 +183,15 @@ export function AppSidebar() {
         </nav>
 
         {isAdmin && (
-          <div className="pt-4 border-t border-white/5">
+          <div className="pt-2">
+            {!isCollapsed && !isMobile && (
+              <div className="px-3 mb-2 flex items-center gap-2">
+                <Shield size={12} className="text-sidebar-muted/50" />
+                <p className="text-[10px] font-bold text-sidebar-muted/50 uppercase tracking-widest">
+                  Administração
+                </p>
+              </div>
+            )}
             <nav className="space-y-1">
               <ul className="flex w-full min-w-0 flex-col gap-1">
                 {renderNavItems(adminItems)}

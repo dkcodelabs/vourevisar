@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
@@ -38,6 +38,63 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const lastLoginSignature = useRef<string | null>(null);
   // Prevent duplicate logout calls (Hardening)
   const isSigningOutRef = useRef(false);
+  // Guard for fetchProfile to avoid loop
+  const isFetchingProfileRef = useRef(false);
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    if (isFetchingProfileRef.current) return;
+
+    try {
+      isFetchingProfileRef.current = true;
+      setProfileLoading(true);
+      // Silencioso
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[AuthContext] Erro ao buscar perfil:", error);
+        return;
+      }
+
+      if (!data) {
+        console.warn("[AuthContext] Perfil não encontrado, tentando criar...");
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        
+        if (currentUser) {
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: currentUser.id,
+              email: currentUser.email,
+              name: currentUser.user_metadata?.name || currentUser.user_metadata?.full_name || 'Usuário',
+              phone: currentUser.user_metadata?.phone || null,
+              avatar_url: currentUser.user_metadata?.avatar_url || null
+            }, { onConflict: 'id' });
+
+          if (!insertError) {
+             const { data: newProfile } = await supabase
+               .from('profiles')
+               .select('*')
+               .eq('id', currentUser.id)
+               .maybeSingle();
+             if (newProfile) setProfile(newProfile);
+          }
+        }
+        return;
+      }
+
+      setProfile(data);
+    } catch (error) {
+      console.error("[AuthContext] Erro inesperado em fetchProfile:", error);
+    } finally {
+      setProfileLoading(false);
+      isFetchingProfileRef.current = false;
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -62,7 +119,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         if (session?.user) {
-          setUser(session.user);
+          if (session.user.id !== user?.id) {
+            setUser(session.user);
+          }
           // Buscar perfil apenas se não estiver já carregando
           if (!profileLoading) {
             setTimeout(() => {
@@ -104,10 +163,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
           await fetchProfile(session.user.id);
           const duration = (performance.now() - startTime).toFixed(0);
-          console.log(`[AuthContext] Sessão recuperada em ${duration}ms`);
+          // Silencioso
         }
-      } catch (error: any) {
-        if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+      } catch (error: unknown) {
+        if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
           console.warn("[AuthContext] Chamada de sessão abortada (comum em remounts ou rede instável)");
         } else {
           console.error("[AuthContext] Erro ao verificar sessão:", error);
@@ -125,100 +184,51 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [logEvent]);
+  }, [logEvent, fetchProfile, user?.id, profileLoading]);
 
-  const fetchProfile = async (userId: string) => {
-    if (profileLoading) return; // Evitar múltiplas chamadas
-
-    try {
-      setProfileLoading(true);
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        // Se não encontrar perfil, criar um
-        if (error.code === 'PGRST116') {
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData.user) {
-            const { error: insertError } = await supabase
-              .from('profiles')
-              .insert({
-                id: userData.user.id,
-                email: userData.user.email,
-                name: userData.user.user_metadata?.name || userData.user.user_metadata?.full_name || 'Usuário',
-                phone: userData.user.user_metadata?.phone || null,
-                avatar_url: userData.user.user_metadata?.avatar_url || null
-              });
-
-            if (!insertError) {
-              // Buscar o perfil criado
-              const { data: newProfile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userData.user.id)
-                .single();
-
-              if (newProfile) {
-                setProfile(newProfile);
-              }
-            }
-          }
-        }
-        return;
-      }
-
-      setProfile(data);
-    } catch (error) {
-      // Silenciar erros 
-    } finally {
-      setProfileLoading(false);
-    }
-  };
-
-  const signUp = async (email: string, password: string, name: string, phone?: string) => {
+  const signUp = useCallback(async (email: string, password: string, name: string, phone?: string) => {
     try {
       setLoading(true);
 
       const result = await authOps.signUp(email, password, name, phone);
       return { success: true, user: result?.user };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
-  };
+  }, [authOps]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     try {
       setLoading(true);
 
       await authOps.signIn(email, password);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
-  };
+  }, [authOps]);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     try {
       setLoading(true);
 
       await authOps.signInWithGoogle();
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
-  };
+  }, [authOps]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     // Prevent re-entry using Ref (Hardening)
     if (isSigningOutRef.current) return { success: true };
     isSigningOutRef.current = true;
@@ -239,14 +249,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       navigate('/login');
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
       // Keep lock briefly to prevent bounces
       setTimeout(() => { isSigningOutRef.current = false; }, 2000);
     }
-  };
+  }, [user?.id, logEvent, authOps, navigate]);
 
   // Helper function to clear sensitive localStorage data on logout
   const clearSensitiveLocalStorage = (userId?: string) => {
@@ -278,35 +289,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.removeItem('pomodoroState');
   };
 
-  const updateProfile = async (profileData: Partial<Profile>) => {
+  const updateProfile = useCallback(async (profileData: Partial<Profile>) => {
     if (!user) throw new Error('No user found');
 
-    try {
-      const updatedProfile = await authOps.updateProfile(user, profileData, profile);
-      setProfile(updatedProfile);
-    } catch (error) {
-      throw error;
-    }
-  };
+    const updatedProfile = await authOps.updateProfile(user, profileData, profile);
+    setProfile(updatedProfile);
+  }, [user, authOps, profile]);
 
-  const updatePassword = async (password: string) => {
-    try {
-      await authOps.updatePassword(password);
-    } catch (error) {
-      throw error;
-    }
-  };
+  const updatePassword = useCallback(async (password: string) => {
+    await authOps.updatePassword(password);
+  }, [authOps]);
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
     try {
       await authOps.resetPassword(email);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      return { success: false, error: errorMessage };
     }
-  };
+  }, [authOps]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     profile,
     loading,
@@ -317,7 +321,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     updateProfile,
     updatePassword,
     resetPassword,
-  };
+  }), [user, profile, loading, signUp, signIn, signInWithGoogle, signOut, updateProfile, updatePassword, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

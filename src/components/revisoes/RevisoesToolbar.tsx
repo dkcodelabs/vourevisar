@@ -38,7 +38,7 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                 {/* 1. Botão Recolher/Expandir (SÓ ÍCONE) */}
                 <button
                     onClick={onToggleAll}
-                    className="flex items-center justify-center w-10 h-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all group shrink-0"
+                    className="flex items-center justify-center w-10 h-10 bg-secondary border border-border rounded-xl text-muted-foreground hover:bg-accent transition-all group shrink-0"
                     title={areAllExpanded ? 'Recolher Tudo' : 'Expandir Tudo'}
                 >
                     {areAllExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
@@ -55,18 +55,18 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
 
                 {/* 2. Campo de Pesquisa Integrado */}
                 <div className="order-last md:order-none w-full md:w-auto md:flex-1 min-w-[200px] relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors w-4 h-4" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors w-4 h-4" />
                     <input
                         type="text"
                         placeholder="Pesquisar..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/[0.05] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400 dark:text-slate-200"
+                        className="w-full pl-9 pr-10 py-2.5 bg-secondary border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/60 text-foreground"
                     />
                     {searchTerm && (
                         <button
                             onClick={() => setSearchTerm('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
                             title="Limpar pesquisa"
                         >
                             <X size={14} />
@@ -83,7 +83,7 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                             ? isRecoveryMode
                                 ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/20 text-amber-700 dark:text-amber-400 ring-2 ring-amber-500/20'
                                 : 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/20 text-rose-600 dark:text-rose-400'
-                            : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary'
                             }`}
                     >
                         <span>Hoje</span>
@@ -91,7 +91,7 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                             ? isRecoveryMode
                                 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 shadow-sm'
                                 : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 shadow-sm'
-                            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                            : 'bg-secondary text-muted-foreground'}`}>
                             {/* If stats.focusCount exists use it, otherwise sum. 
                                 We will add focusCount to stats in Revisoes.tsx next. */}
                             {stats.focusCount ?? (stats.today + stats.overdue)}
@@ -105,18 +105,18 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                             setReviewStageFilter('all');
                         }}
                         className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm ${activeTab === 'ALL'
-                            ? 'bg-slate-800 text-white border-slate-800'
-                            : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            ? 'bg-foreground text-background border-foreground'
+                            : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary'
                             }`}
                     >
                         <span>Todas</span>
-                        <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'ALL' ? 'bg-slate-700 text-slate-200 shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                        <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'ALL' ? 'bg-background text-foreground shadow-sm' : 'bg-secondary text-muted-foreground'}`}>
                             {stats.totalTopics}
                         </span>
                     </button>
                 </div>
 
-                <div className="hidden md:block h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+                <div className="hidden md:block h-6 w-px bg-border mx-1 shrink-0" />
 
                 {/* 4. Botão Agrupar por Matéria */}
                 <button

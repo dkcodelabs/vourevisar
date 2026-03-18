@@ -70,7 +70,7 @@ export const SubjectPerformanceSection: React.FC<SubjectPerformanceSectionProps>
       case 3:
         return 'bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200';
       default:
-        return 'bg-white border-gray-200';
+        return 'bg-card border-border';
     }
   };
 
@@ -96,8 +96,8 @@ export const SubjectPerformanceSection: React.FC<SubjectPerformanceSectionProps>
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Award className="h-6 w-6 text-blue-600" />
-        <h2 className="text-2xl font-bold text-gray-900">Desempenho por Disciplina</h2>
+        <Award className="h-6 w-6 text-primary" />
+        <h2 className="text-2xl font-bold text-foreground">Desempenho por Disciplina</h2>
       </div>
 
       {/* Estatísticas principais */}
@@ -106,11 +106,11 @@ export const SubjectPerformanceSection: React.FC<SubjectPerformanceSectionProps>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-700">Melhor Desempenho</p>
-                <p className="text-2xl font-bold text-green-900">
+                <p className="text-sm font-medium text-emerald-700">Melhor Desempenho</p>
+                <p className="text-2xl font-bold text-foreground">
                   {bestPerformer?.name || 'N/A'}
                 </p>
-                <p className="text-sm text-green-600">
+                <p className="text-sm text-emerald-600">
                   {bestPerformer?.completionPercentage || 0}% concluído
                 </p>
               </div>
@@ -123,11 +123,11 @@ export const SubjectPerformanceSection: React.FC<SubjectPerformanceSectionProps>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Tempo Total</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-content-muted">Tempo Total</p>
+                <p className="text-2xl font-bold text-foreground">
                   {formatTime(totalStudyTime)}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-content-muted">
                   Todas as disciplinas
                 </p>
               </div>
@@ -141,7 +141,7 @@ export const SubjectPerformanceSection: React.FC<SubjectPerformanceSectionProps>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-orange-700">Precisa de Atenção</p>
-                <p className="text-2xl font-bold text-orange-900">
+                <p className="text-2xl font-bold text-foreground">
                   {worstPerformer?.name || 'N/A'}
                 </p>
                 <p className="text-sm text-orange-600">

@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { useUserRole, AppRole } from '@/hooks/useUserRole'
 import { X, Crown, Shield, Users, User, AlertTriangle, Check } from 'lucide-react'
 import { SubscriptionManagementModal } from './SubscriptionManagementModal'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 interface UserWithRoles {
   id: string
@@ -46,7 +47,7 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
       // Buscar usuários do profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, created_at')
+        .select('id, email, name, avatar_url, created_at')
         .order('created_at', { ascending: false })
 
       if (profilesError) throw profilesError
@@ -87,6 +88,8 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
         return {
           id: profile.id,
           email: profile.email,
+          name: profile.name,
+          avatar_url: profile.avatar_url,
           created_at: profile.created_at,
           roles,
           highestRole
@@ -248,17 +251,12 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
                   <div className="flex items-center justify-between mb-3">
                     {/* User Info */}
                     <div className="flex items-center space-x-3">
-                      {user.avatar_url ? (
-                        <img
-                          src={user.avatar_url}
-                          alt={user.full_name || user.email}
-                          className="w-8 h-8 rounded-full border border-gray-200"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-blue-600" />
-                        </div>
-                      )}
+                      <UserAvatar 
+                        src={user.avatar_url} 
+                        name={user.full_name || user.email} 
+                        className="w-8 h-8 border border-gray-200"
+                        fallbackClassName="text-xs"
+                      />
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium text-gray-900 text-sm truncate">
                           {user.full_name || user.email.split('@')[0]}

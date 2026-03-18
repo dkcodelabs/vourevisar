@@ -37,7 +37,8 @@ const Statistics = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const statisticsData = useAdvancedStatistics();
+  const [statsFilter, setStatsFilter] = useState<{ type: 'all' | 'cycle' | 'edital'; id?: string }>({ type: 'cycle' });
+  const statisticsData = useAdvancedStatistics(statsFilter);
 
   useEffect(() => {
     const loadData = async () => {
@@ -80,7 +81,7 @@ const Statistics = () => {
               <BarChart3 className="h-12 w-12 text-red-600" />
             </div>
             <h2 className="text-2xl font-bold text-red-600">Erro ao Carregar Dados</h2>
-            <p className="text-gray-600 dark:text-slate-400 text-center max-w-md">
+            <p className="text-content-muted text-center max-w-md">
               Não foi possível carregar os dados estatísticos. Verifique sua conexão e tente novamente.
             </p>
             <button
@@ -110,47 +111,47 @@ const Statistics = () => {
             </div>
 
             {/* Título */}
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
               Seu Painel de Controle Completo
             </h2>
 
             {/* Descrição Principal */}
-            <p className="text-gray-600 dark:text-slate-400 max-w-lg mx-auto mb-6 leading-relaxed">
+            <p className="text-content-muted max-w-lg mx-auto mb-6 leading-relaxed">
               Acompanhe sua evolução com dados reais e tome decisões inteligentes sobre seus estudos.
             </p>
 
             {/* Features Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-2xl mx-auto mb-8">
-              <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-2 bg-blue-500/10 px-3 py-2 rounded-lg">
                 <span className="text-lg">📊</span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">Visão Geral</span>
+                <span className="text-sm text-foreground">Visão Geral</span>
               </div>
-              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-2 rounded-lg">
                 <span className="text-lg">🔄</span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">Revisões</span>
+                <span className="text-sm text-foreground">Revisões</span>
               </div>
-              <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-2 bg-amber-500/10 px-3 py-2 rounded-lg">
                 <span className="text-lg">🏆</span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">Disciplinas</span>
+                <span className="text-sm text-foreground">Disciplinas</span>
               </div>
-              <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/20 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-2 bg-purple-500/10 px-3 py-2 rounded-lg">
                 <span className="text-lg">⏰</span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">Hábitos</span>
+                <span className="text-sm text-foreground">Hábitos</span>
               </div>
-              <div className="flex items-center gap-2 bg-cyan-50 dark:bg-cyan-900/20 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-2 bg-cyan-500/10 px-3 py-2 rounded-lg">
                 <span className="text-lg">📈</span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">Evolução</span>
+                <span className="text-sm text-foreground">Evolução</span>
               </div>
-              <div className="flex items-center gap-2 bg-rose-50 dark:bg-rose-900/20 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-2 bg-rose-500/10 px-3 py-2 rounded-lg">
                 <span className="text-lg">💡</span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">Insights</span>
+                <span className="text-sm text-foreground">Insights</span>
               </div>
             </div>
 
             {/* Frase Motivacional */}
-            <div className="flex items-center gap-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 border border-indigo-100 dark:border-indigo-800/30 px-5 py-3 rounded-2xl mb-8 shadow-sm">
+            <div className="flex items-center gap-3 bg-secondary/50 border border-border px-5 py-3 rounded-2xl mb-8 shadow-sm">
               <span className="text-xl flex-shrink-0">🎯</span>
-              <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+              <p className="text-sm text-foreground font-medium">
                 Quem mensura seus estudos, acelera seus resultados!
               </p>
             </div>
@@ -172,14 +173,14 @@ const Statistics = () => {
     <TooltipProvider>
       <div className="space-y-8">
         {/* Header */}
-        <div className="mt-0 px-4 md:px-6 py-4 mb-6 bg-transparent rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
+        <div className="mt-0 px-4 md:px-6 py-4 mb-6 bg-card rounded-2xl border border-border shadow-sm">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <BarChart3 className="h-6 w-6 text-blue-600" />
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <BarChart3 className="h-6 w-6 text-primary" />
                 Dashboard de Estatísticas
               </h1>
-              <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+              <p className="text-sm text-content-muted mt-1">
                 Análise completa do seu progresso de estudos com insights inteligentes
               </p>
             </div>
@@ -203,7 +204,7 @@ const Statistics = () => {
                     const result = await migrateDifficultyLevels();
                     if (result.success) {
                       toast.success(`Migração concluída! ${result.migratedCount} tópicos migrados.`);
-                      window.location.reload(); // Recarregar para ver os dados atualizados
+                      window.location.reload();
                     } else {
                       await errorService.report(
                         new Error('Migration failed logically'),
@@ -239,6 +240,33 @@ const Statistics = () => {
                 🔧 Migrar Difficulty
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* Cabeçalho de Filtros */}
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-card p-4 rounded-2xl border border-border mx-4 md:mx-6 md:light:bg-card md:dark:bg-zinc-900/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-xl">
+              <Activity className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Escopo da Análise</h3>
+              <p className="text-xs text-content-muted">Dados do {statsFilter.type === 'cycle' ? 'ciclo atual' : 'histórico completo'}</p>
+            </div>
+          </div>
+          <div className="flex gap-2 bg-secondary p-1 rounded-xl border border-border md:light:bg-secondary md:dark:bg-black/20">
+            <button
+              onClick={() => setStatsFilter({ type: 'cycle' })}
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${statsFilter.type === 'cycle' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-content-muted hover:text-foreground'}`}
+            >
+              Ciclo Atual
+            </button>
+            <button
+              onClick={() => setStatsFilter({ type: 'all' })}
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${statsFilter.type === 'all' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-content-muted hover:text-foreground'}`}
+            >
+              Histórico Total
+            </button>
           </div>
         </div>
 

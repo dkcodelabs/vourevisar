@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useSimpleSubscription } from '@/hooks/useSimpleSubscription';
 import { motion, AnimatePresence } from 'framer-motion';
+import { UserAvatar } from './ui/UserAvatar';
 
 // Função para determinar o ícone baseado no badge
 const getBadgeIcon = (displayBadge: string, _badgeColor: string) => {
@@ -190,19 +191,12 @@ const UserProfileNavComponent = () => {
             </p>
           </div>
           <div className="relative">
-            <div className="absolute -inset-0.5 bg-gradient-to-tr from-primary to-secondary rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
-            {profile?.avatar_url ? (
-              <img
-                alt={profile?.name || 'Avatar do usuário'}
-                className="relative w-11 h-11 rounded-xl object-cover grayscale-[20%] hover:grayscale-0 transition-all border border-black/5 dark:border-white/10"
-                src={profile.avatar_url}
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="relative w-11 h-11 rounded-xl bg-app-blue flex items-center justify-center text-white text-sm font-medium border border-black/5 dark:border-white/10 grayscale-[20%] hover:grayscale-0 transition-all shadow-[0_4px_10px_rgba(0,0,0,0.1)]">
-                {userInitials}
-              </div>
-            )}
+            <UserAvatar 
+              src={profile?.avatar_url} 
+              name={profile?.name || user.email} 
+              className="relative w-11 h-11 rounded-xl grayscale-[20%] hover:grayscale-0 transition-all border border-black/5 dark:border-white/10"
+              fallbackClassName="shadow-[0_4px_10px_rgba(0,0,0,0.1)] rounded-xl"
+            />
           </div>
         </div>
       </div>

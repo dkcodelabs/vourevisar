@@ -147,7 +147,8 @@ export const useTopicReview = () => {
 
       if (settingsError) throw settingsError;
 
-      // Garantir compatibilidade fazendo parsing se vier do DB como string
+      // O perfil padrão é INTERMEDIATE para garantir que o algoritmo SRS funcione 
+      // de forma equilibrada desde o início, sem necessidade de intervenção do usuário.
       const profileStr = settings?.review_profile as string | undefined;
       const profile = profileStr && Object.values(ReviewProfile).includes(profileStr as ReviewProfile)
         ? (profileStr as ReviewProfile)
@@ -248,6 +249,7 @@ export const useTopicReview = () => {
       const sessionDuration = durationOverride ?? difficultyModalData.duration ?? 0;
       try {
         const { error: histError } = await supabase.from('topic_review_history').insert({
+          user_id: user.id,
           topic_id: topicId,
           edital_id: topic.edital_id || topic.origin_id, // Capturar o contexto do edital
           cycle_id: cycleId, // Capturar o ciclo ativo
@@ -280,7 +282,9 @@ export const useTopicReview = () => {
             topicId,
             topic.name,
             undefined,
-            durationOverride ?? difficultyModalData.duration
+            durationOverride ?? difficultyModalData.duration,
+            cycleId,
+            topic.edital_id || topic.origin_id
           );
         }
       } catch (sessionError) {

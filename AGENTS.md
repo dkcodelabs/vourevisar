@@ -4,8 +4,9 @@ Este arquivo contém as diretrizes centrais que o agente de IA deve seguir ao at
 
 ---
 
-## 🌍 PREFERÊNCIA DE IDIOMA
-1. **SEMPRE** responda, explique e comente em **Português do Brasil (pt-BR)**, independentemente do idioma do código ou da entrada original.
+## 🌍 PREFERÊNCIA DE IDIOMA E AMBIENTE
+1. **SEMPRE** responda, explique e comente em **Português do Brasil (pt-BR)**.
+2. **PORTA DO SERVIDOR LOCAL:** Este projeto utiliza a porta **8080** (ou 8081 ou 8082 ou 8083 se ocupada), definida no `vite.config.ts`. **NUNCA** tente acessar via 5173. Sempre use `http://localhost:8080` para ferramentas de browser.
 
 ---
 

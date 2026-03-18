@@ -79,45 +79,45 @@ export const InlineTopicCreator: React.FC<InlineTopicCreatorProps> = ({ isOpen, 
                     exit={{ height: 0, opacity: 0, marginTop: 0, marginBottom: 0 }}
                     className="overflow-hidden w-full relative z-10"
                 >
-                    {/* The dark modal container */}
-                    <div className="bg-[#18181b] border border-[#27272a] rounded-[20px] shadow-sm p-6 w-full relative">
-                        {/* Subtle close X in the top right as seen in the screenshot */}
+                    {/* The modal container - Refined to support light mode */}
+                    <div className="bg-card border border-border rounded-[20px] shadow-lg p-5 w-full relative group/creator transition-all duration-300">
+                        {/* Subtle close X */}
                         <button
                             onClick={onClose}
-                            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-xl text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
+                            className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-lg text-content-muted hover:text-foreground hover:bg-secondary transition-all"
                         >
-                            <X size={18} />
+                            <X size={16} />
                         </button>
 
-                        <div className="mb-6">
-                            <h3 className="text-xl font-black text-white flex items-center gap-3 tracking-tight">
-                                <div className="w-8 h-8 rounded-full bg-[#00d084]/20 flex items-center justify-center">
+                        <div className="mb-5">
+                            <h3 className="text-lg font-black text-foreground flex items-center gap-2.5 tracking-tight">
+                                <div className="w-7 h-7 rounded-lg bg-[#00d084]/15 flex items-center justify-center shrink-0">
                                     <Plus className="h-4 w-4 text-[#00d084]" />
                                 </div>
                                 Adição Rápida de Tópicos
                             </h3>
-                            <p className="text-sm text-zinc-400 mt-2 font-medium">
+                            <p className="text-[11px] text-content-muted mt-1.5 font-medium opacity-80">
                                 Digite os tópicos continuamente e pressione Enter. A matéria continuará selecionada.
                             </p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4 items-end">
+                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                             {/* Input: Matéria */}
-                            <div className="w-full md:w-[35%] space-y-2">
-                                <Label htmlFor="subjectSelectInline" className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                    <Book className="w-3.5 h-3.5" /> Matéria
+                            <div className="md:col-span-4 space-y-1.5">
+                                <Label htmlFor="subjectSelectInline" className="text-[10px] font-bold text-content-muted uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                                    <Book className="w-3 h-3" /> Matéria
                                 </Label>
                                 <Select
                                     value={selectedSubjectId}
                                     onValueChange={setSelectedSubjectId}
                                     disabled={subjects.length === 0}
                                 >
-                                    <SelectTrigger id="subjectSelectInline" className="bg-[#27272a] border-[#3f3f46] text-white focus:ring-[#00d084]/30 h-12 w-full rounded-xl text-sm font-semibold shadow-sm focus:outline-none">
-                                        <SelectValue placeholder={subjects.length === 0 ? "Nenhuma matéria cadastrada" : "Selecione a matéria"} />
+                                    <SelectTrigger id="subjectSelectInline" className="bg-secondary/50 border-border text-foreground focus:ring-primary/20 h-10 w-full rounded-xl text-xs font-semibold shadow-sm focus:outline-none transition-all hover:border-border-hover">
+                                        <SelectValue placeholder={subjects.length === 0 ? "Nenhuma matéria" : "Selecione"} />
                                     </SelectTrigger>
-                                    <SelectContent className="max-h-[250px] z-[100] bg-[#18181b] border-[#3f3f46] rounded-xl text-white">
+                                    <SelectContent className="max-h-[250px] z-[100] bg-card border-border rounded-xl text-foreground w-[var(--radix-select-trigger-width)]">
                                         {subjects.map((subject) => (
-                                            <SelectItem key={subject.id} value={subject.id} className="cursor-pointer focus:bg-[#27272a] text-sm font-semibold focus:text-white">
+                                            <SelectItem key={subject.id} value={subject.id} className="cursor-pointer focus:bg-secondary text-xs font-semibold transition-colors">
                                                 {subject.name}
                                             </SelectItem>
                                         ))}
@@ -126,32 +126,33 @@ export const InlineTopicCreator: React.FC<InlineTopicCreatorProps> = ({ isOpen, 
                             </div>
 
                             {/* Input: Nome do Tópico */}
-                            <div className="w-full md:w-[65%] space-y-2 relative">
-                                <Label htmlFor="topicNameInline" className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                    <Star className="w-3.5 h-3.5" /> Nome do Tópico
+                            <div className="md:col-span-8 space-y-1.5 relative">
+                                <Label htmlFor="topicNameInline" className="text-[10px] font-bold text-content-muted uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                                    <Star className="w-3 h-3" /> Nome do Tópico
                                 </Label>
-                                <div className="relative flex items-center">
+                                <div className="relative flex items-center group/input">
                                     <Input
                                         id="topicNameInline"
-                                        placeholder="Digite e Enter (ex: Licitações, Direitos...)"
+                                        placeholder="Ex: Licitações, Atos Administrativos..."
                                         value={topicName}
                                         onChange={(e) => setTopicName(e.target.value)}
-                                        className="bg-[#27272a] border-[#3f3f46] focus:border-[#00d084]/50 focus:ring-1 focus:ring-[#00d084]/50 text-white placeholder:text-zinc-500 h-12 pr-32 rounded-xl text-sm font-semibold shadow-sm"
+                                        className="bg-secondary/50 border-border focus:border-primary/50 focus:ring-2 focus:ring-primary/10 text-foreground placeholder:text-content-muted/50 h-10 pr-28 rounded-xl text-xs font-semibold shadow-sm transition-all hover:border-border-hover"
                                         autoComplete="off"
                                         autoFocus
                                     />
                                     {/* Botão de Save inside the Input context visually */}
-                                    <div className="absolute right-1.5">
+                                    <div className="absolute right-1">
                                         <Button
                                             type="submit"
-                                            className="h-9 px-5 bg-[#00d084] hover:bg-[#00b371] text-white font-bold text-[11px] uppercase tracking-widest shadow-sm shadow-[#00d084]/20 flex items-center justify-center gap-2 rounded-lg transition-all"
+                                            size="sm"
+                                            className="h-8 px-4 bg-[#00d084] hover:bg-[#00b371] text-white font-bold text-[10px] uppercase tracking-widest shadow-sm shadow-[#00d084]/15 flex items-center justify-center gap-1.5 rounded-lg transition-all active:scale-95"
                                             disabled={isSubmitting || subjects.length === 0}
                                         >
                                             {isSubmitting ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <Loader2 className="w-3 h-3 animate-spin" />
                                             ) : (
                                                 <>
-                                                    <Plus className="w-4 h-4" />
+                                                    <Plus className="w-3.5 h-3.5" />
                                                     Salvar
                                                 </>
                                             )}

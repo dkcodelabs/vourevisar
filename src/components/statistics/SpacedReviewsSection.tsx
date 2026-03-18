@@ -56,8 +56,8 @@ export const SpacedReviewsSection: React.FC<SpacedReviewsSectionProps> = ({ data
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <RefreshCw className="h-6 w-6 text-blue-600" />
-        <h2 className="text-2xl font-bold text-gray-900">Revisões Espaçadas</h2>
+        <RefreshCw className="h-6 w-6 text-primary" />
+        <h2 className="text-2xl font-bold text-foreground">Revisões Espaçadas</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -72,10 +72,10 @@ export const SpacedReviewsSection: React.FC<SpacedReviewsSectionProps> = ({ data
             </CardHeader>
             <CardContent>
               <div className="text-center space-y-3">
-                <div className="text-4xl font-bold text-green-600">
+                <div className="text-4xl font-bold text-emerald-600">
                   {data.onTimePercentage}%
                 </div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-content-muted">
                   Revisões concluídas no prazo
                 </p>
                 <Progress value={data.onTimePercentage} className="h-3" />
@@ -92,16 +92,16 @@ export const SpacedReviewsSection: React.FC<SpacedReviewsSectionProps> = ({ data
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Concluídas no prazo</span>
-                <span className="font-semibold text-green-600">{data.completedOnTime}</span>
+                <span className="text-sm text-content-muted">Concluídas no prazo</span>
+                <span className="font-semibold text-emerald-600">{data.completedOnTime}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Concluídas com atraso</span>
+                <span className="text-sm text-content-muted">Concluídas com atraso</span>
                 <span className="font-semibold text-orange-600">{data.completedLate}</span>
               </div>
-              <div className="flex justify-between items-center border-t pt-2">
-                <span className="text-sm font-medium text-gray-900">Total</span>
-                <span className="font-bold text-gray-900">{totalReviews}</span>
+              <div className="flex justify-between items-center border-t border-border pt-2">
+                <span className="text-sm font-medium text-foreground">Total</span>
+                <span className="font-bold text-foreground">{totalReviews}</span>
               </div>
             </CardContent>
           </Card>
@@ -154,10 +154,10 @@ export const SpacedReviewsSection: React.FC<SpacedReviewsSectionProps> = ({ data
                 >
                   {stage.name}
                 </div>
-                <div className="text-2xl font-bold text-gray-900 mb-1">
+                <div className="text-2xl font-bold text-foreground mb-1">
                   {stage.value}
                 </div>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-content-muted">
                   {stage.name === '24h' ? 'Primeira revisão' :
                    stage.name === '7d' ? 'Segunda revisão' :
                    stage.name === '15d' ? 'Terceira revisão' :

@@ -45,6 +45,7 @@ const routeTitles: Record<string, string> = {
   "/admin/users": "Gestão de Usuários",
   "/admin/tendencia": "Tendência (GUT)",
   "/admin/editais": "Gerenciar Editais",
+  "/planos": "Escolha sua Jornada",
 };
 
 const routeDescriptions: Record<string, string> = {

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Target, BookOpen } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
@@ -12,6 +12,8 @@ import { useReviewsData } from '@/hooks/useReviewsData';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useTimer } from '@/contexts/TimerContext';
+import { useCycleState } from '@/hooks/useCycleState';
+
 
 import { RevisionItem, RevisionStatus } from '@/types/revision';
 import { ReviewProfile } from '@/types/study';
@@ -42,6 +44,9 @@ export const Revisoes = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { subjects, refreshData } = useApp();
+  const { userCycle } = useCycleState();
+  
+  const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
 
   // Hooks
   const {
@@ -240,7 +245,7 @@ export const Revisoes = () => {
 
   const stats = useMemo(() => {
     const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics, ...consolidatedTopics];
-    const totalTopics = allTopics.length;
+    const totalTopics = topics.length; // Modified to include all topics
     const totalSubjects = subjects.length; // Added
     const totalScheduledReviews = totalTopics * maxReviews;
     const startedTopicsCount = allTopics.filter(t => (t.review_count >= 1 || t.first_studied_at)).length;
@@ -263,7 +268,7 @@ export const Revisoes = () => {
       notStartedReviews,
       suggestedDailyReviews
     };
-  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, maxReviews, suggestedDailyReviews, subjects]);
+  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, maxReviews, suggestedDailyReviews, subjects, topics.length]);
 
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: RevisionItem[] } = {};
@@ -452,6 +457,31 @@ export const Revisoes = () => {
     return <LoadingSpinner size="large" showText fullPage />;
   }
 
+  if (!hasActiveCycle) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700 w-full">
+        <div className="w-24 h-24 bg-secondary dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8 mx-auto rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
+          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shadow-sm">
+            <Target className="text-primary" size={40} />
+          </div>
+        </div>
+        <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tight mb-4">
+          Nenhum edital carregado no ciclo
+        </h2>
+        <p className="text-base text-content-muted leading-relaxed font-medium mb-8 max-w-lg mx-auto">
+          Você não possui um edital carregado no ciclo ativo. Vá até a aba "Meus Editais" para iniciar o seu planejamento de estudos e gerar seu histórico de revisões.
+        </p>
+        <button
+          onClick={() => navigate('/meus-editais')}
+          className="h-11 px-6 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+        >
+          <BookOpen className="w-4 h-4" />
+          Carregar Edital
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-full w-full text-foreground">
       <div className="flex-1 flex flex-col relative w-full max-w-[1600px] mx-auto pb-24 lg:pb-8">
@@ -506,8 +536,8 @@ export const Revisoes = () => {
 
           {/* Sugestão de Hoje */}
           {suggestedDailyReviews > 0 && (
-            <div className="mb-4 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-black/10 px-4 py-2 rounded-xl border border-slate-200 dark:border-white/[0.05]">
-              <span className="font-medium text-slate-800 dark:text-slate-200">Sugestão de hoje: {suggestedDailyReviews} revisões.</span>
+            <div className="mb-4 flex items-center gap-2 text-sm text-content-muted bg-secondary px-4 py-2 rounded-xl border border-border">
+              <span className="font-medium text-foreground">Sugestão de hoje: {suggestedDailyReviews} revisões.</span>
               <span className="opacity-90">Sugerimos este volume para manter consistência sem sobrecarga.</span>
             </div>
           )}
@@ -549,7 +579,7 @@ export const Revisoes = () => {
                 </div>
                 <button
                   onClick={() => { setSearchTerm(''); setReviewStageFilter('all'); }}
-                  className="px-3 py-1 bg-white dark:bg-slate-800 border border-amber-200 dark:border-slate-700 shadow-sm rounded-lg text-xs font-bold text-amber-700 dark:text-slate-300 hover:bg-amber-50 transition-all"
+                  className="px-3 py-1 bg-card dark:bg-slate-800 border border-border rounded-lg text-xs font-bold text-foreground hover:bg-accent transition-all"
                 >
                   Limpar
                 </button>

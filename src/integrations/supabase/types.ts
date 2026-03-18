@@ -812,6 +812,8 @@ export type Database = {
           topics_studied: string[] | null
           updated_at: string | null
           user_id: string | null
+          cycle_id: string | null
+          edital_id: string | null
         }
         Insert: {
           completed_at?: string
@@ -944,6 +946,9 @@ export type Database = {
           interval_after_review: number | null
           trend_delta: number | null
           trend_label: string | null
+          user_id: string | null
+          cycle_id: string | null
+          edital_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1519,6 +1524,60 @@ export type Database = {
           trial_started_at?: string | null
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_editais: {
+        Row: {
+          active_subject_ids: string[] | null
+          created_at: string
+          exam_date: string | null
+          id: string
+          is_imported: boolean
+          merged_into_cycle: boolean
+          merged_with: string[] | null
+          name: string
+          organ: string | null
+          position: string | null
+          source_id: string | null
+          subject_ids: string[] | null
+          updated_at: string
+          user_id: string
+          year: string | null
+        }
+        Insert: {
+          active_subject_ids?: string[] | null
+          created_at?: string
+          exam_date?: string | null
+          id?: string
+          is_imported?: boolean
+          merged_into_cycle?: boolean
+          merged_with?: string[] | null
+          name: string
+          organ?: string | null
+          position?: string | null
+          source_id?: string | null
+          subject_ids?: string[] | null
+          updated_at?: string
+          user_id: string
+          year?: string | null
+        }
+        Update: {
+          active_subject_ids?: string[] | null
+          created_at?: string
+          exam_date?: string | null
+          id?: string
+          is_imported?: boolean
+          merged_into_cycle?: boolean
+          merged_with?: string[] | null
+          name?: string
+          organ?: string | null
+          position?: string | null
+          source_id?: string | null
+          subject_ids?: string[] | null
+          updated_at?: string
+          user_id?: string
+          year?: string | null
         }
         Relationships: []
       }

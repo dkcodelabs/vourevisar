@@ -10,6 +10,8 @@ import { cleanCycle } from '@/utils/cycleUtils';
 interface ExtendedUserCycle {
   id: string;
   user_id: string;
+  name?: string | null;
+  status: 'active' | 'completed' | 'archived';
   ciclo_atual: string[];
   disciplinas_do_dia: string[];
   materias_pendentes: string[];
@@ -57,6 +59,7 @@ export const useCycleStatus = () => {
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
+        .eq('status', 'active')
         .limit(1);
 
       if (error) throw error;

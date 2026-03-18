@@ -6,28 +6,30 @@
 
 @layer base {
   :root {
-    /* Light mode background: #f8fafc */
+    /* Light mode background: Slate 50 (#f8fafc) */
     --background: 210 40% 98%;
-    /* Teto principal: #0f172a */
-    --foreground: 222.2 47.4% 11.2%;
+    /* Main Text: Slate 700ish (#334155) - Softer than Slate 800 */
+    --foreground: 222.2 47.4% 25%;
 
-    /* Cards de Conteúdo: #ffffff */
+    /* Cards: White (#ffffff) */
     --card: 0 0% 100%;
     --card-foreground: 222.2 47.4% 11.2%;
+    --card-muted: 210 40% 96.1%; /* Background sutil dentro de cards */
 
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 47.4% 11.2%;
 
-    /* Cor Primária (Ação): #00BFFF (Deep Sky Blue) */
+    /* Cor Primária (Ação) */
     --primary: 195 100% 50%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
-    --secondary-foreground: 215.4 16.3% 46.9%;
-    /* Mudando para Muted Text Color no HSL */
+    --secondary-foreground: 215.4 16.3% 40%;
+    /* Slightly darker for better legibility */
 
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted-foreground: 215.4 16.3% 40%;
+    --content-muted: 215.4 16.3% 46.9%; /* Slate 500 (#64748b) for better contrast in light mode */
 
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
@@ -35,10 +37,11 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    /* Border stone-200 (#e7e5e4) */
-    --border: 24 6% 90%;
-    /* Input acompanhando border */
-    --input: 24 6% 90%;
+    /* Borders: Slate 200 (#e2e8f0) */
+    --border: 214.3 31.8% 91.4%;
+    --border-strong: 214.3 31.8% 85%;
+    
+    --input: 214.3 31.8% 91.4%;
     --ring: 195 100% 50%;
     /* Primary color for rings */
 
@@ -98,6 +101,7 @@
 
     --muted: 0 0% 15.7%;
     --muted-foreground: 215 20.2% 65.1%;
+    --content-muted: 215 20.2% 65.1%; /* Slate 400 (#94a3b8) - keep same as muted-foreground in dark */
 
     --accent: 0 0% 15.7%;
     --accent-foreground: 210 40% 98%;
@@ -321,15 +325,15 @@
 }
 
 .status-nova {
-  @apply bg-blue-100 text-blue-800;
+  @apply bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-900/30;
 }
 
 .status-em-estudo {
-  @apply bg-yellow-100 text-yellow-800;
+  @apply bg-warning/10 text-warning border border-warning/20;
 }
 
 .status-concluida {
-  @apply bg-green-100 text-green-800;
+  @apply bg-success/10 text-success border border-success/20;
 }
 
 .calendar-day {
@@ -349,12 +353,12 @@
 }
 
 .sidebar-item:not(.active) {
-  @apply hover:bg-gray-100;
+  @apply hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors;
 }
 
 /* Glassmorphism */
 .glass {
-  @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-lg;
+  @apply bg-card/70 backdrop-blur-lg border border-border/50 shadow-lg;
 }
 
 .glass-hover {

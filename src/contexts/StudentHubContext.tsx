@@ -81,7 +81,7 @@ export const StudentHubProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     useEffect(() => {
         if (!user?.id) return;
 
-        console.log('[StudentHubContext] Setting up Realtime for user:', user.id);
+        // Silencioso
 
         const channel = supabase
             .channel(`student_hub_global:${user.id}`)
@@ -102,11 +102,11 @@ export const StudentHubProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 }
             )
             .subscribe((status) => {
-                if (status === 'SUBSCRIBED') console.log('[StudentHubContext] Subscribed to Realtime changes');
+                if (status === 'SUBSCRIBED') { /* Silencioso */ }
             });
 
         return () => {
-            console.log('[StudentHubContext] Cleaning up Realtime');
+            // Silencioso
             if (channel) supabase.removeChannel(channel).catch(() => { });
         };
     }, [user?.id, fetchNotifications, fetchFeedbacks]);

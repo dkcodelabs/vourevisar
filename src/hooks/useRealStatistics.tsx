@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
+import { useCycleState } from '@/hooks/useCycleState';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   isToday, 
@@ -177,9 +178,15 @@ interface PomodoroSession {
   total_minutes_studied: number;
 }
 
-export const useRealStatistics = (): RealStatisticsData => {
+export interface StatisticsFilter {
+  type: 'all' | 'cycle' | 'edital';
+  id?: string;
+}
+
+export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }): RealStatisticsData => {
   const { user } = useAuth();
   const { subjects, studyProgress } = useApp();
+  const { userCycle } = useCycleState();
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
   const [userAnalytics, setUserAnalytics] = useState<UserAnalytics | null>(null);
   const [pomodoroSessions, setPomodoroSessions] = useState<PomodoroSession[]>([]);
@@ -192,28 +199,46 @@ export const useRealStatistics = (): RealStatisticsData => {
 
       setIsLoading(true);
       try {
-        // Carregar sessões de estudo dos últimos 90 dias
-        const { data: sessionsData } = await supabase
+        // Determinar ID do ciclo para filtragem
+        const effectiveCycleId = filter.type === 'cycle' 
+          ? (filter.id || userCycle?.id) 
+          : null;
+
+        // Construir queries
+        let sessionsQuery = supabase
           .from('study_sessions')
           .select('*')
-          .eq('user_id', user.id)
-          .gte('study_date', format(subDays(new Date(), 90), 'yyyy-MM-dd'))
-          .order('completed_at', { ascending: false });
+          .eq('user_id', user.id);
 
-        // Carregar analytics do usuário
+        if (filter.type === 'cycle' && effectiveCycleId) {
+          sessionsQuery = sessionsQuery.eq('cycle_id', effectiveCycleId);
+        } else if (filter.type === 'edital' && filter.id) {
+          sessionsQuery = sessionsQuery.eq('edital_id', filter.id);
+        } else {
+          // No modo "Tudo", limitamos aos últimos 90 dias para performance
+          sessionsQuery = sessionsQuery.gte('study_date', format(subDays(new Date(), 90), 'yyyy-MM-dd'));
+        }
+
+        const { data: sessionsData } = await sessionsQuery.order('completed_at', { ascending: false });
+
+        // Carregar analytics do usuário (Geral)
         const { data: analyticsData } = await supabase
           .from('user_study_analytics')
           .select('*')
           .eq('user_id', user.id)
           .single();
 
-        // Carregar sessões do pomodoro dos últimos 30 dias
-        const { data: pomodoroData } = await supabase
+        // Carregar sessões do pomodoro
+        let pomodoroQuery = supabase
           .from('pomodoro_sessions')
           .select('*')
-          .eq('user_id', user.id)
-          .gte('date', format(subDays(new Date(), 30), 'yyyy-MM-dd'))
-          .order('date', { ascending: false });
+          .eq('user_id', user.id);
+
+        if (filter.type === 'all') {
+          pomodoroQuery = pomodoroQuery.gte('date', format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+        }
+        
+        const { data: pomodoroData } = await pomodoroQuery.order('date', { ascending: false });
 
         // Transformar dados do banco para o formato esperado
         const transformedSessions = (sessionsData || []).map((session: any) => ({
@@ -251,11 +276,30 @@ export const useRealStatistics = (): RealStatisticsData => {
     };
 
     loadRealData();
-  }, [user]);
+  }, [user, filter.id, filter.type, userCycle?.id]);
 
   return useMemo(() => {
     const now = new Date();
     
+    // 0. Filtrar matérias baseado no escopo (Ciclo Atual vs Histórico Total)
+    const filteredSubjects = (() => {
+      if (filter.type === 'cycle' && userCycle?.ciclo_atual) {
+        const cycleIds = new Set(userCycle.ciclo_atual);
+        return subjects.filter(s => cycleIds.has(s.id));
+      }
+      return subjects;
+    })();
+
+    // 0a. Recalcular progresso para os subjects filtrados
+    const filteredTopics = filteredSubjects.flatMap(s => s.topics);
+    const filteredStudyProgress = {
+      totalTopics: filteredTopics.length,
+      completedTopics: filteredTopics.filter(t => t.completed).length,
+      todayTopics: filteredTopics.filter(t => t.nextReview && isToday(startOfDay(new Date(t.nextReview)))).length,
+      delayedTopics: filteredTopics.filter(t => t.nextReview && isBefore(startOfDay(new Date(t.nextReview)), startOfDay(now))).length,
+      futureTopics: filteredTopics.filter(t => t.nextReview && isAfter(startOfDay(new Date(t.nextReview)), startOfDay(now))).length,
+    };
+
     // Calcular visão geral com dados reais
     const totalStudyTimeFromSessions = studySessions.reduce((sum, session) => 
       sum + (session.duration_minutes || session.session_duration_minutes || 0), 0);
@@ -263,7 +307,7 @@ export const useRealStatistics = (): RealStatisticsData => {
       sum + (session.total_minutes_studied || 0), 0);
     
     // Calcular tempo estimado baseado na dificuldade dos tópicos
-    const estimatedTimeFromDifficulty = subjects.reduce((sum, subject) => {
+    const estimatedTimeFromDifficulty = filteredSubjects.reduce((sum, subject) => {
       return sum + subject.topics.reduce((topicSum, topic) => {
         const difficultyTime = {
           1: 8, 2: 12, 3: 20, 4: 35, 5: 50
@@ -279,27 +323,27 @@ export const useRealStatistics = (): RealStatisticsData => {
     const averageDailyTime = daysWithSessions > 0 ? Math.round(totalStudyTime / daysWithSessions) : 0;
 
     const overview = {
-      totalSubjects: subjects.length,
-      completedSubjects: subjects.filter(s => s.status === 'Concluída').length,
-      inProgressSubjects: subjects.filter(s => s.status === 'Em Estudo').length,
-      notStartedSubjects: subjects.filter(s => s.status === 'Nova').length,
-      totalTopics: studyProgress.totalTopics,
-      completedTopics: studyProgress.completedTopics,
-      inProgressTopics: studyProgress.totalTopics - studyProgress.completedTopics - studyProgress.futureTopics,
-      notStartedTopics: studyProgress.futureTopics,
-      totalReviews: studyProgress.totalTopics,
-      completedReviews: studyProgress.completedTopics,
-      pendingReviews: studyProgress.todayTopics,
-      delayedReviews: studyProgress.delayedTopics,
-      overallProgress: studyProgress.totalTopics > 0 
-        ? Math.round((studyProgress.completedTopics / studyProgress.totalTopics) * 100) 
+      totalSubjects: filteredSubjects.length,
+      completedSubjects: filteredSubjects.filter(s => s.status === 'Concluída').length,
+      inProgressSubjects: filteredSubjects.filter(s => s.status === 'Em Estudo').length,
+      notStartedSubjects: filteredSubjects.filter(s => s.status === 'Nova').length,
+      totalTopics: filteredStudyProgress.totalTopics,
+      completedTopics: filteredStudyProgress.completedTopics,
+      inProgressTopics: filteredStudyProgress.totalTopics - filteredStudyProgress.completedTopics - filteredStudyProgress.futureTopics,
+      notStartedTopics: filteredStudyProgress.futureTopics,
+      totalReviews: filteredStudyProgress.totalTopics,
+      completedReviews: filteredStudyProgress.completedTopics,
+      pendingReviews: filteredStudyProgress.todayTopics,
+      delayedReviews: filteredStudyProgress.delayedTopics,
+      overallProgress: filteredStudyProgress.totalTopics > 0 
+        ? Math.round((filteredStudyProgress.completedTopics / filteredStudyProgress.totalTopics) * 100) 
         : 0,
       totalStudyTime,
       averageDailyTime,
     };
 
     // Calcular revisões espaçadas com dados reais
-    const allTopics = subjects.flatMap(s => s.topics);
+    const allTopics = filteredSubjects.flatMap(s => s.topics);
     const spacedReviews = {
       stage24h: allTopics.filter(t => t.reviewStage === '24h').length,
       stage7d: allTopics.filter(t => t.reviewStage === '7 dias' || t.reviewStage === '7d').length,
@@ -307,8 +351,8 @@ export const useRealStatistics = (): RealStatisticsData => {
       stage30d: allTopics.filter(t => t.reviewStage === '30 dias').length,
       stage60d: allTopics.filter(t => t.reviewStage === '60 dias' || t.reviewStage === '60d').length,
       stage90d: allTopics.filter(t => t.reviewStage === '90 dias' || t.reviewStage === '90d').length,
-      completedOnTime: Math.floor(studyProgress.completedTopics * 0.85), // Estimativa baseada em padrões
-      completedLate: Math.floor(studyProgress.completedTopics * 0.15),
+      completedOnTime: Math.floor(filteredStudyProgress.completedTopics * 0.85), // Estimativa baseada em padrões
+      completedLate: Math.floor(filteredStudyProgress.completedTopics * 0.15),
       onTimePercentage: 85, // Estimativa
     };
 
@@ -323,7 +367,7 @@ export const useRealStatistics = (): RealStatisticsData => {
       });
     });
 
-    const subjectPerformance = subjects
+    const subjectPerformance = filteredSubjects
       .map((subject) => {
         const sessionData = subjectSessionsMap.get(subject.id) || { sessions: 0, totalTime: 0 };
         
@@ -375,7 +419,6 @@ export const useRealStatistics = (): RealStatisticsData => {
     // Calcular hábitos de estudo com dados reais
     const dayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     
-    // Análise de produtividade por dia da semana
     const dayProductivity = new Map<number, { sessions: number; topics: number }>();
     studySessions.forEach(session => {
       const current = dayProductivity.get(session.day_of_week) || { sessions: 0, topics: 0 };
@@ -388,7 +431,6 @@ export const useRealStatistics = (): RealStatisticsData => {
     const mostProductiveDayNum = Array.from(dayProductivity.entries())
       .sort(([,a], [,b]) => (b.topics / b.sessions) - (a.topics / a.sessions))[0]?.[0] || 1;
 
-    // Análise de produtividade por horário
     const hourProductivity = new Map<number, { sessions: number; topics: number }>();
     studySessions.forEach(session => {
       const current = hourProductivity.get(session.hour_of_day) || { sessions: 0, topics: 0 };
@@ -413,7 +455,6 @@ export const useRealStatistics = (): RealStatisticsData => {
       consistencyRate: daysWithSessions > 0 ? Math.round((daysWithSessions / 30) * 100) : 0,
     };
 
-    // Calcular evolução com dados reais
     const last7Days = studySessions.filter(s => 
       differenceInDays(new Date(), new Date(s.study_date)) <= 7
     );
@@ -426,7 +467,6 @@ export const useRealStatistics = (): RealStatisticsData => {
     const lastWeekTopics = previous7Days.reduce((sum, s) => sum + (s.topics_count || 0), 0);
     const weeklyComparison = lastWeekTopics > 0 ? Math.round(((thisWeekTopics - lastWeekTopics) / lastWeekTopics) * 100) : 0;
 
-    // Progresso mensal por semanas
     const monthlyProgress = Array.from({ length: 4 }, (_, i) => {
       const weekStart = subDays(new Date(), (i + 1) * 7);
       const weekEnd = subDays(new Date(), i * 7);
@@ -447,277 +487,118 @@ export const useRealStatistics = (): RealStatisticsData => {
       weeklyComparison,
       monthlyProgress,
       consistencyScore: studyHabits.consistencyRate,
-      goalsAchieved: Math.floor(studyHabits.consistencyRate / 20), // Estimativa baseada na consistência
+      goalsAchieved: Math.floor(studyHabits.consistencyRate / 20),
     };
 
-    // Gerar insights inteligentes baseados em dados reais
     const insights = [];
     
-    if (studyHabits.currentStreak >= 7) {
-      insights.push({
-        id: 'streak-high',
-        type: 'streak' as const,
-        message: `Incrível! Você manteve ${studyHabits.currentStreak} dias consecutivos de estudo.`,
-        icon: 'Flame',
-        priority: 'high' as const,
-      });
-    } else if (studyHabits.currentStreak >= 3) {
+    if (studyHabits.currentStreak >= 3) {
       insights.push({
         id: 'streak-medium',
         type: 'streak' as const,
-        message: `Bom trabalho! ${studyHabits.currentStreak} dias consecutivos. Continue assim!`,
+        message: `${studyHabits.currentStreak} dias consecutivos. Continue assim!`,
         icon: 'Flame',
         priority: 'medium' as const,
       });
     }
 
-    if (studyHabits.mostProductiveHour) {
+    const hardTopicsCompleted = filteredSubjects.reduce((sum, subject) => {
+      return sum + subject.topics.filter(t => t.completed && (typeof t.difficulty_level === 'number' ? t.difficulty_level : 0) >= 4).length;
+    }, 0);
+
+    if (hardTopicsCompleted >= 5) {
       insights.push({
-        id: 'productive-time',
-        type: 'time' as const,
-        message: `Seu horário mais produtivo é às ${studyHabits.mostProductiveHour}. Aproveite esse período!`,
-        icon: 'Clock',
-        priority: 'medium' as const,
-      });
-    }
-
-    if (subjectPerformance.length > 0) {
-      const bestSubject = subjectPerformance[0];
-      if (bestSubject.completionPercentage > 80) {
-        const stars = '⭐'.repeat(Math.round(bestSubject.averageDifficulty || 3));
-        insights.push({
-          id: 'best-subject',
-          type: 'subject' as const,
-          message: `${bestSubject.name} está excelente! ${bestSubject.completionPercentage}% concluído com ${bestSubject.difficultyPoints} pontos ${stars}`,
-          icon: 'Trophy',
-          priority: 'high' as const,
-        });
-      }
-
-      const worstSubject = subjectPerformance[subjectPerformance.length - 1];
-      if (worstSubject.completionPercentage < 30 && subjectPerformance.length > 1) {
-        insights.push({
-          id: 'needs-attention',
-          type: 'subject' as const,
-          message: `${worstSubject.name} precisa de atenção (${worstSubject.completionPercentage}% concluído).`,
-          icon: 'Target',
-          priority: 'medium' as const,
-        });
-      }
-
-      // Insight sobre tópicos difíceis dominados
-      const hardTopicsCompleted = subjects.reduce((sum, subject) => {
-        return sum + subject.topics.filter(t => t.completed && (typeof t.difficulty_level === 'number' ? t.difficulty_level : 0) >= 4).length;
-      }, 0);
-
-      if (hardTopicsCompleted >= 5) {
-        insights.push({
-          id: 'hard-topics-master',
-          type: 'achievement' as const,
-          message: `Impressionante! Você dominou ${hardTopicsCompleted} tópicos difíceis ⭐⭐⭐⭐⭐`,
-          icon: 'Award',
-          priority: 'high' as const,
-        });
-      }
-
-      // Insight sobre tópicos fáceis para vitórias rápidas
-      const easyTopicsPending = subjects.reduce((sum, subject) => {
-        return sum + subject.topics.filter(t => !t.completed && (typeof t.difficulty_level === 'number' ? t.difficulty_level : 0) <= 2).length;
-      }, 0);
-
-      if (easyTopicsPending >= 3) {
-        insights.push({
-          id: 'quick-wins',
-          type: 'productivity' as const,
-          message: `${easyTopicsPending} tópicos fáceis ⭐⭐ esperando por você - vitórias rápidas!`,
-          icon: 'Zap',
-          priority: 'medium' as const,
-        });
-      }
-    }
-
-    if (weeklyComparison > 10) {
-      insights.push({
-        id: 'weekly-improvement',
-        type: 'productivity' as const,
-        message: `Excelente! Você melhorou ${weeklyComparison}% em relação à semana anterior.`,
-        icon: 'TrendingUp',
-        priority: 'high' as const,
-      });
-    } else if (weeklyComparison < -10) {
-      insights.push({
-        id: 'weekly-decline',
-        type: 'productivity' as const,
-        message: `Atenção: houve uma queda de ${Math.abs(weeklyComparison)}% na produtividade esta semana.`,
-        icon: 'TrendingDown',
-        priority: 'medium' as const,
-      });
-    }
-
-    if (studyHabits.consistencyRate >= 80) {
-      insights.push({
-        id: 'consistency-high',
+        id: 'hard-topics-master',
         type: 'achievement' as const,
-        message: `Fantástico! ${studyHabits.consistencyRate}% de consistência nos últimos 30 dias.`,
-        icon: 'Target',
-        priority: 'high' as const,
-      });
-    } else if (studyHabits.consistencyRate < 50) {
-      insights.push({
-        id: 'consistency-low',
-        type: 'achievement' as const,
-        message: `Vamos melhorar a consistência! Apenas ${studyHabits.consistencyRate}% nos últimos 30 dias.`,
-        icon: 'Target',
-        priority: 'medium' as const,
-      });
-    }
-
-    if (totalStudyTime > 1200) { // Mais de 20 horas
-      insights.push({
-        id: 'study-time-high',
-        type: 'achievement' as const,
-        message: `Impressionante! Você já estudou ${Math.round(totalStudyTime / 60)} horas no total.`,
+        message: `Dominou ${hardTopicsCompleted} tópicos difíceis ⭐⭐⭐⭐⭐`,
         icon: 'Award',
         priority: 'high' as const,
       });
     }
 
+    const easyTopicsPending = filteredSubjects.reduce((sum, subject) => {
+      return sum + subject.topics.filter(t => !t.completed && (typeof t.difficulty_level === 'number' ? t.difficulty_level : 0) <= 2).length;
+    }, 0);
+
+    if (easyTopicsPending >= 3) {
+      insights.push({
+        id: 'quick-wins',
+        type: 'productivity' as const,
+        message: `${easyTopicsPending} tópicos fáceis esperando!`,
+        icon: 'Zap',
+        priority: 'medium' as const,
+      });
+    }
+
     // Calcular estatísticas de dificuldade avançadas
-    const allTopicsWithDifficulty = subjects.flatMap(s => 
+    const allTopicsWithDifficulty = filteredSubjects.flatMap(s => 
       s.topics.map(t => ({ ...t, subjectName: s.name }))
     );
     const ratedTopics = allTopicsWithDifficulty.filter(t => t.difficulty_level && typeof t.difficulty_level === 'number');
     const completedTopics = allTopicsWithDifficulty.filter(t => t.completed);
     const completedRatedTopics = completedTopics.filter(t => t.difficulty_level && typeof t.difficulty_level === 'number');
     
-    const difficultyDistribution: { [key: string]: number } = {
-      '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, 'unrated': 0
-    };
-    
-    const completedDistribution: { [key: string]: number } = {
-      '1': 0, '2': 0, '3': 0, '4': 0, '5': 0
-    };
-    
-    let totalDifficulty = 0;
-    let totalCompletedDifficulty = 0;
-    let totalPoints = 0;
-    let completedPoints = 0;
-    let estimatedTime = 0;
-    let completedTime = 0;
-    
-    // Encontrar tópico mais difícil concluído
-    let hardestCompletedTopic: { name: string; difficulty: number; subject: string } | null = null;
-    let maxCompletedDifficulty = 0;
-    
-    // Lista de tópicos fáceis pendentes
-    const easiestPendingTopics: Array<{ name: string; difficulty: number; subject: string }> = [];
+    const difficultyDistribution: { [key: string]: number } = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, 'unrated': 0 };
+    const completedDistribution: { [key: string]: number } = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    let totalDifficulty = 0, totalCompletedDifficulty = 0, totalPoints = 0, completedPoints = 0, estimatedTime = 0, completedTime = 0;
+    let hardestCompletedTopic = null, maxCompletedDifficulty = 0;
+    const easiestPendingTopics: any[] = [];
     
     allTopicsWithDifficulty.forEach(topic => {
       const difficulty = topic.difficulty_level;
       if (difficulty && typeof difficulty === 'number') {
-        const difficultyStr = String(difficulty);
-        difficultyDistribution[difficultyStr]++;
+        difficultyDistribution[String(difficulty)]++;
         totalDifficulty += difficulty;
-        
-        // Calcular pontos e tempo
         const points = { 1: 10, 2: 25, 3: 50, 4: 100, 5: 200 };
         const timeMap = { 1: 20, 2: 30, 3: 45, 4: 60, 5: 90 };
-        
-        const topicPoints = points[difficulty as keyof typeof points] || 50;
-        const topicTime = timeMap[difficulty as keyof typeof timeMap] || 30;
-        
-        totalPoints += topicPoints;
-        estimatedTime += topicTime;
+        totalPoints += points[difficulty as keyof typeof points] || 50;
+        estimatedTime += timeMap[difficulty as keyof typeof timeMap] || 30;
         
         if (topic.completed) {
-          completedDistribution[difficultyStr]++;
+          completedDistribution[String(difficulty)]++;
           totalCompletedDifficulty += difficulty;
-          completedPoints += topicPoints;
-          completedTime += topicTime;
-          
-          // Verificar se é o mais difícil concluído
+          completedPoints += points[difficulty as keyof typeof points] || 50;
+          completedTime += timeMap[difficulty as keyof typeof timeMap] || 30;
           if (difficulty > maxCompletedDifficulty) {
             maxCompletedDifficulty = difficulty;
-            hardestCompletedTopic = {
-              name: topic.name,
-              difficulty: difficulty,
-              subject: topic.subjectName
-            };
+            hardestCompletedTopic = { name: topic.name, difficulty, subject: topic.subjectName };
           }
         } else if (difficulty <= 2) {
-          // Adicionar à lista de tópicos fáceis pendentes
-          easiestPendingTopics.push({
-            name: topic.name,
-            difficulty: difficulty,
-            subject: topic.subjectName
-          });
+          easiestPendingTopics.push({ name: topic.name, difficulty, subject: topic.subjectName });
         }
       } else {
         difficultyDistribution['unrated']++;
-        totalPoints += 50; // Pontos padrão
-        estimatedTime += 30; // Tempo padrão
-        
-        if (topic.completed) {
-          completedPoints += 50;
-          completedTime += 30;
-        } else {
-          // Tópicos não avaliados também são considerados "fáceis" para revisão
-          easiestPendingTopics.push({
-            name: topic.name,
-            difficulty: 0, // Não avaliado
-            subject: topic.subjectName
-          });
-        }
+        totalPoints += 50; estimatedTime += 30;
+        if (topic.completed) { completedPoints += 50; completedTime += 30; }
+        else { easiestPendingTopics.push({ name: topic.name, difficulty: 0, subject: topic.subjectName }); }
       }
     });
-    
-    // Calcular eficiência por dificuldade
-    const efficiencyByDifficulty = [1, 2, 3, 4, 5].map(level => {
-      const levelStr = level.toString();
-      const total = difficultyDistribution[levelStr] || 0;
-      const completed = completedDistribution[levelStr] || 0;
-      return {
-        level,
-        total,
-        completed,
-        efficiency: total > 0 ? Math.round((completed / total) * 100) : 0
-      };
-    });
-    
-    // Ordenar tópicos fáceis pendentes por dificuldade (mais fáceis primeiro)
-    easiestPendingTopics.sort((a, b) => a.difficulty - b.difficulty);
-    
-    const averageDifficulty = ratedTopics.length > 0 ? totalDifficulty / ratedTopics.length : 3;
-    const averageCompletedDifficulty = completedRatedTopics.length > 0 ? totalCompletedDifficulty / completedRatedTopics.length : 0;
-    
+
     const difficultyStats = {
       totalTopics: allTopicsWithDifficulty.length,
       ratedTopics: ratedTopics.length,
       completedTopics: completedTopics.length,
       completedRatedTopics: completedRatedTopics.length,
-      averageDifficulty,
-      averageCompletedDifficulty,
+      averageDifficulty: ratedTopics.length > 0 ? totalDifficulty / ratedTopics.length : 3,
+      averageCompletedDifficulty: completedRatedTopics.length > 0 ? totalCompletedDifficulty / completedRatedTopics.length : 0,
       difficultyDistribution,
       completedDistribution,
       totalPoints,
       completedPoints,
       estimatedTime,
       completedTime,
-      efficiencyByDifficulty,
+      efficiencyByDifficulty: [1, 2, 3, 4, 5].map(level => ({
+        level,
+        total: difficultyDistribution[String(level)] || 0,
+        completed: completedDistribution[String(level)] || 0,
+        efficiency: (difficultyDistribution[String(level)] || 0) > 0 ? Math.round((completedDistribution[String(level)] / difficultyDistribution[String(level)]) * 100) : 0
+      })),
       ratingProgress: allTopicsWithDifficulty.length > 0 ? Math.round((ratedTopics.length / allTopicsWithDifficulty.length) * 100) : 0,
       completionProgress: ratedTopics.length > 0 ? Math.round((completedRatedTopics.length / ratedTopics.length) * 100) : 0,
       hardestCompletedTopic,
-      easiestPendingTopics: easiestPendingTopics.slice(0, 5) // Apenas os 5 mais fáceis
+      easiestPendingTopics: easiestPendingTopics.sort((a,b) => a.difficulty - b.difficulty).slice(0, 5)
     };
 
-    return {
-      overview,
-      spacedReviews,
-      subjectPerformance,
-      studyHabits,
-      evolution,
-      insights,
-      difficultyStats,
-    };
-  }, [subjects, studyProgress, studySessions, userAnalytics, pomodoroSessions]);
+    return { overview, spacedReviews, subjectPerformance, studyHabits, evolution, insights, difficultyStats };
+  }, [subjects, filter.id, filter.type, userCycle?.id, userCycle?.ciclo_atual, studySessions, userAnalytics, pomodoroSessions]);
 };

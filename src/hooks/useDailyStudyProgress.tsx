@@ -59,6 +59,7 @@ export const useDailyStudyProgress = () => {
         .from('user_cycles')
         .select('*')
         .eq('user_id', user.id)
+        .eq('status', 'active')
         .limit(1);
 
       if (cycleError) {
@@ -233,6 +234,7 @@ export const useDailyStudyProgress = () => {
         .from('user_cycles')
         .select('materias_estudadas_hoje')
         .eq('user_id', user.id)
+        .eq('status', 'active')
         .limit(1);
 
       if (fetchError) {

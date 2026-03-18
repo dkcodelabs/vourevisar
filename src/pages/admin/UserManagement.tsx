@@ -61,6 +61,7 @@ import { UserActivityList } from '@/components/admin/UserActivityList';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 const UserManagement = () => {
     const { users: dbUsers, loading, error, refetch } = useAdminUsers();
@@ -381,13 +382,12 @@ const UserManagement = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-medium text-xs overflow-hidden shrink-0">
-                                                    {user.avatar_url ? (
-                                                        <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        user.name ? user.name.charAt(0).toUpperCase() : 'U'
-                                                    )}
-                                                </div>
+                                                <UserAvatar 
+                                                    src={user.avatar_url} 
+                                                    name={user.name} 
+                                                    className="w-9 h-9 border-slate-200 dark:border-slate-700"
+                                                    fallbackClassName="text-xs"
+                                                />
                                                 <div className="flex flex-col">
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -626,13 +626,12 @@ const UserManagement = () => {
                         <div className="space-y-6">
                             {/* Profile Header */}
                             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                                <div className="w-16 h-16 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 text-xl font-medium shadow-sm overflow-hidden">
-                                    {selectedUser.avatar_url ? (
-                                        <img src={selectedUser.avatar_url} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                        selectedUser.name ? selectedUser.name.charAt(0).toUpperCase() : 'U'
-                                    )}
-                                </div>
+                                <UserAvatar 
+                                    src={selectedUser.avatar_url} 
+                                    name={selectedUser.name} 
+                                    className="w-16 h-16 border-slate-200 shadow-sm"
+                                    fallbackClassName="text-xl"
+                                />
                                 <div>
                                     <h3 className="text-lg font-bold text-slate-900">{selectedUser.name}</h3>
                                     <p className="text-sm text-slate-500">{selectedUser.email}</p>

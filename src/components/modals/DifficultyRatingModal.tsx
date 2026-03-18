@@ -88,13 +88,13 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="relative bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full mx-4 p-6 border border-slate-200 dark:border-slate-800"
+        className="relative bg-card rounded-lg shadow-xl max-w-md w-full mx-4 p-6 border border-border md:bg-white md:dark:bg-slate-900 md:dark:border-slate-800 md:light:bg-card md:light:border-border"
       >
         {/* Botão de fechar com tooltip */}
         <div className="absolute top-4 right-4 z-10 flex flex-col items-center group">
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+            className="p-1.5 rounded-full hover:bg-accent text-content-muted hover:text-foreground transition-colors md:hover:bg-slate-100 md:dark:hover:bg-slate-800 md:light:hover:bg-accent md:light:text-content-muted md:light:hover:text-foreground"
             title="Fechar e manter pausa"
             aria-label="Fechar e manter pausa"
           >
@@ -115,15 +115,15 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 15 }}
-              className="p-2 rounded-full bg-green-100"
+              className="p-2 rounded-full bg-emerald-500/10 md:bg-green-100 md:light:bg-emerald-500/10"
             >
               {initialDifficulty !== null ? (
                 <Star className="h-6 w-6 text-yellow-500" />
               ) : (
-                <Trophy className="h-6 w-6 text-green-600" />
+                <Trophy className="h-6 w-6 text-emerald-600 md:text-green-600 md:light:text-emerald-600" />
               )}
             </motion.div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground md:text-gray-900 md:dark:text-slate-100 md:light:text-foreground">
               {reviewCount ? (
                 reviewCount === 1 ? '1º Estudo' :
                   reviewCount === 2 ? '1ª Revisão' :
@@ -139,10 +139,10 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
 
           {/* Matéria e Tópico */}
           <div className="space-y-1">
-            <div className="font-medium text-gray-900 dark:text-slate-200 text-base sm:text-lg">
+            <div className="font-medium text-foreground text-base sm:text-lg md:text-gray-900 md:dark:text-slate-200 md:light:text-foreground">
               {subjectName}
             </div>
-            <div className="text-sm text-gray-600 dark:text-slate-400">
+            <div className="text-sm text-content-muted md:text-gray-600 md:dark:text-slate-400 md:light:text-content-muted">
               {topicName}
             </div>
           </div>
@@ -155,14 +155,14 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
           {onConfirmReview && (
             <div className="flex items-center justify-center mb-6">
               <div
-                className="flex items-center gap-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-full px-5 py-2.5 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all cursor-text group"
+                className="flex items-center gap-3 bg-card border border-border shadow-sm rounded-full px-5 py-2.5 hover:border-primary/30 hover:shadow-md transition-all cursor-text group md:bg-white md:dark:bg-slate-800 md:dark:border-slate-700 md:light:bg-card md:light:border-border"
                 onClick={() => document.getElementById('duration-input')?.focus()}
               >
-                <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-full group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 transition-colors">
-                  <Clock size={16} className="text-indigo-600 dark:text-indigo-400" />
+                <div className="p-1.5 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors md:bg-indigo-50 md:dark:bg-indigo-900/30 md:light:bg-primary/10">
+                  <Clock size={16} className="text-primary md:text-indigo-600 md:dark:text-indigo-400 md:light:text-primary" />
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Tempo:</span>
+                  <span className="text-sm font-medium text-content-muted md:text-slate-500 md:dark:text-slate-400 md:light:text-content-muted">Tempo:</span>
                   <Input
                     id="duration-input"
                     type="number"
@@ -182,7 +182,7 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
 
           {/* Seletor de dificuldade */}
           <div className="text-center">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-200 mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4 md:text-gray-900 md:dark:text-slate-200 md:light:text-foreground">
               Como foi a dificuldade?
             </h3>
             <DifficultyRating

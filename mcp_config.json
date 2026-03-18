@@ -22,6 +22,14 @@
             "env": {
                 "GEMINI_API_KEY": "AIzaSyB9boPcMR2_Ivju-b9naBTr2JSRZhxcgYs"
             }
+        },
+        "asaas": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "mcp-stdio-proxy",
+                "https://docs.asaas.com/mcp"
+            ]
         }
     }
 }

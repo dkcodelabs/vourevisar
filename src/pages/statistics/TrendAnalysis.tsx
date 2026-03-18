@@ -68,29 +68,29 @@ const TrendAnalysis = () => {
     };
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-900">
+        <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-foreground">
             <div className="mb-8">
                 <button
                     onClick={() => navigate('/estatisticas')}
-                    className="text-slate-500 hover:text-slate-800 text-sm flex items-center gap-1 mb-2 transition-colors"
+                    className="text-content-muted hover:text-foreground text-sm flex items-center gap-1 mb-2 transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4" /> Voltar para Estatísticas
                 </button>
                 <div className="flex justify-between items-start">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                            <TrendingUp className="w-6 h-6 text-indigo-600" />
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                            <TrendingUp className="w-6 h-6 text-primary" />
                             Calculadora de Tendência (GUT)
                         </h1>
-                        <p className="text-slate-500 mt-1.5 text-sm">Analise a relevância de tópicos com Inteligência Artificial e dados de mercado.</p>
+                        <p className="text-content-muted mt-1.5 text-sm">Analise a relevância de tópicos com Inteligência Artificial e dados de mercado.</p>
                     </div>
                 </div>
             </div>
 
             <div className="space-y-6">
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-bold text-slate-800">
+                        <h2 className="text-lg font-bold text-foreground">
                             Parâmetros de Análise
                         </h2>
                         <div className="flex gap-2">
@@ -106,7 +106,7 @@ const TrendAnalysis = () => {
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                                <label className="block text-sm font-medium text-foreground mb-1.5">
                                     Matéria
                                 </label>
                                 <input
@@ -114,27 +114,27 @@ const TrendAnalysis = () => {
                                     value={materia}
                                     onChange={(e) => setMateria(e.target.value)}
                                     placeholder="Ex: Informática"
-                                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                    className="w-full p-2.5 bg-secondary/30 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all md:light:bg-secondary/30 md:dark:bg-transparent"
                                 />
                             </div>
                             <div className="row-span-2">
-                                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                                <label className="block text-sm font-medium text-foreground mb-1.5">
                                     Tópico Complexo (Do Edital)
                                 </label>
                                 <textarea
                                     value={topico}
                                     onChange={(e) => setTopico(e.target.value)}
                                     placeholder="Cole o tópico bruto, ex: 'Hardware: mouse, teclado, monitor e impressora'..."
-                                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 h-[120px] transition-all resize-none"
+                                    className="w-full p-2.5 bg-secondary/30 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary h-[120px] transition-all resize-none md:light:bg-secondary/30 md:dark:bg-transparent"
                                 />
-                                <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
+                                <p className="text-xs text-content-muted mt-1.5 flex items-center gap-1.5">
                                     <BrainCircuit className="w-3.5 h-3.5" />
                                     A IA irá dividir este tópico em várias buscas (Split & Search).
                                 </p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                                    <label className="block text-sm font-medium text-foreground mb-1.5">
                                         Filtro de Carreira
                                     </label>
                                     <input
@@ -142,11 +142,11 @@ const TrendAnalysis = () => {
                                         value={carreira}
                                         onChange={(e) => setCarreira(e.target.value)}
                                         placeholder="Ex: Policial (Opcional)"
-                                        className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                        className="w-full p-2.5 bg-secondary/30 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all md:light:bg-secondary/30 md:dark:bg-transparent"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                                    <label className="block text-sm font-medium text-foreground mb-1.5">
                                         Banca(s)
                                     </label>
                                     <input
@@ -154,7 +154,7 @@ const TrendAnalysis = () => {
                                         value={banca}
                                         onChange={(e) => setBanca(e.target.value)}
                                         placeholder="Ex: FGV, CEBRASPE"
-                                        className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                        className="w-full p-2.5 bg-secondary/30 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all md:light:bg-secondary/30 md:dark:bg-transparent"
                                     />
                                 </div>
                             </div>
@@ -172,12 +172,12 @@ const TrendAnalysis = () => {
                                 {loading ? (
                                     <>
                                         <Loader2 className="w-5 h-5 animate-spin" />
-                                        IA Dividindo Tópicos + Buscando (pode demorar)...
+                                        IA Dividindo Tópicos + Buscando...
                                     </>
                                 ) : (
                                     <>
                                         <Split className="w-5 h-5" />
-                                        Calcular Tendência v12 (Multi-Search)
+                                        Calcular Tendência (Multi-Search)
                                     </>
                                 )}
                             </button>
@@ -186,7 +186,7 @@ const TrendAnalysis = () => {
                 </div>
 
                 {resultado && (
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-card p-6 rounded-xl border border-border shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {/* Seção de Inteligência v12 */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-indigo-50/50 p-5 rounded-xl border border-indigo-100 mb-6">
                             <div className="flex flex-col">

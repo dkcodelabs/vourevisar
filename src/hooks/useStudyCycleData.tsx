@@ -119,27 +119,32 @@ const mapDifficultyToLevel = (difficulty: Difficulty): number => {
 
 export const useStudyCycleData = () => {
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isSubjectsLoaded, setIsSubjectsLoaded] = useState(false);
+  const [isCycleLoaded, setIsCycleLoaded] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [userEditais, setUserEditais] = useState<UserEdital[]>([]);
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
 
   const { markTopicAsReviewed } = useTopicReview();
 
+  const isLoading = useMemo(() => {
+    // If no user, it's not loading (nothing to load)
+    if (!user) return false;
+    return !(isSubjectsLoaded && isCycleLoaded);
+  }, [user, isSubjectsLoaded, isCycleLoaded]);
+
   // Safety timeout
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setIsLoading(prev => {
-        if (prev) {
-          console.warn('⚠️ Force stopping loading state after timeout');
-          return false;
-        }
-        return prev;
-      });
+      if (!isSubjectsLoaded || !isCycleLoaded) {
+        console.warn('⚠️ Force stopping loading state after timeout', { isSubjectsLoaded, isCycleLoaded });
+        setIsSubjectsLoaded(true);
+        setIsCycleLoaded(true);
+      }
     }, 10000);
 
     return () => clearTimeout(timeoutId);
-  }, []);
+  }, [isSubjectsLoaded, isCycleLoaded]);
 
   const loadSubjects = useCallback(async () => {
     if (!user) return;
@@ -152,8 +157,7 @@ export const useStudyCycleData = () => {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setSubjects(parsed);
-            const cycleCached = localStorage.getItem(`user_cycle_cache_${user.id}`);
-            if (cycleCached) setIsLoading(false);
+            setIsSubjectsLoaded(true);
           }
         } catch (e) {
           console.error('Invalid subjects cache', e);
@@ -183,6 +187,7 @@ export const useStudyCycleData = () => {
       const newSubjects = (subjectsRes.data as any) || [];
       setSubjects(newSubjects);
       localStorage.setItem(cacheKey, JSON.stringify(newSubjects));
+      setIsSubjectsLoaded(true);
 
       if (editaisRes.error) {
         console.error('Erro ao carregar editais:', editaisRes.error);
@@ -224,19 +229,17 @@ export const useStudyCycleData = () => {
   // Load user cycle data
   useEffect(() => {
     const loadUserCycle = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
+      const cycleCacheKey = `user_cycle_cache_${user.id}`;
+      const subjectsCacheKey = `subjects_cache_${user.id}_v2`;
+      const cycleCached = localStorage.getItem(cycleCacheKey);
+      const subjectsCached = localStorage.getItem(subjectsCacheKey);
 
-      const cacheKey = `user_cycle_cache_${user.id}`;
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
+      if (cycleCached && subjectsCached) {
         try {
-          const parsed = JSON.parse(cached);
+          const parsed = JSON.parse(cycleCached);
           setUserCycle(parsed);
-          const subjectsCached = localStorage.getItem(`subjects_cache_${user.id}_v2`);
-          if (subjectsCached) setIsLoading(false);
+          setIsCycleLoaded(true);
+          setIsSubjectsLoaded(true);
         } catch (e) {
           console.error('Invalid cycle cache', e);
         }
@@ -247,15 +250,16 @@ export const useStudyCycleData = () => {
           .from('user_cycles')
           .select('*')
           .eq('user_id', user.id)
+          .eq('status', 'active')
           .limit(1);
 
         if (error) {
           console.error('Erro ao carregar ciclo:', error);
-          if (!cached) setIsLoading(false);
+          if (!cycleCached) setIsCycleLoaded(true);
           return;
         }
 
-        const cycleData = (data?.[0] as UserCycle) || null;
+        const cycleData = (data?.[0] as unknown as UserCycle) || null;
 
         if (cycleData && (!cycleData.ciclo_atual || cycleData.ciclo_atual.length === 0)) {
           // Quando criar um novo ciclo, precisamos filtrar matérias de editais que ainda não foram importados (merged_into_cycle = false)
@@ -297,11 +301,12 @@ export const useStudyCycleData = () => {
                   .from('user_cycles')
                   .select('*')
                   .eq('user_id', user.id)
+                  .eq('status', 'active')
                   .limit(1);
-                const newCycleData = (updatedCycle?.[0] as UserCycle) || null;
+                const newCycleData = (updatedCycle?.[0] as unknown as UserCycle) || null;
                 setUserCycle(newCycleData);
-                localStorage.setItem(cacheKey, JSON.stringify(newCycleData));
-                setIsLoading(false);
+                localStorage.setItem(cycleCacheKey, JSON.stringify(newCycleData));
+                setIsCycleLoaded(true);
                 return;
               }
             }
@@ -309,11 +314,11 @@ export const useStudyCycleData = () => {
         }
 
         setUserCycle(cycleData);
-        localStorage.setItem(cacheKey, JSON.stringify(cycleData));
+        localStorage.setItem(cycleCacheKey, JSON.stringify(cycleData));
       } catch (error) {
         console.error('Erro ao carregar ciclo:', error);
       } finally {
-        setIsLoading(false);
+        setIsCycleLoaded(true);
       }
     };
 
@@ -505,8 +510,8 @@ export const useStudyCycleData = () => {
     try {
       await refreshData();
       if (user) {
-        const { data } = await supabase.from('user_cycles').select('*').eq('user_id', user.id).limit(1);
-        if (data && data.length > 0) setUserCycle(data[0] as UserCycle);
+        const { data } = await supabase.from('user_cycles').select('*').eq('user_id', user.id).eq('status', 'active').limit(1);
+        if (data && data.length > 0) setUserCycle(data[0] as unknown as UserCycle);
       }
       window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { subjectId, completed: true } }));
     } catch (error) {
@@ -537,8 +542,8 @@ export const useStudyCycleData = () => {
     if (!user) return;
     try {
       await refreshData();
-      const { data } = await supabase.from('user_cycles').select('*').eq('user_id', user.id).limit(1);
-      setUserCycle((data?.[0] as UserCycle) || null);
+      const { data } = await supabase.from('user_cycles').select('*').eq('user_id', user.id).eq('status', 'active').limit(1);
+      setUserCycle((data?.[0] as unknown as UserCycle) || null);
     } catch (error) {
       console.error('Erro ao recarregar ciclo:', error);
     }

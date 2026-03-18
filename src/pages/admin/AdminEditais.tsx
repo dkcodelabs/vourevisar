@@ -250,7 +250,8 @@ const AdminEditais = () => {
                 <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between w-full mb-8">
                     
                     {/* Abas Esquerda */}
-                    <div className="flex bg-zinc-900/60 p-1.5 rounded-2xl border border-white/5 backdrop-blur-md shrink-0 w-full md:w-auto">
+                    <div className="flex bg-secondary dark:bg-zinc-900/60 p-1.5 rounded-2xl border border-border dark:border-white/5 backdrop-blur-md shrink-0 w-full md:w-auto">
+
                         <button
                             onClick={() => setActiveTab('editais')}
                             className={`flex flex-1 md:flex-none items-center justify-center gap-2 px-6 h-10 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
@@ -283,7 +284,8 @@ const AdminEditais = () => {
                                 placeholder="Buscar nos editais..."
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full h-11 bg-zinc-900/40 border border-white/5 rounded-2xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
+                                className="w-full h-11 bg-secondary border border-border rounded-2xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
+
                             />
                         </div>
 
@@ -310,14 +312,15 @@ const AdminEditais = () => {
                                         exit={{ opacity: 0, height: 0, y: -20 }}
                                         className="overflow-hidden mb-8"
                                     >
-                                        <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl mx-auto w-full relative">
+                                        <div className="bg-card backdrop-blur-xl border border-border rounded-3xl p-6 md:p-8 shadow-2xl mx-auto w-full relative">
+
                                             <div className="flex items-center justify-between mb-8">
                                                 <div className="flex items-center gap-4">
                                                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${editingId ? 'bg-primary/10 text-primary' : 'bg-emerald-500/10 text-emerald-500'}`}>
                                                         {editingId ? <Edit3 size={24} /> : <Plus size={24} />}
                                                     </div>
                                                     <div>
-                                                        <h2 className="text-xl font-black text-white tracking-tight">
+                                                        <h2 className="text-xl font-black text-foreground dark:text-white tracking-tight">
                                                             {editingId ? 'Editar Edital' : 'Cadastrar Novo Edital'}
                                                         </h2>
                                                         <p className="text-sm text-content-muted font-medium">
@@ -327,7 +330,8 @@ const AdminEditais = () => {
                                                 </div>
                                                 <button 
                                                     onClick={() => { setIsAddingNew(false); setEditingId(null); }} 
-                                                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 text-content-muted hover:text-white hover:bg-white/10 transition-all border border-white/10"
+                                                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary text-content-muted hover:text-foreground hover:bg-secondary/80 transition-all border border-border"
+
                                                 >
                                                     <X size={20} />
                                                 </button>
@@ -340,7 +344,7 @@ const AdminEditais = () => {
                                                         value={form.organ}
                                                         onChange={e => setForm(p => ({ ...p, organ: e.target.value }))}
                                                         placeholder="Ex: PMES, PCES, TJ..."
-                                                        className="w-full h-12 bg-zinc-900/40 border border-white/5 rounded-2xl px-5 text-sm font-medium text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
+                                                        className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
@@ -349,7 +353,7 @@ const AdminEditais = () => {
                                                         value={form.position}
                                                         onChange={e => setForm(p => ({ ...p, position: e.target.value }))}
                                                         placeholder="Ex: Soldado, Delegado, Analista..."
-                                                        className="w-full h-12 bg-zinc-900/40 border border-white/5 rounded-2xl px-5 text-sm font-medium text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
+                                                        className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
@@ -358,7 +362,7 @@ const AdminEditais = () => {
                                                         value={form.year}
                                                         onChange={e => setForm(p => ({ ...p, year: e.target.value }))}
                                                         placeholder="Ex: 2024, 2025..."
-                                                        className="w-full h-12 bg-zinc-900/40 border border-white/5 rounded-2xl px-5 text-sm font-medium text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
+                                                        className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                 </div>
                                                 <div className="space-y-2 relative">
@@ -369,7 +373,7 @@ const AdminEditais = () => {
                                                         onFocus={() => setShowCategoryDropdown(true)}
                                                         onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
                                                         placeholder="Selecione ou digite..."
-                                                        className="w-full h-12 bg-zinc-900/40 border border-white/5 rounded-2xl px-5 text-sm font-medium text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
+                                                        className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                     <AnimatePresence>
                                                         {showCategoryDropdown && (
@@ -377,13 +381,15 @@ const AdminEditais = () => {
                                                                 initial={{ opacity: 0, y: -10 }} 
                                                                 animate={{ opacity: 1, y: 0 }} 
                                                                 exit={{ opacity: 0, y: -10 }} 
-                                                                className="absolute z-30 top-[80px] left-0 right-0 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-2 max-h-56 overflow-y-auto"
+                                                                className="absolute z-30 top-[80px] left-0 right-0 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden py-2 max-h-56 overflow-y-auto"
+
                                                             >
                                                                 {PRESET_CATEGORIES.filter(c => c.toLowerCase().includes(categoryDraft.toLowerCase())).map(cat => (
                                                                     <button 
                                                                         key={cat} 
                                                                         onMouseDown={() => { setCategoryDraft(cat); setShowCategoryDropdown(false); }} 
-                                                                        className="w-full text-left px-5 py-3 hover:bg-white/5 text-sm font-medium text-content-muted hover:text-white transition-all capitalize"
+                                                                        className="w-full text-left px-5 py-3 hover:bg-secondary text-sm font-medium text-content-muted hover:text-foreground transition-all capitalize"
+
                                                                     >
                                                                         {cat}
                                                                     </button>
@@ -394,7 +400,8 @@ const AdminEditais = () => {
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-6 bg-white/5 border border-white/5 rounded-2xl">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-6 bg-secondary border border-border rounded-2xl">
+
                                                 <div className="flex items-center gap-4">
                                                     <button
                                                         onClick={() => setForm(p => ({ ...p, is_public: !p.is_public }))}
@@ -403,7 +410,7 @@ const AdminEditais = () => {
                                                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-lg transition-transform duration-300 ${form.is_public ? 'translate-x-7' : 'translate-x-1'}`} />
                                                     </button>
                                                     <div className="flex flex-col cursor-pointer" onClick={() => setForm(p => ({ ...p, is_public: !p.is_public }))}>
-                                                        <span className="text-sm font-black text-white flex items-center gap-2">
+                                                        <span className="text-sm font-black text-foreground dark:text-white flex items-center gap-2">
                                                             <Globe size={16} className={form.is_public ? "text-emerald-500" : "text-content-muted"} />
                                                             Visibilidade Pública
                                                         </span>
@@ -444,8 +451,9 @@ const AdminEditais = () => {
                                 {isLoading ? (
                                     <div className="py-20 text-center"><LoadingSpinner size="large" /></div>
                                 ) : filteredEditais.length === 0 ? (
-                                    <div className="py-20 text-center bg-zinc-900/40 border border-white/5 rounded-3xl">
+                                    <div className="py-20 text-center bg-secondary border border-border rounded-3xl">
                                         <AlertCircle size={48} className="mx-auto text-zinc-800 mb-4" />
+
                                         <p className="text-content-muted font-black text-xs uppercase tracking-widest">Nenhum edital encontrado</p>
                                     </div>
                                 ) : (
@@ -460,7 +468,8 @@ const AdminEditais = () => {
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: idx * 0.02 }}
-                                                className="group relative bg-zinc-900/40 border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all duration-200 rounded-xl overflow-hidden cursor-pointer h-20"
+                                                className="group relative bg-card border border-border hover:border-primary/30 hover:bg-secondary/30 transition-all duration-200 rounded-xl overflow-hidden cursor-pointer h-20"
+
                                                 onClick={() => {
                                                     setSelectedEditalForSubjects(edital);
                                                     setIsSubjectsModalOpen(true);
@@ -472,7 +481,7 @@ const AdminEditais = () => {
                                                     
                                                     {/* Órgão Section (Esquerda) */}
                                                     <div className="w-56 shrink-0">
-                                                        <h3 className="text-xl font-black text-white uppercase tracking-tighter leading-none mb-1 group-hover:text-primary transition-colors">
+                                                        <h3 className="text-xl font-black text-foreground dark:text-white uppercase tracking-tighter leading-none mb-1 group-hover:text-primary transition-colors">
                                                             {edital.organ}
                                                         </h3>
                                                         <p className="text-[11px] font-medium text-zinc-600 uppercase tracking-[0.2em]">
@@ -484,7 +493,7 @@ const AdminEditais = () => {
                                                     <div className="flex-1 flex flex-col justify-center gap-2 min-w-0">
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest w-16 text-right shrink-0">Cargo:</span>
-                                                            <span className="text-sm font-black text-white uppercase italic tracking-tight truncate">
+                                                            <span className="text-sm font-black text-foreground dark:text-white uppercase italic tracking-tight truncate">
                                                                 {edital.position}
                                                             </span>
                                                         </div>
@@ -592,7 +601,8 @@ const AdminEditais = () => {
                                     <motion.div 
                                         key={s.id} 
                                         layout 
-                                        className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 transition-all hover:border-white/10 relative overflow-hidden group"
+                                        className="bg-card border border-border rounded-3xl p-6 transition-all hover:border-primary/20 relative overflow-hidden group"
+
                                     >
                                         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                                             <div className="flex-1 min-w-0">
@@ -604,7 +614,7 @@ const AdminEditais = () => {
                                                         <Clock size={12} /> {new Date(s.created_at).toLocaleDateString('pt-BR')}
                                                     </span>
                                                 </div>
-                                                <h3 className="text-lg font-black text-white tracking-tight uppercase mb-2">
+                                                <h3 className="text-lg font-black text-foreground dark:text-white tracking-tight uppercase mb-2">
                                                     {s.concurso}
                                                 </h3>
                                                 
@@ -663,7 +673,7 @@ const AdminEditais = () => {
                                                             value={customMessage}
                                                             onChange={e => setCustomMessage(e.target.value)}
                                                             rows={3}
-                                                            className="w-full bg-transparent px-5 py-4 text-sm font-medium text-white outline-none resize-none placeholder:text-zinc-700"
+                                                            className="w-full bg-transparent px-5 py-4 text-sm font-medium text-content-main dark:text-white outline-none resize-none placeholder:text-zinc-700"
                                                             placeholder="Escreva sua mensagem personalizada..."
                                                         />
                                                     </div>

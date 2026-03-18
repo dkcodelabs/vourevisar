@@ -48,13 +48,34 @@ const HighlightText: React.FC<{ text: string; searchQuery: string }> = ({ text, 
 };
 
 const REVIEW_STATUS_CONFIG: Record<ReviewInterval, { text: string; className: string }> = {
-  [ReviewInterval.NOT_STARTED]: { text: 'Não estudado', className: 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-slate-300' },
-  [ReviewInterval.FIRST_CONTACT]: { text: 'Primeiro Contato', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
-  [ReviewInterval.REVISED_24H]: { text: 'Próxima: 24h', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-  [ReviewInterval.REVISED_7D]: { text: 'Próxima: 7d', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-  [ReviewInterval.REVISED_15D]: { text: 'Próxima: 15d', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-  [ReviewInterval.REVISED_30D]: { text: 'Próxima: 30d', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-  [ReviewInterval.COMPLETED]: { text: 'Concluído', className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+  [ReviewInterval.NOT_STARTED]: { 
+    text: 'Não estudado', 
+    className: 'bg-secondary text-content-muted border border-border/50' 
+  },
+  [ReviewInterval.FIRST_CONTACT]: { 
+    text: 'Primeiro Contato', 
+    className: 'bg-primary/10 text-primary border border-primary/20' 
+  },
+  [ReviewInterval.REVISED_24H]: { 
+    text: 'Próxima: 24h', 
+    className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' 
+  },
+  [ReviewInterval.REVISED_7D]: { 
+    text: 'Próxima: 7d', 
+    className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' 
+  },
+  [ReviewInterval.REVISED_15D]: { 
+    text: 'Próxima: 15d', 
+    className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' 
+  },
+  [ReviewInterval.REVISED_30D]: { 
+    text: 'Próxima: 30d', 
+    className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' 
+  },
+  [ReviewInterval.COMPLETED]: { 
+    text: 'Concluído', 
+    className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+  },
 };
 
 export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
@@ -194,7 +215,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
     // Futura (azul)
     return {
       text: `Em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
-      className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+      className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
       dateInfo: `Em: ${formattedDate}`
     };
   };
@@ -214,7 +235,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   if (isSubjectFinished) {
     return (
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full px-4 py-2 gap-2">
-        <span className="text-sm text-zinc-800 dark:text-zinc-200 flex-1 break-words leading-tight">
+        <span className="text-sm text-foreground flex-1 break-words leading-tight">
           <HighlightText text={topic.name} searchQuery={searchQuery} />
         </span>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -228,7 +249,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   }
 
   const baseClasses = "flex items-center justify-between w-full py-2 px-3 text-left transition-colors duration-200 rounded-lg";
-  const bgClasses = 'bg-white dark:bg-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700';
+  const bgClasses = 'bg-card hover:bg-accent border border-border/50 dark:border-white/5 shadow-sm';
 
   const buttonBaseClasses = "flex-shrink-0 w-8 h-8 min-w-[2rem] min-h-[2rem] max-w-[2rem] max-h-[2rem] rounded-full flex items-center justify-center border-2 transition-all duration-200";
 
@@ -239,7 +260,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         {/* Texto do tópico - Editável */}
         <div className="flex-1 group min-w-0 flex items-center gap-2">
           {topic.position && (
-            <span className="text-sm font-semibold text-slate-400 dark:text-slate-500 w-6 text-right shrink-0">
+            <span className="text-sm font-semibold text-content-muted w-6 text-right shrink-0">
               {topic.position}.
             </span>
           )}
@@ -298,7 +319,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
             <button
               onClick={onCheckboxClick}
               disabled={isTopicCompleted || !isActionable}
-              className={`flex-shrink-0 w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] max-w-[1.5rem] max-h-[1.5rem] rounded-full flex items-center justify-center border-2 transition-all duration-200 border-gray-300 dark:border-slate-400 shadow-sm dark:bg-slate-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-500 bg-[#F1F5F9] hover:bg-[#DBEAFE] hover:border-blue-400 ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`flex-shrink-0 w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] max-w-[1.5rem] max-h-[1.5rem] rounded-full flex items-center justify-center border-2 transition-all duration-200 border-border dark:border-white/20 shadow-sm bg-secondary hover:bg-accent ${(isTopicCompleted || !isActionable) ? 'opacity-50 cursor-not-allowed' : ''}`}
               aria-label={`Marcar ${topic.name} como revisado`}
             >
             </button>
