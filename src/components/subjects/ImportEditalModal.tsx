@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileText, Sparkles, Loader2, Undo2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import { Search, FileText, Sparkles, Loader2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Subject } from '@/types';
 import { UserEdital } from '@/pages/Editais';
@@ -49,16 +49,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [manualPosition, setManualPosition] = useState('');
     const [importingManual, setImportingManual] = useState(false);
     const [manualYear, setManualYear] = useState('');
-    const [iaYear, setIaYear] = useState('');
+    const [iaYear, setIaYear] = useState(new Date().getFullYear().toString());
     const [examDate, setExamDate] = useState('');
 
     // IA States
     const [inputText, setInputText] = useState('');
     const [pdfFile, setPdfFile] = useState<File | null>(null);
     const [iaStage, setIaStage] = useState<'input' | 'processing' | 'review'>('input');
-    const [processingMsg, setProcessingMsg] = useState('Lendo edital...');
     const [iaEditalName, setIaEditalName] = useState('');
     const [aiResult, setAiResult] = useState<AiSubject[]>([]);
+    const [isSavingAi, setIsSavingAi] = useState(false);
+    const [processingMsg, setProcessingMsg] = useState('Analisando edital com IA...');
+    const [pendingExtraction, setPendingExtraction] = useState<{ id: string; editalName: string; updatedAt: string; source: 'db' | 'fresh' } | null>(null);
+    const [loadingPending, setLoadingPending] = useState(false);
 
     // State for dynamic editais from database
     interface ReadyEdital {
@@ -110,23 +113,116 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         return matchesSearch && matchesCategory;
     });
 
+    const loadPendingExtraction = async () => {
+        if (!user) return;
+        setLoadingPending(true);
+        try {
+            const { data, error } = await (supabase as any)
+                .from('pending_ai_extractions')
+                .select('id, edital_name, updated_at, ai_result, origin, position, year')
+                .eq('user_id', user.id)
+                .maybeSingle();
+            
+            if (data && !error) {
+                setPendingExtraction({
+                    id: data.id,
+                    editalName: data.edital_name,
+                    updatedAt: data.updated_at,
+                    source: 'db'
+                });
+                setAiResult(data.ai_result);
+                setIaEditalName(data.edital_name);
+                if (data.origin) setIaOrigin(data.origin);
+                if (data.position) setIaPosition(data.position);
+                if (data.year) setIaYear(data.year);
+                setIaStage('review');
+                setActiveTab('ia');
+            }
+        } catch (err: any) {
+            console.error('[loadPending] catch error:', err?.code, err?.message);
+        } finally {
+            setLoadingPending(false);
+        }
+    };
+
+    const savePendingExtraction = async (editalName: string, results: AiSubject[]) => {
+        if (!user) return;
+        try {
+            const { data: existing } = await (supabase as any)
+                .from('pending_ai_extractions')
+                .select('id')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            const payload = {
+                user_id: user.id,
+                edital_name: editalName,
+                origin: iaOrigin,
+                position: iaPosition,
+                year: iaYear,
+                ai_result: results
+            };
+
+            if (existing) {
+                await (supabase as any)
+                    .from('pending_ai_extractions')
+                    .update(payload)
+                    .eq('id', existing.id);
+            } else {
+                const { data: inserted } = await (supabase as any)
+                    .from('pending_ai_extractions')
+                    .insert(payload)
+                    .select('id')
+                    .single();
+                if (inserted?.id) {
+                    setPendingExtraction(prev => prev ? { ...prev, id: inserted.id } : prev);
+                }
+            }
+        } catch (err: any) {
+            console.error('[savePending] catch error:', err?.code, err?.message);
+        }
+    };
+
+    const discardPendingExtractionData = async () => {
+        if (pendingExtraction && user && pendingExtraction.id && !pendingExtraction.id.startsWith('pending-')) {
+            try {
+                await (supabase as any)
+                    .from('pending_ai_extractions')
+                    .delete()
+                    .eq('id', pendingExtraction.id);
+            } catch (err: any) {
+                console.warn('[discardPending]', err?.code ?? err?.message);
+            }
+        }
+        setPendingExtraction(null);
+        setAiResult([]);
+        setIaEditalName('');
+        setIaStage('input');
+        setIaOrigin('');
+        setIaPosition('');
+        setInputText('');
+        setPdfFile(null);
+    };
+
+    const resetPendingState = () => {
+        setPendingExtraction(null);
+        setAiResult([]);
+        setIaEditalName('');
+        setIaStage('input');
+        setIaOrigin('');
+        setIaPosition('');
+        setInputText('');
+        setPdfFile(null);
+    };
+
     useEffect(() => {
         setActiveTab(initialTab);
         if (!isOpen) {
-            setIaStage('input');
-            setInputText('');
-            setPdfFile(null);
-            setAiResult([]);
-            setManualOrigin('');
-            setManualPosition('');
-            setImportingManual(false);
-            setExamDate('');
-            setShowSuggestSlide(false);
-            setSuggestionSent(false);
-            setIaOrigin('');
-            setIaPosition('');
+            resetPendingState();
+        } else if (user) {
+            loadPendingExtraction();
         }
-    }, [initialTab, isOpen]);
+    }, [initialTab, isOpen, user]);
 
     const handleOpenSuggest = () => {
         setSuggestConcurso(searchQuery.trim());
@@ -171,110 +267,271 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
     };
 
-    const convertToBase64 = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => {
-                const result = reader.result as string;
-                // remove "data:application/pdf;base64," prefix
-                resolve(result.split(',')[1]);
-            };
-            reader.onerror = error => reject(error);
-        });
+    const repairJson = (jsonStr: string): string => {
+        let result = "";
+        let inString = false;
+        let escaped = false;
+        const stack: string[] = [];
+
+        for (let i = 0; i < jsonStr.length; i++) {
+            const char = jsonStr[i];
+            
+            if (escaped) {
+                result += char;
+                escaped = false;
+                continue;
+            }
+
+            if (char === '\\') {
+                result += char;
+                escaped = true;
+                continue;
+            }
+
+            if (char === '"') {
+                inString = !inString;
+                result += char;
+                continue;
+            }
+
+            if (inString) {
+                // JSON.parse error: Bad control character in string literal
+                // Escapa TODOS os caracteres de controle (0x00-0x1F)
+                const code = char.charCodeAt(0);
+                if (code <= 0x1F) {
+                    if (char === '\n') result += '\\n';
+                    else if (char === '\r') result += '\\r';
+                    else if (char === '\t') result += '\\t';
+                    else result += '\\u' + code.toString(16).padStart(4, '0');
+                } else {
+                    result += char;
+                }
+                continue;
+            }
+
+            if (char === '{') stack.push('}');
+            else if (char === '[') stack.push(']');
+            else if (char === '}') stack.pop();
+            else if (char === ']') stack.pop();
+            
+            result += char;
+        }
+
+        // Se terminou dentro de uma string, fecha a aspa
+        if (inString) result += '"';
+
+        // Remove vírgula pendente (ex: {"a": 1, )
+        result = result.trim().replace(/,\s*$/, "");
+
+        // Fecha tudo que sobrou na pilha
+        while (stack.length > 0) {
+            result += stack.pop();
+        }
+
+        return result;
+    };
+
+    const extractJsonFromText = (text: string): AiSubject[] => {
+        let sanitized = text.trim();
+        
+        // Se a IA colocar entre ```json ... ```, extraímos apenas o conteúdo
+        const jsonMatch = sanitized.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+            sanitized = jsonMatch[1];
+        }
+
+        // Se a resposta não começa com { ou [, não é JSON válido
+        const trimmed = sanitized.trim();
+        if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+            throw new Error(`Resposta da IA não contém JSON válido. A IA pode ter ignorado o prompt. Tente usar texto mais limpo ou um PDF diferente.`);
+        }
+
+        let parsed: any;
+        try {
+            parsed = JSON.parse(sanitized);
+        } catch (initialError) {
+            try {
+                const repaired = repairJson(sanitized);
+                parsed = JSON.parse(repaired);
+            } catch (repairError) {
+                const harvested: AiSubject[] = [];
+                const subjectRegex = /["'](?:title|t)["']\s*:\s*["']([^"']+)["']\s*,\s*["'](?:topics|p)["']\s*:\s*\[([\s\S]*?)\]/g;
+                let match;
+                
+                while ((match = subjectRegex.exec(sanitized)) !== null) {
+                    const title = match[1];
+                    const topicsText = match[2];
+                    const topicRegex = /["'](?:name|n)["']\s*:\s*["']([^"']+)["']/g;
+                    let topicMatch;
+                    const topics: AiTopic[] = [];
+                    while ((topicMatch = topicRegex.exec(topicsText)) !== null) {
+                        const cleanName = topicMatch[1].trim().replace(/\s+/g, ' ');
+                        if (cleanName.length >= 2) {
+                            topics.push({ name: cleanName, selected: true });
+                        }
+                    }
+                    if (topics.length > 0) {
+                        harvested.push({ 
+                            id: `harvest-${harvested.length}-${Date.now()}`,
+                            title, 
+                            topics, 
+                            selected: true,
+                            expanded: harvested.length === 0
+                        });
+                    }
+                }
+
+                if (harvested.length > 0) {
+                    return harvested;
+                }
+
+                throw new Error("A IA retornou um formato inesperado. Tente simplificar o texto do edital.");
+            }
+        }
+
+        try {
+            // 3. Normalização da Estrutura (Aceita formato Full ou Minified)
+            const rawData = parsed.s || parsed.subjects || parsed;
+            const rawSubjects = Array.isArray(rawData) ? rawData : [];
+
+            const result = rawSubjects.map((s: any, idx: number): AiSubject => ({
+                id: `ia-${idx}-${Date.now()}`,
+                title: s.t || s.title || "Sem Título",
+                expanded: idx === 0,
+                topics: (s.p || s.topics || []).map((t: any): AiTopic => ({
+                    name: typeof t === 'string' ? t : (t.n || t.name || ""),
+                    selected: true
+                })).filter((t: AiTopic) => {
+                    const clean = t.name.trim().replace(/\s+/g, ' ');
+                    return clean.length >= 2;
+                }),
+                selected: true
+            }));
+            return result;
+        } catch (normError) {
+            console.error("Erro na normalização do JSON:", normError);
+            return [];
+        }
     };
 
     const handleIaImport = async () => {
         setIaStage('processing');
         setProcessingMsg('Analisando edital com IA...');
+        setAiResult([]);
 
         try {
-            let pdfBase64 = null;
+            const payload: any = {
+                origin: iaOrigin,
+                position: iaPosition,
+                year: iaYear
+            };
+
             if (pdfFile) {
-                setProcessingMsg('Lendo arquivo PDF...');
-                pdfBase64 = await convertToBase64(pdfFile);
+                setProcessingMsg('Enviando arquivo PDF para análise...');
+                const fileName = `${user?.id || 'anon'}-${Date.now()}.pdf`;
+                const { error: uploadError } = await supabase.storage
+                    .from('temporary_editais')
+                    .upload(fileName, pdfFile);
+
+                if (uploadError) {
+                    console.error('Erro no upload:', uploadError);
+                    throw new Error('Falha ao enviar o arquivo para o storage temporário.');
+                }
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('temporary_editais')
+                    .getPublicUrl(fileName);
+                
+                payload.pdfUrl = publicUrl;
+            } else if (inputText) {
+                payload.inputText = inputText;
+            } else {
+                throw new Error('Forneça um arquivo PDF ou o texto do edital.');
             }
 
             setProcessingMsg('Extraindo matérias e tópicos com Gemini...');
             
-            const { data: sessionData } = await supabase.auth.getSession();
-            
-            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-edital`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionData.session?.access_token}`,
-                },
-                body: JSON.stringify({
-                    inputText: pdfFile ? null : inputText,
-                    pdfBase64: pdfBase64,
-                    origin: iaOrigin,
-                    position: iaPosition,
-                    year: iaYear
-                })
-            });
-
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || 'Erro desconhecido da IA');
+            let data: any;
+            try {
+                const result = await supabase.functions.invoke('extract-edital', { body: payload });
+                data = result.data;
+                if (result.error) {
+                    const errBody = result.error.message || JSON.stringify(result.error);
+                    throw new Error(errBody);
+                }
+            } catch (err: any) {
+                const msg = err?.message || 'Erro desconhecido';
+                throw new Error(msg);
             }
 
-            const data = await res.json();
-            
-            if (data.result && Array.isArray(data.result)) {
-                const mappedResult: AiSubject[] = data.result.map((s: any, idx: number) => ({
-                    id: `m${idx}`,
-                    title: s.title,
-                    selected: true,
-                    expanded: idx === 0,
-                    topics: (s.topics || []).map((t: any) => ({
-                        name: t.name,
-                        selected: true
-                    }))
-                }));
-                
-                const defaultName = [iaOrigin.trim(), iaPosition.trim(), iaYear.trim()].filter(Boolean).join(' - ') || 'Edital Importado por IA';
-                setIaEditalName(defaultName);
-                
-                setAiResult(mappedResult);
-                setIaStage('review');
-            } else {
-                throw new Error('A resposta da IA não está no formato esperado.');
+            const responseData = data?.text || data?.response || (typeof data === 'string' ? data : '');
+            console.log('[extract] raw response (FULL):', responseData);
+            const mappedResults = extractJsonFromText(responseData);
+            console.log('[extract] mappedResults:', mappedResults.length, mappedResults);
+
+            if (mappedResults.length === 0) {
+                if (responseData.includes('"erro"')) {
+                    throw new Error("A IA não encontrou matérias no texto. Verifique se o texto contém o conteúdo programático do edital.");
+                }
+                throw new Error("A IA não conseguiu extrair matérias do conteúdo. Tente um texto mais limpo ou cole apenas a parte de 'CONTEÚDO PROGRAMÁTICO'.");
             }
+
+            const defaultName = `${iaOrigin.trim()} - ${iaPosition.trim()} - ${iaYear.trim()}`;
+            setIaEditalName(defaultName);
+            setAiResult(mappedResults);
+
+            const pendingId = `pending-${Date.now()}`;
+            setPendingExtraction({ id: pendingId, editalName: defaultName, updatedAt: new Date().toISOString(), source: 'fresh' });
+
+            await savePendingExtraction(defaultName, mappedResults);
+
+            setIaStage('review');
+
         } catch (error: any) {
             console.error('Erro na IA:', error);
-            toastGate.notifyError(error.message, 'IA-01');
+            const msg = error.message || 'Erro desconhecido';
+            toastGate.notifyError(msg, 'IA-01');
             setIaStage('input');
         }
     };
 
     const handleSaveAiResult = async () => {
-        const newSubjects = aiResult.filter(s => s.selected).map(s => ({
-            id: Math.random().toString(36).substr(2, 9),
-            name: s.title,
-            status: 'Nova', // Ensure status is set for new subjects
-            topics: s.topics.filter(t => t.selected).map(t => ({
+        setIsSavingAi(true);
+        try {
+            const newSubjects = aiResult.filter(s => s.selected).map(s => ({
                 id: Math.random().toString(36).substr(2, 9),
-                name: t.name,
-                completed: false,
-                reviewCount: 0, // Ensure reviewCount is set
-                review_count: 0 // Ensure review_count is set
-            }))
-        } as Subject));
+                name: s.title,
+                status: 'Nova', // Ensure status is set for new subjects
+                topics: s.topics.filter(t => t.selected && t.name.trim().length >= 2).map(t => ({
+                    id: Math.random().toString(36).substr(2, 9),
+                    name: t.name,
+                    completed: false,
+                    reviewCount: 0, // Ensure reviewCount is set
+                    review_count: 0 // Ensure review_count is set
+                }))
+            } as Subject));
 
-        const finalName = iaEditalName.trim() || 'Edital Importado por IA';
+            const finalName = iaEditalName.trim() || 'Edital Importado por IA';
 
-        // Validação de duplicidade por nome
-        const normalizedName = finalName.toLowerCase().trim();
-        const exists = userEditais.some(e => e.name.toLowerCase().trim() === normalizedName);
-        
-        if (exists) {
-            toastGate.notifyError('Você já possui um edital com este nome.', 'VAL-DUP-01', { severity: 'medium' });
-            return;
+            // Validação de duplicidade por nome
+            const normalizedName = finalName.toLowerCase().trim();
+            const exists = userEditais.some(e => e.name.toLowerCase().trim() === normalizedName);
+            
+            if (exists) {
+                toastGate.notifyError('Você já possui um edital com este nome.', 'VAL-DUP-01', { severity: 'medium' });
+                setIsSavingAi(false);
+                return;
+            }
+            
+            await onImport(newSubjects, finalName, true);
+            await discardPendingExtractionData();
+            onClose();
+        } catch (error) {
+            console.error('Erro ao salvar resultado da IA:', error);
+            toastGate.notifyError('Erro ao salvar o edital importado.', 'SAVE-IA-01');
+        } finally {
+            setIsSavingAi(false);
         }
-        
-        await onImport(newSubjects, finalName, true);
-        onClose();
     };
 
     const handleSaveManual = async () => {
@@ -504,7 +761,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 group-hover:border-primary/20 transition-all">
                                                                  <Info size={12} className="text-primary/60" />
                                                                  <span className="text-[10px] font-black text-content-muted dark:text-zinc-400 group-hover:text-foreground dark:group-hover:text-zinc-200 transition-colors uppercase">
-                                                                     {edital.subjects.reduce((acc: number, s: { topics?: any[] }) => acc + (s.topics?.length || 0), 0)} TÓPICOS
+                                                                      {edital.subjects.reduce((acc: number, s: { name: string; topics?: { name: string }[] }) => acc + (s.topics?.length || 0), 0)} TÓPICOS
                                                                  </span>
                                                              </div>
                                                          </div>
@@ -558,7 +815,40 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         </div>
                     ) : activeTab === 'ia' ? (
                         <div className="space-y-8">
-                            {iaStage === 'input' && (
+                            {pendingExtraction && pendingExtraction.source === 'db' && iaStage !== 'processing' && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center justify-between gap-4"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
+                                            <FileText size={18} className="text-amber-600 dark:text-amber-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black text-amber-800 dark:text-amber-300">
+                                                Extração anterior pendente
+                                            </p>
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
+                                                {pendingExtraction.editalName} · Atualizado {new Date(pendingExtraction.updatedAt).toLocaleString('pt-BR')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={discardPendingExtractionData}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all flex-shrink-0"
+                                    >
+                                        <Trash2 size={12} />
+                                        Descartar
+                                    </button>
+                                </motion.div>
+                            )}
+                            {loadingPending ? (
+                                <div className="flex items-center justify-center py-8 gap-2">
+                                    <Loader2 size={16} className="animate-spin text-content-muted" />
+                                    <span className="text-[10px] text-content-muted font-medium">Carregando extração pendente...</span>
+                                </div>
+                            ) : iaStage === 'input' && !pendingExtraction ? (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 w-full flex flex-col items-center">
                                     <div className="text-center space-y-1 mb-2">
                                         <h3 className="text-xl font-black text-content-main tracking-tight uppercase">Estruturar com Inteligência Artificial</h3>
@@ -654,9 +944,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     <div className="pt-2 flex justify-center w-full max-w-[800px]">
                                         <button
                                             onClick={handleIaImport}
-                                            disabled={!inputText.trim() && !pdfFile}
+                                            disabled={!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim()}
                                             className={`w-full py-4 font-black rounded-[20px] shadow-lg transition-all flex items-center gap-2 justify-center text-[11px] uppercase tracking-widest ${
-                                                (!inputText.trim() && !pdfFile) 
+                                                (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim()) 
                                                 ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80' 
                                                 : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20 hover:scale-[1.01] active:scale-95'
                                             }`}
@@ -666,84 +956,72 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         </button>
                                     </div>
                                 </motion.div>
-                            )}
+                            ) : null}
 
                             {iaStage === 'processing' && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-32 flex flex-col items-center justify-center text-center">
-                                    <div className="relative mb-10">
-                                        <div className="absolute inset-0 bg-primary/30 blur-3xl rounded-full animate-pulse"></div>
-                                        <Loader2 className="text-primary animate-spin relative" size={80} />
-                                    </div>
-                                    <h3 className="text-2xl font-black text-content-main mb-3 tracking-tight">{processingMsg}</h3>
-                                    <p className="text-xs text-content-muted font-bold uppercase tracking-[0.3em]">Aguarde alguns segundos...</p>
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-16 flex flex-col items-center justify-center text-center">
+                                    <Loader2 className="text-primary animate-spin relative mb-4" size={32} />
+                                    <h3 className="text-sm font-black text-content-main tracking-tight">{processingMsg}</h3>
                                 </motion.div>
                             )}
 
                             {iaStage === 'review' && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex flex-col">
-                                            <h3 className="text-lg font-black text-foreground flex items-center gap-2">
-                                                Revisão da Estrutura
-                                                <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                                                    {aiResult.length} Matérias
-                                                </span>
-                                            </h3>
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[9px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20 uppercase tracking-wider">
+                                                {aiResult.length} Matérias
+                                            </span>
+                                            <span className="text-[9px] font-black bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full border border-emerald-500/20 uppercase tracking-wider">
+                                                {aiResult.reduce((acc, s) => acc + s.topics.length, 0)} Tópicos
+                                            </span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    const allExpanded = aiResult.every(s => s.expanded);
-                                                    setAiResult(aiResult.map(s => ({ ...s, expanded: !allExpanded })));
-                                                }}
-                                                className="px-4 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-bold rounded-xl transition-all flex items-center gap-2"
-                                            >
-                                                {aiResult.every(s => s.expanded) ? 'Recolher Tudo' : 'Expandir Tudo'}
-                                            </button>
-                                            <button onClick={() => setIaStage('input')} className="px-4 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-bold rounded-xl transition-all flex items-center gap-2">
-                                                <Undo2 size={14} /> Voltar
-                                            </button>
-                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                const allExpanded = aiResult.every(s => s.expanded);
+                                                setAiResult(aiResult.map(s => ({ ...s, expanded: !allExpanded })));
+                                            }}
+                                            className="px-3 py-1 bg-secondary hover:bg-secondary/80 text-[10px] font-bold rounded-lg transition-all"
+                                        >
+                                            {aiResult.every(s => s.expanded) ? 'Recolher' : 'Expandir'}
+                                        </button>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full pb-4 border-b border-border dark:border-white/5 mb-4">
-                                        <div className="space-y-1">
-                                            <span className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Instituição</span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pb-3 border-b border-border dark:border-white/5">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Org</span>
                                             <input
                                                 type="text"
                                                 value={iaOrigin}
                                                 onChange={(e) => setIaOrigin(e.target.value)}
-                                                placeholder="Instituição"
-                                                className="w-full px-3 py-2.5 bg-secondary dark:bg-zinc-900/50 rounded-xl text-xs font-bold text-content-main uppercase shadow-inner border border-transparent focus:border-primary/40 outline-none transition-all"
+                                                className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
                                             />
                                         </div>
-                                        <div className="space-y-1">
-                                            <span className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Cargo</span>
                                             <input
                                                 type="text"
                                                 value={iaPosition}
                                                 onChange={(e) => setIaPosition(e.target.value)}
-                                                placeholder="Cargo"
-                                                className="w-full px-3 py-2.5 bg-secondary dark:bg-zinc-900/50 rounded-xl text-xs font-bold text-content-main uppercase shadow-inner border border-transparent focus:border-primary/40 outline-none transition-all"
+                                                className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
                                             />
                                         </div>
-                                        <div className="space-y-1">
-                                            <span className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Ano</span>
                                             <input
                                                 type="text"
                                                 value={iaYear}
                                                 onChange={(e) => setIaYear(e.target.value)}
-                                                placeholder="Ano"
-                                                className="w-full px-3 py-2.5 bg-secondary dark:bg-zinc-900/50 rounded-xl text-xs font-bold text-content-main uppercase shadow-inner border border-transparent focus:border-primary/40 outline-none transition-all"
+                                                className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4 no-scrollbar">
+                                    <div className="space-y-2 max-h-[340px] overflow-y-auto pr-2 no-scrollbar">
                                         {aiResult.map((subj, sIdx) => (
-                                            <div key={subj.id} className="p-5 rounded-3xl bg-secondary/30 dark:bg-zinc-800/10 border border-border dark:border-white/5">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                                            <div key={subj.id} className="p-3 rounded-xl bg-secondary/30 dark:bg-zinc-800/10 border border-border dark:border-white/5">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
                                                         <input
                                                             type="checkbox"
                                                             checked={subj.selected}
@@ -752,7 +1030,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 newResult[sIdx].selected = !newResult[sIdx].selected;
                                                                 setAiResult(newResult);
                                                             }}
-                                                            className="w-5 h-5 rounded-lg accent-primary"
+                                                            className="w-4 h-4 rounded accent-primary shrink-0"
                                                         />
                                                         <input
                                                             type="text"
@@ -762,12 +1040,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 newResult[sIdx].title = e.target.value;
                                                                 setAiResult(newResult);
                                                             }}
-                                                            className="bg-transparent border-none font-bold text-content-main outline-none focus:text-primary transition-colors text-lg w-full"
+                                                            className="bg-transparent border-none font-bold text-[11px] text-content-main outline-none focus:text-primary transition-colors w-full"
                                                         />
                                                     </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[10px] font-bold bg-secondary dark:bg-zinc-800 text-muted-foreground px-2 py-0.5 rounded-lg border border-border dark:border-white/5 whitespace-nowrap">
-                                                            {subj.topics.length} Tópicos
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[9px] font-bold bg-secondary dark:bg-zinc-800 text-muted-foreground px-1.5 py-0.5 rounded border border-border dark:border-white/5">
+                                                            {subj.topics.length} T
                                                         </span>
                                                         <button
                                                             onClick={() => {
@@ -777,15 +1055,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                             }}
                                                             className="text-content-muted hover:text-primary transition-colors"
                                                         >
-                                                            <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${subj.expanded ? 'rotate-180' : ''}`} />
+                                                            <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${subj.expanded ? 'rotate-180' : ''}`} />
                                                         </button>
                                                     </div>
                                                 </div>
 
                                                 {subj.expanded && (
-                                                    <div className="flex flex-col gap-2 pl-8">
+                                                    <div className="flex flex-col gap-1 pl-6 mt-2">
                                                         {subj.topics.map((topic, tIdx) => (
-                                                            <div key={tIdx} className="flex items-start gap-3 p-2 px-3 rounded-xl hover:bg-secondary/50 dark:hover:bg-zinc-800/30 transition-colors w-full">
+                                                            <div key={tIdx} className="flex items-center gap-2">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={topic.selected}
@@ -794,7 +1072,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                         newResult[sIdx].topics[tIdx].selected = !newResult[sIdx].topics[tIdx].selected;
                                                                         setAiResult(newResult);
                                                                     }}
-                                                                    className="w-4 h-4 rounded accent-primary/60 mt-0.5 shrink-0"
+                                                                    className="w-3 h-3 rounded accent-primary/60 shrink-0"
                                                                 />
                                                                 <textarea
                                                                     value={topic.name}
@@ -802,11 +1080,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                         const newResult = [...aiResult];
                                                                         newResult[sIdx].topics[tIdx].name = e.target.value;
                                                                         setAiResult(newResult);
-                                                                        // Auto-resize
                                                                         e.target.style.height = 'auto';
                                                                         e.target.style.height = e.target.scrollHeight + 'px';
                                                                     }}
-                                                                    className="bg-transparent border-none text-sm text-content-main outline-none w-full resize-none py-0 min-h-[20px] overflow-hidden leading-tight"
+                                                                    className="bg-transparent border-none text-[10px] text-content-main outline-none w-full resize-none leading-tight min-h-[16px]"
                                                                     rows={1}
                                                                     onFocus={(e) => {
                                                                         e.target.style.height = 'auto';
@@ -821,12 +1098,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         ))}
                                     </div>
 
-                                    <div className="pt-6 border-t border-white/5 flex justify-center">
+                                    <div className="pt-3 border-t border-white/5 flex justify-center">
                                         <button
                                             onClick={handleSaveAiResult}
-                                            className="px-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-3xl shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98]"
+                                            disabled={isSavingAi}
+                                            className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10px] rounded-2xl shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed uppercase tracking-wider"
                                         >
-                                            IMPORTAR SELECIONADOS
+                                            {isSavingAi ? (
+                                                <><Loader2 className="animate-spin" size={14} /> Salvando...</>
+                                            ) : (
+                                                'Importar Selecionados'
+                                            )}
                                         </button>
                                     </div>
                                 </motion.div>
