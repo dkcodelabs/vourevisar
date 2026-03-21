@@ -185,11 +185,17 @@ REGRAS OBRIGATÓRIAS:
       continueAttempts++;
       console.log(`[extract-edital] Response truncated, continuing (attempt ${continueAttempts}/${MAX_CONTINUE_ATTEMPTS})...`);
 
+      // Find last complete topic/subject to tell Gemini where we stopped
+      const lastTopicMatch = text.match(/"n":"[^"]{0,50}"\}\]?\}\]?$/);
+      const lastPoint = lastTopicMatch ? lastTopicMatch[0] : text.slice(-80);
+
       const continuePayload = {
         contents: [
           ...contents,
           { role: "model", parts: [{ text }] },
-          { role: "user", parts: [{ text: "Continue exatamente de onde parou. Retorne apenas o restante do JSON, fechando todas as chaves. Não repita o que já foi gerado." }] }
+          { role: "user", parts: [{ text: `O JSON foi cortado. Último ponto gerado terminou com: ...${lastPoint}
+
+Continue a extração a partir desse ponto. Retorne APENAS o restante do array de matérias (objetos {"t":"...","p":[...]}) que faltam. Não repita nada que já foi gerado. Não inclua {"s":[ no início.` }] }
         ],
         generationConfig: {
           temperature: config.temperature ?? 0.1,
@@ -201,27 +207,62 @@ REGRAS OBRIGATÓRIAS:
       const continueResult = await callGemini(apiKey, modelName, continuePayload);
       finishReason = continueResult.finishReason;
 
-      // Merge JSON: remove closing brackets from first part, remove opening brackets from continuation
-      let firstPart = text.replace(/\}\s*\]\s*\}\s*$/, ''); // Remove trailing }]}"
       let continuation = continueResult.text.trim();
+      console.log('[extract-edital] Continuation received, length:', continuation.length);
 
-      // Try to find where to merge (look for first array/object in continuation)
-      const match = continuation.match(/[\[{]/);
-      if (match && match.index !== undefined && match.index > 0) {
-        continuation = continuation.substring(match.index);
+      // Clean continuation: remove markdown, find JSON start
+      continuation = continuation.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+
+      // Try to extract array items from continuation
+      // It might start with [{"t":... or {"t":... or just "t":...
+      let items = '';
+      const arrayMatch = continuation.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (arrayMatch) {
+        items = arrayMatch[0];
+      } else {
+        // Maybe it's just one or more objects without array wrapper
+        const objMatch = continuation.match(/\{[\s\S]*\}/);
+        if (objMatch) {
+          items = `[${objMatch[0]}]`;
+        } else {
+          items = continuation;
+        }
       }
 
-      // Remove opening brackets that would duplicate structure
-      if (continuation.startsWith('{"s":[')) {
-        continuation = continuation.substring(4); // Remove {"s":[
+      // Clean first part: ensure it ends properly for concatenation
+      let firstPart = text;
+      // Remove incomplete trailing object (might end with partial "n":"...)
+      const lastCompleteBracket = firstPart.lastIndexOf('}]');
+      if (lastCompleteBracket > 0) {
+        // Find the subject object that contains this bracket
+        const beforeBracket = firstPart.substring(0, lastCompleteBracket + 2);
+        // Close the subject object if needed
+        if (!beforeBracket.endsWith('}]}'  )) {
+          firstPart = beforeBracket + '}';
+        } else {
+          firstPart = beforeBracket;
+        }
       }
 
-      text = firstPart + ',' + continuation;
+      // Remove trailing }]}" or similar
+      firstPart = firstPart.replace(/,?\s*\}?\s*\]?\s*\}?\s*$/, '');
+
+      // Combine
+      text = firstPart + ',' + items.replace(/^\[/, '').replace(/\]$/, '');
       console.log('[extract-edital] Merged result length:', text.length);
     }
 
     if (continueAttempts > 0) {
       console.log('[extract-edital] Completed with', continueAttempts, 'continue attempts');
+      // Ensure JSON is properly closed
+      text = text.replace(/,?\s*$/, ''); // Remove trailing comma
+      // Count open brackets and close them
+      const openBraces = (text.match(/\{/g) || []).length;
+      const closeBraces = (text.match(/\}/g) || []).length;
+      const openArrays = (text.match(/\[/g) || []).length;
+      const closeArrays = (text.match(/\]/g) || []).length;
+      for (let i = 0; i < openBraces - closeBraces; i++) text += '}';
+      for (let i = 0; i < openArrays - closeArrays; i++) text += ']';
     }
 
     text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
