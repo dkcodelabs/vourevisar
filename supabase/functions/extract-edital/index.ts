@@ -6,6 +6,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MAX_CONTINUE_ATTEMPTS = 3;
+
+async function callGemini(apiKey: string, modelName: string, payload: any): Promise<{ text: string; finishReason: string; usage: any }> {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Gemini API erro ${res.status}: ${errorText.substring(0, 500)}`);
+  }
+
+  const result = await res.json();
+  
+  if (result.error) {
+    throw new Error(result.error.message || JSON.stringify(result.error));
+  }
+
+  const finishReason = result.candidates?.[0]?.finishReason || 'UNKNOWN';
+  const usage = result.usageMetadata;
+  const text = result.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || '';
+
+  console.log('[callGemini]', { finishReason, promptTokens: usage?.promptTokenCount, candidatesTokens: usage?.candidatesTokenCount });
+  return { text, finishReason, usage };
+}
+
 async function uploadPdfToGemini(apiKey: string, pdfUrl: string): Promise<string> {
   const fileName = pdfUrl.split('/').pop() || `edital-${Date.now()}.pdf`;
   
@@ -84,7 +112,6 @@ serve(async (req) => {
     const config = (systemSetting?.value || {}) as any;
     console.log('[extract-edital] Config:', { modelName: config.model || "gemini-1.5-flash", temperature: config.temperature, max_tokens: config.max_tokens });
 
-    const modelName = config.model || "gemini-1.5-flash";
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) throw new Error('GEMINI_API_KEY não configurada nos secrets da Edge Function.');
 
@@ -97,8 +124,9 @@ serve(async (req) => {
       console.log('[extract-edital] No PDF or text provided');
     }
 
-    // For PDFs, use high max_tokens — Gemini only uses what it needs (cost = actual usage, not limit)
-    const maxTokens = fileUri ? 65536 : (config.max_tokens ?? 16384);
+    // Use gemini-2.0-flash for PDFs (no thinking tokens = more output capacity)
+    const modelName = fileUri ? 'gemini-2.0-flash' : (config.model || "gemini-1.5-flash");
+    const maxTokens = fileUri ? 32768 : (config.max_tokens ?? 16384);
 
     const context = `${origin || ''} ${position || ''} ${year || ''}`.trim();
     const hasContent = inputText && inputText.trim().length > 0;
@@ -146,46 +174,58 @@ REGRAS OBRIGATÓRIAS:
       }
     };
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    
-    console.log('[extract-edital] Gemini API response status:', res.status);
+    // First call
+    console.log('[extract-edital] Calling Gemini API...');
+    let { text, finishReason, usage } = await callGemini(apiKey, modelName, payload);
+    console.log('[extract-edital] First call done:', { finishReason, textLength: text.length });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('[extract-edital] Gemini API error:', res.status, errorText);
-      return new Response(JSON.stringify({ error: `Gemini API erro ${res.status}: ${errorText.substring(0, 500)}` }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400
-      });
+    // Continue loop if MAX_TOKENS
+    let continueAttempts = 0;
+    while (finishReason === 'MAX_TOKENS' && continueAttempts < MAX_CONTINUE_ATTEMPTS) {
+      continueAttempts++;
+      console.log(`[extract-edital] Response truncated, continuing (attempt ${continueAttempts}/${MAX_CONTINUE_ATTEMPTS})...`);
+
+      const continuePayload = {
+        contents: [
+          ...contents,
+          { role: "model", parts: [{ text }] },
+          { role: "user", parts: [{ text: "Continue exatamente de onde parou. Retorne apenas o restante do JSON, fechando todas as chaves. Não repita o que já foi gerado." }] }
+        ],
+        generationConfig: {
+          temperature: config.temperature ?? 0.1,
+          maxOutputTokens: maxTokens,
+          responseMimeType: "application/json"
+        }
+      };
+
+      const continueResult = await callGemini(apiKey, modelName, continuePayload);
+      finishReason = continueResult.finishReason;
+
+      // Merge JSON: remove closing brackets from first part, remove opening brackets from continuation
+      let firstPart = text.replace(/\}\s*\]\s*\}\s*$/, ''); // Remove trailing }]}"
+      let continuation = continueResult.text.trim();
+
+      // Try to find where to merge (look for first array/object in continuation)
+      const match = continuation.match(/[\[{]/);
+      if (match && match.index !== undefined && match.index > 0) {
+        continuation = continuation.substring(match.index);
+      }
+
+      // Remove opening brackets that would duplicate structure
+      if (continuation.startsWith('{"s":[')) {
+        continuation = continuation.substring(4); // Remove {"s":[
+      }
+
+      text = firstPart + ',' + continuation;
+      console.log('[extract-edital] Merged result length:', text.length);
     }
 
-    const result = await res.json();
-    
-    const finishReason = result.candidates?.[0]?.finishReason;
-    const usage = result.usageMetadata;
-    console.log('[extract-edital] Gemini response:', {
-      status: res.status,
-      finishReason,
-      promptTokens: usage?.promptTokenCount,
-      candidatesTokens: usage?.candidatesTokenCount,
-      totalTokens: usage?.totalTokenCount,
-      resultPreview: JSON.stringify(result).substring(0, 500)
-    });
-
-    if (result.error) {
-      return new Response(JSON.stringify({ error: result.error.message || JSON.stringify(result.error) }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400
-      });
+    if (continueAttempts > 0) {
+      console.log('[extract-edital] Completed with', continueAttempts, 'continue attempts');
     }
-
-    let text = result.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || '';
-    console.log('[extract-edital] Extracted text before clean:', text.substring(0, 300));
 
     text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-    console.log('[extract-edital] Final extracted text:', text);
+    console.log('[extract-edital] Final extracted text:', text.substring(0, 300));
 
     return new Response(JSON.stringify({ text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
