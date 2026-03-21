@@ -504,7 +504,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 status: 'Nova', // Ensure status is set for new subjects
                 topics: s.topics.filter(t => t.selected && t.name.trim().length >= 2).map(t => ({
                     id: Math.random().toString(36).substr(2, 9),
-                    name: t.name,
+                    name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
                     completed: false,
                     reviewCount: 0, // Ensure reviewCount is set
                     review_count: 0 // Ensure review_count is set
