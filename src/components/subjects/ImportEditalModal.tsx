@@ -1079,7 +1079,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 {subj.expanded && (
                                                     <div className="flex flex-col gap-1 pl-6 mt-2">
                                                         {subj.topics.map((topic, tIdx) => (
-                                                            <div key={tIdx} className="flex items-start gap-2 py-0.5">
+                                                            <div key={tIdx} className="flex items-start gap-2 py-1">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={topic.selected}
@@ -1088,24 +1088,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                         newResult[sIdx].topics[tIdx].selected = !newResult[sIdx].topics[tIdx].selected;
                                                                         setAiResult(newResult);
                                                                     }}
-                                                                    className="w-3.5 h-3.5 rounded accent-primary/60 shrink-0 mt-0.5"
+                                                                    className="w-3.5 h-3.5 rounded accent-primary/60 shrink-0 mt-1"
                                                                 />
-                                                                <textarea
-                                                                    value={topic.name}
-                                                                    onChange={(e) => {
-                                                                        const newResult = [...aiResult];
-                                                                        newResult[sIdx].topics[tIdx].name = e.target.value;
-                                                                        setAiResult(newResult);
-                                                                        e.target.style.height = 'auto';
-                                                                        e.target.style.height = e.target.scrollHeight + 'px';
-                                                                    }}
-                                                                    className="bg-transparent border-none text-xs text-content-main outline-none w-full resize-none leading-relaxed min-h-[20px]"
-                                                                    rows={1}
-                                                                    onFocus={(e) => {
-                                                                        e.target.style.height = 'auto';
-                                                                        e.target.style.height = e.target.scrollHeight + 'px';
-                                                                    }}
-                                                                />
+                                                                <p
+                                                                    className="text-xs text-content-main leading-relaxed flex-1 whitespace-normal break-words"
+                                                                >
+                                                                    {topic.name}
+                                                                </p>
                                                             </div>
                                                         ))}
                                                     </div>
