@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 interface AiTopic {
     name: string;
     selected: boolean;
+    position?: number;
 }
 
 interface AiSubject {
@@ -394,14 +395,27 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             const rawData = parsed.s || parsed.subjects || parsed;
             const rawSubjects = Array.isArray(rawData) ? rawData : [];
 
+            const extractPosition = (name: string): { position: number; cleanName: string } => {
+                const match = name.trim().match(/^(\d+)\s*[.)]\s*(.+)$/);
+                if (match) {
+                    return { position: parseInt(match[1], 10), cleanName: match[2].trim() };
+                }
+                return { position: 0, cleanName: name };
+            };
+
             const result = rawSubjects.map((s: any, idx: number): AiSubject => ({
                 id: `ia-${idx}-${Date.now()}`,
                 title: s.t || s.title || "Sem Título",
                 expanded: idx === 0,
-                topics: (s.p || s.topics || []).map((t: any): AiTopic => ({
-                    name: typeof t === 'string' ? t : (t.n || t.name || ""),
-                    selected: true
-                })).filter((t: AiTopic) => {
+                topics: (s.p || s.topics || []).map((t: any, tIdx: number): AiTopic => {
+                    const rawName = typeof t === 'string' ? t : (t.n || t.name || "");
+                    const { position, cleanName } = extractPosition(rawName);
+                    return {
+                        name: cleanName,
+                        selected: true,
+                        position: position > 0 ? position : tIdx
+                    };
+                }).filter((t: AiTopic) => {
                     const clean = t.name.trim().replace(/\s+/g, ' ');
                     return clean.length >= 2;
                 }),
@@ -502,12 +516,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 id: Math.random().toString(36).substr(2, 9),
                 name: s.title,
                 status: 'Nova', // Ensure status is set for new subjects
-                topics: s.topics.filter(t => t.selected && t.name.trim().length >= 2).map(t => ({
+                topics: s.topics.filter(t => t.selected && t.name.trim().length >= 2).map((t, idx) => ({
                     id: Math.random().toString(36).substr(2, 9),
                     name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
                     completed: false,
                     reviewCount: 0, // Ensure reviewCount is set
-                    review_count: 0 // Ensure review_count is set
+                    review_count: 0, // Ensure review_count is set
+                    position: t.position ?? idx
                 }))
             } as Subject));
 
@@ -596,6 +611,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         completed: false,
                         reviewCount: 0,
                         review_count: 0,
+                        position: ti
                     }))
                 };
             });
@@ -1040,11 +1056,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 newResult[sIdx].title = e.target.value;
                                                                 setAiResult(newResult);
                                                             }}
-                                                            className="bg-transparent border-none font-bold text-[11px] text-content-main outline-none focus:text-primary transition-colors w-full"
+                                                            className="bg-transparent border-none font-bold text-sm text-content-main outline-none focus:text-primary transition-colors w-full"
                                                         />
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[9px] font-bold bg-secondary dark:bg-zinc-800 text-muted-foreground px-1.5 py-0.5 rounded border border-border dark:border-white/5">
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <span className="text-[10px] font-bold bg-secondary dark:bg-zinc-800 text-muted-foreground px-1.5 py-0.5 rounded border border-border dark:border-white/5">
                                                             {subj.topics.length} T
                                                         </span>
                                                         <button
@@ -1063,7 +1079,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 {subj.expanded && (
                                                     <div className="flex flex-col gap-1 pl-6 mt-2">
                                                         {subj.topics.map((topic, tIdx) => (
-                                                            <div key={tIdx} className="flex items-center gap-2">
+                                                            <div key={tIdx} className="flex items-start gap-2 py-0.5">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={topic.selected}
@@ -1072,7 +1088,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                         newResult[sIdx].topics[tIdx].selected = !newResult[sIdx].topics[tIdx].selected;
                                                                         setAiResult(newResult);
                                                                     }}
-                                                                    className="w-3 h-3 rounded accent-primary/60 shrink-0"
+                                                                    className="w-3.5 h-3.5 rounded accent-primary/60 shrink-0 mt-0.5"
                                                                 />
                                                                 <textarea
                                                                     value={topic.name}
@@ -1083,7 +1099,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                         e.target.style.height = 'auto';
                                                                         e.target.style.height = e.target.scrollHeight + 'px';
                                                                     }}
-                                                                    className="bg-transparent border-none text-[10px] text-content-main outline-none w-full resize-none leading-tight min-h-[16px]"
+                                                                    className="bg-transparent border-none text-xs text-content-main outline-none w-full resize-none leading-relaxed min-h-[20px]"
                                                                     rows={1}
                                                                     onFocus={(e) => {
                                                                         e.target.style.height = 'auto';
