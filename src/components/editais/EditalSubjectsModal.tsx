@@ -346,7 +346,7 @@ export const EditalSubjectsModal = ({
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="relative w-full max-w-3xl bg-zinc-900 border border-white/8 rounded-[24px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
+                    className="relative w-full max-w-5xl bg-zinc-900 border border-white/8 rounded-[24px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
                 >
                     {/* ── Header ── */}
                     <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
@@ -556,7 +556,7 @@ export const EditalSubjectsModal = ({
                                                 </div>
                                                 <div className="flex flex-col min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        <span className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase truncate max-w-[160px] sm:max-w-xs">
+                                                        <span className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase">
                                                             {subject.name}
                                                         </span>
                                                         <span className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-white/5">
@@ -722,7 +722,7 @@ export const EditalSubjectsModal = ({
                                                                                             if (!isTmpTopic && !edital.isImported) { setEditingTopicId(topic.id); setEditingTopicName(topic.name); }
                                                                                         }}
                                                                                     >
-                                                                                        <span className={`text-xs font-medium truncate ${topic.completed ? 'text-content-muted line-through' : 'text-content-main'}`}>
+                                                                                        <span className={`text-xs font-medium ${topic.completed ? 'text-content-muted line-through' : 'text-content-main'}`}>
                                                                                             {topic.name}
                                                                                         </span>
                                                                                         {!isTmpTopic && (
