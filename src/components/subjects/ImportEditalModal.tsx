@@ -641,7 +641,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-5xl h-[85vh] bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="relative w-full max-w-7xl h-[85vh] bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
                 <div className="p-6 border-b border-black/5 dark:border-white/5 flex items-center justify-between shrink-0">
                     <div>
