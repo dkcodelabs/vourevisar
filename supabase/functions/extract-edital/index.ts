@@ -132,7 +132,10 @@ serve(async (req) => {
     const hasContent = inputText && inputText.trim().length > 0;
     const hasPdf = !!fileUri;
 
-    const baseInstruction = `Você é um especialista em extrair estrutura de editais de concursos públicos brasileiros.
+    // Use system_prompt from DB if available, otherwise use default
+    const systemPrompt = config.system_prompt || `Você é um especialista em extrair estrutura de editais de concursos públicos brasileiros.`;
+
+    const baseInstruction = `${systemPrompt}
 
 ${hasPdf ? 'O PDF do edital está anexado. Leia TODO o conteúdo do PDF.' : ''}
 ${hasContent ? `\nTEXTO COPIADO DO EDITAL:\n${inputText}` : ''}
@@ -142,18 +145,9 @@ Instituição: ${origin || 'Não informada'}
 Cargo: ${position || 'Não informado'}
 Ano: ${year || 'Não informado'}
 
-SUA TAREFA:
-1. Leia TODO o documento/PDF anexado.
-2. Procure especificamente pela seção de "CONTEÚDO PROGRAMÁTICO", "PROGRAMA DO CURSO", "MATÉRIAS", "EMENTA" ou seção similar.
-3. Extraia TODAS as matérias/disciplinas e seus respectivos tópicos/assuntos listados.
-
-REGRAS OBRIGATÓRIAS:
-1. Responda APENAS com JSON válido e minificado. Sem markdown, sem texto fora do JSON.
-2. Se encontrar matérias, retorne: {"s":[{"t":"Nome da Matéria","p":[{"n":"Tópico 1"},{"n":"Tópico 2"}]}]}
-3. Se NÃO encontrar nenhuma matéria no documento, retorne: {"erro":"Não foram encontradas matérias no texto"}
-4. Extraia EXATAMENTE o que está no edital — não invente nem omita tópicos.
-5. Cada matéria deve ter pelo menos 1 tópico.
-6. Nunca responda com texto explicativo fora do JSON.`;
+FORMATO DE SAÍDA (MANDATÓRIO):
+Responda APENAS com JSON válido seguindo a estrutura: {"s":[{"t":"Nome da Matéria","p":[{"n":"Tópico 1"},{"n":"Tópico 2"}]}]}
+Se NÃO encontrar matérias, retorne: {"erro":"Não foram encontradas matérias no texto"}`;
 
     let contents: any[];
     if (fileUri) {
