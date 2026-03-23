@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Plus, X, Trash2, Check, BookOpen, GraduationCap,
     ChevronDown, ChevronUp, ChevronsUpDown, FileText, Circle, CheckCircle2, Loader2, AlertTriangle, EyeOff, Eye,
-    Database, Save, Cloud, CloudOff
+    Database, Save, Cloud, CloudOff, Sparkles, Wand2, EyeIcon
 } from 'lucide-react';
 import { Subject, Topic } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,6 +21,12 @@ import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import type { UserEdital } from '@/pages/Editais';
+
+interface AiSubject {
+    title: string;
+    topics: { name: string; selected: boolean }[];
+    selected: boolean;
+}
 
 interface EditalSubjectsModalProps {
     isOpen: boolean;
@@ -93,6 +99,14 @@ export const EditalSubjectsModal = ({
         isOpen: false, subjectId: '', subjectName: ''
     });
     const [syncStatus, setSyncStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+    
+    // ── IA Add Mode ──────────────────────────────────────────────────────────
+    const [showIaAdd, setShowIaAdd] = useState(false);
+    const [iaSubjectName, setIaSubjectName] = useState('');
+    const [iaInputText, setIaInputText] = useState('');
+    const [iaStage, setIaStage] = useState<'input' | 'processing' | 'review'>('input');
+    const [aiResult, setAiResult] = useState<AiSubject[]>([]);
+    const [isProcessingIa, setIsProcessingIa] = useState(false);
 
     // ── Fechar modal + sync ───────────────────────────────────────────────
     const handleClose = useCallback(() => {
@@ -104,8 +118,195 @@ export const EditalSubjectsModal = ({
         }
         setConfirmDeleteSubjectId(null);
         setSearchQuery('');
+        // Reset IA states
+        setShowIaAdd(false);
+        setIaSubjectName('');
+        setIaInputText('');
+        setIaStage('input');
+        setAiResult([]);
         onClose();
     }, [onClose, refreshData, refreshOrigins]);
+
+    // ── Processar com IA ─────────────────────────────────────────────────────
+    const handleIaProcess = useCallback(async () => {
+        if (!iaSubjectName.trim() || !iaInputText.trim() || !user) return;
+        
+        setIsProcessingIa(true);
+        setIaStage('processing');
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Não autorizado');
+            
+            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-edital`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                    inputText: iaInputText,
+                    isComplementMode: true,
+                    subjectName: iaSubjectName.trim()
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.error) throw new Error(result.error);
+            
+            let parsed: any;
+            try {
+                parsed = typeof result.text === 'string' ? JSON.parse(result.text) : result.text;
+            } catch {
+                parsed = { s: [] };
+            }
+            
+            const subjects = parsed.s || parsed.subjects || [];
+            const mapped: AiSubject[] = subjects.map((s: any) => ({
+                title: s.t || s.title || iaSubjectName.trim(),
+                topics: (s.p || s.topics || []).map((t: any) => ({
+                    name: t.n || t.name || '',
+                    selected: true
+                })).filter((t: any) => t.name.trim()),
+                selected: true
+            }));
+            
+            // Force subject name to user input
+            const adjustedResults = mapped.map(s => ({ 
+                ...s, 
+                title: iaSubjectName.trim() 
+            }));
+            
+            setAiResult(adjustedResults);
+            setIaStage('review');
+            
+        } catch (error: any) {
+            console.error('Erro na IA:', error);
+            toast.error(error.message || 'Erro ao processar com IA');
+            setIaStage('input');
+        } finally {
+            setIsProcessingIa(false);
+        }
+    }, [iaSubjectName, iaInputText, user]);
+
+    // ── Confirmar e adicionar tópicos da IA ─────────────────────────────────
+    const handleIaConfirm = useCallback(async () => {
+        if (!user || !iaSubjectName.trim()) return;
+        
+        setIsSavingSubject(true);
+        try {
+            const selectedTopics = aiResult
+                .filter(s => s.selected)
+                .flatMap(s => s.topics.filter(t => t.selected))
+                .map((t, idx) => ({
+                    id: tmpId(),
+                    name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
+                    completed: false,
+                    reviewCount: 0,
+                    review_count: 0,
+                    position: idx
+                }));
+            
+            // Check if subject already exists
+            const existingSubject = localSubjects.find(
+                s => s.name.toLowerCase() === iaSubjectName.trim().toLowerCase()
+            );
+            
+            if (existingSubject) {
+                // Add topics to existing subject
+                const existingTopicNames = new Set(existingSubject.topics.map(t => t.name.toLowerCase()));
+                const newTopics = selectedTopics.filter(t => !existingTopicNames.has(t.name.toLowerCase()));
+                
+                const updatedSubjects = localSubjects.map(s => {
+                    if (s.id === existingSubject.id) {
+                        return { ...s, topics: [...s.topics, ...newTopics] };
+                    }
+                    return s;
+                });
+                
+                // Save to database
+                const { data: subjectData } = await supabase
+                    .from('subjects')
+                    .select('topics')
+                    .eq('id', existingSubject.id)
+                    .single();
+                
+                const currentTopics = (subjectData?.topics || []) as any[];
+                const allTopics = [...currentTopics, ...newTopics.map(t => ({
+                    ...t,
+                    position: currentTopics.length + t.position
+                }))];
+                
+                await supabase
+                    .from('subjects')
+                    .update({ topics: allTopics, updated_at: new Date().toISOString() })
+                    .eq('id', existingSubject.id);
+                
+                setLocalSubjects(updatedSubjects);
+                hasPendingSync.current = true;
+                setSyncStatus('saving');
+            } else {
+                // Create new subject with (Complemento) suffix
+                const newSubject: Subject = {
+                    id: tmpId(),
+                    name: `${iaSubjectName.trim()} (Complemento)`,
+                    status: 'Nova',
+                    topics: selectedTopics,
+                    order: localSubjects.length,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    notes: null,
+                    user_id: user.id
+                } as unknown as Subject;
+                
+                const { data: created, error: createErr } = await supabase
+                    .from('subjects')
+                    .insert({
+                        user_id: user.id,
+                        name: newSubject.name,
+                        status: 'Nova',
+                        topics: selectedTopics,
+                        created_at: newSubject.created_at,
+                        updated_at: newSubject.updated_at
+                    } as any)
+                    .select()
+                    .single();
+                
+                if (createErr) throw createErr;
+                
+                const newSubjectIds = [...localEditalIds, created.id];
+                setLocalSubjects([...localSubjects, { ...newSubject, id: created.id }]);
+                setLocalEditalIds(newSubjectIds);
+                
+                await editaisTable()
+                    .update({ 
+                        subject_ids: newSubjectIds,
+                        active_subject_ids: newSubjectIds,
+                        updated_at: new Date().toISOString()
+                    } as any)
+                    .eq('id', edital.id);
+                
+                hasPendingSync.current = true;
+                setSyncStatus('saving');
+            }
+            
+            // Reset IA states
+            setShowIaAdd(false);
+            setIaSubjectName('');
+            setIaInputText('');
+            setIaStage('input');
+            setAiResult([]);
+            
+            toast.success('Matéria adicionada com sucesso!');
+            
+        } catch (error: any) {
+            console.error('Erro ao salvar:', error);
+            toast.error('Erro ao adicionar matéria');
+        } finally {
+            setIsSavingSubject(false);
+        }
+    }, [user, iaSubjectName, aiResult, localSubjects, localEditalIds, edital.id]);
 
     // ── Derivados ─────────────────────────────────────────────────────────
     const filteredSubjects = useMemo(() => {
@@ -441,37 +642,133 @@ export const EditalSubjectsModal = ({
                         </button>
                     </div>
 
-                    {/* ── Input nova matéria (SÓ MANUAL) ── */}
+                    {/* ── Input nova matéria (MANUAL + IA) ── */}
                     {!edital.isImported && (
-                        <div className="px-6 pb-6 pt-2 shrink-0">
-                            <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20">
-                                <div className="relative flex-1">
-                                    <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
-                                    <input
-                                        type="text"
-                                        placeholder="Nome da matéria (ex: Português)"
-                                        value={newSubjectName}
-                                        onChange={e => setNewSubjectName(e.target.value)}
-                                        onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
-                                        className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
-                                    />
-                                </div>
-                                <div className="w-px h-6 bg-white/10 shrink-0 mx-1" />
-                                <div className="flex items-center gap-2 pr-2">
-                                    <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-950/30 border border-white/5">
-                                        <Database size={10} className="text-primary/60" />
-                                        <span className="text-[10px] font-bold text-content-muted truncate max-w-[100px] uppercase tracking-wider">{edital.name}</span>
+                        <div className="px-6 pb-6 pt-2 shrink-0 space-y-3">
+                            {/* Modo IA */}
+                            {showIaAdd ? (
+                                <div className="glow-card p-4 rounded-2xl border border-primary/30 bg-zinc-800/30">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles size={16} className="text-primary" />
+                                            <span className="text-xs font-bold text-primary uppercase tracking-wider">Adicionar com IA</span>
+                                        </div>
+                                        <button
+                                            onClick={() => { setShowIaAdd(false); setIaSubjectName(''); setIaInputText(''); setIaStage('input'); }}
+                                            className="p-1 hover:bg-white/5 rounded transition-colors text-content-muted hover:text-zinc-100"
+                                        >
+                                            <X size={14} />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={handleSaveSubject}
-                                        disabled={!newSubjectName.trim() || isSavingSubject}
-                                        className="flex items-center gap-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-emerald-500/20"
-                                    >
-                                        {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                                        <span className="hidden xs:inline uppercase tracking-widest">SALVAR</span>
-                                    </button>
+
+                                    {iaStage === 'input' && (
+                                        <div className="space-y-3">
+                                            <input
+                                                type="text"
+                                                placeholder="Nome da matéria (ex: Português)"
+                                                value={iaSubjectName}
+                                                onChange={e => setIaSubjectName(e.target.value)}
+                                                className="w-full h-9 bg-zinc-950/50 border border-white/10 rounded-xl px-3 text-xs focus:outline-none focus:border-primary/50 transition-all text-content-main placeholder:text-content-muted/40"
+                                            />
+                                            <textarea
+                                                placeholder="Cole aqui APENAS os tópicos da matéria (sem nome da matéria)..."
+                                                value={iaInputText}
+                                                onChange={e => setIaInputText(e.target.value)}
+                                                rows={4}
+                                                className="w-full bg-zinc-950/50 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:border-primary/50 transition-all text-content-main placeholder:text-content-muted/40 resize-none"
+                                            />
+                                            <div className="flex justify-end">
+                                                <button
+                                                    onClick={handleIaProcess}
+                                                    disabled={!iaSubjectName.trim() || !iaInputText.trim() || isProcessingIa}
+                                                    className="flex items-center gap-2 px-4 h-9 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all"
+                                                >
+                                                    {isProcessingIa ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                                                    <span>PROCESSAR</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {iaStage === 'processing' && (
+                                        <div className="py-8 flex flex-col items-center justify-center text-center">
+                                            <Loader2 size={24} className="animate-spin text-primary mb-3" />
+                                            <p className="text-xs text-content-main font-medium">Processando com IA...</p>
+                                            <p className="text-[10px] text-content-muted mt-1">Extraindo tópicos automaticamente</p>
+                                        </div>
+                                    )}
+
+                                    {iaStage === 'review' && aiResult.length > 0 && (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-content-main">{iaSubjectName}</span>
+                                                <span className="text-[10px] text-content-muted">{aiResult[0].topics.length} tópicos encontrados</span>
+                                            </div>
+                                            <div className="max-h-48 overflow-y-auto space-y-1 bg-zinc-900/50 rounded-lg p-2 border border-white/5">
+                                                {aiResult[0].topics.map((topic, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5">
+                                                        <span className="text-[9px] font-bold text-content-muted w-4">{idx + 1}.</span>
+                                                        <span className="text-xs text-content-main flex-1 truncate">{topic.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <button
+                                                    onClick={() => { setIaStage('input'); setAiResult([]); }}
+                                                    className="px-3 h-8 text-[10px] font-bold text-content-muted hover:text-zinc-100 bg-white/5 hover:bg-white/10 rounded-lg transition-all"
+                                                >
+                                                    VOLTAR
+                                                </button>
+                                                <button
+                                                    onClick={handleIaConfirm}
+                                                    disabled={isSavingSubject}
+                                                    className="flex items-center gap-2 px-4 h-8 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white text-[10px] font-black rounded-xl transition-all"
+                                                >
+                                                    {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                                    <span>ADICIONAR</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
+                            ) : (
+                                /* Modo Manual */
+                                <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20">
+                                    <div className="relative flex-1">
+                                        <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
+                                        <input
+                                            type="text"
+                                            placeholder="Nome da matéria (ex: Português)"
+                                            value={newSubjectName}
+                                            onChange={e => setNewSubjectName(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
+                                            className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
+                                        />
+                                    </div>
+                                    <div className="w-px h-6 bg-white/10 shrink-0 mx-1" />
+                                    <div className="flex items-center gap-2 pr-2">
+                                        <button
+                                            onClick={() => setShowIaAdd(true)}
+                                            className="flex items-center gap-1.5 px-3 h-9 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[10px] font-bold rounded-xl transition-all"
+                                        >
+                                            <Sparkles size={12} />
+                                            <span className="hidden xs:inline">IA</span>
+                                        </button>
+                                        <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-950/30 border border-white/5">
+                                            <Database size={10} className="text-primary/60" />
+                                            <span className="text-[10px] font-bold text-content-muted truncate max-w-[100px] uppercase tracking-wider">{edital.name}</span>
+                                        </div>
+                                        <button
+                                            onClick={handleSaveSubject}
+                                            disabled={!newSubjectName.trim() || isSavingSubject}
+                                            className="flex items-center gap-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+                                        >
+                                            {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                            <span className="hidden xs:inline uppercase tracking-widest">SALVAR</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

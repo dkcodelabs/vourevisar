@@ -96,7 +96,7 @@ serve(async (req) => {
     if (!user) throw new Error('Unauthorized');
 
     const reqData = await req.json();
-    const { inputText, pdfUrl, origin, position, year } = reqData;
+    const { inputText, pdfUrl, origin, position, year, isComplementMode, subjectName } = reqData;
     
     console.log('[extract-edital] Received request:', {
       hasInputText: !!inputText,
@@ -105,7 +105,9 @@ serve(async (req) => {
       hasPdfUrl: !!pdfUrl,
       origin,
       position,
-      year
+      year,
+      isComplementMode,
+      subjectName
     });
     
     const { data: systemSetting } = await supabaseClient.from('system_settings').select('value').eq('key', 'ai_edital_config').single();
@@ -133,17 +135,33 @@ serve(async (req) => {
     const hasPdf = !!fileUri;
 
     // Use system_prompt from DB if available, otherwise use default
-    const systemPrompt = config.system_prompt || `Você é um especialista em extrair estrutura de editais de concursos públicos brasileiros.`;
+    const basePrompt = config.system_prompt || `Você é um especialista em extrair estrutura de editais de concursos públicos brasileiros.`;
+    
+    // Replace {position} with actual value from the form
+    const positionValue = position || '';
+    const systemPrompt = basePrompt.replace(/{position}/g, positionValue);
+
+    let complementInstruction = '';
+    if (isComplementMode && subjectName) {
+      complementInstruction = `\n\nMODO COMPLEMENTO (IMPORTANTE):
+- O texto fornecido JA CONTEM APENAS OS TOPICOS da matéria "${subjectName}".
+- NAO PROCURE POR NOMES DE MATÉRIAS no texto - o texto já são apenas tópicos avulsos.
+- NAO CRIE mais de uma matéria - retorne OBRIGATORIAMENTE uma única matéria com o nome "${subjectName}".
+- Simply estruture/organize os tópicos do texto em uma única lista.
+- Se o texto tiver numeração (1., 1.1, etc), preserve a ordem e separe cada item em um tópico individual.
+- Nome da matéria no JSON DEVE SER EXATAMENTE: "${subjectName}"`;
+    }
 
     const baseInstruction = `${systemPrompt}
+${complementInstruction}
 
 ${hasPdf ? 'O PDF do edital está anexado. Leia TODO o conteúdo do PDF.' : ''}
 ${hasContent ? `\nTEXTO COPIADO DO EDITAL:\n${inputText}` : ''}
 
-CONHECIMENTO DO EDITAL:
+${isComplementMode && subjectName ? `Matéria alvo: ${subjectName}` : `CONHECIMENTO DO EDITAL:
 Instituição: ${origin || 'Não informada'}
 Cargo: ${position || 'Não informado'}
-Ano: ${year || 'Não informado'}
+Ano: ${year || 'Não informado'}`}
 
 FORMATO DE SAÍDA (MANDATÓRIO):
 Responda APENAS com JSON válido seguindo a estrutura: {"s":[{"t":"Nome da Matéria","p":[{"n":"Tópico 1"},{"n":"Tópico 2"}]}]}

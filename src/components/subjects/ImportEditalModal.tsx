@@ -31,9 +31,11 @@ interface ImportEditalModalProps {
     userEditais?: UserEdital[];
     initialTab?: 'ready' | 'ia' | 'manual';
     manualModeChildren?: React.ReactNode;
+    initialComplementMode?: boolean;
+    initialEditalIdToComplement?: string;
 }
 
-export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren }: ImportEditalModalProps) => {
+export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren, initialComplementMode = false, initialEditalIdToComplement }: ImportEditalModalProps) => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'ready' | 'ia' | 'manual'>(initialTab);
     const [showSuggestSlide, setShowSuggestSlide] = useState(false);
@@ -63,6 +65,45 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [processingMsg, setProcessingMsg] = useState('Analisando edital com IA...');
     const [pendingExtraction, setPendingExtraction] = useState<{ id: string; editalName: string; updatedAt: string; source: 'db' | 'fresh' } | null>(null);
     const [loadingPending, setLoadingPending] = useState(false);
+
+    // Complement Mode States
+    const [isComplementMode, setIsComplementMode] = useState(initialComplementMode);
+    const [selectedEditalToComplement, setSelectedEditalToComplement] = useState<string | null>(initialEditalIdToComplement || null);
+
+    // Manual Complement Mode States
+    const [manualComplementSubjectName, setManualComplementSubjectName] = useState('');
+    const [manualComplementTopics, setManualComplementTopics] = useState('');
+
+    // IA Complement Mode States
+    const [iaComplementSubjectName, setIaComplementSubjectName] = useState('');
+
+    // Initialize complement mode from props
+    useEffect(() => {
+        if (initialEditalIdToComplement) {
+            setIsComplementMode(true);
+            setSelectedEditalToComplement(initialEditalIdToComplement);
+        }
+    }, [initialEditalIdToComplement]);
+
+    // Filter user editais (not from public catalog) for complement mode
+    const userCreatedEditais = userEditais.filter(e => !e.sourceId);
+
+    // Get selected edital details for complement mode
+    const selectedEditalForComplement = userCreatedEditais.find(e => e.id === selectedEditalToComplement);
+
+    // Auto-fill origin and position from selected edital
+    useEffect(() => {
+        if (isComplementMode && selectedEditalForComplement) {
+            const parts = selectedEditalForComplement.name.split(' - ');
+            if (parts.length >= 2) {
+                setIaOrigin(parts[0]);
+                setIaPosition(parts.slice(1).join(' - '));
+            } else {
+                setIaOrigin(selectedEditalForComplement.organ || '');
+                setIaPosition(selectedEditalForComplement.position || '');
+            }
+        }
+    }, [isComplementMode, selectedEditalForComplement]);
 
     // State for dynamic editais from database
     interface ReadyEdital {
@@ -220,6 +261,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setActiveTab(initialTab);
         if (!isOpen) {
             resetPendingState();
+            setIsComplementMode(false);
+            setSelectedEditalToComplement(null);
+            setManualComplementSubjectName('');
+            setManualComplementTopics('');
+            setIaComplementSubjectName('');
         } else if (user) {
             loadPendingExtraction();
         }
@@ -435,10 +481,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
         try {
             const payload: any = {
-                origin: iaOrigin,
-                position: iaPosition,
-                year: iaYear
+                origin: isComplementMode ? '' : iaOrigin,
+                position: isComplementMode ? iaComplementSubjectName.trim() : iaPosition,
+                year: isComplementMode ? '' : iaYear
             };
+
+            if (isComplementMode) {
+                payload.isComplementMode = true;
+                payload.subjectName = iaComplementSubjectName.trim();
+            }
 
             if (pdfFile) {
                 setProcessingMsg('Enviando arquivo PDF para análise...');
@@ -490,9 +541,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 throw new Error("A IA não conseguiu extrair matérias do conteúdo. Tente um texto mais limpo ou cole apenas a parte de 'CONTEÚDO PROGRAMÁTICO'.");
             }
 
-            const defaultName = `${iaOrigin.trim()} - ${iaPosition.trim()} - ${iaYear.trim()}`;
+            const defaultName = isComplementMode 
+                ? iaComplementSubjectName.trim() 
+                : `${iaOrigin.trim()} - ${iaPosition.trim()} - ${iaYear.trim()}`;
             setIaEditalName(defaultName);
-            setAiResult(mappedResults);
+            
+            // In complement mode, replace all subject titles with the user-provided subject name
+            const adjustedResults = isComplementMode 
+                ? mappedResults.map(s => ({ ...s, title: iaComplementSubjectName.trim() }))
+                : mappedResults;
+            
+            setAiResult(adjustedResults);
 
             const pendingId = `pending-${Date.now()}`;
             setPendingExtraction({ id: pendingId, editalName: defaultName, updatedAt: new Date().toISOString(), source: 'fresh' });
@@ -509,9 +568,150 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
     };
 
+    // Complement Mode: Merge subjects into existing edital
+    const handleComplementEdital = async () => {
+        if (!selectedEditalToComplement || !user) {
+            toastGate.notifyError('Selecione um edital para complementar.', 'COMP-01');
+            return;
+        }
+
+        setIsSavingAi(true);
+        try {
+            // Get current edital from userEditais
+            const currentEdital = userEditais.find(e => e.id === selectedEditalToComplement);
+            if (!currentEdital) {
+                toastGate.notifyError('Edital não encontrado.', 'COMP-02');
+                return;
+            }
+
+            // Get current subjects from the app state
+            const currentSubjectsList = subjects.filter(s => currentEdital.subjectIds?.includes(s.id));
+
+            // Convert AI results to subjects
+            const newSubjectsFromAI = aiResult.filter(s => s.selected).map(s => ({
+                id: Math.random().toString(36).substr(2, 9),
+                name: s.title,
+                status: 'Nova' as const,
+                topics: s.topics.filter(t => t.selected && t.name.trim().length >= 2).map((t, idx) => ({
+                    id: Math.random().toString(36).substr(2, 9),
+                    name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
+                    completed: false,
+                    reviewCount: 0,
+                    review_count: 0,
+                    position: t.position ?? idx
+                }))
+            } as Subject));
+
+            // Merge subjects
+            const mergedSubjects = [...currentSubjectsList];
+            const existingSubjectNames = new Set(currentSubjectsList.map(s => s.name.toLowerCase()));
+            
+            for (const newSubject of newSubjectsFromAI) {
+                if (existingSubjectNames.has(newSubject.name.toLowerCase())) {
+                    // Subject exists - merge topics
+                    const existingIndex = mergedSubjects.findIndex(
+                        s => s.name.toLowerCase() === newSubject.name.toLowerCase()
+                    );
+                    if (existingIndex >= 0) {
+                        const existingTopicNames = new Set(mergedSubjects[existingIndex].topics.map(t => t.name.toLowerCase()));
+                        const uniqueNewTopics = newSubject.topics.filter(
+                            t => !existingTopicNames.has(t.name.toLowerCase())
+                        );
+                        mergedSubjects[existingIndex].topics = [
+                            ...mergedSubjects[existingIndex].topics,
+                            ...uniqueNewTopics
+                        ];
+                    }
+                } else {
+                    // New subject - add with suffix
+                    mergedSubjects.push({
+                        ...newSubject,
+                        name: `${newSubject.name} (Complemento)`
+                    });
+                    existingSubjectNames.add(newSubject.name.toLowerCase());
+                }
+            }
+
+            // Save to database: create new subjects and update edital
+            const subjectsToCreate = mergedSubjects.filter(
+                s => !currentSubjectsList.some(cs => cs.id === s.id)
+            );
+
+            // Create new subjects in database
+            const createdSubjects: Subject[] = [];
+            for (const subject of subjectsToCreate) {
+                const { data: createdSubject, error: subjectError } = await (supabase as any)
+                    .from('subjects')
+                    .insert({
+                        user_id: user.id,
+                        name: subject.name,
+                        status: subject.status || 'Nova',
+                        color: subject.color,
+                        priority: subject.priority
+                    })
+                    .select()
+                    .single();
+
+                if (subjectError) {
+                    console.error('Error creating subject:', subjectError);
+                    continue;
+                }
+
+                // Create topics for this subject
+                if (subject.topics && subject.topics.length > 0) {
+                    const topicsToInsert = subject.topics.map((t, idx) => ({
+                        subject_id: createdSubject.id,
+                        name: t.name,
+                        completed: false,
+                        review_count: 0,
+                        position: idx
+                    }));
+
+                    await (supabase as any)
+                        .from('topics')
+                        .insert(topicsToInsert);
+                }
+
+                createdSubjects.push({ ...createdSubject, topics: subject.topics || [] });
+            }
+
+            // Update edital with new subject IDs
+            const allSubjectIds = [
+                ...(currentEdital.subjectIds || []),
+                ...createdSubjects.map(s => s.id)
+            ];
+
+            await (supabase as any)
+                .from('user_editais')
+                .update({
+                    subject_ids: allSubjectIds,
+                    active_subject_ids: allSubjectIds,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', currentEdital.id);
+
+            toast.success(`${createdSubjects.length} matéria(s) adicionada(s) ao edital!`);
+            await discardPendingExtractionData();
+            window.dispatchEvent(new CustomEvent('subjectUpdated'));
+            onClose();
+
+        } catch (error) {
+            console.error('Erro ao complementar edital:', error);
+            toastGate.notifyError('Erro ao adicionar matérias ao edital.', 'COMP-03');
+        } finally {
+            setIsSavingAi(false);
+        }
+    };
+
     const handleSaveAiResult = async () => {
         setIsSavingAi(true);
         try {
+            // If in complement mode, use complement logic
+            if (isComplementMode) {
+                await handleComplementEdital();
+                return;
+            }
+
             const newSubjects = aiResult.filter(s => s.selected).map(s => ({
                 id: Math.random().toString(36).substr(2, 9),
                 name: s.title,
@@ -585,6 +785,131 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             setManualYear('');
         } catch (error) {
             console.error('Erro ao salvar edital manual:', error);
+        } finally {
+            setImportingManual(false);
+        }
+    };
+
+    // Manual Complement Mode: Add subject to existing edital
+    const handleManualComplement = async () => {
+        if (!selectedEditalToComplement || !manualComplementSubjectName.trim() || !manualComplementTopics.trim()) {
+            toastGate.notifyError('Preencha o nome da matéria e os tópicos.', 'MAN-COMP-01', { severity: 'low' });
+            return;
+        }
+
+        if (!user) {
+            toastGate.notifyError('Usuário não autenticado.', 'MAN-COMP-02');
+            return;
+        }
+
+        setImportingManual(true);
+        try {
+            const currentEdital = userEditais.find(e => e.id === selectedEditalToComplement);
+            if (!currentEdital) {
+                toastGate.notifyError('Edital não encontrado.', 'MAN-COMP-03');
+                return;
+            }
+
+            // Parse topics from textarea (one per line)
+            const topicsList = manualComplementTopics
+                .split('\n')
+                .map(t => t.trim())
+                .filter(t => t.length >= 2);
+
+            if (topicsList.length === 0) {
+                toastGate.notifyError('Adicione pelo menos um tópico.', 'MAN-COMP-04', { severity: 'low' });
+                return;
+            }
+
+            // Check if subject already exists
+            const currentSubjectsList = subjects.filter(s => currentEdital.subjectIds?.includes(s.id));
+            const existingSubjectIndex = currentSubjectsList.findIndex(
+                s => s.name.toLowerCase() === manualComplementSubjectName.trim().toLowerCase()
+            );
+
+            let subjectId: string;
+
+            if (existingSubjectIndex >= 0) {
+                // Subject exists - add new topics only
+                const existingSubject = currentSubjectsList[existingSubjectIndex];
+                subjectId = existingSubject.id;
+
+                const existingTopicNames = new Set(existingSubject.topics.map(t => t.name.toLowerCase()));
+                const uniqueNewTopics = topicsList
+                    .filter(t => !existingTopicNames.has(t.toLowerCase()))
+                    .map((t, idx) => ({
+                        subject_id: subjectId,
+                        name: t.length > 500 ? t.substring(0, 497) + '...' : t,
+                        completed: false,
+                        review_count: 0,
+                        position: existingSubject.topics.length + idx
+                    }));
+
+                if (uniqueNewTopics.length > 0) {
+                    await (supabase as any)
+                        .from('topics')
+                        .insert(uniqueNewTopics);
+                }
+            } else {
+                // Create new subject with "(Complemento)" suffix
+                const subjectName = `${manualComplementSubjectName.trim()} (Complemento)`;
+                
+                const { data: createdSubject, error: subjectError } = await (supabase as any)
+                    .from('subjects')
+                    .insert({
+                        user_id: user.id,
+                        name: subjectName,
+                        status: 'Nova',
+                        color: null,
+                        priority: null
+                    })
+                    .select()
+                    .single();
+
+                if (subjectError) {
+                    console.error('Error creating subject:', subjectError);
+                    toastGate.notifyError('Erro ao criar matéria.', 'MAN-COMP-05');
+                    return;
+                }
+
+                subjectId = createdSubject.id;
+
+                const topicsToInsert = topicsList.map((t, idx) => ({
+                    subject_id: subjectId,
+                    name: t.length > 500 ? t.substring(0, 497) + '...' : t,
+                    completed: false,
+                    review_count: 0,
+                    position: idx
+                }));
+
+                await (supabase as any)
+                    .from('topics')
+                    .insert(topicsToInsert);
+            }
+
+            // Update edital with new subject ID if it's a new subject
+            if (!currentEdital.subjectIds?.includes(subjectId)) {
+                const allSubjectIds = [...(currentEdital.subjectIds || []), subjectId];
+                
+                await (supabase as any)
+                    .from('user_editais')
+                    .update({
+                        subject_ids: allSubjectIds,
+                        active_subject_ids: allSubjectIds,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', currentEdital.id);
+            }
+
+            toast.success('Matéria adicionada ao edital com sucesso!');
+            setManualComplementSubjectName('');
+            setManualComplementTopics('');
+            setSelectedEditalToComplement(null);
+            setIsComplementMode(false);
+            onClose();
+        } catch (error) {
+            console.error('Erro ao adicionar matéria manualmente:', error);
+            toastGate.notifyError('Erro ao adicionar matéria ao edital.', 'MAN-COMP-06');
         } finally {
             setImportingManual(false);
         }
@@ -866,72 +1191,131 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                 </div>
                             ) : iaStage === 'input' && !pendingExtraction ? (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 w-full flex flex-col items-center">
-                                    <div className="text-center space-y-1 mb-2">
-                                        <h3 className="text-xl font-black text-content-main tracking-tight uppercase">Estruturar com Inteligência Artificial</h3>
-                                        <p className="text-[11px] text-content-muted font-medium">Preencha os dados básicos e anexe o documento PDF.</p>
+
+                                    {/* Complement Mode Toggle */}
+                                    <div className="w-full max-w-[800px] px-2">
+                                        <button
+                                            onClick={() => {
+                                                setIsComplementMode(!isComplementMode);
+                                                if (isComplementMode) {
+                                                    setSelectedEditalToComplement(null);
+                                                }
+                                            }}
+                                            className={`px-4 py-2 text-[10px] font-bold rounded-xl transition-all flex items-center gap-2 ${
+                                                isComplementMode 
+                                                    ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+                                                    : 'bg-secondary dark:bg-zinc-800/50 text-content-muted hover:text-content-main border border-border dark:border-white/10'
+                                            }`}
+                                        >
+                                            <Plus size={14} />
+                                            {isComplementMode ? '✓ MODO COMPLEMENTO ATIVO' : 'COMPLEMENTAR EDITAL EXISTENTE'}
+                                        </button>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-[800px] px-2 mb-2">
-                                        <div className="space-y-1.5 group">
-                                            <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Instituição</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    value={iaOrigin}
-                                                    onChange={(e) => setIaOrigin(e.target.value)}
-                                                    placeholder="Ex: PC-ES"
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                                />
+                                    {/* Complement Mode: Select Edital + Subject Name */}
+                                    {isComplementMode && (
+                                        <div className="w-full max-w-[800px] px-2 space-y-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Selecione o Edital</label>
+                                                    <select
+                                                        value={selectedEditalToComplement || ''}
+                                                        onChange={(e) => setSelectedEditalToComplement(e.target.value || null)}
+                                                        className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2.5 text-xs font-bold text-content-main outline-none transition-all shadow-inner"
+                                                    >
+                                                        <option value="">Selecione...</option>
+                                                        {userCreatedEditais.map(e => (
+                                                            <option key={e.id} value={e.id}>{e.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Nome da Matéria</label>
+                                                    <input
+                                                        type="text"
+                                                        value={iaComplementSubjectName}
+                                                        onChange={(e) => setIaComplementSubjectName(e.target.value)}
+                                                        placeholder="Ex: Direito Penal"
+                                                        className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2.5 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                    />
+                                                </div>
                                             </div>
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                                A IA extrairá os tópicos da matéria informada.
+                                            </p>
                                         </div>
+                                    )}
 
-                                        <div className="space-y-1.5 group">
-                                            <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    value={iaPosition}
-                                                    onChange={(e) => setIaPosition(e.target.value)}
-                                                    placeholder="Ex: Investigador"
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                                />
+                                    {/* Normal Mode: Institution, Position, Year */}
+                                    {!isComplementMode && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-[800px] px-2 mb-2">
+                                            <div className="space-y-1.5 group">
+                                                <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Instituição</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        value={iaOrigin}
+                                                        onChange={(e) => setIaOrigin(e.target.value)}
+                                                        placeholder="Ex: PC-ES"
+                                                        className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                    />
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        <div className="space-y-1.5 group">
-                                            <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    value={iaYear}
-                                                    onChange={(e) => setIaYear(e.target.value)}
-                                                    placeholder="Ex: 2024"
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                                />
+                                            <div className="space-y-1.5 group">
+                                                <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        value={iaPosition}
+                                                        onChange={(e) => setIaPosition(e.target.value)}
+                                                        placeholder="Ex: Investigador"
+                                                        className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1.5 group">
+                                                <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        value={iaYear}
+                                                        onChange={(e) => setIaYear(e.target.value)}
+                                                        placeholder="Ex: 2024"
+                                                        className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
+
+                                    {/* Complement Mode: Hide Cargo field - user specified subject name instead */}
 
                                     <div className="w-full max-w-[800px] space-y-4">
                                         <div className="flex items-center justify-between px-2">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em]">Documento ou Texto</label>
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em]">
+                                                {isComplementMode ? 'Texto do Conteúdo Adicional' : 'Documento ou Texto'}
+                                            </label>
                                             
-                                            <div className="relative overflow-hidden group/upload">
-                                                <input 
-                                                    type="file" 
-                                                    accept="application/pdf"
-                                                    onChange={handleFileChange}
-                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                                                    title="Fazer upload de PDF" 
-                                                />
-                                                <button type="button" className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider">
-                                                    <FileText size={12} />
-                                                    {pdfFile ? 'Trocar PDF' : 'Anexar PDF (até 5MB)'}
-                                                </button>
-                                            </div>
+                                            {!isComplementMode && (
+                                                <div className="relative overflow-hidden group/upload">
+                                                    <input 
+                                                        type="file" 
+                                                        accept="application/pdf"
+                                                        onChange={handleFileChange}
+                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                                        title="Fazer upload de PDF" 
+                                                    />
+                                                    <button type="button" className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider">
+                                                        <FileText size={12} />
+                                                        {pdfFile ? 'Trocar PDF' : 'Anexar PDF (até 5MB)'}
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
 
-                                        {pdfFile ? (
+                                        {pdfFile && !isComplementMode ? (
                                             <div className="w-full h-44 bg-secondary/50 dark:bg-zinc-950/30 border border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center text-center transition-all px-4">
                                                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3">
                                                     <FileText size={20} className="text-primary animate-pulse" />
@@ -951,7 +1335,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             <textarea
                                                 value={inputText}
                                                 onChange={(e) => setInputText(e.target.value)}
-                                                placeholder="Cole aqui o texto do conteúdo programático do edital..."
+                                                placeholder={isComplementMode ? "Cole aqui APENAS os tópicos da matéria (sem nome da matéria)..." : "Cole aqui o texto do conteúdo programático do edital..."}
                                                 className="w-full h-44 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl p-4 text-xs font-medium text-content-main outline-none transition-all resize-none no-scrollbar shadow-inner"
                                             />
                                         )}
@@ -960,15 +1344,22 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     <div className="pt-2 flex justify-center w-full max-w-[800px]">
                                         <button
                                             onClick={handleIaImport}
-                                            disabled={!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim()}
+                                            disabled={
+                                                isComplementMode 
+                                                    ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
+                                                    : (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim())
+                                            }
                                             className={`w-full py-4 font-black rounded-[20px] shadow-lg transition-all flex items-center gap-2 justify-center text-[11px] uppercase tracking-widest ${
-                                                (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim()) 
+                                                (isComplementMode 
+                                                    ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
+                                                    : (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim())
+                                                ) 
                                                 ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80' 
                                                 : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20 hover:scale-[1.01] active:scale-95'
                                             }`}
                                         >
                                             <Sparkles size={16} />
-                                            Estruturar com IA
+                                            {isComplementMode ? 'Estruturar e Adicionar ao Edital' : 'Estruturar com IA'}
                                         </button>
                                     </div>
                                 </motion.div>
@@ -1003,34 +1394,44 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         </button>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pb-3 border-b border-border dark:border-white/5">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Org</span>
-                                            <input
-                                                type="text"
-                                                value={iaOrigin}
-                                                onChange={(e) => setIaOrigin(e.target.value)}
-                                                className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
-                                            />
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Cargo</span>
-                                            <input
-                                                type="text"
-                                                value={iaPosition}
-                                                onChange={(e) => setIaPosition(e.target.value)}
-                                                className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
-                                            />
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Ano</span>
-                                            <input
-                                                type="text"
-                                                value={iaYear}
-                                                onChange={(e) => setIaYear(e.target.value)}
-                                                className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
-                                            />
-                                        </div>
+                                    <div className={`grid gap-2 pb-3 border-b border-border dark:border-white/5 ${isComplementMode ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-3'}`}>
+                                        {isComplementMode && selectedEditalForComplement ? (
+                                            <div className="flex items-center gap-2 px-2 py-2 bg-primary/10 rounded-lg">
+                                                <span className="text-[8px] font-black text-primary uppercase tracking-[0.15em]">Complementando:</span>
+                                                <span className="text-[10px] font-bold text-content-main">{selectedEditalForComplement.name}</span>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Org</span>
+                                                    <input
+                                                        type="text"
+                                                        value={iaOrigin}
+                                                        onChange={(e) => setIaOrigin(e.target.value)}
+                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Cargo</span>
+                                                    <input
+                                                        type="text"
+                                                        value={iaPosition}
+                                                        onChange={(e) => setIaPosition(e.target.value)}
+                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Ano</span>
+                                                    <input
+                                                        type="text"
+                                                        value={iaYear}
+                                                        onChange={(e) => setIaYear(e.target.value)}
+                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                        {/* No Cargo field in complement mode - user specifies subject name manually */}
                                     </div>
 
                                     <div className="space-y-2 max-h-[340px] overflow-y-auto pr-2 no-scrollbar">
@@ -1112,7 +1513,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             {isSavingAi ? (
                                                 <><Loader2 className="animate-spin" size={14} /> Salvando...</>
                                             ) : (
-                                                'Importar Selecionados'
+                                                isComplementMode ? 'Adicionar ao Edital' : 'Importar Selecionados'
                                             )}
                                         </button>
                                     </div>
@@ -1121,72 +1522,179 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         </div>
                     ) : (
                         <div className="space-y-8 w-full pt-4 pb-12">
-                            <div className="text-center space-y-2 mb-4">
-                                <h3 className="text-2xl font-black text-content-main tracking-tight uppercase">Novo Edital Personalizado</h3>
-                                <p className="text-sm text-content-muted font-medium">Defina a origem e o cargo para começar a estruturar seu edital.</p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Origin Field */}
-                                <div className="space-y-3 group">
-                                    <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Origem / Instituição</label>
-                                    <div className="relative">
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                            <Database size={18} />
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={manualOrigin}
-                                            onChange={(e) => setManualOrigin(e.target.value)}
-                                            placeholder="Ex: PC-ES, INSS, Receita Federal..."
-                                            className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Position Field */}
-                                <div className="space-y-3 group">
-                                    <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Cargo / Função</label>
-                                    <div className="relative">
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                            <Sparkles size={18} />
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={manualPosition}
-                                            onChange={(e) => setManualPosition(e.target.value)}
-                                            placeholder="Ex: Agente, Analista Judiciário, Técnico..."
-                                            className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-4 flex flex-col items-center gap-4">
+                            {/* Complement Mode Toggle for Manual Tab */}
+                            <div className="w-full max-w-[800px] px-2 mx-auto">
                                 <button
-                                    onClick={handleSaveManual}
-                                    disabled={!manualOrigin.trim() || !manualPosition.trim() || importingManual}
-                                    className="w-full sm:w-auto px-16 py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-[24px] shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3 justify-center text-xs uppercase tracking-widest"
+                                    onClick={() => {
+                                        setIsComplementMode(!isComplementMode);
+                                        if (isComplementMode) {
+                                            setSelectedEditalToComplement(null);
+                                            setManualComplementSubjectName('');
+                                            setManualComplementTopics('');
+                                        }
+                                    }}
+                                    className={`px-4 py-2 text-[10px] font-bold rounded-xl transition-all flex items-center gap-2 ${
+                                        isComplementMode 
+                                            ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+                                            : 'bg-secondary dark:bg-zinc-800/50 text-content-muted hover:text-content-main border border-border dark:border-white/10'
+                                    }`}
                                 >
-                                    {importingManual ? (
-                                        <>
-                                            <Loader2 size={18} className="animate-spin" />
-                                            Criando Edital...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Plus size={18} />
-                                            Criar Edital e Adicionar Matérias
-                                        </>
-                                    )}
+                                    <Plus size={14} />
+                                    {isComplementMode ? '✓ MODO COMPLEMENTO ATIVO' : 'COMPLEMENTAR EDITAL EXISTENTE'}
                                 </button>
-                                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 rounded-full border border-emerald-500/10">
-                                    <Info size={12} className="text-emerald-500/70" />
-                                    <p className="text-[9px] text-emerald-500/70 font-bold uppercase tracking-widest">
-                                        Após clicar, você poderá adicionar as matérias e tópicos.
-                                    </p>
-                                </div>
                             </div>
+
+                            {/* Complement Mode: Select Edital */}
+                            {isComplementMode && (
+                                <div className="w-full max-w-[800px] px-2 mx-auto space-y-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Selecione o Edital para Complementar</label>
+                                        <select
+                                            value={selectedEditalToComplement || ''}
+                                            onChange={(e) => setSelectedEditalToComplement(e.target.value || null)}
+                                            className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2.5 text-xs font-bold text-content-main outline-none transition-all shadow-inner"
+                                        >
+                                            <option value="">Selecione um edital...</option>
+                                            {userCreatedEditais.map(e => (
+                                                <option key={e.id} value={e.id}>{e.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isComplementMode && selectedEditalToComplement ? (
+                                /* Manual Complement Mode Form */
+                                <div className="w-full max-w-[800px] mx-auto px-2 space-y-6">
+                                    <div className="text-center space-y-1 mb-2">
+                                        <h3 className="text-xl font-black text-content-main tracking-tight uppercase">Adicionar Matéria ao Edital</h3>
+                                        <p className="text-[11px] text-content-muted font-medium">
+                                            Adicione uma nova matéria ao edital: {userCreatedEditais.find(e => e.id === selectedEditalToComplement)?.name}
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-3 group">
+                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Nome da Matéria</label>
+                                        <div className="relative">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                                <Database size={18} />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={manualComplementSubjectName}
+                                                onChange={(e) => setManualComplementSubjectName(e.target.value)}
+                                                placeholder="Ex: Direito Penal, Raciocínio Lógico, Português..."
+                                                className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 group">
+                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Tópicos (um por linha)</label>
+                                        <textarea
+                                            value={manualComplementTopics}
+                                            onChange={(e) => setManualComplementTopics(e.target.value)}
+                                            placeholder="Princípios constitucionais do processo penal&#10;Inquéitos policiais&#10;Flagrante delito&#10;..."
+                                            className="w-full h-48 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl p-4 text-xs font-medium text-content-main outline-none transition-all resize-none no-scrollbar shadow-inner"
+                                        />
+                                    </div>
+
+                                    <div className="pt-2 flex flex-col items-center gap-3">
+                                        <button
+                                            onClick={handleManualComplement}
+                                            disabled={!manualComplementSubjectName.trim() || !manualComplementTopics.trim() || importingManual}
+                                            className={`w-full py-4 font-black rounded-[20px] shadow-lg transition-all flex items-center gap-2 justify-center text-[11px] uppercase tracking-widest ${
+                                                (!manualComplementSubjectName.trim() || !manualComplementTopics.trim() || importingManual)
+                                                    ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80'
+                                                    : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20 hover:scale-[1.01] active:scale-95'
+                                            }`}
+                                        >
+                                            {importingManual ? (
+                                                <>
+                                                    <Loader2 size={16} className="animate-spin" />
+                                                    Adicionando...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Plus size={16} />
+                                                    Adicionar ao Edital
+                                                </>
+                                            )}
+                                        </button>
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/5 rounded-full border border-amber-500/10">
+                                            <Info size={12} className="text-amber-500/70" />
+                                            <p className="text-[9px] text-amber-500/70 font-bold uppercase tracking-widest">
+                                                Se a matéria já existir, apenas os novos tópicos serão adicionados.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                /* Normal Manual Mode: Create new edital */
+                                <>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Origin Field */}
+                                        <div className="space-y-3 group">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Origem / Instituição</label>
+                                            <div className="relative">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                                    <Database size={18} />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={manualOrigin}
+                                                    onChange={(e) => setManualOrigin(e.target.value)}
+                                                    placeholder="Ex: PC-ES, INSS, Receita Federal..."
+                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Position Field */}
+                                        <div className="space-y-3 group">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Cargo / Função</label>
+                                            <div className="relative">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                                    <Sparkles size={18} />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={manualPosition}
+                                                    onChange={(e) => setManualPosition(e.target.value)}
+                                                    placeholder="Ex: Agente, Analista Judiciário, Técnico..."
+                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-4 flex flex-col items-center gap-4">
+                                        <button
+                                            onClick={handleSaveManual}
+                                            disabled={!manualOrigin.trim() || !manualPosition.trim() || importingManual}
+                                            className="w-full sm:w-auto px-16 py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-[24px] shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3 justify-center text-xs uppercase tracking-widest"
+                                        >
+                                            {importingManual ? (
+                                                <>
+                                                    <Loader2 size={18} className="animate-spin" />
+                                                    Criando Edital...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Plus size={18} />
+                                                    Criar Edital e Adicionar Matérias
+                                                </>
+                                            )}
+                                        </button>
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 rounded-full border border-emerald-500/10">
+                                            <Info size={12} className="text-emerald-500/70" />
+                                            <p className="text-[9px] text-emerald-500/70 font-bold uppercase tracking-widest">
+                                                Após clicar, você poderá adicionar as matérias e tópicos.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
