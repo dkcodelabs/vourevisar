@@ -30,9 +30,6 @@
                 "mcp-stdio-proxy",
                 "https://docs.asaas.com/mcp"
             ]
-        },
-        "notebooklm": {
-            "command": "/Library/Frameworks/Python.framework/Versions/3.13/bin/notebooklm-mcp"
         }
     }
 }

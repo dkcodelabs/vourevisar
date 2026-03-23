@@ -33,7 +33,7 @@ export const useDataLoading = (
         `)
         .eq('user_id', user.id)
         .order('priority', { ascending: true })
-        .order('created_at', { foreignTable: 'topics', ascending: true });
+        .order('position', { foreignTable: 'topics', ascending: true });
 
       if (subjectsError) throw subjectsError;
 

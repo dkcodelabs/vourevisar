@@ -78,6 +78,8 @@ const Editais = () => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importModalTab, setImportModalTab] = useState<'ready' | 'ia' | 'manual'>('ready');
+    const [complementMode, setComplementMode] = useState(false);
+    const [editalToComplement, setEditalToComplement] = useState<string | null>(null);
     const [subjectsModal, setSubjectsModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [unloadConfirm, setUnloadConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
@@ -561,11 +563,12 @@ const Editais = () => {
                 // 2. Criar tópicos da matéria (se houver)
                 const topicsToInsert = subj.topics
                     .filter(t => t.name?.trim())
-                    .map(t => ({
+                    .map((t, idx) => ({
                         subject_id: newSubject.id,
                         name: t.name,
                         completed: false,
                         review_count: 0,
+                        position: t.position ?? idx
                     }));
 
                 if (topicsToInsert.length > 0) {
@@ -750,11 +753,12 @@ const Editais = () => {
                 if (nSubjErr || !newSubj) throw nSubjErr;
                 finalSubjectIds.push(newSubj.id);
 
-                const topicsToInsert = (ss.topics || []).map((ts: any) => ({
+                const topicsToInsert = (ss.topics || []).map((ts: any, idx: number) => ({
                     subject_id: newSubj.id,
                     name: typeof ts === 'string' ? ts : ts.name,
                     completed: false,
-                    review_count: 0
+                    review_count: 0,
+                    position: (ts as any).position ?? idx
                 }));
                 
                 if (topicsToInsert.length > 0) {
@@ -764,11 +768,12 @@ const Editais = () => {
 
             // 2. Processar Tópicos Novos em Matérias Existentes
             for (const [subjId, topics] of Object.entries(addedTopics)) {
-                const topicsToInsert = topics.map(tName => ({
+                const topicsToInsert = topics.map((tName, idx) => ({
                     subject_id: subjId,
                     name: tName,
                     completed: false,
-                    review_count: 0
+                    review_count: 0,
+                    position: idx
                 }));
                 if (topicsToInsert.length > 0) {
                     await supabase.from('topics').insert(topicsToInsert as any);
@@ -1079,6 +1084,12 @@ const Editais = () => {
                                         sourceSubjects: source?.subjects || [] 
                                     })}
                                     onEdit={() => setEditModal({ isOpen: true, edital })}
+                                    onComplement={() => {
+                                        setComplementMode(true);
+                                        setEditalToComplement(edital.id);
+                                        setIsImportModalOpen(true);
+                                        setImportModalTab('ia');
+                                    }}
                                     isProcessing={processingId === edital.id}
                                     hasUpdate={!!hasUpdate}
                                     isHighlighted={highlightedSourceId === edital.sourceId || highlightedSourceId === edital.id}
@@ -1167,11 +1178,17 @@ const Editais = () => {
             {/* ── Modal de Importação ── */}
             <ImportEditalModal
                 isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
+                onClose={() => {
+                    setIsImportModalOpen(false);
+                    setComplementMode(false);
+                    setEditalToComplement(null);
+                }}
                 initialTab={importModalTab}
                 subjects={subjects}
                 userEditais={editais}
                 onImport={handleImportDone}
+                initialComplementMode={complementMode}
+                initialEditalIdToComplement={editalToComplement || undefined}
             />
 
             {/* ── Modal Ver Matérias ── */}

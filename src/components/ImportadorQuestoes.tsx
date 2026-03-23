@@ -1,11 +1,7 @@
 import React, { useState, useRef } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { toast } from 'react-toastify';
 import { Loader2, Upload, FileText, CheckCircle, Save, AlertCircle, Trash2 } from 'lucide-react';
-
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface Question {
     numero: string | number;
@@ -30,58 +26,58 @@ export function ImportadorQuestoes() {
 
         setIsProcessing(true);
         setQuestions([]);
-        setProgress('Iniciando leitura do PDF...');
+        setProgress('Enviando PDF para Gemini...');
 
         try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
             const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-            const allQuestions: Question[] = [];
+            setProgress('Fazendo upload do PDF (File API)...');
+            const arrayBuffer = await file.arrayBuffer();
+            const fileBytes = new Uint8Array(arrayBuffer);
 
-            for (let i = 1; i <= pdf.numPages; i++) {
-                setProgress(`Processando página ${i} de ${pdf.numPages}...`);
-
-                const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 1.5 });
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-
-                if (context) {
-                    await page.render({ canvasContext: context, viewport } as any).promise;
-                    const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
-
-                    const prompt = `
-            Analise esta imagem de prova de concurso. Extraia as questões completas.
-            Retorne APENAS um JSON válido (array de objetos).
-            Formato: [{"numero": "1", "texto": "Enunciado completo...", "alternativas": ["A) ...", "B) ..."], "gabarito_sugerido": "Lettra ou null"}]
-            Se não houver questões, retorne [].
-            Ignore cabeçalhos e rodapés irrelevantes.
-            `;
-
-                    try {
-                        const result = await model.generateContent([
-                            prompt,
-                            { inlineData: { data: base64Image, mimeType: 'image/jpeg' } }
-                        ]);
-
-                        const text = result.response.text();
-                        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
-                        if (cleanedText) {
-                            const pageQuestions = JSON.parse(cleanedText);
-                            if (Array.isArray(pageQuestions)) {
-                                allQuestions.push(...pageQuestions);
-                            }
-                        }
-                    } catch (err) {
-                        console.error(`Erro na página ${i}:`, err);
-                        toast.warning(`Erro ao processar página ${i}. Continuando...`);
-                    }
+            const uploadRes = await fetch(
+                `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/pdf',
+                        'X-Goog-Upload-File-Name': file.name,
+                        'X-Goog-Upload-Protocol': 'raw',
+                    },
+                    body: fileBytes,
                 }
+            );
+
+            if (!uploadRes.ok) {
+                const err = await uploadRes.text();
+                throw new Error(`Falha no upload do PDF: ${uploadRes.status} - ${err}`);
+            }
+
+            const uploadData = await uploadRes.json();
+            const fileUri = uploadData.name;
+
+            const prompt = `
+Analise este PDF de prova de concurso. Extraia TODAS as questões completas.
+Retorne APENAS um JSON válido (array de objetos).
+Formato: [{"numero": "1", "texto": "Enunciado completo...", "alternativas": ["A) ...", "B) ..."], "gabarito_sugerido": "Letra ou null"}]
+Se não houver questões, retorne [].
+Ignore cabeçalhos e rodapés irrelevantes.
+`;
+
+            setProgress('Extraindo questões com IA...');
+            const result = await model.generateContent([
+                prompt,
+                { fileData: { mimeType: 'application/pdf', fileUri } }
+            ]);
+
+            const text = result.response.text();
+            const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+            let allQuestions: Question[] = [];
+            if (cleanedText) {
+                allQuestions = JSON.parse(cleanedText);
+                if (!Array.isArray(allQuestions)) allQuestions = [];
             }
 
             setQuestions(allQuestions);

@@ -1978,7 +1978,7 @@ const Subjects = () => {
                         user_id: user.id,
                         subject_id: newSubj.id,
                         name: t.name,
-                        position: idx
+                        position: (t as any).position ?? idx
                       }));
                       
                       const { error: tErr } = await supabase

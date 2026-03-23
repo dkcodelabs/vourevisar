@@ -214,9 +214,26 @@ export const EditalSubjectsModal = ({
             );
             
             if (existingSubject) {
-                // Add topics to existing subject
+                // Add topics to existing subject (in 'topics' table)
                 const existingTopicNames = new Set(existingSubject.topics.map(t => t.name.toLowerCase()));
                 const newTopics = selectedTopics.filter(t => !existingTopicNames.has(t.name.toLowerCase()));
+                
+                if (newTopics.length > 0) {
+                    const topicsToInsert = newTopics.map((t, idx) => ({
+                        subject_id: existingSubject.id,
+                        name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
+                        completed: false,
+                        review_count: 0,
+                        review_stage: null,
+                        position: existingSubject.topics.length + idx
+                    }));
+                    
+                    const { error: insertErr } = await supabase
+                        .from('topics')
+                        .insert(topicsToInsert);
+                    
+                    if (insertErr) throw insertErr;
+                }
                 
                 const updatedSubjects = localSubjects.map(s => {
                     if (s.id === existingSubject.id) {
@@ -225,58 +242,44 @@ export const EditalSubjectsModal = ({
                     return s;
                 });
                 
-                // Save to database
-                const { data: subjectData } = await supabase
-                    .from('subjects')
-                    .select('topics')
-                    .eq('id', existingSubject.id)
-                    .single();
-                
-                const currentTopics = (subjectData?.topics || []) as any[];
-                const allTopics = [...currentTopics, ...newTopics.map(t => ({
-                    ...t,
-                    position: currentTopics.length + t.position
-                }))];
-                
-                await supabase
-                    .from('subjects')
-                    .update({ topics: allTopics, updated_at: new Date().toISOString() })
-                    .eq('id', existingSubject.id);
-                
                 setLocalSubjects(updatedSubjects);
                 hasPendingSync.current = true;
                 setSyncStatus('saving');
             } else {
                 // Create new subject with (Complemento) suffix
-                const newSubject: Subject = {
-                    id: tmpId(),
-                    name: `${iaSubjectName.trim()} (Complemento)`,
-                    status: 'Nova',
-                    topics: selectedTopics,
-                    order: localSubjects.length,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                    notes: null,
-                    user_id: user.id
-                } as unknown as Subject;
-                
                 const { data: created, error: createErr } = await supabase
                     .from('subjects')
                     .insert({
                         user_id: user.id,
-                        name: newSubject.name,
-                        status: 'Nova',
-                        topics: selectedTopics,
-                        created_at: newSubject.created_at,
-                        updated_at: newSubject.updated_at
-                    } as any)
+                        name: `${iaSubjectName.trim()} (Complemento)`,
+                        status: 'Nova'
+                    })
                     .select()
                     .single();
                 
                 if (createErr) throw createErr;
                 
+                // Insert topics into 'topics' table
+                if (selectedTopics.length > 0) {
+                    const topicsToInsert = selectedTopics.map((t, idx) => ({
+                        subject_id: created.id,
+                        name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
+                        completed: false,
+                        review_count: 0,
+                        review_stage: null,
+                        position: idx
+                    }));
+                    
+                    const { error: insertErr } = await supabase
+                        .from('topics')
+                        .insert(topicsToInsert);
+                    
+                    if (insertErr) throw insertErr;
+                }
+                
                 const newSubjectIds = [...localEditalIds, created.id];
-                setLocalSubjects([...localSubjects, { ...newSubject, id: created.id }]);
+                const newSubjectWithTopics = { ...created, topics: selectedTopics };
+                setLocalSubjects([...localSubjects, newSubjectWithTopics]);
                 setLocalEditalIds(newSubjectIds);
                 
                 await editaisTable()

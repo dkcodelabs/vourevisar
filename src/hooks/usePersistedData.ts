@@ -68,7 +68,7 @@ export const usePersistedData = () => {
         .select(`*, topics (*, difficulty_level)`)
         .eq('user_id', user.id)
         .order('priority', { ascending: true })
-        .order('created_at', { foreignTable: 'topics', ascending: true });
+        .order('position', { foreignTable: 'topics', ascending: true });
 
       const transformedSubjects = transformSubjectsData(data || []);
       setSubjects(transformedSubjects);

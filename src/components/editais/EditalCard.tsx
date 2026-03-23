@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
     Trash2, Play, Eye, CalendarDays, Clock,
     BookOpen, AlertTriangle, CheckCircle2, Timer, GraduationCap, X, Loader2, RefreshCw,
-    Edit2
+    Edit2, Plus
 } from 'lucide-react';
 import type { UserEdital } from '@/pages/Editais';
 
@@ -26,14 +26,15 @@ interface EditalCardProps {
     isProcessing?: boolean;
     hasUpdate?: boolean;
     onSync?: () => void;
-    onEdit?: () => void; // Added
+    onEdit?: () => void;
+    onComplement?: () => void;
     isHighlighted?: boolean;
 }
 
 export const EditalCard = ({
     edital, metrics, daysLeft, isSelected,
     onToggleSelect, onViewSubjects, onLoadCycle, onUnloadCycle, onDelete,
-    isProcessing = false, hasUpdate = false, onSync, onEdit, isHighlighted = false
+    isProcessing = false, hasUpdate = false, onSync, onEdit, onComplement, isHighlighted = false
 }: EditalCardProps) => {
     const progress = metrics.totalTopics > 0
         ? Math.round((metrics.completedTopics / metrics.totalTopics) * 100)
@@ -141,7 +142,7 @@ export const EditalCard = ({
                         )}
                         <div className="flex items-center gap-2 mt-2">
                             <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded-md border bg-secondary light:bg-slate-100 dark:bg-zinc-800 text-muted-foreground light:text-slate-600 dark:text-zinc-400 border-border dark:border-white/5">
-                                {edital.isImported ? 'IMPORTADO' : 'MANUAL'}
+                                {edital.sourceId ? 'SISTEMA' : edital.isImported ? 'IMPORTADO IA' : 'MANUAL'}
                             </span>
                             <span className="text-[10px] text-content-muted">•</span>
                             <span className="text-[10px] text-content-muted font-medium">{createdDate}</span>
@@ -241,6 +242,18 @@ export const EditalCard = ({
                                 <span className="text-[11px] font-bold text-amber-400 leading-tight">Edital sem matérias, aguarde.</span>
                             </div>
                         </div>
+                    )}
+
+                    {/* Botão Complementar - só para editais criados pelo usuário */}
+                    {!edital.sourceId && (
+                        <button
+                            onClick={onComplement}
+                            disabled={isProcessing}
+                            className="w-full flex items-center justify-center gap-2 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl transition-all text-xs font-bold disabled:opacity-50"
+                        >
+                            <Plus size={14} />
+                            Complementar Edital
+                        </button>
                     )}
                 </div>
 

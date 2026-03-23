@@ -40,12 +40,8 @@ const routeTitles: Record<string, string> = {
   "/estatisticas": "Estatísticas",
   "/perfil": "Perfil",
   "/configuracoes": "Configurações",
-  "/admin/subscription": "Gestão de Assinaturas",
-  "/admin/feedback": "Feedbacks dos Alunos",
-  "/admin/users": "Gestão de Usuários",
-  "/admin/tendencia": "Tendência (GUT)",
-  "/admin/editais": "Gerenciar Editais",
-  "/planos": "Escolha sua Jornada",
+  "/admin/ai-settings": "Gestão de IA",
+  "/admin/pricing": "Escolha sua Jornada",
 };
 
 const routeDescriptions: Record<string, string> = {
@@ -53,6 +49,7 @@ const routeDescriptions: Record<string, string> = {
   "/admin/subscription": "Controle de planos, status de pagamento e acesso dos usuários.",
   "/dashboard": "Foco total nos estudos! O seu sucesso depende da constante dedicação.",
   "/admin/users": "Gerencie os membros da sua equipe e suas permissões de conta aqui.",
+  "/admin/ai-settings": "Ajuste fino do comportamento do Gemini para extração de editais.",
 };
 
 // Removed MobileMenuToggle from here as it relies on useSidebar which we are removing from the wrap
