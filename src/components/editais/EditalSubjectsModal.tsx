@@ -866,7 +866,6 @@ export const EditalSubjectsModal = ({
                                                             {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                                         </span>
                                                     </div>
-                                                    <span className="text-[10px] text-content-muted/60 mt-0.5">{edital.name}</span>
                                                 </div>
                                             </div>
 
