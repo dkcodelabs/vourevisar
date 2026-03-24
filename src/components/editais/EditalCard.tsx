@@ -27,14 +27,13 @@ interface EditalCardProps {
     hasUpdate?: boolean;
     onSync?: () => void;
     onEdit?: () => void;
-    onComplement?: () => void;
     isHighlighted?: boolean;
 }
 
 export const EditalCard = ({
     edital, metrics, daysLeft, isSelected,
     onToggleSelect, onViewSubjects, onLoadCycle, onUnloadCycle, onDelete,
-    isProcessing = false, hasUpdate = false, onSync, onEdit, onComplement, isHighlighted = false
+    isProcessing = false, hasUpdate = false, onSync, onEdit, isHighlighted = false
 }: EditalCardProps) => {
     const progress = metrics.totalTopics > 0
         ? Math.round((metrics.completedTopics / metrics.totalTopics) * 100)
@@ -244,17 +243,7 @@ export const EditalCard = ({
                         </div>
                     )}
 
-                    {/* Botão Complementar - só para editais criados pelo usuário */}
-                    {!edital.sourceId && (
-                        <button
-                            onClick={onComplement}
-                            disabled={isProcessing}
-                            className="w-full flex items-center justify-center gap-2 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl transition-all text-xs font-bold disabled:opacity-50"
-                        >
-                            <Plus size={14} />
-                            Complementar Edital
-                        </button>
-                    )}
+
                 </div>
 
                 {urgency && (

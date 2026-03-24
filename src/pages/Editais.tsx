@@ -78,8 +78,6 @@ const Editais = () => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importModalTab, setImportModalTab] = useState<'ready' | 'ia' | 'manual'>('ready');
-    const [complementMode, setComplementMode] = useState(false);
-    const [editalToComplement, setEditalToComplement] = useState<string | null>(null);
     const [subjectsModal, setSubjectsModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [unloadConfirm, setUnloadConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
@@ -1093,12 +1091,6 @@ const Editais = () => {
                                         sourceSubjects: source?.subjects || [] 
                                     })}
                                     onEdit={() => setEditModal({ isOpen: true, edital })}
-                                    onComplement={() => {
-                                        setComplementMode(true);
-                                        setEditalToComplement(edital.id);
-                                        setIsImportModalOpen(true);
-                                        setImportModalTab('ia');
-                                    }}
                                     isProcessing={processingId === edital.id}
                                     hasUpdate={!!hasUpdate}
                                     isHighlighted={highlightedSourceId === edital.sourceId || highlightedSourceId === edital.id}
@@ -1189,15 +1181,11 @@ const Editais = () => {
                 isOpen={isImportModalOpen}
                 onClose={() => {
                     setIsImportModalOpen(false);
-                    setComplementMode(false);
-                    setEditalToComplement(null);
                 }}
                 initialTab={importModalTab}
                 subjects={subjects}
                 userEditais={editais}
                 onImport={handleImportDone}
-                initialComplementMode={complementMode}
-                initialEditalIdToComplement={editalToComplement || undefined}
             />
 
             {/* ── Modal Ver Matérias ── */}
