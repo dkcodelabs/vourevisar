@@ -738,49 +738,51 @@ export const EditalSubjectsModal = ({
                                 </div>
                             ) : (
                                 /* Modo Manual */
-                                <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20">
-                                    {/* Info do Edital */}
-                                    <div className="flex flex-col min-w-0 shrink-0">
-                                        <div className="flex items-center gap-1.5">
-                                            <Database size={10} className="text-primary/60 shrink-0" />
-                                            <span className="text-[10px] font-bold text-primary uppercase tracking-wider truncate max-w-[140px]">{edital.name}</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20 flex-1">
+                                        {/* Info do Edital */}
+                                        <div className="flex flex-col min-w-0 shrink-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <Database size={10} className="text-primary/60 shrink-0" />
+                                                <span className="text-[10px] font-bold text-primary uppercase tracking-wider truncate max-w-[140px]">{edital.name}</span>
+                                            </div>
+                                            {edital.position && (
+                                                <span className="text-[9px] text-content-muted truncate max-w-[140px] mt-0.5">{edital.position}</span>
+                                            )}
                                         </div>
-                                        {edital.position && (
-                                            <span className="text-[9px] text-content-muted truncate max-w-[140px] mt-0.5">{edital.position}</span>
-                                        )}
-                                    </div>
-                                    
-                                    <div className="w-px h-8 bg-white/10 shrink-0 mx-1" />
-                                    
-                                    <div className="relative flex-1">
-                                        <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
-                                        <input
-                                            type="text"
-                                            placeholder="Nome da matéria (ex: Português)"
-                                            value={newSubjectName}
-                                            onChange={e => setNewSubjectName(e.target.value)}
-                                            onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
-                                            className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
-                                        />
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <button
-                                            onClick={() => setShowIaAdd(true)}
-                                            className="flex items-center gap-1.5 px-3 h-9 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[10px] font-bold rounded-xl transition-all"
-                                        >
-                                            <Sparkles size={12} />
-                                            <span className="hidden xs:inline">IA</span>
-                                        </button>
+                                        
+                                        <div className="w-px h-8 bg-white/10 shrink-0 mx-1" />
+                                        
+                                        <div className="relative flex-1">
+                                            <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
+                                            <input
+                                                type="text"
+                                                placeholder="Nome da matéria (ex: Português)"
+                                                value={newSubjectName}
+                                                onChange={e => setNewSubjectName(e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
+                                                className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
+                                            />
+                                        </div>
+                                        
                                         <button
                                             onClick={handleSaveSubject}
                                             disabled={!newSubjectName.trim() || isSavingSubject}
-                                            className="flex items-center gap-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+                                            className="flex items-center gap-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-emerald-500/20 shrink-0"
                                         >
                                             {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
                                             <span className="hidden xs:inline uppercase tracking-widest">SALVAR</span>
                                         </button>
                                     </div>
+                                    
+                                    {/* Botão IA separado na extrema direita */}
+                                    <button
+                                        onClick={() => setShowIaAdd(true)}
+                                        className="flex items-center gap-2 px-4 h-[60px] bg-primary/10 hover:bg-primary/20 border-2 border-dashed border-primary/30 hover:border-primary/50 text-primary text-[10px] font-bold rounded-xl transition-all shrink-0"
+                                    >
+                                        <Sparkles size={16} />
+                                        <span className="whitespace-nowrap">Gerar com IA</span>
+                                    </button>
                                 </div>
                             )}
                         </div>
