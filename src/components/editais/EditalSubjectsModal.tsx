@@ -739,6 +739,19 @@ export const EditalSubjectsModal = ({
                             ) : (
                                 /* Modo Manual */
                                 <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20">
+                                    {/* Info do Edital */}
+                                    <div className="flex flex-col min-w-0 shrink-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <Database size={10} className="text-primary/60 shrink-0" />
+                                            <span className="text-[10px] font-bold text-primary uppercase tracking-wider truncate max-w-[140px]">{edital.name}</span>
+                                        </div>
+                                        {edital.position && (
+                                            <span className="text-[9px] text-content-muted truncate max-w-[140px] mt-0.5">{edital.position}</span>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="w-px h-8 bg-white/10 shrink-0 mx-1" />
+                                    
                                     <div className="relative flex-1">
                                         <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
                                         <input
@@ -750,8 +763,8 @@ export const EditalSubjectsModal = ({
                                             className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
                                         />
                                     </div>
-                                    <div className="w-px h-6 bg-white/10 shrink-0 mx-1" />
-                                    <div className="flex items-center gap-2 pr-2">
+                                    
+                                    <div className="flex items-center gap-2 shrink-0">
                                         <button
                                             onClick={() => setShowIaAdd(true)}
                                             className="flex items-center gap-1.5 px-3 h-9 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[10px] font-bold rounded-xl transition-all"
@@ -759,10 +772,6 @@ export const EditalSubjectsModal = ({
                                             <Sparkles size={12} />
                                             <span className="hidden xs:inline">IA</span>
                                         </button>
-                                        <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-950/30 border border-white/5">
-                                            <Database size={10} className="text-primary/60" />
-                                            <span className="text-[10px] font-bold text-content-muted truncate max-w-[100px] uppercase tracking-wider">{edital.name}</span>
-                                        </div>
                                         <button
                                             onClick={handleSaveSubject}
                                             disabled={!newSubjectName.trim() || isSavingSubject}
