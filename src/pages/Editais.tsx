@@ -186,6 +186,15 @@ const Editais = () => {
         fetchPublicEditais();
     }, [fetchEditais, fetchPublicEditais]);
 
+    // Escuta evento de atualização de matérias/tópicos para refresh
+    useEffect(() => {
+        const handleExternalUpdate = () => {
+            fetchEditais();
+        };
+        window.addEventListener('subjectUpdated', handleExternalUpdate);
+        return () => window.removeEventListener('subjectUpdated', handleExternalUpdate);
+    }, [fetchEditais]);
+
     // Reseta filtros se houver um sourceId destacado (para garantir que seja visível para o scroll)
     useEffect(() => {
         if (highlightedSourceId) {
