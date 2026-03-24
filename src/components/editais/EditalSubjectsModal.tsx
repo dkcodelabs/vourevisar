@@ -738,8 +738,8 @@ export const EditalSubjectsModal = ({
                                 </div>
                             ) : (
                                 /* Modo Manual */
-                                <div className="flex items-center gap-3">
-                                    <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20 flex-1">
+                                <div className="flex items-center gap-3 self-start">
+                                    <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20 flex-1 self-center">
                                         {/* Info do Edital */}
                                         <div className="flex flex-col min-w-0 shrink-0">
                                             <div className="flex items-center gap-1.5">
@@ -778,9 +778,9 @@ export const EditalSubjectsModal = ({
                                     {/* Botão IA separado na extrema direita */}
                                     <button
                                         onClick={() => setShowIaAdd(true)}
-                                        className="flex items-center gap-2 px-4 h-[60px] bg-primary/10 hover:bg-primary/20 border-2 border-dashed border-primary/30 hover:border-primary/50 text-primary text-[10px] font-bold rounded-xl transition-all shrink-0"
+                                        className="flex items-center gap-2 px-4 h-9 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[10px] font-bold rounded-xl transition-all shrink-0"
                                     >
-                                        <Sparkles size={16} />
+                                        <Sparkles size={14} />
                                         <span className="whitespace-nowrap">Gerar com IA</span>
                                     </button>
                                 </div>
