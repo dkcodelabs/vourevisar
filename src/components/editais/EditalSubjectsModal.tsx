@@ -292,9 +292,11 @@ export const EditalSubjectsModal = ({
                 
                 hasPendingSync.current = true;
                 setSyncStatus('saving');
+                
+                onUpdate({ ...edital, subjectIds: newSubjectIds, activeSubjectIds: newSubjectIds });
             }
             
-            // Reset IA states
+            setSyncStatus('saved');
             setShowIaAdd(false);
             setIaSubjectName('');
             setIaInputText('');
