@@ -711,7 +711,7 @@ export const EditalSubjectsModal = ({
                                                 {aiResult[0].topics.map((topic, idx) => (
                                                     <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5">
                                                         <span className="text-[9px] font-bold text-content-muted w-4">{idx + 1}.</span>
-                                                        <span className="text-xs text-content-main flex-1 truncate">{topic.name}</span>
+                                                        <span className="text-xs text-content-main flex-1 break-words">{topic.name}</span>
                                                     </div>
                                                 ))}
                                             </div>
