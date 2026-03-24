@@ -1140,28 +1140,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         </div>
                     ) : (
                         <div className="space-y-8 w-full pt-4 pb-12">
-                            {/* Complement Mode Toggle for Manual Tab */}
-                            <div className="w-full max-w-[800px] px-2 mx-auto">
-                                <button
-                                    onClick={() => {
-                                        setIsComplementMode(!isComplementMode);
-                                        if (isComplementMode) {
-                                            setSelectedEditalToComplement(null);
-                                            setManualComplementSubjectName('');
-                                            setManualComplementTopics('');
-                                        }
-                                    }}
-                                    className={`px-4 py-2 text-[10px] font-bold rounded-xl transition-all flex items-center gap-2 ${
-                                        isComplementMode 
-                                            ? 'bg-primary text-white shadow-lg shadow-primary/20' 
-                                            : 'bg-secondary dark:bg-zinc-800/50 text-content-muted hover:text-content-main border border-border dark:border-white/10'
-                                    }`}
-                                >
-                                    <Plus size={14} />
-                                    {isComplementMode ? '✓ MODO COMPLEMENTO ATIVO' : 'COMPLEMENTAR EDITAL EXISTENTE'}
-                                </button>
-                            </div>
-
                             {/* Normal Manual Mode: Create new edital */}
                             {true && (
                                 <>
