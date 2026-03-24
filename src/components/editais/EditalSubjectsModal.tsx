@@ -858,6 +858,11 @@ export const EditalSubjectsModal = ({
                                                 </div>
                                                 <div className="flex flex-col min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
+                                                        {edital.isImported && (
+                                                            <span className="text-[9px] font-bold text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 uppercase tracking-wider shrink-0">
+                                                                {edital.name.length > 15 ? edital.name.substring(0, 15) + '...' : edital.name}
+                                                            </span>
+                                                        )}
                                                         <span className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase">
                                                             {subject.name}
                                                         </span>
