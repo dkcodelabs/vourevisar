@@ -851,20 +851,21 @@ const Editais = () => {
                         {/* Filtros de Tipo */}
                         <div className="flex bg-secondary p-1 rounded-xl border border-border h-11">
                             {[
-                                { id: 'all', label: 'Todos' },
-                                { id: 'imported', label: 'Importados' },
-                                { id: 'manual', label: 'Criados' }
+                                { id: 'all', label: 'Todos', count: editais.length },
+                                { id: 'imported', label: 'Importados', count: editais.filter(e => e.isImported).length },
+                                { id: 'manual', label: 'Criados', count: editais.filter(e => !e.isImported).length }
                             ].map((f) => (
                                 <button
                                     key={f.id}
                                     onClick={() => setActiveFilter(f.id as 'all' | 'imported' | 'manual')}
-                                    className={`px-4 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                                    className={`px-3 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
                                         activeFilter === f.id 
                                             ? 'bg-card text-foreground shadow-sm' 
                                             : 'text-content-muted hover:text-foreground'
                                     }`}
                                 >
-                                    {f.label}
+                                    <span className="bg-primary/20 text-primary px-1.5 py-0.5 rounded text-[9px] font-bold">{f.count}</span>
+                                    <span>{f.label}</span>
                                 </button>
                             ))}
                         </div>
@@ -904,9 +905,8 @@ const Editais = () => {
 
                 {/* Sub-header info (opcional, bem discreto agora) */}
                 <div className="flex items-center gap-4 text-[10px] font-bold text-content-muted uppercase tracking-[0.2em] px-1">
-                    <span>{filteredEditais.length} Concursos Encontrados</span>
                     {selectedIds.size > 0 && (
-                        <span className="text-violet-400">• {selectedIds.size} selecionados</span>
+                        <span className="text-violet-400">{selectedIds.size} selecionados</span>
                     )}
                 </div>
             </div>
