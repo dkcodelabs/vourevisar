@@ -717,7 +717,7 @@ export const EditalSubjectsModal = ({
                     </div>
 
                     {/* ── Input nova matéria (MANUAL + IA) ── */}
-                    {!edital.isImported && (
+                    {(!edital.isImported || !edital.sourceId) && (
                         <div className="px-6 pb-6 pt-2 shrink-0 space-y-3">
                             {/* Modo IA */}
                             {showIaAdd ? (

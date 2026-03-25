@@ -24,7 +24,6 @@ import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { SmartMergeModal } from '@/components/subjects/SmartMergeModal';
 import { MergeModal } from '@/components/subjects/MergeModal';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
-import { EditalSubjectsModal } from '@/components/editais/EditalSubjectsModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
 import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
@@ -110,8 +109,6 @@ const Subjects = () => {
   const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState<'ready' | 'ia' | 'manual'>('ready');
   const [smartMergeSuggestions, setSmartMergeSuggestions] = useState<SmartMergeSuggestion[]>([]);
-  // Estado do modal de matérias do edital
-  const [subjectsModal, setSubjectsModal] = useState<{ isOpen: boolean; edital: any | null }>({ isOpen: false, edital: null });
 
   const location = useLocation();
 
@@ -1454,24 +1451,7 @@ const Subjects = () => {
             <div className="flex items-center gap-1 sm:gap-2">
               {/* New Subject Action */}
               <button
-                onClick={() => {
-                  const editalNoCiclo = editaisNoCiclo[0];
-                  if (editalNoCiclo) {
-                    setSubjectsModal({
-                      isOpen: true,
-                      edital: {
-                        id: editalNoCiclo.id,
-                        name: editalNoCiclo.name,
-                        isImported: editalNoCiclo.is_imported,
-                        subjectIds: editalNoCiclo.subject_ids,
-                        activeSubjectIds: editalNoCiclo.active_subject_ids,
-                        mergedIntoCycle: editalNoCiclo.merged_into_cycle,
-                        createdAt: '',
-                        updatedAt: ''
-                      }
-                    });
-                  }
-                }}
+                onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
                 className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
               >
                 <Plus size={14} className="text-primary transition-transform group-hover:scale-110" />
@@ -1531,25 +1511,7 @@ const Subjects = () => {
                       Comece adicionando sua primeira matéria ou importe um edital pronto para iniciar seus estudos.
                   </p>
                   <button
-                      onClick={() => {
-                        // Abre EditalSubjectsModal com primeiro edital do ciclo
-                        const editalNoCiclo = editaisNoCiclo[0];
-                        if (editalNoCiclo) {
-                          setSubjectsModal({
-                            isOpen: true,
-                            edital: {
-                              id: editalNoCiclo.id,
-                              name: editalNoCiclo.name,
-                              isImported: editalNoCiclo.is_imported,
-                              subjectIds: editalNoCiclo.subject_ids,
-                              activeSubjectIds: editalNoCiclo.active_subject_ids,
-                              mergedIntoCycle: editalNoCiclo.merged_into_cycle,
-                              createdAt: '',
-                              updatedAt: ''
-                            }
-                          });
-                        }
-                      }}
+                      onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
                       className="px-6 py-3 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                   >
                       Adicionar Matéria
@@ -2234,32 +2196,6 @@ const Subjects = () => {
             subjectId={subjectNotesModal.subjectId}
             subjectName={subjectNotesModal.subjectName}
           />
-
-          {/* Modal de Matérias do Edital */}
-          {subjectsModal.edital && (
-            <EditalSubjectsModal
-              isOpen={subjectsModal.isOpen}
-              onClose={() => {
-                setSubjectsModal({ isOpen: false, edital: null });
-                refresh();
-              }}
-              edital={subjectsModal.edital}
-              editais={editaisNoCiclo.map(e => ({
-                id: e.id,
-                name: e.name,
-                isImported: e.is_imported,
-                subjectIds: e.subject_ids,
-                activeSubjectIds: e.active_subject_ids,
-                mergedIntoCycle: e.merged_into_cycle,
-                createdAt: '',
-                updatedAt: ''
-              }))}
-              allSubjects={subjects}
-              onUpdate={() => {
-                refresh();
-              }}
-            />
-          )}
         </div>
       </div>
     </div>

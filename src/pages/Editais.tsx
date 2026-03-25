@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
     Search, Plus, Library, Trash2, Play, Eye, CalendarDays, Clock,
     BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, ArrowRight, Sparkles, Send, Loader2,
-    AlertCircle, Info, GraduationCap, Target
+    AlertCircle, Info, GraduationCap, Target, Database
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -75,6 +75,7 @@ const Editais = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<'all' | 'manual' | 'imported'>('all');
+    const [filterCycle, setFilterCycle] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importModalTab, setImportModalTab] = useState<'ready' | 'ia' | 'manual'>('ready');
@@ -116,7 +117,12 @@ const Editais = () => {
             if (location.state?.importTab) {
                 setImportModalTab(location.state.importTab);
             }
-            // Limpa o estado para evitar que reabra ao atualizar a página
+        }
+        if (location.state?.filterCycle) {
+            setFilterCycle(true);
+        }
+        // Limpa o estado para evitar que reabra ao atualizar a página
+        if (location.state?.openImportModal || location.state?.filterCycle) {
             window.history.replaceState({}, document.title);
         }
     }, [location.state]);
@@ -204,6 +210,11 @@ const Editais = () => {
     const filteredEditais = useMemo(() => {
         let result = editais;
 
+        // 0. Filtro por Ciclo (vindo da página Matérias)
+        if (filterCycle) {
+            result = result.filter(e => e.mergedIntoCycle && (!e.isImported || !e.sourceId));
+        }
+
         // 1. Filtro por Busca
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
@@ -218,7 +229,7 @@ const Editais = () => {
         }
 
         return result;
-    }, [editais, searchQuery, activeFilter]);
+    }, [editais, searchQuery, activeFilter, filterCycle]);
 
     useEffect(() => {
         if (highlightedSourceId && filteredEditais.length > 0 && !scrolledTo) {
@@ -909,6 +920,27 @@ const Editais = () => {
                         <span className="text-violet-400">{selectedIds.size} selecionados</span>
                     )}
                 </div>
+
+                {/* Badge de filtro ciclo (ao vir da página Matérias) */}
+                {filterCycle && (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-primary/5 border border-primary/20 rounded-xl">
+                        <Database size={16} className="text-primary shrink-0" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-foreground">
+                                Mostrando editais do ciclo
+                            </p>
+                            <p className="text-xs text-content-muted mt-0.5">
+                                Clique em &ldquo;Ver Matérias&rdquo; para adicionar matérias e tópicos
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setFilterCycle(false)}
+                            className="p-2 hover:bg-primary/10 rounded-lg transition-colors shrink-0"
+                        >
+                            <X size={16} className="text-content-muted" />
+                        </button>
+                    </div>
+                )}
             </div>
             
             {/* Banner de Alerta Amigável (Ciclo Vazio) */}
