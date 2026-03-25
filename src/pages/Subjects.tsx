@@ -221,6 +221,46 @@ const Subjects = () => {
     setIsMergeModalOpen(true);
   };
 
+  // Função para separar matérias mescladas
+  const handleSeparate = (subjectId: string) => {
+    if (!user) return;
+    
+    const mergedIds = mergedSubjectsMap[subjectId];
+    if (!mergedIds || mergedIds.length === 0) return;
+
+    // Atualizar o state para mostrar as matérias separadas
+    const subjectsToRestore = localSubjects.filter(s => mergedIds.includes(s.id));
+    
+    // Adicionar as matérias de volta ao state se não existirem
+    const currentIds = new Set(localSubjects.map(s => s.id));
+    const newSubjects: Subject[] = [];
+    
+    for (const id of mergedIds) {
+      if (!currentIds.has(id)) {
+        const subject = subjects.find(s => s.id === id);
+        if (subject) {
+          newSubjects.push(subject);
+        }
+      }
+    }
+    
+    if (newSubjects.length > 0) {
+      setLocalSubjects([...localSubjects, ...newSubjects]);
+    }
+
+    // Remover a relação de mesclagem
+    const newMap = { ...mergedSubjectsMap };
+    delete newMap[subjectId];
+    setMergedSubjectsMap(newMap);
+    
+    // Salvar no localStorage
+    const key = `merged_subjects_${user.id}`;
+    localStorage.setItem(key, JSON.stringify(newMap));
+    
+    toast.success('Matérias separadas com sucesso!');
+    setConfirmHideSubjectId(null);
+  };
+
   // Cache simples no localStorage
   const loadSubjects = useCallback(async (ignoreCache: boolean = false) => {
     console.log('📥 LOAD SUBJECTS CALLED:', {
@@ -440,6 +480,9 @@ const Subjects = () => {
   // Confirmação inline de exclusão de matéria
   const [confirmHideSubjectId, setConfirmHideSubjectId] = useState<string | null>(null);
 
+  // Relações de matérias mescladas: { "materiaPrincipalId": ["materia1Id", "materia2Id"] }
+  const [mergedSubjectsMap, setMergedSubjectsMap] = useState<Record<string, string[]>>({});
+
   const [loading, setLoading] = useState(true);
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -586,6 +629,23 @@ const Subjects = () => {
       setLocalSubjects([]);
     }
   }, [subjects, dataLoaded]);
+
+  // Carregar relações de mesclagem do localStorage
+  useEffect(() => {
+    const loadMergedRelations = () => {
+      if (!user) return;
+      const key = `merged_subjects_${user.id}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        try {
+          setMergedSubjectsMap(JSON.parse(stored));
+        } catch (e) {
+          console.warn('Erro ao carregar relações de mesclagem:', e);
+        }
+      }
+    };
+    loadMergedRelations();
+  }, [user]);
 
   // Carregar ciclo do usuário
   useEffect(() => {
@@ -1395,16 +1455,26 @@ const Subjects = () => {
               {/* New Subject Action */}
               <button
                 onClick={() => {
-                  if (isImportEditalModalOpen) {
-                    handleSaveSubject();
-                  } else {
-                    setModalInitialTab('manual');
-                    setIsImportEditalModalOpen(true);
+                  const editalNoCiclo = editaisNoCiclo[0];
+                  if (editalNoCiclo) {
+                    setSubjectsModal({
+                      isOpen: true,
+                      edital: {
+                        id: editalNoCiclo.id,
+                        name: editalNoCiclo.name,
+                        isImported: editalNoCiclo.is_imported,
+                        subjectIds: editalNoCiclo.subject_ids,
+                        activeSubjectIds: editalNoCiclo.active_subject_ids,
+                        mergedIntoCycle: editalNoCiclo.merged_into_cycle,
+                        createdAt: '',
+                        updatedAt: ''
+                      }
+                    });
                   }
                 }}
                 className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
               >
-                {isAddingSubject ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} className="text-primary transition-transform group-hover:scale-110" />}
+                <Plus size={14} className="text-primary transition-transform group-hover:scale-110" />
                 <span>Nova Matéria</span>
               </button>
 
@@ -1674,9 +1744,21 @@ const Subjects = () => {
                                           onClick={e => e.stopPropagation()}
                                         >
                                           <span className="text-amber-300 font-medium text-[11px] leading-snug">
-                                            Ocultar da lista?<br />
-                                            <span className="text-amber-300/60 font-normal">Fica salva no edital.</span>
+                                            {mergedSubjectsMap[subject.id] ? 'Separar ou Ocultar?' : 'Ocultar da lista?'}<br />
+                                            <span className="text-amber-300/60 font-normal">
+                                              {mergedSubjectsMap[subject.id] 
+                                                ? `${mergedSubjectsMap[subject.id].length} matérias mescladas`
+                                                : 'Fica salva no edital.'}
+                                            </span>
                                           </span>
+                                          {mergedSubjectsMap[subject.id] && (
+                                            <button
+                                              onClick={() => handleSeparate(subject.id)}
+                                              className="px-2 py-0.5 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-lg text-[10px] transition-all shrink-0"
+                                            >
+                                              Separar
+                                            </button>
+                                          )}
                                           <button
                                             onClick={() => handleDelete(subject.id)}
                                             className="px-2 py-0.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg text-[10px] transition-all shrink-0"
@@ -1694,7 +1776,7 @@ const Subjects = () => {
                                         <button
                                           onClick={(e) => { e.stopPropagation(); setConfirmHideSubjectId(subject.id); }}
                                           className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
-                                          title="Ocultar matéria da lista"
+                                          title={mergedSubjectsMap[subject.id] ? "Separar ou Ocultar" : "Ocultar matéria da lista"}
                                         >
                                           <Trash2 size={14} />
                                         </button>
@@ -2035,8 +2117,92 @@ const Subjects = () => {
             isOpen={isMergeModalOpen}
             onClose={() => setIsMergeModalOpen(false)}
             selectedSubjects={subjects.filter(s => selectedSubjectsToMerge.includes(s.id))}
-            onConfirm={(finalName) => {
-              toast.success(`Matérias unidas com o nome: ${finalName}! Implementar lógica de backend...`);
+            onConfirm={async (finalName) => {
+              if (!user) return;
+              
+              const subjectsToMerge = subjects.filter(s => selectedSubjectsToMerge.includes(s.id));
+              if (subjectsToMerge.length < 2) return;
+              
+              try {
+                // 1. Criar nova matéria com o nome escolhido
+                const { data: newSubject, error: subjectError } = await supabase
+                  .from('subjects')
+                  .insert({
+                    user_id: user.id,
+                    name: finalName.toUpperCase(),
+                    status: 'Nova',
+                    priority: Math.max(...subjectsToMerge.map(s => s.priority || 0), 0) + 1
+                  })
+                  .select()
+                  .single();
+                
+                if (subjectError) throw subjectError;
+                
+                // 2. Coletar todos os tópicos de todas as matérias
+                const allTopics: { name: string; position: number }[] = [];
+                subjectsToMerge.forEach(s => {
+                  if (s.topics) {
+                    s.topics.forEach((t, idx) => {
+                      allTopics.push({ name: t.name, position: allTopics.length + 1 });
+                    });
+                  }
+                });
+                
+                // 3. Inserir todos os tópicos na nova matéria
+                if (allTopics.length > 0) {
+                  const topicsToInsert = allTopics.map(t => ({
+                    user_id: user.id,
+                    subject_id: newSubject.id,
+                    name: t.name,
+                    position: t.position
+                  }));
+                  
+                  const { error: topicsError } = await supabase
+                    .from('topics')
+                    .insert(topicsToInsert);
+                  
+                  if (topicsError) throw topicsError;
+                }
+                
+                // 4. Guardar a relação de mesclagem no localStorage
+                const mergedIds = subjectsToMerge.map(s => s.id);
+                const newMap = { ...mergedSubjectsMap, [newSubject.id]: mergedIds };
+                setMergedSubjectsMap(newMap);
+                
+                const storageKey = `merged_subjects_${user.id}`;
+                localStorage.setItem(storageKey, JSON.stringify(newMap));
+                
+                // 5. Atualizar o state local para mostrar só a matéria mesclada
+                const newSubjectWithTopics: Subject = {
+                  id: newSubject.id,
+                  name: newSubject.name,
+                  status: 'Nova' as Status,
+                  priority: newSubject.priority,
+                  color: newSubject.color || '#3B82F6',
+                  topics: allTopics.map((t, idx) => ({
+                    id: `temp-${idx}`,
+                    name: t.name,
+                    subject_id: newSubject.id,
+                    position: t.position,
+                    completed: false,
+                    reviewCount: 0,
+                    review_count: 0,
+                    reviewStage: 'Não Iniciado',
+                    review_stage: 'Não Iniciado'
+                  }))
+                };
+                
+                setLocalSubjects(prev => [
+                  ...prev.filter(s => !mergedIds.includes(s.id)),
+                  newSubjectWithTopics
+                ]);
+                
+                toast.success(`Matérias unidas em "${finalName}" com ${allTopics.length} tópicos!`);
+              } catch (err) {
+                console.error('Erro ao mesclar matérias:', err);
+                errorService.report(err as Error, { module: 'Subjects', action: 'merge', userMessage: 'Erro ao mesclar matérias.' });
+              }
+              
               setIsMergeModalOpen(false);
               setSelectedSubjectsToMerge([]);
               setIsMergeMode(false);
