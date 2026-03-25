@@ -32,6 +32,7 @@ interface EditalSubjectsModalProps {
     isOpen: boolean;
     onClose: () => void;
     edital: UserEdital;
+    editais?: UserEdital[]; // Editais do ciclo (para select)
     allSubjects: Subject[];
     onUpdate: (updated: UserEdital) => void;
 }
@@ -51,7 +52,7 @@ function getTopicStatus(topic: Topic): { label: string; color: string } {
 }
 
 export const EditalSubjectsModal = ({
-    isOpen, onClose, edital, allSubjects, onUpdate
+    isOpen, onClose, edital, editais, allSubjects, onUpdate
 }: EditalSubjectsModalProps) => {
     const { user } = useAuth();
     const { refreshData } = useApp();
@@ -66,6 +67,12 @@ export const EditalSubjectsModal = ({
     const initializedRef = useRef(false);
     // Flag: houve mudanças que precisam de sync ao fechar
     const hasPendingSync = useRef(false);
+
+    // ── Edital selecionado (para select de múltiplos editais) ──
+    const [selectedEdital, setSelectedEdital] = useState<UserEdital>(edital);
+    const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
+    const [pendingEditalSwitch, setPendingEditalSwitch] = useState<UserEdital | null>(null);
+    const showEditalSelector = editais && editais.length > 1;
 
     useEffect(() => {
         if (isOpen && !initializedRef.current) {
@@ -107,6 +114,54 @@ export const EditalSubjectsModal = ({
     const [iaStage, setIaStage] = useState<'input' | 'processing' | 'review'>('input');
     const [aiResult, setAiResult] = useState<AiSubject[]>([]);
     const [isProcessingIa, setIsProcessingIa] = useState(false);
+
+    // ── Funções de troca de edital ──────────────────────────────────────────
+    const hasUnsavedChanges = useMemo(() => {
+        return newSubjectName.trim().length > 0 ||
+            Object.values(newTopicTexts).some(t => t.trim().length > 0) ||
+            (editingTopicId !== null && editingTopicName.trim().length > 0);
+    }, [newSubjectName, newTopicTexts, editingTopicId, editingTopicName]);
+
+    const handleEditalChange = (newEditalId: string) => {
+        const newEdital = editais?.find(e => e.id === newEditalId);
+        if (!newEdital || newEdital.id === selectedEdital.id) return;
+
+        if (hasUnsavedChanges) {
+            setPendingEditalSwitch(newEdital);
+            setShowSwitchConfirm(true);
+        } else {
+            applyEditalSwitch(newEdital);
+        }
+    };
+
+    const applyEditalSwitch = (newEdital: UserEdital) => {
+        setNewSubjectName('');
+        setNewTopicTexts({});
+        setEditingTopicId(null);
+        setEditingTopicName('');
+        setSelectedEdital(newEdital);
+        setLocalSubjects(allSubjects.filter(s => newEdital.subjectIds.includes(s.id)));
+        setLocalEditalIds(newEdital.subjectIds);
+        setLocalActiveIds(newEdital.activeSubjectIds?.length ? newEdital.activeSubjectIds : newEdital.subjectIds);
+        setShowIaAdd(false);
+        setIaSubjectName('');
+        setIaInputText('');
+        setIaStage('input');
+        setAiResult([]);
+        setShowSwitchConfirm(false);
+        setPendingEditalSwitch(null);
+    };
+
+    const confirmEditalSwitch = () => {
+        if (pendingEditalSwitch) {
+            applyEditalSwitch(pendingEditalSwitch);
+        }
+    };
+
+    const cancelEditalSwitch = () => {
+        setShowSwitchConfirm(false);
+        setPendingEditalSwitch(null);
+    };
 
     // ── Fechar modal + sync ───────────────────────────────────────────────
     const handleClose = useCallback(() => {
@@ -562,10 +617,24 @@ export const EditalSubjectsModal = ({
                             </div>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-sm font-bold text-zinc-100 tracking-tight truncate">
-                                        {edital.name} {edital.year && <span className="text-zinc-500 font-medium whitespace-nowrap">| {edital.year}</span>}
-                                    </h2>
-                                    {edital.isImported && (
+                                    {showEditalSelector ? (
+                                        <select
+                                            value={selectedEdital.id}
+                                            onChange={(e) => handleEditalChange(e.target.value)}
+                                            className="bg-zinc-800 text-sm font-bold text-zinc-100 border border-white/10 rounded-lg px-3 py-1.5 outline-none cursor-pointer max-w-[300px]"
+                                        >
+                                            {editais.map(e => (
+                                                <option key={e.id} value={e.id} className="bg-zinc-800">
+                                                    {e.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <h2 className="text-sm font-bold text-zinc-100 tracking-tight truncate">
+                                            {selectedEdital.name} {selectedEdital.year && <span className="text-zinc-500 font-medium whitespace-nowrap">| {selectedEdital.year}</span>}
+                                        </h2>
+                                    )}
+                                    {selectedEdital.isImported && (
                                         <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
                                             <Database size={8} className="text-sky-400" />
                                             <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">SISTEMA</span>
@@ -1102,6 +1171,55 @@ export const EditalSubjectsModal = ({
                 subjectId={notesModal.subjectId}
                 subjectName={notesModal.subjectName}
             />
+
+            {/* Confirmação de troca de edital */}
+            <AnimatePresence>
+                {showSwitchConfirm && pendingEditalSwitch && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-6 shadow-2xl"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
+                                    <AlertTriangle size={20} className="text-amber-500" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-zinc-100">Alterações não salvas</h3>
+                                    <p className="text-[11px] text-content-muted mt-0.5">
+                                        Você tem alterações pendentes que serão perdidas.
+                                    </p>
+                                </div>
+                            </div>
+                            <p className="text-xs text-content-muted mb-6">
+                                Deseja trocar para <span className="font-bold text-content-main">{pendingEditalSwitch.name}</span> e descartar as alterações?
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={cancelEditalSwitch}
+                                    className="flex-1 px-4 py-2.5 text-xs font-bold text-content-muted bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-all"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmEditalSwitch}
+                                    className="flex-1 px-4 py-2.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all"
+                                >
+                                    Descartar e Trocar
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </>
     );
 };

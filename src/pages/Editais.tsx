@@ -1194,6 +1194,7 @@ const Editais = () => {
                     isOpen={subjectsModal.isOpen}
                     onClose={() => setSubjectsModal({ isOpen: false, edital: null })}
                     edital={subjectsModal.edital}
+                    editais={editais.filter(e => !e.mergedIntoCycle)}
                     allSubjects={subjects}
                     onUpdate={handleUpdateEdital}
                 />
