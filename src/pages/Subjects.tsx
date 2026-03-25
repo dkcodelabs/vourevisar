@@ -166,6 +166,165 @@ const Subjects = () => {
     return created;
   };
 
+  // ── Funções de banco para subject_relations ──
+  const db = supabase as any;
+  
+  const saveMergeRelationToDb = async (mainSubjectId: string, mergedSubjectIds: string[]) => {
+    if (!user) return false;
+    try {
+      const { error } = await db
+        .from('subject_relations')
+        .upsert({
+          user_id: user.id,
+          main_subject_id: mainSubjectId,
+          merged_subject_ids: mergedSubjectIds,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id,main_subject_id' });
+      
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('Erro ao salvar relação de mesclagem:', err);
+      return false;
+    }
+  };
+
+  const loadMergeRelationsFromDb = async (): Promise<Record<string, string[]>> => {
+    if (!user) return {};
+    try {
+      const { data, error } = await db
+        .from('subject_relations')
+        .select('main_subject_id, merged_subject_ids')
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      const map: Record<string, string[]> = {};
+      data?.forEach((row: any) => {
+        map[row.main_subject_id] = row.merged_subject_ids;
+      });
+      return map;
+    } catch (err) {
+      console.error('Erro ao carregar relações de mesclagem:', err);
+      return {};
+    }
+  };
+
+  const removeMergeRelationFromDb = async (mainSubjectId: string) => {
+    if (!user) return false;
+    try {
+      const { error } = await db
+        .from('subject_relations')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('main_subject_id', mainSubjectId);
+      
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('Erro ao remover relação de mesclagem:', err);
+      return false;
+    }
+  };
+
+  // ── Função para buscar editais de uma matéria mesclada ──
+  const getEditaisForMergedSubject = async (subjectId: string) => {
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('user_editais')
+      .select('id, name, subject_ids, is_imported')
+      .eq('user_id', user.id)
+      .contains('subject_ids', [subjectId]);
+    
+    if (error) {
+      console.error('Erro ao buscar editais:', error);
+      return [];
+    }
+    return data || [];
+  };
+
+  // ── Função Excluir Definitivo ──
+  const handleDeletePermanent = async (subjectId: string, editalIdToRemove?: string) => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      // 1. Se especificado edital, remover só desse edital
+      if (editalIdToRemove) {
+        const { data: edital } = await supabase
+          .from('user_editais')
+          .select('subject_ids')
+          .eq('id', editalIdToRemove)
+          .single();
+        
+        if (edital) {
+          const newIds = (edital.subject_ids || []).filter(id => id !== subjectId);
+          await supabase
+            .from('user_editais')
+            .update({ subject_ids: newIds })
+            .eq('id', editalIdToRemove);
+        }
+      } else {
+        // 2. Se não especificado, remover de TODOS os editais
+        const { data: editais } = await supabase
+          .from('user_editais')
+          .select('id, subject_ids')
+          .eq('user_id', user.id);
+        
+        if (editais) {
+          for (const edital of editais) {
+            if ((edital.subject_ids || []).includes(subjectId)) {
+              const newIds = (edital.subject_ids || []).filter(id => id !== subjectId);
+              await supabase
+                .from('user_editais')
+                .update({ subject_ids: newIds })
+                .eq('id', edital.id);
+            }
+          }
+        }
+      }
+
+      // 3. Deletar tópicos da matéria
+      await supabase
+        .from('topics')
+        .delete()
+        .eq('subject_id', subjectId);
+
+      // 4. Deletar a matéria
+      await supabase
+        .from('subjects')
+        .delete()
+        .eq('id', subjectId);
+
+      // 5. Remover relação de mesclagem se existir
+      await removeMergeRelationFromDb(subjectId);
+
+      // 6. Atualizar estado local
+      setLocalSubjects(prev => prev.filter(s => s.id !== subjectId));
+      
+      const newMap = { ...mergedSubjectsMap };
+      delete newMap[subjectId];
+      setMergedSubjectsMap(newMap);
+      
+      refresh();
+      toast.success('Matéria excluída definitivamente!');
+    } catch (err) {
+      console.error('Erro ao excluir definitivamente:', err);
+      errorService.report(err, { module: 'Subjects', action: 'deletePermanent', userMessage: 'Erro ao excluir matéria.' });
+    } finally {
+      setIsLoading(false);
+      setDeletePermanentConfirm({ isOpen: false, subjectId: null, editais: [] });
+    }
+  };
+
+  // Estado para confirmar exclusão definitiva
+  const [deletePermanentConfirm, setDeletePermanentConfirm] = useState<{
+    isOpen: boolean;
+    subjectId: string | null;
+    editais: Array<{ id: string; name: string; is_imported: boolean }>;
+  }>({ isOpen: false, subjectId: null, editais: [] });
+
   const handleSuggestMerges = async () => {
     setIsSuggesting(true);
     try {

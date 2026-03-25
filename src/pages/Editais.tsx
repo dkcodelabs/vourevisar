@@ -922,25 +922,33 @@ const Editais = () => {
                 </div>
 
                 {/* Badge de filtro ciclo (ao vir da página Matérias) */}
-                {filterCycle && (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-primary/5 border border-primary/20 rounded-xl">
-                        <Database size={16} className="text-primary shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-foreground">
-                                Mostrando editais do ciclo
-                            </p>
-                            <p className="text-xs text-content-muted mt-0.5">
-                                Clique em &ldquo;Ver Matérias&rdquo; para adicionar matérias e tópicos
-                            </p>
+                {filterCycle && (() => {
+                    const systemEditaisNoCiclo = editais.filter(e => e.mergedIntoCycle && e.isImported && !!e.sourceId);
+                    return (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-primary/5 border border-primary/20 rounded-xl">
+                            <Database size={16} className="text-primary shrink-0" />
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-foreground">
+                                    Mostrando editais do ciclo ({filteredEditais.length})
+                                </p>
+                                <p className="text-xs text-content-muted mt-0.5">
+                                    Clique em &ldquo;Ver Matérias&rdquo; para adicionar matérias e tópicos
+                                </p>
+                                {systemEditaisNoCiclo.length > 0 && (
+                                    <p className="text-[10px] text-amber-500 mt-1 font-medium">
+                                        {systemEditaisNoCiclo.length} edital{systemEditaisNoCiclo.length > 1 ? 's' : ''} do ciclo não {systemEditaisNoCiclo.length > 1 ? 'aparecem' : 'aparece'} aqui ({systemEditaisNoCiclo.map(e => e.name).join(', ')}) — são somente leitura
+                                    </p>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setFilterCycle(false)}
+                                className="p-2 hover:bg-primary/10 rounded-lg transition-colors shrink-0"
+                            >
+                                <X size={16} className="text-content-muted" />
+                            </button>
                         </div>
-                        <button
-                            onClick={() => setFilterCycle(false)}
-                            className="p-2 hover:bg-primary/10 rounded-lg transition-colors shrink-0"
-                        >
-                            <X size={16} className="text-content-muted" />
-                        </button>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
             
             {/* Banner de Alerta Amigável (Ciclo Vazio) */}
