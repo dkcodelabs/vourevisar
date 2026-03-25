@@ -716,11 +716,10 @@ export const EditalSubjectsModal = ({
                         </button>
                     </div>
 
-                    {/* ── Input nova matéria (MANUAL + IA) ── */}
-                    {(!edital.isImported || !edital.sourceId) && (
-                        <div className="px-6 pb-6 pt-2 shrink-0 space-y-3">
-                            {/* Modo IA */}
-                            {showIaAdd ? (
+                    {/* ── Input nova matéria (TODOS os editais) ── */}
+                    <div className="px-6 pb-6 pt-2 shrink-0 space-y-3">
+                        {/* Modo IA */}
+                        {showIaAdd ? (
                                 <div className="glow-card p-4 rounded-2xl border border-primary/30 bg-zinc-800/30">
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-2">
@@ -855,7 +854,6 @@ export const EditalSubjectsModal = ({
                                 </div>
                             )}
                         </div>
-                    )}
 
                     {/* ── Lista de matérias ── */}
                     <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 no-scrollbar">

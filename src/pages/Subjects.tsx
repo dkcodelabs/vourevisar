@@ -167,6 +167,7 @@ const Subjects = () => {
   };
 
   // ── Funções de banco para subject_relations ──
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
   
   const saveMergeRelationToDb = async (mainSubjectId: string, mergedSubjectIds: string[]) => {
@@ -200,7 +201,7 @@ const Subjects = () => {
       if (error) throw error;
       
       const map: Record<string, string[]> = {};
-      data?.forEach((row: any) => {
+      data?.forEach((row: { main_subject_id: string; merged_subject_ids: string[] }) => {
         map[row.main_subject_id] = row.merged_subject_ids;
       });
       return map;
@@ -378,22 +379,19 @@ const Subjects = () => {
   };
 
   // Função para separar matérias mescladas
-  const handleSeparate = (subjectId: string) => {
+  const handleSeparate = async (subjectId: string) => {
     if (!user) return;
     
     const mergedIds = mergedSubjectsMap[subjectId];
     if (!mergedIds || mergedIds.length === 0) return;
 
-    // Atualizar o state para mostrar as matérias separadas
-    const subjectsToRestore = localSubjects.filter(s => mergedIds.includes(s.id));
-    
     // Adicionar as matérias de volta ao state se não existirem
     const currentIds = new Set(localSubjects.map(s => s.id));
     const newSubjects: Subject[] = [];
     
     for (const id of mergedIds) {
       if (!currentIds.has(id)) {
-        const subject = subjects.find(s => s.id === id);
+        const subject = localSubjects.find(s => s.id === id);
         if (subject) {
           newSubjects.push(subject);
         }
@@ -409,9 +407,8 @@ const Subjects = () => {
     delete newMap[subjectId];
     setMergedSubjectsMap(newMap);
     
-    // Salvar no localStorage
-    const key = `merged_subjects_${user.id}`;
-    localStorage.setItem(key, JSON.stringify(newMap));
+    // Salvar no banco de dados
+    await removeMergeRelationFromDb(subjectId);
     
     toast.success('Matérias separadas com sucesso!');
     setConfirmHideSubjectId(null);
@@ -786,18 +783,13 @@ const Subjects = () => {
     }
   }, [subjects, dataLoaded]);
 
-  // Carregar relações de mesclagem do localStorage
+  // Carregar relações de mesclagem do banco
   useEffect(() => {
-    const loadMergedRelations = () => {
+    const loadMergedRelations = async () => {
       if (!user) return;
-      const key = `merged_subjects_${user.id}`;
-      const stored = localStorage.getItem(key);
-      if (stored) {
-        try {
-          setMergedSubjectsMap(JSON.parse(stored));
-        } catch (e) {
-          console.warn('Erro ao carregar relações de mesclagem:', e);
-        }
+      const relations = await loadMergeRelationsFromDb();
+      if (Object.keys(relations).length > 0) {
+        setMergedSubjectsMap(relations);
       }
     };
     loadMergedRelations();
@@ -1887,6 +1879,21 @@ const Subjects = () => {
                                             Ocultar
                                           </button>
                                           <button
+                                            onClick={async () => {
+                                              const editais = await getEditaisForMergedSubject(subject.id);
+                                              setDeletePermanentConfirm({
+                                                isOpen: true,
+                                                subjectId: subject.id,
+                                                editais: editais.map(e => ({ id: e.id, name: e.name, is_imported: e.is_imported }))
+                                              });
+                                              setConfirmHideSubjectId(null);
+                                            }}
+                                            className="px-2 py-0.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-lg text-[10px] transition-all shrink-0"
+                                            title="Excluir definitivamente"
+                                          >
+                                            Excluir
+                                          </button>
+                                          <button
                                             onClick={() => setConfirmHideSubjectId(null)}
                                             className="p-0.5 hover:bg-white/10 rounded text-amber-300/60 hover:text-amber-300 transition-all"
                                           >
@@ -2161,6 +2168,109 @@ const Subjects = () => {
             </AlertDialogContent>
           </AlertDialog>
 
+          <AlertDialog 
+            open={deletePermanentConfirm.isOpen} 
+            onOpenChange={(open) => !open && setDeletePermanentConfirm({ isOpen: false, subjectId: null, editais: [] })}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  Excluir Definitivamente
+                </AlertDialogTitle>
+                <AlertDialogDescription className="space-y-3">
+                  <p>Tem certeza que deseja <strong>excluir definitivamente</strong> esta matéria?</p>
+                  <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg text-red-400 text-sm">
+                    <p><strong>Atenção:</strong> Esta ação não pode ser desfeita!</p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>Todos os tópicos serão excluídos</li>
+                      <li>Todo o histórico de revisões será perdido</li>
+                      <li>A matéria será removida do edital</li>
+                    </ul>
+                  </div>
+                  
+                  {deletePermanentConfirm.editais.length > 1 && (
+                    <div className="mt-4">
+                      <p className="font-medium text-foreground mb-2">Esta matéria pertence a múltiplos editais. De qual deseja remover?</p>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {deletePermanentConfirm.editais.map((edital) => (
+                          <button
+                            key={edital.id}
+                            onClick={() => {
+                              if (edital.is_imported) {
+                                toastGate.notifyError('Não é possível excluir matérias de editais importados do sistema!', 'DEL-SYS-01', { severity: 'high' });
+                                return;
+                              }
+                              handleDeletePermanent(deletePermanentConfirm.subjectId!, edital.id);
+                            }}
+                            disabled={edital.is_imported}
+                            className={`w-full text-left p-2 rounded-lg border transition-all flex items-center justify-between ${
+                              edital.is_imported 
+                                ? 'border-red-200 bg-red-50 opacity-50 cursor-not-allowed' 
+                                : 'border-border hover:border-red-500 hover:bg-red-500/5'
+                            }`}
+                          >
+                            <span className="text-sm">{edital.name}</span>
+                            {edital.is_imported ? (
+                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">Sistema</span>
+                            ) : (
+                              <span className="text-xs text-content-muted">Remover</span>
+                            )}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handleDeletePermanent(deletePermanentConfirm.subjectId!)}
+                          className="w-full text-left p-2 rounded-lg border border-red-500 bg-red-500/10 hover:bg-red-500/20 transition-all"
+                        >
+                          <span className="text-sm font-medium text-red-400">Excluir de TODOS os editais</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {deletePermanentConfirm.editais.length === 1 && (
+                    <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                      {deletePermanentConfirm.editais[0].is_imported ? (
+                        <p className="text-amber-400">
+                          <strong>Não é possível excluir</strong> esta matéria pois pertence a um edital importado do sistema.
+                        </p>
+                      ) : (
+                        <p className="text-foreground">
+                          A matéria será removida do edital: <strong>"{deletePermanentConfirm.editais[0].name}"</strong>
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {deletePermanentConfirm.editais.length === 0 && (
+                    <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                      <p className="text-foreground">
+                        A matéria não está vinculada a nenhum edital e será <strong>excluída permanentemente</strong>.
+                      </p>
+                    </div>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                {deletePermanentConfirm.editais.length <= 1 && !deletePermanentConfirm.editais[0]?.is_imported && (
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (deletePermanentConfirm.subjectId) {
+                        handleDeletePermanent(deletePermanentConfirm.subjectId);
+                      }
+                    }}
+                    className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Excluir Definitivamente
+                  </AlertDialogAction>
+                )}
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <ImportEditalModal
             isOpen={isImportEditalModalOpen}
             onClose={() => setIsImportEditalModalOpen(false)}
@@ -2285,13 +2395,12 @@ const Subjects = () => {
                   if (topicsError) throw topicsError;
                 }
                 
-                // 4. Guardar a relação de mesclagem no localStorage
+                // 4. Guardar a relação de mesclagem no banco de dados
                 const mergedIds = subjectsToMerge.map(s => s.id);
                 const newMap = { ...mergedSubjectsMap, [newSubject.id]: mergedIds };
                 setMergedSubjectsMap(newMap);
                 
-                const storageKey = `merged_subjects_${user.id}`;
-                localStorage.setItem(storageKey, JSON.stringify(newMap));
+                await saveMergeRelationToDb(newSubject.id, mergedIds);
                 
                 // 5. Atualizar o state local para mostrar só a matéria mesclada
                 const newSubjectWithTopics: Subject = {

@@ -141,7 +141,7 @@ export const EditalCard = ({
                         )}
                         <div className="flex items-center gap-2 mt-2">
                             <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded-md border bg-secondary light:bg-slate-100 dark:bg-zinc-800 text-muted-foreground light:text-slate-600 dark:text-zinc-400 border-border dark:border-white/5">
-                                {edital.sourceId ? 'SISTEMA' : edital.isImported ? 'IMPORTADO IA' : 'MANUAL'}
+                                {edital.sourceId ? 'CÓPIA • SISTEMA' : edital.isImported ? 'CÓPIA • IA' : 'MANUAL'}
                             </span>
                             <span className="text-[10px] text-content-muted">•</span>
                             <span className="text-[10px] text-content-muted font-medium">{createdDate}</span>
