@@ -313,41 +313,48 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                         ) : (
                             <div className="space-y-12 pb-4">
                                 {/* Toggle Marcar/Desmarcar Tudo */}
-                                <button
-                                    onClick={() => {
-                                        const totalItems = diff.additions.subjects.length + Object.values(diff.additions.topics).flat().length
-                                            + diff.removals.subjects.length + Object.values(diff.removals.topics).flat().length;
-                                        const selectedItems = selectedAdditions.size + selectedRemovals.size;
-                                        handleToggleAll(selectedItems < totalItems);
-                                    }}
-                                    className="w-full flex items-center justify-between p-3 rounded-2xl bg-secondary/40 hover:bg-secondary/60 border border-border transition-all"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        {(() => {
-                                            const totalItems = diff.additions.subjects.length + Object.values(diff.additions.topics).flat().length
-                                                + diff.removals.subjects.length + Object.values(diff.removals.topics).flat().length;
-                                            const selectedItems = selectedAdditions.size + selectedRemovals.size;
-                                            const allSelected = selectedItems >= totalItems;
-                                            return (
-                                                <>
-                                                    <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-300 ${
-                                                        allSelected
-                                                        ? 'bg-primary border-primary text-white'
-                                                        : 'border-white/10 text-transparent'
-                                                    }`}>
-                                                        <Check size={12} strokeWidth={3} />
-                                                    </div>
-                                                    <span className="text-xs font-black text-foreground uppercase tracking-wider">
-                                                        {allSelected ? 'Desmarcar Tudo' : 'Marcar Tudo'}
-                                                    </span>
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                    <span className="text-[10px] text-content-muted font-bold">
-                                        {selectedAdditions.size + selectedRemovals.size}/{diff.additions.subjects.length + Object.values(diff.additions.topics).flat().length + diff.removals.subjects.length + Object.values(diff.removals.topics).flat().length} selecionados
-                                    </span>
-                                </button>
+                                {(() => {
+                                    const selAdd = [...selectedAdditions].filter(k => !k.includes('__topic_header__')).length;
+                                    const selRem = [...selectedRemovals].filter(k => !k.includes('__topic_header__')).length;
+                                    const selectedCount = selAdd + selRem;
+
+                                    let totalCount = 0;
+                                    diff.additions.subjects.forEach(s => {
+                                        totalCount++;
+                                        totalCount += (s.topics || []).length;
+                                    });
+                                    totalCount += Object.values(diff.additions.topics).flat().length;
+                                    totalCount += diff.removals.subjects.length;
+                                    diff.removals.subjects.forEach(s => {
+                                        totalCount += (s.topics || []).length;
+                                    });
+                                    totalCount += Object.values(diff.removals.topics).flat().length;
+
+                                    const allSelected = selectedCount >= totalCount;
+
+                                    return (
+                                        <button
+                                            onClick={() => handleToggleAll(!allSelected)}
+                                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-secondary/40 hover:bg-secondary/60 border border-border transition-all"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-300 ${
+                                                    allSelected
+                                                    ? 'bg-primary border-primary text-white'
+                                                    : 'border-white/10 text-transparent'
+                                                }`}>
+                                                    <Check size={12} strokeWidth={3} />
+                                                </div>
+                                                <span className="text-xs font-black text-foreground uppercase tracking-wider">
+                                                    {allSelected ? 'Desmarcar Tudo' : 'Marcar Tudo'}
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] text-content-muted font-bold">
+                                                {selectedCount}/{totalCount} selecionados
+                                            </span>
+                                        </button>
+                                    );
+                                })()}
 
                                 {/* Section: Inclusões */}
                                 {(diff.additions.subjects.length > 0 || Object.keys(diff.additions.topics).length > 0) && (

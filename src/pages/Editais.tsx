@@ -535,6 +535,7 @@ const Editais = () => {
             } else {
                 // Mescla: une os IDs atuais com os novos
                 const mergedIds = [...new Set([...cycleConflict.existingIds, ...edital.subjectIds])];
+                await executeCycleLoad(mergedIds);
                 await markEditalMerged(edital.id, edital.subjectIds);
                 const addedCount = mergedIds.length - cycleConflict.existingIds.length;
                 toast.success(`${addedCount} nova(s) matérias mescladas ao seu ciclo.`);
