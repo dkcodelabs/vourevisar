@@ -127,7 +127,17 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                 topics.forEach((t, i) => initialAdd.add(`top-${sId}-${i}`));
             });
             setSelectedAdditions(initialAdd);
-            setSelectedRemovals(new Set()); // Remoções vazias por padrão
+
+            // Remoções: pré-selecionar tudo (matérias + tópicos)
+            const initialRem = new Set<string>();
+            diff.removals.subjects.forEach(s => {
+                initialRem.add(`rem-subj-${s.id}`);
+                (s.topics || []).forEach(t => initialRem.add(`rem-top-${s.id}-${t.id}`));
+            });
+            Object.entries(diff.removals.topics).forEach(([sId, topics]) => {
+                topics.forEach(t => initialRem.add(`rem-top-${sId}-${t.id}`));
+            });
+            setSelectedRemovals(initialRem);
         }
     }, [isOpen, diff]);
 
@@ -163,6 +173,34 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
             }
             return next;
         });
+    };
+
+    const handleToggleAll = (selectAll: boolean) => {
+        if (selectAll) {
+            const allAdditions = new Set<string>();
+            diff.additions.subjects.forEach(s => {
+                const sId = s.id || s.name;
+                allAdditions.add(`subj-${sId}`);
+                (s.topics || []).forEach((_, i) => allAdditions.add(`subj-${sId}-t-${i}`));
+            });
+            Object.entries(diff.additions.topics).forEach(([sId, topics]) => {
+                topics.forEach((_, i) => allAdditions.add(`top-${sId}-${i}`));
+            });
+            setSelectedAdditions(allAdditions);
+
+            const allRemovals = new Set<string>();
+            diff.removals.subjects.forEach(s => {
+                allRemovals.add(`rem-subj-${s.id}`);
+                (s.topics || []).forEach(t => allRemovals.add(`rem-top-${s.id}-${t.id}`));
+            });
+            Object.entries(diff.removals.topics).forEach(([sId, topics]) => {
+                topics.forEach(t => allRemovals.add(`rem-top-${sId}-${t.id}`));
+            });
+            setSelectedRemovals(allRemovals);
+        } else {
+            setSelectedAdditions(new Set());
+            setSelectedRemovals(new Set());
+        }
     };
 
     const handleConfirm = async () => {
@@ -274,6 +312,43 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                             </motion.div>
                         ) : (
                             <div className="space-y-12 pb-4">
+                                {/* Toggle Marcar/Desmarcar Tudo */}
+                                <button
+                                    onClick={() => {
+                                        const totalItems = diff.additions.subjects.length + Object.values(diff.additions.topics).flat().length
+                                            + diff.removals.subjects.length + Object.values(diff.removals.topics).flat().length;
+                                        const selectedItems = selectedAdditions.size + selectedRemovals.size;
+                                        handleToggleAll(selectedItems < totalItems);
+                                    }}
+                                    className="w-full flex items-center justify-between p-3 rounded-2xl bg-secondary/40 hover:bg-secondary/60 border border-border transition-all"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {(() => {
+                                            const totalItems = diff.additions.subjects.length + Object.values(diff.additions.topics).flat().length
+                                                + diff.removals.subjects.length + Object.values(diff.removals.topics).flat().length;
+                                            const selectedItems = selectedAdditions.size + selectedRemovals.size;
+                                            const allSelected = selectedItems >= totalItems;
+                                            return (
+                                                <>
+                                                    <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-300 ${
+                                                        allSelected
+                                                        ? 'bg-primary border-primary text-white'
+                                                        : 'border-white/10 text-transparent'
+                                                    }`}>
+                                                        <Check size={12} strokeWidth={3} />
+                                                    </div>
+                                                    <span className="text-xs font-black text-foreground uppercase tracking-wider">
+                                                        {allSelected ? 'Desmarcar Tudo' : 'Marcar Tudo'}
+                                                    </span>
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                    <span className="text-[10px] text-content-muted font-bold">
+                                        {selectedAdditions.size + selectedRemovals.size}/{diff.additions.subjects.length + Object.values(diff.additions.topics).flat().length + diff.removals.subjects.length + Object.values(diff.removals.topics).flat().length} selecionados
+                                    </span>
+                                </button>
+
                                 {/* Section: Inclusões */}
                                 {(diff.additions.subjects.length > 0 || Object.keys(diff.additions.topics).length > 0) && (
                                     <div className="space-y-6">
@@ -586,8 +661,8 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                         )}
                     </div>
 
-                    {/* Footer with Glass Effect */}
-                    <div className="p-6 border-t border-border dark:border-white/5 bg-secondary/30 dark:bg-white/5 backdrop-blur-md flex gap-4">
+                    {/* Footer with Glass Effect - Always visible */}
+                    <div className="p-5 border-t border-border dark:border-white/5 bg-card/95 backdrop-blur-xl flex gap-3 shrink-0">
 
                         <button
                             onClick={onClose}

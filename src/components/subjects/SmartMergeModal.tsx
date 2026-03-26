@@ -120,11 +120,8 @@ export const SmartMergeModal = ({ isOpen, onClose, subjects, suggestions, onAppl
                         localSuggestions.map((suggestion, idx) => {
                             const subjectsToMerge = subjects.filter(s => suggestion.subjectIds.includes(s.id));
                             
-                            // Calcular tópicos finais (removendo duplicatas por nome)
-                            const allTopics = subjectsToMerge.flatMap(s => s.topics || []);
-                            const uniqueTopics = allTopics.filter((t, i, arr) => 
-                                arr.findIndex(x => x.name.toLowerCase() === t.name.toLowerCase()) === i
-                            );
+                            // Calcular tópicos finais (manter todos, sem deduplicar)
+                            const allMergedTopics = subjectsToMerge.flatMap(s => s.topics || []);
 
                             return (
                                 <div
@@ -210,10 +207,10 @@ export const SmartMergeModal = ({ isOpen, onClose, subjects, suggestions, onAppl
                                         <div className="flex items-center gap-2 mb-2">
                                             <List size={12} className="text-primary" />
                                             <span className="text-[10px] font-bold text-content-main uppercase tracking-widest">
-                                                Tópicos Finais ({uniqueTopics.length}):
+                                                Tópicos Finais ({allMergedTopics.length}):
                                             </span>
                                         </div>
-                                        <CompactTopicList topics={uniqueTopics} maxVisible={5} />
+                                        <CompactTopicList topics={allMergedTopics} maxVisible={5} />
                                     </div>
                                 </div>
                             );

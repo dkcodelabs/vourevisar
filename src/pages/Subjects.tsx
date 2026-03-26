@@ -1803,6 +1803,9 @@ const Subjects = () => {
                                     {isView && (
                                       <Badge variant="outline" className="text-[8px] px-1 bg-primary/10 text-primary border-primary/20">DUP</Badge>
                                     )}
+                                    {(mergedSubjectsMap[subject.id] || Object.values(mergedSubjectsMap).some(arr => arr.includes(subject.id))) && (
+                                      <Badge variant="outline" className="text-[8px] px-1 bg-blue-500/10 text-blue-500 border-blue-500/20">MESCLADA</Badge>
+                                    )}
                                     {calculatedStatus === 'Concluída' && (
                                       <Badge variant="outline" className="text-[8px] px-1 bg-green-500/10 text-green-500 border-green-500/20">CONCLUÍDO</Badge>
                                     )}
@@ -2164,40 +2167,65 @@ const Subjects = () => {
             </AlertDialogContent>
           </AlertDialog>
 
+          {/* Dialog Simplificado: Excluir do Edital */}
           <AlertDialog 
             open={deletePermanentConfirm.isOpen} 
             onOpenChange={(open) => !open && setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] })}
           >
-            <AlertDialogContent>
+            <AlertDialogContent className="max-w-sm">
               <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2">
+                <AlertDialogTitle className="flex items-center gap-2 text-base">
                   <AlertCircle className="w-5 h-5 text-red-500" />
                   Excluir do Edital
                 </AlertDialogTitle>
-                <div className="space-y-3 pt-2">
-                  <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
-                    <p className="text-sm text-blue-400">
-                      Matéria: <strong className="text-blue-200">{deletePermanentConfirm.subjectName}</strong>
-                    </p>
-                  </div>
-                  <p>Tem certeza que deseja <strong>excluir esta matéria do edital</strong>?</p>
-                  <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg text-red-400 text-sm">
-                    <p className="font-medium">Atenção: Esta ação não pode ser desfeita!</p>
-                    <ul className="list-disc list-inside mt-2 space-y-1">
-                      <li>Todos os tópicos serão excluídos</li>
-                      <li>Todo o histórico de revisões será perdido</li>
-                      <li>A matéria será removida do edital</li>
-                    </ul>
-                  </div>
-                  
-                  {deletePermanentConfirm.editais.length > 1 && (
-                    <div className="mt-4">
-                      <p className="font-medium text-foreground mb-2">Esta matéria pertence a múltiplos editais. De qual deseja remover?</p>
-                      <div className="space-y-2 max-h-32 overflow-y-auto">
-                        {deletePermanentConfirm.editais.map((edital) => {
-                          // Verifica se é o edital original do sistema (não é cópia)
-                          const isOriginalSystem = !edital.source_id && edital.is_imported;
-                          return (
+              </AlertDialogHeader>
+              
+              <div className="py-3 space-y-3">
+                {/* Matéria */}
+                <div className="bg-muted/50 border border-border rounded-lg px-3 py-2">
+                  <p className="text-xs text-content-muted">Matéria:</p>
+                  <p className="text-sm font-bold truncate">{deletePermanentConfirm.subjectName}</p>
+                </div>
+
+                {/* Edital Info (se 1 edital) */}
+                {deletePermanentConfirm.editais.length === 1 && (() => {
+                  const edil = deletePermanentConfirm.editais[0];
+                  const isOriginalSystem = !edil.source_id && edil.is_imported;
+                  return (
+                    <div className={`border rounded-lg px-3 py-2 ${isOriginalSystem ? 'bg-red-500/10 border-red-500/20' : 'bg-muted/50 border-border'}`}>
+                      {isOriginalSystem ? (
+                        <p className="text-xs text-red-500 font-medium">
+                          Não é possível excluir: edital original do sistema
+                        </p>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-content-muted">Edital:</p>
+                            <p className="text-sm font-medium truncate max-w-[180px]">"{edil.name}"</p>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            edil.source_id 
+                              ? 'bg-blue-500/20 text-blue-400' 
+                              : edil.is_imported 
+                                ? 'bg-purple-500/20 text-purple-400' 
+                                : 'bg-green-500/20 text-green-400'
+                          }`}>
+                            {edil.source_id ? 'CÓPIA • SISTEMA' : edil.is_imported ? 'CÓPIA • IA' : 'MANUAL'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Múltiplos editais */}
+                {deletePermanentConfirm.editais.length > 1 && (
+                  <div className="border border-border rounded-lg p-3 space-y-2">
+                    <p className="text-xs font-medium text-content-muted">Escolha o edital para remover:</p>
+                    <div className="space-y-1">
+                      {deletePermanentConfirm.editais.map((edital) => {
+                        const isOriginalSystem = !edital.source_id && edital.is_imported;
+                        return (
                           <button
                             key={edital.id}
                             onClick={() => {
@@ -2208,89 +2236,48 @@ const Subjects = () => {
                               handleDeletePermanent(deletePermanentConfirm.subjectId!, edital.id);
                             }}
                             disabled={isOriginalSystem}
-                            className={`w-full text-left p-2 rounded-lg border transition-all flex items-center justify-between ${
+                            className={`w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between text-xs ${
                               isOriginalSystem
-                                ? 'border-red-200 bg-red-50 opacity-50 cursor-not-allowed' 
-                                : 'border-border hover:border-red-500 hover:bg-red-500/5'
+                                ? 'border-red-300 bg-red-100/80 dark:bg-red-950/40 dark:border-red-800/50 cursor-not-allowed' 
+                                : 'border-border hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
                             }`}
                           >
-                            <span className="text-sm">{edital.name}</span>
-                            <div className="flex items-center gap-1">
-                              {edital.source_id ? (
-                                <span className="text-[10px] font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                  CÓPIA • SISTEMA
-                                </span>
-                              ) : edital.is_imported ? (
-                                <span className="text-[10px] font-bold px-2 py-1 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                                  CÓPIA • IA
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                                  MANUAL
+                            <div className="flex flex-col gap-0.5 min-w-0">
+                              <span className={`truncate max-w-[180px] font-medium ${isOriginalSystem ? 'text-red-400 dark:text-red-500' : ''}`}>
+                                {edital.name}
+                              </span>
+                              {isOriginalSystem && (
+                                <span className="text-[9px] font-bold text-red-500 dark:text-red-400">
+                                  Edital original do sistema
                                 </span>
                               )}
                             </div>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                              isOriginalSystem
+                                ? 'bg-red-200/80 text-red-600 dark:bg-red-900/50 dark:text-red-400'
+                                : edital.source_id 
+                                  ? 'bg-blue-500/20 text-blue-500 dark:text-blue-400' 
+                                  : edital.is_imported 
+                                    ? 'bg-purple-500/20 text-purple-500 dark:text-purple-400' 
+                                    : 'bg-green-500/20 text-green-600 dark:text-green-400'
+                            }`}>
+                              {isOriginalSystem ? 'SISTEMA' : edital.source_id ? 'CÓPIA' : edital.is_imported ? 'IA' : 'MANUAL'}
+                            </span>
                           </button>
                         );
-                        })}
-                        <button
-                          onClick={() => handleDeletePermanent(deletePermanentConfirm.subjectId!)}
-                          className="w-full text-left p-2 rounded-lg border border-red-500 bg-red-500/10 hover:bg-red-500/20 transition-all"
-                        >
-                          <span className="text-sm font-medium text-red-400">Remover de TODOS os editais</span>
-                        </button>
-                      </div>
+                      })}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {deletePermanentConfirm.editais.length === 1 && (() => {
-                    const edil = deletePermanentConfirm.editais[0];
-                    const isOriginalSystem = !edil.source_id && edil.is_imported;
-                    return (
-                    <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                      {isOriginalSystem ? (
-                        <p className="text-amber-400">
-                          <strong>Não é possível excluir</strong> esta matéria pois pertence ao edital original do sistema.
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-foreground">Edital:</span>
-                            <strong className="text-foreground text-sm">"{deletePermanentConfirm.editais[0].name}"</strong>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-content-muted text-xs">Tipo:</span>
-                            {deletePermanentConfirm.editais[0].source_id ? (
-                              <span className="text-[10px] font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                CÓPIA • SISTEMA
-                              </span>
-                            ) : deletePermanentConfirm.editais[0].is_imported ? (
-                              <span className="text-[10px] font-bold px-2 py-1 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                                CÓPIA • IA
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                                MANUAL
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    );
-                  })()}
+                {/* Aviso */}
+                <p className="text-[11px] text-content-muted text-center">
+                  Esta ação não pode ser desfeita. Tópicos e histórico serão perdidos.
+                </p>
+              </div>
 
-                  {deletePermanentConfirm.editais.length === 0 && (
-                    <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                      <p className="text-foreground">
-                        A matéria não está vinculada a nenhum edital e será <strong>excluída permanentemente</strong>.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogFooter className="gap-2 flex-wrap">
+                <AlertDialogCancel className="text-xs">Cancelar</AlertDialogCancel>
                 {deletePermanentConfirm.isMerged && (
                   <AlertDialogAction
                     onClick={(e) => {
@@ -2300,12 +2287,28 @@ const Subjects = () => {
                         setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] });
                       }
                     }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center gap-2"
+                    className="bg-blue-500 hover:bg-blue-600 text-white text-xs gap-1.5"
                   >
-                    <Scissors className="w-4 h-4" />
-                    Separar Matérias
+                    <Scissors className="w-3.5 h-3.5" />
+                    Separar
                   </AlertDialogAction>
                 )}
+                {/* Excluir de todos (apenas quando há mais de 1 edital) */}
+                {deletePermanentConfirm.editais.length > 1 && (
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (deletePermanentConfirm.subjectId) {
+                        handleDeletePermanent(deletePermanentConfirm.subjectId);
+                      }
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Excluir de TODOS
+                  </AlertDialogAction>
+                )}
+                {/* Excluir normal (quando tem 0 ou 1 edital que não seja sistema original) */}
                 {deletePermanentConfirm.editais.length <= 1 && (deletePermanentConfirm.editais.length === 0 || !(deletePermanentConfirm.editais[0].is_imported && !deletePermanentConfirm.editais[0].source_id)) && (
                   <AlertDialogAction
                     onClick={(e) => {
@@ -2314,9 +2317,9 @@ const Subjects = () => {
                         handleDeletePermanent(deletePermanentConfirm.subjectId);
                       }
                     }}
-                    className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
+                    className="bg-red-500 hover:bg-red-600 text-white text-xs gap-1.5"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                     Excluir
                   </AlertDialogAction>
                 )}
@@ -2448,8 +2451,33 @@ const Subjects = () => {
                   if (topicsError) throw topicsError;
                 }
                 
-                // 4. Guardar a relação de mesclagem no banco de dados
+                // 4. Vincular a nova matéria aos editais das matérias originais
                 const mergedIds = subjectsToMerge.map(s => s.id);
+                
+                // Buscar todos os editais que contêm as matérias originais
+                const { data: relatedEditais } = await (supabase as any)
+                  .from('user_editais')
+                  .select('id, subject_ids')
+                  .or(mergedIds.map(id => `subject_ids.cs.["${id}"]`).join(','));
+                
+                if (relatedEditais && relatedEditais.length > 0) {
+                  for (const edital of relatedEditais) {
+                    const currentIds = (edital.subject_ids as string[]) || [];
+                    // Substituir IDs originais pelo ID da nova matéria (sem duplicatas)
+                    const updatedIds = [
+                      ...new Set([
+                        ...currentIds.filter(id => !mergedIds.includes(id)),
+                        newSubject.id
+                      ])
+                    ];
+                    await (supabase as any)
+                      .from('user_editais')
+                      .update({ subject_ids: updatedIds })
+                      .eq('id', edital.id);
+                  }
+                }
+
+                // 5. Guardar a relação de mesclagem no banco de dados
                 const newMap = { ...mergedSubjectsMap, [newSubject.id]: mergedIds };
                 setMergedSubjectsMap(newMap);
                 
@@ -2481,6 +2509,9 @@ const Subjects = () => {
                 ]);
                 
                 toast.success(`Matérias unidas em "${finalName}" com ${allTopics.length} tópicos!`);
+                
+                await refreshData();
+                refresh();
               } catch (err) {
                 console.error('Erro ao mesclar matérias:', err);
                 errorService.report(err as Error, { module: 'Subjects', action: 'merge', userMessage: 'Erro ao mesclar matérias.' });

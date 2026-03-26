@@ -612,6 +612,24 @@ const Editais = () => {
 
             if (editalErr) throw editalErr;
 
+            // 3b. Atualizar tópicos com edital_id
+            const allTopicIds: string[] = [];
+            for (const subjId of realSubjectIds) {
+                const { data: topicRows } = await supabase
+                    .from('topics')
+                    .select('id')
+                    .eq('subject_id', subjId);
+                if (topicRows) {
+                    allTopicIds.push(...topicRows.map((t: any) => t.id));
+                }
+            }
+            if (allTopicIds.length > 0) {
+                await supabase
+                    .from('topics')
+                    .update({ edital_id: newEditalRow.id } as any)
+                    .in('id', allTopicIds);
+            }
+
             // 4. Atualizar tudo
             await fetchEditais();
             await refreshData(); 

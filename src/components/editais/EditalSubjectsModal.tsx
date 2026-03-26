@@ -276,6 +276,7 @@ export const EditalSubjectsModal = ({
                 if (newTopics.length > 0) {
                     const topicsToInsert = newTopics.map((t, idx) => ({
                         subject_id: existingSubject.id,
+                        edital_id: selectedEdital.id,
                         name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
                         completed: false,
                         review_count: 0,
