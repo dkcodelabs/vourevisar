@@ -6,6 +6,8 @@ const apiKey =
   (import.meta as any).env?.VITE_GEMINI_API_KEY || 
   (import.meta as any).env?.VITE_GOOGLE_API_KEY || 
   "";
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || "https://ebghgbzvdiytxuxmnvvt.supabase.co";
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function getStudyInsight(topic: string, difficulty: number, timeSpent: number) {
@@ -16,7 +18,7 @@ export async function getStudyInsight(topic: string, difficulty: number, timeSpe
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       generationConfig: {
         temperature: 0.7,
         topP: 0.8,
@@ -43,6 +45,31 @@ export async function getStudyInsight(topic: string, difficulty: number, timeSpe
 }
 
 /**
+ * Buscar prompt de mesclagem do banco
+ */
+async function getMergePromptFromDB(): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/system_settings?key=eq.ai_merge_prompt&select=value`,
+      {
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        }
+      }
+    );
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data?.[0]?.value || null;
+  } catch (e) {
+    console.warn('Erro ao buscar prompt do banco:', e);
+    return null;
+  }
+}
+
+/**
  * Sugestion de mescla baseada em conteúdo usando Gemini
  */
 export async function suggestContentBasedMerges(subjects: Subject[]) {
@@ -50,7 +77,7 @@ export async function suggestContentBasedMerges(subjects: Subject[]) {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       generationConfig: {
         responseMimeType: "application/json",
       }
@@ -63,18 +90,25 @@ export async function suggestContentBasedMerges(subjects: Subject[]) {
       topics: s.topics.map(t => t.name).slice(0, 15) // Primeiros 15 tópicos por matéria
     }));
 
-    const prompt = `Analise a seguinte lista de matérias de um edital de concurso público. 
+    // Buscar prompt do banco
+    const dbPrompt = await getMergePromptFromDB();
+    
+    // Se não tiver no banco, usar fallback hardcoded
+    let prompt = dbPrompt || `Analise a seguinte lista de matérias de um edital de concurso público. 
     Algumas matérias podem ser idênticas ou tratar do mesmo assunto, mesmo com nomes diferentes (ex: "Direito Constitucional" e "D. Const."). 
     Sua tarefa é identificar matérias duplicadas ou que deveriam ser UNIDAS em uma só com base em seus NOMES e TÓPICOS.
 
     MATÉRIAS: 
-    ${JSON.stringify(subjectsSummary, null, 2)}
+    $SUBJECTS$
 
     Responda em JSON rigoroso com este formato:
     [{ "subjectIds": ["id1", "id2"], "suggestedName": "Nome Sugerido Unificado" }]
     
     Apenas inclua sugestões com ALTA confiança de duplicidade ou sobreposição total de conteúdo.
     Se não houver sugestões claras, retorne uma lista vazia [].`;
+
+    // Substituir placeholder $SUBJECTS$ pelos dados reais
+    prompt = prompt.replace('$SUBJECTS$', JSON.stringify(subjectsSummary, null, 2));
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();

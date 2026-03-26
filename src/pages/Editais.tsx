@@ -23,9 +23,9 @@ import { errorService } from '@/lib/errors/errorService';
 export interface UserEdital {
     id: string;
     name: string;
-    organ?: string; // Added
-    position?: string; // Added
-    year?: string; // Added
+    organ?: string;
+    position?: string;
+    year?: string;
     examDate?: string;
     createdAt: string;
     updatedAt: string;
@@ -47,9 +47,9 @@ const getDaysUntilExam = (dateStr?: string): number | null => {
 const rowToEdital = (row: Record<string, unknown>): UserEdital => ({
     id: row.id as string,
     name: row.name as string,
-    organ: (row.organ as string) || undefined, // Added
-    position: (row.position as string) || undefined, // Added
-    year: (row.year as string) || undefined, // Added
+    organ: (row.organ as string) || undefined,
+    position: (row.position as string) || undefined,
+    year: (row.year as string) || undefined,
     examDate: (row.exam_date as string) || undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
@@ -705,32 +705,34 @@ const Editais = () => {
         setProcessingId(edital.id);
         
         try {
-            // 1. Buscar edital oficial
-            const { data: source, error: sourceErr } = await (supabase as any)
-                .from('public_editais')
-                .select('*')
-                .eq('id', edital.sourceId)
-                .single();
-            
-            if (sourceErr || !source) throw new Error('Edital original não encontrado');
+            // 1. Buscar fonte e local em paralelo
+            const [sourceResult, localResult] = await Promise.all([
+                (supabase as any)
+                    .from('public_editais')
+                    .select('*')
+                    .eq('id', edital.sourceId)
+                    .single(),
+                supabase
+                    .from('subjects')
+                    .select('id, name, status, topics(id, name, completed, review_count)')
+                    .in('id', edital.subjectIds || [])
+            ]);
 
-            // 2. Refetch preventivo: Garantir que temos as matérias/tópicos locais mais recentes
-            // Isso evita descompasso caso o cache do useApp esteja frio
-            console.log('Refetching local data for edital sync:', edital.id);
-            const { data: localSubjects, error: localErr } = await supabase
-                .from('subjects')
-                .select('id, name, status, topics(id, name, completed, review_count)')
-                .in('id', edital.subjectIds || []);
+            if (sourceResult.error || !sourceResult.data) throw new Error('Edital original não encontrado');
+            if (localResult.error) console.error('Erro no refetch local:', localResult.error);
 
-            if (localErr) {
-                console.error('Erro no refetch local:', localErr);
-            }
+            console.log('[Sync DEBUG]', {
+                editalId: edital.id,
+                sourceId: edital.sourceId,
+                sourceNames: (sourceResult.data.subjects || []).map((s: any) => s.name),
+                localNames: (localResult.data || []).map((s: any) => s.name),
+            });
 
             setSyncReview({
                 isOpen: true,
                 edital: edital,
-                localSubjects: (localSubjects as unknown as Subject[]) || [],
-                sourceSubjects: source.subjects || []
+                localSubjects: (localResult.data as unknown as Subject[]) || [],
+                sourceSubjects: sourceResult.data.subjects || [],
             });
 
         } catch (err) {
@@ -755,9 +757,11 @@ const Editais = () => {
 
         try {
             const finalSubjectIds = [...(edital.subjectIds || [])];
+            console.log('[Sync Apply] Iniciando. subjectIds atuais:', finalSubjectIds);
 
             // 1. Processar Matérias Novas
             for (const ss of addedSubjects) {
+                console.log('[Sync Apply] Inserindo matéria:', ss.name);
                 const { data: newSubj, error: nSubjErr } = await supabase
                     .from('subjects')
                     .insert({ 
@@ -768,7 +772,11 @@ const Editais = () => {
                     .select('id')
                     .single();
                 
-                if (nSubjErr || !newSubj) throw nSubjErr;
+                if (nSubjErr || !newSubj) {
+                    console.error('[Sync Apply] Erro ao inserir matéria:', nSubjErr);
+                    throw nSubjErr;
+                }
+                console.log('[Sync Apply] Matéria inserida:', ss.name, '→ ID:', newSubj.id);
                 finalSubjectIds.push(newSubj.id);
 
                 const topicsToInsert = (ss.topics || []).map((ts: any, idx: number) => ({
@@ -780,7 +788,11 @@ const Editais = () => {
                 }));
                 
                 if (topicsToInsert.length > 0) {
-                    await supabase.from('topics').insert(topicsToInsert as any);
+                    const { error: topicErr } = await supabase.from('topics').insert(topicsToInsert as any);
+                    if (topicErr) {
+                        console.error('[Sync Apply] Erro ao inserir tópicos:', topicErr);
+                        throw topicErr;
+                    }
                 }
             }
 
@@ -805,8 +817,13 @@ const Editais = () => {
 
             // 4. Processar Remoções de Matérias
             if (removedSubjIds.length > 0) {
+                console.log('[Sync Apply] Removendo matérias:', removedSubjIds);
                 await supabase.from('topics').delete().in('subject_id', removedSubjIds);
-                await supabase.from('subjects').delete().in('id', removedSubjIds);
+                const { error: subjDelErr } = await supabase.from('subjects').delete().in('id', removedSubjIds).eq('user_id', user!.id);
+                if (subjDelErr) {
+                    console.error('[Sync Apply] Erro ao deletar matérias:', subjDelErr);
+                    throw subjDelErr;
+                }
                 
                 const idsToRemoveSet = new Set(removedSubjIds);
                 const updatedFinalIds = finalSubjectIds.filter(id => !idsToRemoveSet.has(id));
@@ -815,13 +832,17 @@ const Editais = () => {
             }
 
             // 5. Finalizar atualização do edital local
+            console.log('[Sync Apply] Finalizando. subjectIds finais:', finalSubjectIds);
             const { error: updErr } = await editaisTable().update({
                 subject_ids: finalSubjectIds,
                 active_subject_ids: finalSubjectIds,
                 updated_at: new Date().toISOString()
             } as any).eq('id', edital.id);
             
-            if (updErr) throw updErr;
+            if (updErr) {
+                console.error('[Sync Apply] Erro ao atualizar edital:', updErr);
+                throw updErr;
+            }
 
             toast.success('Edital atualizado com sucesso!');
             await fetchEditais();
@@ -830,7 +851,9 @@ const Editais = () => {
             window.dispatchEvent(new CustomEvent('topicUpdated'));
 
         } catch (err) {
+            console.error('[Sync Apply] ERRO:', err);
             errorService.report(err, { module: 'editais', action: 'sync-apply', userMessage: 'Erro ao aplicar atualizações.' });
+            toast.error('Erro ao aplicar sincronização. Verifique o console para detalhes.');
         } finally {
             setProcessingId(null);
             setSyncReview(prev => ({ ...prev, isOpen: false }));
@@ -1116,12 +1139,7 @@ const Editais = () => {
                                     onLoadCycle={() => handleLoadCycle(edital)}
                                     onUnloadCycle={() => setUnloadConfirm({ isOpen: true, edital })}
                                     onDelete={() => setDeleteConfirm({ isOpen: true, edital })}
-                                    onSync={() => setSyncReview({ 
-                                        isOpen: true, 
-                                        edital, 
-                                        localSubjects: editalSubjects, 
-                                        sourceSubjects: source?.subjects || [] 
-                                    })}
+                                    onSync={() => handleSyncEdital(edital)}
                                     onEdit={() => setEditModal({ isOpen: true, edital })}
                                     isProcessing={processingId === edital.id}
                                     hasUpdate={!!hasUpdate}
@@ -1558,10 +1576,13 @@ const Editais = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 flex flex-wrap gap-1.5">
+                                        <div className="p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 space-y-2">
                                             {subjects.filter(s => finalPreviewIds.includes(s.id)).map(s => {
                                                 const isNew = cycleConflict.edital?.subjectIds.includes(s.id);
                                                 const isCurrent = cycleConflict.existingIds.includes(s.id);
+                                                // Encontrar qual edital esta matéria pertence
+                                                const originEdital = editais.find(e => e.subjectIds.includes(s.id) && e.mergedIntoCycle);
+                                                const newEdital = cycleConflict.edital;
                                                 
                                                 let style = 'bg-secondary dark:bg-zinc-800/50 border-border dark:border-white/5 text-content-muted';
                                                 
@@ -1580,10 +1601,25 @@ const Editais = () => {
                                                     }
                                                 }
 
+                                                // Badge do edital
+                                                const editalName = isNew && !isCurrent 
+                                                    ? newEdital?.name 
+                                                    : (originEdital?.name || 'Ciclo Atual');
+                                                const isImported = isNew && !isCurrent 
+                                                    ? newEdital?.isImported 
+                                                    : (originEdital?.isImported || false);
+                                                const sourceId = isNew && !isCurrent 
+                                                    ? newEdital?.sourceId 
+                                                    : (originEdital?.sourceId);
+                                                const typeBadge = sourceId ? 'CÓPIA•SISTEMA' : isImported ? 'CÓPIA•IA' : 'MANUAL';
+
                                                 return (
-                                                    <span key={s.id} className={`text-[9px] font-bold px-2 py-1 rounded-lg border transition-all ${style}`}>
-                                                        {s.name}
-                                                    </span>
+                                                    <div key={s.id} className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border transition-all ${style}`}>
+                                                        <span className="text-[9px] font-bold truncate">{s.name}</span>
+                                                        <span className="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/20 shrink-0">
+                                                            {typeBadge} {editalName?.split(' - ')[0] || ''}
+                                                        </span>
+                                                    </div>
                                                 );
                                             })}
                                         </div>

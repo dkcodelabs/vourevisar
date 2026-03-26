@@ -9,6 +9,7 @@ interface EditalOriginData {
     active_subject_ids: string[];
     is_imported: boolean;
     merged_into_cycle: boolean;
+    source_id?: string;
     organ?: string;
     position?: string;
     year?: string;
@@ -46,6 +47,7 @@ export const useEditalOrigins = () => {
                 active_subject_ids: (row.active_subject_ids as string[]) || [],
                 is_imported: row.is_imported as boolean,
                 merged_into_cycle: row.merged_into_cycle as boolean || false,
+                source_id: row.source_id as string,
                 organ: row.organ as string,
                 position: row.position as string,
                 year: row.year as string,
@@ -66,9 +68,9 @@ export const useEditalOrigins = () => {
         return () => window.removeEventListener('subjectUpdated', handler);
     }, [fetchEditais]);
 
-    /** Map<subjectId, {name, isImported}[]> — somente as origens de editais carregados no ciclo */
+    /** Map<subjectId, {name, isImported, sourceId}[]> — somente as origens de editais carregados no ciclo */
     const originsMap = useMemo(() => {
-        const map = new Map<string, { name: string; isImported: boolean }[]>();
+        const map = new Map<string, { name: string; isImported: boolean; sourceId?: string }[]>();
         for (const edital of editaisData) {
             // Somente incluir se o edital estiver carregado no ciclo
             if (!edital.merged_into_cycle) continue;
@@ -76,7 +78,7 @@ export const useEditalOrigins = () => {
             for (const subjectId of edital.subject_ids) {
                 const existing = map.get(subjectId) || [];
                 if (!existing.some(e => e.name === edital.name)) {
-                    map.set(subjectId, [...existing, { name: edital.name, isImported: edital.is_imported }]);
+                    map.set(subjectId, [...existing, { name: edital.name, isImported: edital.is_imported, sourceId: edital.source_id }]);
                 }
             }
         }
@@ -91,7 +93,7 @@ export const useEditalOrigins = () => {
         if (contextualEditalId) {
             const edital = editaisData.find(e => e.id === contextualEditalId);
             if (edital && edital.subject_ids.includes(subjectId) && edital.merged_into_cycle) {
-                return [{ name: edital.name, isImported: edital.is_imported }];
+                return [{ name: edital.name, isImported: edital.is_imported, sourceId: edital.source_id }];
             }
         }
         return originsMap.get(subjectId) || [];

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { Save, Loader2, Bot, Terminal, AlertCircle } from 'lucide-react';
+import { Save, Loader2, Bot, Terminal, AlertCircle, RefreshCw, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Merge } from 'lucide-react';
 import { toastGate } from '@/lib/errors/toastGate';
 import { toast } from '@/lib/toast';
+import { useAIStatus, getAIErrorLogs } from '@/hooks/useAIStatus';
 
 const DEFAULT_CONFIG = {
-  model: 'gemini-1.5-flash',
+  model: 'gemini-2.0-flash',
   temperature: 0.1,
   top_p: 1.0,
   top_k: 1,
@@ -109,7 +110,7 @@ export default function AISettings() {
         if (draft) {
           try {
             const parsedDraft = JSON.parse(draft);
-            const isInvalidDraft = parsedDraft.model === 'gemini-2.5-flash' || parsedDraft.model === 'gemini-1.5-flash-latest';
+            const isInvalidDraft = parsedDraft.model === 'gemini-2.5-flash' || parsedDraft.model === 'gemini-1.5-flash-latest' || parsedDraft.model === 'gemini-1.5-flash';
             
             if (!isInvalidDraft && JSON.stringify(parsedDraft) !== JSON.stringify(finalConfig)) {
               finalConfig = parsedDraft;
@@ -352,8 +353,285 @@ export default function AISettings() {
               </p>
             </div>
           </div>
+
+          {/* Card: Prompt de Sugestão de Mesclas */}
+          <MergePromptSection />
+
+          {/* SEÇÃO: Status da API */}
+          <AIStatusSection />
+
+          {/* SEÇÃO: Histórico de Erros */}
+          <AIErrorLogsSection />
         </div>
       </div>
     </motion.div>
+  );
+}
+
+// Componente de Prompt de Sugestão de Mesclas
+function MergePromptSection() {
+  const [mergePrompt, setMergePrompt] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchPrompt = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'ai_merge_prompt')
+          .maybeSingle();
+        
+        if (data?.value) {
+          setMergePrompt(String(data.value));
+        }
+      } catch (err) {
+        console.error('Erro ao carregar prompt de mesclagem:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPrompt();
+  }, []);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          key: 'ai_merge_prompt',
+          value: mergePrompt,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+      
+      if (error) throw error;
+      toast.success('Prompt de mesclagem salvo com sucesso!');
+    } catch (err) {
+      console.error('Erro ao salvar prompt:', err);
+      toastGate.notifyError('Erro ao salvar prompt. Tente novamente.', 'MERGE_PROMPT_ERR', { severity: 'medium' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl overflow-hidden shadow-sm relative mt-6">
+        <div className="p-6 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl overflow-hidden shadow-sm relative mt-6">
+      <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
+        <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
+          <Merge className="text-blue-500 w-4 h-4" />
+          Prompt de Sugestão de Mesclas
+        </h2>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+        >
+          <Save className="w-3 h-3" />
+          {isSaving ? 'Salvando...' : 'Salvar'}
+        </button>
+      </div>
+      
+      <div className="p-6 space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Este prompt é usado pelo botão "Sugerir" na página de Matérias para identificar matérias duplicadas ou que podem ser mescladas.
+          Use <code className="bg-muted px-1 rounded">$SUBJECTS$</code> como placeholder para inserir a lista de matérias.
+        </p>
+
+        <textarea 
+          value={mergePrompt}
+          onChange={e => setMergePrompt(e.target.value)}
+          className="w-full h-[200px] bg-transparent border border-border dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-blue-500 transition-all resize-none text-foreground placeholder:text-muted-foreground/20"
+          placeholder="Digite o prompt..."
+          spellCheck={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Componente de Status da API
+function AIStatusSection() {
+  const { aiStatus, isChecking, checkAIStatus } = useAIStatus();
+
+  const statusColors = {
+    active: 'bg-green-500',
+    inactive: 'bg-gray-400',
+    error: 'bg-red-500',
+    unknown: 'bg-yellow-500'
+  };
+
+  const statusLabels = {
+    active: 'Ativa',
+    inactive: 'Inativa',
+    error: 'Erro',
+    unknown: 'Não verificado'
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return 'Nunca';
+    const date = new Date(dateStr);
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl overflow-hidden shadow-sm relative mt-6">
+      <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
+        <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
+          <Bot className="text-primary w-4 h-4" />
+          Status da API Gemini
+        </h2>
+        <button
+          onClick={() => checkAIStatus()}
+          disabled={isChecking}
+          className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3 h-3 ${isChecking ? 'animate-spin' : ''}`} />
+          {isChecking ? 'Verificando...' : 'Testar Conexão'}
+        </button>
+      </div>
+      
+      <div className="p-6 space-y-4">
+        <div className="flex items-center gap-4">
+          <div className={`w-3 h-3 rounded-full ${statusColors[aiStatus.status]} animate-pulse`} />
+          <span className="text-lg font-bold text-foreground">
+            {statusLabels[aiStatus.status]}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-muted-foreground text-xs font-medium">Última verificação</p>
+            <p className="font-bold text-foreground">{formatDate(aiStatus.lastCheck)}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs font-medium">Próxima verificação</p>
+            <p className="font-bold text-foreground">A cada 5 minutos</p>
+          </div>
+        </div>
+
+        {aiStatus.errorMessage && (
+          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <p className="text-xs font-bold text-red-400 mb-1">Último erro:</p>
+            <p className="text-sm text-red-300">{aiStatus.errorMessage}</p>
+          </div>
+        )}
+
+        <a
+          href="https://aistudio.google.com/app/apikey"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-sm text-primary hover:underline"
+        >
+          <ExternalLink className="w-4 h-4" />
+          Abrir Google AI Studio
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// Componente de Histórico de Erros
+function AIErrorLogsSection() {
+  const [errorLogs, setErrorLogs] = useState<Array<{
+    id: string;
+    error_code: string;
+    error_message: string;
+    context: string | null;
+    created_at: string;
+  }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadLogs = async () => {
+      setIsLoading(true);
+      try {
+        const logs = await getAIErrorLogs(20);
+        setErrorLogs(logs);
+      } catch (err) {
+        console.error('Erro ao carregar logs:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadLogs();
+  }, []);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl overflow-hidden shadow-sm relative mt-6">
+      <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
+        <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
+          <AlertTriangle className="text-red-500 w-4 h-4" />
+          Histórico de Erros
+        </h2>
+      </div>
+      
+      <div className="p-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : errorLogs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <CheckCircle2 className="w-12 h-12 text-green-500 mb-3" />
+            <p className="text-sm font-bold text-foreground">Nenhum erro registrado</p>
+            <p className="text-xs text-muted-foreground">Os erros da API aparecerão aqui</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border dark:border-white/5">
+                  <th className="text-left py-3 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Data/Hora</th>
+                  <th className="text-left py-3 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Código</th>
+                  <th className="text-left py-3 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Mensagem</th>
+                </tr>
+              </thead>
+              <tbody>
+                {errorLogs.map((log) => (
+                  <tr key={log.id} className="border-b border-border dark:border-white/5 hover:bg-muted/30">
+                    <td className="py-3 px-2 font-mono text-xs">{formatDate(log.created_at)}</td>
+                    <td className="py-3 px-2">
+                      <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded text-xs font-bold">
+                        {log.error_code}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 text-muted-foreground text-xs max-w-xs truncate">
+                      {log.error_message}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

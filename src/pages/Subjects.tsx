@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Files, Filter, Play, Wand2, BookOpen } from 'lucide-react';
+import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Files, Filter, Play, Wand2, BookOpen, Scissors } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate'; // Added
@@ -34,6 +34,7 @@ import { useEditalOrigins } from '@/hooks/useEditalOrigins';
 import { suggestMerges, MergeSuggestion } from '@/utils/subjectSimilarity';
 import { suggestContentBasedMerges } from '@/edutrack-review-manager/services/geminiService';
 import { Suggestion as SmartMergeSuggestion } from '@/components/subjects/SmartMergeModal';
+import { useAIStatus } from '@/hooks/useAIStatus';
 
 const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) {
@@ -173,14 +174,21 @@ const Subjects = () => {
   const saveMergeRelationToDb = async (mainSubjectId: string, mergedSubjectIds: string[]) => {
     if (!user) return false;
     try {
+      // Primeiro, tenta deletar se existir
+      await db
+        .from('subject_relations')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('main_subject_id', mainSubjectId);
+      
+      // Depois, insere o novo registro
       const { error } = await db
         .from('subject_relations')
-        .upsert({
+        .insert({
           user_id: user.id,
           main_subject_id: mainSubjectId,
-          merged_subject_ids: mergedSubjectIds,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id,main_subject_id' });
+          merged_subject_ids: mergedSubjectIds
+        });
       
       if (error) throw error;
       return true;
@@ -232,9 +240,10 @@ const Subjects = () => {
   const getEditaisForMergedSubject = async (subjectId: string) => {
     if (!user) return [];
     
-    const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
       .from('user_editais')
-      .select('id, name, subject_ids, is_imported')
+      .select('id, name, subject_ids, is_imported, source_id')
       .eq('user_id', user.id)
       .contains('subject_ids', [subjectId]);
     
@@ -253,22 +262,25 @@ const Subjects = () => {
     try {
       // 1. Se especificado edital, remover só desse edital
       if (editalIdToRemove) {
-        const { data: edital } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: edital } = await (supabase as any)
           .from('user_editais')
           .select('subject_ids')
           .eq('id', editalIdToRemove)
           .single();
         
         if (edital) {
-          const newIds = (edital.subject_ids || []).filter(id => id !== subjectId);
-          await supabase
+          const newIds = (edital.subject_ids || []).filter((id: string) => id !== subjectId);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any)
             .from('user_editais')
             .update({ subject_ids: newIds })
             .eq('id', editalIdToRemove);
         }
       } else {
         // 2. Se não especificado, remover de TODOS os editais
-        const { data: editais } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: editais } = await (supabase as any)
           .from('user_editais')
           .select('id, subject_ids')
           .eq('user_id', user.id);
@@ -276,8 +288,9 @@ const Subjects = () => {
         if (editais) {
           for (const edital of editais) {
             if ((edital.subject_ids || []).includes(subjectId)) {
-              const newIds = (edital.subject_ids || []).filter(id => id !== subjectId);
-              await supabase
+              const newIds = (edital.subject_ids || []).filter((id: string) => id !== subjectId);
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await (supabase as any)
                 .from('user_editais')
                 .update({ subject_ids: newIds })
                 .eq('id', edital.id);
@@ -309,13 +322,14 @@ const Subjects = () => {
       setMergedSubjectsMap(newMap);
       
       refresh();
-      toast.success('Matéria excluída definitivamente!');
+      toast.success('Matéria excluída do edital!');
     } catch (err) {
-      console.error('Erro ao excluir definitivamente:', err);
+      console.error('Erro ao excluir do edital:', err);
+      toastGate.notifyError('Erro ao excluir matéria. Tente novamente.', 'DEL-ERR-01', { severity: 'high' });
       errorService.report(err, { module: 'Subjects', action: 'deletePermanent', userMessage: 'Erro ao excluir matéria.' });
     } finally {
       setIsLoading(false);
-      setDeletePermanentConfirm({ isOpen: false, subjectId: null, editais: [] });
+      setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] });
     }
   };
 
@@ -323,10 +337,24 @@ const Subjects = () => {
   const [deletePermanentConfirm, setDeletePermanentConfirm] = useState<{
     isOpen: boolean;
     subjectId: string | null;
-    editais: Array<{ id: string; name: string; is_imported: boolean }>;
-  }>({ isOpen: false, subjectId: null, editais: [] });
+    subjectName: string | null;
+    isMerged: boolean;
+    editais: Array<{ id: string; name: string; is_imported: boolean; source_id: string | null }>;
+  }>({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] });
+
+  const { aiStatus, checkAIStatus } = useAIStatus();
 
   const handleSuggestMerges = async () => {
+    // Verificar se IA está disponível
+    if (aiStatus.status === 'error' || aiStatus.status === 'inactive') {
+      toastGate.notifyError(
+        'Serviço de IA temporariamente indisponível. Tente novamente mais tarde.',
+        'AI_UNAVAILABLE',
+        { severity: 'medium' }
+      );
+      return;
+    }
+
     setIsSuggesting(true);
     try {
       // 1. Tentar primeiro com Gemini (Conteúdo + Nome)
@@ -1785,15 +1813,19 @@ const Subjects = () => {
                                   </div>
                                   {getOriginsForSubject(subject.id, subject.edital_id).length > 0 ? (
                                       <div className="flex flex-wrap gap-1">
-                                        {getOriginsForSubject(subject.id, subject.edital_id).map((origin) => (
-                                          <Badge 
-                                            key={origin.name} 
-                                            variant="outline" 
-                                            className="text-[10px] text-primary bg-primary/5 border-primary/10"
-                                          >
-                                            {origin.name}
-                                          </Badge>
-                                        ))}
+                                        {getOriginsForSubject(subject.id, subject.edital_id).map((origin) => {
+                                          const typeBadge = origin.sourceId ? 'CÓPIA • SISTEMA' : origin.isImported ? 'CÓPIA • IA' : 'MANUAL';
+                                          return (
+                                            <Badge 
+                                              key={origin.name} 
+                                              variant="outline" 
+                                              className="text-[10px] text-primary bg-primary/5 border-primary/10"
+                                            >
+                                              <span className="font-black mr-1">{typeBadge}</span>
+                                              {origin.name}
+                                            </Badge>
+                                          );
+                                        })}
                                       </div>
                                     ) : (
                                        <span className="text-[9px] font-bold uppercase tracking-wider text-content-muted/40">
@@ -1848,68 +1880,29 @@ const Subjects = () => {
                                       )}
                                     </button>
                                   )}
-                                  {/* Botão Ocultar (confirmação inline) */}
+                                  {/* Botão Excluir do Edital */}
                                   {!isView && (
-                                    <>
-                                      {confirmHideSubjectId === subject.id ? (
-                                        <div
-                                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs animate-in fade-in duration-150"
-                                          onClick={e => e.stopPropagation()}
-                                        >
-                                          <span className="text-amber-300 font-medium text-[11px] leading-snug">
-                                            {mergedSubjectsMap[subject.id] ? 'Separar ou Ocultar?' : 'Ocultar da lista?'}<br />
-                                            <span className="text-amber-300/60 font-normal">
-                                              {mergedSubjectsMap[subject.id] 
-                                                ? `${mergedSubjectsMap[subject.id].length} matérias mescladas`
-                                                : 'Fica salva no edital.'}
-                                            </span>
-                                          </span>
-                                          {mergedSubjectsMap[subject.id] && (
-                                            <button
-                                              onClick={() => handleSeparate(subject.id)}
-                                              className="px-2 py-0.5 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-lg text-[10px] transition-all shrink-0"
-                                            >
-                                              Separar
-                                            </button>
-                                          )}
-                                          <button
-                                            onClick={() => handleDelete(subject.id)}
-                                            className="px-2 py-0.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg text-[10px] transition-all shrink-0"
-                                          >
-                                            Ocultar
-                                          </button>
-                                          <button
-                                            onClick={async () => {
-                                              const editais = await getEditaisForMergedSubject(subject.id);
-                                              setDeletePermanentConfirm({
-                                                isOpen: true,
-                                                subjectId: subject.id,
-                                                editais: editais.map(e => ({ id: e.id, name: e.name, is_imported: e.is_imported }))
-                                              });
-                                              setConfirmHideSubjectId(null);
-                                            }}
-                                            className="px-2 py-0.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-lg text-[10px] transition-all shrink-0"
-                                            title="Excluir definitivamente"
-                                          >
-                                            Excluir
-                                          </button>
-                                          <button
-                                            onClick={() => setConfirmHideSubjectId(null)}
-                                            className="p-0.5 hover:bg-white/10 rounded text-amber-300/60 hover:text-amber-300 transition-all"
-                                          >
-                                            <X size={12} />
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); setConfirmHideSubjectId(subject.id); }}
-                                          className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
-                                          title={mergedSubjectsMap[subject.id] ? "Separar ou Ocultar" : "Ocultar matéria da lista"}
-                                        >
-                                          <Trash2 size={14} />
-                                        </button>
-                                      )}
-                                    </>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        const editais = await getEditaisForMergedSubject(subject.id);
+                                        // Verifica se é matéria mesclada (chave principal ou se é uma das mescladas)
+                                        const isMainMerged = !!mergedSubjectsMap[subject.id];
+                                        const isPartOfMerged = Object.values(mergedSubjectsMap).some(arr => arr.includes(subject.id));
+                                        const isMerged = isMainMerged || isPartOfMerged;
+                                        setDeletePermanentConfirm({
+                                          isOpen: true,
+                                          subjectId: subject.id,
+                                          subjectName: subject.name,
+                                          isMerged: isMerged,
+                                          editais: editais.map(ed => ({ id: ed.id, name: ed.name, is_imported: ed.is_imported, source_id: ed.source_id }))
+                                        });
+                                      }}
+                                      className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
+                                      title="Excluir do Edital"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
                                   )}
                                 </>
                               )}
@@ -2005,14 +1998,17 @@ const Subjects = () => {
                                       <div className="flex items-center justify-end relative min-w-[100px]">
                                         {/* Indicador de Origem (Mostra em estado normal) */}
                                         <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-4">
-                                          {getOriginsForSubject(subject.id, subject.edital_id).map((origin, i) => (
-                                            <span 
-                                              key={i} 
-                                              className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border text-primary/60 bg-primary/5 border-primary/10"
-                                            >
-                                              {origin.name}
-                                            </span>
-                                          ))}
+                                          {getOriginsForSubject(subject.id, subject.edital_id).map((origin, i) => {
+                                            const typeBadge = origin.sourceId ? 'CÓPIA • SISTEMA' : origin.isImported ? 'CÓPIA • IA' : 'MANUAL';
+                                            return (
+                                              <span 
+                                                key={i} 
+                                                className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border text-primary/60 bg-primary/5 border-primary/10"
+                                              >
+                                                {typeBadge} {origin.name}
+                                              </span>
+                                            );
+                                          })}
                                           {(!originsMap.get(subject.id) || originsMap.get(subject.id)!.length === 0) && (
                                              <span className="text-[9px] font-black text-content-muted/40 uppercase tracking-widest whitespace-nowrap">
                                               Manual
@@ -2170,18 +2166,23 @@ const Subjects = () => {
 
           <AlertDialog 
             open={deletePermanentConfirm.isOpen} 
-            onOpenChange={(open) => !open && setDeletePermanentConfirm({ isOpen: false, subjectId: null, editais: [] })}
+            onOpenChange={(open) => !open && setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] })}
           >
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-red-500" />
-                  Excluir Definitivamente
+                  Excluir do Edital
                 </AlertDialogTitle>
-                <AlertDialogDescription className="space-y-3">
-                  <p>Tem certeza que deseja <strong>excluir definitivamente</strong> esta matéria?</p>
+                <div className="space-y-3 pt-2">
+                  <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
+                    <p className="text-sm text-blue-400">
+                      Matéria: <strong className="text-blue-200">{deletePermanentConfirm.subjectName}</strong>
+                    </p>
+                  </div>
+                  <p>Tem certeza que deseja <strong>excluir esta matéria do edital</strong>?</p>
                   <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg text-red-400 text-sm">
-                    <p><strong>Atenção:</strong> Esta ação não pode ser desfeita!</p>
+                    <p className="font-medium">Atenção: Esta ação não pode ser desfeita!</p>
                     <ul className="list-disc list-inside mt-2 space-y-1">
                       <li>Todos os tópicos serão excluídos</li>
                       <li>Todo o histórico de revisões será perdido</li>
@@ -2193,54 +2194,91 @@ const Subjects = () => {
                     <div className="mt-4">
                       <p className="font-medium text-foreground mb-2">Esta matéria pertence a múltiplos editais. De qual deseja remover?</p>
                       <div className="space-y-2 max-h-32 overflow-y-auto">
-                        {deletePermanentConfirm.editais.map((edital) => (
+                        {deletePermanentConfirm.editais.map((edital) => {
+                          // Verifica se é o edital original do sistema (não é cópia)
+                          const isOriginalSystem = !edital.source_id && edital.is_imported;
+                          return (
                           <button
                             key={edital.id}
                             onClick={() => {
-                              if (edital.is_imported) {
-                                toastGate.notifyError('Não é possível excluir matérias de editais importados do sistema!', 'DEL-SYS-01', { severity: 'high' });
+                              if (isOriginalSystem) {
+                                toastGate.notifyError('Não é possível excluir matérias do edital original do sistema!', 'DEL-SYS-01', { severity: 'high' });
                                 return;
                               }
                               handleDeletePermanent(deletePermanentConfirm.subjectId!, edital.id);
                             }}
-                            disabled={edital.is_imported}
+                            disabled={isOriginalSystem}
                             className={`w-full text-left p-2 rounded-lg border transition-all flex items-center justify-between ${
-                              edital.is_imported 
+                              isOriginalSystem
                                 ? 'border-red-200 bg-red-50 opacity-50 cursor-not-allowed' 
                                 : 'border-border hover:border-red-500 hover:bg-red-500/5'
                             }`}
                           >
                             <span className="text-sm">{edital.name}</span>
-                            {edital.is_imported ? (
-                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">Sistema</span>
-                            ) : (
-                              <span className="text-xs text-content-muted">Remover</span>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {edital.source_id ? (
+                                <span className="text-[10px] font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                  CÓPIA • SISTEMA
+                                </span>
+                              ) : edital.is_imported ? (
+                                <span className="text-[10px] font-bold px-2 py-1 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                  CÓPIA • IA
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                  MANUAL
+                                </span>
+                              )}
+                            </div>
                           </button>
-                        ))}
+                        );
+                        })}
                         <button
                           onClick={() => handleDeletePermanent(deletePermanentConfirm.subjectId!)}
                           className="w-full text-left p-2 rounded-lg border border-red-500 bg-red-500/10 hover:bg-red-500/20 transition-all"
                         >
-                          <span className="text-sm font-medium text-red-400">Excluir de TODOS os editais</span>
+                          <span className="text-sm font-medium text-red-400">Remover de TODOS os editais</span>
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {deletePermanentConfirm.editais.length === 1 && (
+                  {deletePermanentConfirm.editais.length === 1 && (() => {
+                    const edil = deletePermanentConfirm.editais[0];
+                    const isOriginalSystem = !edil.source_id && edil.is_imported;
+                    return (
                     <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                      {deletePermanentConfirm.editais[0].is_imported ? (
+                      {isOriginalSystem ? (
                         <p className="text-amber-400">
-                          <strong>Não é possível excluir</strong> esta matéria pois pertence a um edital importado do sistema.
+                          <strong>Não é possível excluir</strong> esta matéria pois pertence ao edital original do sistema.
                         </p>
                       ) : (
-                        <p className="text-foreground">
-                          A matéria será removida do edital: <strong>"{deletePermanentConfirm.editais[0].name}"</strong>
-                        </p>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-foreground">Edital:</span>
+                            <strong className="text-foreground text-sm">"{deletePermanentConfirm.editais[0].name}"</strong>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-content-muted text-xs">Tipo:</span>
+                            {deletePermanentConfirm.editais[0].source_id ? (
+                              <span className="text-[10px] font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                CÓPIA • SISTEMA
+                              </span>
+                            ) : deletePermanentConfirm.editais[0].is_imported ? (
+                              <span className="text-[10px] font-bold px-2 py-1 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                CÓPIA • IA
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                MANUAL
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {deletePermanentConfirm.editais.length === 0 && (
                     <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
@@ -2249,11 +2287,26 @@ const Subjects = () => {
                       </p>
                     </div>
                   )}
-                </AlertDialogDescription>
+                </div>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                {deletePermanentConfirm.editais.length <= 1 && !deletePermanentConfirm.editais[0]?.is_imported && (
+                {deletePermanentConfirm.isMerged && (
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (deletePermanentConfirm.subjectId) {
+                        handleSeparate(deletePermanentConfirm.subjectId);
+                        setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] });
+                      }
+                    }}
+                    className="bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center gap-2"
+                  >
+                    <Scissors className="w-4 h-4" />
+                    Separar Matérias
+                  </AlertDialogAction>
+                )}
+                {deletePermanentConfirm.editais.length <= 1 && (deletePermanentConfirm.editais.length === 0 || !(deletePermanentConfirm.editais[0].is_imported && !deletePermanentConfirm.editais[0].source_id)) && (
                   <AlertDialogAction
                     onClick={(e) => {
                       e.preventDefault();
@@ -2264,7 +2317,7 @@ const Subjects = () => {
                     className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
-                    Excluir Definitivamente
+                    Excluir
                   </AlertDialogAction>
                 )}
               </AlertDialogFooter>

@@ -24,65 +24,85 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
 }) => {
     const [isApplying, setIsApplying] = useState(false);
 
-    // ── Lógica de Diferenciação ──
+    // ── Lógica de Diferenciação: fonte vs local ──
     const diff = React.useMemo(() => {
         const additions: { subjects: Subject[], topics: Record<string, string[]> } = { subjects: [], topics: {} };
         const removals: { subjects: Subject[], topics: Record<string, Topic[]> } = { subjects: [], topics: {} };
 
         if (!sourceSubjects || !Array.isArray(sourceSubjects)) return { additions, removals };
 
-        // 1. Detectar Inclusões (Admin adicionou no oficial)
+        // 1. Inclusões: o que a fonte tem que o aluno não tem
         sourceSubjects.forEach(ss => {
-            const ssName = (ss.name || (ss.name || '')).trim().toUpperCase();
+            const ssName = (ss.name || '').trim().toUpperCase();
             if (!ssName) return;
 
-            const local = localSubjects.find(ls => (ls.name || '').trim().toUpperCase() === ssName);
+            const inLocal = localSubjects.some(ls =>
+                (ls.name || '').trim().toUpperCase() === ssName
+            );
 
-            if (!local) {
+            if (!inLocal) {
                 additions.subjects.push(ss);
             } else {
-                // Matéria existe, ver tópicos
+                // Matéria existe localmente, verificar tópicos novos na fonte
+                const localSubj = localSubjects.find(ls =>
+                    (ls.name || '').trim().toUpperCase() === ssName
+                );
+                if (!localSubj) return;
+                const localTopicNames = new Set(
+                    (localSubj.topics || []).map(t =>
+                        (t.name || '').trim().toUpperCase()
+                    )
+                );
                 const newTopics = (ss.topics || []).filter((st: Topic | string) => {
                     const stName = (typeof st === 'string' ? st : st.name || '').trim().toUpperCase();
-                    if (!stName) return false;
-                    return !local.topics?.some(lt => (lt.name || '').trim().toUpperCase() === stName);
+                    return stName && !localTopicNames.has(stName);
                 });
                 if (newTopics.length > 0) {
-                    additions.topics[local.id] = newTopics.map(t => typeof t === 'string' ? t : t.name);
+                    additions.topics[localSubj.id] = newTopics.map(t => typeof t === 'string' ? t : t.name);
                 }
             }
         });
 
-        // 2. Detectar Remoções (Admin removeu do oficial)
+        // 2. Remoções: o que o aluno tem que a fonte não tem
         localSubjects.forEach(ls => {
             const lsName = (ls.name || '').trim().toUpperCase();
             if (!lsName) return;
 
-            const inSource = sourceSubjects.some(ss => (ss.name || '').trim().toUpperCase() === lsName);
+            const inSource = sourceSubjects.some(ss =>
+                (ss.name || '').trim().toUpperCase() === lsName
+            );
+
             if (!inSource) {
                 removals.subjects.push(ls);
             } else {
-                const ss = sourceSubjects.find(ss => (ss.name || '').trim().toUpperCase() === lsName);
-                if (!ss) return;
+                // Matéria existe na fonte, verificar tópicos removidos
+                const sourceSubj = sourceSubjects.find(ss =>
+                    (ss.name || '').trim().toUpperCase() === lsName
+                );
+                if (!sourceSubj) return;
+
+                const sourceTopicNames = new Set(
+                    (sourceSubj.topics || []).map((st: Topic | string) =>
+                        (typeof st === 'string' ? st : st.name || '').trim().toUpperCase()
+                    )
+                );
+
                 const removedTopics = (ls.topics || []).filter(lt => {
                     const ltName = (lt.name || '').trim().toUpperCase();
-                    if (!ltName) return false;
-
-                    const stillInSource = (ss.topics || []).some((st: Topic | string) => 
-                        (typeof st === 'string' ? st : st.name || '').trim().toUpperCase() === ltName
-                    );
-                    return !stillInSource;
+                    return ltName && !sourceTopicNames.has(ltName);
                 });
+
                 if (removedTopics.length > 0) {
                     removals.topics[ls.id] = removedTopics;
                 }
             }
         });
 
-        console.log('Sync Diff Results:', { 
-            additionsCount: additions.subjects.length + Object.keys(additions.topics).length,
-            removalsCount: removals.subjects.length + Object.keys(removals.topics).length,
-            details: { additions, removals }
+        console.log('[Sync Diff]', {
+            sourceNames: sourceSubjects.map(s => s.name),
+            localNames: localSubjects.map(s => s.name),
+            additions: additions.subjects.map(s => s.name),
+            removals: removals.subjects.map(s => s.name),
         });
 
         return { additions, removals };
@@ -125,6 +145,22 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
             const next = new Set(prev);
             if (next.has(id)) next.delete(id);
             else next.add(id);
+            return next;
+        });
+    };
+
+    const handleToggleSubjectWithTopics = (subjectKey: string, topicKeys: string[], isRemoval: boolean) => {
+        const handler = isRemoval ? setSelectedRemovals : setSelectedAdditions;
+        handler(prev => {
+            const next = new Set(prev);
+            const isCurrentlySelected = next.has(subjectKey);
+            if (isCurrentlySelected) {
+                next.delete(subjectKey);
+                topicKeys.forEach(k => next.delete(k));
+            } else {
+                next.add(subjectKey);
+                topicKeys.forEach(k => next.add(k));
+            }
             return next;
         });
     };
@@ -266,7 +302,10 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                                                     >
                                                         {/* Matéria Toggle Card - Unified Identity */}
                                                         <button
-                                                            onClick={() => handleToggleAddition(`subj-${s.id || s.name}`)}
+                                                            onClick={() => {
+                                                                const topicKeys = (s.topics || []).map((_, idx) => `subj-${s.id || s.name}-t-${idx}`);
+                                                                handleToggleSubjectWithTopics(`subj-${s.id || s.name}`, topicKeys, false);
+                                                            }}
                                                             className={`w-full group relative flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300 ${
                                                                 isSelected
                                                                 ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_4px_12px_rgba(16,185,129,0.1)]'
@@ -336,11 +375,16 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                                                 const subj = localSubjects.find(ls => ls.id === sId);
                                                 return (
                                                     <div key={`add-t-group-${sId}`} className="space-y-2">
-                                                        <div className="flex items-center gap-2 px-1 opacity-70">
+                                                        <button
+                                                            onClick={() => {
+                                                                const topicKeys = topics.map((_, i) => `top-${sId}-${i}`);
+                                                                handleToggleSubjectWithTopics('__topic_header__', topicKeys, false);
+                                                            }}
+                                                            className="flex items-center gap-2 px-1 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                                        >
                                                             <div className="w-0.5 h-3 bg-primary/50 rounded-full" />
                                                             <span className="text-[10px] font-black text-content-muted dark:text-white/60 uppercase tracking-widest">{subj?.name}</span>
-
-                                                        </div>
+                                                        </button>
                                                         <div className="ml-2 pl-3 grid gap-2">
                                                             {topics.map((t, i) => {
                                                                 const isSelected = selectedAdditions.has(`top-${sId}-${i}`);
@@ -380,8 +424,7 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
 
                                 {/* Section: Remoções */}
                                 {(diff.removals.subjects.length > 0 || Object.keys(diff.removals.topics).length > 0) && (
-                                    <div className="space-y-6 pt-4 border-t border-border dark:border-white/5">
-
+                                    <div className="space-y-6">
                                         <div className="flex items-center justify-between px-1">
                                             <h3 className="text-[11px] font-black text-rose-400 uppercase tracking-[0.2em] flex items-center gap-2">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
@@ -391,41 +434,50 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                                                 {diff.removals.subjects.length + Object.values(diff.removals.topics).flat().length} itens
                                             </span>
                                         </div>
-                                        
+
                                         <div className="space-y-8">
+                                            {/* Matérias Removidas */}
                                             {diff.removals.subjects.map((s, i) => {
-                                                const hasProgress = s.topics.some(t => t.completed || t.review_count > 0);
+                                                const sName = s.name;
                                                 const isSelected = selectedRemovals.has(`rem-subj-${s.id}`);
+                                                const hasProgress = s.topics.some(t => t.completed || t.review_count > 0);
                                                 return (
-                                                    <div key={`rem-s-group-${s.id}`} className="space-y-2">
-                                                        {/* Matéria Toggle Card - Unified Removal */}
+                                                    <motion.div
+                                                        key={`rem-s-group-${s.id}`}
+                                                        initial={{ opacity: 0, y: 10 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        transition={{ delay: i * 0.05 }}
+                                                        className="space-y-2"
+                                                    >
+                                                        {/* Matéria Toggle Card */}
                                                         <button
-                                                            onClick={() => handleToggleRemoval(`rem-subj-${s.id}`)}
-                                                            className={`w-full group relative flex items-start gap-4 p-3 rounded-2xl border transition-all duration-300 text-left ${
+                                                            onClick={() => {
+                                                                const topicKeys = (s.topics || []).map((t) => `rem-top-${s.id}-${t.id}`);
+                                                                handleToggleSubjectWithTopics(`rem-subj-${s.id}`, topicKeys, true);
+                                                            }}
+                                                            className={`w-full group relative flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300 ${
                                                                 isSelected
-                                                                ? 'bg-rose-500/10 border-rose-500/40 shadow-[0_4px_12px_rgba(244,63,94,0.1)]'
-                                                                : 'bg-secondary/20 border-border hover:border-rose-500/20'
+                                                                ? 'bg-rose-500/10 border-rose-500/30 shadow-[0_4px_12px_rgba(244,63,94,0.1)]'
+                                                                : 'bg-secondary/30 border-border hover:border-rose-500/20'
                                                             }`}
-
                                                         >
-                                                            {/* Sidebar Indicator Integrated */}
-                                                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-2/3 rounded-r-full transition-all duration-300 ${isSelected ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-zinc-700'}`} />
+                                                            {/* Sidebar Indicator */}
+                                                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-2/3 rounded-r-full transition-all duration-300 ${isSelected ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-border'}`} />
 
-                                                            <div className={`mt-0.5 ml-2 w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-300 shrink-0 ${
+                                                            <div className={`ml-2 w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-300 ${
                                                                 isSelected
                                                                 ? 'bg-rose-500 border-rose-500 text-white'
                                                                 : 'border-white/10 text-transparent'
                                                             }`}>
                                                                 <Check size={12} strokeWidth={3} />
                                                             </div>
-                                                            <div className="flex-1 min-w-0">
+                                                            <div className="flex-1 text-left min-w-0">
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className={`text-sm font-black text-foreground dark:text-rose-100 uppercase tracking-tight truncate ${isSelected ? 'line-through decoration-rose-500/50' : ''}`}>{s.name}</span>
+                                                                    <span className={`text-sm font-black text-foreground uppercase tracking-tight truncate ${isSelected ? 'line-through decoration-rose-500/50' : ''}`}>{sName}</span>
                                                                     <span className="text-[8px] text-rose-400 font-bold uppercase tracking-widest px-1.5 py-0.5 bg-rose-500/10 rounded-md border border-rose-500/20 shrink-0">Remover</span>
                                                                 </div>
-                                                                <span className="text-[10px] text-content-muted font-medium">Parar de estudar esta matéria</span>
+                                                                <span className="text-[10px] text-content-muted font-medium">Remover matéria e todos os tópicos</span>
 
-                                                                
                                                                 {hasProgress && (
                                                                     <div className="mt-2 flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg w-fit">
                                                                         <AlertCircle size={10} className="text-amber-500 shrink-0" />
@@ -433,18 +485,59 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                                                                     </div>
                                                                 )}
                                                             </div>
+
                                                         </button>
-                                                    </div>
+
+                                                        {/* Tópicos aninhados */}
+                                                        {s.topics && s.topics.length > 0 && (
+                                                            <div className="ml-5 border-l border-white/10 pl-5 grid gap-2 py-1">
+                                                                {s.topics.map((t, idx) => {
+                                                                    const tSelected = selectedRemovals.has(`rem-top-${s.id}-${t.id}`);
+                                                                    const studied = t.completed || t.review_count > 0;
+                                                                    return (
+                                                                        <button
+                                                                            key={`rem-s-${s.id}-t-${t.id}`}
+                                                                            onClick={() => handleToggleRemoval(`rem-top-${s.id}-${t.id}`)}
+                                                                            className={`relative flex items-center gap-2.5 p-2 rounded-xl border transition-all duration-200 text-left ${
+                                                                                tSelected
+                                                                                ? 'bg-rose-500/5 border-rose-500/10'
+                                                                                : 'bg-secondary/10 border-transparent hover:border-border'
+                                                                            }`}
+                                                                        >
+                                                                            <div className="absolute -left-5 top-1/2 w-3 h-px bg-white/10" />
+                                                                            <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-all duration-300 ${
+                                                                                tSelected
+                                                                                ? 'bg-rose-500 border-rose-500 text-white'
+                                                                                : 'border-white/10 text-transparent'
+                                                                            }`}>
+                                                                                <Check size={9} strokeWidth={4} />
+                                                                            </div>
+                                                                            <span className={`text-[11px] font-medium text-foreground truncate flex-1 ${tSelected ? 'line-through decoration-rose-500/50' : ''}`}>
+                                                                                {t.name}
+                                                                            </span>
+                                                                            {studied && (
+                                                                                <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+                                                                                    <AlertCircle size={9} className="text-amber-500" />
+                                                                                    <span className="text-[7px] text-amber-500 font-black uppercase tracking-wider">Estudado</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </motion.div>
                                                 );
                                             })}
 
-                                            {Object.entries(diff.removals.topics).map(([sId, topics]) => {
+                                            {/* Tópicos Removidos de Matérias Existentes */}
+                                            {Object.entries(diff.removals.topics).map(([sId, topics], sIter) => {
                                                 const subj = localSubjects.find(ls => ls.id === sId);
                                                 return (
-                                                    <div key={`rem-t-group-${sId}`} className="space-y-2 pt-2">
+                                                    <div key={`rem-t-group-${sId}`} className="space-y-2">
                                                         <div className="flex items-center gap-2 px-1 opacity-70">
-                                                            <div className="w-0.5 h-3 bg-zinc-600 rounded-full" />
-                                                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{subj?.name}</span>
+                                                            <div className="w-0.5 h-3 bg-rose-500/50 rounded-full" />
+                                                            <span className="text-[10px] font-black text-rose-400/60 uppercase tracking-widest">{subj?.name}</span>
                                                         </div>
                                                         <div className="ml-2 pl-3 grid gap-2">
                                                             {topics.map((t, i) => {
@@ -454,14 +547,13 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                                                                     <button
                                                                         key={`rem-t-${sId}-${t.id}`}
                                                                         onClick={() => handleToggleRemoval(`rem-top-${sId}-${t.id}`)}
-                                                                        className={`relative flex items-start gap-3 p-3 rounded-xl border transition-all duration-300 text-left ${
+                                                                        className={`relative flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-300 text-left ${
                                                                             isSelected
                                                                             ? 'bg-rose-500/10 border-rose-500/30'
                                                                             : 'bg-secondary/30 dark:bg-zinc-800/30 border-border dark:border-white/5 hover:border-rose-500/20'
                                                                         }`}
-
                                                                     >
-                                                                        <div className={`mt-0.5 w-4 h-4 rounded-md flex items-center justify-center border-2 transition-all duration-300 shrink-0 ${
+                                                                        <div className={`w-4 h-4 rounded-md flex items-center justify-center border-2 transition-all duration-300 shrink-0 ${
                                                                             isSelected
                                                                             ? 'bg-rose-500 border-rose-500 text-white shadow-[0_0_8px_rgba(244,63,94,0.3)]'
                                                                             : 'border-white/10 text-transparent'
@@ -469,10 +561,9 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                                                                             <Check size={10} strokeWidth={4} />
                                                                         </div>
                                                                         <div className="flex-1 min-w-0">
-                                                                            <span className={`text-[11px] font-bold text-foreground block truncate ${isSelected ? 'line-through decoration-rose-500/50' : ''}`}>{t.name}</span>
+                                                                            <span className={`text-xs font-bold text-foreground block truncate ${isSelected ? 'line-through decoration-rose-500/50' : ''}`}>{t.name}</span>
                                                                             <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                                                <span className="text-[8px] text-content-muted font-bold uppercase tracking-wider bg-white/5 px-1.5 py-0.5 rounded-md border border-border">Remover Tópico</span>
-
+                                                                                <span className="text-[8px] text-rose-400/80 font-bold uppercase tracking-wider">Remover Tópico</span>
                                                                                 {studied && (
                                                                                     <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md">
                                                                                         <AlertCircle size={9} className="text-amber-500" />

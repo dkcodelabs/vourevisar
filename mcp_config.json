@@ -20,7 +20,7 @@
                 "aistudio-mcp-server"
             ],
             "env": {
-                "GEMINI_API_KEY": "AIzaSyB9boPcMR2_Ivju-b9naBTr2JSRZhxcgYs"
+                "GEMINI_API_KEY": "AIzaSyBvD0JqXjGFjRavGwuwcP-xYQ5LPH_Zrw0"
             }
         },
         "asaas": {

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StudyTopic, SessionStatus } from '../types';
 import TimelineItem from './TimelineItem';
 import StarRating from './StarRating';
@@ -15,8 +15,22 @@ const StudyModal: React.FC<StudyModalProps> = ({ topic, onClose }) => {
   const [difficulty, setDifficulty] = useState(3);
   const [insight, setInsight] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [aiAvailable, setAiAvailable] = useState(true);
+
+  useEffect(() => {
+    // Verificar status da IA ao abrir o modal
+    const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      setAiAvailable(false);
+    }
+  }, []);
 
   const handleConfirm = async () => {
+    if (!aiAvailable) {
+      alert('Serviço de IA não disponível. Configure a API key nas configurações.');
+      return;
+    }
+
     setIsLoading(true);
     const tip = await getStudyInsight(topic.title, difficulty, timeSpent);
     setInsight(tip);
