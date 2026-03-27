@@ -21,6 +21,7 @@ import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
 import { Loader2, AlertCircle, X, Target, BookOpen, Database, RefreshCw, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 // Removido hook de visibilidade que causava recarregamentos
 
 
@@ -559,11 +560,7 @@ export const StudyCycleContent: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
-      </div>
-    );
+    return <LoadingSpinner size="large" showText fullPage />;
   }
 
   return (

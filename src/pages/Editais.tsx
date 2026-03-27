@@ -880,126 +880,128 @@ const Editais = () => {
     };
 
     // ── Loading ──
-    if (isLoading || loadingEditais) return <LoadingSpinner size="large" />;
+    if (isLoading || loadingEditais) return <LoadingSpinner size="large" showText fullPage />;
 
     return (
-        <div className="min-h-screen p-4 md:p-6 lg:p-8 space-y-6">
-            {/* ── Cabeçalho Principal ── */}
-            <div className="flex flex-col gap-6">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    {/* Filtros e Busca */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-                        {/* Busca */}
-                        <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-content-muted" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Buscar edital..."
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full h-11 bg-secondary border border-border dark:border-white/5 rounded-2xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-foreground placeholder:text-content-muted/50 shadow-sm"
-                            />
+        <div className="min-h-screen p-3 md:p-4 lg:p-6 space-y-4">
+            {/* ── Cabeçalho Principal (só mostra se houver editais) ── */}
+            {editais.length > 0 && (
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        {/* Filtros e Busca */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
+                            {/* Busca */}
+                            <div className="relative flex-1 max-w-md">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar edital..."
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    className="w-full h-9 bg-secondary border border-border dark:border-white/5 rounded-xl pl-9 pr-3 text-xs font-medium focus:outline-none focus:border-primary/40 transition-all text-foreground placeholder:text-content-muted/50 shadow-sm"
+                                />
+                            </div>
+
+                            {/* Filtros de Tipo */}
+                            <div className="flex bg-secondary p-1 rounded-lg border border-border h-9">
+                                {[
+                                    { id: 'all', label: 'Todos', count: editais.length },
+                                    { id: 'imported', label: 'Importados', count: editais.filter(e => e.isImported).length },
+                                    { id: 'manual', label: 'Criados', count: editais.filter(e => !e.isImported).length }
+                                ].map((f) => (
+                                    <button
+                                        key={f.id}
+                                        onClick={() => setActiveFilter(f.id as 'all' | 'imported' | 'manual')}
+                                        className={`px-2 h-full rounded-md text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                                            activeFilter === f.id 
+                                                ? 'bg-card text-foreground shadow-sm' 
+                                                : 'text-content-muted hover:text-foreground'
+                                        }`}
+                                    >
+                                        <span className="bg-primary/20 text-primary px-1 py-0.5 rounded text-[8px] font-bold">{f.count}</span>
+                                        <span>{f.label}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
-                        {/* Filtros de Tipo */}
-                        <div className="flex bg-secondary p-1 rounded-xl border border-border h-11">
-                            {[
-                                { id: 'all', label: 'Todos', count: editais.length },
-                                { id: 'imported', label: 'Importados', count: editais.filter(e => e.isImported).length },
-                                { id: 'manual', label: 'Criados', count: editais.filter(e => !e.isImported).length }
-                            ].map((f) => (
-                                <button
-                                    key={f.id}
-                                    onClick={() => setActiveFilter(f.id as 'all' | 'imported' | 'manual')}
-                                    className={`px-3 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                                        activeFilter === f.id 
-                                            ? 'bg-card text-foreground shadow-sm' 
-                                            : 'text-content-muted hover:text-foreground'
-                                    }`}
-                                >
-                                    <span className="bg-primary/20 text-primary px-1.5 py-0.5 rounded text-[9px] font-bold">{f.count}</span>
-                                    <span>{f.label}</span>
-                                </button>
-                            ))}
+                        {/* Ações */}
+                        <div className="flex items-center gap-2 shrink-0">
+                            <AnimatePresence>
+                                {selectedIds.size >= 2 && (
+                                    <motion.button
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        onClick={handleMerge}
+                                        disabled={isMerging}
+                                        className="flex items-center gap-1.5 h-9 px-4 bg-violet-500 hover:bg-violet-600 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50"
+                                    >
+                                        {isMerging ? (
+                                            <RefreshCw size={14} className="animate-spin" />
+                                        ) : (
+                                            <Merge size={14} />
+                                        )}
+                                        Mesclar ({selectedIds.size})
+                                    </motion.button>
+                                )}
+                            </AnimatePresence>
+
+                            <button
+                                onClick={() => setIsImportModalOpen(true)}
+                                className="flex items-center gap-1.5 h-9 px-4 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-lg shadow-emerald-500/20"
+                            >
+                                <Plus size={14} />
+                                Adicionar Edital
+                            </button>
                         </div>
                     </div>
 
-                    {/* Ações */}
-                    <div className="flex items-center gap-3 shrink-0">
-                        <AnimatePresence>
-                            {selectedIds.size >= 2 && (
-                                <motion.button
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
-                                    onClick={handleMerge}
-                                    disabled={isMerging}
-                                    className="flex items-center gap-2 h-11 px-5 bg-violet-500 hover:bg-violet-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50"
-                                >
-                                    {isMerging ? (
-                                        <RefreshCw size={16} className="animate-spin" />
-                                    ) : (
-                                        <Merge size={16} />
-                                    )}
-                                    Mesclar ({selectedIds.size})
-                                </motion.button>
-                            )}
-                        </AnimatePresence>
-
-                        <button
-                            onClick={() => setIsImportModalOpen(true)}
-                            className="flex items-center gap-2 h-11 px-6 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-500/20"
-                        >
-                            <Plus size={18} />
-                            Adicionar Edital
-                        </button>
+                    {/* Sub-header info (opcional, bem discreto agora) */}
+                    <div className="flex items-center gap-4 text-[9px] font-bold text-content-muted uppercase tracking-[0.15em] px-1">
+                        {selectedIds.size > 0 && (
+                            <span className="text-violet-400">{selectedIds.size} selecionados</span>
+                        )}
                     </div>
-                </div>
 
-                {/* Sub-header info (opcional, bem discreto agora) */}
-                <div className="flex items-center gap-4 text-[10px] font-bold text-content-muted uppercase tracking-[0.2em] px-1">
-                    {selectedIds.size > 0 && (
-                        <span className="text-violet-400">{selectedIds.size} selecionados</span>
+                    {/* Badge de filtro ciclo (ao vir da página Matérias) */}
+                    {filterCycle && (
+                        <div className="flex items-center gap-3 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
+                            <Database size={14} className="text-primary shrink-0" />
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-foreground">
+                                    Mostrando editais do ciclo
+                                </p>
+                                <p className="text-[10px] text-content-muted mt-0.5">
+                                    Clique em &ldquo;Ver Matérias&rdquo; para adicionar matérias e tópicos
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setFilterCycle(false)}
+                                className="p-1.5 hover:bg-primary/10 rounded-md transition-colors shrink-0"
+                            >
+                                <X size={14} className="text-content-muted" />
+                            </button>
+                        </div>
                     )}
                 </div>
-
-                {/* Badge de filtro ciclo (ao vir da página Matérias) */}
-                {filterCycle && (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-primary/5 border border-primary/20 rounded-xl">
-                        <Database size={16} className="text-primary shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-foreground">
-                                Mostrando editais do ciclo
-                            </p>
-                            <p className="text-xs text-content-muted mt-0.5">
-                                Clique em &ldquo;Ver Matérias&rdquo; para adicionar matérias e tópicos
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => setFilterCycle(false)}
-                            className="p-2 hover:bg-primary/10 rounded-lg transition-colors shrink-0"
-                        >
-                            <X size={16} className="text-content-muted" />
-                        </button>
-                    </div>
-                )}
-            </div>
+            )}
             
             {/* Banner de Alerta Amigável (Ciclo Vazio) */}
             {editais.length > 0 && !editais.some(e => e.mergedIntoCycle) && (
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex items-center gap-4 text-orange-600 dark:text-orange-400 animate-pulse-subtle"
+                    className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 flex items-center gap-3 text-orange-600 dark:text-orange-400 animate-pulse-subtle"
                 >
-                    <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
-                        <AlertTriangle size={20} />
+                    <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center shrink-0">
+                        <AlertTriangle size={16} />
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-bold leading-tight">
+                        <p className="text-xs font-bold leading-tight">
                             Você tem editais cadastrados, mas nenhum está carregado no seu ciclo ativo de estudos.
                         </p>
-                        <p className="text-xs font-medium opacity-80">
+                        <p className="text-[10px] font-medium opacity-80">
                             Clique em <span className="font-bold">"Carregar Ciclo"</span> em um edital abaixo para começar seu planejamento inteligente!
                         </p>
                     </div>
@@ -1011,7 +1013,7 @@ const Editais = () => {
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="glow-card p-12 md:p-24 flex flex-col items-center justify-center text-center border border-border bg-card shadow-xl rounded-[2.5rem] overflow-hidden relative"
+                    className="glow-card p-8 md:p-16 flex flex-col items-center justify-center text-center border border-border bg-card shadow-xl rounded-2xl overflow-hidden relative"
                 >
                     {/* Elementos Decorativos de Fundo */}
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
@@ -1019,58 +1021,47 @@ const Editais = () => {
                     <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl" />
 
                     <div className="relative">
-                        <div className="w-24 h-24 bg-secondary dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8 mx-auto rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
-                            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shadow-sm">
-                                <Library className="text-primary" size={40} />
+                        <div className="w-16 h-16 bg-secondary dark:bg-white/5 rounded-2xl flex items-center justify-center mb-6 mx-auto rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
+                            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center shadow-sm">
+                                <Library className="text-primary" size={28} />
                             </div>
                         </div>
                     </div>
 
                     {editais.length === 0 ? (
-                        <div className="max-w-xl mx-auto space-y-6 relative">
+                        <div className="max-w-xl mx-auto space-y-4 relative">
                             <div>
-                                <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tight mb-4">
+                                <h2 className="text-xl md:text-2xl font-black text-foreground tracking-tight mb-3">
                                     Vamos começar sua aprovação?
                                 </h2>
-                                <p className="text-base text-content-muted leading-relaxed font-medium">
+                                <p className="text-sm text-content-muted leading-relaxed font-medium">
                                     Parece que você ainda não tem nenhum edital. <br className="hidden md:block" />
                                     Importe um edital pronto da nossa biblioteca ou use nossa IA para estruturar um do zero!
                                 </p>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
                                 <button
                                     onClick={() => setIsImportModalOpen(true)}
-                                    className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-emerald-500/25 hover:-translate-y-1 active:scale-95"
+                                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-500/25 hover:-translate-y-1 active:scale-95"
                                 >
-                                    <Plus size={20} />
+                                    <Plus size={16} />
                                     Importar Primeiro Edital
-                                </button>
-                                
-                                <button
-                                    onClick={() => {
-                                        setSuggestionName("");
-                                        setIsSuggestionOpen(true);
-                                    }}
-                                    className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-secondary dark:bg-white/5 text-foreground hover:bg-secondary/80 border border-border dark:border-white/10 text-sm font-black uppercase tracking-widest rounded-2xl transition-all hover:-translate-y-1 active:scale-95"
-                                >
-                                    <Sparkles className="text-primary" size={18} />
-                                    Sugerir Concurso
                                 </button>
                             </div>
 
-                            <div className="pt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {[
                                     { icon: GraduationCap, title: 'Foco Total', desc: 'Conteúdo organizado' },
                                     { icon: Target, title: 'Ciclos IA', desc: 'Estudo adaptativo' },
                                     { icon: Clock, title: 'Evolução', desc: 'Acompanhe seu progresso' }
                                 ].map((item, i) => (
-                                    <div key={i} className="flex flex-col items-center gap-2">
-                                        <div className="w-8 h-8 rounded-lg bg-secondary dark:bg-white/5 flex items-center justify-center mb-1">
-                                            <item.icon size={14} className="text-primary/60" />
+                                    <div key={i} className="flex flex-col items-center gap-1.5">
+                                        <div className="w-7 h-7 rounded-lg bg-secondary dark:bg-white/5 flex items-center justify-center mb-1">
+                                            <item.icon size={12} className="text-primary/60" />
                                         </div>
-                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground">{item.title}</h3>
-                                        <p className="text-[10px] text-content-muted font-medium">{item.desc}</p>
+                                        <h3 className="text-[9px] font-bold uppercase tracking-wider text-foreground">{item.title}</h3>
+                                        <p className="text-[9px] text-content-muted font-medium">{item.desc}</p>
                                     </div>
                                 ))}
                             </div>

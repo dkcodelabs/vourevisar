@@ -21,8 +21,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import TopicsModal from '@/components/topics/TopicsModal';
 import ContentUploadModal from '@/components/ContentUploadModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
-import { SmartMergeModal } from '@/components/subjects/SmartMergeModal';
-import { MergeModal } from '@/components/subjects/MergeModal';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
 import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
@@ -31,9 +29,6 @@ import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { errorService } from '@/lib/errors/errorService';
 import { useEditalOrigins } from '@/hooks/useEditalOrigins';
-import { suggestMerges, MergeSuggestion } from '@/utils/subjectSimilarity';
-import { suggestContentBasedMerges } from '@/edutrack-review-manager/services/geminiService';
-import { Suggestion as SmartMergeSuggestion } from '@/components/subjects/SmartMergeModal';
 import { useAIStatus } from '@/hooks/useAIStatus';
 
 const calculateSubjectStatus = (subject: Subject): Status => {
@@ -99,17 +94,11 @@ const Subjects = () => {
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // Novos modais V2 states
-  const [isMergeMode, setIsMergeMode] = useState(false);
   const [visibleCount, setVisibleCount] = useState(25);
   const ITEMS_PER_PAGE = 25;
-  const [selectedSubjectsToMerge, setSelectedSubjectsToMerge] = useState<string[]>([]);
-  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
-  const [isSmartMergeModalOpen, setIsSmartMergeModalOpen] = useState(false);
-  const [isSuggesting, setIsSuggesting] = useState(false);
   const [isImportEditalModalOpen, setIsImportEditalModalOpen] = useState(false);
   const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState<'ready' | 'ia' | 'manual'>('ready');
-  const [smartMergeSuggestions, setSmartMergeSuggestions] = useState<SmartMergeSuggestion[]>([]);
 
   const location = useLocation();
 
@@ -168,92 +157,6 @@ const Subjects = () => {
   };
 
   // ── Funções de banco para subject_relations ──
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
-  
-  const saveMergeRelationToDb = async (mainSubjectId: string, mergedSubjectIds: string[]) => {
-    if (!user) return false;
-    try {
-      // Primeiro, tenta deletar se existir
-      await db
-        .from('subject_relations')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('main_subject_id', mainSubjectId);
-      
-      // Depois, insere o novo registro
-      const { error } = await db
-        .from('subject_relations')
-        .insert({
-          user_id: user.id,
-          main_subject_id: mainSubjectId,
-          merged_subject_ids: mergedSubjectIds
-        });
-      
-      if (error) throw error;
-      return true;
-    } catch (err) {
-      console.error('Erro ao salvar relação de mesclagem:', err);
-      return false;
-    }
-  };
-
-  const loadMergeRelationsFromDb = async (): Promise<Record<string, string[]>> => {
-    if (!user) return {};
-    try {
-      const { data, error } = await db
-        .from('subject_relations')
-        .select('main_subject_id, merged_subject_ids')
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
-      
-      const map: Record<string, string[]> = {};
-      data?.forEach((row: { main_subject_id: string; merged_subject_ids: string[] }) => {
-        map[row.main_subject_id] = row.merged_subject_ids;
-      });
-      return map;
-    } catch (err) {
-      console.error('Erro ao carregar relações de mesclagem:', err);
-      return {};
-    }
-  };
-
-  const removeMergeRelationFromDb = async (mainSubjectId: string) => {
-    if (!user) return false;
-    try {
-      const { error } = await db
-        .from('subject_relations')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('main_subject_id', mainSubjectId);
-      
-      if (error) throw error;
-      return true;
-    } catch (err) {
-      console.error('Erro ao remover relação de mesclagem:', err);
-      return false;
-    }
-  };
-
-  // ── Função para buscar editais de uma matéria mesclada ──
-  const getEditaisForMergedSubject = async (subjectId: string) => {
-    if (!user) return [];
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
-      .from('user_editais')
-      .select('id, name, subject_ids, is_imported, source_id')
-      .eq('user_id', user.id)
-      .contains('subject_ids', [subjectId]);
-    
-    if (error) {
-      console.error('Erro ao buscar editais:', error);
-      return [];
-    }
-    return data || [];
-  };
-
   // ── Função Excluir Definitivo ──
   const handleDeletePermanent = async (subjectId: string, editalIdToRemove?: string) => {
     if (!user) return;
@@ -311,15 +214,8 @@ const Subjects = () => {
         .delete()
         .eq('id', subjectId);
 
-      // 5. Remover relação de mesclagem se existir
-      await removeMergeRelationFromDb(subjectId);
-
-      // 6. Atualizar estado local
+      // 5. Atualizar estado local
       setLocalSubjects(prev => prev.filter(s => s.id !== subjectId));
-      
-      const newMap = { ...mergedSubjectsMap };
-      delete newMap[subjectId];
-      setMergedSubjectsMap(newMap);
       
       refresh();
       toast.success('Matéria excluída do edital!');
@@ -329,7 +225,7 @@ const Subjects = () => {
       errorService.report(err, { module: 'Subjects', action: 'deletePermanent', userMessage: 'Erro ao excluir matéria.' });
     } finally {
       setIsLoading(false);
-      setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] });
+      setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, editais: [] });
     }
   };
 
@@ -338,109 +234,10 @@ const Subjects = () => {
     isOpen: boolean;
     subjectId: string | null;
     subjectName: string | null;
-    isMerged: boolean;
     editais: Array<{ id: string; name: string; is_imported: boolean; source_id: string | null }>;
-  }>({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] });
+  }>({ isOpen: false, subjectId: null, subjectName: null, editais: [] });
 
   const { aiStatus, checkAIStatus } = useAIStatus();
-
-  const handleSuggestMerges = async () => {
-    // Verificar se IA está disponível
-    if (aiStatus.status === 'error' || aiStatus.status === 'inactive') {
-      toastGate.notifyError(
-        'Serviço de IA temporariamente indisponível. Tente novamente mais tarde.',
-        'AI_UNAVAILABLE',
-        { severity: 'medium' }
-      );
-      return;
-    }
-
-    setIsSuggesting(true);
-    try {
-      // 1. Tentar primeiro com Gemini (Conteúdo + Nome)
-      console.log('🤖 Chamando Gemini para sugestões de mescla...');
-      const aiSuggestions = await suggestContentBasedMerges(subjects);
-      
-      let finalSuggestions: SmartMergeSuggestion[] = [];
-
-      if (aiSuggestions && aiSuggestions.length > 0) {
-        finalSuggestions = aiSuggestions.map((s) => ({
-          ...s,
-          approved: true
-        })) as SmartMergeSuggestion[];
-      } else {
-        // 2. Fallback para similaridade de nome se Gemini não retornar nada
-        console.log('⚠️ Gemini não retornou sugestões, usando fallback de similaridade...');
-        finalSuggestions = suggestMerges(subjects) as SmartMergeSuggestion[];
-      }
-
-      setSmartMergeSuggestions(finalSuggestions);
-      
-      if (finalSuggestions.length === 0) {
-        toast.info('Nenhuma sugestão de mescla encontrada no momento.');
-      } else {
-        setIsSmartMergeModalOpen(true);
-      }
-    } catch (error) {
-      console.error('Erro ao sugerir mesclas:', error);
-      // Fallback final
-      const fallback = suggestMerges(subjects) as SmartMergeSuggestion[];
-      setSmartMergeSuggestions(fallback);
-      if (fallback.length > 0) setIsSmartMergeModalOpen(true);
-    } finally {
-      setIsSuggesting(false);
-    }
-  };
-
-  const toggleSelectionForMerge = (subjectId: string) => {
-    setSelectedSubjectsToMerge(prev =>
-      prev.includes(subjectId) ? prev.filter(id => id !== subjectId) : [...prev, subjectId]
-    );
-  };
-
-  const handleMergeClick = () => {
-    if (selectedSubjectsToMerge.length < 2) {
-      toastGate.notifyError('Selecione pelo menos duas matérias para unir!', 'MERGE-ERR-01', { severity: 'low' });
-      return;
-    }
-    setIsMergeModalOpen(true);
-  };
-
-  // Função para separar matérias mescladas
-  const handleSeparate = async (subjectId: string) => {
-    if (!user) return;
-    
-    const mergedIds = mergedSubjectsMap[subjectId];
-    if (!mergedIds || mergedIds.length === 0) return;
-
-    // Adicionar as matérias de volta ao state se não existirem
-    const currentIds = new Set(localSubjects.map(s => s.id));
-    const newSubjects: Subject[] = [];
-    
-    for (const id of mergedIds) {
-      if (!currentIds.has(id)) {
-        const subject = localSubjects.find(s => s.id === id);
-        if (subject) {
-          newSubjects.push(subject);
-        }
-      }
-    }
-    
-    if (newSubjects.length > 0) {
-      setLocalSubjects([...localSubjects, ...newSubjects]);
-    }
-
-    // Remover a relação de mesclagem
-    const newMap = { ...mergedSubjectsMap };
-    delete newMap[subjectId];
-    setMergedSubjectsMap(newMap);
-    
-    // Salvar no banco de dados
-    await removeMergeRelationFromDb(subjectId);
-    
-    toast.success('Matérias separadas com sucesso!');
-    setConfirmHideSubjectId(null);
-  };
 
   // Cache simples no localStorage
   const loadSubjects = useCallback(async (ignoreCache: boolean = false) => {
@@ -453,25 +250,9 @@ const Subjects = () => {
 
     if (!user) return;
 
+    // Remover cache antigo se existir
     const cacheKey = `subjects_${user.id}`;
-    
-    if (ignoreCache) {
-      localStorage.removeItem(cacheKey);
-    } else {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        try {
-          const data = JSON.parse(cached);
-          if (Date.now() - data.timestamp < 300000) { // 5 minutos
-            console.log('💾 USING CACHE:', { subjectsCount: data.subjects.length });
-            setSubjects(data.subjects);
-            return;
-          }
-        } catch (e) {
-          console.warn('Erro ao ler cache de matérias:', e);
-        }
-      }
-    }
+    localStorage.removeItem(cacheKey);
 
     console.log('🔄 LOADING FROM DATABASE');
     if (!dataLoaded) {
@@ -492,11 +273,6 @@ const Subjects = () => {
       });
       setSubjects(transformedSubjects);
 
-      localStorage.setItem(cacheKey, JSON.stringify({
-        subjects: transformedSubjects,
-        timestamp: Date.now()
-      }));
-
       console.log('✅ DATA LOADED:', { subjectsCount: transformedSubjects.length });
     } catch (error) {
       await errorService.report(
@@ -515,78 +291,6 @@ const Subjects = () => {
       setDataLoaded(true);
     }
   }, [user, dataLoaded]);
-
-  const handleApplySmartMerge = async (approvedSuggestions: SmartMergeSuggestion[]) => {
-    if (!user) return;
-    
-    setIsLoading(true);
-    try {
-      for (const suggestion of approvedSuggestions) {
-        const [targetId, ...sourceIds] = suggestion.subjectIds;
-        
-        // 1. Atualizar nome da matéria alvo
-        await supabase
-          .from('subjects')
-          .update({ name: suggestion.suggestedName.toUpperCase() })
-          .eq('id', targetId);
-          
-        // 2. Mover todos os tópicos das matérias fontes para a alvo
-        for (const sourceId of sourceIds) {
-          const { error: moveError } = await supabase
-            .from('topics')
-            .update({ subject_id: targetId })
-            .eq('subject_id', sourceId);
-            
-          if (moveError) throw moveError;
-          
-          // 3. Deletar a matéria original
-          await supabase
-            .from('subjects')
-            .delete()
-            .eq('id', sourceId);
-            
-          // 4. Atualizar referências em user_editais (Essencial para manter Origem/Concurso)
-          const { data: editaisWithSubject } = await supabase
-            .from('user_editais')
-            .select('id, subject_ids')
-            .contains('subject_ids', [sourceId]);
-            
-          if (editaisWithSubject) {
-            for (const edital of editaisWithSubject) {
-              const currentIds = (edital.subject_ids as string[]) || [];
-              // Substituir o ID antigo pelo novo na lista desse edital
-              const updatedIds = currentIds.map(id => 
-                id === sourceId ? targetId : id
-              );
-              // Remover duplicatas caso o targetId já estivesse nesse mesmo edital
-              const uniqueIds = [...new Set(updatedIds)];
-              
-              const { error: editalUpdateError } = await supabase
-                .from('user_editais')
-                .update({ subject_ids: uniqueIds })
-                .eq('id', edital.id);
-
-              if (editalUpdateError) {
-                console.error(`Erro ao atualizar edital ${edital.id}:`, editalUpdateError);
-              }
-            }
-          }
-        }
-      }
-      
-      await refreshData();
-      toast.success(`${approvedSuggestions.length} mesclas realizadas com sucesso!`);
-      setIsSmartMergeModalOpen(false);
-    } catch (error) {
-      errorService.report(error, { 
-        module: 'Subjects', 
-        action: 'handleApplySmartMerge', 
-        userMessage: 'Erro ao aplicar mesclas inteligentes.' 
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const refreshData = useCallback(async () => {
     if (user) {
@@ -810,18 +514,6 @@ const Subjects = () => {
       setLocalSubjects([]);
     }
   }, [subjects, dataLoaded]);
-
-  // Carregar relações de mesclagem do banco
-  useEffect(() => {
-    const loadMergedRelations = async () => {
-      if (!user) return;
-      const relations = await loadMergeRelationsFromDb();
-      if (Object.keys(relations).length > 0) {
-        setMergedSubjectsMap(relations);
-      }
-    };
-    loadMergedRelations();
-  }, [user]);
 
   // Carregar ciclo do usuário
   useEffect(() => {
@@ -1486,10 +1178,6 @@ const Subjects = () => {
 
   const hasMore = filteredList.length > visibleCount;
 
-  if (loading) {
-    return <div>Carregando...</div>;
-  }
-
   if (isLoading) {
     return <LoadingSpinner size="large" showText fullPage />;
   }
@@ -1503,7 +1191,7 @@ const Subjects = () => {
 
       {/* Unified Header Card - Visible when there are subjects or when inside the Modal */}
       {/* Refined Header - Final Polished Layout */}
-      {(localSubjects.length > 0 || isImportEditalModalOpen) && (
+      {(displayList.length > 0 || isImportEditalModalOpen) && (
         <div className="flex flex-col gap-4 mb-8 relative z-20">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             {/* Left Zone: search + tabs + cycle info */}
@@ -1636,34 +1324,6 @@ const Subjects = () => {
                 <Plus size={14} className="text-primary transition-transform group-hover:scale-110" />
                 <span>Nova Matéria</span>
               </button>
-
-              {/* Suggest Action */}
-              {!isImportEditalModalOpen && (
-                <button
-                  onClick={handleSuggestMerges}
-                  disabled={isSuggesting}
-                  className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group disabled:opacity-50"
-                >
-                  {isSuggesting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} className="text-primary transition-transform group-hover:scale-110" />}
-                  <span>Sugerir</span>
-                </button>
-              )}
-
-              {/* Merge Action */}
-              {!isImportEditalModalOpen && (
-                <button
-                  onClick={() => {
-                    setIsMergeMode(!isMergeMode);
-                    setSelectedSubjectsToMerge([]);
-                  }}
-                  className={`h-9 px-3 rounded-lg transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-wider group ${isMergeMode 
-                    ? 'bg-primary/10 text-primary border border-primary/20' 
-                    : 'bg-transparent text-content-muted hover:text-primary'}`}
-                >
-                  <Merge size={14} className="text-primary transition-transform group-hover:scale-110" />
-                  <span>{isMergeMode ? 'Cancelar' : 'Mesclar'}</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -1737,15 +1397,10 @@ const Subjects = () => {
                       <div className="w-full max-w-full">
                         <div
                           data-subject-id={subject.id}
-                          onClick={(e) => {
-                            if (isMergeMode) {
-                              toggleSelectionForMerge(subject.id);
-                            } else {
-                              toggleExpand(item.id);
-                            }
+                          onClick={() => {
+                            toggleExpand(item.id);
                           }}
-                          className={`glow-card p-4 rounded-2xl flex items-center justify-between group hover:border-primary/20 transition-all cursor-pointer mb-2 relative overflow-hidden ${expandedSubjectIds.includes(item.id) ? 'border-primary/30 shadow-primary/5' : ''
-                            } ${selectedSubjectsToMerge.includes(subject.id) ? 'border-primary/50 bg-primary/5' : ''}`}
+                          className={`glow-card p-4 rounded-2xl flex items-center justify-between group hover:border-primary/20 transition-all cursor-pointer mb-2 relative overflow-hidden ${expandedSubjectIds.includes(item.id) ? 'border-primary/30 shadow-primary/5' : ''}`}
                         >
                           {/* Left Status Border */}
                           <div
@@ -1755,15 +1410,9 @@ const Subjects = () => {
 
                           <div className="flex items-center gap-3 pl-2">
                             {/* Action icon */}
-                            {isMergeMode ? (
-                              <div className="text-primary" onClick={(e) => { e.stopPropagation(); toggleSelectionForMerge(subject.id); }}>
-                                {selectedSubjectsToMerge.includes(subject.id) ? <CheckSquare size={18} /> : <div className="w-[18px] h-[18px] rounded border-2 border-primary/50 opacity-50" />}
-                              </div>
-                            ) : (
-                              <div className="cursor-move text-content-muted hover:text-primary transition-colors p-1 -ml-2" onClick={(e) => e.stopPropagation()} {...listeners} {...attributes}>
-                                <GripVertical size={16} />
-                              </div>
-                            )}
+                            <div className="cursor-move text-content-muted hover:text-primary transition-colors p-1 -ml-2" onClick={(e) => e.stopPropagation()} {...listeners} {...attributes}>
+                              <GripVertical size={16} />
+                            </div>
 
                             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
                               <span className="text-[10px] sm:text-[11px] font-black text-primary">#{position}</span>
@@ -1802,9 +1451,6 @@ const Subjects = () => {
                                     >{subject.name}</h4>
                                     {isView && (
                                       <Badge variant="outline" className="text-[8px] px-1 bg-primary/10 text-primary border-primary/20">DUP</Badge>
-                                    )}
-                                    {(mergedSubjectsMap[subject.id] || Object.values(mergedSubjectsMap).some(arr => arr.includes(subject.id))) && (
-                                      <Badge variant="outline" className="text-[8px] px-1 bg-blue-500/10 text-blue-500 border-blue-500/20">MESCLADA</Badge>
                                     )}
                                     {calculatedStatus === 'Concluída' && (
                                       <Badge variant="outline" className="text-[8px] px-1 bg-green-500/10 text-green-500 border-green-500/20">CONCLUÍDO</Badge>
@@ -1888,17 +1534,17 @@ const Subjects = () => {
                                     <button
                                       onClick={async (e) => {
                                         e.stopPropagation();
-                                        const editais = await getEditaisForMergedSubject(subject.id);
-                                        // Verifica se é matéria mesclada (chave principal ou se é uma das mescladas)
-                                        const isMainMerged = !!mergedSubjectsMap[subject.id];
-                                        const isPartOfMerged = Object.values(mergedSubjectsMap).some(arr => arr.includes(subject.id));
-                                        const isMerged = isMainMerged || isPartOfMerged;
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        const { data } = await (supabase as any)
+                                          .from('user_editais')
+                                          .select('id, name, subject_ids, is_imported, source_id')
+                                          .eq('user_id', user.id)
+                                          .contains('subject_ids', [subject.id]);
                                         setDeletePermanentConfirm({
                                           isOpen: true,
                                           subjectId: subject.id,
                                           subjectName: subject.name,
-                                          isMerged: isMerged,
-                                          editais: editais.map(ed => ({ id: ed.id, name: ed.name, is_imported: ed.is_imported, source_id: ed.source_id }))
+                                          editais: (data || []).map((ed: any) => ({ id: ed.id, name: ed.name, is_imported: ed.is_imported, source_id: ed.source_id }))
                                         });
                                       }}
                                       className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
@@ -2170,7 +1816,7 @@ const Subjects = () => {
           {/* Dialog Simplificado: Excluir do Edital */}
           <AlertDialog 
             open={deletePermanentConfirm.isOpen} 
-            onOpenChange={(open) => !open && setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] })}
+            onOpenChange={(open) => !open && setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, editais: [] })}
           >
             <AlertDialogContent className="max-w-sm">
               <AlertDialogHeader>
@@ -2278,21 +1924,6 @@ const Subjects = () => {
 
               <AlertDialogFooter className="gap-2 flex-wrap">
                 <AlertDialogCancel className="text-xs">Cancelar</AlertDialogCancel>
-                {deletePermanentConfirm.isMerged && (
-                  <AlertDialogAction
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (deletePermanentConfirm.subjectId) {
-                        handleSeparate(deletePermanentConfirm.subjectId);
-                        setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, isMerged: false, editais: [] });
-                      }
-                    }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white text-xs gap-1.5"
-                  >
-                    <Scissors className="w-3.5 h-3.5" />
-                    Separar
-                  </AlertDialogAction>
-                )}
                 {/* Excluir de todos (apenas quando há mais de 1 edital) */}
                 {deletePermanentConfirm.editais.length > 1 && (
                   <AlertDialogAction
@@ -2398,137 +2029,6 @@ const Subjects = () => {
               }
             }}
             subjects={subjects}
-          />
-
-          <MergeModal
-            isOpen={isMergeModalOpen}
-            onClose={() => setIsMergeModalOpen(false)}
-            selectedSubjects={subjects.filter(s => selectedSubjectsToMerge.includes(s.id))}
-            onConfirm={async (finalName) => {
-              if (!user) return;
-              
-              const subjectsToMerge = subjects.filter(s => selectedSubjectsToMerge.includes(s.id));
-              if (subjectsToMerge.length < 2) return;
-              
-              try {
-                // 1. Criar nova matéria com o nome escolhido
-                const { data: newSubject, error: subjectError } = await supabase
-                  .from('subjects')
-                  .insert({
-                    user_id: user.id,
-                    name: finalName.toUpperCase(),
-                    status: 'Nova',
-                    priority: Math.max(...subjectsToMerge.map(s => s.priority || 0), 0) + 1
-                  })
-                  .select()
-                  .single();
-                
-                if (subjectError) throw subjectError;
-                
-                // 2. Coletar todos os tópicos de todas as matérias
-                const allTopics: { name: string; position: number }[] = [];
-                subjectsToMerge.forEach(s => {
-                  if (s.topics) {
-                    s.topics.forEach((t, idx) => {
-                      allTopics.push({ name: t.name, position: allTopics.length + 1 });
-                    });
-                  }
-                });
-                
-                // 3. Inserir todos os tópicos na nova matéria
-                if (allTopics.length > 0) {
-                  const topicsToInsert = allTopics.map(t => ({
-                    user_id: user.id,
-                    subject_id: newSubject.id,
-                    name: t.name,
-                    position: t.position
-                  }));
-                  
-                  const { error: topicsError } = await supabase
-                    .from('topics')
-                    .insert(topicsToInsert);
-                  
-                  if (topicsError) throw topicsError;
-                }
-                
-                // 4. Vincular a nova matéria aos editais das matérias originais
-                const mergedIds = subjectsToMerge.map(s => s.id);
-                
-                // Buscar todos os editais que contêm as matérias originais
-                const { data: relatedEditais } = await (supabase as any)
-                  .from('user_editais')
-                  .select('id, subject_ids')
-                  .or(mergedIds.map(id => `subject_ids.cs.["${id}"]`).join(','));
-                
-                if (relatedEditais && relatedEditais.length > 0) {
-                  for (const edital of relatedEditais) {
-                    const currentIds = (edital.subject_ids as string[]) || [];
-                    // Substituir IDs originais pelo ID da nova matéria (sem duplicatas)
-                    const updatedIds = [
-                      ...new Set([
-                        ...currentIds.filter(id => !mergedIds.includes(id)),
-                        newSubject.id
-                      ])
-                    ];
-                    await (supabase as any)
-                      .from('user_editais')
-                      .update({ subject_ids: updatedIds })
-                      .eq('id', edital.id);
-                  }
-                }
-
-                // 5. Guardar a relação de mesclagem no banco de dados
-                const newMap = { ...mergedSubjectsMap, [newSubject.id]: mergedIds };
-                setMergedSubjectsMap(newMap);
-                
-                await saveMergeRelationToDb(newSubject.id, mergedIds);
-                
-                // 5. Atualizar o state local para mostrar só a matéria mesclada
-                const newSubjectWithTopics: Subject = {
-                  id: newSubject.id,
-                  name: newSubject.name,
-                  status: 'Nova' as Status,
-                  priority: newSubject.priority,
-                  color: newSubject.color || '#3B82F6',
-                  topics: allTopics.map((t, idx) => ({
-                    id: `temp-${idx}`,
-                    name: t.name,
-                    subject_id: newSubject.id,
-                    position: t.position,
-                    completed: false,
-                    reviewCount: 0,
-                    review_count: 0,
-                    reviewStage: 'Não Iniciado',
-                    review_stage: 'Não Iniciado'
-                  }))
-                };
-                
-                setLocalSubjects(prev => [
-                  ...prev.filter(s => !mergedIds.includes(s.id)),
-                  newSubjectWithTopics
-                ]);
-                
-                toast.success(`Matérias unidas em "${finalName}" com ${allTopics.length} tópicos!`);
-                
-                await refreshData();
-                refresh();
-              } catch (err) {
-                console.error('Erro ao mesclar matérias:', err);
-                errorService.report(err as Error, { module: 'Subjects', action: 'merge', userMessage: 'Erro ao mesclar matérias.' });
-              }
-              
-              setIsMergeModalOpen(false);
-              setSelectedSubjectsToMerge([]);
-              setIsMergeMode(false);
-            }}
-          />
-
-          <SmartMergeModal
-            isOpen={isSmartMergeModalOpen}
-            onClose={() => setIsSmartMergeModalOpen(false)}
-            subjects={subjects}
-            suggestions={smartMergeSuggestions}
-            onApply={handleApplySmartMerge}
           />
 
           <ContentUploadModal

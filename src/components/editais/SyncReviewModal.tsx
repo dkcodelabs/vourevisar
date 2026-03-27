@@ -48,17 +48,38 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                     (ls.name || '').trim().toUpperCase() === ssName
                 );
                 if (!localSubj) return;
-                const localTopicNames = new Set(
-                    (localSubj.topics || []).map(t =>
-                        (t.name || '').trim().toUpperCase()
-                    )
-                );
-                const newTopics = (ss.topics || []).filter((st: Topic | string) => {
-                    const stName = (typeof st === 'string' ? st : st.name || '').trim().toUpperCase();
-                    return stName && !localTopicNames.has(stName);
+
+                // Contar frequência de cada tópico no local
+                const localTopicCounts = new Map<string, number>();
+                (localSubj.topics || []).forEach(t => {
+                    const tName = (t.name || '').trim().toUpperCase();
+                    if (tName) localTopicCounts.set(tName, (localTopicCounts.get(tName) || 0) + 1);
                 });
+
+                // Contar frequência de cada tópico na fonte
+                const sourceTopicCounts = new Map<string, number>();
+                (ss.topics || []).forEach((st: Topic | string) => {
+                    const stName = (typeof st === 'string' ? st : st.name || '').trim().toUpperCase();
+                    if (stName) sourceTopicCounts.set(stName, (sourceTopicCounts.get(stName) || 0) + 1);
+                });
+
+                // Calcular diferença: tópicos que existem a mais na fonte vs local
+                const newTopics: string[] = [];
+                sourceTopicCounts.forEach((srcCount, srcName) => {
+                    const localCount = localTopicCounts.get(srcName) || 0;
+                    const diff = srcCount - localCount;
+                    for (let i = 0; i < diff; i++) {
+                        // Encontrar o nome original do tópico na fonte
+                        const originalTopic = (ss.topics || []).find((t: Topic | string) => {
+                            const tName = (typeof t === 'string' ? t : t.name || '').trim().toUpperCase();
+                            return tName === srcName;
+                        });
+                        newTopics.push(typeof originalTopic === 'string' ? originalTopic : (originalTopic as any)?.name || srcName);
+                    }
+                });
+
                 if (newTopics.length > 0) {
-                    additions.topics[localSubj.id] = newTopics.map(t => typeof t === 'string' ? t : t.name);
+                    additions.topics[localSubj.id] = newTopics;
                 }
             }
         });
@@ -81,15 +102,32 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                 );
                 if (!sourceSubj) return;
 
-                const sourceTopicNames = new Set(
-                    (sourceSubj.topics || []).map((st: Topic | string) =>
-                        (typeof st === 'string' ? st : st.name || '').trim().toUpperCase()
-                    )
-                );
+                // Contar frequência de cada tópico na fonte
+                const sourceTopicCounts = new Map<string, number>();
+                (sourceSubj.topics || []).forEach((st: Topic | string) => {
+                    const stName = (typeof st === 'string' ? st : st.name || '').trim().toUpperCase();
+                    if (stName) sourceTopicCounts.set(stName, (sourceTopicCounts.get(stName) || 0) + 1);
+                });
 
-                const removedTopics = (ls.topics || []).filter(lt => {
+                // Contar frequência de cada tópico no local
+                const localTopicCounts = new Map<string, number>();
+                (ls.topics || []).forEach(lt => {
                     const ltName = (lt.name || '').trim().toUpperCase();
-                    return ltName && !sourceTopicNames.has(ltName);
+                    if (ltName) localTopicCounts.set(ltName, (localTopicCounts.get(ltName) || 0) + 1);
+                });
+
+                // Calcular diferença: tópicos que existem a mais no local vs fonte
+                const removedTopics: Topic[] = [];
+                localTopicCounts.forEach((localCount, localName) => {
+                    const srcCount = sourceTopicCounts.get(localName) || 0;
+                    const diff = localCount - srcCount;
+                    for (let i = 0; i < diff; i++) {
+                        const originalTopic = (ls.topics || []).find(t => {
+                            const tName = (t.name || '').trim().toUpperCase();
+                            return tName === localName;
+                        });
+                        if (originalTopic) removedTopics.push(originalTopic);
+                    }
                 });
 
                 if (removedTopics.length > 0) {

@@ -699,15 +699,28 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     {activeTab === 'ready' ? (
                         <div className="space-y-8">
                             <div className="space-y-4">
-                                <div className="relative">
-                                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-content-muted" size={18} />
-                                    <input
-                                        type="text"
-                                        placeholder="Buscar concurso (ex: PCES, PMES, INSS...)"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full h-14 bg-secondary dark:bg-zinc-950 border border-border dark:border-white/5 rounded-[20px] pl-14 pr-6 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
-                                    />
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-content-muted" size={18} />
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar concurso (ex: PCES, PMES, INSS...)"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full h-14 bg-secondary dark:bg-zinc-950 border border-border dark:border-white/5 rounded-[20px] pl-14 pr-6 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setSuggestConcurso("");
+                                            setSuggestionSent(false);
+                                            setShowSuggestSlide(true);
+                                        }}
+                                        className="h-14 px-5 bg-secondary dark:bg-white/5 text-foreground hover:bg-secondary/80 border border-border dark:border-white/10 text-[10px] font-bold uppercase tracking-wider rounded-[20px] transition-all flex items-center gap-2 shrink-0 hover:border-primary/30"
+                                    >
+                                        <Sparkles className="text-primary" size={14} />
+                                        Sugerir
+                                    </button>
                                 </div>
                                 <div className="flex flex-wrap gap-2 overflow-x-auto no-scrollbar pb-2">
                                     {['Todos', 'Carreiras Policiais', 'Tribunais', 'Bancárias', 'Administrativo', 'Educação'].map(cat => (
