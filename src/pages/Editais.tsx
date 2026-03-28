@@ -176,7 +176,7 @@ const Editais = () => {
         try {
             const { data, error } = await (supabase as any)
                 .from('public_editais')
-                .select('id, updated_at');
+                .select('id, updated_at, subjects');
             if (!error && data) {
                 setPublicEditais(data);
             }
@@ -1128,15 +1128,53 @@ const Editais = () => {
                         const metrics = getEditalMetrics(edital);
                         const daysLeft = getDaysUntilExam(edital.examDate);
                         
-                        // Verificar se há atualização na fonte (comparação robusta com timestamp numérico)
                         const source = publicEditais.find(p => p.id === edital.sourceId);
                         const sourceTime = source ? new Date(source.updated_at).getTime() : 0;
                         const localCreatedTime = new Date(edital.createdAt).getTime();
                         const localUpdatedTime = edital.updatedAt ? new Date(edital.updatedAt).getTime() : localCreatedTime;
                         
-                        const hasUpdate = source && sourceTime > localCreatedTime && sourceTime > localUpdatedTime;
+                        const hasRealUpdate = (() => {
+                            if (!source) return false;
+                            console.log('[Sync Check]', {
+                                sourceId: source.id,
+                                sourceTime,
+                                localUpdatedTime,
+                                sourceSubjectsCount: (source.subjects || []).length,
+                                localSubjectsCount: subjects.filter(s => (edital.subjectIds || []).includes(s.id)).length
+                            });
+                            if (sourceTime <= localUpdatedTime) return false;
+                            
+                            const sourceSubjects = source.subjects || [];
+                            const localSubjectNames = new Set(
+                                subjects
+                                    .filter(s => (edital.subjectIds || []).includes(s.id))
+                                    .map(s => (s.name || '').trim().toUpperCase())
+                            );
+                            
+                            for (const ss of sourceSubjects) {
+                                const ssName = (ss.name || '').trim().toUpperCase();
+                                if (ssName && !localSubjectNames.has(ssName)) {
+                                    return true;
+                                }
+                            }
+                            
+                            const localSubjectsOnly = subjects.filter(
+                                s => (edital.subjectIds || []).includes(s.id)
+                            );
+                            for (const ls of localSubjectsOnly) {
+                                const lsName = (ls.name || '').trim().toUpperCase();
+                                if (lsName && !sourceSubjects.some(
+                                    (ss: any) => (ss.name || '').trim().toUpperCase() === lsName
+                                )) {
+                                    return true;
+                                }
+                            }
+                            
+                            return false;
+                        })();
 
-                        // Variáveis para o SyncReviewModal (para evitar o erro de lint)
+                        const hasUpdate = hasRealUpdate;
+
                         const editalSubjects = subjects.filter(s => (edital.subjectIds || []).includes(s.id));
 
                         return (
