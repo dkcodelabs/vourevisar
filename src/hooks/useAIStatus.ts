@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
 
 interface AIStatus {
@@ -21,20 +18,18 @@ interface AIErrorLog {
 
 // Função global para verificar status da IA (sem dependências de hook)
 export async function checkAIStatusDirect(): Promise<AIStatus> {
-  if (!apiKey) {
-    return {
-      status: 'inactive',
-      lastCheck: new Date().toISOString(),
-      errorMessage: 'API Key não configurada'
-    };
-  }
-
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const { data, error } = await supabase.functions.invoke('ai-handler', {
+      body: { action: 'checkStatus' }
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
     
-    const result = await model.generateContent('test');
-    await result.response.text();
+    if (!data || !data.success) {
+      throw new Error(data?.error || 'Erro desconhecido da Edge Function');
+    }
     
     const newStatus: AIStatus = {
       status: 'active',

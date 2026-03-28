@@ -47,8 +47,12 @@ export const InlineTopicCreator: React.FC<InlineTopicCreatorProps> = ({ isOpen, 
         try {
             setIsSubmitting(true);
 
+            // Fetch the subject to get its edital_id
+            const selectedSubject = subjects.find(s => s.id === selectedSubjectId);
+
             const { error } = await supabase.from('topics').insert({
                 subject_id: selectedSubjectId,
+                edital_id: selectedSubject?.edital_id, // Link to edital for persistence
                 name: topicName.trim(),
                 completed: false,
                 review_count: 0

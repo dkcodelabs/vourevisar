@@ -548,7 +548,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return;
             }
             
-            await onImport(newSubjects, finalName, true);
+            const extraInfo = { organ: iaOrigin, position: iaPosition, year: iaYear };
+            await onImport(newSubjects, finalName, true, undefined, extraInfo);
             await discardPendingExtractionData();
             onClose();
         } catch (error) {
@@ -567,6 +568,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
         if (!manualPosition.trim()) {
             toastGate.notifyError('Preencha o cargo/função', 'VAL-02', { severity: 'low' });
+            return;
+        }
+
+        if (!manualYear.trim()) {
+            toastGate.notifyError('Preencha o ano do edital', 'VAL-03', { severity: 'low' });
             return;
         }
 
@@ -1156,64 +1162,81 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                             {/* Normal Manual Mode: Create new edital */}
                             {true && (
                                 <>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="flex flex-col gap-4 max-w-md mx-auto">
                                         {/* Origin Field */}
-                                        <div className="space-y-3 group">
+                                        <div className="space-y-2 group">
                                             <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Origem / Instituição</label>
                                             <div className="relative">
                                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                                    <Database size={18} />
+                                                    <Database size={16} />
                                                 </div>
                                                 <input
                                                     type="text"
                                                     value={manualOrigin}
                                                     onChange={(e) => setManualOrigin(e.target.value)}
-                                                    placeholder="Ex: PC-ES, INSS, Receita Federal..."
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                    placeholder="Ex: PC-ES, INSS..."
+                                                    className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
                                                 />
                                             </div>
                                         </div>
 
                                         {/* Position Field */}
-                                        <div className="space-y-3 group">
+                                        <div className="space-y-2 group">
                                             <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Cargo / Função</label>
                                             <div className="relative">
                                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                                    <Sparkles size={18} />
+                                                    <Sparkles size={16} />
                                                 </div>
                                                 <input
                                                     type="text"
                                                     value={manualPosition}
                                                     onChange={(e) => setManualPosition(e.target.value)}
-                                                    placeholder="Ex: Agente, Analista Judiciário, Técnico..."
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                    placeholder="Ex: Agente, Analista..."
+                                                    className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Year Field */}
+                                        <div className="space-y-2 group">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Ano do Edital</label>
+                                            <div className="relative">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                                    <CalendarDays size={16} />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={manualYear}
+                                                    onChange={(e) => setManualYear(e.target.value)}
+                                                    placeholder="Ex: 2024"
+                                                    className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
                                                 />
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 flex flex-col items-center gap-4">
+                                    <div className="pt-6 flex flex-col items-center gap-4 max-w-md mx-auto">
                                         <button
                                             onClick={handleSaveManual}
-                                            disabled={!manualOrigin.trim() || !manualPosition.trim() || importingManual}
-                                            className="w-full sm:w-auto px-16 py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-[24px] shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3 justify-center text-xs uppercase tracking-widest"
+                                            disabled={!manualOrigin.trim() || !manualPosition.trim() || !manualYear.trim() || importingManual}
+                                            className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3 justify-center text-xs uppercase tracking-widest"
                                         >
                                             {importingManual ? (
                                                 <>
-                                                    <Loader2 size={18} className="animate-spin" />
+                                                    <Loader2 size={16} className="animate-spin" />
                                                     Criando Edital...
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Plus size={18} />
-                                                    Criar Edital e Adicionar Matérias
+                                                    <Plus size={16} />
+                                                    Adicionar Matérias
                                                 </>
                                             )}
                                         </button>
-                                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 rounded-full border border-emerald-500/10">
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 rounded-xl border border-emerald-500/10 w-full justify-center">
                                             <Info size={12} className="text-emerald-500/70" />
                                             <p className="text-[9px] text-emerald-500/70 font-bold uppercase tracking-widest">
-                                                Após clicar, você poderá adicionar as matérias e tópicos.
+                                                Você poderá adicionar matérias e tópicos logo após a criação.
                                             </p>
                                         </div>
                                     </div>

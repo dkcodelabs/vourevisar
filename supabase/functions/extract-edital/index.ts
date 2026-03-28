@@ -147,7 +147,7 @@ serve(async (req) => {
 - O texto fornecido JA CONTEM APENAS OS TOPICOS da matéria "${subjectName}".
 - NAO PROCURE POR NOMES DE MATÉRIAS no texto - o texto já são apenas tópicos avulsos.
 - NAO CRIE mais de uma matéria - retorne OBRIGATORIAMENTE uma única matéria com o nome "${subjectName}".
-- Simply estruture/organize os tópicos do texto em uma única lista.
+- Simplesmente estruture/organize os tópicos do texto em uma única lista.
 - Se o texto tiver numeração (1., 1.1, etc), preserve a ordem e separe cada item em um tópico individual.
 - Nome da matéria no JSON DEVE SER EXATAMENTE: "${subjectName}"`;
     }
@@ -163,9 +163,11 @@ Instituição: ${origin || 'Não informada'}
 Cargo: ${position || 'Não informado'}
 Ano: ${year || 'Não informado'}`}
 
-FORMATO DE SAÍDA (MANDATÓRIO):
-Responda APENAS com JSON válido seguindo a estrutura: {"s":[{"t":"Nome da Matéria","p":[{"n":"Tópico 1"},{"n":"Tópico 2"}]}]}
-Se NÃO encontrar matérias, retorne: {"erro":"Não foram encontradas matérias no texto"}`;
+INSTRUÇÕES FINAIS E FORMATURAÇÃO DE SAÍDA (MANDATÓRIO):
+1. Verifique se o texto fornecido (acima ou em anexo) tem alguma matéria/conteúdo para extrair.
+2. Siga as regras de formato de JSON já definidas no prompt (ex: {"subjects": [...]}).
+3. Responda APENAS com JSON válido.
+4. Se o texto não contiver absolutamente nenhuma matéria ou conteúdo válido para extração, retorne exatamente: {"erro":"Não foram encontradas matérias no texto"}`;
 
     let contents: any[];
     if (fileUri) {
@@ -180,7 +182,10 @@ Se NÃO encontrar matérias, retorne: {"erro":"Não foram encontradas matérias 
     const payload = {
       contents,
       generationConfig: {
-        temperature: config.temperature ?? 0.1,
+        temperature: config.temperature !== undefined ? config.temperature : 0.1,
+        topK: config.top_k,
+        topP: config.top_p,
+        presencePenalty: config.presence_penalty,
         maxOutputTokens: maxTokens,
         responseMimeType: "application/json"
       }

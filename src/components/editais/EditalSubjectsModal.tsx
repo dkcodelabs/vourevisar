@@ -238,7 +238,7 @@ export const EditalSubjectsModal = ({
             
         } catch (error: any) {
             console.error('Erro na IA:', error);
-            toast.error(error.message || 'Erro ao processar com IA');
+            errorService.report(error, { module: 'EditalSubjectsModal', action: 'iaProcess', userMessage: 'Erro ao processar com IA' });
             setIaStage('input');
         } finally {
             setIsProcessingIa(false);
@@ -308,7 +308,8 @@ export const EditalSubjectsModal = ({
                     .insert({
                         user_id: user.id,
                         name: `${iaSubjectName.trim()} (Complemento)`,
-                        status: 'Nova'
+                        status: 'Nova',
+                        edital_id: selectedEdital.id
                     })
                     .select()
                     .single();
@@ -319,6 +320,7 @@ export const EditalSubjectsModal = ({
                 if (selectedTopics.length > 0) {
                     const topicsToInsert = selectedTopics.map((t, idx) => ({
                         subject_id: created.id,
+                        edital_id: selectedEdital.id, // Mandatory for persistence
                         name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
                         completed: false,
                         review_count: 0,
@@ -334,7 +336,7 @@ export const EditalSubjectsModal = ({
                 }
                 
                 const newSubjectIds = [...localEditalIds, created.id];
-                const newSubjectWithTopics = { ...created, topics: selectedTopics };
+                const newSubjectWithTopics = { ...created, topics: selectedTopics } as Subject;
                 setLocalSubjects([...localSubjects, newSubjectWithTopics]);
                 setLocalEditalIds(newSubjectIds);
                 
@@ -363,11 +365,11 @@ export const EditalSubjectsModal = ({
             
         } catch (error: any) {
             console.error('Erro ao salvar:', error);
-            toast.error('Erro ao adicionar matéria');
+            errorService.report(error, { module: 'EditalSubjectsModal', action: 'iaConfirm', userMessage: 'Erro ao adicionar matéria' });
         } finally {
             setIsSavingSubject(false);
         }
-    }, [user, iaSubjectName, aiResult, localSubjects, localEditalIds, edital.id]);
+    }, [user, iaSubjectName, aiResult, localSubjects, localEditalIds, edital.id, selectedEdital.id, onUpdate]);
 
     // ── Derivados ─────────────────────────────────────────────────────────
     const filteredSubjects = useMemo(() => {
@@ -415,7 +417,12 @@ export const EditalSubjectsModal = ({
 
         try {
             const { data: newSubj, error: subjErr } = await supabase
-                .from('subjects').insert({ user_id: user.id, name, status: 'Nova' })
+                .from('subjects').insert({ 
+                    user_id: user.id, 
+                    name, 
+                    status: 'Nova',
+                    edital_id: edital.id 
+                })
                 .select('id').single();
             if (subjErr) throw subjErr;
 
@@ -530,7 +537,12 @@ export const EditalSubjectsModal = ({
 
         try {
             const { data: newTopic, error } = await supabase.from('topics').insert({
-                subject_id: subjectId, name: text, completed: false, review_count: 0, review_stage: null,
+                subject_id: subjectId, 
+                edital_id: selectedEdital.id, // Ensure topic is linked to edital
+                name: text, 
+                completed: false, 
+                review_count: 0, 
+                review_stage: null,
             }).select('id').single();
             if (error) throw error;
 
@@ -618,25 +630,20 @@ export const EditalSubjectsModal = ({
                             </div>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                    {showEditalSelector ? (
-                                        <select
-                                            value={selectedEdital.id}
-                                            onChange={(e) => handleEditalChange(e.target.value)}
-                                            className="bg-zinc-800 text-sm font-bold text-zinc-100 border border-white/10 rounded-lg px-3 py-1.5 outline-none cursor-pointer max-w-[300px]"
-                                        >
-                                            {editais.map(e => (
-                                                <option key={e.id} value={e.id} className="bg-zinc-800">
-                                                    {e.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        <h2 className="text-sm font-bold text-zinc-100 tracking-tight truncate">
-                                            {selectedEdital.name} {selectedEdital.year && <span className="text-zinc-500 font-medium whitespace-nowrap">| {selectedEdital.year}</span>}
-                                        </h2>
-                                    )}
+                                    <div className="flex flex-col min-w-0 shrink-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <Database size={12} className="text-primary/80 shrink-0" />
+                                            <span className="text-xs font-black text-primary uppercase tracking-wider truncate max-w-[300px]">{selectedEdital.name}</span>
+                                        </div>
+                                        {(selectedEdital.position || selectedEdital.year) && (
+                                            <span className="text-[10px] font-bold text-content-muted uppercase tracking-widest truncate max-w-[300px] mt-0.5">
+                                                {[selectedEdital.position, selectedEdital.year].filter(Boolean).join(' • ')}
+                                            </span>
+                                        )}
+                                    </div>
+
                                     {selectedEdital.isImported && (
-                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0 ml-2">
                                             <Database size={8} className="text-sky-400" />
                                             <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">SISTEMA</span>
                                         </div>
@@ -809,18 +816,7 @@ export const EditalSubjectsModal = ({
                                 /* Modo Manual */
                                 <div className="flex items-center gap-3 self-start">
                                     <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20 flex-1 self-center">
-                                        {/* Info do Edital */}
-                                        <div className="flex flex-col min-w-0 shrink-0">
-                                            <div className="flex items-center gap-1.5">
-                                                <Database size={10} className="text-primary/60 shrink-0" />
-                                                <span className="text-[10px] font-bold text-primary uppercase tracking-wider truncate max-w-[140px]">{edital.name}</span>
-                                            </div>
-                                            {edital.position && (
-                                                <span className="text-[9px] text-content-muted truncate max-w-[140px] mt-0.5">{edital.position}</span>
-                                            )}
-                                        </div>
-                                        
-                                        <div className="w-px h-8 bg-white/10 shrink-0 mx-1" />
+
                                         
                                         <div className="relative flex-1">
                                             <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />

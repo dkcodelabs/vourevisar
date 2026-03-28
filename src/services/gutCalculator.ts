@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import md5 from 'crypto-js/md5'
 
 /**
@@ -196,44 +195,36 @@ function cleanSubjectName(materia: string): string {
 }
 
 // --- HELPER GLOBAL: FALLBACK DE MODELOS GEMINI ---
-async function runGeminiWithFallback(prompt: string, apiKey: string): Promise<string> {
-    const genai = new GoogleGenerativeAI(apiKey)
+async function runGeminiWithFallback(prompt: string): Promise<string> {
+    const supabase = getSupabaseClient()
 
-    const modelsToTry = [
-        'gemini-2.0-flash',     // Disponível e listado para sua chave
-        'gemini-flash-latest',  // Alias seguro
-        'gemini-2.5-flash'      // Bleeding edge (apareceu na sua lista)
-    ]
+    console.log(`🤖 Solicitando IA via Edge Function (ai-handler)...`)
 
-    let lastError = null
-
-    for (const modelName of modelsToTry) {
-        try {
-            console.log(`🤖 Tentando modelo IA: ${modelName}...`)
-
-            const model = genai.getGenerativeModel({
-                model: modelName,
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    temperature: 0.1
-                }
-            })
-
-            const result = await model.generateContent(prompt)
-            const response = await result.response
-            return response.text()
-
-        } catch (error) {
-            console.warn(`⚠️ Falha no modelo ${modelName}. Tentando o próximo...`)
-            lastError = error
+    const { data, error } = await supabase.functions.invoke('ai-handler', {
+        body: {
+            action: 'generateContent',
+            prompt: prompt,
+            generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.1
+            }
         }
+    })
+
+    if (error) {
+        console.error(`⚠️ Falha na Edge Function ai-handler:`, error)
+        throw error
     }
 
-    throw lastError
+    if (!data || !data.success) {
+        throw new Error(data?.error || 'Erro desconhecido ao chamar IA no backend')
+    }
+
+    return data.text
 }
 
 // --- CÉREBRO NOVO: DIVISOR DE TÓPICOS (v12 + Smart Fallback + V20 Context) ---
-async function gerarTermosBuscaIA(materia: string, topicoSujo: string, apiKey: string): Promise<{ tags: string[], search_context: string }> {
+async function gerarTermosBuscaIA(materia: string, topicoSujo: string): Promise<{ tags: string[], search_context: string }> {
 
     // --- FALLBACK MANUAL (REGEX) ---
     // Se a IA falhar totalmente (Cota/404), usamos lógica simples para não travar
@@ -295,7 +286,7 @@ SAÍDA JSON:
 `
 
         // Executa com a lógica de fallback
-        let text = await runGeminiWithFallback(prompt, apiKey)
+        let text = await runGeminiWithFallback(prompt)
 
         console.log("--- DEBUG RAW IA RESPONSE ---")
         console.log(text)
@@ -340,8 +331,6 @@ SAÍDA JSON:
 // --- BUSCA (GOOGLE CUSTOM SEARCH API) ---
 async function buscarGoogle(
     query: string,
-    apiKey: string,
-    cx: string,
     anosPreferencia: number = 3
 ): Promise<{ volume: number, usadas: number, searchInformation?: any }> {
     // --- DEBUG CRÍTICO ---
@@ -351,61 +340,68 @@ async function buscarGoogle(
     // ---------------------
 
     let usadasReq = 0
-    const url = "https://www.googleapis.com/customsearch/v1"
+    const supabase = getSupabaseClient()
 
     if (checkCotaExceeded()) {
         return { volume: 0, usadas: 0 }
     }
 
-    // Tentativa 1: Recente (com dateRestrict)
-    const params1 = new URLSearchParams({
-        key: apiKey,
-        cx: cx,
-        q: query,
-        dateRestrict: `y${anosPreferencia}`
-    })
-
     try {
-        const response = await fetch(`${url}?${params1.toString()}`)
         usadasReq += incrementarCota()
-        const data = await response.json()
-
-        // CHECK DE ERRO API (Cota ou Permissão)
-        if (data.error) {
-            console.error("❌ ERRO CRÍTICO API GOOGLE:", JSON.stringify(data.error, null, 2));
-            return { volume: 0, usadas: usadasReq }
-        }
-
-        const total = parseInt(data.searchInformation?.totalResults || '0', 10)
-
-        // Se achou algo recente, ótimo!
-        if (total > 0) return { volume: total, usadas: usadasReq, searchInformation: data.searchInformation }
-
-        // Tentativa 2: Histórico (Fallback - sem dateRestrict)
-        // Verifica cota de novo antes de gastar mais 1 request
-        if (checkCotaExceeded()) return { volume: 0, usadas: usadasReq }
-
-        const params2 = new URLSearchParams({
-            key: apiKey,
-            cx: cx,
-            q: query
+        const { data, error } = await supabase.functions.invoke('ai-handler', {
+            body: {
+                action: 'customSearch',
+                query: query,
+                anosPreferencia: anosPreferencia
+            }
         })
 
-        const resp2 = await fetch(`${url}?${params2.toString()}`)
-        usadasReq += incrementarCota()
-        const data2 = await resp2.json()
+        if (error || !data || !data.success) {
+            console.error("❌ ERRO CRÍTICO API GOOGLE (via Edge Function):", error || data?.error)
+            
+            // Tentativa 2: Histórico (Fallback - sem dateRestrict)
+            if (checkCotaExceeded()) return { volume: 0, usadas: usadasReq }
 
-        if (data2.error) {
-            console.error("❌ ERRO CRÍTICO API GOOGLE (Histórico):", JSON.stringify(data2.error, null, 2));
+            usadasReq += incrementarCota()
+            const fallbackResult = await supabase.functions.invoke('ai-handler', {
+                body: {
+                    action: 'customSearch',
+                    query: query
+                }
+            })
+
+            if (fallbackResult.error || !fallbackResult.data || !fallbackResult.data.success) {
+                console.error("❌ ERRO CRÍTICO API GOOGLE (Histórico via Edge):", fallbackResult.error || fallbackResult.data?.error)
+                return { volume: 0, usadas: usadasReq }
+            }
+
+            const total2 = parseInt(fallbackResult.data.data.searchInformation?.totalResults || '0', 10)
+            return { volume: total2, usadas: usadasReq, searchInformation: fallbackResult.data.data.searchInformation }
+        }
+
+        const total = parseInt(data.data.searchInformation?.totalResults || '0', 10)
+        if (total > 0) return { volume: total, usadas: usadasReq, searchInformation: data.data.searchInformation }
+
+        // Histórico se zero
+        if (checkCotaExceeded()) return { volume: 0, usadas: usadasReq }
+        
+        usadasReq += incrementarCota()
+        const resp2 = await supabase.functions.invoke('ai-handler', {
+            body: {
+                action: 'customSearch',
+                query: query
+            }
+        })
+
+        if (resp2.error || !resp2.data || !resp2.data.success) {
             return { volume: 0, usadas: usadasReq }
         }
 
-        const total2 = parseInt(data2.searchInformation?.totalResults || '0', 10)
-
-        return { volume: total2, usadas: usadasReq, searchInformation: data2.searchInformation }
+        const total2 = parseInt(resp2.data.data.searchInformation?.totalResults || '0', 10)
+        return { volume: total2, usadas: usadasReq, searchInformation: resp2.data.data.searchInformation }
 
     } catch (error) {
-        console.error("❌ ERRO DE REDE/FETCH:", error)
+        console.error("❌ ERRO DE REDE/FETCH EDGE FUNCTION:", error)
         return { volume: 0, usadas: usadasReq }
     }
 }
@@ -419,15 +415,9 @@ export async function calcularNotaTendencia(
     inputCarreira: string,
     anos: number = 3
 ): Promise<TrendResult> {
-    const apiKey = import.meta.env.VITE_GOOGLE_API_KEY
-    const cx = import.meta.env.VITE_GOOGLE_SEARCH_ENGINE_ID
 
-    if (!apiKey || !cx) {
-        throw new Error("API Key ou Search Engine ID não configurados no .env")
-    }
-
-    // 1. IA define sub-tópicos + Contexto (V20)
-    const iaResult = await gerarTermosBuscaIA(materia, topicoSujo, apiKey)
+    // 1. IA define sub-tópicos + Contexto (V20) via Edge Function
+    const iaResult = await gerarTermosBuscaIA(materia, topicoSujo)
     const subTopicosIA = iaResult.tags
 
     // ---------------------------------------------------------
@@ -510,7 +500,7 @@ export async function calcularNotaTendencia(
             query += " questão concurso";
 
             console.log(`🔍 Query Google (V23 Aspas): "${query}"`)
-            let resultado = await buscarGoogle(query, apiKey, cx, anos);
+            let resultado = await buscarGoogle(query, anos);
 
             // ... após receber resultado ...
             if (!resultado.searchInformation) {
@@ -542,7 +532,7 @@ export async function calcularNotaTendencia(
 
                 // Verifica cota antes
                 if (!checkCotaExceeded()) {
-                    const resultadoNuclear = await buscarGoogle(queryNuclear, apiKey, cx, anos);
+                    const resultadoNuclear = await buscarGoogle(queryNuclear, anos);
                     const volNuclear = Number(resultadoNuclear.volume || 0);
                     usadasSessao += resultadoNuclear.usadas;
                     auditLog.total_api_calls += resultadoNuclear.usadas;
@@ -649,13 +639,6 @@ export async function calcularNotaTendencia(
 export async function processNextPendingTopic(
     userId?: string
 ): Promise<any> {
-    const apiKey = import.meta.env.VITE_GOOGLE_API_KEY
-    const cx = import.meta.env.VITE_GOOGLE_SEARCH_ENGINE_ID
-
-    if (!apiKey || !cx) {
-        return { error: 'API Keys não configuradas no .env' }
-    }
-
     const supabase = getSupabaseClient()
 
     if (!supabase) {
@@ -758,7 +741,7 @@ export async function processNextPendingTopic(
 
 
         try {
-            const validationText = await runGeminiWithFallback(validationPrompt, apiKey)
+            const validationText = await runGeminiWithFallback(validationPrompt)
 
             // Limpeza robusta do JSON
             const cleanJson = validationText.replace(/```json/g, '').replace(/```/g, '').trim()

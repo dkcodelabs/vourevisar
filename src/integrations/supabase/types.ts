@@ -866,6 +866,7 @@ export type Database = {
           color: string | null
           completed_at: string | null
           created_at: string
+          edital_id: string | null
           id: string
           name: string
           notes: Json | null
@@ -879,6 +880,7 @@ export type Database = {
           color?: string | null
           completed_at?: string | null
           created_at?: string
+          edital_id?: string | null
           id?: string
           name: string
           notes?: Json | null
@@ -892,6 +894,7 @@ export type Database = {
           color?: string | null
           completed_at?: string | null
           created_at?: string
+          edital_id?: string | null
           id?: string
           name?: string
           notes?: Json | null
@@ -993,6 +996,7 @@ export type Database = {
           current_interval: number | null
           difficulty_level: number | null
           difficulty_set_at: string | null
+          edital_id: string | null
           first_studied_at: string | null
           id: string
           is_marked_for_review: boolean | null
@@ -1026,6 +1030,7 @@ export type Database = {
           current_interval?: number | null
           difficulty_level?: number | null
           difficulty_set_at?: string | null
+          edital_id?: string | null
           first_studied_at?: string | null
           id?: string
           is_marked_for_review?: boolean | null
@@ -1059,6 +1064,7 @@ export type Database = {
           current_interval?: number | null
           difficulty_level?: number | null
           difficulty_set_at?: string | null
+          edital_id?: string | null
           first_studied_at?: string | null
           id?: string
           is_marked_for_review?: boolean | null

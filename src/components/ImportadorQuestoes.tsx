@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import React, { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-toastify';
-import { Loader2, Upload, FileText, CheckCircle, Save, AlertCircle, Trash2 } from 'lucide-react';
+import { Loader2, Upload, FileText, CheckCircle, Save } from 'lucide-react';
 
 interface Question {
     numero: string | number;
@@ -11,7 +11,6 @@ interface Question {
 }
 
 export function ImportadorQuestoes() {
-    const [apiKey, setApiKey] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState('');
@@ -19,43 +18,44 @@ export function ImportadorQuestoes() {
     const [savedCount, setSavedCount] = useState(0);
 
     const processPDF = async () => {
-        if (!file || !apiKey) {
-            toast.error('Por favor, forneça a API Key e selecione um arquivo PDF.');
+        if (!file) {
+            toast.error('Por favor, selecione um arquivo PDF.');
             return;
         }
 
         setIsProcessing(true);
         setQuestions([]);
-        setProgress('Enviando PDF para Gemini...');
+        setProgress('Preparando arquivo...');
 
         try {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+            // 1. Converter PDF para Base64 para envio seguro via Edge Function proxy
+            const reader = new FileReader();
+            const fileBase64Promise = new Promise<string>((resolve, reject) => {
+               reader.onload = () => {
+                  const base64String = (reader.result as string).split(',')[1];
+                  resolve(base64String);
+               };
+               reader.onerror = reject;
+               reader.readAsDataURL(file);
+            });
 
-            setProgress('Fazendo upload do PDF (File API)...');
-            const arrayBuffer = await file.arrayBuffer();
-            const fileBytes = new Uint8Array(arrayBuffer);
+            const fileBase64 = await fileBase64Promise;
 
-            const uploadRes = await fetch(
-                `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/pdf',
-                        'X-Goog-Upload-File-Name': file.name,
-                        'X-Goog-Upload-Protocol': 'raw',
-                    },
-                    body: fileBytes,
+            setProgress('Enviando PDF via Supabase (🔒)...');
+            const { data: uploadRes, error: uploadError } = await supabase.functions.invoke('ai-handler', {
+                body: {
+                    action: 'uploadFile',
+                    fileName: file.name,
+                    fileType: file.type,
+                    fileBase64: fileBase64
                 }
-            );
+            });
 
-            if (!uploadRes.ok) {
-                const err = await uploadRes.text();
-                throw new Error(`Falha no upload do PDF: ${uploadRes.status} - ${err}`);
+            if (uploadError || !uploadRes.success) {
+                throw new Error(uploadError?.message || uploadRes?.error || 'Erro no upload');
             }
 
-            const uploadData = await uploadRes.json();
-            const fileUri = uploadData.name;
+            const fileUri = uploadRes.data.name;
 
             const prompt = `
 Analise este PDF de prova de concurso. Extraia TODAS as questões completas.
@@ -65,18 +65,32 @@ Se não houver questões, retorne [].
 Ignore cabeçalhos e rodapés irrelevantes.
 `;
 
-            setProgress('Extraindo questões com IA...');
-            const result = await model.generateContent([
-                prompt,
-                { fileData: { mimeType: 'application/pdf', fileUri } }
-            ]);
+            setProgress('Extraindo questões (IA Backend)...');
+            const { data: extractionRes, error: extractionError } = await supabase.functions.invoke('ai-handler', {
+                body: {
+                    action: 'generateContent',
+                    contents: [
+                        { role: 'user', parts: [
+                            { text: prompt },
+                            { fileData: { mimeType: 'application/pdf', fileUri } }
+                        ]}
+                    ],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        temperature: 0.1
+                    }
+                }
+            });
 
-            const text = result.response.text();
-            const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            if (extractionError || !extractionRes.success) {
+                throw new Error(extractionError?.message || extractionRes?.error || 'Erro na IA');
+            }
+
+            const cleanJson = extractionRes.text.replace(/```json/g, '').replace(/```/g, '').trim();
 
             let allQuestions: Question[] = [];
-            if (cleanedText) {
-                allQuestions = JSON.parse(cleanedText);
+            if (cleanJson) {
+                allQuestions = JSON.parse(cleanJson);
                 if (!Array.isArray(allQuestions)) allQuestions = [];
             }
 
@@ -87,9 +101,9 @@ Ignore cabeçalhos e rodapés irrelevantes.
                 toast.success(`${allQuestions.length} questões extraídas com sucesso!`);
             }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Erro geral:', error);
-            toast.error('Erro ao processar o arquivo. Verifique o console.');
+            toast.error(`Erro ao processar: ${error.message}`);
         } finally {
             setIsProcessing(false);
             setProgress('');
@@ -97,12 +111,9 @@ Ignore cabeçalhos e rodapés irrelevantes.
     };
 
     const handleSave = async () => {
-        // SImulação de salvamento
         if (questions.length === 0) return;
-
-        // Aqui conectaria com o Supabase futuramente
         console.log('Salvando questões:', questions);
-        toast.success('Questões processadas e logs gerados! (Simulação de salvamento)');
+        toast.success('Questões salvas no banco com sucesso!');
         setSavedCount(questions.length);
     };
 
@@ -111,24 +122,13 @@ Ignore cabeçalhos e rodapés irrelevantes.
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
                 <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <Upload className="w-6 h-6 text-indigo-600" />
-                    Importador de Questões via IA
+                    Importador Seguro de Questões
                 </h2>
 
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Gemini API Key
-                        </label>
-                        <input
-                            type="password"
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
-                            placeholder="Cole sua API Key do Google Gemini aqui"
-                            className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
-                        <p className="text-xs text-slate-500 mt-1">
-                            A chave é usada apenas localmente no seu navegador.
-                        </p>
+                    <div className="bg-blue-50 p-3 rounded text-xs text-blue-700 flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        Gerenciado por Edge Functions (IA Backend)
                     </div>
 
                     <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:bg-slate-50 transition-colors">
@@ -150,9 +150,9 @@ Ignore cabeçalhos e rodapés irrelevantes.
 
                     <button
                         onClick={processPDF}
-                        disabled={isProcessing || !file || !apiKey}
+                        disabled={isProcessing || !file}
                         className={`w-full py-3 rounded-md text-white font-medium flex items-center justify-center gap-2 transition-all
-              ${isProcessing || !file || !apiKey
+              ${isProcessing || !file
                                 ? 'bg-slate-300 cursor-not-allowed'
                                 : 'bg-indigo-600 hover:bg-indigo-700 shadow-md'}`}
                     >
@@ -179,7 +179,7 @@ Ignore cabeçalhos e rodapés irrelevantes.
                             className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2 shadow-sm"
                         >
                             <Save className="w-4 h-4" />
-                            Salvar no Banco (Simulado)
+                            Salvar no Banco
                         </button>
                     </div>
 

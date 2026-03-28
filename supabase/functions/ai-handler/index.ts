@@ -1,0 +1,150 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY')
+    const GOOGLE_SEARCH_ENGINE_ID = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID')
+
+    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY não configurada')
+
+    const body = await req.json()
+    const { action } = body
+
+    // Buscar configurações globais do banco como fallback
+    const { data: dbSettings } = await supabaseClient
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'ai_edital_config')
+      .maybeSingle()
+    
+    const globalConfig = dbSettings?.value || {}
+    const defaultModel = globalConfig.model || "gemini-2.0-flash"
+    const defaultGenConfig = {
+      temperature: globalConfig.temperature ?? 0.1,
+      topK: globalConfig.top_k,
+      topP: globalConfig.top_p,
+      maxOutputTokens: globalConfig.max_tokens,
+      responseMimeType: globalConfig.responseMimeType || "text/plain"
+    }
+
+    if (action === 'generateContent') {
+      const { prompt, contents, generationConfig, model } = body
+      const targetModel = model || defaultModel
+      
+      const payload = {
+        contents: contents || [{ parts: [{ text: prompt }] }],
+        generationConfig: { ...defaultGenConfig, ...generationConfig }
+      }
+
+      console.log(`🤖 Chamando Gemini (${targetModel})...`)
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }
+      )
+
+      const result = await response.json()
+      if (result.error) throw new Error(result.error.message)
+
+      const text = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      return new Response(JSON.stringify({ success: true, text }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    if (action === 'uploadFile') {
+      const { fileBase64, fileName, fileType } = body
+      console.log(`📤 Proxying file upload to Google AI: ${fileName}`)
+
+      const metadataRes = await fetch(
+        `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'X-Goog-Upload-Protocol': 'resumable',
+            'X-Goog-Upload-Command': 'start',
+            'X-Goog-Upload-Header-Content-Length': (fileBase64.length * 0.75).toString(), // Aprox
+            'X-Goog-Upload-Header-Content-Type': fileType,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ file: { display_name: fileName } })
+        }
+      )
+
+      const uploadUrl = metadataRes.headers.get('X-Goog-Upload-URL')
+      if (!uploadUrl) throw new Error('Falha ao obter URL de upload')
+
+      const binary = Uint8Array.from(atob(fileBase64), c => c.charCodeAt(0))
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'X-Goog-Upload-Offset': '0',
+          'X-Goog-Upload-Command': 'upload, finalize',
+        },
+        body: binary
+      })
+
+      const uploadResult = await uploadRes.json()
+      return new Response(JSON.stringify({ success: true, data: uploadResult.file }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    if (action === 'customSearch') {
+      if (!GOOGLE_API_KEY || !GOOGLE_SEARCH_ENGINE_ID) throw new Error('Google Search não configurado')
+      
+      const { query, anosPreferencia } = body
+      let fullQuery = query
+      if (anosPreferencia) {
+          const year = new Date().getFullYear() - anosPreferencia
+          fullQuery += ` after:${year}`
+      }
+
+      console.log(`🔍 Chamando Google Custom Search: ${fullQuery}`)
+      const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_SEARCH_ENGINE_ID}&q=${encodeURIComponent(fullQuery)}`
+      const response = await fetch(searchUrl)
+      const data = await response.json()
+
+      return new Response(JSON.stringify({ success: true, data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    if (action === 'checkStatus') {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`
+      )
+      const data = await response.json()
+      return new Response(JSON.stringify({ success: !!data.models, data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    throw new Error(`Ação inválida: ${action}`)
+  } catch (error) {
+    console.error('ERRO EDGE FUNCTION:', error.message)
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+})

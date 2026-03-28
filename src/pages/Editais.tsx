@@ -613,7 +613,14 @@ const Editais = () => {
 
             if (editalErr) throw editalErr;
 
-            // 3b. Atualizar tópicos com edital_id
+            // 3b. Atualizar matérias e tópicos com edital_id
+            if (realSubjectIds.length > 0) {
+                await supabase
+                    .from('subjects')
+                    .update({ edital_id: newEditalRow.id } as any)
+                    .in('id', realSubjectIds);
+            }
+
             const allTopicIds: string[] = [];
             for (const subjId of realSubjectIds) {
                 const { data: topicRows } = await supabase
