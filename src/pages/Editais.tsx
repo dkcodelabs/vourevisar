@@ -5,7 +5,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-    Search, Plus, Library, Trash2, Play, Eye, CalendarDays, Clock,
+    Search, Plus, PlusCircle, Library, Trash2, Play, Eye, CalendarDays, Clock,
     BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, ArrowRight, Sparkles, Send, Loader2,
     AlertCircle, Info, GraduationCap, Target, Database, ChevronDown, ChevronUp, Link, FileText
 } from 'lucide-react';
@@ -555,7 +555,7 @@ const Editais = () => {
         } finally {
             setProcessingId(null);
         }
-    }, [user, editais, subjects, refreshData]);
+    }, [user, editais, subjects]);
 
     const executeCycleLoad = useCallback(async (subjectIds: string[]) => {
         if (!user) return;
@@ -2020,11 +2020,20 @@ const Editais = () => {
 
                                             {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && cycleConflict.unificationMap ? (
                                                 <div className="flex flex-col gap-2">
-                                                    {/* Unified Subjects */}
-                                                    {cycleConflict.unificationMap.unifiedSubjects.map((us: UnifiedSubjectMapping) => {
-                                                        const primaryId = us.originalSubjectIds[0];
-                                                        const overrideValue = cycleConflict.subjectDisplayNameOverrides?.[primaryId] ?? (us.displayNameOverride || us.displayName);
-                                                        const originalInfo = us.originalSubjectIds
+                                                    {/* Matérias Unificadas e Isoladas (Design Unificado) */}
+                                                    {[
+                                                        ...(cycleConflict.unificationMap?.unifiedSubjects || []).map(us => ({ ...us, type: 'unified' as const })),
+                                                        ...subjects.filter(s => cycleConflict.unificationMap?.standaloneSubjectIds.includes(s.id)).map(s => ({ 
+                                                            displayName: s.name, 
+                                                            originalSubjectIds: [s.id], 
+                                                            type: 'standalone' as const 
+                                                        }))
+                                                    ].sort((a, b) => a.displayName.localeCompare(b.displayName)).map((item) => {
+                                                        const isUnified = item.type === 'unified';
+                                                        const primaryId = item.originalSubjectIds[0];
+                                                        const overrideValue = cycleConflict.subjectDisplayNameOverrides?.[primaryId] ?? (('displayNameOverride' in item ? item.displayNameOverride : null) || item.displayName);
+                                                        
+                                                        const originalInfo = item.originalSubjectIds
                                                             .map((id: string) => {
                                                                 const subj = subjects.find(s => s.id === id);
                                                                 if (!subj) return null;
@@ -2039,18 +2048,24 @@ const Editais = () => {
                                                             })
                                                             .filter(Boolean) as {name: string, editalName: string}[];
                                                         
-                                                        const isExpanded = expandedSubjects.has(us.displayName);
+                                                        const isExpanded = expandedSubjects.has(item.displayName);
 
                                                         return (
                                                             <div 
                                                                 key={primaryId} 
-                                                                className={`bg-emerald-500/[0.03] dark:bg-emerald-500/[0.02] border border-emerald-500/20 rounded-2xl transition-all ${isExpanded ? 'p-3.5 ring-1 ring-emerald-500/30 shadow-lg' : 'p-2.5'}`}
+                                                                className={`group/subject transition-all duration-300 rounded-2xl border ${
+                                                                    isUnified 
+                                                                        ? 'bg-emerald-500/[0.03] dark:bg-emerald-500/[0.02] border-emerald-500/20' 
+                                                                        : 'bg-zinc-500/[0.03] dark:bg-zinc-500/[0.02] border-zinc-500/20'
+                                                                } ${isExpanded ? 'p-3.5 ring-1 ring-primary/20 shadow-xl' : 'p-2.5'}`}
                                                             >
                                                                 <div className="flex items-start justify-between gap-3">
                                                                     <div className="space-y-2 overflow-hidden w-full">
                                                                         <div className="flex items-center gap-2">
-                                                                            <div className="p-1 rounded bg-emerald-500/10 text-emerald-500 shrink-0">
-                                                                                <Library size={12} />
+                                                                            <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${
+                                                                                isUnified ? 'bg-emerald-500/10 text-emerald-500' : 'bg-zinc-500/10 text-zinc-500'
+                                                                            }`}>
+                                                                                <BookOpen size={14} />
                                                                             </div>
                                                                             <input
                                                                                 type="text"
@@ -2063,85 +2078,86 @@ const Editais = () => {
                                                                                         subjectDisplayNameOverrides: { ...prev.subjectDisplayNameOverrides, [primaryId]: val }
                                                                                     }));
                                                                                 }}
-                                                                                title="Clique para editar o nome da matéria unificada"
-                                                                                className="flex-1 min-w-0 text-sm font-bold text-foreground uppercase bg-transparent border-b border-transparent hover:border-emerald-500/30 focus:border-emerald-500 focus:outline-none transition-colors py-0.5 tracking-wide cursor-text"
+                                                                                className="flex-1 min-w-0 text-sm font-bold text-foreground uppercase bg-transparent border-b border-transparent focus:border-primary/50 focus:outline-none transition-all py-0.5 tracking-wide cursor-text placeholder:opacity-30"
+                                                                                placeholder="NOME DA MATÉRIA..."
                                                                             />
-                                                                            <button onClick={() => toggleSubjectExpansion(us.displayName)} className="shrink-0">
-                                                                                {isExpanded ? <ChevronUp size={12} className="text-emerald-500/50" /> : <ChevronDown size={12} className="text-emerald-500/50" />}
+                                                                            <button 
+                                                                                onClick={() => toggleSubjectExpansion(item.displayName)} 
+                                                                                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-colors shrink-0"
+                                                                            >
+                                                                                {isExpanded ? <ChevronUp size={14} className="opacity-50" /> : <ChevronDown size={14} className="opacity-50" />}
                                                                             </button>
                                                                         </div>
-                                                                        <div className="flex flex-col gap-1 pl-6">
+
+                                                                        <div className="flex flex-col gap-1.5 pl-9">
                                                                             {originalInfo.map((info, i: number) => (
-                                                                                <div key={i} className="flex items-center gap-1.5 flex-wrap">
-                                                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/30 shrink-0" />
-                                                                                    <span className="text-[10px] font-bold text-content-muted/80 truncate">
+                                                                                <div key={i} className="flex items-center gap-2 flex-wrap group/info">
+                                                                                    <div className={`w-1 h-1 rounded-full shrink-0 ${isUnified ? 'bg-emerald-500/40' : 'bg-zinc-500/40'}`} />
+                                                                                    <span className="text-[10px] font-medium text-content-muted/80 truncate">
                                                                                         {info.name}
                                                                                     </span>
-                                                                                    <span className="text-[8px] font-medium text-content-muted/50 bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded shrink-0 truncate">
+                                                                                    <span className="text-[8px] font-bold text-content-muted/40 uppercase tracking-tighter bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-sm shrink-0 truncate border border-transparent group-hover/info:border-primary/10">
                                                                                         {info.editalName}
                                                                                     </span>
                                                                                 </div>
                                                                             ))}
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex flex-col items-end gap-1 shrink-0">
-                                                                        <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/10">
-                                                                            <Link size={8} />
-                                                                            UNIFICADO
-                                                                        </span>
+
+                                                                    <div className="flex flex-col items-end gap-1 shrink-0 pt-1">
+                                                                        {isUnified ? (
+                                                                            <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg flex items-center gap-1.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-sm animate-in zoom-in-95">
+                                                                                <Merge size={10} />
+                                                                                UNIFICADO
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg flex items-center gap-1.5 bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 shadow-sm animate-in zoom-in-95">
+                                                                                <CheckCircle2 size={10} />
+                                                                                MANTIDO
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Lista de Tópicos Unificados (Condicional ao Expandir) */}
-                                                                {isExpanded && us.topicMappings && us.topicMappings.length > 0 && (
-                                                                    <div className="mt-3 pt-3 border-t border-emerald-500/10 space-y-1.5 animate-in slide-in-from-top-1 duration-200">
-                                                                        <div className="flex items-center gap-1.5 pl-6 mb-1 opacity-50">
-                                                                            <span className="text-[8px] font-black uppercase tracking-tighter text-emerald-500/70">
-                                                                                Tópicos Unificados ({us.topicMappings.length})
+                                                                {/* Tópicos Unificados/Individuais */}
+                                                                {isExpanded && (
+                                                                    <div className="mt-3.5 pt-3.5 border-t border-primary/5 space-y-2 animate-in slide-in-from-top-2 duration-300">
+                                                                        <div className="flex items-center gap-2 pl-9 mb-1 opacity-40">
+                                                                            <span className="text-[8px] font-black uppercase tracking-widest text-primary">
+                                                                                {isUnified ? `Estrutura de Tópicos Unificada (${('topicMappings' in item ? item.topicMappings?.length : 0) || 0})` : 'Tópicos da Matéria'}
                                                                             </span>
                                                                         </div>
-                                                                        <div className="grid grid-cols-1 gap-1 pl-6">
-                                                                            {us.topicMappings.map((tm: UnifiedTopicMapping, idx: number) => (
-                                                                                <div key={idx} className="flex items-center justify-between gap-2 group/topic hover:bg-emerald-500/10 p-1 rounded-md transition-colors">
-                                                                                    <div className="flex items-center gap-2 overflow-hidden">
-                                                                                        <div className="w-1 h-1 rounded-full shrink-0 bg-emerald-500/50" />
-                                                                                        <span className="text-[11px] font-medium text-emerald-600/90 dark:text-emerald-400/90 truncate py-0.5">
-                                                                                            {tm.displayName}
+                                                                        <div className="grid grid-cols-1 gap-1.5 pl-9">
+                                                                            {isUnified && 'topicMappings' in item && item.topicMappings ? (
+                                                                                item.topicMappings.map((tm: UnifiedTopicMapping, idx: number) => (
+                                                                                    <div key={idx} className="flex items-center justify-between gap-3 group/topic bg-emerald-500/5 hover:bg-emerald-500/10 p-1.5 rounded-lg transition-all border border-emerald-500/5 hover:border-emerald-500/20">
+                                                                                        <div className="flex items-center gap-2.5 overflow-hidden">
+                                                                                            <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500/40" />
+                                                                                            <span className="text-[11px] font-semibold text-emerald-600/90 dark:text-emerald-400/90 truncate py-0.5">
+                                                                                                {tm.displayName}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1.5">
+                                                                                            <span className="text-[7px] font-black px-1.5 py-0.5 rounded-md shrink-0 flex items-center gap-1 text-emerald-500 bg-emerald-500/10 border border-emerald-500/10">
+                                                                                                <Merge size={7} />
+                                                                                                UNIFICADO
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))
+                                                                            ) : (
+                                                                                subjects.find(s => s.id === primaryId)?.topics?.map((topic: {id: string, name: string}, idx: number) => (
+                                                                                    <div key={topic.id || idx} className="flex items-center gap-2.5 group/topic p-1 px-1.5 rounded-md hover:bg-zinc-500/5 transition-colors">
+                                                                                        <div className="w-1 h-1 rounded-full shrink-0 bg-zinc-500/30" />
+                                                                                        <span className="text-[11px] font-medium text-content-muted truncate py-0.5 uppercase tracking-wide">
+                                                                                            {topic.name}
                                                                                         </span>
                                                                                     </div>
-                                                                                    <span className="text-[7px] font-black px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1 text-emerald-400 bg-emerald-400/5">
-                                                                                        <Link size={7} />
-                                                                                        UNIFICADO
-                                                                                    </span>
-                                                                                </div>
-                                                                            ))}
+                                                                                ))
+                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                 )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    
-                                                    {/* Standalone Subjects */}
-                                                    {subjects.filter(s => cycleConflict.unificationMap?.standaloneSubjectIds.includes(s.id)).map(s => {
-                                                        let editalName = 'Ciclo Atual';
-                                                        if (cycleConflict.edital?.subjectIds.includes(s.id)) {
-                                                            editalName = cycleConflict.edital.name;
-                                                        } else {
-                                                            const origin = editais.find(e => e.mergedIntoCycle && e.id !== cycleConflict.edital?.id && e.subjectIds.includes(s.id));
-                                                            if (origin) editalName = origin.name;
-                                                        }
-
-                                                        return (
-                                                            <div key={s.id} className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border bg-secondary/80 dark:bg-zinc-800/80 border-border dark:border-white/10 text-foreground/80 opacity-70">
-                                                                <div className="flex flex-col overflow-hidden">
-                                                                    <span className="text-xs font-bold truncate py-0.5">{s.name}</span>
-                                                                    <span className="text-[8px] text-content-muted/60 truncate bg-black/5 dark:bg-white/5 self-start px-1.5 py-0.5 rounded mt-0.5">{editalName}</span>
-                                                                </div>
-                                                                <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-black/10 dark:bg-black/30 shrink-0 text-content-muted flex items-center gap-1">
-                                                                    <FileText size={8} />
-                                                                    MATÉRIA ÚNICA
-                                                                </span>
                                                             </div>
                                                         );
                                                     })}
@@ -2155,18 +2171,7 @@ const Editais = () => {
                                                     )}
 
                                                     {/* Legenda de Status */}
-                                                    {cycleConflict.action === 'hybrid' && (
-                                                        <div className="flex flex-wrap gap-x-4 gap-y-2 pt-3 border-t border-emerald-500/10 mt-2 px-1">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                                <span className="text-[8px] font-bold text-content-muted uppercase tracking-tighter">UNIFICADO</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                                                                <span className="text-[8px] font-bold text-content-muted uppercase tracking-tighter">MATÉRIA ÚNICA</span>
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                                    {/* Legenda de Status - Removida */}
                                                 </div>
                                             ) : (
                                                 /* Replace ou fallback */
@@ -2178,61 +2183,82 @@ const Editais = () => {
                                                         const newEdital = cycleConflict.edital;
                                                         const isExpanded = expandedPreviewSubjects.has(s.id);
                                                         
-                                                        let style = 'bg-secondary dark:bg-zinc-800/50 border-border dark:border-white/5 text-content-muted';
-                                                        let badgeStyle = 'bg-black/20';
+                                                        let cardStyle = 'bg-zinc-500/[0.03] dark:bg-zinc-500/[0.02] border-zinc-500/20';
+                                                        let badgeStyle = 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20';
+                                                        let badgeIcon = <CheckCircle2 size={10} />;
+                                                        let label = 'MANTIDO';
 
                                                         if (cycleConflict.action === 'replace') {
                                                             if (isNew && !isCurrent) {
-                                                                style = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
-                                                                badgeStyle = 'bg-emerald-500/20';
+                                                                cardStyle = 'bg-emerald-500/[0.03] dark:bg-emerald-500/[0.02] border-emerald-500/20';
+                                                                badgeStyle = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+                                                                badgeIcon = <PlusCircle size={10} />;
+                                                                label = 'NOVO';
                                                             } else if (!isNew && isCurrent) {
-                                                                style = 'bg-red-500/10 border-red-500/20 text-red-400/80 line-through opacity-50 pointer-events-none';
-                                                            } else if (isNew && isCurrent) {
-                                                                style = 'bg-secondary/80 dark:bg-zinc-800/80 border-border dark:border-white/10 text-foreground/70';
+                                                                cardStyle = 'bg-red-500/[0.02] border-red-500/10 opacity-40 grayscale';
+                                                                badgeStyle = 'bg-red-500/10 text-red-500';
+                                                                badgeIcon = <Trash2 size={10} />;
+                                                                label = 'REMOVIDO';
                                                             }
                                                         }
                                                         
                                                         const editalName = isNew && !isCurrent ? newEdital?.name : (originEdital?.name || 'Ciclo Atual');
-                                                        const isImported = isNew && !isCurrent ? newEdital?.isImported : (originEdital?.isImported || false);
-                                                        const sourceId = isNew && !isCurrent ? newEdital?.sourceId : (originEdital?.sourceId);
-                                                        
-                                                        // Badge unificado: SISTEMA . IA ou MANUAL
-                                                        const typeBadge = sourceId 
-                                                            ? `SISTEMA . ${isImported ? 'IA' : 'MANUAL'}` 
-                                                            : isImported ? 'IA' : 'MANUAL';
 
                                                         return (
-                                                            <div key={s.id} className="flex flex-col gap-1">
-                                                                <button 
-                                                                    onClick={() => togglePreviewSubjectExpansion(s.id)}
-                                                                    className={`flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border transition-all text-left group ${style}`}
-                                                                >
-                                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                                        {!(!isNew && isCurrent && cycleConflict.action === 'replace') && (
-                                                                            <ChevronDown 
-                                                                                size={14} 
-                                                                                className={`shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180 text-sky-400' : 'text-content-muted group-hover:text-foreground/50'}`} 
-                                                                            />
-                                                                        )}
-                                                                        <span className="text-[10px] font-bold truncate leading-tight">{s.name}</span>
+                                                            <div 
+                                                                key={s.id} 
+                                                                className={`group/subject transition-all duration-300 rounded-2xl border ${cardStyle} ${isExpanded ? 'p-3.5 ring-1 ring-primary/20 shadow-xl' : 'p-2.5'}`}
+                                                            >
+                                                                <div className="flex items-start justify-between gap-3">
+                                                                    <div className="space-y-2 overflow-hidden w-full">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className={`p-1.5 rounded-lg shrink-0 ${label === 'REMOVIDO' ? 'bg-red-500/10 text-red-500' : (label === 'NOVO' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-zinc-500/10 text-zinc-500')}`}>
+                                                                                <BookOpen size={14} />
+                                                                            </div>
+                                                                            <span className="flex-1 min-w-0 text-sm font-bold text-foreground uppercase tracking-wide truncate py-0.5">
+                                                                                {s.name}
+                                                                            </span>
+                                                                            {label !== 'REMOVIDO' && (
+                                                                                <button 
+                                                                                    onClick={() => togglePreviewSubjectExpansion(s.id)} 
+                                                                                    className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-colors shrink-0"
+                                                                                >
+                                                                                    {isExpanded ? <ChevronUp size={14} className="opacity-50" /> : <ChevronDown size={14} className="opacity-50" />}
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="flex flex-col gap-1 pl-9">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <div className={`w-1 h-1 rounded-full shrink-0 ${label === 'REMOVIDO' ? 'bg-red-500/40' : (label === 'NOVO' ? 'bg-emerald-500/40' : 'bg-zinc-500/40')}`} />
+                                                                                <span className="text-[10px] font-medium text-content-muted/80 truncate">
+                                                                                    {editalName}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
-                                                                    <span className={`text-[7px] font-black uppercase tracking-wider px-2 py-1 rounded-md shrink-0 whitespace-nowrap ${badgeStyle}`}>
-                                                                        {typeBadge} • {editalName?.split(' - ')[0] || ''}
-                                                                    </span>
-                                                                </button>
+
+                                                                    <div className="flex flex-col items-end gap-1 shrink-0 pt-1">
+                                                                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg flex items-center gap-1.5 border shadow-sm ${badgeStyle}`}>
+                                                                            {badgeIcon}
+                                                                            {label}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
 
                                                                 {/* Tópicos Expandidos */}
-                                                                {isExpanded && s.topics && s.topics.length > 0 && (
-                                                                    <div className="mx-2 p-3 rounded-xl bg-black/10 dark:bg-white/5 border border-white/5 space-y-1.5 animate-in slide-in-from-top-2 duration-300">
-                                                                        <div className="flex items-center gap-1.5 mb-2 px-1">
-                                                                            <BookOpen size={10} className="text-sky-500" />
-                                                                            <span className="text-[8px] font-black text-content-muted uppercase tracking-widest">Conteúdo Programático</span>
+                                                                {isExpanded && s.topics && s.topics.length > 0 && label !== 'REMOVIDO' && (
+                                                                    <div className="mt-3.5 pt-3.5 border-t border-primary/5 space-y-2 animate-in slide-in-from-top-2 duration-300">
+                                                                        <div className="flex items-center gap-2 pl-9 mb-1 opacity-40">
+                                                                            <span className="text-[8px] font-black uppercase tracking-widest text-primary">Conteúdo Programático ({s.topics.length})</span>
                                                                         </div>
-                                                                        <div className="flex flex-col gap-1">
-                                                                            {s.topics.map(t => (
-                                                                                <div key={t.id} className="flex items-center gap-2 text-[9px] text-foreground/60 leading-relaxed px-1">
-                                                                                    <div className="w-1 h-1 rounded-full bg-sky-500/40 shrink-0" />
-                                                                                    <span className="truncate">{t.name}</span>
+                                                                        <div className="grid grid-cols-1 gap-1.5 pl-9">
+                                                                            {s.topics.map((t, idx) => (
+                                                                                <div key={t.id || idx} className="flex items-center gap-2.5 group/topic p-1 px-1.5 rounded-md hover:bg-zinc-500/5 transition-colors">
+                                                                                    <div className="w-1 h-1 rounded-full shrink-0 bg-primary/30" />
+                                                                                    <span className="text-[11px] font-medium text-content-muted truncate py-0.5 uppercase tracking-wide">
+                                                                                        {t.name}
+                                                                                    </span>
                                                                                 </div>
                                                                             ))}
                                                                         </div>

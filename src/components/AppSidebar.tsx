@@ -105,7 +105,7 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
 
 export function AppSidebar() {
 
-  const { isAdmin, isOwner } = useUserRole();
+  const { isAdmin, isOwner, loading } = useUserRole();
   const location = useLocation();
   const isMobile = useIsMobile();
 
@@ -207,9 +207,9 @@ export function AppSidebar() {
           </ul>
         </nav>
 
-        {isAdmin && (
+        {(isAdmin || loading) && (
           <div className="pt-2">
-            {!isCollapsed && !isMobile && (
+            {(!isCollapsed || isMobile) && (
               <div className="px-3 mb-2 flex items-center gap-2">
                 <Shield size={12} className="text-sidebar-muted/50" />
                 <p className="text-[10px] font-bold text-sidebar-muted/50 uppercase tracking-widest">
@@ -219,7 +219,21 @@ export function AppSidebar() {
             )}
             <nav className="space-y-1">
               <ul className="flex w-full min-w-0 flex-col gap-1">
-                {renderNavItems(adminItems)}
+                {loading ? (
+                  // Admin Skeleton Loader
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <li key={`admin-skeleton-${i}`} className="w-full">
+                      <div className={`flex items-center gap-2 px-3 py-2.5 ${isCollapsed && !isMobile ? 'justify-center' : ''}`}>
+                        <div className={`bg-primary/10 animate-pulse rounded-lg shrink-0 ${isCollapsed && !isMobile ? 'w-5 h-5' : 'w-[18px] h-[18px]'}`} />
+                        {!isCollapsed || isMobile ? (
+                          <div className="h-3 w-2/3 bg-primary/5 animate-pulse rounded-md" />
+                        ) : null}
+                      </div>
+                    </li>
+                  ))
+                ) : (
+                  renderNavItems(adminItems)
+                )}
               </ul>
             </nav>
           </div>

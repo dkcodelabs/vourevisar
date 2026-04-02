@@ -74,8 +74,15 @@ function normalizeName(name: string): string {
   // Normalização de plural (Qualquer palavra > 3 letras terminada em 's')
   normalized = normalized.split(' ').map(word => {
     if (word.length > 3 && word.endsWith('s')) {
-      // Exceções comuns
-      if (['caes', 'pães', 'maes', 'pos'].includes(word)) return word;
+      // Exceções e casos específicos para concursos (como 'Direitos', 'Atos', etc)
+      if (['caes', 'pães', 'maes', 'pos', 'leis', 'cais'].includes(word)) return word;
+      
+      // Se termina em 'es', remove o 'es' (ex: Crases -> Crase)
+      if (word.endsWith('es')) {
+         // Simplificação agressiva: 'acoes' -> 'acao'
+         if (word.endsWith('acoes')) return word.replace('acoes', 'acao');
+         return word.slice(0, -2);
+      }
       return word.slice(0, -1);
     }
     return word;
@@ -87,6 +94,9 @@ function normalizeName(name: string): string {
       break;
     }
   }
+
+  // Remoção de numeração inicial (ex: "1.2 Direito" -> "Direito")
+  normalized = normalized.replace(/^[0-9.]+ /g, '').trim();
 
   return normalized;
 }
@@ -106,19 +116,31 @@ function getSimilarityScore(nameA: string, nameB: string): number {
 // PROMPTS (Fallbacks técnicos - As regras devem estar no banco)
 // ============================================
 
-const DEFAULT_MERGE_PROMPT = `Analise a lista de disciplinas e agrupe aquelas que tratam do MESMO CONTEÚDO seguindo as instruções do usuário.
+const DEFAULT_MERGE_PROMPT = `Você é uma IA especialista em concursos públicos. 
+Sua tarefa é analisar a lista de matérias e identificar quais devem ser mescladas.
+REGRAS:
+1. Identifique nomes similares ou equivalentes como se fossem o mesmo assunto (Ex: "Crase" e "Crases", "Matemática" e "Raciocínio Matemático").
+2. Ignore pontuação e diferenças de plural/singular.
+3. Retorne um JSON estrito para cada sugestão.
 
 $SUBJECTS$
 
 Retorne APENAS um JSON no formato:
-[{"subjectIds": ["id1", "id2"], "suggestedName": "Nome Unificado", "reason": "Motivo"}]`;
+[{"subjectIds": ["id1", "id2"], "suggestedName": "Nome Unificado", "reason": "Justificativa semântica"}]`;
 
-const DEFAULT_TOPIC_MERGE_PROMPT = `Analise a lista de tópicos e identifique quais são equivalentes ou duplicados.
+const DEFAULT_TOPIC_MERGE_PROMPT = `Você é um motor de comparação semântica para editais de concursos.
+Compare os pares de tópicos fornecidos e determine se tratam do MESMO CONTEÚDO.
+
+REGRAS:
+1. Ignore plurais (ex: "Crase" e "Crases" são EQUIVALENTES).
+2. Ignore variações de redação (ex: "Regra de Três Simples" e "Regra de 3 Simples" são EQUIVALENTES).
+3. Ignore pontuação e ordem das palavras se o sentido for o mesmo.
+4. Retorne isEquivalent: true apenas se a confiança for alta (>0.8).
 
 $TOPICS$
 
 Retorne APENAS um JSON no formato:
-[{"topicNames": ["Nome 1", "Nome 2"], "mergedName": "Nome Unificado"}]`;
+[{"isEquivalent": true, "confidence": 0.95, "suggestedDisplayName": "Nome Unificado Sugerido"}]`;
 
 async function fetchMergePrompt(type: 'subject' | 'topic'): Promise<string> {
   const key = type === 'subject' ? 'ai_merge_prompt' : 'ai_topic_merge_prompt';
@@ -248,7 +270,11 @@ interface AIGroupMergeResult {
   reason?: string;
 }
 
-function normalizeAIResponse(raw: any, subjects: any[], vGroups: any[]): AIGroupMergeResult[] {
+function normalizeAIResponse(
+  raw: Array<{ subjectIds?: string[]; suggestedName?: string; reason?: string }>, 
+  subjects: { id: string; name: string }[], 
+  vGroups: { id: string; realSubjectIds: string[] }[]
+): AIGroupMergeResult[] {
   if (!Array.isArray(raw)) return [];
   const vgMap = new Map(vGroups.map(vg => [vg.id, vg]));
   return raw.map(item => {
@@ -376,7 +402,7 @@ export async function performFullTopicMerge(unificationMap: CycleUnificationMap,
     });
 
     // Step C: Exact Match N-Way
-    const normMap = new Map<string, any[]>();
+    const normMap = new Map<string, { topic: Topic, subjectId: string }[]>();
     for (const item of allTopicsWithSource) {
       const norm = normalizeName(item.topic.name);
       const existing = normMap.get(norm) ?? [];
@@ -385,7 +411,7 @@ export async function performFullTopicMerge(unificationMap: CycleUnificationMap,
     }
 
     const exactMappings: UnifiedTopicMapping[] = [];
-    const standalones: any[] = [];
+    const standalones: { topic: Topic, subjectId: string }[] = [];
     for (const [, items] of normMap) {
       const sources = [...new Set(items.map(i => i.subjectId))];
       if (sources.length >= 2) {
@@ -485,7 +511,7 @@ export function findSiblingTopicIds(completedTopicId: string, map: CycleUnificat
   return [];
 }
 
-export async function registerDualProgress(id: string, data: any, map: CycleUnificationMap | null): Promise<void> {
+export async function registerDualProgress(id: string, data: Partial<Topic>, map: CycleUnificationMap | null): Promise<void> {
   const siblings = findSiblingTopicIds(id, map);
   for (const sid of siblings) {
     await supabase.from('topics').update({
@@ -544,9 +570,7 @@ export function getMergeStatusLabel(status: string): string {
     case 'semantic':
     case 'merged_ai':
       return 'UNIFICADO';
-    case 'single':
-      return 'MATÉRIA ÚNICA';
     default:
-      return 'MANTIDO';
+      return '';
   }
 }

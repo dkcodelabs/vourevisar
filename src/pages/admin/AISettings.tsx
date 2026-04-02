@@ -193,6 +193,15 @@ export default function AISettings() {
       className="space-y-8 pb-20"
     >
       <div className="max-w-5xl">
+        <header className="mb-10">
+          <h1 className="text-3xl font-black tracking-tight text-foreground/90 uppercase mb-2">
+            Gestão de IA
+          </h1>
+          <p className="text-muted-foreground text-sm font-medium opacity-70">
+            Configure o comportamento dos motores de IA para extração e unificação de editais.
+          </p>
+        </header>
+
         <div className="flex items-center justify-end gap-3 mb-8">
           {hasUnsavedChanges && (
             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-500 rounded-xl text-[10px] font-black uppercase border border-amber-500/20">
@@ -329,7 +338,7 @@ export default function AISettings() {
             <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
               <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
                 <Terminal className="text-primary w-4 h-4" />
-                Prompt de Sistema
+                Gestão de IA: Extração de Editais
               </h2>
             </div>
             
@@ -354,10 +363,10 @@ export default function AISettings() {
             </div>
           </div>
 
-          {/* Card: Prompt de Sugestão de Mesclas de Matérias */}
+          {/* Card: Diretrizes de Unificação de Matérias */}
           <MergePromptSection />
 
-          {/* Card: Prompt de Mesclagem de Tópicos */}
+          {/* Card: Diretrizes de Unificação de Tópicos */}
           <TopicMergePromptSection />
 
           {/* SEÇÃO: Status da API */}
@@ -388,6 +397,21 @@ function TopicMergePromptSection() {
         
         if (data?.value) {
           setTopicPrompt(String(data.value));
+        } else {
+          // Fallback visual se estiver vazio no banco
+          setTopicPrompt(`Você é um motor de comparação semântica para editais de concursos.
+Compare os pares de tópicos fornecidos e determine se tratam do MESMO CONTEÚDO.
+
+REGRAS:
+1. Ignore plurais (ex: "Crase" e "Crases" são EQUIVALENTES).
+2. Ignore variações de redação (ex: "Regra de Três Simples" e "Regra de 3 Simples" são EQUIVALENTES).
+3. Ignore pontuação e ordem das palavras se o sentido for o mesmo.
+4. Retorne isEquivalent: true apenas se a confiança for alta (>0.8).
+
+$TOPICS$
+
+Retorne APENAS um JSON no formato:
+[{"isEquivalent": true, "confidence": 0.95, "suggestedDisplayName": "Nome Unificado Sugerido"}]`);
         }
       } catch (err) {
         console.error('Erro ao carregar prompt de tópicos:', err);
@@ -426,7 +450,7 @@ function TopicMergePromptSection() {
       <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
         <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
           <Terminal className="text-purple-500 w-4 h-4" />
-          Prompt de Mesclagem de Tópicos (IA)
+          Gestão de IA: Unificação de Tópicos
         </h2>
         <button
           onClick={handleSave}
@@ -448,15 +472,22 @@ function TopicMergePromptSection() {
           value={topicPrompt}
           onChange={e => setTopicPrompt(e.target.value)}
           className="w-full h-[200px] bg-transparent border border-border dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-purple-500 transition-all resize-none text-foreground placeholder:text-muted-foreground/20"
-          placeholder="Instruções para mesclar tópicos..."
+          placeholder="Ex: 'Compare os tópicos A e B e retorne um JSON indicando se são equivalentes. IMPORTANTE: Ignore plurais (ex: Crase e Crases são iguais), pontuação e variações pequenas de escrita...'"
           spellCheck={false}
         />
+      </div>
+
+      <div className="px-6 py-4 bg-muted/30 dark:bg-zinc-800/40 border-t border-border dark:border-white/5">
+        <p className="text-[11px] text-muted-foreground font-medium leading-relaxed opacity-80">
+          <span className="font-black text-purple-500 uppercase mr-2 tracking-wider">Aviso Técnico:</span> 
+          Este prompt orienta a comparação de tópicos. Instrua a IA a focar na equivalência semântica e ignorar variações irrelevantes para garantir uma mesclagem precisa.
+        </p>
       </div>
     </div>
   );
 }
 
-// Componente de Prompt de Sugestão de Mesclas
+// Componente de Diretrizes de Unificação de Matérias
 function MergePromptSection() {
   const [mergePrompt, setMergePrompt] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -473,6 +504,19 @@ function MergePromptSection() {
         
         if (data?.value) {
           setMergePrompt(String(data.value));
+        } else {
+          // Fallback visual se estiver vazio no banco
+          setMergePrompt(`Você é uma IA especialista em concursos públicos. 
+Sua tarefa é analisar a lista de matérias e identificar quais devem ser mescladas.
+REGRAS:
+1. Identifique nomes similares ou equivalentes como se fossem o mesmo assunto (Ex: "Crase" e "Crases", "Matemática" e "Raciocínio Matemático").
+2. Ignore pontuação e diferenças de plural/singular.
+3. Retorne um JSON estrito para cada sugestão.
+
+$SUBJECTS$
+
+Retorne APENAS um JSON no formato:
+[{"subjectIds": ["id1", "id2"], "suggestedName": "Nome Unificado", "reason": "Justificativa semântica"}]`);
         }
       } catch (err) {
         console.error('Erro ao carregar prompt de mesclagem:', err);
@@ -519,7 +563,7 @@ function MergePromptSection() {
       <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
         <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
           <Merge className="text-blue-500 w-4 h-4" />
-          Prompt de Sugestão de Mesclas
+          Gestão de IA: Unificação de Matérias
         </h2>
         <button
           onClick={handleSave}
@@ -541,9 +585,16 @@ function MergePromptSection() {
           value={mergePrompt}
           onChange={e => setMergePrompt(e.target.value)}
           className="w-full h-[200px] bg-transparent border border-border dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-blue-500 transition-all resize-none text-foreground placeholder:text-muted-foreground/20"
-          placeholder="Digite o prompt..."
+          placeholder="Ex: 'Analise as matérias e sugira a unificação de nomes similares (ex: Direito Administrativo e Noções de Adm). IMPORTANTE: Ignore plurais e pontuação...'"
           spellCheck={false}
         />
+      </div>
+
+      <div className="px-6 py-4 bg-muted/30 dark:bg-zinc-800/40 border-t border-border dark:border-white/5">
+        <p className="text-[11px] text-muted-foreground font-medium leading-relaxed opacity-80">
+          <span className="font-black text-blue-500 uppercase mr-2 tracking-wider">Aviso Técnico:</span> 
+          Este prompt é crucial para a unificação das matérias. Certifique-se de que a IA compreenda a estrutura de saída JSON para evitar quebras no fluxo de unificação.
+        </p>
       </div>
     </div>
   );

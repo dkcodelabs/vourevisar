@@ -49,7 +49,7 @@ const routeDescriptions: Record<string, string> = {
   "/admin/subscription": "Controle de planos, status de pagamento e acesso dos usuários.",
   "/dashboard": "Foco total nos estudos! O seu sucesso depende da constante dedicação.",
   "/admin/users": "Gerencie os membros da sua equipe e suas permissões de conta aqui.",
-  "/admin/ai-settings": "Ajuste fino do comportamento do Gemini para extração de editais.",
+  "/admin/ai-settings": "Gestão de IA e comportamento do Gemini para extração de editais.",
 };
 
 // Removed MobileMenuToggle from here as it relies on useSidebar which we are removing from the wrap
@@ -129,7 +129,7 @@ export const AppLayout = () => {
       const interval = setInterval(checkActiveStatus, 120000); // Check every 2 minutes instead of 1
       return () => clearInterval(interval);
     }
-  }, [user?.id, signOut, navigate, logSessionStart]);
+  }, [user, signOut, navigate, logSessionStart]);
 
   // Encontrar o título correspondente
   const pageTitle =
