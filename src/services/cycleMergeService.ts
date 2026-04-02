@@ -103,31 +103,40 @@ function getSimilarityScore(nameA: string, nameB: string): number {
 }
 
 // ============================================
-// PROMPTS
+// PROMPTS (Fallbacks técnicos - As regras devem estar no banco)
 // ============================================
 
-const DEFAULT_MERGE_PROMPT = `Você é um especialista em editais de concursos públicos brasileiros.
-Analise a lista de disciplinas e agrupe aquelas que tratam do MESMO CONTEÚDO.
-REGRAS:
-1. "Português", "Língua Portuguesa" e "Gramática" -> UNIFICAR.
-2. Ingnore prefixos como "Noções de".
-3. Se os tópicos forem similares, unifique mesmo com nomes diferentes.
+const DEFAULT_MERGE_PROMPT = `Analise a lista de disciplinas e agrupe aquelas que tratam do MESMO CONTEÚDO seguindo as instruções do usuário.
 
 $SUBJECTS$
 
-Retorne APENAS um JSON:
-[{"subjectIds": ["id1", "id2"], "suggestedName": "Nome", "reason": "motivo"}]`;
+Retorne APENAS um JSON no formato:
+[{"subjectIds": ["id1", "id2"], "suggestedName": "Nome Unificado", "reason": "Motivo"}]`;
 
-const DEFAULT_TOPIC_MERGE_PROMPT = `Você é um especialista em concursos públicos.
-Identifique tópicos equivalente entre dois editais.
-IGNORE plural, acentos e prefixos.
-"Interpretação de Texto" = "Compreensão Textual".
+const DEFAULT_TOPIC_MERGE_PROMPT = `Analise a lista de tópicos e identifique quais são equivalentes ou duplicados.
 
-ENTRADA:
-{CANDIDATES_JSON}
+$TOPICS$
 
-SAÍDA JSON:
-[{"topicA_id": "idA", "topicB_id": "idB", "isEquivalent": true, "confidence": 0.9, "suggestedDisplayName": "Nome"}]`;
+Retorne APENAS um JSON no formato:
+[{"topicNames": ["Nome 1", "Nome 2"], "mergedName": "Nome Unificado"}]`;
+
+async function fetchMergePrompt(type: 'subject' | 'topic'): Promise<string> {
+  const key = type === 'subject' ? 'ai_merge_prompt' : 'ai_topic_merge_prompt';
+  try {
+    const { data } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', key)
+      .maybeSingle();
+    
+    if (data?.value && typeof data.value === 'string' && data.value.length > 20) {
+      return data.value;
+    }
+  } catch (err) {
+    console.warn(`[Supabase] Erro ao buscar prompt ${key} (usando fallback técnico):`, err);
+  }
+  return type === 'subject' ? DEFAULT_MERGE_PROMPT : DEFAULT_TOPIC_MERGE_PROMPT;
+}
 
 // ============================================
 // STEP A: EXACT MERGE
@@ -192,13 +201,7 @@ export function performExactMerge(
 // STEP B: SEMANTIC MERGE (AI)
 // ============================================
 
-async function fetchMergePrompt(): Promise<string> {
-  try {
-    const { data } = await supabase.from('system_settings').select('value').eq('key', 'ai_merge_prompt').maybeSingle();
-    if (data?.value && typeof data.value === 'string' && data.value.length > 50) return data.value;
-  } catch (err) {}
-  return DEFAULT_MERGE_PROMPT;
-}
+// fetchMergePrompt movido para cima para ficar junto com os prompts
 
 async function performSemanticMerge(
   exactGroups: ExactMatchResult['matched'],
@@ -209,7 +212,7 @@ async function performSemanticMerge(
   if (allUnmatched.length === 0) return { results: [], status: 'success' };
 
   try {
-    const promptTemplate = await fetchMergePrompt();
+    const promptTemplate = await fetchMergePrompt('subject');
     const virtualGroups = exactGroups.map((g, i) => ({
       id: `__exact_group_${i}`,
       name: g.groupName,
@@ -336,16 +339,28 @@ async function performTopicSemanticMerge(
   const results: AITopicMergeResult[] = [];
   let hasError = false;
 
+  const promptTemplate = await fetchMergePrompt('topic');
+
   for (let i = 0; i < candidates.length; i += CHUNK_SIZE) {
     const chunk = candidates.slice(i, i + CHUNK_SIZE);
     try {
       const { data, error } = await supabase.functions.invoke('ai-handler', {
-        body: { action: 'generateContent', prompt: DEFAULT_TOPIC_MERGE_PROMPT.replace('{CANDIDATES_JSON}', JSON.stringify(chunk.map(c => ({ topico_A: c.topicA, topico_B: c.topicB })))) },
+        body: { 
+          action: 'generateContent', 
+          prompt: promptTemplate.replace('$TOPICS$', JSON.stringify(chunk.map(c => ({ topico_A: c.topicA, topico_B: c.topicB })))) 
+        },
       });
-      if (error || !data?.success) { hasError = true; continue; }
+      if (error || !data?.success) { 
+        console.warn('[SemanticMerge] Erro no chunk:', error || data?.error);
+        hasError = true; 
+        continue; 
+      }
       const parsed = JSON.parse((data.text || '').replace(/```json/g, '').replace(/```/g, '').trim());
       results.push(...parsed);
-    } catch (e) { hasError = true; }
+    } catch (e) { 
+      console.error('[SemanticMerge] Erro no processamento de chunk:', e);
+      hasError = true; 
+    }
   }
   return { results: results.filter(r => r.isEquivalent && r.confidence >= 0.6), status: hasError ? 'error' : 'success' };
 }
@@ -520,4 +535,18 @@ export function getCanonicalTopicName(id: string, name: string, map?: CycleUnifi
     if (tm.originalTopicIds.includes(id)) return tm.displayName;
   }
   return name;
+}
+
+export function getMergeStatusLabel(status: string): string {
+  switch (status) {
+    case 'unified':
+    case 'exact':
+    case 'semantic':
+    case 'merged_ai':
+      return 'UNIFICADO';
+    case 'single':
+      return 'MATÉRIA ÚNICA';
+    default:
+      return 'MANTIDO';
+  }
 }

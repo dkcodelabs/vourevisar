@@ -2085,9 +2085,9 @@ const Editais = () => {
                                                                         </div>
                                                                     </div>
                                                                     <div className="flex flex-col items-end gap-1 shrink-0">
-                                                                        <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md flex items-center gap-1 bg-emerald-500/10 text-emerald-500 border border-emerald-500/10">
+                                                                        <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/10">
                                                                             <Link size={8} />
-                                                                            Unificado
+                                                                            UNIFICADO
                                                                         </span>
                                                                     </div>
                                                                 </div>
@@ -2111,7 +2111,7 @@ const Editais = () => {
                                                                                     </div>
                                                                                     <span className="text-[7px] font-black px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1 text-emerald-400 bg-emerald-400/5">
                                                                                         <Link size={7} />
-                                                                                        Unificado
+                                                                                        UNIFICADO
                                                                                     </span>
                                                                                 </div>
                                                                             ))}
@@ -2140,7 +2140,7 @@ const Editais = () => {
                                                                 </div>
                                                                 <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-black/10 dark:bg-black/30 shrink-0 text-content-muted flex items-center gap-1">
                                                                     <FileText size={8} />
-                                                                    Matéria Única
+                                                                    MATÉRIA ÚNICA
                                                                 </span>
                                                             </div>
                                                         );
@@ -2159,15 +2159,11 @@ const Editais = () => {
                                                         <div className="flex flex-wrap gap-x-4 gap-y-2 pt-3 border-t border-emerald-500/10 mt-2 px-1">
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                                <span className="text-[8px] font-bold text-content-muted uppercase tracking-tighter">Nome Idêntico (Unificado)</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-                                                                <span className="text-[8px] font-bold text-content-muted uppercase tracking-tighter">Sugestão IA (Unificado)</span>
+                                                                <span className="text-[8px] font-bold text-content-muted uppercase tracking-tighter">UNIFICADO</span>
                                                             </div>
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                                                                <span className="text-[8px] font-bold text-content-muted uppercase tracking-tighter">Original (Matéria Única)</span>
+                                                                <span className="text-[8px] font-bold text-content-muted uppercase tracking-tighter">MATÉRIA ÚNICA</span>
                                                             </div>
                                                         </div>
                                                     )}
@@ -2339,7 +2335,7 @@ const Editais = () => {
                                                     <div className="flex items-center gap-3">
                                                         {isAnalyzingTopics ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                                                         <span className="text-sm font-black uppercase tracking-wider">
-                                                            {isAnalyzingTopics ? 'Analisando tópicos...' : 'Confirmar matérias e mesclar tópicos com IA'}
+                                                            {isAnalyzingTopics ? 'Analisando tópicos...' : 'Confirmar materias e mesclar topicos com IA'}
                                                         </span>
                                                     </div>
                                                     {!isAnalyzingTopics && <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />}
@@ -2353,7 +2349,7 @@ const Editais = () => {
                                                         {processingId === cycleConflict.edital!.id
                                                             ? <Loader2 size={18} className="animate-spin" />
                                                             : <CheckCircle2 size={18} />}
-                                                        <span className="text-sm font-black uppercase tracking-wider">Confirmar mesclagem das matérias</span>
+                                                        <span className="text-sm font-black uppercase tracking-wider">Confirmar mesclagem das materias</span>
                                                     </div>
                                                     <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                                                 </button>

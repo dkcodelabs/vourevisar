@@ -354,8 +354,11 @@ export default function AISettings() {
             </div>
           </div>
 
-          {/* Card: Prompt de Sugestão de Mesclas */}
+          {/* Card: Prompt de Sugestão de Mesclas de Matérias */}
           <MergePromptSection />
+
+          {/* Card: Prompt de Mesclagem de Tópicos */}
+          <TopicMergePromptSection />
 
           {/* SEÇÃO: Status da API */}
           <AIStatusSection />
@@ -365,6 +368,91 @@ export default function AISettings() {
         </div>
       </div>
     </motion.div>
+  );
+}
+
+// Componente de Prompt de Mesclagem de Tópicos
+function TopicMergePromptSection() {
+  const [topicPrompt, setTopicPrompt] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchPrompt = async () => {
+      try {
+        const { data } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'ai_topic_merge_prompt')
+          .maybeSingle();
+        
+        if (data?.value) {
+          setTopicPrompt(String(data.value));
+        }
+      } catch (err) {
+        console.error('Erro ao carregar prompt de tópicos:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPrompt();
+  }, []);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          key: 'ai_topic_merge_prompt',
+          value: topicPrompt,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+      
+      if (error) throw error;
+      toast.success('Prompt de tópicos salvo com sucesso!');
+    } catch (err) {
+      console.error('Erro ao salvar prompt:', err);
+      toastGate.notifyError('Erro ao salvar prompt de tópicos.', 'TOPIC_PROMPT_ERR', { severity: 'medium' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) return null;
+
+  return (
+    <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl overflow-hidden shadow-sm relative mt-6">
+      <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
+        <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
+          <Terminal className="text-purple-500 w-4 h-4" />
+          Prompt de Mesclagem de Tópicos (IA)
+        </h2>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="flex items-center gap-2 px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+        >
+          <Save className="w-3 h-3" />
+          {isSaving ? 'Salvando...' : 'Salvar'}
+        </button>
+      </div>
+      
+      <div className="p-6 space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Este prompt é usado para identificar quais tópicos dentro de uma matéria unificada são equivalentes. 
+          Use <code className="bg-muted px-1 rounded">$TOPICS$</code> como placeholder.
+        </p>
+
+        <textarea 
+          value={topicPrompt}
+          onChange={e => setTopicPrompt(e.target.value)}
+          className="w-full h-[200px] bg-transparent border border-border dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-purple-500 transition-all resize-none text-foreground placeholder:text-muted-foreground/20"
+          placeholder="Instruções para mesclar tópicos..."
+          spellCheck={false}
+        />
+      </div>
+    </div>
   );
 }
 
