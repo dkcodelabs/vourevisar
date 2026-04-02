@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Files, Filter, Play, Wand2, BookOpen, Scissors } from 'lucide-react';
+import { performGlobalCleanup } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate'; // Added
@@ -201,6 +202,22 @@ const Subjects = () => {
           }
         }
       }
+      
+      // 2.5. Buscar IDs de tópicos desta matéria para limpar histórico
+      const { data: topicsData } = await supabase
+        .from('topics')
+        .select('id')
+        .eq('subject_id', subjectId);
+      
+      const topicIds = (topicsData || []).map(t => t.id);
+
+      if (topicIds.length > 0) {
+        // 2.6. Deletar histórico de revisões (Limpeza profunda)
+        await supabase
+          .from('topic_review_history')
+          .delete()
+          .in('topic_id', topicIds);
+      }
 
       // 3. Deletar tópicos da matéria
       await supabase
@@ -325,6 +342,33 @@ const Subjects = () => {
           .eq('user_id', user.id);
 
         if (error) throw error;
+
+        // NOVO: Resetar progresso dos tópicos relacionados ao descarregar do ciclo
+        if (subjectIds.length > 0) {
+          const { error: resetError } = await supabase
+            .from('topics')
+            .update({
+              next_review: null,
+              review_count: 0,
+              review_stage: null,
+              completed: false,
+              first_studied_at: null,
+              last_reviewed_at: null,
+              stability: 0,
+              review_history: []
+            })
+            .in('subject_id', subjectIds);
+          
+          if (resetError) {
+            console.error('Erro ao resetar progresso dos tópicos:', resetError);
+          }
+
+          // Também limpa o histórico detalhado para garantir integridade na página de Revisões
+          await supabase
+            .from('topic_review_history')
+            .delete()
+            .in('topic_id', (await supabase.from('topics').select('id').in('subject_id', subjectIds)).data?.map(t => t.id) || []);
+        }
       }
 
       const { error: editalErr } = await (supabase as any)
@@ -488,9 +532,13 @@ const Subjects = () => {
       localStorage.removeItem(`subjects_${user.id} `);
       localStorage.removeItem(`user_cycle_cache_${user.id} `);
 
-      loadSubjects().finally(() => {
+      (async () => {
+        await loadSubjects();
+        // Rodar limpeza global automática (Aprovado pelo usuário)
+        // Apenas na primeira carga
+        await performGlobalCleanup();
         setLoading(false);
-      });
+      })();
 
       // Listener para atualizar quando houver mudanças externas (ex: exclusão de edital)
       const handleExternalUpdate = () => {

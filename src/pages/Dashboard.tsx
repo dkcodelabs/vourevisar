@@ -5,6 +5,7 @@ import { useCycleState } from '@/hooks/useCycleState';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { applyUnificationMap } from '@/services/cycleMergeService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Target, Clock, Zap, ArrowRight, BookOpen } from 'lucide-react';
@@ -140,7 +141,9 @@ const Dashboard = () => {
     const filteredSubjects = useMemo(() => {
         if (statsFilter.type === 'cycle' && userCycle?.ciclo_atual) {
             const cycleIds = new Set(userCycle.ciclo_atual);
-            return subjects.filter(s => cycleIds.has(s.id));
+            const cycleSubjects = subjects.filter(s => cycleIds.has(s.id));
+            // Apply visual unification map so duplicate subjects appear as one
+            return applyUnificationMap(cycleSubjects, userCycle.unification_map);
         }
         return subjects;
     }, [subjects, statsFilter, userCycle]);
@@ -172,21 +175,19 @@ const Dashboard = () => {
             <div className="w-full pb-8 pt-0">
 
                 {(!hasActiveCycle && subjects.length === 0) ? (
-                    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                        <div className="w-24 h-24 bg-secondary dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8 mx-auto -rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
-                            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shadow-sm">
-                                <Target className="text-primary" size={40} />
-                            </div>
+                    <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in duration-500">
+                        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+                            <Target className="text-primary w-8 h-8" />
                         </div>
-                        <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tight mb-4">
-                            Nenhum edital carregado no ciclo
+                        <h2 className="text-xl font-bold text-foreground mb-2">
+                            Nenhum edital carregado
                         </h2>
-                        <p className="text-base text-content-muted leading-relaxed font-medium mb-8 max-w-lg mx-auto">
-                            Você precisa carregar um edital no seu ciclo de estudos para ativar o painel inteligente, receber recomendações direcionadas e ver suas estatísticas em tempo real.
+                        <p className="text-sm text-content-muted mb-6 max-w-md">
+                            Carregue um edital para ativar o painel e ver suas estatísticas.
                         </p>
                         <Button
                             onClick={() => navigate('/meus-editais')}
-                            className="h-11 px-6 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                            className="h-10 px-5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg flex items-center gap-2"
                         >
                             <BookOpen className="w-4 h-4" />
                             Carregar Edital
@@ -195,49 +196,45 @@ const Dashboard = () => {
                 ) : (
                     <div className="space-y-8 animate-in fade-in duration-500 slide-in-from-bottom-4">
                         
-                        {/* Integrated Command Center - V4 */}
-                        <div className="bg-card rounded-3xl border border-border shadow-soft overflow-hidden animate-in fade-in slide-in-from-top-4 duration-700">
-                            <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-border">
-                                
-                                {/* Lado Esquerdo: Identidade do Ciclo */}
-                                <div className="flex-1 p-3 md:p-4 flex flex-col justify-center">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner shrink-0">
-                                            <Target className="w-6 h-6" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            {editalDisplayName && (
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary px-2 py-0.5 bg-primary/5 rounded border border-primary/10">
-                                                        Ciclo em Estudo
-                                                    </span>
-                                                    <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_10px_rgba(var(--success),0.4)]" />
-                                                </div>
-                                            )}
-                                            
-                                            {editalDisplayName ? (
-                                                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground leading-tight truncate">
-                                                    {editalDisplayName}
+                        {/* Command Center Compacto */}
+                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 p-4 animate-in fade-in duration-500">
+                            <div className="flex items-center justify-between gap-4">
+                                {/* Esquerda: Identidade */}
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                        <Target className="w-5 h-5" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        {editalDisplayName && (
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-wider text-primary">
+                                                    Ciclo ativo
+                                                </span>
+                                                <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                                            </div>
+                                        )}
+                                        {editalDisplayName ? (
+                                            <h1 className="text-base font-bold tracking-tight text-foreground truncate">
+                                                {editalDisplayName}
+                                            </h1>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <h1 className="text-sm font-bold text-foreground">
+                                                    Inicie seu Ciclo de Estudo
                                                 </h1>
-                                            ) : (
-                                                <div className="space-y-1">
-                                                    <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">
-                                                        Inicie seu Ciclo de Estudo agora! ✨
-                                                    </h1>
-                                                    <button 
-                                                        onClick={() => navigate('/meus-editais')}
-                                                        className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
-                                                    >
-                                                        Carregue um edital para começar <ArrowRight className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
+                                                <button 
+                                                    onClick={() => navigate('/meus-editais')}
+                                                    className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1"
+                                                >
+                                                    Carregar edital <ArrowRight className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* Lado Direito: Widget de Contagem Regressiva */}
-                                <div className="lg:w-[320px] bg-secondary/30 dark:bg-muted/10 p-3 md:p-4 flex flex-col justify-center items-center">
+                                {/* Direita: Contagem Regressiva */}
+                                <div className="shrink-0">
                                     <ExamCountdown 
                                         minimal 
                                         hasActiveEdital={!!editalDisplayName} 

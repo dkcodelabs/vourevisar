@@ -13,6 +13,7 @@ import { useTopicReview } from '@/hooks/useTopicReview';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useTimer } from '@/contexts/TimerContext';
 import { useCycleState } from '@/hooks/useCycleState';
+import { getCanonicalSubjectName, getCanonicalTopicName } from '@/services/cycleMergeService';
 
 
 import { RevisionItem, RevisionStatus } from '@/types/revision';
@@ -194,6 +195,10 @@ export const Revisoes = () => {
         ? maxReviews
         : Math.min(Math.max(1, rawCount), maxReviews);
 
+      const rawSubjectName = subject?.name || 'Desconhecida';
+      const canonicalSubjectName = getCanonicalSubjectName(topic.subject_id, rawSubjectName, userCycle?.unification_map);
+      const canonicalTopicName = getCanonicalTopicName(topic.id, topic.name, userCycle?.unification_map);
+
       // Determine Status Dynamically
       let status = RevisionStatus.UNSTARTED;
       if (topic.learningStatus === 'Dominando' || topic.completed || topic.review_stage === 'Concluído') {
@@ -208,8 +213,8 @@ export const Revisoes = () => {
 
       return {
         id: topic.id,
-        topic: topic.name,
-        subject: subject?.name || 'Desconhecida',
+        topic: canonicalTopicName,
+        subject: canonicalSubjectName,
         subjectId: topic.subject_id,
         difficulty: topic.difficulty_level || 0,
         dueDate: topic.next_review || new Date().toISOString(),
@@ -240,7 +245,7 @@ export const Revisoes = () => {
     if (activeTab === 'COMPLETED') result = result.filter(i => i.status === RevisionStatus.CONSOLIDATED);
 
     return result;
-  }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews]);
+  }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews, userCycle?.unification_map]);
 
 
   const stats = useMemo(() => {

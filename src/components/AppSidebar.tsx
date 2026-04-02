@@ -10,6 +10,7 @@ import {
 import { AnimatedLogo } from './AnimatedLogo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useAIStatus } from '@/hooks/useAIStatus';
 
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -131,10 +132,18 @@ export function AppSidebar() {
     return location.pathname.startsWith(item.to);
   };
 
+  const { aiStatus } = useAIStatus();
+
   const renderNavItems = (items: NavItem[]) => (
     items.map((item) => {
       const isActive = isItemActive(item);
       const showIconOnly = isCollapsed && !isMobile;
+      const isAIItem = item.to === "/admin/ai-settings";
+      
+      let aiStatusColor = "";
+      if (isAIItem) {
+        aiStatusColor = aiStatus.status === 'active' ? 'text-green-500' : 'text-red-500';
+      }
 
       return (
         <li key={item.to} className="w-full">
@@ -144,8 +153,23 @@ export function AppSidebar() {
                 className={`flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all group ${isActive ? 'nav-item-active' : 'text-sidebar-muted hover:bg-primary/5 hover:text-primary'
                   } ${showIconOnly ? 'justify-center px-0' : ''}`}
               >
-                <item.icon size={18} className={isActive ? 'text-primary' : ''} />
-                {!showIconOnly && <span className="font-medium text-[13px] whitespace-nowrap">{item.label}</span>}
+                <div className="relative">
+                  <item.icon 
+                    size={18} 
+                    className={isActive ? 'text-primary' : (isAIItem ? aiStatusColor : '')} 
+                  />
+                  {isAIItem && showIconOnly && (
+                    <div className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-sidebar ${aiStatus.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                  )}
+                </div>
+                {!showIconOnly && (
+                  <div className="flex items-center justify-between flex-1 min-w-0">
+                    <span className="font-medium text-[13px] whitespace-nowrap truncate">{item.label}</span>
+                    {isAIItem && (
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ml-2 ${aiStatus.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
+                    )}
+                  </div>
+                )}
               </div>
             </NavLink>
           </SidebarTooltip>

@@ -521,6 +521,12 @@ function AIStatusSection() {
             <p className="font-bold text-foreground">{formatDate(aiStatus.lastCheck)}</p>
           </div>
           <div>
+            <p className="text-muted-foreground text-xs font-medium">Modelo testado</p>
+            <p className="font-bold text-primary">
+              {aiStatus.modelName || (isChecking ? 'Verificando...' : 'Não testado')}
+            </p>
+          </div>
+          <div>
             <p className="text-muted-foreground text-xs font-medium">Próxima verificação</p>
             <p className="font-bold text-foreground">A cada 5 minutos</p>
           </div>

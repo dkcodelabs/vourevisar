@@ -53,22 +53,36 @@ serve(async (req) => {
       }
 
       console.log(`🤖 Chamando Gemini (${targetModel})...`)
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+      
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 50000) // 50s timeout
+
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          }
+        )
+
+        const result = await response.json()
+        if (result.error) throw new Error(result.error.message)
+
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
+        return new Response(JSON.stringify({ success: true, text }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          throw new Error('Timeout: A API do Gemini demorou demais para responder.')
         }
-      )
-
-      const result = await response.json()
-      if (result.error) throw new Error(result.error.message)
-
-      const text = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
-      return new Response(JSON.stringify({ success: true, text }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+        throw err;
+      } finally {
+        clearTimeout(timeoutId)
+      }
     }
 
     if (action === 'uploadFile') {
@@ -134,7 +148,7 @@ serve(async (req) => {
         `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`
       )
       const data = await response.json()
-      return new Response(JSON.stringify({ success: !!data.models, data }), {
+      return new Response(JSON.stringify({ success: !!data.models, data, model: defaultModel }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }

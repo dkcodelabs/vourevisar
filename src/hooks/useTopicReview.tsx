@@ -9,6 +9,7 @@ import { useStudySessionTracking } from './useStudySessionTracking';
 import { useCycleState } from './useCycleState';
 import { calculateNextReview, formatDateForDB, describeCalculation } from '@/utils/calculateNextReview';
 import { Topic } from '@/types';
+import { registerDualProgress } from '@/services/cycleMergeService';
 
 export const useTopicReview = () => {
   const { user } = useAuth();
@@ -244,6 +245,15 @@ export const useTopicReview = () => {
         .eq('id', topicId);
 
       if (updateError) throw updateError;
+
+      // 🔄 Dual Progress: sincronizar tópicos irmãos (mesclagem de editais)
+      try {
+        const unificationMap = userCycle?.unification_map ?? null;
+        await registerDualProgress(topicId, updateData, unificationMap);
+      } catch (dualErr) {
+        // Non-blocking: dual progress failure shouldn't break the main review flow
+        console.warn('⚠️ Falha no dual progress (não-bloqueante):', dualErr);
+      }
 
       // Registrar histórico no DB
       const sessionDuration = durationOverride ?? difficultyModalData.duration ?? 0;

@@ -104,6 +104,8 @@ export interface UserCycle {
   data_fim_ciclo: string | null;
   atualizado_em: string;
   created_at: string;
+  /** Visual merge map when multiple editais are combined — stored as JSONB in DB */
+  unification_map?: import('./cycleMergeTypes').CycleUnificationMap | null;
 }
 
 export interface AppContextType {

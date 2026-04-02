@@ -12,7 +12,7 @@ import {
     ChevronDown, ChevronUp, ChevronsUpDown, FileText, Circle, CheckCircle2, Loader2, AlertTriangle, EyeOff, Eye,
     Database, Save, Cloud, CloudOff, Sparkles, Wand2, EyeIcon
 } from 'lucide-react';
-import { Subject, Topic } from '@/types';
+import { Subject, Topic, Status } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -37,13 +37,14 @@ interface EditalSubjectsModalProps {
     onUpdate: (updated: UserEdital) => void;
 }
 
-const editaisTable = () => (supabase as any).from('user_editais');
+const editaisTable = () => supabase.from('user_editais');
 const tmpId = () => `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-function getProgress(subject: Subject) {
-    if (!subject.topics.length) return 0;
-    return Math.round((subject.topics.filter(t => t.completed).length / subject.topics.length) * 100);
-}
+const getProgress = (subject: Subject) => {
+    if (!subject.topics?.length) return 0;
+    const completed = subject.topics.filter(t => t.completed).length;
+    return Math.round((completed / subject.topics.length) * 100);
+};
 
 function getTopicStatus(topic: Topic): { label: string; color: string } {
     if (topic.completed) return { label: 'CONCLUÍDO', color: 'text-emerald-500' };
@@ -65,7 +66,6 @@ export const EditalSubjectsModal = ({
     const [localActiveIds, setLocalActiveIds] = useState<string[]>([]);
     // Flag: só inicializa ao abrir, ignora mudanças externas enquanto modal está aberto
     const initializedRef = useRef(false);
-    // Flag: houve mudanças que precisam de sync ao fechar
     const hasPendingSync = useRef(false);
 
     // ── Edital selecionado (para select de múltiplos editais) ──
@@ -74,20 +74,37 @@ export const EditalSubjectsModal = ({
     const [pendingEditalSwitch, setPendingEditalSwitch] = useState<UserEdital | null>(null);
     const showEditalSelector = editais && editais.length > 1;
 
+    const transformSubject = useCallback((s: Subject): Subject => ({
+        id: s.id,
+        name: s.name,
+        topics: (s.topics || []).map((t: Topic): Topic => ({
+            id: t.id,
+            name: t.name,
+            completed: t.completed || false,
+            review_count: t.review_count || 0,
+            reviewCount: t.review_count || 0,
+            subtopics: t.subtopics || [],
+            edital_id: t.edital_id
+        })),
+        status: (s.status as Status) || 'Nova',
+        is_visible: s.is_visible ?? true
+    }), []);
+
     useEffect(() => {
-        if (isOpen && !initializedRef.current) {
-            // Primeira abertura: inicializa estado local
-            setLocalSubjects(allSubjects.filter(s => edital.subjectIds.includes(s.id)));
+        if (isOpen && edital) {
+            const subjects = allSubjects.filter(s => edital.subjectIds.includes(s.id));
+            setLocalSubjects(subjects);
             setLocalEditalIds(edital.subjectIds);
-            // Inicializa IDs ativos (usa activeSubjectIds se existir, senão usa subjectIds)
             setLocalActiveIds(edital.activeSubjectIds?.length ? edital.activeSubjectIds : edital.subjectIds);
+            setSyncStatus(null);
             initializedRef.current = true;
             hasPendingSync.current = false;
         }
         if (!isOpen) {
             initializedRef.current = false;
+            setSyncStatus(null);
         }
-    }, [isOpen]); // ←— INTENCIONALMENTE só depende de isOpen, não de allSubjects
+    }, [isOpen, edital, allSubjects]);
 
     // ── UI state ─────────────────────────────────────────────────────────
     const [searchQuery, setSearchQuery] = useState('');
@@ -102,10 +119,20 @@ export const EditalSubjectsModal = ({
     const [confirmDeleteSubjectId, setConfirmDeleteSubjectId] = useState<string | null>(null);
     // Estado de confirmação inline para tópico
     const [confirmDeleteTopicId, setConfirmDeleteTopicId] = useState<string | null>(null);
+    const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+    const [editingSubjectName, setEditingSubjectName] = useState('');
     const [notesModal, setNotesModal] = useState<{ isOpen: boolean; subjectId: string; subjectName: string }>({
         isOpen: false, subjectId: '', subjectName: ''
     });
-    const [syncStatus, setSyncStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+    const [syncStatus, setSyncStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
+
+    // Limpa o status de "Sincronizado" após alguns segundos para feedback dinâmico
+    useEffect(() => {
+        if (syncStatus === 'saved') {
+            const timer = setTimeout(() => setSyncStatus(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [syncStatus]);
     
     // ── IA Add Mode ──────────────────────────────────────────────────────────
     const [showIaAdd, setShowIaAdd] = useState(false);
@@ -210,7 +237,22 @@ export const EditalSubjectsModal = ({
             
             if (result.error) throw new Error(result.error);
             
-            let parsed: any;
+            interface ExtractionResult {
+                s?: { 
+                    t?: string; 
+                    title?: string; 
+                    p?: { n?: string; name?: string }[]; 
+                    topics?: { n?: string; name?: string }[] 
+                }[];
+                subjects?: { 
+                    t?: string; 
+                    title?: string; 
+                    p?: { n?: string; name?: string }[]; 
+                    topics?: { n?: string; name?: string }[] 
+                }[];
+            }
+
+            let parsed: ExtractionResult;
             try {
                 parsed = typeof result.text === 'string' ? JSON.parse(result.text) : result.text;
             } catch {
@@ -218,12 +260,12 @@ export const EditalSubjectsModal = ({
             }
             
             const subjects = parsed.s || parsed.subjects || [];
-            const mapped: AiSubject[] = subjects.map((s: any) => ({
+            const mapped: AiSubject[] = subjects.map(s => ({
                 title: s.t || s.title || iaSubjectName.trim(),
-                topics: (s.p || s.topics || []).map((t: any) => ({
+                topics: (s.p || s.topics || []).map(t => ({
                     name: t.n || t.name || '',
                     selected: true
-                })).filter((t: any) => t.name.trim()),
+                })).filter(t => t.name.trim()),
                 selected: true
             }));
             
@@ -236,9 +278,13 @@ export const EditalSubjectsModal = ({
             setAiResult(adjustedResults);
             setIaStage('review');
             
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Erro na IA:', error);
-            errorService.report(error, { module: 'EditalSubjectsModal', action: 'iaProcess', userMessage: 'Erro ao processar com IA' });
+            errorService.report(error instanceof Error ? error : new Error(String(error)), { 
+                module: 'EditalSubjectsModal', 
+                action: 'iaProcess', 
+                userMessage: 'Erro ao processar com IA' 
+            });
             setIaStage('input');
         } finally {
             setIsProcessingIa(false);
@@ -300,7 +346,7 @@ export const EditalSubjectsModal = ({
                 
                 setLocalSubjects(updatedSubjects);
                 hasPendingSync.current = true;
-                setSyncStatus('saving');
+                setSyncStatus('saved');
             } else {
                 // Create new subject with (Complemento) suffix
                 const { data: created, error: createErr } = await supabase
@@ -345,11 +391,11 @@ export const EditalSubjectsModal = ({
                         subject_ids: newSubjectIds,
                         active_subject_ids: newSubjectIds,
                         updated_at: new Date().toISOString()
-                    } as any)
+                    })
                     .eq('id', edital.id);
                 
                 hasPendingSync.current = true;
-                setSyncStatus('saving');
+                setSyncStatus('saved');
                 
                 onUpdate({ ...edital, subjectIds: newSubjectIds, activeSubjectIds: newSubjectIds });
             }
@@ -363,13 +409,17 @@ export const EditalSubjectsModal = ({
             
             toast.success('Matéria adicionada com sucesso!');
             
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Erro ao salvar:', error);
-            errorService.report(error, { module: 'EditalSubjectsModal', action: 'iaConfirm', userMessage: 'Erro ao adicionar matéria' });
+            errorService.report(error instanceof Error ? error : new Error(String(error)), { 
+                module: 'EditalSubjectsModal', 
+                action: 'iaConfirm', 
+                userMessage: 'Erro ao adicionar matéria' 
+            });
         } finally {
             setIsSavingSubject(false);
         }
-    }, [user, iaSubjectName, aiResult, localSubjects, localEditalIds, edital.id, selectedEdital.id, onUpdate]);
+    }, [user, iaSubjectName, aiResult, localSubjects, localEditalIds, edital, selectedEdital.id, onUpdate]);
 
     // ── Derivados ─────────────────────────────────────────────────────────
     const filteredSubjects = useMemo(() => {
@@ -457,8 +507,24 @@ export const EditalSubjectsModal = ({
         const updatedActiveIds = localActiveIds.filter(id => id !== subjectId);
         setLocalEditalIds(updatedIds);
         setLocalActiveIds(updatedActiveIds);
+        setSyncStatus('saving');
 
         try {
+            // 0. Remove histórico de revisões dos tópicos desta matéria ANTES (limpeza profunda)
+            const subjectToDelete = localSubjects.find(s => s.id === subjectId);
+            const topicIds = subjectToDelete?.topics.map(t => t.id) || [];
+            
+            if (topicIds.length > 0) {
+                const { error: histErr } = await supabase
+                    .from('topic_review_history')
+                    .delete()
+                    .in('topic_id', topicIds);
+                if (histErr) {
+                    console.error('Erro ao excluir histórico da matéria:', histErr);
+                    // Não travamos o fluxo principal, mas registramos
+                }
+            }
+
             // 1. Remove tópicos ANTES da matéria (FK constraint)
             const { error: topicsErr } = await supabase
                 .from('topics').delete().eq('subject_id', subjectId);
@@ -469,22 +535,44 @@ export const EditalSubjectsModal = ({
                 .from('subjects').delete().eq('id', subjectId);
             if (subjErr) throw subjErr;
 
-            // 3. Atualiza o edital (retira de subject_ids e active_subject_ids)
+            // 3. Remover do Ciclo de Estudos (user_cycles) — Evita dados órfãos na página de Revisões
+            const { data: currentCycle } = await supabase
+                .from('user_cycles')
+                .select('id, ciclo_atual')
+                .eq('user_id', user!.id)
+                .maybeSingle();
+
+            if (currentCycle && currentCycle.ciclo_atual) {
+                const currentIds = (currentCycle.ciclo_atual as string[]) || [];
+                const newCycleIds = currentIds.filter(id => id !== subjectId);
+                
+                if (newCycleIds.length !== currentIds.length) {
+                    await supabase
+                        .from('user_cycles')
+                        .update({ ciclo_atual: newCycleIds, atualizado_em: new Date().toISOString() })
+                        .eq('id', currentCycle.id);
+                    window.dispatchEvent(new CustomEvent('cycleUpdated'));
+                }
+            }
+
+            // 4. Atualiza o edital (retira de subject_ids e active_subject_ids)
             const { error: edErr } = await editaisTable()
                 .update({ subject_ids: updatedIds, active_subject_ids: updatedActiveIds }).eq('id', edital.id);
             if (edErr) throw edErr;
 
             onUpdate({ ...edital, subjectIds: updatedIds, activeSubjectIds: updatedActiveIds });
             hasPendingSync.current = true;
+            setSyncStatus('saved');
             toast.success(`"${subjectName}" excluída permanentemente.`);
         } catch (err) {
             // Reverte otimismo
             setLocalSubjects(allSubjects.filter(s => edital.subjectIds.includes(s.id)));
             setLocalEditalIds(edital.subjectIds);
             setLocalActiveIds(edital.activeSubjectIds?.length ? edital.activeSubjectIds : edital.subjectIds);
+            setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'deleteSubject', userMessage: 'Erro ao excluir matéria.' });
         }
-    }, [localEditalIds, localActiveIds, edital, allSubjects, onUpdate]);
+    }, [localEditalIds, localActiveIds, edital, allSubjects, onUpdate, localSubjects]);
 
     // ── Alternar ativo/inativo (visível/oculto na pág. Matérias) ──────────
     const handleToggleSubjectActive = useCallback(async (subjectId: string, subjectName: string) => {
@@ -495,6 +583,7 @@ export const EditalSubjectsModal = ({
 
         // Otimismo
         setLocalActiveIds(newActiveIds);
+        setSyncStatus('saving');
 
         try {
             const { error } = await editaisTable()
@@ -503,6 +592,7 @@ export const EditalSubjectsModal = ({
 
             onUpdate({ ...edital, activeSubjectIds: newActiveIds });
             hasPendingSync.current = true;
+            setSyncStatus('saved');
             toast.success(
                 isCurrentlyActive
                     ? `"${subjectName}" ocultada da pág. Matérias.`
@@ -512,6 +602,7 @@ export const EditalSubjectsModal = ({
         } catch (err) {
             // Reverte
             setLocalActiveIds(localActiveIds);
+            setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'toggleActive', userMessage: 'Erro ao alterar visibilidade.' });
         }
     }, [localActiveIds, edital, onUpdate]);
@@ -538,7 +629,7 @@ export const EditalSubjectsModal = ({
         try {
             const { data: newTopic, error } = await supabase.from('topics').insert({
                 subject_id: subjectId, 
-                edital_id: selectedEdital.id, // Ensure topic is linked to edital
+                edital_id: selectedEdital.id,
                 name: text, 
                 completed: false, 
                 review_count: 0, 
@@ -562,7 +653,7 @@ export const EditalSubjectsModal = ({
         } finally {
             setSavingTopics(prev => ({ ...prev, [subjectId]: false }));
         }
-    }, [newTopicTexts, savingTopics, user]);
+    }, [newTopicTexts, savingTopics, user, selectedEdital.id]);
 
     // ── Editar tópico ──────────────────────────────────────────────────────
     const handleSaveTopicEdit = useCallback(async () => {
@@ -585,6 +676,31 @@ export const EditalSubjectsModal = ({
         }
     }, [editingTopicId, editingTopicName]);
 
+    // ── Renomear matéria ──────────────────────────────────────────────────
+    const handleSaveSubjectEdit = useCallback(async () => {
+        if (!editingSubjectId || !editingSubjectName.trim()) return;
+        const newName = editingSubjectName.trim();
+        
+        // Otimismo
+        setLocalSubjects(prev => prev.map(s => s.id === editingSubjectId ? { ...s, name: newName } : s));
+        setEditingSubjectId(null);
+        setEditingSubjectName('');
+        setSyncStatus('saving');
+
+        try {
+            const { error } = await supabase.from('subjects').update({ name: newName }).eq('id', editingSubjectId);
+            if (error) throw error;
+            hasPendingSync.current = true;
+            setSyncStatus('saved');
+            toast.success('Matéria renomeada!');
+        } catch (err) {
+            setSyncStatus('error');
+            errorService.report(err, { module: 'EditalSubjectsModal', action: 'editSubject', userMessage: 'Erro ao renomear.' });
+            // Recarrega se der erro
+            setLocalSubjects(allSubjects.filter(s => edital.subjectIds.includes(s.id)));
+        }
+    }, [editingSubjectId, editingSubjectName, allSubjects, edital.subjectIds]);
+
     // ── Excluir tópico — pede confirmação inline primeiro ─────────────────
     const handleRequestDeleteTopic = useCallback((topicId: string) => {
         setConfirmDeleteTopicId(prev => prev === topicId ? null : topicId);
@@ -596,14 +712,30 @@ export const EditalSubjectsModal = ({
         setLocalSubjects(prev => prev.map(s =>
             s.id === subjectId ? { ...s, topics: s.topics.filter(t => t.id !== topicId) } : s
         ));
+        setSyncStatus('saving');
         try {
+            // 0. Remove histórico de revisões deste tópico ANTES (limpeza profunda)
+            const { error: histErr } = await supabase
+                .from('topic_review_history')
+                .delete()
+                .eq('topic_id', topicId);
+            
+            if (histErr) {
+                console.error('Erro ao excluir histórico do tópico:', histErr);
+                // Não travamos o fluxo principal, mas registramos
+            }
+
             const { error } = await supabase.from('topics').delete().eq('id', topicId);
             if (error) throw error;
             hasPendingSync.current = true;
+            setSyncStatus('saved');
         } catch (err) {
+            setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'deleteTopic', userMessage: 'Erro ao excluir.' });
         }
     }, []);
+
+    const isEditable = !selectedEdital.sourceId || !!selectedEdital.isImported;
 
     if (!isOpen) return null;
 
@@ -642,10 +774,20 @@ export const EditalSubjectsModal = ({
                                         )}
                                     </div>
 
-                                    {selectedEdital.isImported && (
+                                    {selectedEdital.sourceId ? (
                                         <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0 ml-2">
                                             <Database size={8} className="text-sky-400" />
-                                            <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">SISTEMA</span>
+                                            <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">CÓPIA • SISTEMA</span>
+                                        </div>
+                                    ) : selectedEdital.isImported ? (
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20 shrink-0 ml-2">
+                                            <Sparkles size={8} className="text-purple-400" />
+                                            <span className="text-[8px] font-black text-purple-400 uppercase tracking-widest">CÓPIA • IA</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-500/10 border border-zinc-500/20 shrink-0 ml-2">
+                                            <FileText size={8} className="text-zinc-400" />
+                                            <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">MANUAL</span>
                                         </div>
                                     )}
                                     
@@ -814,41 +956,47 @@ export const EditalSubjectsModal = ({
                                 </div>
                             ) : (
                                 /* Modo Manual */
-                                <div className="flex items-center gap-3 self-start">
-                                    <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20 flex-1 self-center">
-
-                                        
-                                        <div className="relative flex-1">
-                                            <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
-                                            <input
-                                                type="text"
-                                                placeholder="Nome da matéria (ex: Português)"
-                                                value={newSubjectName}
-                                                onChange={e => setNewSubjectName(e.target.value)}
-                                                onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
-                                                className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
-                                            />
+                                isEditable ? (
+                                    <div className="flex items-center gap-3 self-start">
+                                        <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20 flex-1 self-center">
+                                            <div className="relative flex-1">
+                                                <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Nome da matéria (ex: Português)"
+                                                    value={newSubjectName}
+                                                    onChange={e => setNewSubjectName(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
+                                                    className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
+                                                />
+                                            </div>
+                                            
+                                            <button
+                                                onClick={handleSaveSubject}
+                                                disabled={!newSubjectName.trim() || isSavingSubject}
+                                                className="flex items-center gap-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-emerald-500/20 shrink-0"
+                                            >
+                                                {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                                <span className="hidden xs:inline uppercase tracking-widest">SALVAR</span>
+                                            </button>
                                         </div>
                                         
                                         <button
-                                            onClick={handleSaveSubject}
-                                            disabled={!newSubjectName.trim() || isSavingSubject}
-                                            className="flex items-center gap-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-emerald-500/20 shrink-0"
+                                            onClick={() => setShowIaAdd(true)}
+                                            className="flex items-center gap-2 px-4 h-9 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[10px] font-bold rounded-xl transition-all shrink-0"
                                         >
-                                            {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                                            <span className="hidden xs:inline uppercase tracking-widest">SALVAR</span>
+                                            <Sparkles size={14} />
+                                            <span className="whitespace-nowrap">Gerar com IA</span>
                                         </button>
                                     </div>
-                                    
-                                    {/* Botão IA separado na extrema direita */}
-                                    <button
-                                        onClick={() => setShowIaAdd(true)}
-                                        className="flex items-center gap-2 px-4 h-9 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[10px] font-bold rounded-xl transition-all shrink-0"
-                                    >
-                                        <Sparkles size={14} />
-                                        <span className="whitespace-nowrap">Gerar com IA</span>
-                                    </button>
-                                </div>
+                                ) : (
+                                    <div className="px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2 self-start mb-2">
+                                        <AlertTriangle size={14} className="text-amber-500" />
+                                        <span className="text-[10px] font-bold text-amber-500/80 uppercase tracking-widest">
+                                            Edital do sistema - Conteúdo protegido
+                                        </span>
+                                    </div>
+                                )
                             )}
                         </div>
 
@@ -933,14 +1081,51 @@ export const EditalSubjectsModal = ({
                                                 </div>
                                                 <div className="flex flex-col min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        {edital.isImported && (
+                                                        {selectedEdital.sourceId ? (
                                                             <span className="text-[9px] font-bold text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 uppercase tracking-wider shrink-0">
-                                                                {edital.name.length > 15 ? edital.name.substring(0, 15) + '...' : edital.name}
+                                                                SISTEMA
+                                                            </span>
+                                                        ) : selectedEdital.isImported ? (
+                                                            <span className="text-[9px] font-bold text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 uppercase tracking-wider shrink-0">
+                                                                IA
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[9px] font-bold text-zinc-400 bg-zinc-500/10 px-1.5 py-0.5 rounded border border-zinc-500/20 uppercase tracking-wider shrink-0">
+                                                                MANUAL
                                                             </span>
                                                         )}
-                                                        <span className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase">
-                                                            {subject.name}
-                                                        </span>
+                                                        {editingSubjectId === subject.id ? (
+                                                            <div className="flex items-center gap-1">
+                                                                <input
+                                                                    type="text"
+                                                                    value={editingSubjectName}
+                                                                    onChange={e => setEditingSubjectName(e.target.value)}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter') handleSaveSubjectEdit();
+                                                                        if (e.key === 'Escape') setEditingSubjectId(null);
+                                                                        e.stopPropagation();
+                                                                    }}
+                                                                    onClick={e => e.stopPropagation()}
+                                                                    className="h-7 text-xs px-2 w-full bg-zinc-950 border border-primary/30 rounded outline-none ring-0 text-white font-bold uppercase"
+                                                                    autoFocus
+                                                                />
+                                                                <button onClick={e => { e.stopPropagation(); handleSaveSubjectEdit(); }} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded"><Check size={14} /></button>
+                                                                <button onClick={e => { e.stopPropagation(); setEditingSubjectId(null); }} className="p-1 text-content-muted hover:bg-white/5 rounded"><X size={14} /></button>
+                                                            </div>
+                                                        ) : (
+                                                            <span 
+                                                                className={`font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase ${isEditable ? 'hover:text-primary transition-colors' : ''}`}
+                                                                onClick={(e) => {
+                                                                    if (isEditable) {
+                                                                        e.stopPropagation();
+                                                                        setEditingSubjectId(subject.id);
+                                                                        setEditingSubjectName(subject.name);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {subject.name}
+                                                            </span>
+                                                        )}
                                                         <span className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-white/5">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-primary/80" />
                                                             {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
@@ -973,32 +1158,36 @@ export const EditalSubjectsModal = ({
                                                     </button>
 
                                                     {/* Botão principal: toggle (importado) ou excluir (manual) */}
-                                                    {edital.isImported ? (
+                                                    {/* Botão de Visibilidade (Apenas para Importados: Sistema ou IA) */}
+                                                    {(selectedEdital.sourceId || edital.isImported) && (
                                                         <button
                                                             onClick={e => {
                                                                 e.stopPropagation();
                                                                 handleToggleSubjectActive(subject.id, subject.name);
                                                             }}
                                                             title={localActiveIds.includes(subject.id) ? 'Ocultar da pág. Matérias' : 'Mostrar na pág. Matérias'}
-                                                            className={`p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100
+                                                            className={`p-1.5 rounded-lg transition-all
                                                                 ${localActiveIds.includes(subject.id)
                                                                     ? 'text-content-muted hover:text-amber-400 hover:bg-amber-500/10'
                                                                     : 'text-amber-400 bg-amber-500/10 opacity-100'
-                                                                }`}
+                                                                } ${!localActiveIds.includes(subject.id) ? '' : 'sm:opacity-0 group-hover:opacity-100'}`}
                                                         >
                                                             {localActiveIds.includes(subject.id)
                                                                 ? <Eye size={14} />
                                                                 : <EyeOff size={14} />
                                                             }
                                                         </button>
-                                                    ) : (
+                                                    )}
+
+                                                    {/* Botão de Excluir (IA ou Manual - Não Sistema) */}
+                                                    {isEditable && (
                                                         <button
                                                             onClick={e => {
                                                                 e.stopPropagation();
                                                                 setConfirmDeleteSubjectId(prev => prev === subject.id ? null : subject.id);
                                                             }}
                                                             title="Excluir matéria permanentemente"
-                                                            className={`p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100
+                                                            className={`p-1.5 rounded-lg transition-all sm:opacity-0 group-hover:opacity-100
                                                                 ${isPendingDelete ? 'text-red-400 bg-red-500/10 opacity-100' : 'text-content-muted hover:text-red-500 hover:bg-red-500/10'}`}
                                                         >
                                                             <Trash2 size={14} />
@@ -1032,8 +1221,8 @@ export const EditalSubjectsModal = ({
                                                 >
                                                     <div className="mt-1 ml-3 p-3 rounded-xl bg-black/20 space-y-2 border border-white/5">
 
-                                                        {/* Input "Novo tópico..." (SÓ MANUAL) */}
-                                                        {!edital.isImported && (
+                                                        {/* Input "Novo tópico..." (IA ou MANUAL) */}
+                                                        {isEditable && (
                                                             <div className="relative">
                                                                 <input
                                                                     type="text"
@@ -1079,7 +1268,7 @@ export const EditalSubjectsModal = ({
                                                                                     }
                                                                                 </div>
 
-                                                                                {!isTmpTopic && !edital.isImported && editingTopicId === topic.id ? (
+                                                                                {!isTmpTopic && isEditable && editingTopicId === topic.id ? (
                                                                                     <div className="flex items-center gap-1 flex-1">
                                                                                         <input
                                                                                             type="text"
@@ -1090,17 +1279,17 @@ export const EditalSubjectsModal = ({
                                                                                                 if (e.key === 'Escape') setEditingTopicId(null);
                                                                                                 e.stopPropagation();
                                                                                             }}
-                                                                                            className="h-6 text-xs px-2 w-full bg-zinc-800 border border-primary/30 rounded outline-none ring-0"
+                                                                                            className="h-6 text-xs px-2 w-full bg-zinc-800 border border-primary/30 rounded outline-none ring-0 text-white"
                                                                                             autoFocus
                                                                                         />
-                                                                                        <button onClick={handleSaveTopicEdit} className="p-0.5 text-green-500"><Check size={13} /></button>
-                                                                                        <button onClick={() => setEditingTopicId(null)} className="p-0.5 text-content-muted"><X size={13} /></button>
+                                                                                        <button onClick={handleSaveTopicEdit} className="p-0.5 text-emerald-500 hover:bg-emerald-500/10 rounded"><Check size={13} /></button>
+                                                                                        <button onClick={() => setEditingTopicId(null)} className="p-0.5 text-content-muted hover:bg-white/5 rounded"><X size={13} /></button>
                                                                                     </div>
                                                                                 ) : (
                                                                                     <div
-                                                                                        className={`flex flex-col flex-1 min-w-0 ${isTmpTopic || edital.isImported ? '' : 'cursor-text'}`}
+                                                                                        className={`flex flex-col flex-1 min-w-0 ${isTmpTopic || !isEditable ? '' : 'cursor-text group-hover/topic:text-primary transition-colors'}`}
                                                                                         onClick={() => {
-                                                                                            if (!isTmpTopic && !edital.isImported) { setEditingTopicId(topic.id); setEditingTopicName(topic.name); }
+                                                                                            if (!isTmpTopic && isEditable) { setEditingTopicId(topic.id); setEditingTopicName(topic.name); }
                                                                                         }}
                                                                                     >
                                                                                         <span className={`text-xs font-medium ${topic.completed ? 'text-content-muted line-through' : 'text-content-main'}`}>
@@ -1115,7 +1304,7 @@ export const EditalSubjectsModal = ({
                                                                                 )}
                                                                             </div>
 
-                                                                            {!isTmpTopic && !edital.isImported && (
+                                                                            {!isTmpTopic && isEditable && (
                                                                                 confirmDeleteTopicId === topic.id ? (
                                                                                     // Confirmação inline no tópico
                                                                                     <div className="flex items-center gap-1 shrink-0">

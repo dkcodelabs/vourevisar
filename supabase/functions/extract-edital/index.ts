@@ -9,29 +9,45 @@ const corsHeaders = {
 const MAX_CONTINUE_ATTEMPTS = 3;
 
 async function callGemini(apiKey: string, modelName: string, payload: any): Promise<{ text: string; finishReason: string; usage: any }> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 50000); // 50s timeout
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Gemini API erro ${res.status}: ${errorText.substring(0, 500)}`);
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Connection": "keep-alive"
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Gemini API erro ${res.status}: ${errorText.substring(0, 500)}`);
+    }
+
+    const result = await res.json();
+    
+    if (result.error) {
+      throw new Error(result.error.message || JSON.stringify(result.error));
+    }
+
+    const finishReason = result.candidates?.[0]?.finishReason || 'UNKNOWN';
+    const usage = result.usageMetadata;
+    const text = result.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || '';
+
+    console.log('[callGemini]', { finishReason, promptTokens: usage?.promptTokenCount, candidatesTokens: usage?.candidatesTokenCount });
+    return { text, finishReason, usage };
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('Timeout: A API do Gemini demorou muito para responder (limite 50s).');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const result = await res.json();
-  
-  if (result.error) {
-    throw new Error(result.error.message || JSON.stringify(result.error));
-  }
-
-  const finishReason = result.candidates?.[0]?.finishReason || 'UNKNOWN';
-  const usage = result.usageMetadata;
-  const text = result.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || '';
-
-  console.log('[callGemini]', { finishReason, promptTokens: usage?.promptTokenCount, candidatesTokens: usage?.candidatesTokenCount });
-  return { text, finishReason, usage };
 }
 
 async function uploadPdfToGemini(apiKey: string, pdfUrl: string): Promise<string> {
@@ -48,42 +64,56 @@ async function uploadPdfToGemini(apiKey: string, pdfUrl: string): Promise<string
     throw new Error(`PDF muito pequeno (${fileBytes.length} bytes). Possível erro de upload.`);
   }
 
-  const uploadRes = await fetch(
-    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: {
-        'X-Goog-Upload-Command': 'start, upload, finalize',
-        'X-Goog-Upload-Header-Content-Length': String(fileBytes.length),
-        'X-Goog-Upload-Header-Content-Type': 'application/pdf',
-        'Content-Type': 'application/pdf',
-        'X-Goog-Upload-File-Name': fileName,
-      },
-      body: fileBytes,
-    }
-  );
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout para upload
 
-  const responseText = await uploadRes.text();
-  console.log('[uploadPdf] Gemini upload response:', uploadRes.status, responseText.substring(0, 500));
-
-  if (!uploadRes.ok) {
-    throw new Error(`Upload PDF falhou (${uploadRes.status}): ${responseText}`);
-  }
-
-  let uploadData: any;
   try {
-    uploadData = JSON.parse(responseText);
-  } catch {
-    throw new Error(`Resposta inválida do Gemini upload: ${responseText.substring(0, 200)}`);
-  }
+    const uploadRes = await fetch(
+      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'X-Goog-Upload-Command': 'start, upload, finalize',
+          'X-Goog-Upload-Header-Content-Length': String(fileBytes.length),
+          'X-Goog-Upload-Header-Content-Type': 'application/pdf',
+          'Content-Type': 'application/pdf',
+          'X-Goog-Upload-File-Name': fileName,
+          'Connection': 'keep-alive'
+        },
+        body: fileBytes,
+        signal: controller.signal
+      }
+    );
 
-  const fileUri = uploadData.file?.uri || uploadData.name;
-  if (!fileUri) {
-    throw new Error(`Upload retornou sem URI. Resposta: ${JSON.stringify(uploadData).substring(0, 300)}`);
-  }
+    const responseText = await uploadRes.text();
+    console.log('[uploadPdf] Gemini upload response:', uploadRes.status, responseText.substring(0, 500));
 
-  console.log('[uploadPdf] Success! fileUri:', fileUri);
-  return fileUri;
+    if (!uploadRes.ok) {
+      throw new Error(`Upload PDF falhou (${uploadRes.status}): ${responseText}`);
+    }
+
+    let uploadData: any;
+    try {
+      uploadData = JSON.parse(responseText);
+    } catch {
+      throw new Error(`Resposta inválida do Gemini upload: ${responseText.substring(0, 200)}`);
+    }
+
+    const fileUri = uploadData.file?.uri || uploadData.name;
+    if (!fileUri) {
+      throw new Error(`Upload retornou sem URI. Resposta: ${JSON.stringify(uploadData).substring(0, 300)}`);
+    }
+
+    console.log('[uploadPdf] Success! fileUri:', fileUri);
+    return fileUri;
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('Timeout: O upload do PDF para o Gemini demorou muito (limite 30s).');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 serve(async (req) => {
@@ -126,9 +156,10 @@ serve(async (req) => {
       console.log('[extract-edital] No PDF or text provided');
     }
 
-    // Use gemini-2.0-flash for PDFs (no thinking tokens = more output capacity)
-    const modelName = fileUri ? 'gemini-2.0-flash' : (config.model || "gemini-1.5-flash");
-    const maxTokens = fileUri ? 32768 : (config.max_tokens ?? 16384);
+    // Use the model from config if available, otherwise fallback to defaults
+    // gemini-2.0-flash is excellent for PDFs due to its context window
+    const modelName = config.model || (fileUri ? 'gemini-2.0-flash' : 'gemini-1.5-flash');
+    const maxTokens = config.max_tokens || (fileUri ? 32768 : 16384);
 
     const context = `${origin || ''} ${position || ''} ${year || ''}`.trim();
     const hasContent = inputText && inputText.trim().length > 0;

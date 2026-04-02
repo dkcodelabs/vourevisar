@@ -86,7 +86,21 @@ export const useReviewsData = () => {
     queryFn: async () => {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
-      // Replace RPC with direct query to ensure ALL topics are returned (including completed)
+      // 1. Buscar o ciclo ativo para filtrar as matérias
+      const { data: cycleData } = await supabase
+        .from('user_cycles')
+        .select('ciclo_atual')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      const activeSubjectIds = cycleData?.ciclo_atual || [];
+
+      if (activeSubjectIds.length === 0) {
+        return []; // Se não tem ciclo ativo, não tem revisões
+      }
+
+      // 2. Buscar tópicos apenas das matérias do ciclo
       const { data, error } = await supabase
         .from('topics')
         .select(`
@@ -109,7 +123,8 @@ export const useReviewsData = () => {
             color
           )
         `)
-        .eq('subjects.user_id', user.id);
+        .eq('subjects.user_id', user.id)
+        .in('subject_id', activeSubjectIds); // FILTRO CRÍTICO
 
       if (error) throw error;
 

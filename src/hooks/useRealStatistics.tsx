@@ -71,7 +71,7 @@ export interface RealStatisticsData {
     currentStreak: number;
     longestStreak: number;
     mostProductiveDay: string;
-    mostProductiveHour: string;
+    mostProductiveHour: string | null;
     averageSessionTime: number;
     averageTopicsPerDay: number;
     consistencyRate: number; // % dos últimos 30 dias
@@ -440,14 +440,15 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
       });
     });
 
-    const mostProductiveHourNum = Array.from(hourProductivity.entries())
-      .sort(([,a], [,b]) => (b.topics / b.sessions) - (a.topics / a.sessions))[0]?.[0] || 20;
+    const mostProductiveHourEntry = Array.from(hourProductivity.entries())
+      .sort(([,a], [,b]) => (b.topics / b.sessions) - (a.topics / a.sessions))[0];
+    const mostProductiveHourNum = mostProductiveHourEntry ? mostProductiveHourEntry[0] : null;
 
     const studyHabits = {
       currentStreak: userAnalytics?.streak_atual || 0,
       longestStreak: userAnalytics?.maior_streak || 0,
       mostProductiveDay: dayNames[mostProductiveDayNum] || 'Segunda',
-      mostProductiveHour: `${mostProductiveHourNum.toString().padStart(2, '0')}:00`,
+      mostProductiveHour: mostProductiveHourNum !== null ? `${mostProductiveHourNum.toString().padStart(2, '0')}:00` : null,
       averageSessionTime: userAnalytics?.media_duracao_sessao || 
         (studySessions.length > 0 ? Math.round(studySessions.reduce((sum, s) => sum + (s.duration_minutes || s.session_duration_minutes || 0), 0) / studySessions.length) : 45),
       averageTopicsPerDay: userAnalytics?.media_sessoes_por_dia || 

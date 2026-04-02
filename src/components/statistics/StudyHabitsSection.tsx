@@ -25,7 +25,7 @@ interface StudyHabitsSectionProps {
     currentStreak: number;
     longestStreak: number;
     mostProductiveDay: string;
-    mostProductiveHour: string;
+    mostProductiveHour: string | null;
     averageSessionTime: number;
     averageTopicsPerDay: number;
     consistencyRate: number;
@@ -128,7 +128,7 @@ export const StudyHabitsSection: React.FC<StudyHabitsSectionProps> = ({ data }) 
           <Card>
             <CardContent className="p-6 text-center">
               <Clock className="h-8 w-8 mx-auto mb-3 text-purple-500" />
-              <div className="text-3xl font-bold mb-1 text-foreground">{data.mostProductiveHour}</div>
+              <div className="text-3xl font-bold mb-1 text-foreground">{data.mostProductiveHour || 'Sem dados'}</div>
               <p className="text-sm font-medium mb-1 text-foreground">Horário Preferido</p>
               <p className="text-xs text-content-muted">
                 Pico de produtividade

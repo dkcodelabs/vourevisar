@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
 
 interface AIStatus {
   status: 'active' | 'inactive' | 'error' | 'unknown';
   lastCheck: string | null;
   errorMessage: string | null;
+  modelName: string | null;
 }
 
 interface AIErrorLog {
@@ -17,7 +20,7 @@ interface AIErrorLog {
 }
 
 // Função global para verificar status da IA (sem dependências de hook)
-export async function checkAIStatusDirect(): Promise<AIStatus> {
+export async function checkAIStatusDirect(silent = true): Promise<AIStatus> {
   try {
     const { data, error } = await supabase.functions.invoke('ai-handler', {
       body: { action: 'checkStatus' }
@@ -31,13 +34,21 @@ export async function checkAIStatusDirect(): Promise<AIStatus> {
       throw new Error(data?.error || 'Erro desconhecido da Edge Function');
     }
     
+    const model = data?.model || null;
+    console.log('[AIStatus] Modelo retornado pela API:', model);
+
     const newStatus: AIStatus = {
       status: 'active',
       lastCheck: new Date().toISOString(),
-      errorMessage: null
+      errorMessage: null,
+      modelName: model
     };
     
-    await saveStatusToDB(newStatus);
+    try {
+      await saveStatusToDB(newStatus);
+    } catch (dbErr) {
+      console.warn('[AIStatus] Erro na persistência (provavelmente coluna faltante):', dbErr);
+    }
     
     return newStatus;
   } catch (error: any) {
@@ -47,11 +58,16 @@ export async function checkAIStatusDirect(): Promise<AIStatus> {
     const newStatus: AIStatus = {
       status: 'error',
       lastCheck: new Date().toISOString(),
-      errorMessage: errorMessage
+      errorMessage: errorMessage,
+      modelName: null
     };
     
     await saveStatusToDB(newStatus);
     await saveErrorToDB(errorCode, errorMessage, 'checkAIStatusDirect');
+    
+    if (!silent) {
+      toastGate.notifyError(errorMessage, errorCode, { severity: 'medium', flowKey: 'ai-status-check' });
+    }
     
     return newStatus;
   }
@@ -60,15 +76,22 @@ export async function checkAIStatusDirect(): Promise<AIStatus> {
 async function saveStatusToDB(status: AIStatus) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = {
+      id: '00000000-0000-0000-0000-000000000001',
+      status: status.status,
+      last_check: status.lastCheck,
+      error_message: status.errorMessage,
+      updated_at: new Date().toISOString()
+    };
+
+    // Só adiciona se o campo existir para evitar erros de coluna ausente
+    if (status.modelName) {
+      payload.model_name = status.modelName; 
+    }
+
     await (supabase as any)
       .from('ai_status')
-      .upsert({
-        id: '00000000-0000-0000-0000-000000000001',
-        status: status.status,
-        last_check: status.lastCheck,
-        error_message: status.errorMessage,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' });
   } catch (err) {
     console.warn('Erro ao salvar status no banco:', err);
   }
@@ -153,15 +176,21 @@ export function useAIStatus() {
   const [aiStatus, setAIStatus] = useState<AIStatus>({
     status: 'unknown',
     lastCheck: null,
-    errorMessage: null
+    errorMessage: null,
+    modelName: null
   });
   const [isChecking, setIsChecking] = useState(false);
 
-  const checkAIStatus = useCallback(async () => {
+  const checkAIStatus = useCallback(async (isManual = false) => {
     setIsChecking(true);
     try {
-      const status = await checkAIStatusDirect();
+      const status = await checkAIStatusDirect(!isManual);
       setAIStatus(status);
+      
+      if (isManual && status.status === 'active') {
+        toast.success('Conexão com Gemini estabelecida com sucesso!');
+      }
+      
       return status;
     } finally {
       setIsChecking(false);
@@ -181,7 +210,8 @@ export function useAIStatus() {
         setAIStatus({
           status: data.status,
           lastCheck: data.last_check,
-          errorMessage: data.error_message
+          errorMessage: data.error_message,
+          modelName: data.model_name || null
         });
       }
     } catch (err) {
