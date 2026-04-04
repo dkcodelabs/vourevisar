@@ -928,13 +928,70 @@ export type Database = {
         Update: {
           description?: string | null
           id?: string
-          key?: string
+          key: string
           updated_at?: string | null
           updated_by?: string | null
           value?: Json | null
           visible_to_users?: boolean | null
         }
         Relationships: []
+      }
+      pending_merge_suggestions: {
+        Row: {
+          id: string
+          user_id: string
+          cycle_id: string | null
+          suggestion_type: 'subject' | 'topic'
+          original_names: Json
+          suggested_name: string
+          status: 'pending' | 'approved' | 'rejected'
+          original_ids: Json | null
+          created_at: string
+          updated_at: string
+          reviewed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          cycle_id?: string | null
+          suggestion_type: 'subject' | 'topic'
+          original_names: Json
+          suggested_name: string
+          status?: 'pending' | 'approved' | 'rejected'
+          original_ids?: Json | null
+          created_at?: string
+          updated_at?: string
+          reviewed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          cycle_id?: string | null
+          suggestion_type?: 'subject' | 'topic'
+          original_names?: Json
+          suggested_name?: string
+          status?: 'pending' | 'approved' | 'rejected'
+          original_ids?: Json | null
+          created_at?: string
+          updated_at?: string
+          reviewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_merge_suggestions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_merge_suggestions_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "user_cycles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       topic_review_history: {
         Row: {
@@ -999,6 +1056,7 @@ export type Database = {
           edital_id: string | null
           first_studied_at: string | null
           id: string
+          is_hidden: boolean | null
           is_marked_for_review: boolean | null
           is_skipped: boolean | null
           last_audit_log: Json | null
@@ -1012,6 +1070,7 @@ export type Database = {
           name: string
           next_review: string | null
           notes: Json | null
+          parent_topic_id: string | null
           position: number | null
           retention_score: number | null
           review_count: number
@@ -1023,6 +1082,7 @@ export type Database = {
           total_reviews: number | null
           total_volume: number | null
           updated_at: string
+          is_active: boolean | null
         }
         Insert: {
           completed?: boolean
@@ -1033,6 +1093,7 @@ export type Database = {
           edital_id?: string | null
           first_studied_at?: string | null
           id?: string
+          is_hidden?: boolean | null
           is_marked_for_review?: boolean | null
           is_skipped?: boolean | null
           last_audit_log?: Json | null
@@ -1046,6 +1107,7 @@ export type Database = {
           name: string
           next_review?: string | null
           notes?: Json | null
+          parent_topic_id?: string | null
           position?: number | null
           retention_score?: number | null
           review_count?: number
@@ -1057,6 +1119,7 @@ export type Database = {
           total_reviews?: number | null
           total_volume?: number | null
           updated_at?: string
+          is_active?: boolean | null
         }
         Update: {
           completed?: boolean
@@ -1067,6 +1130,7 @@ export type Database = {
           edital_id?: string | null
           first_studied_at?: string | null
           id?: string
+          is_hidden?: boolean | null
           is_marked_for_review?: boolean | null
           is_skipped?: boolean | null
           last_audit_log?: Json | null
@@ -1080,6 +1144,7 @@ export type Database = {
           name?: string
           next_review?: string | null
           notes?: Json | null
+          parent_topic_id?: string | null
           position?: number | null
           retention_score?: number | null
           review_count?: number
@@ -1091,6 +1156,7 @@ export type Database = {
           total_reviews?: number | null
           total_volume?: number | null
           updated_at?: string
+          is_active?: boolean | null
         }
         Relationships: [
           {

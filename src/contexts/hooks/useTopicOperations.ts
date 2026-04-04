@@ -1,26 +1,43 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Topic, TopicNotes } from '@/types';
+import { Topic } from '@/types';
+import { errorService } from '@/lib/errors/errorService';
+import { toastGate } from '@/lib/errors/toastGate';
 import { toast } from '@/lib/toast';
 import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
 
 export const useTopicOperations = (
-  user: any,
-  loadSubjects: () => Promise<void>,
-  refreshData: () => Promise<void>
+  user: { id: string } | null,
+  loadTopics: (subjectId: string) => Promise<void>,
+  refreshData: () => Promise<void>,
+  editalId?: string
 ) => {
   const { recordTopicCompletion } = useStudySessionTracking();
-  const addTopic = async (subjectId: string, topicData: Omit<Topic, 'id'>) => {
+
+  const addTopic = async (topicData: { subject_id: string; name: string; position?: number }) => {
     if (!user) return;
 
     try {
-      console.log('📝 addTopic - Adding topic:', { subjectId, topicData });
+      console.log('📝 addTopic - Adding topic:', { topicData });
+
+      // Buscar o edital_id da matéria pai para manter a integridade se não informado
+      let finalEditalId = editalId;
+      if (!finalEditalId) {
+        const { data: subjectData } = await supabase
+          .from('subjects')
+          .select('edital_id')
+          .eq('id', topicData.subject_id)
+          .single();
+        finalEditalId = subjectData?.edital_id;
+      }
 
       const { error } = await supabase
         .from('topics')
         .insert({
-          subject_id: subjectId,
+          subject_id: topicData.subject_id,
+          edital_id: finalEditalId,
           name: topicData.name,
+          position: topicData.position,
           completed: false,
           review_count: 0,
           review_stage: null,
@@ -33,63 +50,48 @@ export const useTopicOperations = (
       if (error) throw error;
 
       console.log('✅ addTopic - Success, refreshing data...');
-
-      // refreshData já chama loadSubjects internamente
+      await loadTopics(topicData.subject_id);
       await refreshData();
 
-      // Disparar evento para sincronizar outras páginas
       window.dispatchEvent(new CustomEvent('topicUpdated', {
-        detail: { action: 'add', subjectId, topicId: null }
+        detail: { action: 'add', subjectId: topicData.subject_id }
       }));
 
       toast.success('Tópico adicionado com sucesso!');
-    } catch (error: any) {
-      console.error('❌ Error adding topic:', error);
-      toast.error('Erro ao adicionar tópico');
-      throw error;
+    } catch (err: unknown) {
+      errorService.report(err, { module: 'topics', action: 'add', userMessage: 'Erro ao adicionar tópico.' });
+      toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao adicionar tópico', 'TOP-01');
     }
   };
 
   const updateTopic = async (subjectId: string, topicId: string, updates: Partial<Topic>) => {
+    if (!user) return;
+
     try {
       console.log('📝 updateTopic - Updating topic:', { subjectId, topicId, updates });
 
-      // Verificar se o tópico está sendo marcado como concluído
       const wasCompleted = updates.completed === true;
 
       const updateData: any = {
         name: updates.name,
         completed: updates.completed,
-        review_count: updates.reviewCount || updates.review_count,
-        review_stage: updates.reviewStage,
-        next_review: updates.nextReview?.toISOString(),
+        review_count: updates.reviewCount ?? updates.review_count,
+        review_stage: updates.reviewStage ?? updates.review_stage,
+        position: updates.position
       };
 
-      // Só atualizar as datas se foram fornecidas
-      if (updates.lastReviewedAt || updates.last_reviewed_at) {
-        updateData.last_reviewed_at = (updates.lastReviewedAt || updates.last_reviewed_at)?.toISOString();
-      }
-      if (updates.firstStudiedAt || updates.first_studied_at) {
-        updateData.first_studied_at = (updates.firstStudiedAt || updates.first_studied_at)?.toISOString();
-      }
+      // Handle dates specifically
+      if (updates.next_review) updateData.next_review = updates.next_review;
+      if (updates.last_reviewed_at) updateData.last_reviewed_at = updates.last_reviewed_at;
+      if (updates.first_studied_at) updateData.first_studied_at = updates.first_studied_at;
 
-      // Atualizar anotações se fornecidas
-      if (updates.notes !== undefined) {
-        updateData.notes = updates.notes;
-      }
-
-      // Atualizar nível de dificuldade se fornecido
+      // Handle custom fields
+      if (updates.notes !== undefined) updateData.notes = updates.notes;
       if (updates.difficulty_level !== undefined) {
         updateData.difficulty_level = updates.difficulty_level;
         updateData.difficulty_set_at = new Date().toISOString();
       }
-
-      // Atualizar subtópicos se fornecidos
-      if (updates.subtopics !== undefined) {
-        updateData.subtopics = updates.subtopics;
-      }
-
-      console.log('📝 updateTopic - Final updateData:', updateData);
+      if (updates.subtopics !== undefined) updateData.subtopics = updates.subtopics;
 
       const { error } = await supabase
         .from('topics')
@@ -98,10 +100,8 @@ export const useTopicOperations = (
 
       if (error) throw error;
 
-      // Se o tópico foi marcado como concluído, registrar sessão de estudo
       if (wasCompleted) {
         try {
-          // Buscar informações da matéria
           const { data: subjectData } = await supabase
             .from('subjects')
             .select('name')
@@ -115,76 +115,105 @@ export const useTopicOperations = (
               topicId,
               updates.name || 'Tópico'
             );
-            console.log('✅ Sessão de estudo registrada para tópico concluído');
           }
         } catch (sessionError) {
-          console.error('⚠️ Erro ao registrar sessão de estudo:', sessionError);
-          // Não falhar a operação principal por causa do tracking
+          console.error('⚠️ Error recording study session:', sessionError);
         }
       }
 
-      console.log('✅ updateTopic - Success, refreshing data...');
-
-      // refreshData já chama loadSubjects internamente
+      await loadTopics(subjectId);
       await refreshData();
 
-      // Disparar evento para sincronizar outras páginas
       window.dispatchEvent(new CustomEvent('topicUpdated', {
         detail: { action: 'update', subjectId, topicId }
       }));
 
-    } catch (error: any) {
-      console.error('❌ Error updating topic:', error);
-      toast.error('Erro ao atualizar tópico');
-      throw error;
+    } catch (err: unknown) {
+      errorService.report(err, { module: 'topics', action: 'update', userMessage: 'Erro ao atualizar tópico.' });
+      toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao atualizar tópico', 'TOP-02');
     }
   };
 
   const deleteTopic = async (subjectId: string, topicId: string) => {
+    if (!user) return;
+
     try {
-      console.log('🗑️ deleteTopic - Deleting topic:', { subjectId, topicId });
-
-      // 1. Deletar histórico primeiro
-      const { error: historyError } = await supabase
-        .from('topic_review_history')
-        .delete()
-        .eq('topic_id', topicId);
-
-      if (historyError) {
-        console.error('⚠️ deleteTopic - Error deleting history (continuing anyway):', historyError);
-      } else {
-        console.log('✅ deleteTopic - History deleted');
-      }
+      // 1. Deletar histórico
+      await supabase.from('topic_review_history').delete().eq('topic_id', topicId);
 
       // 2. Deletar tópico
-      const { error } = await supabase
-        .from('topics')
-        .delete()
-        .eq('id', topicId);
-
+      const { error } = await supabase.from('topics').delete().eq('id', topicId);
       if (error) throw error;
 
-      console.log('✅ deleteTopic - Success, refreshing data...');
-
-      // refreshData já chama loadSubjects internamente
+      await loadTopics(subjectId);
       await refreshData();
 
-      // Disparar evento para sincronizar outras páginas
       window.dispatchEvent(new CustomEvent('topicUpdated', {
         detail: { action: 'delete', subjectId, topicId }
       }));
 
       toast.success('Tópico removido com sucesso!');
-    } catch (error: any) {
-      console.error('❌ Error deleting topic:', error);
-      toast.error('Erro ao remover tópico');
-      throw error;
+    } catch (err: unknown) {
+      errorService.report(err, { module: 'topics', action: 'delete', userMessage: 'Erro ao remover tópico.' });
+      toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao remover tópico', 'TOP-03');
+    }
+  };
+
+  const markAsReviewed = async (topicId: string, subjectId: string) => {
+    if (!user) return;
+
+    try {
+      const { data: topic, error: fetchError } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('id', topicId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Spaced repetition logic (simplified)
+      const stages: Record<string, number> = {
+        'Não Iniciado': 1,
+        'Lido': 3,
+        'Resumo': 7,
+        'Questões': 15,
+        'Revisão 1': 30,
+        'Revisão 2': 60,
+        'Revisão 3': 90,
+        'Concluído': 120
+      };
+
+      const currentStage = topic.review_stage || 'Não Iniciado';
+      const interval = stages[currentStage] || 1;
+      const nextReviewDate = new Date();
+      nextReviewDate.setDate(nextReviewDate.getDate() + interval);
+
+      const { error: updateError } = await supabase
+        .from('topics')
+        .update({
+          last_reviewed_at: new Date().toISOString(),
+          next_review_at: nextReviewDate.toISOString(),
+          review_count: (topic.review_count || 0) + 1,
+          completed: true
+        } as any)
+        .eq('id', topicId);
+
+      if (updateError) throw updateError;
+
+      await loadTopics(subjectId);
+      await refreshData();
+
+      toast.success('Revisão registrada!');
+    } catch (err: unknown) {
+      errorService.report(err, { module: 'topics', action: 'review', userMessage: 'Erro ao registrar revisão.' });
+      toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao registrar revisão', 'TOP-04');
     }
   };
 
   return {
     addTopic,
     updateTopic,
-    deleteTopic
+    deleteTopic,
+    markAsReviewed
   };
 };

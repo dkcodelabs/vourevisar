@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, FileText, Trash2, Star, Plus, Zap, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Search, FileText, Trash2, Star, Plus, Zap, ChevronDown, ChevronUp, X, Scissors } from 'lucide-react';
 import { toast } from "@/lib/toast";
 import { Button } from '@/components/ui/button';
 import { format, startOfDay } from 'date-fns';
@@ -16,12 +16,16 @@ import { InlineTopicCreator } from '@/components/topics/InlineTopicCreator';
 import { errorService } from '@/lib/errors/errorService';
 import { useEditalOrigins } from '@/hooks/useEditalOrigins';
 import { supabase } from '@/integrations/supabase/client';
+import { applyUnificationMap } from '@/services/cycleMergeService';
+import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
+import { useMergeData } from '@/hooks/useMergeData';
 
 const Topics = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { subjects, deleteTopic, isLoading } = useApp();
-  const { originsMap, getOriginsForSubject, activeSubjectIdsSet } = useEditalOrigins();
+  const { originsMap, getOriginsForSubject, activeSubjectIdsSet, editaisData } = useEditalOriginsWithMerge();
+  const { getUnifiedTopicName, getUnifiedSubjectName, isTopicMerged, revertTopicMerge, getTopicMergeInfo } = useMergeData();
   const [userCycle, setUserCycle] = useState<any>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,7 +75,7 @@ const Topics = () => {
     const subjectsInCycleSet = new Set(userCycle?.ciclo_atual || []);
 
     // Filtrar matérias visíveis baseadas no ciclo ativo e flag is_visible
-    const visibleSubjects = subjects.filter(subject => {
+    const rawVisibleSubjects = subjects.filter(subject => {
       // Se marcado como invisível no registro real (banco), oculta
       if (subject.is_visible === false) return false;
       
@@ -84,16 +88,60 @@ const Topics = () => {
       return false; // Filtra vazamentos (matérias de outros editais ou não carregadas)
     });
 
+    // Aplicar mapa de unificação para agrupar matérias e tópicos
+    const visibleSubjects = applyUnificationMap(rawVisibleSubjects, userCycle?.unification_map);
+
+    // Função para buscar editais de origem de um tópico
+    const getTopicOrigins = (topicId: string, subjectId: string) => {
+      const origins: string[] = [];
+      
+      // Primeiro, obter todos os IDs originais desta matéria (considerando unificação)
+      const allSubjectIds = getAllOriginalSubjectIds(subjectId);
+      
+      for (const sid of allSubjectIds) {
+        for (const edital of editaisData) {
+          if ((edital.subject_ids?.includes(sid) || edital.active_subject_ids?.includes(sid)) && 
+              edital.merged_into_cycle) {
+            if (!origins.includes(edital.name)) {
+              origins.push(edital.name);
+            }
+          }
+        }
+      }
+      return origins;
+    };
+
+    // Helper para obter todos os IDs originais de uma matéria (considerando unificação)
+    const getAllOriginalSubjectIds = (subjectId: string): string[] => {
+      if (!userCycle?.unification_map?.unifiedSubjects) return [subjectId];
+      for (const unified of userCycle.unification_map.unifiedSubjects) {
+        if (unified.originalSubjectIds?.includes(subjectId)) {
+          return unified.originalSubjectIds;
+        }
+      }
+      return [subjectId];
+    };
+
     return visibleSubjects.flatMap(subject =>
-      subject.topics.map(topic => ({
-        ...topic,
-        subjectId: subject.id,
-        subjectName: subject.name,
-        edital_id: topic.edital_id || subject.edital_id,
-        origin_id: topic.origin_id || subject.origin_id,
-      }))
+      (subject.topics || [])
+        .filter(topic => !topic.is_hidden) // NÃO MOSTRAR TÓPICOS OCULTOS (unificados secundários)
+        .map(topic => {
+          // Buscar editais de origem deste tópico
+          const topicOrigins = getTopicOrigins(topic.id, subject.id);
+          const unifiedTopicName = getUnifiedTopicName(topic.id, topic.name);
+          const unifiedSubjectName = getUnifiedSubjectName(subject.id, subject.name);
+          
+          return {
+            ...topic,
+            name: unifiedTopicName,
+            subjectId: subject.id,
+            subjectName: unifiedSubjectName,
+            topicOrigins: topicOrigins, // Array com nomes dos editais de origem
+            edital_id: topic.edital_id || subject.edital_id,
+          };
+        })
     );
-  }, [subjects, userCycle, activeSubjectIdsSet]);
+  }, [subjects, userCycle, activeSubjectIdsSet, editaisData]);
 
   const getTopicStatusInfo = (topic: Topic) => {
     if (topic.completed) {
@@ -352,6 +400,22 @@ const Topics = () => {
                                     <span className="text-[13px] font-bold text-content-main mb-0.5">{topic.name}</span>
                                     <div className="flex items-center gap-2">
                                       <span className="text-[11px] text-zinc-500 font-medium">{topic.subjectName}</span>
+                                      {isTopicMerged(topic.id) && (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            const mergeInfo = getTopicMergeInfo(topic.id);
+                                            if (mergeInfo && confirm(`Deseja desfazer a mesclagem "${mergeInfo.display_name}"?`)) {
+                                              await revertTopicMerge(mergeInfo.id);
+                                              toast.success('Mesclagem desfeita');
+                                            }
+                                          }}
+                                          title="Desfazer Mesclagem"
+                                          className="p-1 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition-colors text-orange-500"
+                                        >
+                                          <Scissors size={12} />
+                                        </button>
+                                      )}
                                       {getOriginsForSubject(topic.subjectId, topic.edital_id).map((origin) => (
                                         <span key={origin.name} className="text-[9px] font-bold px-1.5 py-0.5 rounded border text-primary bg-primary/5 border-primary/10">
                                           {origin.name}

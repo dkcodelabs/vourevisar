@@ -32,6 +32,7 @@ export const useDataLoading = (
           )
         `)
         .eq('user_id', user.id)
+        .eq('topics.is_active', true)
         .order('priority', { ascending: true })
         .order('position', { foreignTable: 'topics', ascending: true });
 

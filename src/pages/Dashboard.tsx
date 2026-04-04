@@ -24,7 +24,7 @@ import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useDynamicCapacity } from '@/hooks/useDynamicCapacity';
 import { useRealStatistics } from '@/hooks/useRealStatistics';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
-import { useEditalOrigins } from '@/hooks/useEditalOrigins';
+import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 
 const Dashboard = () => {
     const { subjects, isDataLoaded, isLoading, error, studyProgress } = useApp();
@@ -41,7 +41,7 @@ const Dashboard = () => {
     const { subjectPerformance, difficultyStats, studyHabits, overview } = stats;
 
     // Buscar dados do edital ativo para o cabeçalho usando o hook compartilhado
-    const { editaisNoCiclo: activeEditais } = useEditalOrigins();
+    const { editaisNoCiclo: activeEditais } = useEditalOriginsWithMerge();
 
     const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
 

@@ -15,14 +15,13 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 import { Subject, Topic } from '@/types';
 import {
   CycleUnificationMap,
   UnifiedSubjectMapping,
   UnifiedTopicMapping,
   HybridMergeResult,
-  AITopicMergeCandidate,
-  AITopicMergeResult,
   TopicGroupResult,
   TopicMergePhaseResult,
 } from '@/types/cycleMergeTypes';
@@ -50,6 +49,33 @@ const COMMON_PREFIXES = [
   'legislação do ',
   'legislação da ',
 ];
+
+const CANONICAL_SUBJECT_MAP: Record<string, string> = {
+  'raciocinio logico matematico': 'raciocinio logico',
+  'matematica e raciocinio logico': 'raciocinio logico',
+  'raciocinio critico': 'raciocinio logico',
+  'lingua portuguesa': 'portugues',
+  'lingua portuguesa e redacao oficial': 'portugues',
+  'portugues': 'portugues',
+  'informatica e tecnologias': 'informatica',
+  'nocoes de informatica': 'informatica',
+  'direito constitucional': 'direito constitucional',
+  'direito administrativo': 'direito administrativo',
+};
+
+/**
+ * Normalização simplificada para Módulo 1 (Matches Exatos)
+ */
+export function normalizeText(text: string): string {
+  if (!text) return '';
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[.,:;!?(){}[\]\\/|<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 /**
  * Normalização robusta e agressiva:
@@ -98,52 +124,19 @@ function normalizeName(name: string): string {
   // Remoção de numeração inicial (ex: "1.2 Direito" -> "Direito")
   normalized = normalized.replace(/^[0-9.]+ /g, '').trim();
 
+  // Mapeamento Canônico
+  if (CANONICAL_SUBJECT_MAP[normalized]) {
+    return CANONICAL_SUBJECT_MAP[normalized];
+  }
+
   return normalized;
 }
 
-function getSimilarityScore(nameA: string, nameB: string): number {
-  const nA = normalizeName(nameA);
-  const nB = normalizeName(nameB);
-  const wordsA = new Set(nA.split(' ').filter(w => w.length > 2));
-  const wordsB = new Set(nB.split(' ').filter(w => w.length > 2));
-  if (wordsA.size === 0 || wordsB.size === 0) return 0;
-  let intersection = 0;
-  wordsA.forEach(w => { if (wordsB.has(w)) intersection++; });
-  return intersection / Math.max(wordsA.size, wordsB.size);
-}
-
 // ============================================
-// PROMPTS (Fallbacks técnicos - As regras devem estar no banco)
+// CONFIGURAÇÕES DE PROMPT (Sempre do Banco)
 // ============================================
 
-const DEFAULT_MERGE_PROMPT = `Você é uma IA especialista em concursos públicos. 
-Sua tarefa é analisar a lista de matérias e identificar quais devem ser mescladas.
-REGRAS:
-1. Identifique nomes similares ou equivalentes como se fossem o mesmo assunto (Ex: "Crase" e "Crases", "Matemática" e "Raciocínio Matemático").
-2. Ignore pontuação e diferenças de plural/singular.
-3. Retorne um JSON estrito para cada sugestão.
-
-$SUBJECTS$
-
-Retorne APENAS um JSON no formato:
-[{"subjectIds": ["id1", "id2"], "suggestedName": "Nome Unificado", "reason": "Justificativa semântica"}]`;
-
-const DEFAULT_TOPIC_MERGE_PROMPT = `Você é um motor de comparação semântica para editais de concursos.
-Compare os pares de tópicos fornecidos e determine se tratam do MESMO CONTEÚDO.
-
-REGRAS:
-1. Ignore plurais (ex: "Crase" e "Crases" são EQUIVALENTES).
-2. Ignore variações de redação (ex: "Regra de Três Simples" e "Regra de 3 Simples" são EQUIVALENTES).
-3. Ignore pontuação e ordem das palavras se o sentido for o mesmo.
-4. Retorne isEquivalent: true apenas se a confiança for alta (>0.8).
-
-$TOPICS$
-
-Retorne APENAS um JSON no formato:
-[{"isEquivalent": true, "confidence": 0.95, "suggestedDisplayName": "Nome Unificado Sugerido"}]`;
-
-async function fetchMergePrompt(type: 'subject' | 'topic'): Promise<string> {
-  const key = type === 'subject' ? 'ai_merge_prompt' : 'ai_topic_merge_prompt';
+async function fetchMergePrompt(key: 'ai_merge_prompt' | 'ai_topic_grouping_prompt'): Promise<string> {
   try {
     const { data } = await supabase
       .from('system_settings')
@@ -151,13 +144,16 @@ async function fetchMergePrompt(type: 'subject' | 'topic'): Promise<string> {
       .eq('key', key)
       .maybeSingle();
     
-    if (data?.value && typeof data.value === 'string' && data.value.length > 20) {
+    if (data?.value && typeof data.value === 'string' && data.value.length > 10) {
       return data.value;
     }
+    console.warn(`[Supabase] Prompt ${key} não encontrado no banco ou vazio. Verifique a tabela system_settings.`);
   } catch (err) {
-    console.warn(`[Supabase] Erro ao buscar prompt ${key} (usando fallback técnico):`, err);
+    console.error(`[Supabase] Erro ao buscar prompt ${key}:`, err);
   }
-  return type === 'subject' ? DEFAULT_MERGE_PROMPT : DEFAULT_TOPIC_MERGE_PROMPT;
+  
+    // Erro explícito: o sistema não deve ter prompts no código por regra de projeto
+    throw new Error(`[Projeto] Prompt "${key}" obrigatório não encontrado no banco de dados. Configure na tabela system_settings.`);
 }
 
 // ============================================
@@ -223,8 +219,6 @@ export function performExactMerge(
 // STEP B: SEMANTIC MERGE (AI)
 // ============================================
 
-// fetchMergePrompt movido para cima para ficar junto com os prompts
-
 async function performSemanticMerge(
   exactGroups: ExactMatchResult['matched'],
   unmatchedExisting: Subject[],
@@ -234,7 +228,7 @@ async function performSemanticMerge(
   if (allUnmatched.length === 0) return { results: [], status: 'success' };
 
   try {
-    const promptTemplate = await fetchMergePrompt('subject');
+    const promptTemplate = await fetchMergePrompt('ai_merge_prompt');
     const virtualGroups = exactGroups.map((g, i) => ({
       id: `__exact_group_${i}`,
       name: g.groupName,
@@ -253,13 +247,25 @@ async function performSemanticMerge(
       body: { action: 'generateContent', prompt: promptTemplate.replace('$SUBJECTS$', JSON.stringify(subjectList)) },
     });
 
-    if (error || !data?.success) return { results: [], status: 'error' };
+    if (error || !data?.success) {
+      console.error(`[IA] Erro na Edge Function (Módulo 2):`, error || data?.error);
+      return { results: [], status: 'error' };
+    }
 
     const text = (data.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(text);
-    const results = normalizeAIResponse(parsed, [...virtualGroups.map(v => ({ id: v.id, name: v.name })), ...allUnmatched], virtualGroups);
-    return { results, status: 'success' };
+    console.log(`[IA] Resposta bruta da IA (Materia-Módulo 2):`, text.substring(0, 200));
+
+    try {
+      const parsed = JSON.parse(text);
+      const results = normalizeAIResponse(parsed, [...virtualGroups.map(v => ({ id: v.id, name: v.name })), ...allUnmatched], virtualGroups);
+      console.log(`[IA] Unificação semântica concluída: ${results.length} sugestões.`);
+      return { results, status: 'success' };
+    } catch (parseErr) {
+      console.error(`[IA] Erro ao parsear JSON das matérias:`, parseErr);
+      return { results: [], status: 'error' };
+    }
   } catch (err) {
+    console.error(`[IA] Erro ao processar unificação semântica de matérias:`, err);
     return { results: [], status: 'error' };
   }
 }
@@ -294,26 +300,58 @@ export async function performHybridMerge(
   existingEditalIds: string[],
   newEditalId: string
 ): Promise<HybridMergeResult> {
-  const exactResult = performExactMerge(existingSubjects, newSubjects);
-  const { results: semanticResults, status: aiStatus } = await performSemanticMerge(exactResult.matched, exactResult.unmatchedExisting, exactResult.unmatchedNew);
+  try {
+    const exactResult = performExactMerge(existingSubjects, newSubjects);
+    const { results: semanticResults, status: aiStatus } = await performSemanticMerge(exactResult.matched, exactResult.unmatchedExisting, exactResult.unmatchedNew);
 
-  const unificationMap = buildUnificationMap(exactResult, semanticResults, existingSubjects, newSubjects, [...new Set([...existingEditalIds, newEditalId])]);
-  const finalSubjectIds = [...new Set([...existingSubjects.map(s => s.id), ...newSubjects.map(s => s.id)])];
+    const unificationMap = buildUnificationMap(exactResult, semanticResults, existingSubjects, newSubjects, [...new Set([...existingEditalIds, newEditalId])]);
+    
+    // Deduplicar finalSubjectIds baseada no mapa de unificação
+    const finalSet = new Set<string>();
+    // Adiciona os IDs primários de cada grupo unificado
+    unificationMap.unifiedSubjects.forEach(u => {
+      if (u.originalSubjectIds.length > 0) {
+        finalSet.add(u.originalSubjectIds[0]);
+      }
+    });
+    // Adiciona as matérias que ficaram sozinhas (standalones)
+    unificationMap.standaloneSubjectIds.forEach(id => finalSet.add(id));
+    
+    const finalSubjectIds = Array.from(finalSet);
 
-  return { 
-    unificationMap, 
-    finalSubjectIds, 
-    stats: { 
-      exactMatches: exactResult.matched.length, 
-      semanticMatches: semanticResults.length, 
-      standaloneSubjects: unificationMap.standaloneSubjectIds.length,
-      totalSubjectsInCycle: finalSubjectIds.length,
-      aiStatus
-    } 
-  };
+    return { 
+      unificationMap, 
+      finalSubjectIds, 
+      stats: { 
+        exactMatches: exactResult.matched.length, 
+        semanticMatches: semanticResults.length, 
+        standaloneSubjects: unificationMap.standaloneSubjectIds.length,
+        totalSubjectsInCycle: finalSubjectIds.length,
+        aiStatus
+      } 
+    };
+  } catch (err) {
+    console.error(`[Mesclagem] Erro crítico na unificação híbrida de matérias:`, err);
+    // Retorno de fallback seguro em caso de erro catastrófico
+    const allSubjectIds = [...new Set([...existingSubjects.map(s => s.id), ...newSubjects.map(s => s.id)])];
+    return {
+      unificationMap: {
+        version: 1, editalIds: [...new Set([...existingEditalIds, newEditalId])],
+        unifiedSubjects: [], createdAt: new Date().toISOString(), standaloneSubjectIds: allSubjectIds
+      },
+      finalSubjectIds: allSubjectIds,
+      stats: { exactMatches: 0, semanticMatches: 0, standaloneSubjects: allSubjectIds.length, totalSubjectsInCycle: allSubjectIds.length, aiStatus: 'error' }
+    };
+  }
 }
 
-function buildUnificationMap(exact: ExactMatchResult, semantic: AIGroupMergeResult[], existing: Subject[], newSubs: Subject[], editalIds: string[]): CycleUnificationMap {
+function buildUnificationMap(
+  exact: ExactMatchResult, 
+  semantic: AIGroupMergeResult[], 
+  existing: Subject[], 
+  newSubs: Subject[], 
+  editalIds: string[]
+): CycleUnificationMap {
   const all = [...existing, ...newSubs];
   const unified: UnifiedSubjectMapping[] = [];
   const usedIds = new Set<string>();
@@ -343,129 +381,217 @@ function buildUnificationMap(exact: ExactMatchResult, semantic: AIGroupMergeResu
   }
 
   return {
-    version: 1, editalIds, unifiedSubjects: unified, createdAt: new Date().toISOString(),
+    version: 1, 
+    editalIds, 
+    unifiedSubjects: unified, 
+    createdAt: new Date().toISOString(),
     standaloneSubjectIds: all.map(s => s.id).filter(id => !usedIds.has(id))
   };
 }
 
 // ============================================
-// ETAPA 2: TOPIC MERGE (Chunking & N-Way)
+// ETAPA 2: TOPIC MERGE (Processamento Sequencial por Matéria)
 // ============================================
 
-async function performTopicSemanticMerge(
-  groupName: string, topicsA: Topic[], topicsB: Topic[], idA: string, idB: string
-): Promise<{ results: AITopicMergeResult[], status: 'success' | 'error' }> {
-  const candidates: AITopicMergeCandidate[] = [];
-  for (const tA of topicsA) for (const tB of topicsB) {
-    candidates.push({ subjectGroupDisplayName: groupName, topicA: { id: tA.id, name: tA.name, subjectId: idA }, topicB: { id: tB.id, name: tB.name, subjectId: idB } });
-  }
-  if (candidates.length === 0) return { results: [], status: 'success' };
+async function performTopicGroupingAI(
+  subjectName: string, 
+  topics: Topic[]
+): Promise<UnifiedTopicMapping[]> {
+  if (topics.length < 2) return [];
 
-  const CHUNK_SIZE = 25;
-  const results: AITopicMergeResult[] = [];
-  let hasError = false;
+  const promptTemplate = await fetchMergePrompt('ai_topic_grouping_prompt');
+  const topicNames = topics.map(t => t.name);
 
-  const promptTemplate = await fetchMergePrompt('topic');
-
-  for (let i = 0; i < candidates.length; i += CHUNK_SIZE) {
-    const chunk = candidates.slice(i, i + CHUNK_SIZE);
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-handler', {
-        body: { 
-          action: 'generateContent', 
-          prompt: promptTemplate.replace('$TOPICS$', JSON.stringify(chunk.map(c => ({ topico_A: c.topicA, topico_B: c.topicB })))) 
-        },
-      });
-      if (error || !data?.success) { 
-        console.warn('[SemanticMerge] Erro no chunk:', error || data?.error);
-        hasError = true; 
-        continue; 
-      }
-      const parsed = JSON.parse((data.text || '').replace(/```json/g, '').replace(/```/g, '').trim());
-      results.push(...parsed);
-    } catch (e) { 
-      console.error('[SemanticMerge] Erro no processamento de chunk:', e);
-      hasError = true; 
-    }
-  }
-  return { results: results.filter(r => r.isEquivalent && r.confidence >= 0.6), status: hasError ? 'error' : 'success' };
-}
-
-export async function performFullTopicMerge(unificationMap: CycleUnificationMap, allSubjects: Subject[], useAI: boolean): Promise<TopicMergePhaseResult> {
-  const groups: TopicGroupResult[] = [];
-  let overallAiError = false;
-
-  for (const unified of unificationMap.unifiedSubjects) {
-    const allTopicsWithSource = unified.originalSubjectIds.flatMap(id => {
-      const sub = allSubjects.find(s => s.id === id);
-      return (sub?.topics || []).map(topic => ({ topic, subjectId: id }));
+  try {
+    console.log(`[IA] Chamando agrupamento sequencial para: ${subjectName} (${topics.length} tópicos)`);
+    
+    const { data, error } = await supabase.functions.invoke('ai-handler', {
+      body: { 
+        action: 'generateContent', 
+        prompt: promptTemplate
+          .replace('$SUBJECT_NAME$', subjectName)
+          .replace('$TOPICS$', JSON.stringify(topicNames)) 
+      },
     });
 
-    // Step C: Exact Match N-Way
-    const normMap = new Map<string, { topic: Topic, subjectId: string }[]>();
-    for (const item of allTopicsWithSource) {
-      const norm = normalizeName(item.topic.name);
-      const existing = normMap.get(norm) ?? [];
-      existing.push(item);
-      normMap.set(norm, existing);
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || 'Erro desconhecido na Edge Function');
+
+    const text = (data.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+    console.log(`[IA] Resposta bruta da IA (Topicos-Módulo 2) para "${subjectName}":`, text.substring(0, 100));
+    
+    // Extração robusta de JSON caso a IA envie texto extra
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn(`[IA] Não foi encontrado JSON na resposta para "${subjectName}". Texto:`, text);
+      throw new Error('IA não retornou um JSON válido');
+    }
+    
+    const parsed = JSON.parse(jsonMatch[0]); 
+    
+    if (!parsed.groups || !Array.isArray(parsed.groups)) return [];
+
+    const mappings: UnifiedTopicMapping[] = [];
+    const usedTopicIds = new Set<string>();
+
+    for (const group of parsed.groups) {
+      const originalNames = group.originalTopicsToMerge || [];
+      const suggestedName = group.suggestedName;
+
+      // Buscar IDs dos tópicos que casam com os nomes originais (Normalização robusta)
+      const matchingTopics = topics.filter(t => {
+        if (usedTopicIds.has(t.id)) return false;
+        return originalNames.some((name: string) => 
+          normalizeText(t.name) === normalizeText(name) || 
+          normalizeName(t.name) === normalizeName(name)
+        );
+      });
+
+      if (matchingTopics.length >= 2) {
+        mappings.push({
+          displayName: suggestedName,
+          originalTopicIds: matchingTopics.map(t => t.id),
+          originalSubjectIds: [...new Set(matchingTopics.map(t => t.subject_id))],
+          matchType: 'semantic'
+        });
+        matchingTopics.forEach(t => usedTopicIds.add(t.id));
+      }
+    }
+
+    return mappings;
+  } catch (e) {
+    console.error(`[IA] Erro na matéria ${subjectName}:`, e);
+    // Retornamos vazio para que o loop sequencial continue com a próxima matéria
+    return [];
+  }
+}
+
+export async function performFullTopicMerge(
+  unificationMap: CycleUnificationMap, 
+  allSubjects: Subject[], 
+  useAI: boolean,
+  userId?: string,
+  cycleId?: string,
+  onProgress?: (message: string) => void
+): Promise<TopicMergePhaseResult> {
+  const groups: TopicGroupResult[] = [];
+  let overallAiError = false;
+  const pendingAISuggestions: Array<{
+    suggestionType: 'subject' | 'topic';
+    originalNames: string[];
+    suggestedName: string;
+    originalIds?: string[];
+  }> = [];
+
+  for (let i = 0; i < unificationMap.unifiedSubjects.length; i++) {
+    const unified = unificationMap.unifiedSubjects[i];
+    if (onProgress) {
+      onProgress(`Processando tópicos (${i + 1}/${unificationMap.unifiedSubjects.length}): ${unified.displayName}...`);
+    }
+    const allTopicsForThisSubject = unified.originalSubjectIds.flatMap(id => {
+      const sub = allSubjects.find(s => s.id === id);
+      return sub?.topics || [];
+    });
+
+    // Módulo 1: Normalização e Mesclagem Automática (Exata)
+    const normMap = new Map<string, Topic[]>();
+    for (const t of allTopicsForThisSubject) {
+      const norm = normalizeText(t.name);
+      const list = normMap.get(norm) ?? [];
+      list.push(t);
+      normMap.set(norm, list);
     }
 
     const exactMappings: UnifiedTopicMapping[] = [];
-    const standalones: { topic: Topic, subjectId: string }[] = [];
+    const unmatchedTopics: Topic[] = [];
+
     for (const [, items] of normMap) {
-      const sources = [...new Set(items.map(i => i.subjectId))];
-      if (sources.length >= 2) {
+      if (items.length >= 2) {
         exactMappings.push({
-          displayName: items.reduce((b, i) => i.topic.name.length > b.length ? i.topic.name : b, ''),
-          originalTopicIds: items.map(i => i.topic.id),
-          originalSubjectIds: sources,
+          displayName: items[0].name, 
+          originalTopicIds: items.map(i => i.id),
+          originalSubjectIds: [...new Set(items.map(i => i.subject_id))],
           matchType: 'exact'
         });
       } else {
-        standalones.push(...items);
+        unmatchedTopics.push(...items);
       }
     }
 
-    // Step D: AI Semantic
+    // Módulo 2: Motor de Sugestões (IA por Matéria)
     const aiMappings: UnifiedTopicMapping[] = [];
-    const usedIds = new Set<string>();
     let aiStatus: 'success' | 'error' | 'skipped' = 'skipped';
 
-    if (useAI && standalones.length >= 2) {
-      const bySource = new Map<string, Topic[]>();
-      standalones.forEach(s => { const a = bySource.get(s.subjectId) ?? []; a.push(s.topic); bySource.set(s.subjectId, a); });
-      const sources = [...bySource.entries()];
-      
-      for (let i = 0; i < sources.length - 1; i++) {
-        for (let j = i + 1; j < sources.length; j++) {
-          const [idA, topicsA] = sources[i];
-          const [idB, topicsB] = sources[j];
-          const fA = topicsA.filter(t => !usedIds.has(t.id));
-          const fB = topicsB.filter(t => !usedIds.has(t.id));
-          if (fA.length === 0 || fB.length === 0) continue;
+    if (useAI && unmatchedTopics.length >= 2) {
+      try {
+        const results = await performTopicGroupingAI(unified.displayName, unmatchedTopics);
+        aiStatus = 'success';
+        
+        // Salvar sugestões da IA para revisão
+        results.forEach(m => {
+          if (m.originalTopicIds.length >= 2 && m.matchType === 'semantic') {
+            pendingAISuggestions.push({
+              suggestionType: 'topic',
+              originalNames: m.originalTopicIds.map(id => {
+                const topic = allTopicsForThisSubject.find(t => t.id === id);
+                return topic?.name || id;
+              }),
+              suggestedName: m.displayName,
+              originalIds: m.originalTopicIds,
+            });
+          }
+        });
+        
+        const usedInAI = new Set<string>();
+        results.forEach(m => {
+          aiMappings.push(m);
+          m.originalTopicIds.forEach(id => usedInAI.add(id));
+        });
 
-          const { results, status } = await performTopicSemanticMerge(unified.displayName, fA, fB, idA, idB);
-          if (status === 'error') { aiStatus = 'error'; overallAiError = true; }
-          else if (aiStatus !== 'error') aiStatus = 'success';
-
-          results.forEach(res => {
-            if (!usedIds.has(res.topicA_id) && !usedIds.has(res.topicB_id)) {
-              aiMappings.push({ displayName: res.suggestedDisplayName, originalTopicIds: [res.topicA_id, res.topicB_id], originalSubjectIds: [idA, idB], matchType: 'semantic', confidence: res.confidence });
-              usedIds.add(res.topicA_id); usedIds.add(res.topicB_id);
-            }
+        // Tópicos que sobraram (não batiam nem exato nem semântico)
+        unmatchedTopics.forEach(t => {
+          if (!usedInAI.has(t.id)) {
+            aiMappings.push({
+              displayName: t.name,
+              originalTopicIds: [t.id],
+              originalSubjectIds: [t.subject_id],
+              matchType: 'exact'
+            });
+          }
+        });
+      } catch (err) {
+        console.error(`[IA] Erro na matéria ${unified.displayName}:`, err);
+        aiStatus = 'error';
+        overallAiError = true;
+        // Fallback: Manter tópicos como standalones em caso de erro na IA
+        unmatchedTopics.forEach(t => {
+          aiMappings.push({
+            displayName: t.name,
+            originalTopicIds: [t.id],
+            originalSubjectIds: [t.subject_id],
+            matchType: 'exact'
           });
-        }
+        });
       }
+    } else {
+      // Se não usar IA, o que sobrou vira standalone
+      unmatchedTopics.forEach(t => {
+        aiMappings.push({
+          displayName: t.name,
+          originalTopicIds: [t.id],
+          originalSubjectIds: [t.subject_id],
+          matchType: 'exact'
+        });
+      });
     }
 
-    // Fallback: Remaining topics are kept as exact (standalone)
-    standalones.forEach(s => {
-      if (!usedIds.has(s.topic.id)) {
-        aiMappings.push({ displayName: s.topic.name, originalTopicIds: [s.topic.id], originalSubjectIds: [s.subjectId], matchType: 'exact' });
-      }
+    groups.push({ 
+      subjectDisplayName: unified.displayName, 
+      originalSubjectIds: unified.originalSubjectIds, 
+      topicMappings: [...exactMappings, ...aiMappings], 
+      aiUsed: useAI, 
+      aiStatus 
     });
-
-    groups.push({ subjectDisplayName: unified.displayName, originalSubjectIds: unified.originalSubjectIds, topicMappings: [...exactMappings, ...aiMappings], aiUsed: useAI, aiStatus });
   }
 
   // Standalone subjects pass-through
@@ -479,12 +605,27 @@ export async function performFullTopicMerge(unificationMap: CycleUnificationMap,
     });
   }
 
+  // Salvar sugestões da IA no banco (Módulo 2)
+  if (userId && pendingAISuggestions.length > 0) {
+    try {
+      await savePendingMergeSuggestions(userId, cycleId || null, pendingAISuggestions);
+      console.log(`[PendingSuggestions] Salvas ${pendingAISuggestions.length} sugestões para revisão`);
+    } catch (err) {
+      console.error('[PendingSuggestions] Erro ao salvar sugestões:', err);
+    }
+  }
+
   return { groups, overallAiStatus: overallAiError ? 'error' : (groups.some(g => g.aiUsed) ? 'success' : 'skipped') };
 }
 
 export function applyTopicMergeToMap(unificationMap: CycleUnificationMap, result: TopicMergePhaseResult): CycleUnificationMap {
   const updated = unificationMap.unifiedSubjects.map(u => {
-    const res = result.groups.find(g => g.originalSubjectIds.join(',') === u.originalSubjectIds.join(','));
+    // Ordenar os IDs para garantir que a comparação ignore a ordem dos elementos
+    const sortedUSubIds = [...u.originalSubjectIds].sort().join(',');
+    const res = result.groups.find(g => {
+        const sortedGSubIds = [...g.originalSubjectIds].sort().join(',');
+        return sortedGSubIds === sortedUSubIds;
+    });
     return res ? { ...u, topicMappings: res.topicMappings } : u;
   });
   return { ...unificationMap, unifiedSubjects: updated };
@@ -501,6 +642,18 @@ export async function saveUnificationMap(userId: string, unificationMap: CycleUn
 export async function loadUnificationMap(userId: string): Promise<CycleUnificationMap | null> {
   const { data } = await (supabase.from('user_cycles') as any).select('*').eq('user_id', userId).eq('status', 'active').limit(1).maybeSingle();
   return data?.unification_map || null;
+}
+
+export async function persistPhysicalSoftMerge(unificationMap: CycleUnificationMap): Promise<void> {
+  console.log('[SoftMerge] Função desabilitada - tabela topics é global. Usar unification_map para lógica de visualização.');
+  console.log('[SoftMerge] A unificação é handled exclusivamente via frontend usando o unification_map.');
+  
+  // IMPORTANTE: A tabela 'topics' é GLOBAL (sem user_id).
+  // NÃO alteramos is_hidden ou parent_topic_id para evitar afetar outros usuários.
+  // A lógica de visualização deve usar APENAS o unification_map para determinar
+  // quais tópicos mostrar/ocultar.
+  
+  // Se precisar de uma tabela por-usuário para is_hidden, seria necessário criar uma nova tabela.
 }
 
 export function findSiblingTopicIds(completedTopicId: string, map: CycleUnificationMap | null): string[] {
@@ -522,36 +675,71 @@ export async function registerDualProgress(id: string, data: Partial<Topic>, map
   }
 }
 
+export function getUnifiedSubjectId(originalId: string, map: CycleUnificationMap | null): string {
+  if (!map) return originalId;
+  const u = map.unifiedSubjects.find(sub => sub.originalSubjectIds.includes(originalId));
+  return u ? u.originalSubjectIds[0] : originalId;
+}
+
 export function applyUnificationMap(subjects: Subject[], map: CycleUnificationMap | null): Subject[] {
   if (!map) return subjects;
   const result: Subject[] = [];
   const usedSubIds = new Set<string>();
 
   for (const u of map.unifiedSubjects) {
-    const primarySub = subjects.find(s => u.originalSubjectIds.includes(s.id));
-    if (primarySub) {
-      const virtualTopics: Topic[] = [];
-      const usedTids = new Set<string>();
+    const originalSubjects = subjects.filter(s => u.originalSubjectIds.includes(s.id));
+    if (originalSubjects.length === 0) continue;
+
+    const primarySub = originalSubjects[0];
+    const virtualTopics: Topic[] = [];
+    const usedTids = new Set<string>();
+
+    if (u.topicMappings.length > 0) {
       for (const tm of u.topicMappings) {
         const tid = tm.originalTopicIds[0];
-        const sourceSub = subjects.find(s => u.originalSubjectIds.includes(s.id));
-        const sourceTopic = sourceSub?.topics.find(t => tm.originalTopicIds.includes(t.id));
+        
+        let sourceTopic: Topic | undefined;
+        for (const os of originalSubjects) {
+          const found = os.topics?.find(t => tm.originalTopicIds.includes(t.id));
+          if (found) {
+            sourceTopic = found;
+            break;
+          }
+        }
+        
         if (sourceTopic && !usedTids.has(tid)) {
-          virtualTopics.push({ ...sourceTopic, id: tid, name: tm.displayName });
+          // Grant visibility for the virtual/canonical topic entry
+          virtualTopics.push({ ...sourceTopic, id: tid, name: tm.displayName, is_hidden: false });
           usedTids.add(tid);
         }
       }
-      result.push({ ...primarySub, name: u.displayName, topics: virtualTopics });
-      u.originalSubjectIds.forEach(id => usedSubIds.add(id));
+    } else {
+      // Fallback: junta todos e remove strings repetidas
+      const seenNames = new Set<string>();
+      originalSubjects.forEach(sub => {
+        if (sub.topics && sub.topics.length > 0) {
+          sub.topics.forEach(t => {
+            const normalized = t.name.trim().toLowerCase();
+            if (!seenNames.has(normalized)) {
+              seenNames.add(normalized);
+              virtualTopics.push({ ...t, is_hidden: false });
+            }
+          });
+        }
+      });
     }
+
+    result.push({ ...primarySub, name: u.displayName, topics: virtualTopics });
+    u.originalSubjectIds.forEach(id => usedSubIds.add(id));
   }
+  
   subjects.forEach(s => { if (!usedSubIds.has(s.id)) result.push(s); });
   return result;
 }
 
 export function getCanonicalSubjectName(id: string, name: string, map?: CycleUnificationMap | null): string {
   if (!map) return name;
-  const u = map.unifiedSubjects.find(s => s.originalSubjectIds.includes(id));
+  const u = map.unifiedSubjects.find(sub => sub.originalSubjectIds.includes(id));
   return u ? u.displayName : name;
 }
 
@@ -573,4 +761,118 @@ export function getMergeStatusLabel(status: string): string {
     default:
       return '';
   }
+}
+
+// ============================================
+// PENDING MERGE SUGGESTIONS (Módulo 2 e 3)
+// ============================================
+
+export interface PendingSuggestion {
+  id: string;
+  user_id: string;
+  cycle_id: string | null;
+  suggestion_type: 'subject' | 'topic';
+  original_names: string[] | Json;
+  suggested_name: string;
+  status: 'pending' | 'approved' | 'rejected';
+  original_ids: string[] | Json | null;
+  created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+}
+
+export async function savePendingMergeSuggestions(
+  userId: string,
+  cycleId: string | null,
+  suggestions: Array<{
+    suggestionType: 'subject' | 'topic';
+    originalNames: string[];
+    suggestedName: string;
+    originalIds?: string[];
+  }>
+): Promise<void> {
+  if (!suggestions.length) return;
+
+  const records = suggestions.map(s => ({
+    user_id: userId,
+    cycle_id: cycleId,
+    suggestion_type: s.suggestionType,
+    original_names: s.originalNames,
+    suggested_name: s.suggestedName,
+    original_ids: s.originalIds || null,
+    status: 'pending' as const,
+  }));
+
+  const { error } = await supabase
+    .from('pending_merge_suggestions')
+    .upsert(records, { onConflict: 'user_id,cycle_id,suggestion_type,original_names' });
+
+  if (error) {
+    console.error('[PendingSuggestions] Erro ao salvar:', error);
+    throw error;
+  }
+}
+
+export async function fetchPendingMergeSuggestions(
+  userId: string,
+  cycleId?: string
+): Promise<PendingSuggestion[]> {
+  let query = supabase
+    .from('pending_merge_suggestions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'pending');
+
+  if (cycleId) {
+    query = query.eq('cycle_id', cycleId);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[PendingSuggestions] Erro ao buscar:', error);
+    throw error;
+  }
+
+  return data || [];
+}
+
+export async function updateSuggestionStatus(
+  suggestionId: string,
+  status: 'approved' | 'rejected'
+): Promise<void> {
+  const { error } = await supabase
+    .from('pending_merge_suggestions')
+    .update({
+      status,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq('id', suggestionId);
+
+  if (error) {
+    console.error('[PendingSuggestions] Erro ao atualizar status:', error);
+    throw error;
+  }
+}
+
+export async function approveSuggestionAndMerge(
+  suggestion: PendingSuggestion,
+  primaryId: string,
+  secondaryIds: string[]
+): Promise<void> {
+  if (suggestion.suggestion_type === 'topic') {
+    for (const sid of secondaryIds) {
+      const { error } = await supabase
+        .from('topics')
+        .update({ parent_topic_id: primaryId })
+        .eq('id', sid);
+
+      if (error) {
+        console.error('[Merge] Erro ao definir parent_topic_id:', error);
+        throw error;
+      }
+    }
+  }
+
+  await updateSuggestionStatus(suggestion.id, 'approved');
 }

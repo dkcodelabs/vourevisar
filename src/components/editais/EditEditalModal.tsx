@@ -9,13 +9,14 @@ interface EditEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
     edital: UserEdital | null;
-    onSave: (id: string, updates: { organ: string; position: string; year: string }) => Promise<void>;
+    onSave: (id: string, updates: { organ: string; position: string; year: string; exam_date?: string }) => Promise<void>;
 }
 
 export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalModalProps) => {
     const [organ, setOrgan] = useState('');
     const [position, setPosition] = useState('');
     const [year, setYear] = useState('');
+    const [examDate, setExamDate] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
@@ -23,6 +24,7 @@ export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalM
             setOrgan(edital.organ || edital.name.split(' - ')[0] || '');
             setPosition(edital.position || (edital.name.split(' - ').length > 1 ? edital.name.split(' - ').slice(1).join(' - ') : ''));
             setYear(edital.year || '');
+            setExamDate(edital.examDate || '');
         }
     }, [edital, isOpen]);
 
@@ -38,7 +40,8 @@ export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalM
             await onSave(edital.id, { 
                 organ: organ.trim(), 
                 position: position.trim(), 
-                year: year.trim() 
+                year: year.trim(),
+                exam_date: examDate.trim() || undefined
             });
             onClose();
         } catch (err) {
@@ -141,6 +144,24 @@ export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalM
                                         onChange={(e) => setYear(e.target.value)}
                                         placeholder="Ex: 2024"
                                         className="w-full h-14 bg-zinc-950/50 border border-white/5 rounded-2xl pl-12 pr-4 text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Data da Prova */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
+                                    Data da Prova
+                                </label>
+                                <div className="relative group">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-primary transition-colors">
+                                        <CalendarDays size={18} />
+                                    </div>
+                                    <input
+                                        type="date"
+                                        value={examDate}
+                                        onChange={(e) => setExamDate(e.target.value)}
+                                        className="w-full h-14 bg-zinc-950/50 border border-white/5 rounded-2xl pl-12 pr-4 text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all [color-scheme:dark]"
                                     />
                                 </div>
                             </div>

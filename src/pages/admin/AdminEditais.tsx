@@ -30,6 +30,7 @@ interface PublicEdital {
     position: string;
     year: string;
     category: string;
+    exam_date?: string;
     is_public?: boolean;
     status?: string;
     created_at?: string;
@@ -66,6 +67,7 @@ const EMPTY_FORM = {
     position: '',
     year: new Date().getFullYear().toString(),
     category: 'Carreiras Policiais',
+    exam_date: '',
     is_public: true,
 };
 
@@ -144,6 +146,7 @@ const AdminEditais = () => {
             position: edital.position,
             year: edital.year,
             category: edital.category,
+            exam_date: edital.exam_date || '',
             is_public: edital.is_public ?? true,
         });
         setCategoryDraft(edital.category);
@@ -162,6 +165,7 @@ const AdminEditais = () => {
             position: form.position.trim(),
             year: form.year.trim(),
             category: categoryDraft || form.category,
+            exam_date: form.exam_date || null,
             is_public: form.is_public,
             status: 'published'
         };
@@ -365,6 +369,15 @@ const AdminEditais = () => {
                                                         className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                 </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-xs font-black text-content-muted uppercase tracking-widest px-1">Data da Prova</label>
+                                                    <input
+                                                        type="date"
+                                                        value={form.exam_date}
+                                                        onChange={e => setForm(p => ({ ...p, exam_date: e.target.value }))}
+                                                        className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all [color-scheme:dark]"
+                                                    />
+                                                </div>
                                                 <div className="space-y-2 relative">
                                                     <label className="text-xs font-black text-content-muted uppercase tracking-widest px-1">Categoria</label>
                                                     <input
@@ -484,8 +497,14 @@ const AdminEditais = () => {
                                                         <h3 className="text-xl font-black text-foreground dark:text-white uppercase tracking-tighter leading-none mb-1 group-hover:text-primary transition-colors">
                                                             {edital.organ}
                                                         </h3>
-                                                        <p className="text-[11px] font-medium text-zinc-600 uppercase tracking-[0.2em]">
+                                                        <p className="text-[11px] font-medium text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2">
                                                             {edital.year}
+                                                            {edital.exam_date && (
+                                                                <>
+                                                                    <span className="w-1 h-1 rounded-full bg-zinc-800" />
+                                                                    <span className="text-primary/80 font-black">{new Date(edital.exam_date).toLocaleDateString('pt-BR')}</span>
+                                                                </>
+                                                            )}
                                                         </p>
                                                     </div>
 

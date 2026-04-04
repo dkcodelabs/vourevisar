@@ -100,7 +100,7 @@ export const useReviewsData = () => {
         return []; // Se não tem ciclo ativo, não tem revisões
       }
 
-      // 2. Buscar tópicos apenas das matérias do ciclo
+      // 2. Buscar tópicos apenas das matérias do ciclo (só ativos — Soft Delete)
       const { data, error } = await supabase
         .from('topics')
         .select(`
@@ -124,7 +124,8 @@ export const useReviewsData = () => {
           )
         `)
         .eq('subjects.user_id', user.id)
-        .in('subject_id', activeSubjectIds); // FILTRO CRÍTICO
+        .in('subject_id', activeSubjectIds)
+        .neq('is_active', false); // Ignora tópicos deletados logicamente
 
       if (error) throw error;
 

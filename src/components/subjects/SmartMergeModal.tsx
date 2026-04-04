@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Search, RotateCcw, PenLine, X, BookOpen, Database, List, ChevronDown, ChevronUp } from 'lucide-react';
 import { Subject } from '@/types';
-import { useEditalOrigins } from '@/hooks/useEditalOrigins';
+import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 
 // Mock types locally adapted
 export type Suggestion = {
@@ -61,7 +61,7 @@ interface SmartMergeModalProps {
 
 export const SmartMergeModal = ({ isOpen, onClose, subjects, suggestions, onApply }: SmartMergeModalProps) => {
     const [localSuggestions, setLocalSuggestions] = useState<Suggestion[]>(suggestions);
-    const { getOriginsForSubject } = useEditalOrigins();
+    const { getOriginsForSubject } = useEditalOriginsWithMerge();
 
     React.useEffect(() => {
         setLocalSuggestions(suggestions);

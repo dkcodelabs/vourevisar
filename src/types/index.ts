@@ -46,8 +46,11 @@ export interface Topic {
   position?: number;
   memory_stability?: number | null;
   current_interval?: number | null;
+  is_active?: boolean;
+  deleted_at?: string | null;
+  parent_topic_id?: string | null;
+  is_hidden?: boolean;
   edital_id?: string;
-  origin_id?: string;
 }
 
 export interface Subject {

@@ -18,6 +18,8 @@ interface Subject {
     id: string;
     name: string;
     topics: Topic[];
+    color?: string;
+    priority?: number;
 }
 
 interface AdminEditalSubjectsModalProps {
@@ -77,7 +79,9 @@ export const AdminEditalSubjectsModal = ({
                 topics: (s.topics || []).map((t: Topic, tIdx: number) => ({
                     id: t.id || `t-${sIdx}-${tIdx}-${Date.now()}`,
                     name: t.name
-                }))
+                })),
+                color: s.color || '#3b82f6', // Default color if not set
+                priority: s.priority || 0
             }));
             setSubjects(formattedSubjects);
             setActiveTab('current');
@@ -93,6 +97,8 @@ export const AdminEditalSubjectsModal = ({
             const dbSubjects = updatedSubjects.map(s => ({
                 id: s.id,
                 name: s.name,
+                color: s.color,
+                priority: s.priority,
                 topics: s.topics.map(t => ({ id: t.id, name: t.name }))
             }));
 
@@ -154,7 +160,9 @@ export const AdminEditalSubjectsModal = ({
         const newSubj: Subject = {
             id: `s-new-${Date.now()}`,
             name,
-            topics: []
+            topics: [],
+            color: '#3b82f6',
+            priority: 0
         };
 
         const updated = [...subjects, newSubj];
@@ -227,6 +235,18 @@ export const AdminEditalSubjectsModal = ({
         const updated = subjects.map(s => s.id === id ? { ...s, name } : s);
         setSubjects(updated);
         setEditingId(null);
+        setHasUnsavedChanges(true);
+    };
+
+    const handleUpdateSubjectColor = (id: string, color: string) => {
+        const updated = subjects.map(s => s.id === id ? { ...s, color } : s);
+        setSubjects(updated);
+        setHasUnsavedChanges(true);
+    };
+
+    const handleUpdateSubjectPriority = (id: string, priority: number) => {
+        const updated = subjects.map(s => s.id === id ? { ...s, priority } : s);
+        setSubjects(updated);
         setHasUnsavedChanges(true);
     };
 
@@ -532,10 +552,42 @@ export const AdminEditalSubjectsModal = ({
                                                             <span className="text-[10px] text-content-muted/60 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
                                                                 {edital.organ} • {edital.position}
                                                             </span>
+                                                            
+                                                            {/* Metadata Controls (Hidden when editing name) */}
+                                                            {editingId !== subject.id && (
+                                                                <div className="flex items-center gap-4 px-1 pt-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="relative group/color">
+                                                                            <input 
+                                                                                type="color" 
+                                                                                value={subject.color || '#3b82f6'} 
+                                                                                onChange={(e) => handleUpdateSubjectColor(subject.id, e.target.value)}
+                                                                                className="w-5 h-5 rounded-full border border-white/10 cursor-pointer overflow-hidden p-0 bg-transparent transition-transform hover:scale-110"
+                                                                            />
+                                                                            <div className="absolute left-1/2 -top-8 -translate-x-1/2 px-2 py-1 bg-zinc-800 border border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest text-white opacity-0 group-hover/color:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+                                                                                Cor Temática
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="flex items-center gap-1.5 h-6 bg-zinc-800/80 px-2 rounded-lg border border-white/5 relative group/priority">
+                                                                        <GraduationCap size={12} className="text-content-muted" />
+                                                                        <input 
+                                                                            type="number" 
+                                                                            value={subject.priority || 0}
+                                                                            onChange={(e) => handleUpdateSubjectPriority(subject.id, parseInt(e.target.value) || 0)}
+                                                                            className="w-8 bg-transparent text-[10px] font-black text-zinc-300 outline-none focus:text-primary transition-colors text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                        />
+                                                                        <div className="absolute left-1/2 -top-8 -translate-x-1/2 px-2 py-1 bg-zinc-800 border border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest text-white opacity-0 group-hover/priority:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+                                                                            Prioridade
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-1 shrink-0">
+                                                    <div className="flex items-center gap-2 shrink-0">
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();

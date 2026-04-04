@@ -668,6 +668,7 @@ export async function processNextPendingTopic(
                 subjects(name, user_id)
             `)
             .eq('is_skipped', false)
+            .neq('is_active', false) // Ignora tópicos deletados logicamente (Soft Delete)
             .or(`last_trend_check_at.is.null,last_trend_check_at.lt.${thirtyDaysAgo}`)
             .order('last_trend_check_at', { ascending: true, nullsFirst: true })
             .order('created_at', { ascending: false })

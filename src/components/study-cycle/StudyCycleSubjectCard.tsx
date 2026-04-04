@@ -3,9 +3,8 @@ import type { StudyCycleSubject } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
 import { StudyCycleTopicItem } from './StudyCycleTopicItem';
 import { ChevronDownIcon } from './Icons';
-import { NotebookPen, Plus } from 'lucide-react';
+import { NotebookPen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { CycleStatusIndicator } from '@/components/CycleStatusIndicator';
 import { Badge } from '@/components/ui/badge';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
@@ -57,8 +56,6 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 }) => {
   const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
   const { user } = useAuth();
-  const [isAddingTopic, setIsAddingTopic] = useState(false);
-  const [newTopicName, setNewTopicName] = useState('');
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const isFullyCompleted = useMemo(() => subject.topics.every(t => t.reviewStatus === ReviewInterval.COMPLETED), [subject.topics]);
 
@@ -126,70 +123,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
     }
   };
 
-  const handleStartAddingTopic = () => {
-    // Se não estiver expandido, expandir primeiro
-    if (!isExpanded) {
-      onToggleExpand();
-    }
-    // Ativar modo de adição
-    setIsAddingTopic(true);
-  };
 
-  const handleAddTopic = async () => {
-    if (!newTopicName.trim() || !user) return;
-
-    try {
-      const originalId = subject.originalId || subject.id;
-
-      // Calcular próxima posição
-      // Encontrar a maior posição atual
-      const maxPosition = subject.topics.reduce((max, t) => {
-        return (t.position || 0) > max ? (t.position || 0) : max;
-      }, 0);
-
-      const newPosition = maxPosition + 1;
-
-      const { error } = await supabase
-        .from('topics')
-        .insert({
-          subject_id: originalId,
-          name: newTopicName.trim(),
-          completed: false,
-          review_count: 0,
-          review_stage: null,
-          next_review: null,
-          first_studied_at: null,
-          last_reviewed_at: null,
-          notes: null,
-          position: newPosition
-        });
-
-      if (error) throw error;
-
-      setNewTopicName('');
-      setIsAddingTopic(false);
-
-      // Disparar evento para atualizar dados
-      window.dispatchEvent(new CustomEvent('topicUpdated', {
-        detail: { action: 'add', subjectId: originalId }
-      }));
-
-      onTopicUpdate?.();
-      toast.success('Tópico adicionado com sucesso!');
-
-      // Scroll para o último tópico adicionado
-      setTimeout(() => {
-        const topicItems = document.querySelectorAll(`[data-subject-id="${subject.id}"] [data-topic-item]`);
-        const lastTopic = topicItems[topicItems.length - 1];
-        if (lastTopic) {
-          lastTopic.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }, 300);
-    } catch (error) {
-      console.error('Erro ao adicionar tópico:', error);
-      toast.error('Erro ao adicionar tópico');
-    }
-  };
 
   const cardBaseClasses = `bg-card rounded-2xl shadow-md overflow-hidden transition-all duration-300 ${isFullyCompleted ? 'opacity-60 grayscale-[0.5] hover:opacity-80 hover:grayscale-0' : ''}`;
   const focusClasses = isStudyFocus
@@ -239,15 +173,6 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             {/* Buttons */}
             <div className="flex items-center gap-2 pl-2 border-l border-border">
               <button
-                onClick={handleStartAddingTopic}
-                className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                title="Adicionar novo tópico"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-              <button
                 onClick={onSubjectNotesClick}
                 className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
                 title="Anotações da matéria"
@@ -289,46 +214,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                 />
               ));
             })()}
-            {isAddingTopic && (
-              <div className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg">
-                <input
-                  type="text"
-                  value={newTopicName}
-                  onChange={(e) => setNewTopicName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAddTopic();
-                    if (e.key === 'Escape') {
-                      setIsAddingTopic(false);
-                      setNewTopicName('');
-                    }
-                  }}
-                  placeholder="Nome do novo tópico..."
-                  className="flex-1 text-sm bg-transparent border-none outline-none text-foreground"
-                  autoFocus
-                />
-                <button
-                  onClick={handleAddTopic}
-                  className="p-1 text-green-600 hover:text-green-700"
-                  title="Salvar"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => {
-                    setIsAddingTopic(false);
-                    setNewTopicName('');
-                  }}
-                  className="p-1 text-red-600 hover:text-red-700"
-                  title="Cancelar"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
+
           </div>
         </div>
       </div>
@@ -407,28 +293,6 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div id={`topics-${subject.id}`} className="p-4 pt-0">
             <div className="p-4 bg-secondary/30 rounded-lg">
               <div className="space-y-2">
-                {/* New Inline Topic Input (Flex Style) */}
-                <div className="flex items-center gap-2 mb-3 bg-card p-1 pl-3 rounded-lg border border-border shadow-sm" onClick={e => e.stopPropagation()}>
-                  <input
-                    type="text"
-                    placeholder="Novo tópico..."
-                    value={newTopicName}
-                    onChange={(e) => setNewTopicName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddTopic();
-                    }}
-                    className="flex-1 !h-7 !text-sm border-none bg-transparent outline-none !p-0 text-foreground placeholder:text-content-muted mr-2"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleAddTopic}
-                    className="!h-7 !w-7 !min-h-0 !min-w-0 !p-0 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-md shrink-0"
-                    title="Adicionar Tópico"
-                  >
-                    <Plus size={16} />
-                  </Button>
-                </div>
-
                 {(() => {
                   const topics = (filterTopicsBySearch ? filterTopicsBySearch(subject.topics) : subject.topics);
                   const sortedTopics = [...topics].sort((a, b) => {
@@ -516,28 +380,6 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
 
       <div className="p-4 bg-secondary/30 flex-grow flex flex-col">
         <div className="space-y-2 overflow-y-auto pr-2 flex-grow" style={{ maxHeight: '12rem' }}>
-          {/* New Inline Topic Input for Grid View (Flex Style) */}
-          <div className="flex items-center gap-2 mb-3 bg-card p-1 pl-3 rounded-lg border border-border shadow-sm flex-none shrink-0" onClick={e => e.stopPropagation()}>
-            <input
-              type="text"
-              placeholder="Novo tópico..."
-              value={newTopicName}
-              onChange={(e) => setNewTopicName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddTopic();
-              }}
-              className="flex-1 !h-7 !text-sm border-none bg-transparent outline-none !p-0 text-foreground placeholder:text-content-muted mr-2"
-            />
-            <Button
-              size="sm"
-              onClick={handleAddTopic}
-              className="!h-7 !w-7 !min-h-0 !min-w-0 !p-0 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-md shrink-0"
-              title="Adicionar Tópico"
-            >
-              <Plus size={16} />
-            </Button>
-          </div>
-
           {(() => {
             const sortedTopics = [...subject.topics].sort((a, b) => {
               if (!a.createdAt && !b.createdAt) return 0;

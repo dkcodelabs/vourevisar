@@ -366,8 +366,8 @@ export default function AISettings() {
           {/* Card: Diretrizes de Unificação de Matérias */}
           <MergePromptSection />
 
-          {/* Card: Diretrizes de Unificação de Tópicos */}
-          <TopicMergePromptSection />
+          {/* Card: Diretrizes de Agrupamento de Tópicos */}
+          <TopicGroupingPromptSection />
 
           {/* SEÇÃO: Status da API */}
           <AIStatusSection />
@@ -380,8 +380,8 @@ export default function AISettings() {
   );
 }
 
-// Componente de Prompt de Mesclagem de Tópicos
-function TopicMergePromptSection() {
+// Componente de Prompt de Agrupamento de Tópicos (Módulo 2)
+function TopicGroupingPromptSection() {
   const [topicPrompt, setTopicPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -392,29 +392,37 @@ function TopicMergePromptSection() {
         const { data } = await supabase
           .from('system_settings')
           .select('value')
-          .eq('key', 'ai_topic_merge_prompt')
+          .eq('key', 'ai_topic_grouping_prompt')
           .maybeSingle();
         
         if (data?.value) {
           setTopicPrompt(String(data.value));
         } else {
-          // Fallback visual se estiver vazio no banco
-          setTopicPrompt(`Você é um motor de comparação semântica para editais de concursos.
-Compare os pares de tópicos fornecidos e determine se tratam do MESMO CONTEÚDO.
+          // Fallback visual condizente com a nova lógica
+          setTopicPrompt(`Você é uma IA especialista em concursos.
+Sua tarefa é analisar os tópicos da matéria "$SUBJECT_NAME$" e agrupar aqueles que são idênticos, equivalentes ou muito parecidos.
 
-REGRAS:
-1. Ignore plurais (ex: "Crase" e "Crases" são EQUIVALENTES).
-2. Ignore variações de redação (ex: "Regra de Três Simples" e "Regra de 3 Simples" são EQUIVALENTES).
-3. Ignore pontuação e ordem das palavras se o sentido for o mesmo.
-4. Retorne isEquivalent: true apenas se a confiança for alta (>0.8).
-
+TÓPICOS:
 $TOPICS$
 
+REGRAS:
+1. Agrupe tópicos que tratam do mesmo assunto, mesmo que a redação seja diferente (Ex: "Crase" e "Crases", "Regra de Três" e "Regra de 3").
+2. Ignore plurais, acentos e pontuação.
+3. Para cada grupo identificado, escolha um "suggestedName" claro e conciso que represente todos.
+4. "originalTopicsToMerge" deve conter os nomes EXATOS como aparecem na lista acima para que o sistema possa localizá-los.
+
 Retorne APENAS um JSON no formato:
-[{"isEquivalent": true, "confidence": 0.95, "suggestedDisplayName": "Nome Unificado Sugerido"}]`);
+{
+  "groups": [
+    {
+      "originalTopicsToMerge": ["Nome Original 1", "Nome Original 2"],
+      "suggestedName": "Nome Limpo Sugerido"
+    }
+  ]
+}`);
         }
       } catch (err) {
-        console.error('Erro ao carregar prompt de tópicos:', err);
+        console.error('Erro ao carregar prompt de agrupamento:', err);
       } finally {
         setIsLoading(false);
       }
@@ -428,16 +436,17 @@ Retorne APENAS um JSON no formato:
       const { error } = await supabase
         .from('system_settings')
         .upsert({
-          key: 'ai_topic_merge_prompt',
+          key: 'ai_topic_grouping_prompt',
           value: topicPrompt,
+          description: 'Prompt para agrupamento semântico de tópicos por matéria.',
           updated_at: new Date().toISOString()
         }, { onConflict: 'key' });
       
       if (error) throw error;
-      toast.success('Prompt de tópicos salvo com sucesso!');
+      toast.success('Prompt de agrupamento salvo com sucesso!');
     } catch (err) {
       console.error('Erro ao salvar prompt:', err);
-      toastGate.notifyError('Erro ao salvar prompt de tópicos.', 'TOPIC_PROMPT_ERR', { severity: 'medium' });
+      toastGate.notifyError('Erro ao salvar prompt de agrupamento.', 'TOPIC_PROMPT_ERR', { severity: 'medium' });
     } finally {
       setIsSaving(false);
     }
@@ -450,7 +459,7 @@ Retorne APENAS um JSON no formato:
       <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
         <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
           <Terminal className="text-purple-500 w-4 h-4" />
-          Gestão de IA: Unificação de Tópicos
+          Gestão de IA: Agrupamento de Tópicos (Por Matéria)
         </h2>
         <button
           onClick={handleSave}
@@ -464,15 +473,15 @@ Retorne APENAS um JSON no formato:
       
       <div className="p-6 space-y-4">
         <p className="text-xs text-muted-foreground">
-          Este prompt é usado para identificar quais tópicos dentro de uma matéria unificada são equivalentes. 
-          Use <code className="bg-muted px-1 rounded">$TOPICS$</code> como placeholder.
+          Este prompt é usado para limpar a "sujeira" do edital agrupando tópicos redundantes. 
+          Use <code className="bg-muted px-1 rounded">$SUBJECT_NAME$</code> e <code className="bg-muted px-1 rounded">$TOPICS$</code> (lista de nomes) como placeholders.
         </p>
 
         <textarea 
           value={topicPrompt}
           onChange={e => setTopicPrompt(e.target.value)}
-          className="w-full h-[200px] bg-transparent border border-border dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-purple-500 transition-all resize-none text-foreground placeholder:text-muted-foreground/20"
-          placeholder="Ex: 'Compare os tópicos A e B e retorne um JSON indicando se são equivalentes. IMPORTANTE: Ignore plurais (ex: Crase e Crases são iguais), pontuação e variações pequenas de escrita...'"
+          className="w-full h-[250px] bg-transparent border border-border dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-purple-500 transition-all resize-none text-foreground placeholder:text-muted-foreground/20"
+          placeholder="Insira as instruções para agrupamento de tópicos..."
           spellCheck={false}
         />
       </div>
@@ -480,7 +489,7 @@ Retorne APENAS um JSON no formato:
       <div className="px-6 py-4 bg-muted/30 dark:bg-zinc-800/40 border-t border-border dark:border-white/5">
         <p className="text-[11px] text-muted-foreground font-medium leading-relaxed opacity-80">
           <span className="font-black text-purple-500 uppercase mr-2 tracking-wider">Aviso Técnico:</span> 
-          Este prompt orienta a comparação de tópicos. Instrua a IA a focar na equivalência semântica e ignorar variações irrelevantes para garantir uma mesclagem precisa.
+          A IA deve retornar um objeto JSON contendo um array de "groups". Cada grupo deve listar os nomes originais a serem mesclados e o novo nome sugerido.
         </p>
       </div>
     </div>

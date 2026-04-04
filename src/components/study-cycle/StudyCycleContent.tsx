@@ -14,7 +14,7 @@ import { CycleStatsModal } from './CycleStatsModal';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTopicReview } from '@/hooks/useTopicReview';
-import { useEditalOrigins } from '@/hooks/useEditalOrigins';
+import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { toast } from '@/lib/toast';
@@ -66,7 +66,7 @@ export const StudyCycleContent: React.FC = () => {
     isLoading
   } = useStudyCycleData();
 
-  const { editaisNoCiclo, refresh: refreshOrigins } = useEditalOrigins();
+  const { editaisNoCiclo, refresh: refreshOrigins } = useEditalOriginsWithMerge();
   const [unloadingEditalId, setUnloadingEditalId] = useState<string | null>(null);
   const [unloadConfirm, setUnloadConfirm] = useState<{
     isOpen: boolean;

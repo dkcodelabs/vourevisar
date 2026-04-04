@@ -45,12 +45,14 @@ export const useSubjectsAndTopics = () => {
 
   const fetchTopicsBySubject = async (subjectId: string) => {
     try {
-      const { data, error } = await supabase
+      const queryResult = await (supabase
         .from('topics')
         .select('id, name, subject_id')
         .eq('subject_id', subjectId)
-        .order('name');
-
+        .eq('is_active', true)
+        .order('name') as any);
+      const { data, error } = queryResult as { data: Topic[] | null, error: any };
+      
       if (error) throw error;
       setTopics(data || []);
     } catch (error) {

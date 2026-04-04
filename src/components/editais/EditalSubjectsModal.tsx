@@ -16,7 +16,7 @@ import { Subject, Topic, Status } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
-import { useEditalOrigins } from '@/hooks/useEditalOrigins';
+import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
@@ -57,7 +57,7 @@ export const EditalSubjectsModal = ({
 }: EditalSubjectsModalProps) => {
     const { user } = useAuth();
     const { refreshData } = useApp();
-    const { refresh: refreshOrigins } = useEditalOrigins();
+    const { refresh: refreshOrigins } = useEditalOriginsWithMerge();
 
     // ── Estado local otimista ────────────────────────────────────────────
     const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
@@ -83,8 +83,7 @@ export const EditalSubjectsModal = ({
             completed: t.completed || false,
             review_count: t.review_count || 0,
             reviewCount: t.review_count || 0,
-            subtopics: t.subtopics || [],
-            edital_id: t.edital_id
+            subtopics: t.subtopics || []
         })),
         status: (s.status as Status) || 'Nova',
         is_visible: s.is_visible ?? true
@@ -119,6 +118,9 @@ export const EditalSubjectsModal = ({
     const [confirmDeleteSubjectId, setConfirmDeleteSubjectId] = useState<string | null>(null);
     // Estado de confirmação inline para tópico
     const [confirmDeleteTopicId, setConfirmDeleteTopicId] = useState<string | null>(null);
+    // Estado de tópicos inativos (lixeira local por matéria) — chave: subjectId
+    const [inactiveTopics, setInactiveTopics] = useState<Record<string, Topic[]>>({});
+    const [showInactiveIds, setShowInactiveIds] = useState<string[]>([]); // IDs de matérias com lixeira aberta
     const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
     const [editingSubjectName, setEditingSubjectName] = useState('');
     const [notesModal, setNotesModal] = useState<{ isOpen: boolean; subjectId: string; subjectName: string }>({
@@ -300,14 +302,18 @@ export const EditalSubjectsModal = ({
             const selectedTopics = aiResult
                 .filter(s => s.selected)
                 .flatMap(s => s.topics.filter(t => t.selected))
-                .map((t, idx) => ({
-                    id: tmpId(),
-                    name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
-                    completed: false,
-                    reviewCount: 0,
-                    review_count: 0,
-                    position: idx
-                }));
+                .map((t, idx) => {
+                    const cleanName = t.name.trim();
+                    const formattedName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+                    return {
+                        id: tmpId(),
+                        name: formattedName.length > 500 ? formattedName.substring(0, 497) + '...' : formattedName,
+                        completed: false,
+                        reviewCount: 0,
+                        review_count: 0,
+                        position: idx
+                    };
+                });
             
             // Check if subject already exists
             const existingSubject = localSubjects.find(
@@ -323,7 +329,7 @@ export const EditalSubjectsModal = ({
                     const topicsToInsert = newTopics.map((t, idx) => ({
                         subject_id: existingSubject.id,
                         edital_id: selectedEdital.id,
-                        name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
+                        name: t.name,
                         completed: false,
                         review_count: 0,
                         review_stage: null,
@@ -438,12 +444,20 @@ export const EditalSubjectsModal = ({
         if (searchQuery.trim()) setExpandedIds(filteredSubjects.map(s => s.id));
     }, [searchQuery, filteredSubjects]);
 
-    const toggleExpand = (id: string) =>
-        setExpandedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    const toggleExpand = (id: string) => {
+        setExpandedIds(prev => {
+            const isCurrentlyExpanded = prev.includes(id);
+            if (!isCurrentlyExpanded) {
+                // Carrega tópicos inativos ao expandir pela primeira vez
+                loadInactiveTopics(id);
+            }
+            return isCurrentlyExpanded ? prev.filter(i => i !== id) : [...prev, id];
+        });
+    };
 
     // ── Salvar nova matéria ───────────────────────────────────────────────
     const handleSaveSubject = useCallback(async () => {
-        const name = newSubjectName.trim();
+        const name = newSubjectName.trim().toUpperCase();
         if (!name || !user || isSavingSubject) return;
         if (localSubjects.find(s => s.name.toLowerCase() === name.toLowerCase())) {
             errorService.report(new Error('Duplicate subject'), {
@@ -609,8 +623,9 @@ export const EditalSubjectsModal = ({
 
     // ── Salvar novo tópico inline ──────────────────────────────────────────
     const handleSaveNewTopic = useCallback(async (subjectId: string) => {
-        const text = newTopicTexts[subjectId]?.trim();
-        if (!text || savingTopics[subjectId] || !user) return;
+        const rawText = newTopicTexts[subjectId]?.trim();
+        if (!rawText || savingTopics[subjectId] || !user) return;
+        const text = rawText.charAt(0).toUpperCase() + rawText.slice(1);
 
         const placeholderTopic: Topic = {
             id: tmpId(), name: text, completed: false, reviewCount: 0,
@@ -658,7 +673,8 @@ export const EditalSubjectsModal = ({
     // ── Editar tópico ──────────────────────────────────────────────────────
     const handleSaveTopicEdit = useCallback(async () => {
         if (!editingTopicId || !editingTopicName.trim()) return;
-        const newName = editingTopicName.trim();
+        const rawName = editingTopicName.trim();
+        const newName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
         setLocalSubjects(prev => prev.map(s => ({
             ...s, topics: s.topics.map(t => t.id === editingTopicId ? { ...t, name: newName } : t)
         })));
@@ -679,7 +695,7 @@ export const EditalSubjectsModal = ({
     // ── Renomear matéria ──────────────────────────────────────────────────
     const handleSaveSubjectEdit = useCallback(async () => {
         if (!editingSubjectId || !editingSubjectName.trim()) return;
-        const newName = editingSubjectName.trim();
+        const newName = editingSubjectName.trim().toUpperCase();
         
         // Otimismo
         setLocalSubjects(prev => prev.map(s => s.id === editingSubjectId ? { ...s, name: newName } : s));
@@ -708,32 +724,106 @@ export const EditalSubjectsModal = ({
 
     const handleConfirmDeleteTopic = useCallback(async (topicId: string, subjectId: string) => {
         setConfirmDeleteTopicId(null);
-        // Otimismo: remove imediatamente da UI
+        // Otimismo: move para lista de inativos na UI imediatamente
+        const topicToDeactivate = localSubjects
+            .find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
+
+        if (topicToDeactivate) {
+            setInactiveTopics(prev => ({
+                ...prev,
+                [subjectId]: [...(prev[subjectId] || []), topicToDeactivate]
+            }));
+        }
         setLocalSubjects(prev => prev.map(s =>
             s.id === subjectId ? { ...s, topics: s.topics.filter(t => t.id !== topicId) } : s
         ));
         setSyncStatus('saving');
         try {
-            // 0. Remove histórico de revisões deste tópico ANTES (limpeza profunda)
-            const { error: histErr } = await supabase
-                .from('topic_review_history')
-                .delete()
-                .eq('topic_id', topicId);
-            
-            if (histErr) {
-                console.error('Erro ao excluir histórico do tópico:', histErr);
-                // Não travamos o fluxo principal, mas registramos
-            }
-
-            const { error } = await supabase.from('topics').delete().eq('id', topicId);
+            // Soft Delete: marca como inativo em vez de excluir permanentemente
+            const { error } = await supabase
+                .from('topics')
+                .update({ is_active: false, deleted_at: new Date().toISOString() } as any)
+                .eq('id', topicId);
             if (error) throw error;
             hasPendingSync.current = true;
             setSyncStatus('saved');
+            toast.success('Tópico movido para a lixeira.', { duration: 2000 });
         } catch (err) {
+            // Reverte otimismo
+            if (topicToDeactivate) {
+                setLocalSubjects(prev => prev.map(s =>
+                    s.id === subjectId ? { ...s, topics: [...s.topics, topicToDeactivate] } : s
+                ));
+                setInactiveTopics(prev => ({
+                    ...prev,
+                    [subjectId]: (prev[subjectId] || []).filter(t => t.id !== topicId)
+                }));
+            }
             setSyncStatus('error');
-            errorService.report(err, { module: 'EditalSubjectsModal', action: 'deleteTopic', userMessage: 'Erro ao excluir.' });
+            errorService.report(err, { module: 'EditalSubjectsModal', action: 'softDeleteTopic', userMessage: 'Erro ao mover tópico para lixeira.' });
         }
-    }, []);
+    }, [localSubjects]);
+
+    // ── Restaurar tópico da lixeira ────────────────────────────────────────
+    const handleRestoreTopic = useCallback(async (topicId: string, subjectId: string) => {
+        const topicToRestore = inactiveTopics[subjectId]?.find(t => t.id === topicId);
+        if (!topicToRestore) return;
+
+        // Otimismo: move de volta para lista ativa
+        setInactiveTopics(prev => ({
+            ...prev,
+            [subjectId]: (prev[subjectId] || []).filter(t => t.id !== topicId)
+        }));
+        setLocalSubjects(prev => prev.map(s =>
+            s.id === subjectId ? { ...s, topics: [...s.topics, topicToRestore] } : s
+        ));
+        setSyncStatus('saving');
+        try {
+            const { error } = await supabase
+                .from('topics')
+                .update({ is_active: true, deleted_at: null } as any)
+                .eq('id', topicId);
+            if (error) throw error;
+            hasPendingSync.current = true;
+            setSyncStatus('saved');
+            toast.success('Tópico restaurado!', { duration: 2000 });
+        } catch (err) {
+            // Reverte otimismo
+            setLocalSubjects(prev => prev.map(s =>
+                s.id === subjectId ? { ...s, topics: s.topics.filter(t => t.id !== topicId) } : s
+            ));
+            setInactiveTopics(prev => ({
+                ...prev,
+                [subjectId]: [...(prev[subjectId] || []), topicToRestore]
+            }));
+            setSyncStatus('error');
+            errorService.report(err, { module: 'EditalSubjectsModal', action: 'restoreTopic', userMessage: 'Erro ao restaurar tópico.' });
+        }
+    }, [inactiveTopics]);
+
+    // ── Carregar tópicos inativos ao expandir matéria ─────────────────────
+    const loadInactiveTopics = useCallback(async (subjectId: string) => {
+        if (inactiveTopics[subjectId]) return; // Já carregados
+        try {
+            const { data, error } = await supabase
+                .from('topics')
+                .select('id, name, completed, review_count, subject_id')
+                .eq('subject_id', subjectId)
+                .eq('is_active', false) as any;
+            if (error) throw error;
+            setInactiveTopics(prev => ({
+                ...prev,
+                [subjectId]: (data || []).map((t: any) => ({
+                    ...t,
+                    reviewCount: t.review_count || 0,
+                    subtopics: [],
+                } as Topic))
+            }));
+        } catch (err) {
+            console.error('Erro ao carregar tópicos inativos:', err);
+            setInactiveTopics(prev => ({ ...prev, [subjectId]: [] }));
+        }
+    }, [inactiveTopics]);
 
     const isEditable = !selectedEdital.sourceId || !!selectedEdital.isImported;
 
@@ -761,58 +851,53 @@ export const EditalSubjectsModal = ({
                                 <GraduationCap className="text-primary" size={18} />
                             </div>
                             <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex flex-col min-w-0 shrink-0">
-                                        <div className="flex items-center gap-1.5">
+                                <div className="flex flex-col min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1.5 min-w-0">
                                             <Database size={12} className="text-primary/80 shrink-0" />
-                                            <span className="text-xs font-black text-primary uppercase tracking-wider truncate max-w-[300px]">{selectedEdital.name}</span>
+                                            <span className="text-sm font-black text-primary uppercase tracking-wider truncate max-w-[400px]">{selectedEdital.name}</span>
                                         </div>
-                                        {(selectedEdital.position || selectedEdital.year) && (
-                                            <span className="text-[10px] font-bold text-content-muted uppercase tracking-widest truncate max-w-[300px] mt-0.5">
-                                                {[selectedEdital.position, selectedEdital.year].filter(Boolean).join(' • ')}
-                                            </span>
+
+                                        {selectedEdital.sourceId ? (
+                                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
+                                                <Database size={8} className="text-sky-400" />
+                                                <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">SISTEMA</span>
+                                            </div>
+                                        ) : selectedEdital.isImported ? (
+                                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20 shrink-0">
+                                                <Sparkles size={8} className="text-purple-400" />
+                                                <span className="text-[8px] font-black text-purple-400 uppercase tracking-widest">IA</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-500/10 border border-zinc-500/20 shrink-0">
+                                                <FileText size={8} className="text-zinc-400" />
+                                                <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">MANUAL</span>
+                                            </div>
                                         )}
+                                        
+                                        {/* Status de Sincronização */}
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <div className="w-px h-3 bg-white/10 mx-1" />
+                                            {syncStatus === 'saving' && (
+                                                <div className="flex items-center gap-1.5">
+                                                    <Loader2 size={10} className="animate-spin text-primary" />
+                                                    <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest">Salvando...</span>
+                                                </div>
+                                            )}
+                                            {syncStatus === 'saved' && (
+                                                <div className="flex items-center gap-1.5">
+                                                    <CheckCircle2 size={10} className="text-emerald-500" />
+                                                    <span className="text-[9px] font-bold text-emerald-500/70 uppercase tracking-widest">Sincronizado</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
-                                    {selectedEdital.sourceId ? (
-                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0 ml-2">
-                                            <Database size={8} className="text-sky-400" />
-                                            <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">CÓPIA • SISTEMA</span>
-                                        </div>
-                                    ) : selectedEdital.isImported ? (
-                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20 shrink-0 ml-2">
-                                            <Sparkles size={8} className="text-purple-400" />
-                                            <span className="text-[8px] font-black text-purple-400 uppercase tracking-widest">CÓPIA • IA</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-500/10 border border-zinc-500/20 shrink-0 ml-2">
-                                            <FileText size={8} className="text-zinc-400" />
-                                            <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">MANUAL</span>
-                                        </div>
+                                    {(selectedEdital.position || selectedEdital.year) && (
+                                        <span className="text-[10px] font-bold text-content-muted uppercase tracking-widest truncate mt-0.5">
+                                            {[selectedEdital.position, selectedEdital.year].filter(Boolean).join(' • ')}
+                                        </span>
                                     )}
-                                    
-                                    {/* Status de Sincronização */}
-                                    <div className="flex items-center gap-1.5 ml-1 shrink-0">
-                                        <div className="w-px h-3 bg-white/10 mx-1" />
-                                        {syncStatus === 'saving' && (
-                                            <div className="flex items-center gap-1.5">
-                                                <Loader2 size={10} className="animate-spin text-primary" />
-                                                <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest">Salvando...</span>
-                                            </div>
-                                        )}
-                                        {syncStatus === 'saved' && (
-                                            <div className="flex items-center gap-1.5">
-                                                <CheckCircle2 size={10} className="text-emerald-500" />
-                                                <span className="text-[9px] font-bold text-emerald-500/70 uppercase tracking-widest">Sincronizado</span>
-                                            </div>
-                                        )}
-                                        {syncStatus === 'error' && (
-                                            <div className="flex items-center gap-1.5">
-                                                <AlertTriangle size={10} className="text-red-500" />
-                                                <span className="text-[9px] font-bold text-red-500/70 uppercase tracking-widest">Erro ao salvar</span>
-                                            </div>
-                                        )}
-                                    </div>
                                 </div>
                                 <p className="text-[11px] text-content-muted mt-0.5">
                                     {localSubjects.length} {localSubjects.length === 1 ? 'matéria' : 'matérias'} e {totalTopics} {totalTopics === 1 ? 'tópico' : 'tópicos'}
@@ -890,7 +975,7 @@ export const EditalSubjectsModal = ({
                                                 type="text"
                                                 placeholder="Nome da matéria (ex: Português)"
                                                 value={iaSubjectName}
-                                                onChange={e => setIaSubjectName(e.target.value)}
+                                                onChange={e => setIaSubjectName(e.target.value.toUpperCase())}
                                                 className="w-full h-9 bg-zinc-950/50 border border-white/10 rounded-xl px-3 text-xs focus:outline-none focus:border-primary/50 transition-all text-content-main placeholder:text-content-muted/40"
                                             />
                                             <textarea
@@ -965,7 +1050,7 @@ export const EditalSubjectsModal = ({
                                                     type="text"
                                                     placeholder="Nome da matéria (ex: Português)"
                                                     value={newSubjectName}
-                                                    onChange={e => setNewSubjectName(e.target.value)}
+                                                    onChange={e => setNewSubjectName(e.target.value.toUpperCase())}
                                                     onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
                                                     className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
                                                 />
@@ -1099,7 +1184,7 @@ export const EditalSubjectsModal = ({
                                                                 <input
                                                                     type="text"
                                                                     value={editingSubjectName}
-                                                                    onChange={e => setEditingSubjectName(e.target.value)}
+                                                                    onChange={e => setEditingSubjectName(e.target.value.toUpperCase())}
                                                                     onKeyDown={e => {
                                                                         if (e.key === 'Enter') handleSaveSubjectEdit();
                                                                         if (e.key === 'Escape') setEditingSubjectId(null);
@@ -1228,7 +1313,11 @@ export const EditalSubjectsModal = ({
                                                                     type="text"
                                                                     placeholder="Novo tópico..."
                                                                     value={newTopicTexts[subject.id] || ''}
-                                                                    onChange={e => setNewTopicTexts(prev => ({ ...prev, [subject.id]: e.target.value }))}
+                                                                    onChange={e => {
+                                                                        const val = e.target.value;
+                                                                        const formatted = val.charAt(0).toUpperCase() + val.slice(1);
+                                                                        setNewTopicTexts(prev => ({ ...prev, [subject.id]: formatted }));
+                                                                    }}
                                                                     onKeyDown={e => { if (e.key === 'Enter') handleSaveNewTopic(subject.id); }}
                                                                     className="w-full bg-white/5 border border-white/5 rounded-lg py-1.5 px-3 pr-8 text-xs outline-none ring-0 focus:border-primary/30 transition-colors text-content-main placeholder:text-content-muted/50"
                                                                 />
@@ -1336,6 +1425,65 @@ export const EditalSubjectsModal = ({
                                                                 })}
                                                             </div>
                                                         )}
+
+                                                        {/* ── Seção de Tópicos Inativados (Lixeira) ── */}
+                                                        {(() => {
+                                                            const subjectInactive = (inactiveTopics[subject.id] || []).filter(t => 
+                                                                !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase())
+                                                            );
+                                                            if (subjectInactive.length === 0) return null;
+                                                            const isShowingInactive = showInactiveIds.includes(subject.id);
+                                                            return (
+                                                                <div className="mt-2 pt-2 border-t border-white/5">
+                                                                    <button
+                                                                        onClick={() => setShowInactiveIds(prev =>
+                                                                            isShowingInactive
+                                                                                ? prev.filter(id => id !== subject.id)
+                                                                                : [...prev, subject.id]
+                                                                        )}
+                                                                        className="flex items-center gap-1.5 w-full text-left px-1 py-1 rounded hover:bg-white/5 transition-colors group/trash"
+                                                                    >
+                                                                        <Trash2 size={11} className="text-zinc-500 group-hover/trash:text-zinc-300 transition-colors" />
+                                                                        <span className="text-[9px] font-bold text-zinc-500 group-hover/trash:text-zinc-300 uppercase tracking-widest transition-colors">
+                                                                            Lixeira ({subjectInactive.length})
+                                                                        </span>
+                                                                        <ChevronDown size={10} className={`ml-auto text-zinc-600 transition-transform ${isShowingInactive ? 'rotate-180' : ''}`} />
+                                                                    </button>
+                                                                    <AnimatePresence initial={false}>
+                                                                        {isShowingInactive && (
+                                                                            <motion.div
+                                                                                initial={{ height: 0, opacity: 0 }}
+                                                                                animate={{ height: 'auto', opacity: 1 }}
+                                                                                exit={{ height: 0, opacity: 0 }}
+                                                                                transition={{ duration: 0.15 }}
+                                                                                className="overflow-hidden"
+                                                                            >
+                                                                                <div className="mt-1 space-y-1">
+                                                                                    {subjectInactive.map(inactiveTopic => (
+                                                                                        <div
+                                                                                            key={inactiveTopic.id}
+                                                                                            className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-zinc-800/30 opacity-60 hover:opacity-80 transition-opacity group/inactive"
+                                                                                        >
+                                                                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                                                <Trash2 size={11} className="text-zinc-600 shrink-0" />
+                                                                                                <span className="text-[11px] text-zinc-400 line-through truncate">{inactiveTopic.name}</span>
+                                                                                            </div>
+                                                                                            <button
+                                                                                                onClick={() => handleRestoreTopic(inactiveTopic.id, subject.id)}
+                                                                                                title="Restaurar tópico"
+                                                                                                className="px-2 h-5 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded transition-all opacity-0 group-hover/inactive:opacity-100 shrink-0"
+                                                                                            >
+                                                                                                Restaurar
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </motion.div>
+                                                                        )}
+                                                                    </AnimatePresence>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </motion.div>
                                             )}

@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { useDailySubjectsWithViews } from '@/hooks/useDailySubjectsWithViews';
+import { useMergeData } from '@/hooks/useMergeData';
 import { SubjectStatus, ReviewInterval, Difficulty } from '@/types/study-cycle';
 import { cleanCycle } from '@/utils/cycleUtils';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
@@ -126,6 +127,7 @@ export const useStudyCycleData = () => {
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
 
   const { markTopicAsReviewed } = useTopicReview();
+  const { getUnifiedSubjectName, getUnifiedTopicName } = useMergeData();
 
   const isLoading = useMemo(() => {
     // If no user, it's not loading (nothing to load)
@@ -170,6 +172,7 @@ export const useStudyCycleData = () => {
           .from('subjects')
           .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position)`)
           .eq('user_id', user.id)
+          .eq('topics.is_active', true)
           .order('priority', { ascending: true })
           .order('position', { foreignTable: 'topics', ascending: true })
           .order('created_at', { foreignTable: 'topics', ascending: true }),
@@ -231,19 +234,6 @@ export const useStudyCycleData = () => {
     const loadUserCycle = async () => {
       const cycleCacheKey = `user_cycle_cache_${user.id}`;
       const subjectsCacheKey = `subjects_cache_${user.id}_v2`;
-      const cycleCached = localStorage.getItem(cycleCacheKey);
-      const subjectsCached = localStorage.getItem(subjectsCacheKey);
-
-      if (cycleCached && subjectsCached) {
-        try {
-          const parsed = JSON.parse(cycleCached);
-          setUserCycle(parsed);
-          setIsCycleLoaded(true);
-          setIsSubjectsLoaded(true);
-        } catch (e) {
-          console.error('Invalid cycle cache', e);
-        }
-      }
 
       try {
         const { data, error } = await supabase
@@ -255,68 +245,36 @@ export const useStudyCycleData = () => {
 
         if (error) {
           console.error('Erro ao carregar ciclo:', error);
-          if (!cycleCached) setIsCycleLoaded(true);
           return;
         }
 
-        const cycleData = (data?.[0] as unknown as UserCycle) || null;
+        let cycleData = (data?.[0] as unknown as UserCycle) || null;
 
-        if (cycleData && (!cycleData.ciclo_atual || cycleData.ciclo_atual.length === 0)) {
-          // Quando criar um novo ciclo, precisamos filtrar matérias de editais que ainda não foram importados (merged_into_cycle = false)
-          const { data: activeSubjects, error: subjectsError } = await supabase
-            .from('subjects')
-            .select('id')
-            .eq('user_id', user.id)
-            .neq('status', 'Concluída');
-
-          if (!subjectsError && activeSubjects && activeSubjects.length > 0) {
-            // Whitelist: Apenas matérias de editais que estão no ciclo
-            // Tentar buscar os editais atuais para validar a whitelist
-            const { data: userEditaisData } = await (supabase as any)
-              .from('user_editais')
-              .select('subject_ids, merged_into_cycle')
-              .eq('user_id', user.id);
-
-            const allowedSubjectIds = new Set<string>();
-            if (userEditaisData) {
-              userEditaisData.forEach((ed: any) => {
-                if (ed.merged_into_cycle && ed.subject_ids) {
-                  ed.subject_ids.forEach((id: string) => allowedSubjectIds.add(id));
-                }
-              });
-            }
-
-            const filteredSubjectIds = activeSubjects
-              .map(s => s.id)
-              .filter(id => allowedSubjectIds.has(id));
-
-            if (filteredSubjectIds.length > 0) {
-              const { error: updateError } = await supabase
-                .from('user_cycles')
-                .update({ ciclo_atual: filteredSubjectIds, atualizado_em: new Date().toISOString() })
-                .eq('user_id', user.id);
-
-              if (!updateError) {
-                const { data: updatedCycle } = await supabase
-                  .from('user_cycles')
-                  .select('*')
-                  .eq('user_id', user.id)
-                  .eq('status', 'active')
-                  .limit(1);
-                const newCycleData = (updatedCycle?.[0] as unknown as UserCycle) || null;
-                setUserCycle(newCycleData);
-                localStorage.setItem(cycleCacheKey, JSON.stringify(newCycleData));
-                setIsCycleLoaded(true);
-                return;
-              }
-            }
-          }
+        // Se não há ciclo no BD ou ciclo_atual está vazio, garantir que seja null/array vazio
+        if (!cycleData || !cycleData.ciclo_atual || cycleData.ciclo_atual.length === 0) {
+          cycleData = null;
+          // Limpar cache local quando não há ciclo
+          localStorage.removeItem(cycleCacheKey);
+        } else {
+          // Só salvar cache quando há ciclo ativo com matérias
+          localStorage.setItem(cycleCacheKey, JSON.stringify(cycleData));
         }
 
         setUserCycle(cycleData);
-        localStorage.setItem(cycleCacheKey, JSON.stringify(cycleData));
       } catch (error) {
         console.error('Erro ao carregar ciclo:', error);
+        // Fallback: tentar usar cache apenas se ciclo existir no BD (verificado acima)
+        const cycleCached = localStorage.getItem(cycleCacheKey);
+        if (cycleCached) {
+          try {
+            const parsed = JSON.parse(cycleCached);
+            if (parsed && parsed.ciclo_atual && parsed.ciclo_atual.length > 0) {
+              setUserCycle(parsed);
+            }
+          } catch (e) {
+            console.error('Invalid cycle cache', e);
+          }
+        }
       } finally {
         setIsCycleLoaded(true);
       }
@@ -325,98 +283,37 @@ export const useStudyCycleData = () => {
     loadUserCycle();
   }, [user]);
 
-  // Auto-adicionar matérias novas ao ciclo
-  useEffect(() => {
-    const addNewSubjectsToCycle = async () => {
-      // Importante: subjects e userCycle devem estar carregados
-      if (!user || !userCycle?.ciclo_atual || subjects.length === 0) return;
-
-      // Para evitar race conditions durante o carregamento inicial, 
-      // verificamos se temos ao menos alguma tentativa de carregar editais
-      // No loadSubjects, garantimos que ambos carreguem juntos via Promise.all
-      
-      // Whitelist logic: Só entram no ciclo matérias de editais com merged_into_cycle = true
-      const allowedSubjectIds = new Set<string>();
-      userEditais.forEach(edital => {
-        if (edital.merged_into_cycle && edital.subject_ids) {
-          edital.subject_ids.forEach(id => allowedSubjectIds.add(id));
-        }
-      });
-
-      const subjectsNotInCycle = subjects.filter(subject =>
-        !userCycle.ciclo_atual.includes(subject.id) &&
-        subject.status !== 'Concluída' &&
-        allowedSubjectIds.has(subject.id)
-      );
-
-      if (subjectsNotInCycle.length > 0) {
-        const newSubjectIds = subjectsNotInCycle.map(s => s.id);
-        const updatedCycle = [...userCycle.ciclo_atual, ...newSubjectIds];
-
-        try {
-          const { error } = await supabase
-            .from('user_cycles')
-            .update({ ciclo_atual: updatedCycle, atualizado_em: new Date().toISOString() })
-            .eq('user_id', user.id);
-
-          if (!error) {
-            setUserCycle(prev => prev ? { ...prev, ciclo_atual: updatedCycle } : null);
-          }
-        } catch (error) {
-          console.error('Erro ao auto-adicionar matérias ao ciclo:', error);
-        }
-      }
-    };
-
-    addNewSubjectsToCycle();
-  }, [user, userCycle?.ciclo_atual, subjects, userEditais]);
-
-  // Limpar ciclo (remover matérias excluídas ou concluídas)
-  useEffect(() => {
-    if (!user || !userCycle?.ciclo_atual || subjects.length === 0) return;
-
-    // Faxina Rigorosa: Remover matérias órfãs ou de editais descarregados
-    const allowedSubjectIds = new Set<string>();
-    userEditais.forEach(edital => {
-      if (edital.merged_into_cycle && edital.subject_ids) {
-        edital.subject_ids.forEach(id => allowedSubjectIds.add(id));
-      }
-    });
-
-    const cleanedCycle = cleanCycle(userCycle.ciclo_atual, subjects, allowedSubjectIds);
-    if (cleanedCycle.length !== userCycle.ciclo_atual.length) {
-      const updateCycleInDb = async () => {
-        try {
-          const { error } = await supabase
-            .from('user_cycles')
-            .update({ ciclo_atual: cleanedCycle, atualizado_em: new Date().toISOString() })
-            .eq('user_id', user.id);
-
-          if (!error) {
-            const updated = { ...userCycle, ciclo_atual: cleanedCycle };
-            setUserCycle(updated);
-            localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(updated));
-          }
-        } catch (error) {
-          console.error('Erro ao limpar ciclo:', error);
-        }
-      };
-      updateCycleInDb();
-    }
-  }, [user, userCycle?.ciclo_atual, subjects, userEditais]);
+  // A re-injeção automática de matérias foi removida para evitar o problema de "matérias fantasmas".
+  // A inclusão de matérias no ciclo agora é feita de forma explícita durante a mesclagem de editais
+  // ou através da tela de Matérias/Ciclo.
 
   const dailySubjectsWithViews = useDailySubjectsWithViews(subjects, userCycle);
 
-  const studyCycleSubjects = useMemo(() => {
+  const unifiedSubjects = useMemo(() => {
     if (subjects.length === 0) return [];
-    if (!userCycle?.ciclo_atual || userCycle.ciclo_atual.length === 0) return [];
+    return subjects.map(subject => ({
+      ...subject,
+      name: getUnifiedSubjectName(subject.id, subject.name)
+    }));
+  }, [subjects, getUnifiedSubjectName]);
+
+  const studyCycleSubjects = useMemo(() => {
+    if (subjects.length === 0) {
+      return [];
+    }
+    if (!userCycle?.ciclo_atual || userCycle.ciclo_atual.length === 0) {
+      return [];
+    }
 
     const cycleSubjects: StudyCycleSubject[] = [];
     const processedSubjects = new Map<string, number>();
 
     userCycle.ciclo_atual.forEach((subjectId, index) => {
-      const subject = subjects.find(s => s.id === subjectId);
-      if (!subject) return;
+      const subject = unifiedSubjects.find(s => s.id === subjectId);
+      
+      if (!subject) {
+        return;
+      }
 
       const viewNumber = (processedSubjects.get(subjectId) || 0) + 1;
       processedSubjects.set(subjectId, viewNumber);
@@ -447,13 +344,20 @@ export const useStudyCycleData = () => {
 
     const completedSubjects = subjects.filter(subject => {
       if (userCycle.ciclo_atual.includes(subject.id)) return false;
-      const mappedTopics = subject.topics.map(mapTopicToStudyCycleTopic);
-      return mappedTopics.length > 0 && mappedTopics.every(topic => topic.reviewStatus === ReviewInterval.COMPLETED);
+      const mappedTopics = subject.topics.map(t => ({
+        ...t,
+        name: getUnifiedTopicName(t.id, t.name)
+      }));
+      return mappedTopics.length > 0 && mappedTopics.every(topic => topic.review_stage === 'Concluído');
     });
 
     completedSubjects.forEach(subject => {
       try {
-        const studyCycleSubject = mapSubjectToStudyCycleSubject(subject);
+        const unifiedSubject = {
+          ...subject,
+          name: getUnifiedSubjectName(subject.id, subject.name)
+        };
+        const studyCycleSubject = mapSubjectToStudyCycleSubject(unifiedSubject);
         studyCycleSubject.originalId = subject.id;
         cycleSubjects.push(studyCycleSubject);
       } catch (error) {
@@ -462,7 +366,7 @@ export const useStudyCycleData = () => {
     });
 
     return cycleSubjects;
-  }, [subjects, userCycle]);
+  }, [unifiedSubjects, userCycle, subjects, getUnifiedTopicName]);
 
   const groupedSubjects = useMemo(() => {
     return studyCycleSubjects.reduce((acc, subject) => {

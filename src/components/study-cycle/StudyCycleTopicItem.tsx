@@ -3,7 +3,6 @@ import type { StudyCycleTopic } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
 import { CheckIcon } from './Icons';
 import { FileText, ArrowRight } from 'lucide-react';
-import { EditableTopicName } from '@/components/EditableTopicName';
 import { useNavigate } from 'react-router-dom';
 
 interface StudyCycleTopicItemProps {
@@ -223,14 +222,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   const navigate = useNavigate();
   const statusConfig = getTopicStatus();
 
-  const handleStartEditing = () => {
-    onEditingChange?.(topic.id);
-  };
 
-  const handleStopEditing = () => {
-    onEditingChange?.(null);
-    onTopicUpdate?.();
-  };
 
   if (isSubjectFinished) {
     return (
@@ -265,25 +257,11 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
             </span>
           )}
           <div
-            className={`${isEditing ? 'w-full' : 'block'} cursor-pointer flex-1 first-letter:uppercase`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isEditing) handleStartEditing();
-            }}
-            title="Clique no texto para editar"
+            className="block flex-1 first-letter:uppercase"
           >
-            <EditableTopicName
-              topicId={topic.id}
-              initialName={topic.name}
-              onUpdate={handleStopEditing}
-              isEditing={isEditing}
-              onEditChange={(editing) => {
-                if (!editing) {
-                  handleStopEditing();
-                }
-              }}
-              searchQuery={searchQuery}
-            />
+            <span className="text-sm font-normal text-zinc-800 dark:text-zinc-200 break-words block">
+              <HighlightText text={topic.name} searchQuery={searchQuery} />
+            </span>
           </div>
         </div>
 

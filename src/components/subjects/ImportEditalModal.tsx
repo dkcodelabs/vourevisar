@@ -26,7 +26,7 @@ interface AiSubject {
 interface ImportEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string, extraInfo?: { organ: string; position: string; year: string }) => Promise<void> | void;
+    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string, extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string }) => Promise<void> | void;
     subjects: Subject[];
     userEditais?: UserEdital[];
     initialTab?: 'ready' | 'ia' | 'manual';
@@ -88,6 +88,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             topics: { name: string }[];
         }[];
         category?: string;
+        exam_date?: string;
         published_at?: string;
     }
     const [editais, setEditais] = useState<ReadyEdital[]>([]);
@@ -609,35 +610,41 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const handleImportReadyEdital = async (edital: ReadyEdital) => {
         setIsLoadingReady(true);
         try {
-            // If no subjects, just log it silently or ignore as requested by user
-            if (!edital.subjects || !Array.isArray(edital.subjects) || edital.subjects.length === 0) {
-                console.log("[ImportEditalModal] Edital sem matérias, mas importação permitida conforme regra de negócio.");
-            }
+            const rawSubjects = Array.isArray(edital.subjects) ? edital.subjects : [];
+            
+            const mappedSubjects: Subject[] = rawSubjects.map((s: any, idx: number) => ({
+                id: s.id || `imp-subj-${idx}-${Date.now()}`,
+                name: s.name,
+                status: 'Nova',
+                color: s.color,
+                priority: s.priority,
+                topics: (Array.isArray(s.topics) ? s.topics : []).map((t: any, tidx: number) => ({
+                    id: t.id || `imp-top-${idx}-${tidx}-${Date.now()}`,
+                    name: typeof t === 'string' ? t : t.name,
+                    completed: false,
+                    reviewCount: 0,
+                    review_count: 0,
+                    position: tidx
+                }))
+            }));
 
-            const subjectsList = Array.isArray(edital.subjects) ? edital.subjects : [];
-
-            const importSubjects: Subject[] = subjectsList.map((s: { name: string; topics?: { name: string }[] }, i: number) => {
-                return {
-                    id: `imp-${edital.id}-${i}-${Date.now()}`,
-                    name: s.name,
-                    status: 'Nova',
-                    topics: (s.topics || []).map((t: { name: string }, ti: number) => ({
-                        id: `imp-top-${edital.id}-${i}-${ti}-${Date.now()}`,
-                        name: typeof t === 'string' ? t : t.name,
-                        completed: false,
-                        reviewCount: 0,
-                        review_count: 0,
-                        position: ti
-                    }))
-                };
-            });
-            const extraInfo = { organ: edital.organ || '', position: edital.position || '', year: edital.year || '' };
-            await onImport(importSubjects, `${edital.organ} - ${edital.position}`, true, edital.id, extraInfo);
+            await onImport(
+                mappedSubjects, 
+                `${edital.organ} - ${edital.position} (${edital.year})`, 
+                true, 
+                edital.id,
+                { 
+                    organ: edital.organ, 
+                    position: edital.position, 
+                    year: edital.year || '',
+                    category: edital.category,
+                    exam_date: edital.exam_date
+                }
+            );
             onClose();
         } catch (error) {
             console.error('Erro ao importar edital pronto:', error);
-            // Re-throw or handle error to show in UI
-            toastGate.notifyError(error instanceof Error ? error.message : 'Erro ao importar edital selecionado', 'IMP-01');
+            toastGate.notifyError('Erro ao importar edital selecionado', 'IMP-01');
         } finally {
             setIsLoadingReady(false);
         }
@@ -662,7 +669,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 <div className="p-6 border-b border-black/5 dark:border-white/5 flex items-center justify-between shrink-0">
                     <div>
                         <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
-                            {activeTab === 'ready' ? 'Editais Prontos' : activeTab === 'ia' ? 'Importar com IA' : 'Adicionar Manual'}
+                            {activeTab === 'ready' ? 'Editais Prontos' : activeTab === 'ia' ? 'Importar com IA' : 'Criar Edital'}
                         </h2>
                         <p className="text-sm text-content-muted font-medium mt-1">
                             {activeTab === 'ready' 
@@ -698,7 +705,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                             className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'manual' ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-primary hover:bg-primary/10'}`}
                         >
                             <Plus size={14} />
-                            Adicionar Manual
+                            Criar Edital
                         </button>
                     </div>
 
@@ -1091,7 +1098,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                             value={subj.title}
                                                             onChange={(e) => {
                                                                 const newResult = [...aiResult];
-                                                                newResult[sIdx].title = e.target.value;
+                                                                newResult[sIdx].title = e.target.value.toUpperCase();
                                                                 setAiResult(newResult);
                                                             }}
                                                             className="bg-transparent border-none font-bold text-sm text-content-main outline-none focus:text-primary transition-colors w-full"
@@ -1229,7 +1236,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             ) : (
                                                 <>
                                                     <Plus size={16} />
-                                                    Adicionar Matérias
+                                                    CRIAR EDITAL
                                                 </>
                                             )}
                                         </button>

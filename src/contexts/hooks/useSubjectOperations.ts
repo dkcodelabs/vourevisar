@@ -2,13 +2,14 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject } from '@/types';
-import { toast } from '@/lib/toast';
+import { errorService } from '@/lib/errors/errorService';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export const useSubjectOperations = (
-  user: any,
+  user: { id: string } | null,
   loadSubjects: () => Promise<void>
 ) => {
-  const addSubject = async (subjectData: Omit<Subject, 'id'>) => {
+  const addSubject = async (subjectData: Omit<Subject, 'id'> & { edital_id?: string }) => {
     if (!user) return;
 
     console.log('🔵 addSubject iniciado:', { subjectData, userId: user.id });
@@ -19,9 +20,10 @@ export const useSubjectOperations = (
         .insert({
           user_id: user.id,
           name: subjectData.name,
-          status: subjectData.status,
+          status: subjectData.status || 'Não Iniciada',
           priority: subjectData.priority || 0,
-          color: subjectData.color
+          color: subjectData.color,
+          edital_id: subjectData.edital_id // Capturar edital_id se fornecido
         })
         .select()
         .single();
@@ -42,10 +44,10 @@ export const useSubjectOperations = (
       }));
 
       // Removido toast para não roubar foco
-    } catch (error: any) {
-      console.error('❌ Error adding subject:', error);
-      // Removido toast, deixar o componente lidar com erros
-      throw error;
+    } catch (err: unknown) {
+      errorService.report(err, { module: 'subjects', action: 'add', userMessage: 'Erro ao adicionar matéria.' });
+      toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao adicionar matéria', 'SUBJ-01');
+      throw err;
     }
   };
 
@@ -59,7 +61,8 @@ export const useSubjectOperations = (
           name: updates.name,
           status: updates.status,
           priority: updates.priority,
-          color: updates.color
+          color: updates.color,
+          edital_id: (updates as any).edital_id // Manter o cast temporário até tipar o Partial<Subject> melhor se necessário
         })
         .eq('id', id)
         .eq('user_id', user.id);
@@ -74,9 +77,10 @@ export const useSubjectOperations = (
       }));
 
       // Removido toast para não roubar foco
-    } catch (error: any) {
-      console.error('Error updating subject:', error);
-      throw error;
+    } catch (err: unknown) {
+      errorService.report(err, { module: 'subjects', action: 'update', userMessage: 'Erro ao atualizar matéria.' });
+      toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao atualizar matéria', 'SUBJ-02');
+      throw err;
     }
   };
 
@@ -120,9 +124,10 @@ export const useSubjectOperations = (
       }));
 
       // Removido toast para não roubar foco
-    } catch (error: unknown) {
-      console.error('Error deleting subject:', error);
-      throw error;
+    } catch (err: unknown) {
+      errorService.report(err, { module: 'subjects', action: 'delete', userMessage: 'Erro ao deletar matéria.' });
+      toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao deletar matéria', 'SUBJ-03');
+      throw err;
     }
   };
 

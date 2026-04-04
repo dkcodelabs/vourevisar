@@ -16,10 +16,21 @@ import { EditalSubjectsModal } from '@/components/editais/EditalSubjectsModal';
 import { SyncReviewModal } from '@/components/editais/SyncReviewModal';
 import { EditEditalModal } from '@/components/editais/EditEditalModal'; // Added
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
+import { MergeSuggestionCard } from '@/components/subjects/MergeSuggestionCard';
 import { Subject } from '@/types';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
-import { performHybridMerge, saveUnificationMap, performFullTopicMerge, applyTopicMergeToMap } from '@/services/cycleMergeService';
+import { 
+    performHybridMerge, 
+    saveUnificationMap, 
+    performFullTopicMerge, 
+    applyTopicMergeToMap,
+    persistPhysicalSoftMerge,
+    fetchPendingMergeSuggestions,
+    updateSuggestionStatus,
+    PendingSuggestion
+} from '@/services/cycleMergeService';
+import { mergeService } from '@/services/mergeService';
 import { 
     CycleUnificationMap, 
     HybridMergeResult,
@@ -112,11 +123,28 @@ const Editais = () => {
         step: 'select', 
         action: null 
     });
+    const [pendingMerges, setPendingMerges] = useState<Record<string, any>>({});
+    const [isRecoveringMerge, setIsRecoveringMerge] = useState(false);
     const [isAnalyzingTopics, setIsAnalyzingTopics] = useState(false);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [isMerging, setIsMerging] = useState(false);
+    const [mergePhase, setMergePhase] = useState<'exact' | 'ai'>('exact');
     const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (isMerging || isAnalyzingTopics) {
+            setMergePhase('exact');
+            const timer = setTimeout(() => {
+                setMergePhase('ai');
+            }, 1200);
+            return () => clearTimeout(timer);
+        } else {
+            setMergePhase('exact');
+        }
+    }, [isMerging, isAnalyzingTopics]);
     const [expandedPreviewSubjects, setExpandedPreviewSubjects] = useState<Set<string>>(new Set());
+    const [pendingSuggestions, setPendingSuggestions] = useState<PendingSuggestion[]>([]);
+    const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
     const toggleSubjectExpansion = (displayName: string) => {
         setExpandedSubjects(prev => {
@@ -141,6 +169,7 @@ const Editais = () => {
             return next;
         });
     };
+    const [processingMessage, setProcessingMessage] = useState<string | null>(null);
     const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
     const [suggestionName, setSuggestionName] = useState('');
     const [isSendingSuggestion, setIsSendingSuggestion] = useState(false);
@@ -189,13 +218,14 @@ const Editais = () => {
     }, [user?.id]);
     
     // ── Salvar Edital ──
-    const handleSaveEdital = useCallback(async (id: string, updates: { organ: string; position: string; year: string }) => {
+    const handleSaveEdital = useCallback(async (id: string, updates: { organ: string; position: string; year: string; exam_date?: string }) => {
         try {
             const { error } = await editaisTable()
                 .update({
                     organ: updates.organ,
                     position: updates.position,
                     year: updates.year,
+                    exam_date: updates.exam_date,
                     name: updates.position ? `${updates.organ} - ${updates.position}` : updates.organ,
                     updated_at: new Date().toISOString()
                 } as any)
@@ -228,10 +258,80 @@ const Editais = () => {
         }
     }, []);
 
+    const loadPendingMerges = useCallback(async () => {
+        if (!user) return;
+        try {
+            const { data, error } = await (supabase as any)
+                .from('pending_cycle_merges')
+                .select('*')
+                .eq('user_id', user.id);
+
+            if (error) throw error;
+
+            const map: Record<string, any> = {};
+            data?.forEach((item: any) => {
+                if (item.edital_id) {
+                    map[item.edital_id] = { 
+                        ...item.state_data, 
+                        updatedAt: item.updated_at 
+                    };
+                }
+            });
+            setPendingMerges(map);
+        } catch (err) {
+            console.error('Erro ao carregar mesclagens pendentes:', err);
+        }
+    }, [user]);
+
+    const savePendingMerge = useCallback(async (editalId: string, state: any) => {
+        if (!user) return;
+        try {
+            const dataToSave = { ...state };
+            delete dataToSave.isOpen;
+            delete dataToSave.edital;
+
+            const { error } = await (supabase as any)
+                .from('pending_cycle_merges')
+                .upsert({
+                    user_id: user.id,
+                    edital_id: editalId,
+                    state_data: dataToSave,
+                    updated_at: new Date().toISOString()
+                } as any);
+
+            if (error) throw error;
+            setPendingMerges(prev => ({ ...prev, [editalId]: dataToSave }));
+        } catch (err) {
+            console.error('Erro ao salvar mesclagem pendente:', err);
+        }
+    }, [user]);
+
+    const discardPendingMerge = useCallback(async (editalId: string) => {
+        if (!user) return;
+        try {
+            await (supabase as any)
+                .from('pending_cycle_merges')
+                .delete()
+                .eq('user_id', user.id)
+                .eq('edital_id', editalId);
+
+            setPendingMerges(prev => {
+                const next = { ...prev };
+                delete next[editalId];
+                return next;
+            });
+        } catch (err) {
+            console.error('Erro ao descartar mesclagem pendente:', err);
+        }
+    }, [user]);
+
     useEffect(() => { 
-        fetchEditais(); 
-        fetchPublicEditais();
-    }, [fetchEditais, fetchPublicEditais]);
+        if (user) {
+            fetchEditais(); 
+            fetchPublicEditais();
+            loadPendingMerges();
+        }
+    }, [user, fetchEditais, fetchPublicEditais, loadPendingMerges]);
 
     // Escuta evento de atualização de matérias/tópicos para refresh
     useEffect(() => {
@@ -241,6 +341,52 @@ const Editais = () => {
         window.addEventListener('subjectUpdated', handleExternalUpdate);
         return () => window.removeEventListener('subjectUpdated', handleExternalUpdate);
     }, [fetchEditais]);
+
+    // Carrega sugestões pendentes da IA
+    const loadPendingSuggestions = useCallback(async () => {
+        if (!user?.id) return;
+        setIsLoadingSuggestions(true);
+        try {
+            const suggestions = await fetchPendingMergeSuggestions(user.id);
+            setPendingSuggestions(suggestions);
+        } catch (err) {
+            console.error('[Editais] Erro ao carregar sugestões:', err);
+        } finally {
+            setIsLoadingSuggestions(false);
+        }
+    }, [user?.id]);
+
+    useEffect(() => {
+        loadPendingSuggestions();
+    }, [loadPendingSuggestions]);
+
+    // handlers para aprovar/rejeitar sugestões de mesclagem
+    const handleApproveSuggestion = useCallback(async (suggestion: PendingSuggestion) => {
+        try {
+            const originalIds = (suggestion.original_ids as string[] | undefined) || [];
+            if (originalIds.length >= 2) {
+                const primaryId = originalIds[0];
+                const secondaryIds = originalIds.slice(1);
+                for (const sid of secondaryIds) {
+                    await supabase.from('topics').update({ parent_topic_id: primaryId }).eq('id', sid);
+                }
+            }
+            await updateSuggestionStatus(suggestion.id, 'approved');
+            setPendingSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
+            toast.success('Tópicos unificados com sucesso!');
+        } catch (err) {
+            errorService.report(err, { module: 'merge', action: 'approve', userMessage: 'Erro ao unificar tópicos.' });
+        }
+    }, []);
+
+    const handleRejectSuggestion = useCallback(async (suggestion: PendingSuggestion) => {
+        try {
+            await updateSuggestionStatus(suggestion.id, 'rejected');
+            setPendingSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
+        } catch (err) {
+            errorService.report(err, { module: 'merge', action: 'reject', userMessage: 'Erro ao rejeitar sugestão.' });
+        }
+    }, []);
 
     // Reseta filtros se houver um sourceId destacado (para garantir que seja visível para o scroll)
     useEffect(() => {
@@ -356,21 +502,35 @@ const Editais = () => {
             if (subjectsErr) console.error('Erro ao deletar matérias:', subjectsErr);
 
             // 4. Remover Matérias do Ciclo de Estudos (user_cycles) — Evita dados órfãos na página de Revisões
-            const { data: currentCycle } = await supabase
+            const { data } = await supabase
                 .from('user_cycles')
-                .select('id, ciclo_atual')
+                .select('id, ciclo_atual, unification_map')
                 .eq('user_id', user!.id)
                 .maybeSingle();
-            
-            if (currentCycle && currentCycle.ciclo_atual) {
+            const currentCycle = data as any;
+
+            if (currentCycle) {
                 const currentIds = (currentCycle.ciclo_atual as string[]) || [];
                 const subjectIdsToRemove = new Set(edital.subjectIds);
                 const newCycleIds = currentIds.filter(id => !subjectIdsToRemove.has(id));
                 
-                if (newCycleIds.length !== currentIds.length) {
+                let newUnificationMap = currentCycle.unification_map;
+                if (newUnificationMap) {
+                    newUnificationMap = {
+                        ...newUnificationMap,
+                        editalIds: newUnificationMap.editalIds.filter((id: string) => id !== edital.id),
+                        unifiedSubjects: newUnificationMap.unifiedSubjects.map((u: any) => ({
+                            ...u,
+                            originalSubjectIds: u.originalSubjectIds.filter((id: string) => !subjectIdsToRemove.has(id))
+                        })).filter((u: any) => u.originalSubjectIds.length > 0)
+                    };
+                    if (newUnificationMap.editalIds.length === 0) newUnificationMap = null;
+                }
+
+                if (newCycleIds.length !== currentIds.length || newUnificationMap !== currentCycle.unification_map) {
                     await supabase
                         .from('user_cycles')
-                        .update({ ciclo_atual: newCycleIds, atualizado_em: new Date().toISOString() })
+                        .update({ ciclo_atual: newCycleIds, unification_map: newUnificationMap, atualizado_em: new Date().toISOString() })
                         .eq('id', currentCycle.id);
                     window.dispatchEvent(new CustomEvent('cycleUpdated'));
                 }
@@ -417,20 +577,36 @@ const Editais = () => {
         if (!user) return;
         setProcessingId(edital.id);
         try {
-            const { data: existingCycle } = await supabase
+            const { data } = await supabase
                 .from('user_cycles')
-                .select('id, ciclo_atual')
+                .select('id, ciclo_atual, unification_map')
                 .eq('user_id', user.id)
                 .single();
+            const existingCycle = data as any;
 
             if (existingCycle) {
                 const currentIds = (existingCycle.ciclo_atual as string[]) || [];
-                const newIds = currentIds.filter(id => !edital.subjectIds.includes(id));
+                const subjectIdsToRemove = new Set(edital.subjectIds);
+                const newIds = currentIds.filter(id => !subjectIdsToRemove.has(id));
+
+                let newUnificationMap = existingCycle.unification_map;
+                if (newUnificationMap) {
+                    newUnificationMap = {
+                        ...newUnificationMap,
+                        editalIds: newUnificationMap.editalIds.filter((id: string) => id !== edital.id),
+                        unifiedSubjects: newUnificationMap.unifiedSubjects.map((u: any) => ({
+                            ...u,
+                            originalSubjectIds: u.originalSubjectIds.filter((id: string) => !subjectIdsToRemove.has(id))
+                        })).filter((u: any) => u.originalSubjectIds.length > 0)
+                    };
+                    if (newUnificationMap.editalIds.length === 0) newUnificationMap = null;
+                }
 
                 const { error: cycleErr } = await supabase
                     .from('user_cycles')
                     .update({
                         ciclo_atual: newIds,
+                        unification_map: newUnificationMap,
                         atualizado_em: new Date().toISOString(),
                     } as any)
                     .eq('user_id', user.id);
@@ -503,6 +679,20 @@ const Editais = () => {
         setProcessingId(edital.id);
 
         try {
+            // Verificar se há uma mesclagem pendente para este edital
+            const pending = pendingMerges[edital.id];
+            
+            if (pending) {
+                setIsRecoveringMerge(true);
+                setCycleConflict({
+                    isOpen: true,
+                    edital: edital,
+                    ...pending
+                });
+                setProcessingId(null);
+                return;
+            }
+
             const { data: existingCycle } = await supabase
                 .from('user_cycles')
                 .select('id, ciclo_atual')
@@ -555,7 +745,7 @@ const Editais = () => {
         } finally {
             setProcessingId(null);
         }
-    }, [user, editais, subjects]);
+    }, [user, editais, subjects, pendingMerges]);
 
     const executeCycleLoad = useCallback(async (subjectIds: string[]) => {
         if (!user) return;
@@ -622,6 +812,7 @@ const Editais = () => {
     const handleHybridPreview = useCallback(async () => {
         if (!cycleConflict.edital || !user) return;
         setIsMerging(true);
+        setProcessingMessage('Unificando matérias...');
         try {
             const edital = cycleConflict.edital;
             const existingSubs = subjects.filter(s => cycleConflict.existingIds.includes(s.id));
@@ -638,31 +829,45 @@ const Editais = () => {
                 edital.id
             );
 
-            setCycleConflict(prev => ({ 
-                ...prev, 
-                step: 'preview', 
-                action: 'merge',
+            const newState = { 
+                step: 'preview' as const, 
+                action: 'merge' as const,
                 hybridResult: result,
                 unificationMap: result.unificationMap,
                 finalSubjectIds: result.finalSubjectIds,
                 aiStatus: result.stats.aiStatus,
                 subjectDisplayNameOverrides: {},
                 topicMergeResult: undefined,
+            };
+
+            setCycleConflict(prev => ({ 
+                ...prev, 
+                ...newState
             }));
+
+            // Persistir no banco de dados
+            savePendingMerge(edital.id, {
+                existingIds: cycleConflict.existingIds,
+                currentOrigins: cycleConflict.currentOrigins,
+                ...newState
+            });
 
             if (result.stats.aiStatus === 'error') {
                 toastGate.notifyError('IA Indisponível no momento. A mesclagem usará apenas nomes idênticos.', 'IA-03', { severity: 'medium' });
             }
         } catch (err) {
             errorService.report(err, { module: 'cycle', action: 'merge_preview', userMessage: 'Erro ao gerar prévia da mesclagem via IA.' });
+            setProcessingMessage(null);
         } finally {
             setIsMerging(false);
+            setProcessingMessage(null);
         }
-    }, [cycleConflict, subjects, editais, user]);
+    }, [cycleConflict, subjects, editais, user, savePendingMerge]);
 
     const handleTopicPreview = useCallback(async (useAI: boolean) => {
         if (!cycleConflict.unificationMap) return;
         setIsAnalyzingTopics(true);
+        setProcessingMessage(useAI ? 'Mesclando tópicos com IA...' : 'Organizando tópicos...');
         try {
             // Apply current name overrides to map before topic analysis
             const overrides = cycleConflict.subjectDisplayNameOverrides || {};
@@ -677,30 +882,50 @@ const Editais = () => {
             const topicResult = await performFullTopicMerge(
                 mapWithOverrides,
                 subjects,
-                useAI
+                useAI,
+                user?.id,
+                undefined,
+                (msg) => setProcessingMessage(msg)
             );
+
+            const newState = {
+                step: 'topic-preview' as const,
+                unificationMap: mapWithOverrides,
+                topicMergeResult: topicResult,
+            };
 
             setCycleConflict(prev => ({
                 ...prev,
-                step: 'topic-preview',
-                unificationMap: mapWithOverrides,
-                topicMergeResult: topicResult,
+                ...newState
             }));
+
+            // Persistir no banco de dados
+            if (cycleConflict.edital) {
+                savePendingMerge(cycleConflict.edital.id, {
+                    existingIds: cycleConflict.existingIds,
+                    currentOrigins: cycleConflict.currentOrigins,
+                    action: cycleConflict.action,
+                    hybridResult: cycleConflict.hybridResult,
+                    aiStatus: cycleConflict.aiStatus,
+                    ...newState
+                });
+            }
         } catch (err) {
             errorService.report(err, { module: 'cycle', action: 'topic_preview', userMessage: 'Erro ao analisar tópicos.' });
         } finally {
             setIsAnalyzingTopics(false);
+            setProcessingMessage(null);
         }
-    }, [cycleConflict, subjects]);
+    }, [cycleConflict, subjects, savePendingMerge, user?.id]);
 
     const handleCycleConflictAction = useCallback(async (action: 'replace' | 'merge' | 'hybrid') => {
         if (!cycleConflict.edital || !user) return;
         const edital = cycleConflict.edital;
         setProcessingId(edital.id);
         // Apply topic merge results into the unification map if available
+        let currentUnificationMap = cycleConflict.unificationMap;
         if (cycleConflict.topicMergeResult && cycleConflict.unificationMap) {
-            const finalMap = applyTopicMergeToMap(cycleConflict.unificationMap, cycleConflict.topicMergeResult);
-            setCycleConflict(prev => ({ ...prev, unificationMap: finalMap }));
+            currentUnificationMap = applyTopicMergeToMap(cycleConflict.unificationMap, cycleConflict.topicMergeResult);
         }
 
         try {
@@ -725,8 +950,8 @@ const Editais = () => {
 
                 toast.success(`Ciclo substituído com sucesso por "${edital.name}".`);
             } else {
-                // Se já temos o mapa calculado da prévia, usamos. Senão (fallback), calculamos.
-                let unificationMap = cycleConflict.unificationMap || cycleConflict.hybridResult?.unificationMap;
+                // Se já temos o mapa calculado da prévia, usamos (agora já atualizado pelos tópicos logo acima). Senão (fallback), calculamos.
+                let unificationMap = currentUnificationMap || cycleConflict.hybridResult?.unificationMap;
                 let finalSubjectIds = cycleConflict.finalSubjectIds || cycleConflict.hybridResult?.finalSubjectIds;
                 let result: HybridMergeResult | null = cycleConflict.hybridResult || null;
 
@@ -744,10 +969,34 @@ const Editais = () => {
                     result = resultData; 
                 }
 
-                // Persist unification map to user_cycles in database
+                // 1. Aplicar unificação física (Soft Merge) no banco de dados
+                await persistPhysicalSoftMerge(unificationMap);
+
+                // 2. Persistir o mapa de unificação no registro do ciclo (para UI)
                 await saveUnificationMap(user.id, unificationMap);
 
-                // Load merged cycle
+                // 3. NOVO: Salvar mesclagens nas tabelas dedicated (subject_merges e topic_merges)
+                try {
+                    // Buscar o cycle_id primeiro
+                    const { data: cycleData } = await (supabase as any)
+                        .from('user_cycles')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .eq('status', 'active')
+                        .limit(1)
+                        .maybeSingle();
+                    
+                    const cycleId = cycleData?.id;
+                    if (cycleId && unificationMap) {
+                        await mergeService.saveMergeFromUnificationMap(user.id, cycleId, unificationMap);
+                        console.log('[Editais] Mesclagens salvas nas tabelas dedicated');
+                        window.dispatchEvent(new CustomEvent('mergeUpdated'));
+                    }
+                } catch (mergeErr) {
+                    console.error('[Editais] Erro ao salvar nas tabelas de merge:', mergeErr);
+                }
+
+                // 4. Carregar matérias no ciclo ativo
                 await executeCycleLoad(finalSubjectIds!);
                 await markEditalMerged(edital.id, edital.subjectIds);
 
@@ -764,15 +1013,20 @@ const Editais = () => {
                 );
             }
             
+            // Se a ação foi concluída com sucesso, descartar persistência
+            discardPendingMerge(edital.id);
+
             setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
             await fetchEditais();
             await refreshData();
+            
+            window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'merge_completed' } }));
         } catch (err) {
             errorService.report(err, { module: 'cycle', action: 'conflict_resolution', userMessage: 'Erro ao processar ação no ciclo.' });
         } finally {
             setProcessingId(null);
         }
-    }, [cycleConflict, executeCycleLoad, editais, markEditalMerged, fetchEditais, refreshData, user, subjects]);
+    }, [cycleConflict, executeCycleLoad, editais, markEditalMerged, fetchEditais, refreshData, user, subjects, discardPendingMerge]);
 
     /**
      * Importação de edital: cria matérias e tópicos REAIS no Supabase,
@@ -781,9 +1035,9 @@ const Editais = () => {
     const handleImportDone = useCallback(async (
         importedSubjects: Subject[], 
         editalName?: string, 
-        isImported: boolean = true, 
+        isImported: boolean = false,
         sourceId?: string,
-        extraInfo?: { organ: string; position: string; year: string }
+        extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string }
     ) => {
         if (!user || isSaving) return;
         setIsSaving(true);
@@ -799,6 +1053,7 @@ const Editais = () => {
                         user_id: user.id,
                         name: subj.name,
                         status: 'Nova',
+                        color: subj.color || '#3b82f6',
                     } as any)
                     .select('id')
                     .single();
@@ -816,7 +1071,8 @@ const Editais = () => {
                         name: t.name,
                         completed: false,
                         review_count: 0,
-                        position: t.position ?? idx
+                        position: t.position ?? idx,
+                        is_active: true
                     }));
 
                 if (topicsToInsert.length > 0) {
@@ -838,6 +1094,8 @@ const Editais = () => {
                 organ: extraInfo?.organ,
                 position: extraInfo?.position,
                 year: extraInfo?.year,
+                category: extraInfo?.category,
+                exam_date: extraInfo?.exam_date,
                 subject_ids: realSubjectIds,
                 active_subject_ids: realSubjectIds,
                 merged_into_cycle: false,
@@ -911,6 +1169,10 @@ const Editais = () => {
         const mergedEditais = editais.filter(e => ids.includes(e.id));
         const mergedName = mergedEditais.map(e => e.name).join(' + ');
         const mergedSubjectIds = [...new Set(mergedEditais.flatMap(e => e.subjectIds))];
+        
+        // Se houver matérias com IDs diferentes mas nomes idênticos, a unificação manual simples
+        // não as agrupa. O usuário deve preferir a Unificação Híbrida (IA) para isso.
+        // No entanto, garantimos que IDs idênticos nunca sejam duplicados.
 
         try {
             const { error: insertErr } = await editaisTable().insert({
@@ -1025,7 +1287,8 @@ const Editais = () => {
                     .insert({ 
                         user_id: user.id, 
                         name: ss.name || ss.title, 
-                        status: 'Nova' 
+                        status: 'Nova',
+                        edital_id: edital.id
                     } as any)
                     .select('id')
                     .single();
@@ -1039,6 +1302,7 @@ const Editais = () => {
 
                 const topicsToInsert = (ss.topics || []).map((ts: any, idx: number) => ({
                     subject_id: newSubj.id,
+                    edital_id: edital.id, // Vínculo explícito com o edital
                     name: typeof ts === 'string' ? ts : ts.name,
                     completed: false,
                     review_count: 0,
@@ -1058,6 +1322,7 @@ const Editais = () => {
             for (const [subjId, topics] of Object.entries(addedTopics)) {
                 const topicsToInsert = topics.map((tName, idx) => ({
                     subject_id: subjId,
+                    edital_id: edital.id, // Vínculo explícito com o edital
                     name: tName,
                     completed: false,
                     review_count: 0,
@@ -1690,12 +1955,6 @@ const Editais = () => {
                             </div>
                             <div className="flex gap-3">
                                 <button
-                                    onClick={() => setUnloadConfirm({ isOpen: false, edital: null })}
-                                    className="flex-1 py-3 bg-secondary dark:bg-zinc-800 text-content-muted font-bold rounded-xl hover:bg-secondary/80 dark:hover:bg-zinc-700 transition-all text-xs uppercase tracking-widest"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
                                     onClick={() => {
                                         handleUnloadCycle(unloadConfirm.edital!);
                                         setUnloadConfirm({ isOpen: false, edital: null });
@@ -1709,8 +1968,6 @@ const Editais = () => {
                     </div>
                 )}
             </AnimatePresence>
-
-            {/* ── Modal: Gerenciar Ciclo (Carga e Conflito) ── */}
             <AnimatePresence>
                 {cycleConflict.isOpen && cycleConflict.edital && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -1728,7 +1985,7 @@ const Editais = () => {
                         >
                             {/* Overlay de Processamento com IA */}
                             {isMerging && (
-                                <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-md animate-in fade-in duration-300">
+                                <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-background/90 backdrop-blur-md animate-in fade-in duration-300 rounded-[28px]">
                                     <div className="flex flex-col items-center gap-6 text-center max-w-[280px]">
                                         <div className="relative">
                                             <div className="absolute -inset-4 bg-emerald-500/20 blur-2xl rounded-full animate-pulse" />
@@ -1738,21 +1995,24 @@ const Editais = () => {
                                             <Merge size={16} className="absolute -bottom-1 -right-1 text-emerald-500 bg-background rounded-full p-0.5 border border-emerald-500/20" />
                                         </div>
                                         
-                                        <div className="space-y-2.5">
+                                        <div className="space-y-3">
                                             <h3 className="text-base font-black text-foreground uppercase tracking-tight leading-tight">
                                                 Processamento Inteligente
                                             </h3>
-                                            <div className="flex flex-col gap-1">
+                                            <div className="flex flex-col gap-2">
                                                 <p className="text-xs text-content-muted font-medium px-4">
-                                                    Nossa IA está analisando a compatibilidade entre as matérias...
+                                                    {processingMessage || "Analisando a compatibilidade..."}
                                                 </p>
-                                                <div className="flex flex-col gap-1 items-center mt-2 opacity-60">
-                                                    <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse">Analisando nomes exatos</span>
-                                                    <span className="text-[9px] font-bold text-sky-500 uppercase tracking-widest animation-delay-500">Mapeando tópicos equivalentes</span>
+                                                <div className="flex justify-center mt-1">
+                                                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                                                        {mergePhase === 'exact' 
+                                                            ? "Mapeamento Primário"
+                                                            : "IA em Ação"
+                                                        }
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
-                                        
                                         <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden border border-border/50">
                                             <div className="h-full bg-emerald-500 w-1/2 rounded-full animate-[progress_2s_ease-in-out_infinite]" />
                                         </div>
@@ -1760,11 +2020,45 @@ const Editais = () => {
                                 </div>
                             )}
 
+                            {/* Banner de Mesclagem Recuperada (Estilo Amber para consistência) */}
+                            {isRecoveringMerge && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center justify-between gap-4 mb-2"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
+                                            <FileText size={18} className="text-amber-600 dark:text-amber-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black text-amber-800 dark:text-amber-300">
+                                                Mesclagem recuperada
+                                            </p>
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
+                                                Restauramos sua última análise · {new Date((cycleConflict as any).updatedAt).toLocaleString('pt-BR')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            if (cycleConflict.edital) discardPendingMerge(cycleConflict.edital.id);
+                                            setIsRecoveringMerge(false);
+                                            setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
+                                        }}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all flex-shrink-0"
+                                    >
+                                        <Trash2 size={12} />
+                                        Descartar
+                                    </button>
+                                </motion.div>
+                            )}
+
                             {/* Header */}
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${cycleConflict.step === 'preview' ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}>
-                                        {cycleConflict.step === 'preview' ? (
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${cycleConflict.step === 'preview' || cycleConflict.step === 'topic-preview' ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}>
+                                        {cycleConflict.step === 'preview' || cycleConflict.step === 'topic-preview' ? (
                                             <CheckCircle2 className="text-emerald-400" size={24} />
                                         ) : (
                                             <AlertTriangle className="text-sky-400" size={24} />
@@ -1794,8 +2088,8 @@ const Editais = () => {
                                 </button>
                             </div>
 
-                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
-                                {/* Seção: Ciclo Atual (SÓ MOSTRA NO PASSO 1) */}
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar relative min-h-[100px]">
+                                {/* Seção: Ciclo Atual (SÓ MOSTRA NO PASSO 1 - SELECT) */}
                                 {cycleConflict.step === 'select' && cycleConflict.existingIds.length > 0 && (
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between px-1">
@@ -1809,8 +2103,6 @@ const Editais = () => {
                                                 const isManual = (origin as any).isManual;
                                                 const editalOrigin = isManual ? null : origin as UserEdital;
                                                 
-                                                // Filtrar matérias que pertencem a esta origem
-                                                // Se for manual, pegamos as matérias que NÃO pertencem a nenhum dos outros editais na lista
                                                 const originSubjects = subjects.filter(s => {
                                                     if (!cycleConflict.existingIds.includes(s.id)) return false;
                                                     if (isManual) {
@@ -1827,48 +2119,16 @@ const Editais = () => {
                                                             <div className="flex items-center gap-2">
                                                                 <div className="w-1.5 h-4 bg-sky-500 rounded-full" />
                                                                 <span className="text-xs font-bold text-foreground uppercase tracking-tight">{origin.name}</span>
-                                                                {!isManual && (
-                                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-[8px] font-bold text-sky-500 tracking-wider uppercase">
-                                                                        SISTEMA . {editalOrigin?.isImported ? 'IA' : 'MANUAL'}
-                                                                    </span>
-                                                                )}
                                                             </div>
-                                                            {!isManual && (editalOrigin?.position || editalOrigin?.organ) && (
-                                                                <div className="px-3 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/20 flex flex-col gap-0.5">
-                                                                    {editalOrigin.organ && <span className="text-[10px] font-bold text-sky-600/80 dark:text-sky-400/80 uppercase tracking-wider">{editalOrigin.organ}</span>}
-                                                                    {editalOrigin.position && <span className="text-[9px] font-medium text-content-muted/70 leading-tight italic">{editalOrigin.position}</span>}
-                                                                </div>
-                                                            )}
                                                         </div>
 
-                                                        <div className="flex flex-col gap-1.5">
-                                                            {originSubjects.map(s => {
-                                                                const isExpanded = expandedPreviewSubjects.has(s.id);
-                                                                return (
-                                                                    <div key={s.id} className="flex flex-col gap-1 text-left">
-                                                                        <button 
-                                                                            onClick={() => togglePreviewSubjectExpansion(s.id)}
-                                                                            className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-card hover:bg-card/80 border border-border/50 transition-all group"
-                                                                        >
-                                                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                                                <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-sky-500' : 'text-content-muted/40'}`} />
-                                                                                <span className="text-sm font-bold text-foreground truncate">{s.name}</span>
-                                                                            </div>
-                                                                            <span className="text-[8px] font-bold text-content-muted/40 uppercase tracking-tighter shrink-0">{s.topics?.length || 0} tópicos</span>
-                                                                        </button>
-                                                                        {isExpanded && s.topics && s.topics.length > 0 && (
-                                                                            <div className="mx-2 p-2 rounded-lg border border-white/5 space-y-1 animate-in slide-in-from-top-1 duration-200">
-                                                                                {s.topics.map(t => (
-                                                                                    <div key={t.id} className="flex items-center gap-2 text-[11px] text-content-muted/70 leading-tight px-2 py-1.5 rounded-md hover:bg-sky-500/10 transition-colors">
-                                                                                        <div className="w-1 h-1 rounded-full bg-sky-500/30 shrink-0" />
-                                                                                        <span className="truncate">{t.name}</span>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                            {originSubjects.map(s => (
+                                                                <div key={s.id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-border/50">
+                                                                    <BookOpen size={12} className="text-sky-500/50" />
+                                                                    <span className="text-xs font-bold text-foreground/80 truncate">{s.name}</span>
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     </div>
                                                 );
@@ -1877,62 +2137,39 @@ const Editais = () => {
                                     </div>
                                 )}
 
-                                {/* Seção: Novo Edital (SÓ MOSTRA NO PASSO 1) */}
+                                {/* Seção: Novo Edital (SÓ MOSTRA NO PASSO 1 - SELECT) */}
                                 {cycleConflict.step === 'select' && (
-                                    <div className="space-y-2">
+                                    <div className="space-y-4">
                                         <div className="flex items-center justify-between px-1">
                                             <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">NOVO EDITAL SELECIONADO</span>
                                             <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md">
                                                 {cycleConflict.edital.subjectIds.length} matérias
                                             </span>
                                         </div>
-                                        <div className="p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
+                                        <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-4">
                                             <div className="flex flex-col gap-1.5">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-1.5 h-4 bg-emerald-500 rounded-full" />
                                                     <span className="text-xs font-bold text-foreground uppercase tracking-tight">{cycleConflict.edital.name}</span>
-                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-bold text-emerald-500 tracking-wider uppercase">
-                                                        SISTEMA . {cycleConflict.edital.isImported ? 'IA' : 'MANUAL'}
-                                                    </span>
                                                 </div>
-                                                {(cycleConflict.edital.position || cycleConflict.edital.organ) && (
-                                                    <div className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col gap-0.5">
-                                                        {cycleConflict.edital.organ && <span className="text-[10px] font-bold text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-wider">{cycleConflict.edital.organ}</span>}
-                                                        {cycleConflict.edital.position && <span className="text-[9px] font-medium text-content-muted/70 leading-tight italic">{cycleConflict.edital.position}</span>}
-                                                    </div>
-                                                )}
                                             </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                {cycleConflict.edital.subjectIds.map(sid => {
-                                                    // Priorizar dados carregados explicitamente (que contêm tópicos)
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {cycleConflict.edital.subjectIds.slice(0, 10).map(sid => {
                                                     const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
                                                     if (!s) return null;
-                                                    const isExpanded = expandedPreviewSubjects.has(s.id);
                                                     return (
-                                                        <div key={sid} className="flex flex-col gap-1 text-left">
-                                                            <button 
-                                                                onClick={() => togglePreviewSubjectExpansion(s.id)}
-                                                                className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/10 transition-all group"
-                                                            >
-                                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                                    <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-emerald-500' : 'text-emerald-500/30'}`} />
-                                                                    <span className="text-sm font-bold text-emerald-600/90 dark:text-emerald-400/90 truncate">{s.name}</span>
-                                                                </div>
-                                                                <span className="text-[8px] font-bold text-emerald-600/40 uppercase tracking-tighter shrink-0">{(s as any).topics?.length || 0} tópicos</span>
-                                                            </button>
-                                                            {isExpanded && s.topics && s.topics.length > 0 && (
-                                                                <div className="mx-2 p-2 rounded-lg border border-emerald-500/10 space-y-1 animate-in slide-in-from-top-1 duration-200">
-                                                                    {s.topics.map(t => (
-                                                                        <div key={t.id} className="flex items-center gap-2 text-[11px] text-emerald-600/70 dark:text-emerald-400/70 leading-tight px-2 py-1.5 rounded-md hover:bg-emerald-500/10 transition-colors">
-                                                                            <div className="w-1 h-1 rounded-full bg-emerald-500/30 shrink-0" />
-                                                                            <span className="truncate">{t.name}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
+                                                        <div key={sid} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/10 transition-all">
+                                                            <BookOpen size={12} className="text-emerald-500/50" />
+                                                            <span className="text-[10px] font-bold text-emerald-600/90 dark:text-emerald-400/90 truncate uppercase">{s.name}</span>
                                                         </div>
                                                     );
                                                 })}
+                                                {cycleConflict.edital.subjectIds.length > 10 && (
+                                                    <div className="flex items-center justify-center px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/10 border-dashed">
+                                                        <span className="text-[9px] font-bold text-emerald-600/50 uppercase tracking-widest">+{cycleConflict.edital.subjectIds.length - 10} matérias</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1940,28 +2177,6 @@ const Editais = () => {
 
                                 {/* Seção: Resultado (Preview) - SÓ MOSTRA SE FOR PREVIEW */}
                                 {cycleConflict.step === 'preview' && (
-                                    <>
-                                        {cycleConflict.aiStatus && cycleConflict.aiStatus !== 'success' && (
-                                    <div className="mx-1 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-                                            <AlertCircle className="text-amber-500" size={20} />
-                                        </div>
-                                        <div className="flex-1 space-y-1">
-                                            <h4 className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-tight">IA Indisponível no Momento</h4>
-                                            <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 leading-relaxed font-medium">
-                                                Não foi possível realizar a unificação semântica inteligente. 
-                                                O sistema mesclou o edital usando apenas <strong>nomes idênticos</strong> como critério.
-                                            </p>
-                                            <button 
-                                                onClick={() => handleHybridPreview()}
-                                                className="mt-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 underline decoration-amber-500/30 hover:decoration-amber-500 transition-all"
-                                            >
-                                                Tentar Inteligência Artificial novamente
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
                                     <div className="space-y-4 py-2">
                                         <div className="flex flex-col gap-1 px-1">
                                             <div className="flex items-center justify-between">
@@ -1972,57 +2187,22 @@ const Editais = () => {
                                                 </span>
                                                 <span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded-md">
                                                     {finalPreviewIds.length} matérias no total
-                                                    {finalPreviewIds.length < 3 && cycleConflict.edital && (
-                                                        <span className="ml-2 bg-sky-500 text-white px-1.5 rounded-sm uppercase text-[8px] font-black">
-                                                            {cycleConflict.edital.organ} • {cycleConflict.edital.position}
-                                                        </span>
-                                                    )}
                                                 </span>
                                             </div>
-
-                                            {/* Nome do Edital e Cargo (Abaixo do contador de matérias) */}
-                                            {cycleConflict.edital && (
-                                                <div className="flex flex-col mt-0.5">
-                                                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground/90">
-                                                        <FileText size={12} className="text-sky-500" />
-                                                        <span>{cycleConflict.edital.organ}</span>
-                                                        <span className="text-content-muted/40">•</span>
-                                                        <span className="text-sky-500">{cycleConflict.edital.position}</span>
-                                                        {cycleConflict.edital.year && (
-                                                            <>
-                                                                <span className="text-content-muted/40">•</span>
-                                                                <span className="text-content-muted">{cycleConflict.edital.year}</span>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <p className="text-[10px] text-content-muted italic">
+                                            <p className="text-[10px] text-content-muted italic leading-relaxed">
                                                 {cycleConflict.existingIds.length === 0
-                                                    ? 'Carregando matérias do edital selecionado.'
+                                                    ? 'As matérias abaixo serão adicionadas ao seu novo ciclo.'
                                                     : (cycleConflict.action === 'merge' 
-                                                        ? 'Unindo as matérias atuais com as do novo edital.'
-                                                        : 'Limpando o ciclo atual e carregando as matérias do novo edital.')}
+                                                        ? 'As matérias com mesmo nome serão unificadas para preservar seu progresso.'
+                                                        : 'Seu ciclo atual será removido e substituído por este edital.')}
                                             </p>
                                         </div>
-                                        <div className="relative p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 space-y-2 max-h-[40vh] overflow-y-auto">
-                                            {/* Overlay de carregamento da IA */}
-                                            {isMerging && (
-                                                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 dark:bg-zinc-900/60 backdrop-blur-sm rounded-2xl animate-in fade-in duration-300">
-                                                    <Loader2 className="w-8 h-8 text-sky-500 animate-spin mb-3" />
-                                                    <div className="flex flex-col items-center gap-1">
-                                                        <span className="text-xs font-black text-sky-500 uppercase tracking-widest">Processando IA</span>
-                                                        <span className="text-[10px] text-content-muted animate-pulse">Analisando similaridades semânticas...</span>
-                                                    </div>
-                                                </div>
-                                            )}
 
-                                            {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && cycleConflict.unificationMap ? (
-                                                <div className="flex flex-col gap-2">
-                                                    {/* Matérias Unificadas e Isoladas (Design Unificado) */}
-                                                    {[
-                                                        ...(cycleConflict.unificationMap?.unifiedSubjects || []).map(us => ({ ...us, type: 'unified' as const })),
+                                        <div className="relative p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 space-y-2 max-h-[40vh] overflow-y-auto no-scrollbar">
+                                            <div className="flex flex-col gap-2">
+                                                {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && cycleConflict.unificationMap ? (
+                                                    [
+                                                        ...(cycleConflict.unificationMap.unifiedSubjects || []).map(us => ({ ...us, type: 'unified' as const })),
                                                         ...subjects.filter(s => cycleConflict.unificationMap?.standaloneSubjectIds.includes(s.id)).map(s => ({ 
                                                             displayName: s.name, 
                                                             originalSubjectIds: [s.id], 
@@ -2032,409 +2212,268 @@ const Editais = () => {
                                                         const isUnified = item.type === 'unified';
                                                         const primaryId = item.originalSubjectIds[0];
                                                         const overrideValue = cycleConflict.subjectDisplayNameOverrides?.[primaryId] ?? (('displayNameOverride' in item ? item.displayNameOverride : null) || item.displayName);
+                                                        const isExpanded = expandedPreviewSubjects.has(primaryId);
                                                         
-                                                        const originalInfo = item.originalSubjectIds
-                                                            .map((id: string) => {
-                                                                const subj = subjects.find(s => s.id === id);
-                                                                if (!subj) return null;
-                                                                let editalName = 'Ciclo Atual';
-                                                                if (cycleConflict.edital?.subjectIds.includes(id)) {
-                                                                    editalName = cycleConflict.edital.name;
-                                                                } else {
-                                                                    const origin = editais.find(e => e.mergedIntoCycle && e.id !== cycleConflict.edital?.id && e.subjectIds.includes(id));
-                                                                    if (origin) editalName = origin.name;
-                                                                }
-                                                                return { name: subj.name, editalName };
-                                                            })
-                                                            .filter(Boolean) as {name: string, editalName: string}[];
-                                                        
-                                                        const isExpanded = expandedSubjects.has(item.displayName);
-
                                                         return (
                                                             <div 
                                                                 key={primaryId} 
-                                                                className={`group/subject transition-all duration-300 rounded-2xl border ${
+                                                                className={`flex flex-col rounded-2xl border transition-all ${
                                                                     isUnified 
-                                                                        ? 'bg-emerald-500/[0.03] dark:bg-emerald-500/[0.02] border-emerald-500/20' 
-                                                                        : 'bg-zinc-500/[0.03] dark:bg-zinc-500/[0.02] border-zinc-500/20'
-                                                                } ${isExpanded ? 'p-3.5 ring-1 ring-primary/20 shadow-xl' : 'p-2.5'}`}
+                                                                        ? 'bg-emerald-500/[0.04] border-emerald-500/20 shadow-sm shadow-emerald-500/5' 
+                                                                        : 'bg-zinc-500/[0.03] border-zinc-500/10'
+                                                                }`}
                                                             >
-                                                                <div className="flex items-start justify-between gap-3">
-                                                                    <div className="space-y-2 overflow-hidden w-full">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${
-                                                                                isUnified ? 'bg-emerald-500/10 text-emerald-500' : 'bg-zinc-500/10 text-zinc-500'
-                                                                            }`}>
-                                                                                <BookOpen size={14} />
-                                                                            </div>
-                                                                            <input
-                                                                                type="text"
-                                                                                value={overrideValue}
-                                                                                onClick={e => e.stopPropagation()}
-                                                                                onChange={e => {
-                                                                                    const val = e.target.value;
-                                                                                    setCycleConflict(prev => ({
-                                                                                        ...prev,
-                                                                                        subjectDisplayNameOverrides: { ...prev.subjectDisplayNameOverrides, [primaryId]: val }
-                                                                                    }));
-                                                                                }}
-                                                                                className="flex-1 min-w-0 text-sm font-bold text-foreground uppercase bg-transparent border-b border-transparent focus:border-primary/50 focus:outline-none transition-all py-0.5 tracking-wide cursor-text placeholder:opacity-30"
-                                                                                placeholder="NOME DA MATÉRIA..."
-                                                                            />
-                                                                            <button 
-                                                                                onClick={() => toggleSubjectExpansion(item.displayName)} 
-                                                                                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-colors shrink-0"
-                                                                            >
-                                                                                {isExpanded ? <ChevronUp size={14} className="opacity-50" /> : <ChevronDown size={14} className="opacity-50" />}
-                                                                            </button>
+                                                                <div 
+                                                                    className="flex items-center justify-between gap-3 p-3 cursor-pointer select-none"
+                                                                    onClick={() => togglePreviewSubjectExpansion(primaryId)}
+                                                                >
+                                                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                                        <div className={`p-1.5 rounded-lg shrink-0 ${
+                                                                            isUnified ? 'bg-emerald-500/10 text-emerald-500' : 'bg-zinc-500/10 text-zinc-500'
+                                                                        }`}>
+                                                                            <BookOpen size={14} />
                                                                         </div>
-
-                                                                        <div className="flex flex-col gap-1.5 pl-9">
-                                                                            {originalInfo.map((info, i: number) => (
-                                                                                <div key={i} className="flex items-center gap-2 flex-wrap group/info">
-                                                                                    <div className={`w-1 h-1 rounded-full shrink-0 ${isUnified ? 'bg-emerald-500/40' : 'bg-zinc-500/40'}`} />
-                                                                                    <span className="text-[10px] font-medium text-content-muted/80 truncate">
-                                                                                        {info.name}
-                                                                                    </span>
-                                                                                    <span className="text-[8px] font-bold text-content-muted/40 uppercase tracking-tighter bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-sm shrink-0 truncate border border-transparent group-hover/info:border-primary/10">
-                                                                                        {info.editalName}
-                                                                                    </span>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
+                                                                        <span className="text-sm font-bold text-foreground uppercase tracking-wide truncate">
+                                                                            {overrideValue}
+                                                                        </span>
                                                                     </div>
-
-                                                                    <div className="flex flex-col items-end gap-1 shrink-0 pt-1">
-                                                                        {isUnified ? (
-                                                                            <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg flex items-center gap-1.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-sm animate-in zoom-in-95">
-                                                                                <Merge size={10} />
-                                                                                UNIFICADO
-                                                                            </span>
-                                                                        ) : (
-                                                                            <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg flex items-center gap-1.5 bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 shadow-sm animate-in zoom-in-95">
-                                                                                <CheckCircle2 size={10} />
-                                                                                MANTIDO
-                                                                            </span>
-                                                                        )}
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${
+                                                                            isUnified ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+                                                                        }`}>
+                                                                            {isUnified ? 'MESCLADO' : 'MANTIDO'}
+                                                                        </span>
+                                                                        <div className="text-content-muted/40 transition-transform duration-200">
+                                                                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Tópicos Unificados/Individuais */}
-                                                                {isExpanded && (
-                                                                    <div className="mt-3.5 pt-3.5 border-t border-primary/5 space-y-2 animate-in slide-in-from-top-2 duration-300">
-                                                                        <div className="flex items-center gap-2 pl-9 mb-1 opacity-40">
-                                                                            <span className="text-[8px] font-black uppercase tracking-widest text-primary">
-                                                                                {isUnified ? `Estrutura de Tópicos Unificada (${('topicMappings' in item ? item.topicMappings?.length : 0) || 0})` : 'Tópicos da Matéria'}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="grid grid-cols-1 gap-1.5 pl-9">
-                                                                            {isUnified && 'topicMappings' in item && item.topicMappings ? (
-                                                                                item.topicMappings.map((tm: UnifiedTopicMapping, idx: number) => (
-                                                                                    <div key={idx} className="flex items-center justify-between gap-3 group/topic bg-emerald-500/5 hover:bg-emerald-500/10 p-1.5 rounded-lg transition-all border border-emerald-500/5 hover:border-emerald-500/20">
-                                                                                        <div className="flex items-center gap-2.5 overflow-hidden">
-                                                                                            <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500/40" />
-                                                                                            <span className="text-[11px] font-semibold text-emerald-600/90 dark:text-emerald-400/90 truncate py-0.5">
-                                                                                                {tm.displayName}
-                                                                                            </span>
-                                                                                        </div>
-                                                                                        <div className="flex items-center gap-1.5">
-                                                                                            <span className="text-[7px] font-black px-1.5 py-0.5 rounded-md shrink-0 flex items-center gap-1 text-emerald-500 bg-emerald-500/10 border border-emerald-500/10">
-                                                                                                <Merge size={7} />
-                                                                                                UNIFICADO
-                                                                                            </span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ))
-                                                                            ) : (
-                                                                                subjects.find(s => s.id === primaryId)?.topics?.map((topic: {id: string, name: string}, idx: number) => (
-                                                                                    <div key={topic.id || idx} className="flex items-center gap-2.5 group/topic p-1 px-1.5 rounded-md hover:bg-zinc-500/5 transition-colors">
-                                                                                        <div className="w-1 h-1 rounded-full shrink-0 bg-zinc-500/30" />
-                                                                                        <span className="text-[11px] font-medium text-content-muted truncate py-0.5 uppercase tracking-wide">
-                                                                                            {topic.name}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                ))
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
+                                                                <AnimatePresence>
+                                                                    {isExpanded && (
+                                                                        <motion.div
+                                                                            initial={{ height: 0, opacity: 0 }}
+                                                                            animate={{ height: 'auto', opacity: 1 }}
+                                                                            exit={{ height: 0, opacity: 0 }}
+                                                                            className="overflow-hidden"
+                                                                        >
+                                                                            <div className="px-3 pb-3 pt-0 space-y-2 border-t border-border/10 mt-1">
+                                                                                <p className="text-[10px] font-black text-content-muted/60 uppercase tracking-widest mt-2 px-1">Fonte da Matéria</p>
+                                                                                <div className="flex flex-col gap-1.5">
+                                                                                    {item.originalSubjectIds.map(sid => {
+                                                                                        const s = subjects.find(sub => sub.id === sid);
+                                                                                        const edId = s?.edital_id;
+                                                                                        const ed = editais.find(e => e.id === edId);
+                                                                                        return (
+                                                                                            <div key={sid} className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-background/50 border border-border/50">
+                                                                                                <FileText size={10} className="text-content-muted/40" />
+                                                                                                <span className="text-[10px] font-bold text-content-muted uppercase tracking-tight">
+                                                                                                    {ed?.name || 'Matéria Existente'}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            </div>
+                                                                        </motion.div>
+                                                                    )}
+                                                                </AnimatePresence>
                                                             </div>
                                                         );
-                                                    })}
-                                                    
-                                                    {cycleConflict.unificationMap.unifiedSubjects.every(us => us.matchType !== 'semantic') && (
-                                                        <div className="py-4 flex flex-col items-center justify-center opacity-40 grayscale border-t border-emerald-500/5 mt-2">
-                                                            <Sparkles size={16} className="text-sky-500/50 mb-1" />
-                                                            <span className="text-[8px] font-bold uppercase tracking-widest">Nenhuma unificação por IA sugerida</span>
-                                                            <p className="text-[7px] text-center max-w-[150px] mt-0.5">As matérias do novo edital não possuem nomes suficientemente similares às atuais para uma fusão automática via IA.</p>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Legenda de Status */}
-                                                    {/* Legenda de Status - Removida */}
-                                                </div>
-                                            ) : (
-                                                /* Replace ou fallback */
-                                                <div className="flex flex-col gap-2">
-                                                    {subjects.filter(s => finalPreviewIds.includes(s.id)).map(s => {
+                                                    })
+                                                ) : (
+                                                    subjects.filter(s => finalPreviewIds.includes(s.id)).map(s => {
                                                         const isNew = cycleConflict.edital?.subjectIds.includes(s.id);
                                                         const isCurrent = cycleConflict.existingIds.includes(s.id);
-                                                        const originEdital = editais.find(e => e.subjectIds.includes(s.id) && e.mergedIntoCycle);
-                                                        const newEdital = cycleConflict.edital;
-                                                        const isExpanded = expandedPreviewSubjects.has(s.id);
                                                         
-                                                        let cardStyle = 'bg-zinc-500/[0.03] dark:bg-zinc-500/[0.02] border-zinc-500/20';
+                                                        let cardStyle = 'bg-zinc-500/[0.03] border-zinc-500/10';
                                                         let badgeStyle = 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20';
-                                                        let badgeIcon = <CheckCircle2 size={10} />;
                                                         let label = 'MANTIDO';
 
                                                         if (cycleConflict.action === 'replace') {
                                                             if (isNew && !isCurrent) {
-                                                                cardStyle = 'bg-emerald-500/[0.03] dark:bg-emerald-500/[0.02] border-emerald-500/20';
+                                                                cardStyle = 'bg-emerald-500/[0.04] border-emerald-500/20';
                                                                 badgeStyle = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-                                                                badgeIcon = <PlusCircle size={10} />;
                                                                 label = 'NOVO';
                                                             } else if (!isNew && isCurrent) {
                                                                 cardStyle = 'bg-red-500/[0.02] border-red-500/10 opacity-40 grayscale';
-                                                                badgeStyle = 'bg-red-500/10 text-red-500';
-                                                                badgeIcon = <Trash2 size={10} />;
+                                                                badgeStyle = 'bg-red-500/10 text-red-500 border-red-500/20';
                                                                 label = 'REMOVIDO';
                                                             }
                                                         }
-                                                        
-                                                        const editalName = isNew && !isCurrent ? newEdital?.name : (originEdital?.name || 'Ciclo Atual');
 
                                                         return (
-                                                            <div 
-                                                                key={s.id} 
-                                                                className={`group/subject transition-all duration-300 rounded-2xl border ${cardStyle} ${isExpanded ? 'p-3.5 ring-1 ring-primary/20 shadow-xl' : 'p-2.5'}`}
-                                                            >
-                                                                <div className="flex items-start justify-between gap-3">
-                                                                    <div className="space-y-2 overflow-hidden w-full">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div className={`p-1.5 rounded-lg shrink-0 ${label === 'REMOVIDO' ? 'bg-red-500/10 text-red-500' : (label === 'NOVO' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-zinc-500/10 text-zinc-500')}`}>
-                                                                                <BookOpen size={14} />
-                                                                            </div>
-                                                                            <span className="flex-1 min-w-0 text-sm font-bold text-foreground uppercase tracking-wide truncate py-0.5">
-                                                                                {s.name}
-                                                                            </span>
-                                                                            {label !== 'REMOVIDO' && (
-                                                                                <button 
-                                                                                    onClick={() => togglePreviewSubjectExpansion(s.id)} 
-                                                                                    className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-colors shrink-0"
-                                                                                >
-                                                                                    {isExpanded ? <ChevronUp size={14} className="opacity-50" /> : <ChevronDown size={14} className="opacity-50" />}
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-
-                                                                        <div className="flex flex-col gap-1 pl-9">
-                                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                                <div className={`w-1 h-1 rounded-full shrink-0 ${label === 'REMOVIDO' ? 'bg-red-500/40' : (label === 'NOVO' ? 'bg-emerald-500/40' : 'bg-zinc-500/40')}`} />
-                                                                                <span className="text-[10px] font-medium text-content-muted/80 truncate">
-                                                                                    {editalName}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
+                                                            <div key={s.id} className={`flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all ${cardStyle}`}>
+                                                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                                    <div className="p-1.5 rounded-lg bg-zinc-500/10 text-zinc-500 shrink-0">
+                                                                        <BookOpen size={14} />
                                                                     </div>
-
-                                                                    <div className="flex flex-col items-end gap-1 shrink-0 pt-1">
-                                                                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg flex items-center gap-1.5 border shadow-sm ${badgeStyle}`}>
-                                                                            {badgeIcon}
-                                                                            {label}
-                                                                        </span>
-                                                                    </div>
+                                                                    <span className="text-sm font-bold text-foreground uppercase tracking-wide truncate">
+                                                                        {s.name}
+                                                                    </span>
                                                                 </div>
-
-                                                                {/* Tópicos Expandidos */}
-                                                                {isExpanded && s.topics && s.topics.length > 0 && label !== 'REMOVIDO' && (
-                                                                    <div className="mt-3.5 pt-3.5 border-t border-primary/5 space-y-2 animate-in slide-in-from-top-2 duration-300">
-                                                                        <div className="flex items-center gap-2 pl-9 mb-1 opacity-40">
-                                                                            <span className="text-[8px] font-black uppercase tracking-widest text-primary">Conteúdo Programático ({s.topics.length})</span>
-                                                                        </div>
-                                                                        <div className="grid grid-cols-1 gap-1.5 pl-9">
-                                                                            {s.topics.map((t, idx) => (
-                                                                                <div key={t.id || idx} className="flex items-center gap-2.5 group/topic p-1 px-1.5 rounded-md hover:bg-zinc-500/5 transition-colors">
-                                                                                    <div className="w-1 h-1 rounded-full shrink-0 bg-primary/30" />
-                                                                                    <span className="text-[11px] font-medium text-content-muted truncate py-0.5 uppercase tracking-wide">
-                                                                                        {t.name}
-                                                                                    </span>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
+                                                                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${badgeStyle}`}>
+                                                                    {label}
+                                                                </span>
                                                             </div>
                                                         );
-                                                    })}
-                                                </div>
-                                            )}
+                                                    })
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                    </>
-
                                 )}
-                            </div>
 
-                                {/* ── ETAPA 2: Topic Preview ── */}
+                                {/* Seção: Topic Preview (Etapa 2 - IA) */}
                                 {cycleConflict.step === 'topic-preview' && cycleConflict.topicMergeResult && (
-                                    <>
-                                        <div className="space-y-1 mb-1">
-                                            <h4 className="text-xs font-black uppercase tracking-widest text-foreground/90">
-                                                Etapa 2 — Prévia de Tópicos
-                                            </h4>
-                                            <p className="text-[10px] text-content-muted italic">
-                                                Revise como os tópicos serão unificados em cada matéria.
-                                            </p>
+                                    <div className="space-y-4">
+                                        <div className="flex flex-col gap-1 px-1">
+                                            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">PRÉVIA DA UNIFICAÇÃO DE TÓPICOS (IA)</span>
+                                            <p className="text-[10px] text-content-muted italic">Confira abaixo como a IA unificou os tópicos equivalentes.</p>
                                         </div>
-                                        <div className="relative p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 space-y-3 max-h-[45vh] overflow-y-auto">
+                                        <div className="p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 space-y-4 max-h-[45vh] overflow-y-auto no-scrollbar">
                                             {cycleConflict.topicMergeResult.groups.map(group => (
-                                                <div key={group.subjectDisplayName} className="space-y-1.5">
-                                                    <div className="flex items-center gap-2 sticky top-0 bg-secondary dark:bg-zinc-800/30 pb-1 pt-0.5 z-10">
-                                                        <Library size={11} className="text-emerald-500 shrink-0" />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-foreground/80 truncate">
-                                                            {group.subjectDisplayName}
-                                                        </span>
+                                                <div key={group.subjectDisplayName} className="space-y-2">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <Library size={12} className="text-emerald-500" />
+                                                        <span className="text-xs font-black uppercase tracking-widest text-foreground/80">{group.subjectDisplayName}</span>
                                                     </div>
-                                                    <div className="pl-4 space-y-1">
+                                                    <div className="grid grid-cols-1 gap-1.5 pl-5">
                                                         {group.topicMappings.map((tm, i) => (
-                                                            <div key={i} className="flex items-center gap-2 py-1 border-b border-border/30 last:border-0">
-                                                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${tm.originalTopicIds.length > 1 ? 'bg-emerald-500' : 'bg-content-muted/30'}`} />
-                                                                <span className="text-[10px] text-foreground/80 flex-1 truncate">{tm.displayName}</span>
-                                                                {tm.originalTopicIds.length > 1 ? (
-                                                                    <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded shrink-0 bg-emerald-500/10 text-emerald-500 border border-emerald-500/10">
-                                                                        Unificado
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded shrink-0 bg-zinc-500/10 text-content-muted border border-zinc-500/10">
-                                                                        Mantido
-                                                                    </span>
-                                                                )}
+                                                            <div key={i} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border/20">
+                                                                <span className="text-[10px] text-foreground/80 font-medium truncate">{tm.displayName}</span>
+                                                                <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border ${
+                                                                    tm.originalTopicIds.length > 1 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-zinc-500/10 text-content-muted border-zinc-500/10'
+                                                                }`}>
+                                                                    {tm.originalTopicIds.length > 1 ? 'UNIFICADO' : 'MANTIDO'}
+                                                                </span>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
-                                    </>
+                                    </div>
                                 )}
 
-                            {/* Actions */}
-                            <div className="flex flex-col gap-2.5">
-                                {cycleConflict.step === 'select' ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <button
-                                            onClick={handleHybridPreview}
-                                            disabled={isMerging}
-                                            className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all group disabled:opacity-50"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                {isMerging ? <Loader2 size={18} className="animate-spin" /> : <Merge size={18} />}
-                                                <span className="text-sm font-black uppercase tracking-wider">
-                                                    {isMerging ? 'Analisando...' : 'Mesclar'}
-                                                </span>
-                                            </div>
-                                            {!isMerging && <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />}
-                                        </button>
-
-                                        <button
-                                            onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }))}
-                                            className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all group"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <RefreshCw size={18} />
-                                                <span className="text-sm font-black uppercase tracking-wider">Substituir</span>
-                                            </div>
-                                            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                                        </button>
+                                {/* Seção: Sugestões de Revisão IA (Módulo 3) */}
+                                {pendingSuggestions.length > 0 && (
+                                    <div className="space-y-3 pt-2 border-t border-border dark:border-white/5">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles size={14} className="text-amber-500" />
+                                            <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Revise as Sugestões da IA</span>
+                                        </div>
+                                        <MergeSuggestionCard
+                                            suggestion={pendingSuggestions[0]}
+                                            onApprove={handleApproveSuggestion}
+                                            onReject={handleRejectSuggestion}
+                                            disabled={isLoadingSuggestions}
+                                        />
                                     </div>
-                                ) : cycleConflict.step === 'preview' ? (
-                                    // ETAPA 1 preview: confirm subjects, optionally merge topics
-                                    <div className="flex flex-col gap-3">
-                                        {cycleConflict.action === 'merge' && (
-                                            <>
-                                                <button
-                                                    onClick={() => handleTopicPreview(true)}
-                                                    disabled={isAnalyzingTopics}
-                                                    className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all group disabled:opacity-50"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        {isAnalyzingTopics ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                                                        <span className="text-sm font-black uppercase tracking-wider">
-                                                            {isAnalyzingTopics ? 'Analisando tópicos...' : 'Confirmar materias e mesclar topicos com IA'}
-                                                        </span>
-                                                    </div>
-                                                    {!isAnalyzingTopics && <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleCycleConflictAction('merge')}
-                                                    disabled={isAnalyzingTopics || processingId === cycleConflict.edital!.id}
-                                                    className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 hover:bg-sky-500 hover:text-white transition-all group disabled:opacity-50"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        {processingId === cycleConflict.edital!.id
-                                                            ? <Loader2 size={18} className="animate-spin" />
-                                                            : <CheckCircle2 size={18} />}
-                                                        <span className="text-sm font-black uppercase tracking-wider">Confirmar mesclagem das materias</span>
-                                                    </div>
-                                                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                                                </button>
-                                            </>
-                                        )}
-                                        {cycleConflict.action !== 'merge' && (
+                                )}
+
+                                {/* Ações do Modal */}
+                                <div className="space-y-3 pt-2">
+                                    {cycleConflict.step === 'select' ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <button
-                                                onClick={() => handleCycleConflictAction(cycleConflict.action!)}
+                                                onClick={handleHybridPreview}
+                                                disabled={isMerging}
+                                                className="flex items-center justify-between px-5 py-4 rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600 transition-all group disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    {isMerging ? <Loader2 size={18} className="animate-spin" /> : <Merge size={18} />}
+                                                    <span className="text-sm font-black uppercase tracking-wider">Mesclar</span>
+                                                </div>
+                                                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                            </button>
+                                            <button
+                                                onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }))}
+                                                className="flex items-center justify-between px-5 py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all group"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <RefreshCw size={18} />
+                                                    <span className="text-sm font-black uppercase tracking-wider">Substituir</span>
+                                                </div>
+                                                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                            </button>
+                                        </div>
+                                    ) : cycleConflict.step === 'preview' ? (
+                                        <div className="flex flex-col gap-3">
+                                            {cycleConflict.action === 'merge' && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleTopicPreview(true)}
+                                                        disabled={isMerging || isAnalyzingTopics}
+                                                        className="w-full flex items-center justify-between px-6 py-4 rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600 transition-all group disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            {isAnalyzingTopics ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                                                            <span className="text-sm font-black uppercase tracking-wider">Mesclar Tópicos com IA</span>
+                                                        </div>
+                                                        <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleCycleConflictAction('merge')}
+                                                        disabled={isMerging || processingId === cycleConflict.edital!.id}
+                                                        className="w-full flex items-center justify-between px-6 py-4 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500 hover:text-white transition-all group disabled:opacity-50"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            {processingId === cycleConflict.edital!.id ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+                                                            <span className="text-sm font-black uppercase tracking-wider">Mesclar matérias (Mais Rápido)</span>
+                                                        </div>
+                                                        <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                                    </button>
+                                                </>
+                                            )}
+                                            {cycleConflict.action !== 'merge' && (
+                                                <button
+                                                    onClick={() => handleCycleConflictAction(cycleConflict.action!)}
+                                                    disabled={processingId === cycleConflict.edital!.id}
+                                                    className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
+                                                >
+                                                    {processingId === cycleConflict.edital!.id ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+                                                    {cycleConflict.existingIds.length === 0 ? 'Criar Ciclo de Estudos' : 'Confirmar Substituição'}
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => setCycleConflict(prev => ({ ...prev, step: 'select', action: null }))}
+                                                className="w-full py-3 text-xs font-bold text-content-muted hover:text-foreground transition-colors uppercase tracking-widest"
+                                            >
+                                                ← Voltar e Alterar Escolha
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-3">
+                                            <button
+                                                onClick={() => handleCycleConflictAction('merge')}
                                                 disabled={processingId === cycleConflict.edital!.id}
                                                 className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
                                             >
                                                 {processingId === cycleConflict.edital!.id ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                                                {cycleConflict.existingIds.length === 0 ? 'Criar Ciclo de Estudos' : 'Confirmar Substituição'}
+                                                Confirmar Mesclagem Completa
                                             </button>
-                                        )}
-                                        <button
-                                            onClick={() => setCycleConflict(prev => ({ ...prev, step: 'select', action: null }))}
-                                            className="w-full py-3 text-xs font-bold text-content-muted hover:text-foreground transition-colors uppercase tracking-widest"
-                                        >
-                                            ← Voltar e Alterar Escolha
-                                        </button>
-                                    </div>
-                                ) : (
-                                    // ETAPA 2 topic-preview: confirm final merge
-                                    <div className="flex flex-col gap-3">
-                                        <button
-                                            onClick={() => handleCycleConflictAction('merge')}
-                                            disabled={processingId === cycleConflict.edital!.id}
-                                            className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
-                                        >
-                                            {processingId === cycleConflict.edital!.id ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                                            Confirmar Mesclagem Completa
-                                        </button>
-                                        <button
-                                            onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', topicMergeResult: undefined }))}
-                                            className="w-full py-3 text-xs font-bold text-content-muted hover:text-foreground transition-colors uppercase tracking-widest"
-                                        >
-                                            ← Voltar para Matérias
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Progress Preservation Note */}
-                            <div className="p-3.5 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 flex gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                                    <Info className="text-emerald-400" size={14} />
-                                </div>
-                                <div className="space-y-0.5">
-                                    <p className="text-[10px] font-black text-foreground/90 uppercase tracking-tight">Preservação de Progresso</p>
-                                    <p className="text-[10px] text-content-muted leading-snug">
-                                        Seu progresso (temas concluídos e revisões) <strong className="text-emerald-500/80">nunca é perdido</strong>. Se uma matéria for removida do ciclo, seu histórico permanece salvo com segurança no banco de dados.
-                                    </p>
+                                            <div className="flex flex-col items-center gap-2">
+                                                <button
+                                                    onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', topicMergeResult: undefined }))}
+                                                    className="w-full py-2 text-xs font-bold text-content-muted hover:text-foreground transition-colors uppercase tracking-widest"
+                                                >
+                                                    ← Voltar para Matérias
+                                                </button>
+                                                <p className="text-[9px] text-content-muted/60 text-center leading-tight">
+                                                    Você pode voltar e mesclar somente matérias,<br />
+                                                    e posteriormente mesclar manualmente os tópicos.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
+
 
             {/* ── Modal de Revisão de Sincronização ── */}
             {syncReview.isOpen && syncReview.edital && (
