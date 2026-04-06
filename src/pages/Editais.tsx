@@ -472,6 +472,44 @@ const Editais = () => {
     const handleDeleteEdital = useCallback(async (edital: UserEdital) => {
         setProcessingId(edital.id);
         try {
+            // 0. Primeiro: limpar merges relacionados às matérias deste edital (Foreign Key)
+            const { data: subjectsToDelete } = await supabase
+                .from('subjects')
+                .select('id')
+                .eq('edital_id', edital.id)
+                .eq('user_id', user!.id);
+            
+            const subjectIdsToDelete = (subjectsToDelete || []).map(s => s.id);
+            
+            // Limpar topic_merges - buscar todos os tópicos das matérias e deletar
+            const { data: topicsToDelete } = await supabase
+                .from('topics')
+                .select('id')
+                .in('subject_id', subjectIdsToDelete);
+            
+            const topicIdsToDelete = (topicsToDelete || []).map(t => t.id);
+            
+            if (topicIdsToDelete.length > 0) {
+                await (supabase as any)
+                    .from('topic_merges')
+                    .delete()
+                    .in('primary_topic_id', topicIdsToDelete);
+            }
+            
+            // Limpar subject_merges
+            if (subjectIdsToDelete.length > 0) {
+                await (supabase as any)
+                    .from('subject_merges')
+                    .delete()
+                    .in('primary_subject_id', subjectIdsToDelete);
+            }
+            
+            // Limpar pending_cycle_merges
+            await (supabase as any)
+                .from('pending_cycle_merges')
+                .delete()
+                .eq('edital_id', edital.id);
+
             // 1. Limpar Histórico de Revisão globalmente para este Edital
             const { error: historyErr } = await supabase
                 .from('topic_review_history')
@@ -535,6 +573,13 @@ const Editais = () => {
                     window.dispatchEvent(new CustomEvent('cycleUpdated'));
                 }
             }
+
+            // 4.5. Limpar mesclagens pendentes (pending_cycle_merges) deste edital
+            await (supabase as any)
+                .from('pending_cycle_merges')
+                .delete()
+                .eq('user_id', user!.id)
+                .eq('edital_id', edital.id);
 
             // 5. Deletar o Edital em si
             const { error } = await editaisTable().delete().eq('id', edital.id);

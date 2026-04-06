@@ -76,21 +76,44 @@ export const useMergeData = () => {
     await mergeService.revertSubjectMerge(mergeId);
     await fetchMerges();
     window.dispatchEvent(new CustomEvent('mergeUpdated'));
+    window.dispatchEvent(new CustomEvent('subjectUpdated'));
   }, [fetchMerges]);
 
   const revertTopicMerge = useCallback(async (mergeId: string) => {
     await mergeService.revertTopicMerge(mergeId);
     await fetchMerges();
     window.dispatchEvent(new CustomEvent('mergeUpdated'));
+    window.dispatchEvent(new CustomEvent('subjectUpdated'));
   }, [fetchMerges]);
 
   const isSubjectMerged = useCallback((subjectId: string): boolean => {
-    return subjectNamesMap.has(subjectId);
-  }, [subjectNamesMap]);
+    // Só é considerado mesclado se:
+    // 1. Tiver mais de um subject no grupo (merged_subject_ids.length > 0)
+    // 2. O subject existe no ciclo_atual atual
+    for (const merge of subjectMerges) {
+      const allIds = [merge.primary_subject_id, ...(merge.merged_subject_ids || [])];
+      
+      // Verificar se este subjectId está no grupo
+      if (!allIds.includes(subjectId)) continue;
+      
+      // Verificar se é uma mesclagem real (mais de 1 subject)
+      if (allIds.length < 2) continue;
+      
+      return true;
+    }
+    return false;
+  }, [subjectMerges]);
 
   const isTopicMerged = useCallback((topicId: string): boolean => {
-    return topicNamesMap.has(topicId);
-  }, [topicNamesMap]);
+    // Só é considerado mesclado se tiver mais de um topic no grupo
+    for (const merge of topicMerges) {
+      const allIds = [merge.primary_topic_id, ...(merge.merged_topic_ids || [])];
+      if (!allIds.includes(topicId)) continue;
+      if (allIds.length < 2) continue;
+      return true;
+    }
+    return false;
+  }, [topicMerges]);
 
   const getSubjectOrigins = useCallback((subjectId: string): string[] => {
     const origins: string[] = [];

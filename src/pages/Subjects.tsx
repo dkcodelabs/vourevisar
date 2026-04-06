@@ -542,14 +542,18 @@ const Subjects = () => {
         setLoading(false);
       })();
 
-      // Listener para atualizar quando houver mudanças externas (ex: exclusão de edital)
+      // Listener para atualizar quando houver mudanças externas (ex: exclusão de edital ou mesclagem desfeita)
       const handleExternalUpdate = () => {
         console.log('🔔 EXTERNAL UPDATE DETECTED - Refreshing subjects...');
         loadSubjects(true); // Força bypass do cache
       };
 
       window.addEventListener('subjectUpdated', handleExternalUpdate);
-      return () => window.removeEventListener('subjectUpdated', handleExternalUpdate);
+      window.addEventListener('mergeUpdated', handleExternalUpdate);
+      return () => {
+        window.removeEventListener('subjectUpdated', handleExternalUpdate);
+        window.removeEventListener('mergeUpdated', handleExternalUpdate);
+      };
     } else {
       setLoading(false);
     }
@@ -1528,8 +1532,14 @@ const Subjects = () => {
                                             e.stopPropagation();
                                             const mergeInfo = getSubjectMergeInfo(subject.id);
                                             if (mergeInfo && confirm(`Deseja desfazer a mesclagem "${mergeInfo.display_name}"?`)) {
-                                              await revertSubjectMerge(mergeInfo.id);
-                                              toast.success('Mesclagem desfeita');
+                                              try {
+                                                await revertSubjectMerge(mergeInfo.id);
+                                                toast.success('Mesclagem desfeita');
+                                                window.location.reload();
+                                              } catch (err) {
+                                                console.error('Erro ao desfazer mesclagem:', err);
+                                                toast.error('Erro ao desfazer mesclagem');
+                                              }
                                             }
                                           }}
                                           title="Desfazer Mesclagem"

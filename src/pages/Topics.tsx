@@ -24,7 +24,7 @@ const Topics = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { subjects, deleteTopic, isLoading } = useApp();
-  const { originsMap, getOriginsForSubject, activeSubjectIdsSet, editaisData } = useEditalOriginsWithMerge();
+  const { originsMap, getOriginsForSubject, getOriginsForTopic, activeSubjectIdsSet, editaisData } = useEditalOriginsWithMerge();
   const { getUnifiedTopicName, getUnifiedSubjectName, isTopicMerged, revertTopicMerge, getTopicMergeInfo } = useMergeData();
   const [userCycle, setUserCycle] = useState<any>(null);
 
@@ -91,43 +91,14 @@ const Topics = () => {
     // Aplicar mapa de unificação para agrupar matérias e tópicos
     const visibleSubjects = applyUnificationMap(rawVisibleSubjects, userCycle?.unification_map);
 
-    // Função para buscar editais de origem de um tópico
-    const getTopicOrigins = (topicId: string, subjectId: string) => {
-      const origins: string[] = [];
-      
-      // Primeiro, obter todos os IDs originais desta matéria (considerando unificação)
-      const allSubjectIds = getAllOriginalSubjectIds(subjectId);
-      
-      for (const sid of allSubjectIds) {
-        for (const edital of editaisData) {
-          if ((edital.subject_ids?.includes(sid) || edital.active_subject_ids?.includes(sid)) && 
-              edital.merged_into_cycle) {
-            if (!origins.includes(edital.name)) {
-              origins.push(edital.name);
-            }
-          }
-        }
-      }
-      return origins;
-    };
-
-    // Helper para obter todos os IDs originais de uma matéria (considerando unificação)
-    const getAllOriginalSubjectIds = (subjectId: string): string[] => {
-      if (!userCycle?.unification_map?.unifiedSubjects) return [subjectId];
-      for (const unified of userCycle.unification_map.unifiedSubjects) {
-        if (unified.originalSubjectIds?.includes(subjectId)) {
-          return unified.originalSubjectIds;
-        }
-      }
-      return [subjectId];
-    };
+    // Removida lógica local de origens pois agora usamos o hook useEditalOriginsWithMerge centralizado
 
     return visibleSubjects.flatMap(subject =>
       (subject.topics || [])
         .filter(topic => !topic.is_hidden) // NÃO MOSTRAR TÓPICOS OCULTOS (unificados secundários)
         .map(topic => {
-          // Buscar editais de origem deste tópico
-          const topicOrigins = getTopicOrigins(topic.id, subject.id);
+          // Buscar editais de origem deste tópico via hook centralizado
+          const topicOrigins = getOriginsForTopic(topic.id, subject.id).map(o => o.name);
           const unifiedTopicName = getUnifiedTopicName(topic.id, topic.name);
           const unifiedSubjectName = getUnifiedSubjectName(subject.id, subject.name);
           
@@ -141,7 +112,7 @@ const Topics = () => {
           };
         })
     );
-  }, [subjects, userCycle, activeSubjectIdsSet, editaisData]);
+  }, [subjects, userCycle, activeSubjectIdsSet, editaisData, getOriginsForTopic, getUnifiedSubjectName, getUnifiedTopicName]);
 
   const getTopicStatusInfo = (topic: Topic) => {
     if (topic.completed) {

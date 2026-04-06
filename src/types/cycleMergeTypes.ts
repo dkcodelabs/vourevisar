@@ -14,6 +14,8 @@ export interface UnifiedTopicMapping {
   originalTopicIds: string[];
   /** IDs of the parent subjects of the original topics */
   originalSubjectIds: string[];
+  /** IDs of the original editais involved in this specific mapping */
+  sourceEditalIds?: string[];
   /** Match type: 'exact' = identical names, 'semantic' = AI determined equivalence */
   matchType: 'exact' | 'semantic';
   /** AI confidence (0-1), only present for matchType='semantic' */
@@ -28,6 +30,8 @@ export interface UnifiedSubjectMapping {
   displayNameOverride?: string;
   /** IDs of the original subjects that were unified */
   originalSubjectIds: string[];
+  /** IDs of the original editais involved in this specific mapping */
+  sourceEditalIds?: string[];
   /** Topic-level unification mappings within this subject */
   topicMappings: UnifiedTopicMapping[];
   /** Match type */

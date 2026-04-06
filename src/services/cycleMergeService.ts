@@ -132,6 +132,38 @@ function normalizeName(name: string): string {
   return normalized;
 }
 
+/**
+ * Extrai o conteúdo JSON de uma string que pode conter preâmbulos ou explicações.
+ */
+function extractJsonFromText(text: string): any {
+  if (!text) return null;
+  
+  // Limpar blocos de código se existirem
+  const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  
+  // Procurar por arrays [] ou objetos {}
+  const arrayMatch = cleanText.match(/\[[\s\S]*\]/);
+  const objectMatch = cleanText.match(/\{[\s\S]*\}/);
+  
+  // Decidir qual pegar (o que começar primeiro)
+  const arrayIndex = cleanText.indexOf('[');
+  const objectIndex = cleanText.indexOf('{');
+  
+  try {
+    if (arrayIndex !== -1 && (objectIndex === -1 || arrayIndex < objectIndex)) {
+      if (arrayMatch) return JSON.parse(arrayMatch[0]);
+    }
+    if (objectMatch) {
+      return JSON.parse(objectMatch[0]);
+    }
+    // Fallback para parse direto se nada for encontrado via regex
+    return JSON.parse(cleanText);
+  } catch (e) {
+    console.error("[extractJsonFromText] Erro ao parsear JSON extraído:", e);
+    throw e;
+  }
+}
+
 // ============================================
 // CONFIGURAÇÕES DE PROMPT (Sempre do Banco)
 // ============================================
@@ -252,13 +284,13 @@ async function performSemanticMerge(
       return { results: [], status: 'error' };
     }
 
-    const text = (data.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+    const text = (data.text || '');
     console.log(`[IA] Resposta bruta da IA (Materia-Módulo 2):`, text.substring(0, 200));
 
     try {
-      const parsed = JSON.parse(text);
+      const parsed = extractJsonFromText(text);
       const results = normalizeAIResponse(parsed, [...virtualGroups.map(v => ({ id: v.id, name: v.name })), ...allUnmatched], virtualGroups);
-      console.log(`[IA] Unificação semântica concluída: ${results.length} sugestões.`);
+      console.log(`[IA] Unificacão semântica concluída: ${results.length} sugestões.`);
       return { results, status: 'success' };
     } catch (parseErr) {
       console.error(`[IA] Erro ao parsear JSON das matérias:`, parseErr);
@@ -356,9 +388,25 @@ function buildUnificationMap(
   const unified: UnifiedSubjectMapping[] = [];
   const usedIds = new Set<string>();
 
+  // Auxiliar para pegar editais de um conjunto de IDs de matérias
+  const getSourceEditalIds = (ids: string[]) => {
+    const idsSet = new Set<string>();
+    ids.forEach(id => {
+      const s = all.find(sub => sub.id === id);
+      if (s?.edital_id) idsSet.add(s.edital_id);
+    });
+    return Array.from(idsSet);
+  };
+
   for (const m of exact.matched) {
     const ids = m.subjects.map(s => s.id);
-    unified.push({ displayName: m.groupName, originalSubjectIds: ids, topicMappings: [], matchType: 'exact' });
+    unified.push({ 
+      displayName: m.groupName, 
+      originalSubjectIds: ids, 
+      sourceEditalIds: getSourceEditalIds(ids),
+      topicMappings: [], 
+      matchType: 'exact' 
+    });
     ids.forEach(id => usedIds.add(id));
   }
 
@@ -370,13 +418,20 @@ function buildUnificationMap(
       const g = unified.find(u => u.originalSubjectIds.includes(overlapId));
       if (g) {
         g.originalSubjectIds.push(...fresh);
+        g.sourceEditalIds = getSourceEditalIds(g.originalSubjectIds);
         g.matchType = 'semantic';
         if (s.suggestedName) g.displayName = s.suggestedName;
         fresh.forEach(id => usedIds.add(id));
         continue;
       }
     }
-    unified.push({ displayName: s.suggestedName, originalSubjectIds: s.subjectIds, topicMappings: [], matchType: 'semantic' });
+    unified.push({ 
+      displayName: s.suggestedName, 
+      originalSubjectIds: s.subjectIds, 
+      sourceEditalIds: getSourceEditalIds(s.subjectIds),
+      topicMappings: [], 
+      matchType: 'semantic' 
+    });
     s.subjectIds.forEach(id => usedIds.add(id));
   }
 
@@ -417,17 +472,10 @@ async function performTopicGroupingAI(
     if (error) throw error;
     if (!data?.success) throw new Error(data?.error || 'Erro desconhecido na Edge Function');
 
-    const text = (data.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+    const text = (data.text || '');
     console.log(`[IA] Resposta bruta da IA (Topicos-Módulo 2) para "${subjectName}":`, text.substring(0, 100));
     
-    // Extração robusta de JSON caso a IA envie texto extra
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.warn(`[IA] Não foi encontrado JSON na resposta para "${subjectName}". Texto:`, text);
-      throw new Error('IA não retornou um JSON válido');
-    }
-    
-    const parsed = JSON.parse(jsonMatch[0]); 
+    const parsed = extractJsonFromText(text);
     
     if (!parsed.groups || !Array.isArray(parsed.groups)) return [];
 
@@ -448,10 +496,12 @@ async function performTopicGroupingAI(
       });
 
       if (matchingTopics.length >= 2) {
+        const sourceEditalIds = Array.from(new Set(matchingTopics.map(t => t.edital_id).filter(Boolean))) as string[];
         mappings.push({
           displayName: suggestedName,
           originalTopicIds: matchingTopics.map(t => t.id),
           originalSubjectIds: [...new Set(matchingTopics.map(t => t.subject_id))],
+          sourceEditalIds,
           matchType: 'semantic'
         });
         matchingTopics.forEach(t => usedTopicIds.add(t.id));
@@ -507,10 +557,12 @@ export async function performFullTopicMerge(
 
     for (const [, items] of normMap) {
       if (items.length >= 2) {
+        const sourceEditalIds = Array.from(new Set(items.map(i => i.edital_id).filter(Boolean))) as string[];
         exactMappings.push({
           displayName: items[0].name, 
           originalTopicIds: items.map(i => i.id),
           originalSubjectIds: [...new Set(items.map(i => i.subject_id))],
+          sourceEditalIds,
           matchType: 'exact'
         });
       } else {
@@ -555,6 +607,7 @@ export async function performFullTopicMerge(
               displayName: t.name,
               originalTopicIds: [t.id],
               originalSubjectIds: [t.subject_id],
+              sourceEditalIds: t.edital_id ? [t.edital_id] : [],
               matchType: 'exact'
             });
           }
@@ -569,6 +622,7 @@ export async function performFullTopicMerge(
             displayName: t.name,
             originalTopicIds: [t.id],
             originalSubjectIds: [t.subject_id],
+            sourceEditalIds: t.edital_id ? [t.edital_id] : [],
             matchType: 'exact'
           });
         });
@@ -580,6 +634,7 @@ export async function performFullTopicMerge(
           displayName: t.name,
           originalTopicIds: [t.id],
           originalSubjectIds: [t.subject_id],
+          sourceEditalIds: t.edital_id ? [t.edital_id] : [],
           matchType: 'exact'
         });
       });
@@ -600,7 +655,13 @@ export async function performFullTopicMerge(
     if (!sub || groups.some(g => g.originalSubjectIds.includes(sid))) continue;
     groups.push({
       subjectDisplayName: sub.name, originalSubjectIds: [sid],
-      topicMappings: (sub.topics || []).map(t => ({ displayName: t.name, originalTopicIds: [t.id], originalSubjectIds: [sid], matchType: 'exact' })),
+      topicMappings: (sub.topics || []).map(t => ({ 
+        displayName: t.name, 
+        originalTopicIds: [t.id], 
+        originalSubjectIds: [sid], 
+        sourceEditalIds: t.edital_id ? [t.edital_id] : [],
+        matchType: 'exact' 
+      })),
       aiUsed: false, aiStatus: 'skipped'
     });
   }

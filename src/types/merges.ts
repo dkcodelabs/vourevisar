@@ -4,6 +4,7 @@ export interface SubjectMerge {
   cycle_id: string | null;
   primary_subject_id: string;
   merged_subject_ids: string[];
+  source_edital_ids?: string[];
   display_name: string;
   created_at: string;
   reverted_at: string | null;
@@ -19,6 +20,7 @@ export interface TopicMerge {
   subject_merge_id: string | null;
   primary_topic_id: string;
   merged_topic_ids: string[];
+  source_edital_ids?: string[];
   display_name: string;
   created_at: string;
   reverted_at: string | null;

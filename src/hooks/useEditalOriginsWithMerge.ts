@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { mergeService } from '@/services/mergeService';
-import type { SubjectMerge } from '@/types/merges';
+import type { SubjectMerge, TopicMerge } from '@/types/merges';
 
 interface EditalOriginData {
     id: string;
@@ -19,14 +19,19 @@ export const useEditalOriginsWithMerge = () => {
     const [editaisData, setEditaisData] = useState<EditalOriginData[]>([]);
     const [unificationMap, setUnificationMap] = useState<any>(null);
     const [subjectMerges, setSubjectMerges] = useState<SubjectMerge[]>([]);
+    const [topicMerges, setTopicMerges] = useState<TopicMerge[]>([]);
 
     const editaisTable = useCallback(() => (supabase as any).from('user_editais'), []);
 
     const loadMerges = useCallback(async () => {
         if (!user) return;
         try {
-            const merges = await mergeService.getActiveSubjectMerges(user.id);
-            setSubjectMerges(merges);
+            const [sMerges, tMerges] = await Promise.all([
+                mergeService.getActiveSubjectMerges(user.id),
+                mergeService.getActiveTopicMerges(user.id)
+            ]);
+            setSubjectMerges(sMerges);
+            setTopicMerges(tMerges);
         } catch (err) {
             console.error('[useEditalOriginsWithMerge] Error fetching merges:', err);
         }
@@ -114,7 +119,7 @@ export const useEditalOriginsWithMerge = () => {
     const originsMap = useMemo(() => {
         const map = new Map<string, { name: string; isImported: boolean; sourceId?: string }[]>();
         
-        // Adicionar origens de TODOS os editais carregados (não filtrar por merged_into_cycle)
+        // Primeiro: adicionar origens baseadas nos editais carregados
         for (const edital of editaisData) {
             for (const subjectId of edital.subject_ids) {
                 const existing = map.get(subjectId) || [];
@@ -124,14 +129,26 @@ export const useEditalOriginsWithMerge = () => {
             }
         }
         
-        // Segundo, para subjects mesclados, propagar origens para o ID primário
+        // Segundo: para subjects mesclados, propagar origens de TODOS os IDs do grupo
         for (const merge of subjectMerges) {
             const primaryId = merge.primary_subject_id;
             const mergedIds = merge.merged_subject_ids || [];
+            const sourceEditalIdsFromMerge = merge.source_edital_ids || []; 
             const allIds = [primaryId, ...mergedIds];
             
-            // Coletar todas as origens de todos os IDs do grupo
             const allOrigins: { name: string; isImported: boolean; sourceId?: string }[] = [];
+            
+            if (sourceEditalIdsFromMerge.length > 0) {
+                for (const editalId of sourceEditalIdsFromMerge) {
+                    const edital = editaisData.find(e => e.id === editalId);
+                    if (edital) {
+                        if (!allOrigins.some(e => e.name === edital.name)) {
+                            allOrigins.push({ name: edital.name, isImported: edital.is_imported, sourceId: edital.source_id });
+                        }
+                    }
+                }
+            }
+
             for (const id of allIds) {
                 const origins = map.get(id) || [];
                 for (const origin of origins) {
@@ -141,40 +158,85 @@ export const useEditalOriginsWithMerge = () => {
                 }
             }
             
-            // Associar todas as origens ao ID primário
+            if (allOrigins.length === 0 && mergedIds.length > 0) {
+                for (const id of allIds) {
+                    for (const edital of editaisData) {
+                        if (edital.subject_ids.includes(id)) {
+                            if (!allOrigins.some(e => e.name === edital.name)) {
+                                allOrigins.push({ name: edital.name, isImported: edital.is_imported, sourceId: edital.source_id });
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // PROPAGAR para TODOS os IDs do grupo
             if (allOrigins.length > 0) {
-                map.set(primaryId, allOrigins);
+                for (const id of allIds) {
+                    map.set(id, allOrigins);
+                }
             }
         }
         
         return map;
     }, [editaisData, subjectMerges]);
 
-    const getOriginsForSubject = useCallback((subjectId: string, contextualEditalId?: string) => {
-        // Obter TODOS os IDs originais desta matéria (considerando mesclagem)
-        const allOriginalIds = getAllOriginalSubjectIds(subjectId);
+    const topicOriginsMap = useMemo(() => {
+        const map = new Map<string, { name: string; isImported: boolean; sourceId?: string }[]>();
         
-        // Buscar origens para TODOS os IDs originais do grupo mesclado
-        const allOrigins: { name: string; isImported: boolean; sourceId?: string }[] = [];
-        for (const originalId of allOriginalIds) {
-            const origins = originsMap.get(originalId) || [];
-            for (const origin of origins) {
-                if (!allOrigins.some(e => e.name === origin.name)) {
-                    allOrigins.push(origin);
+        for (const edital of editaisData) {
+            // Tópicos não têm ID no user_edital, então a descoberta é via IDs de matérias se não houver merge
+        }
+
+        for (const merge of topicMerges) {
+            const primaryId = merge.primary_topic_id;
+            const mergedIds = merge.merged_topic_ids || [];
+            const sourceEditalIdsFromMerge = merge.source_edital_ids || [];
+            const allIds = [primaryId, ...mergedIds];
+
+            const allOrigins: { name: string; isImported: boolean; sourceId?: string }[] = [];
+
+            if (sourceEditalIdsFromMerge.length > 0) {
+                for (const editalId of sourceEditalIdsFromMerge) {
+                    const edital = editaisData.find(e => e.id === editalId);
+                    if (edital) {
+                        if (!allOrigins.some(e => e.name === edital.name)) {
+                            allOrigins.push({ name: edital.name, isImported: edital.is_imported, sourceId: edital.source_id });
+                        }
+                    }
+                }
+            }
+
+            if (allOrigins.length > 0) {
+                for (const id of allIds) {
+                    map.set(id, allOrigins);
                 }
             }
         }
+        return map;
+    }, [editaisData, topicMerges]);
+
+    const getOriginsForSubject = useCallback((subjectId: string, contextualEditalId?: string) => {
+        const origins = originsMap.get(subjectId) || [];
         
-        // Se tem contextualEditalId e ainda não encontrou origens, adicionar esse edital
-        if (allOrigins.length === 0 && contextualEditalId) {
+        if (origins.length === 0 && contextualEditalId) {
             const edital = editaisData.find(e => e.id === contextualEditalId);
             if (edital) {
                 return [{ name: edital.name, isImported: edital.is_imported, sourceId: edital.source_id }];
             }
         }
         
-        return allOrigins;
-    }, [editaisData, originsMap, getAllOriginalSubjectIds]);
+        return origins;
+    }, [editaisData, originsMap]);
+
+    const getOriginsForTopic = useCallback((topicId: string, subjectId: string) => {
+        // 1. Tentar mapa de tópicos (se houve merge de tópico no banco)
+        const topicOrigins = topicOriginsMap.get(topicId);
+        if (topicOrigins && topicOrigins.length > 0) return topicOrigins;
+
+        // 2. Fallback: Usar as origens da matéria pai (Subjects.tsx padrão)
+        return getOriginsForSubject(subjectId);
+    }, [topicOriginsMap, getOriginsForSubject]);
 
     const editaisNoCiclo = useMemo(() => editaisData.filter(e => e.merged_into_cycle), [editaisData]);
 
@@ -187,5 +249,14 @@ export const useEditalOriginsWithMerge = () => {
         return set;
     }, [editaisNoCiclo]);
 
-    return { originsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, getOriginsForSubject, refresh: fetchEditais };
+    return { 
+        originsMap, 
+        topicOriginsMap, 
+        editaisData, 
+        editaisNoCiclo, 
+        activeSubjectIdsSet, 
+        getOriginsForSubject, 
+        getOriginsForTopic,
+        refresh: fetchEditais 
+    };
 };
