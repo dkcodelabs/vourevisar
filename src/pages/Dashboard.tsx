@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { applyUnificationMap } from '@/services/cycleMergeService';
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, Target, Clock, Zap, ArrowRight, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 // Novos componentes V2
 import { ExamCountdown } from '@/components/dashboard-v2/ExamCountdown';
@@ -25,16 +26,35 @@ import { useDynamicCapacity } from '@/hooks/useDynamicCapacity';
 import { useRealStatistics } from '@/hooks/useRealStatistics';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
+import { useMergeData } from '@/hooks/useMergeData';
 
 const Dashboard = () => {
     const { subjects, isDataLoaded, isLoading, error, studyProgress } = useApp();
     const { isLoading: cycleLoading, userCycle } = useCycleState();
+    const { dynamicUnificationMap } = useMergeData();
     const { user } = useAuth();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
     const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
     
     const [statsFilter, setStatsFilter] = useState<{ type: 'all' | 'cycle' | 'edital'; id?: string }>({ type: 'cycle' });
+
+    // Listener para eventos globais no Dashboard
+    useEffect(() => {
+        const handleRefresh = () => {
+            console.log('[Dashboard] Evento de atualização recebido, invalidando queries...');
+            queryClient.invalidateQueries({ queryKey: ['dashboard-review-history'] });
+        };
+
+        window.addEventListener('cycleUpdated', handleRefresh);
+        window.addEventListener('mergeUpdated', handleRefresh);
+
+        return () => {
+            window.removeEventListener('cycleUpdated', handleRefresh);
+            window.removeEventListener('mergeUpdated', handleRefresh);
+        };
+    }, [queryClient]);
 
     // Novas estatísticas reais
     const stats = useRealStatistics(statsFilter);
@@ -46,7 +66,7 @@ const Dashboard = () => {
     const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
 
     // Se não houver ciclo ativo, mudar o filtro para "Tudo" automaticamente para mostrar dados legados/manuais
-    React.useEffect(() => {
+    useEffect(() => {
         if (!cycleLoading && !hasActiveCycle && subjects.length > 0 && statsFilter.type === 'cycle') {
             setStatsFilter({ type: 'all' });
         }
@@ -143,10 +163,10 @@ const Dashboard = () => {
             const cycleIds = new Set(userCycle.ciclo_atual);
             const cycleSubjects = subjects.filter(s => cycleIds.has(s.id));
             // Apply visual unification map so duplicate subjects appear as one
-            return applyUnificationMap(cycleSubjects, userCycle.unification_map);
+            return applyUnificationMap(cycleSubjects, dynamicUnificationMap);
         }
         return subjects;
-    }, [subjects, statsFilter, userCycle]);
+    }, [subjects, statsFilter, userCycle?.ciclo_atual, dynamicUnificationMap]);
 
 
 

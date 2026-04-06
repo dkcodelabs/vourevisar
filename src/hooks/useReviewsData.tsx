@@ -166,6 +166,7 @@ export const useReviewsData = () => {
         if (!a.completed && b.completed) return -1;
 
         // Next Review date comparison
+        // Listener para eventos globais de atualização
         const dateA = a.next_review ? new Date(a.next_review).getTime() : Infinity;
         const dateB = b.next_review ? new Date(b.next_review).getTime() : Infinity;
 

@@ -22,7 +22,7 @@ import { errorService } from '@/lib/errors/errorService';
 import { Loader2, AlertCircle, X, Target, BookOpen, Database, RefreshCw, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-// Removido hook de visibilidade que causava recarregamentos
+import { mergeService } from '@/services/mergeService';
 
 
 const LOCAL_STORAGE_VIEW_KEY = 'studyCycleViewMode';
@@ -112,6 +112,11 @@ export const StudyCycleContent: React.FC = () => {
         .eq('id', editalId);
 
       if (editalErr) throw editalErr;
+
+      // NOVO: Limpar mesclagens e sincronizar ciclo
+      console.log(`[StudyCycle] Iniciando limpeza de mesclagens para ${editalName}...`);
+      await mergeService.cleanupMergesAfterEditalRemoval(user.id, editalId);
+      await mergeService.syncCycleAfterRemoval(user.id, editalId);
 
       toast.success(`"${editalName}" removido do seu ciclo.`);
       window.dispatchEvent(new CustomEvent('subjectUpdated'));
@@ -559,9 +564,6 @@ export const StudyCycleContent: React.FC = () => {
     );
   };
 
-  if (isLoading) {
-    return <LoadingSpinner size="large" showText fullPage />;
-  }
 
   return (
     <div className="flex flex-col flex-1 w-full text-zinc-100">
@@ -577,7 +579,11 @@ export const StudyCycleContent: React.FC = () => {
           </div>
         )}
 
-        {subjects.length === 0 ? (
+        {isLoading ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 min-h-[400px]">
+            <LoadingSpinner size="large" />
+          </div>
+        ) : subjects.length === 0 ? (
           <main className="flex-1 flex flex-col items-center justify-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700 overflow-hidden text-center w-full">
             <div className="w-24 h-24 bg-secondary dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8 mx-auto -rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
               <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shadow-sm">

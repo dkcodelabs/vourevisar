@@ -26,7 +26,7 @@ export const useCycleState = () => {
       }
 
       if (data && data.length > 0) {
-        setUserCycle(data[0] as UserCycle);
+        setUserCycle(data[0] as unknown as UserCycle);
       } else {
         setUserCycle(null);
       }
@@ -56,7 +56,7 @@ export const useCycleState = () => {
       }
 
       if (data) {
-        setUserCycle(data[0] as UserCycle);
+        setUserCycle(data[0] as unknown as UserCycle);
       }
     } catch (error) {
       console.error('Erro ao atualizar ciclo:', error);
@@ -92,7 +92,7 @@ export const useCycleState = () => {
       }
 
       if (data) {
-        setUserCycle(data as UserCycle);
+        setUserCycle(data as unknown as UserCycle);
       }
     } catch (error) {
       console.error('Erro ao criar ciclo inicial:', error);
@@ -198,6 +198,19 @@ export const useCycleState = () => {
   useEffect(() => {
     if (user) {
       fetchUserCycle();
+
+      const handleUpdate = () => {
+        console.log('🔄 [useCycleState] Global update detected. Refreshing...');
+        fetchUserCycle();
+      };
+
+      window.addEventListener('cycleUpdated', handleUpdate);
+      window.addEventListener('mergeUpdated', handleUpdate);
+
+      return () => {
+        window.removeEventListener('cycleUpdated', handleUpdate);
+        window.removeEventListener('mergeUpdated', handleUpdate);
+      };
     } else {
       setIsLoading(false);
     }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
@@ -10,6 +10,7 @@ import { format, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Topic } from '@/types';
 import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import NotesModal from '@/components/reviews/NotesModal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { InlineTopicCreator } from '@/components/topics/InlineTopicCreator';
@@ -25,8 +26,16 @@ const Topics = () => {
   const navigate = useNavigate();
   const { subjects, deleteTopic, isLoading } = useApp();
   const { originsMap, getOriginsForSubject, getOriginsForTopic, activeSubjectIdsSet, editaisData } = useEditalOriginsWithMerge();
-  const { getUnifiedTopicName, getUnifiedSubjectName, isTopicMerged, revertTopicMerge, getTopicMergeInfo } = useMergeData();
+  const { getUnifiedTopicName, getUnifiedSubjectName, isTopicMerged, revertTopicMerge, getTopicMergeInfo, dynamicUnificationMap } = useMergeData();
   const [userCycle, setUserCycle] = useState<any>(null);
+  const [isCycleLoading, setIsCycleLoading] = useState(true);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState<any>(null);
+  const [selectedMergeId, setSelectedMergeId] = useState<string | null>(null);
+  const [selectedMergeName, setSelectedMergeName] = useState<string>('');
+  const [isReverting, setIsReverting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
@@ -53,22 +62,51 @@ const Topics = () => {
   }>({ isOpen: false, topicId: '', topicName: '', subjectName: '' });
 
   // Carregar ciclo do usuário (similar ao Subjects.tsx)
-  useEffect(() => {
-    const loadUserCycle = async () => {
-      if (!user) return;
-      try {
-        const { data } = await supabase
-          .from('user_cycles')
-          .select('*')
-          .eq('user_id', user.id)
-          .limit(1);
-        if (data?.[0]) setUserCycle(data[0]);
-      } catch (error) {
-        console.error('Erro ao carregar ciclo em Topics:', error);
+  const loadUserCycle = useCallback(async () => {
+    if (!user) return;
+    try {
+      setIsCycleLoading(true);
+      const { data } = await supabase
+        .from('user_cycles')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1);
+      
+      const cycleData = data?.[0] || null;
+      setUserCycle(cycleData);
+      
+      if (cycleData) {
+        console.log('🔄 USER CYCLE LOADED IN TOPICS:', {
+          cycleLength: cycleData.ciclo_atual?.length || 0,
+          timestamp: new Date().toISOString()
+        });
       }
-    };
-    loadUserCycle();
+    } catch (error) {
+      console.error('Erro ao carregar ciclo em Topics:', error);
+    } finally {
+      setIsCycleLoading(false);
+    }
   }, [user]);
+
+  useEffect(() => {
+    loadUserCycle();
+
+    const handleExternalUpdate = () => {
+      console.log('🔔 EXTERNAL UPDATE DETECTED IN TOPICS - Refreshing cycle...');
+      loadUserCycle();
+    };
+
+    window.addEventListener('mergeUpdated', handleExternalUpdate);
+    window.addEventListener('subjectUpdated', handleExternalUpdate);
+    window.addEventListener('cycleUpdated', handleExternalUpdate);
+
+    return () => {
+      window.removeEventListener('mergeUpdated', handleExternalUpdate);
+      window.removeEventListener('subjectUpdated', handleExternalUpdate);
+      window.removeEventListener('cycleUpdated', handleExternalUpdate);
+    };
+  }, [loadUserCycle]);
 
   const allTopics = useMemo(() => {
     // ── Obter IDs no ciclo para garantir alinhamento com Subjects.tsx ──────
@@ -89,7 +127,7 @@ const Topics = () => {
     });
 
     // Aplicar mapa de unificação para agrupar matérias e tópicos
-    const visibleSubjects = applyUnificationMap(rawVisibleSubjects, userCycle?.unification_map);
+    const visibleSubjects = applyUnificationMap(rawVisibleSubjects, dynamicUnificationMap);
 
     // Removida lógica local de origens pois agora usamos o hook useEditalOriginsWithMerge centralizado
 
@@ -98,7 +136,7 @@ const Topics = () => {
         .filter(topic => !topic.is_hidden) // NÃO MOSTRAR TÓPICOS OCULTOS (unificados secundários)
         .map(topic => {
           // Buscar editais de origem deste tópico via hook centralizado
-          const topicOrigins = getOriginsForTopic(topic.id, subject.id).map(o => o.name);
+          const topicOrigins = getOriginsForTopic(topic.id, subject.id, topic.edital_id).map(o => o.name);
           const unifiedTopicName = getUnifiedTopicName(topic.id, topic.name);
           const unifiedSubjectName = getUnifiedSubjectName(subject.id, subject.name);
           
@@ -112,7 +150,7 @@ const Topics = () => {
           };
         })
     );
-  }, [subjects, userCycle, activeSubjectIdsSet, editaisData, getOriginsForTopic, getUnifiedSubjectName, getUnifiedTopicName]);
+  }, [subjects, userCycle?.ciclo_atual, dynamicUnificationMap, activeSubjectIdsSet, getOriginsForTopic, getUnifiedSubjectName, getUnifiedTopicName]);
 
   const getTopicStatusInfo = (topic: Topic) => {
     if (topic.completed) {
@@ -194,7 +232,7 @@ const Topics = () => {
   };
 
   const renderStars = (count: number) => {
-    const validCount = Math.min(Math.max(count || 0, 0), 3); // Limitar a 3 estrelas como solicitado
+    const validCount = Math.min(Math.max(count || 0, 0), 3); // Limitar a 3 estrelas
     return (
       <div className="flex items-center justify-center gap-0">
         {[1, 2, 3].map((star) => (
@@ -233,8 +271,13 @@ const Topics = () => {
     }
   };
 
-  if (isLoading) {
-    return <LoadingSpinner size="large" showText fullPage />;
+  // 1. Loading State - Centralizado e silencioso para não quebrar o layout
+  if (isLoading || isCycleLoading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh]">
+        <LoadingSpinner size="large" />
+      </div>
+    );
   }
 
   return (
@@ -243,25 +286,7 @@ const Topics = () => {
         <main className="flex-1 px-4 md:px-8 pb-8 pt-0">
           <div className="space-y-6">
 
-            {allTopics.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500 my-8 w-full">
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                  <span className="text-4xl">📝</span>
-                </div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3">
-                  Nenhum tópico cadastrado
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 leading-relaxed text-center">
-                  Parece que você ainda não adicionou nenhum tópico às suas matérias. Volte à página de matérias para preencher o conteúdo, ou importe um edital pronto.
-                </p>
-                <button
-                  onClick={() => navigate('/meus-editais')}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
-                >
-                  Ir para Matérias
-                </button>
-              </div>
-            ) : (
+            {allTopics.length > 0 ? (
               <>
                 {/* Main Header / Search Area */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 relative z-20">
@@ -313,7 +338,6 @@ const Topics = () => {
                   </p>
                 </div>
 
-                {/* Topics Table */}
                 {filteredTopics.length > 0 ? (
                   <div className="glow-card rounded-[24px] overflow-hidden border border-border shadow-sm bg-card">
                     <div className="overflow-x-auto">
@@ -373,12 +397,13 @@ const Topics = () => {
                                       <span className="text-[11px] text-zinc-500 font-medium">{topic.subjectName}</span>
                                       {isTopicMerged(topic.id) && (
                                         <button
-                                          onClick={async (e) => {
+                                          onClick={(e) => {
                                             e.stopPropagation();
                                             const mergeInfo = getTopicMergeInfo(topic.id);
-                                            if (mergeInfo && confirm(`Deseja desfazer a mesclagem "${mergeInfo.display_name}"?`)) {
-                                              await revertTopicMerge(mergeInfo.id);
-                                              toast.success('Mesclagem desfeita');
+                                            if (mergeInfo) {
+                                              setSelectedMergeId(mergeInfo.id);
+                                              setSelectedMergeName(mergeInfo.display_name);
+                                              setIsRevertModalOpen(true);
                                             }
                                           }}
                                           title="Desfazer Mesclagem"
@@ -387,12 +412,12 @@ const Topics = () => {
                                           <Scissors size={12} />
                                         </button>
                                       )}
-                                      {getOriginsForSubject(topic.subjectId, topic.edital_id).map((origin) => (
-                                        <span key={origin.name} className="text-[9px] font-bold px-1.5 py-0.5 rounded border text-primary bg-primary/5 border-primary/10">
-                                          {origin.name}
+                                      {topic.topicOrigins.map((originName) => (
+                                        <span key={originName} className="text-[9px] font-bold px-1.5 py-0.5 rounded border text-primary bg-primary/5 border-primary/10">
+                                          {originName}
                                         </span>
                                       ))}
-                                      {getOriginsForSubject(topic.subjectId, topic.edital_id).length === 0 && (
+                                      {topic.topicOrigins.length === 0 && (
                                         <span className="text-[8px] font-bold uppercase tracking-wider text-zinc-500/30">
                                           Sem Edital
                                         </span>
@@ -477,6 +502,22 @@ const Topics = () => {
                   </div>
                 )}
               </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500 my-8 w-full text-center">
+                <div className="w-20 h-20 bg-secondary rounded-full flex items-center justify-center mb-6 mx-auto">
+                  <FileText size={40} className="text-content-muted" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-3">Ciclo Vazio</h3>
+                <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
+                  Você não possui matérias no seu ciclo de estudos. Adicione uma matéria manualmente ou carregue um edital para começar.
+                </p>
+                <button
+                  onClick={() => navigate('/materias')}
+                  className="px-6 py-3 bg-secondary hover:bg-secondary/80 text-foreground font-bold rounded-xl border border-border transition-all"
+                >
+                  Gerenciar Matérias
+                </button>
+              </div>
             )}
 
           </div>
@@ -484,6 +525,43 @@ const Topics = () => {
       </div>
 
       {/* Modais Antigos que devem persistir (Notes & Delete) */}
+      {/* Modal de Confirmação de Reversão de Mesclagem */}
+      <ConfirmModal
+        isOpen={isRevertModalOpen}
+        onClose={() => {
+          setIsRevertModalOpen(false);
+          setSelectedMergeId(null);
+        }}
+        onConfirm={async () => {
+          if (selectedMergeId) {
+            setIsReverting(true);
+            try {
+              await revertTopicMerge(selectedMergeId);
+              toast.success('Mesclagem desfeita com sucesso');
+              setIsRevertModalOpen(false);
+            } catch (error: any) {
+              console.error('Erro ao desfazer mesclagem:', error);
+              toast.error(error?.message || 'Erro ao desfazer mesclagem');
+            } finally {
+              setIsReverting(false);
+              setSelectedMergeId(null);
+            }
+          }
+        }}
+        title="Desfazer Mesclagem"
+        description={
+          <span>
+            Tem certeza que deseja desfazer a mesclagem <strong>"{selectedMergeName}"</strong>? 
+            Os tópicos voltarão a ser exibidos individualmente.
+          </span>
+        }
+        confirmText="Desfazer"
+        cancelText="Manter Mesclado"
+        variant="warning"
+        icon={Scissors}
+        isLoading={isReverting}
+      />
+
       <ConfirmDeleteModal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, topicId: '', subjectId: '' })}

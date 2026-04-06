@@ -191,6 +191,23 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
   const [userAnalytics, setUserAnalytics] = useState<UserAnalytics | null>(null);
   const [pomodoroSessions, setPomodoroSessions] = useState<PomodoroSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  // Listener para eventos de atualização
+  useEffect(() => {
+    const handleRefresh = () => {
+      console.log('[useRealStatistics] Evento de atualização recebido, recarregando dados...');
+      setRefreshCounter(prev => prev + 1);
+    };
+
+    window.addEventListener('cycleUpdated', handleRefresh);
+    window.addEventListener('mergeUpdated', handleRefresh);
+
+    return () => {
+      window.removeEventListener('cycleUpdated', handleRefresh);
+      window.removeEventListener('mergeUpdated', handleRefresh);
+    };
+  }, []);
 
   // Carregar dados do banco
   useEffect(() => {
@@ -276,7 +293,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
     };
 
     loadRealData();
-  }, [user, filter.id, filter.type, userCycle?.id]);
+  }, [user, filter.id, filter.type, userCycle?.id, refreshCounter]);
 
   return useMemo(() => {
     const now = new Date();

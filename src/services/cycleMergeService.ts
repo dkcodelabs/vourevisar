@@ -51,16 +51,7 @@ const COMMON_PREFIXES = [
 ];
 
 const CANONICAL_SUBJECT_MAP: Record<string, string> = {
-  'raciocinio logico matematico': 'raciocinio logico',
-  'matematica e raciocinio logico': 'raciocinio logico',
-  'raciocinio critico': 'raciocinio logico',
-  'lingua portuguesa': 'portugues',
-  'lingua portuguesa e redacao oficial': 'portugues',
-  'portugues': 'portugues',
-  'informatica e tecnologias': 'informatica',
-  'nocoes de informatica': 'informatica',
-  'direito constitucional': 'direito constitucional',
-  'direito administrativo': 'direito administrativo',
+  // Empty - the AI handles all semantic mappings now
 };
 
 /**
@@ -87,46 +78,51 @@ export function normalizeText(text: string): string {
  */
 function normalizeName(name: string): string {
   if (!name) return '';
+  
+  // 1. Normalização básica: remove acentos, minúsculas, pontuação e espaços extras
   let normalized = name
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
     .toLowerCase()
     .trim()
     .replace(/[.,:;!?(){}[\]\\/|<>]/g, ' ') 
-    .replace(/[^\p{L}\p{N}\s]/gu, '')
-    .replace(/\s+/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, '') // Remove caracteres especiais mantendo letras e números
+    .replace(/\s+/g, ' ') // Remove espaços extras
     .trim();
 
-  // Normalização de plural (Qualquer palavra > 3 letras terminada em 's')
-  normalized = normalized.split(' ').map(word => {
-    if (word.length > 3 && word.endsWith('s')) {
-      // Exceções e casos específicos para concursos (como 'Direitos', 'Atos', etc)
-      if (['caes', 'pães', 'maes', 'pos', 'leis', 'cais'].includes(word)) return word;
-      
-      // Se termina em 'es', remove o 'es' (ex: Crases -> Crase)
-      if (word.endsWith('es')) {
-         // Simplificação agressiva: 'acoes' -> 'acao'
-         if (word.endsWith('acoes')) return word.replace('acoes', 'acao');
-         return word.slice(0, -2);
-      }
-      return word.slice(0, -1);
-    }
-    return word;
-  }).join(' ');
+  // 2. Remoção agressiva de prefixos de editais (Ex: "noções de português" -> "português")
+  // Esta lista cobre centenas de combinações possíveis
+  const prefixes = [
+    'nocoes de ', 'nocoes basicas de ', 'conhecimentos de ', 
+    'conhecimentos basicos de ', 'conhecimentos especificos de ',
+    'lingua ', 'linguagem de ', 'disciplina de ', 'materia de ', 
+    'fundamentos de ', 'introducao a ', 'introducao ao ', 'elementos de ', 
+    'principios de ', 'legislacao de ', 'normas de ', 'estudo de ', 
+    'teoria de ', 'aspectos de ', 'topicos de ', 'manual de '
+  ];
 
-  for (const prefix of COMMON_PREFIXES) {
-    if (normalized.startsWith(prefix)) {
-      normalized = normalized.slice(prefix.length).trim();
-      break;
+  // Remove os prefixos de forma iterativa (ex: "Noções de Língua Portuguesa" -> "Portuguesa")
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const prefix of prefixes) {
+      if (normalized.startsWith(prefix)) {
+        normalized = normalized.substring(prefix.length).trim();
+        changed = true;
+      }
     }
   }
 
-  // Remoção de numeração inicial (ex: "1.2 Direito" -> "Direito")
-  normalized = normalized.replace(/^[0-9.]+ /g, '').trim();
+  // 3. Mapeamento de sinônimos/variações ultra comuns para Match Exato
+  const commonSynonyms: Record<string, string> = {
+    'portuguesa': 'portugues',
+    'matematica e raciocinio logico': 'raciocinio logico',
+    'raciocinio logico matemático': 'raciocinio logico',
+    'rlm': 'raciocinio logico'
+  };
 
-  // Mapeamento Canônico
-  if (CANONICAL_SUBJECT_MAP[normalized]) {
-    return CANONICAL_SUBJECT_MAP[normalized];
+  if (commonSynonyms[normalized]) {
+    normalized = commonSynonyms[normalized];
   }
 
   return normalized;
@@ -135,7 +131,7 @@ function normalizeName(name: string): string {
 /**
  * Extrai o conteúdo JSON de uma string que pode conter preâmbulos ou explicações.
  */
-function extractJsonFromText(text: string): any {
+function extractJsonFromText(text: string): unknown {
   if (!text) return null;
   
   // Limpar blocos de código se existirem
@@ -288,7 +284,7 @@ async function performSemanticMerge(
     console.log(`[IA] Resposta bruta da IA (Materia-Módulo 2):`, text.substring(0, 200));
 
     try {
-      const parsed = extractJsonFromText(text);
+      const parsed = extractJsonFromText(text) as any[];
       const results = normalizeAIResponse(parsed, [...virtualGroups.map(v => ({ id: v.id, name: v.name })), ...allUnmatched], virtualGroups);
       console.log(`[IA] Unificacão semântica concluída: ${results.length} sugestões.`);
       return { results, status: 'success' };
@@ -330,13 +326,28 @@ export async function performHybridMerge(
   existingSubjects: Subject[],
   newSubjects: Subject[],
   existingEditalIds: string[],
-  newEditalId: string
+  newEditalId: string,
+  existingMerges: Array<{ primary_subject_id: string, source_edital_ids: string[] }> = [], // Estritamente tipado
+  onPhaseChange?: (phase: 'exact' | 'ai') => void,
+  onProgress?: (message: string) => void
 ): Promise<HybridMergeResult> {
   try {
+    onPhaseChange?.('exact');
+    onProgress?.('Identificando matérias idênticas...');
     const exactResult = performExactMerge(existingSubjects, newSubjects);
+    
+    onPhaseChange?.('ai');
+    onProgress?.('Iniciando análise semântica com IA...');
     const { results: semanticResults, status: aiStatus } = await performSemanticMerge(exactResult.matched, exactResult.unmatchedExisting, exactResult.unmatchedNew);
 
-    const unificationMap = buildUnificationMap(exactResult, semanticResults, existingSubjects, newSubjects, [...new Set([...existingEditalIds, newEditalId])]);
+    const unificationMap = buildUnificationMap(
+      exactResult, 
+      semanticResults, 
+      existingSubjects, 
+      newSubjects, 
+      [...new Set([...existingEditalIds, newEditalId])],
+      existingMerges
+    );
     
     // Deduplicar finalSubjectIds baseada no mapa de unificação
     const finalSet = new Set<string>();
@@ -382,18 +393,26 @@ function buildUnificationMap(
   semantic: AIGroupMergeResult[], 
   existing: Subject[], 
   newSubs: Subject[], 
-  editalIds: string[]
+  editalIds: string[],
+  existingMerges: Array<{ primary_subject_id: string, source_edital_ids: string[] }> = []
 ): CycleUnificationMap {
   const all = [...existing, ...newSubs];
   const unified: UnifiedSubjectMapping[] = [];
   const usedIds = new Set<string>();
 
-  // Auxiliar para pegar editais de um conjunto de IDs de matérias
+  // Auxiliar para pegar editais de um conjunto de IDs de matérias, incluindo herança de merges anteriores
   const getSourceEditalIds = (ids: string[]) => {
     const idsSet = new Set<string>();
     ids.forEach(id => {
+      // 1. Edital direto da matéria
       const s = all.find(sub => sub.id === id);
       if (s?.edital_id) idsSet.add(s.edital_id);
+      
+      // 2. Herança de merges existentes (essencial para não perder badges como TJES)
+      const prevMerge = existingMerges.find(m => m.primary_subject_id === id);
+      if (prevMerge && Array.isArray(prevMerge.source_edital_ids)) {
+        prevMerge.source_edital_ids.forEach((eid: string) => idsSet.add(eid));
+      }
     });
     return Array.from(idsSet);
   };
@@ -475,9 +494,9 @@ async function performTopicGroupingAI(
     const text = (data.text || '');
     console.log(`[IA] Resposta bruta da IA (Topicos-Módulo 2) para "${subjectName}":`, text.substring(0, 100));
     
-    const parsed = extractJsonFromText(text);
+    const parsed = extractJsonFromText(text) as { groups: any[] } | null;
     
-    if (!parsed.groups || !Array.isArray(parsed.groups)) return [];
+    if (!parsed || !parsed.groups || !Array.isArray(parsed.groups)) return [];
 
     const mappings: UnifiedTopicMapping[] = [];
     const usedTopicIds = new Set<string>();
@@ -522,10 +541,13 @@ export async function performFullTopicMerge(
   useAI: boolean,
   userId?: string,
   cycleId?: string,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  onPhaseChange?: (phase: 'exact' | 'ai') => void
 ): Promise<TopicMergePhaseResult> {
   const groups: TopicGroupResult[] = [];
   let overallAiError = false;
+  
+  onPhaseChange?.('exact');
   const pendingAISuggestions: Array<{
     suggestionType: 'subject' | 'topic';
     originalNames: string[];
@@ -576,6 +598,7 @@ export async function performFullTopicMerge(
 
     if (useAI && unmatchedTopics.length >= 2) {
       try {
+        onPhaseChange?.('ai');
         const results = await performTopicGroupingAI(unified.displayName, unmatchedTopics);
         aiStatus = 'success';
         
@@ -697,12 +720,13 @@ export function applyTopicMergeToMap(unificationMap: CycleUnificationMap, result
 // ============================================
 
 export async function saveUnificationMap(userId: string, unificationMap: CycleUnificationMap): Promise<void> {
-  await (supabase.from('user_cycles') as any).update({ unification_map: unificationMap, atualizado_em: new Date().toISOString() }).eq('user_id', userId).eq('status', 'active');
+  // Disabling DB save for unification_map - now handled dynamically in frontend
+  console.log('[cycleMergeService] Unification Map created (Dynamic Only)');
 }
 
 export async function loadUnificationMap(userId: string): Promise<CycleUnificationMap | null> {
-  const { data } = await (supabase.from('user_cycles') as any).select('*').eq('user_id', userId).eq('status', 'active').limit(1).maybeSingle();
-  return data?.unification_map || null;
+  // Always return null to force dynamic rebuild from merges table
+  return null;
 }
 
 export async function persistPhysicalSoftMerge(unificationMap: CycleUnificationMap): Promise<void> {
@@ -755,9 +779,9 @@ export function applyUnificationMap(subjects: Subject[], map: CycleUnificationMa
     const virtualTopics: Topic[] = [];
     const usedTids = new Set<string>();
 
-    if (u.topicMappings.length > 0) {
+    if (u.topicMappings && u.topicMappings.length > 0) {
       for (const tm of u.topicMappings) {
-        const tid = tm.originalTopicIds[0];
+        tm.originalTopicIds.forEach(id => usedTids.add(id));
         
         let sourceTopic: Topic | undefined;
         for (const os of originalSubjects) {
@@ -768,27 +792,28 @@ export function applyUnificationMap(subjects: Subject[], map: CycleUnificationMa
           }
         }
         
-        if (sourceTopic && !usedTids.has(tid)) {
+        if (sourceTopic && tm.originalTopicIds.length > 0) {
           // Grant visibility for the virtual/canonical topic entry
-          virtualTopics.push({ ...sourceTopic, id: tid, name: tm.displayName, is_hidden: false });
-          usedTids.add(tid);
+          // Use the first ID as the canon ID
+          virtualTopics.push({ ...sourceTopic, id: tm.originalTopicIds[0], name: tm.displayName, is_hidden: false });
+        } else if (tm.originalTopicIds.length > 0) {
+          // Fallback: If source topic is missing (likely due to edital removal),
+          // allow individual original topics to be picked up by the fallback logic below
+          tm.originalTopicIds.forEach(id => usedTids.delete(id));
         }
       }
-    } else {
-      // Fallback: junta todos e remove strings repetidas
-      const seenNames = new Set<string>();
-      originalSubjects.forEach(sub => {
-        if (sub.topics && sub.topics.length > 0) {
-          sub.topics.forEach(t => {
-            const normalized = t.name.trim().toLowerCase();
-            if (!seenNames.has(normalized)) {
-              seenNames.add(normalized);
-              virtualTopics.push({ ...t, is_hidden: false });
-            }
-          });
-        }
-      });
     }
+
+    originalSubjects.forEach(sub => {
+      if (sub.topics && sub.topics.length > 0) {
+        sub.topics.forEach(t => {
+          if (!usedTids.has(t.id)) {
+            virtualTopics.push({ ...t, is_hidden: false });
+            usedTids.add(t.id);
+          }
+        });
+      }
+    });
 
     result.push({ ...primarySub, name: u.displayName, topics: virtualTopics });
     u.originalSubjectIds.forEach(id => usedSubIds.add(id));
@@ -895,7 +920,11 @@ export async function fetchPendingMergeSuggestions(
     throw error;
   }
 
-  return data || [];
+  return (data || []).map(item => ({
+    ...item,
+    suggestion_type: item.suggestion_type as 'subject' | 'topic',
+    status: item.status as 'pending' | 'approved' | 'rejected'
+  })) as PendingSuggestion[];
 }
 
 export async function updateSuggestionStatus(

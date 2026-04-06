@@ -24,6 +24,7 @@ import TopicsModal from '@/components/topics/TopicsModal';
 import ContentUploadModal from '@/components/ContentUploadModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
 import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
 import { useCycleStatus } from '@/hooks/useCycleStatus';
@@ -90,7 +91,7 @@ const getStatusBorderColor = (status: Status) => {
 const Subjects = () => {
   const { user } = useAuth();
   const { originsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, getOriginsForSubject, refresh } = useEditalOriginsWithMerge();
-  const { getUnifiedSubjectName, isSubjectMerged, getSubjectOrigins, revertSubjectMerge, getSubjectMergeInfo } = useMergeData();
+  const { getUnifiedSubjectName, isSubjectMerged, getSubjectOrigins, revertSubjectMerge, getSubjectMergeInfo, dynamicUnificationMap } = useMergeData();
   const navigate = useNavigate();
   // Estado local simples - sem contextos
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -100,6 +101,15 @@ const Subjects = () => {
   // Novos modais V2 states
   const [visibleCount, setVisibleCount] = useState(25);
   const ITEMS_PER_PAGE = 25;
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [selectedSubjectForNotes, setSelectedSubjectForNotes] = useState<Subject | null>(null);
+
+  // States for Merge Reversion
+  const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
+  const [selectedMergeId, setSelectedMergeId] = useState<string | null>(null);
+  const [selectedMergeName, setSelectedMergeName] = useState<string>('');
+  const [isReverting, setIsReverting] = useState(false);
+
   const [isImportEditalModalOpen, setIsImportEditalModalOpen] = useState(false);
   const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState<'ready' | 'ia' | 'manual'>('ready');
@@ -530,34 +540,87 @@ const Subjects = () => {
 
   // expandedSubjectList agora é um useMemo (definido mais abaixo)
 
+  const loadUserCycle = useCallback(async () => {
+    if (!user) return;
+
+    const cacheKey = `user_cycle_cache_${user.id}`;
+    try {
+      const { data, error } = await (supabase as any)
+        .from('user_cycles')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1);
+
+      if (error) throw error;
+
+      const cycleData = data?.[0] || null;
+
+      if (!cycleData || !cycleData.ciclo_atual || cycleData.ciclo_atual.length === 0) {
+        localStorage.removeItem(cacheKey);
+        setUserCycle(null);
+      } else {
+        localStorage.setItem(cacheKey, JSON.stringify(cycleData));
+        setUserCycle(cycleData);
+        console.log('🔄 USER CYCLE LOADED:', {
+          cycleLength: cycleData.ciclo_atual?.length || 0,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar ciclo:', error);
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.ciclo_atual && parsed.ciclo_atual.length > 0) {
+            setUserCycle(parsed);
+          }
+        } catch (e) {
+          console.error('Invalid cache', e);
+        }
+      }
+    }
+  }, [user]);
+
   // Carregar dados apenas uma vez por usuário
   useEffect(() => {
     if (user) {
-      // Limpar chaves de cache antigas (tinham espaço extra no final - bug corrigido)
-      localStorage.removeItem(`subjects_${user.id} `);
-      localStorage.removeItem(`user_cycle_cache_${user.id} `);
-
       (async () => {
-        await loadSubjects();
+        await Promise.all([loadSubjects(), loadUserCycle()]);
         setLoading(false);
       })();
 
       // Listener para atualizar quando houver mudanças externas (ex: exclusão de edital ou mesclagem desfeita)
-      const handleExternalUpdate = () => {
-        console.log('🔔 EXTERNAL UPDATE DETECTED - Refreshing subjects...');
-        loadSubjects(true); // Força bypass do cache
+      const handleExternalUpdate = async () => {
+        console.log('🔔 EXTERNAL UPDATE DETECTED - Refreshing subjects, cycle and editais...');
+        try {
+          await Promise.all([
+            loadSubjects(true), // Força bypass do cache
+            loadUserCycle()
+          ]);
+          // Atualizar também o contexto de editais para garantir que badges e visibilidade (activeSubjectIdsSet) reflitam o novo estado
+          await refresh();
+          console.log('✅ Synchronized refresh completed');
+        } catch (err) {
+          console.error('❌ Synchronized refresh failed:', err);
+        }
       };
 
       window.addEventListener('subjectUpdated', handleExternalUpdate);
       window.addEventListener('mergeUpdated', handleExternalUpdate);
+      window.addEventListener('cycleUpdated', handleExternalUpdate);
+      window.addEventListener('editalUpdated', handleExternalUpdate);
       return () => {
         window.removeEventListener('subjectUpdated', handleExternalUpdate);
         window.removeEventListener('mergeUpdated', handleExternalUpdate);
+        window.removeEventListener('cycleUpdated', handleExternalUpdate);
+        window.removeEventListener('editalUpdated', handleExternalUpdate);
       };
     } else {
       setLoading(false);
     }
-  }, [user, loadSubjects]);
+  }, [user, loadSubjects, loadUserCycle]);
 
   // Sincronizar localSubjects quando subjects mudar
   useEffect(() => {
@@ -569,56 +632,6 @@ const Subjects = () => {
     }
   }, [subjects, dataLoaded]);
 
-  // Carregar ciclo do usuário
-  useEffect(() => {
-    const loadUserCycle = async () => {
-      if (!user) return;
-
-      const cacheKey = `user_cycle_cache_${user.id}`;
-
-      try {
-        const { data } = await supabase
-          .from('user_cycles')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .limit(1);
-
-        const cycleData = data?.[0] || null;
-
-        // Se não há ciclo no BD ou ciclo_atual está vazio, garantir que seja null
-        if (!cycleData || !cycleData.ciclo_atual || cycleData.ciclo_atual.length === 0) {
-          // Limpar cache local quando não há ciclo
-          localStorage.removeItem(cacheKey);
-          setUserCycle(null);
-        } else {
-          // Só salvar cache quando há ciclo ativo com matérias
-          localStorage.setItem(cacheKey, JSON.stringify(cycleData));
-          setUserCycle(cycleData);
-          console.log('🔄 USER CYCLE LOADED:', {
-            cycleLength: cycleData.ciclo_atual?.length || 0,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao carregar ciclo:', error);
-        // Fallback: tentar usar cache apenas se ciclo existir no BD (verificado acima)
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            if (parsed && parsed.ciclo_atual && parsed.ciclo_atual.length > 0) {
-              setUserCycle(parsed);
-            }
-          } catch (e) {
-            console.error('Invalid cache', e);
-          }
-        }
-      }
-    };
-
-    loadUserCycle();
-  }, [user]);
 
   // Função auxiliar para obter a posição no ciclo
   const getCyclePosition = (itemId: string) => {
@@ -628,63 +641,58 @@ const Subjects = () => {
     return cycleIndex + 1; // +1 porque queremos posição 1-based
   };
 
+  // Interface para item expandido da lista
+  interface ExpandedSubjectItem {
+    id: string;
+    subject: Subject;
+    viewIndex: number;
+    isView: boolean;
+  }
+
   // Criar lista expandida de matérias com visualizações usando useMemo
-  const expandedSubjectList = useMemo(() => {
+  const expandedSubjectList = useMemo<ExpandedSubjectItem[]>(() => {
+    if (!localSubjects.length) return [];
+    
     // ── Obter IDs no ciclo para garantir visibilidade ─────────────────────
-    const subjectsInCycleSet = new Set(userCycle?.ciclo_atual || []);
+    const cicloAtual = userCycle?.ciclo_atual || [];
+    const subjectsInCycleSet = new Set(cicloAtual);
 
     // ── Filtrar: só exibir subjects "liberados" ──────────────────────────
-    // Um subject é visível se:
-    //   (a) não pertence a nenhum edital (adicionado diretamente na página), OU
-    //   (b) está em active_subject_ids de algum edital carregado no ciclo, OU
-    //   (c) já está presente no ciclo atual (garante alinhamento)
-    // ── Filtrar: só exibir subjects "liberados" ──────────────────────────
-    // Um subject é visível se:
-    //   (a) não pertence a nenhum edital (adicionado diretamente na página), OU
-    //   (b) está em active_subject_ids de algum edital carregado no ciclo, OU
-    //   (c) já está presente no ciclo atual (garante alinhamento)
     const rawVisibleSubjects = localSubjects.filter(subject => {
-      // Se marcado como invisível no registro real (banco), oculta
       if (subject.is_visible === false) return false;
-      if (hiddenSubjectIds.has(subject.id)) return false;   // oculto otimisticamente
+      if (hiddenSubjectIds.has(subject.id)) return false; 
       
       const isInCycle = subjectsInCycleSet.has(subject.id);
       const isFromActiveEdital = activeSubjectIdsSet.has(subject.id);
-
-      // Se está no ciclo ou pertence a um edital carregado, mostra.
-      if (isInCycle || isFromActiveEdital) return true;
+      const isVisible = isInCycle || isFromActiveEdital;
       
-      return false; // Filtra vazamentos (matérias de outros editais não carregados)
+      return isVisible;
     });
 
-    const visibleSubjects = applyUnificationMap(rawVisibleSubjects, userCycle?.unification_map);
+    const visibleSubjects = applyUnificationMap(rawVisibleSubjects, dynamicUnificationMap);
 
-    if (!userCycle?.ciclo_atual || !visibleSubjects.length) {
-      return visibleSubjects.map(subject => ({
-        id: `${subject.id}-0`,
+    if (cicloAtual.length === 0 || visibleSubjects.length === 0) {
+      return visibleSubjects.map((subject, index) => ({
+        id: `${subject.id}-${index}`,
         subject,
-        viewIndex: 0,
+        viewIndex: index,
         isView: false
       }));
     }
 
-    const expanded: Array<{
-      id: string;
-      subject: Subject;
-      viewIndex: number;
-      isView: boolean;
-    }> = [];
+    const expanded: ExpandedSubjectItem[] = [];
+    const usedIndices = new Map<string, number>();
 
     // Primeiro, adicionar todas as matérias do ciclo com suas visualizações
-    userCycle.ciclo_atual.forEach((originalSubjectId: string, cycleIndex: number) => {
-      const mappedSubjectId = getUnifiedSubjectId(originalSubjectId, userCycle.unification_map);
+    cicloAtual.forEach((originalSubjectId: string, cycleIndex: number) => {
+      const mappedSubjectId = getUnifiedSubjectId(originalSubjectId, dynamicUnificationMap);
       const subject = visibleSubjects.find(s => s.id === mappedSubjectId);
       if (!subject) return;
 
       // Contar quantas vezes esta matéria (ou suas unificadas) já apareceu antes neste ciclo
       const viewIndex = userCycle.ciclo_atual
         .slice(0, cycleIndex)
-        .filter((id: string) => getUnifiedSubjectId(id, userCycle.unification_map) === mappedSubjectId).length;
+        .filter((id: string) => getUnifiedSubjectId(id, dynamicUnificationMap) === mappedSubjectId).length;
 
       expanded.push({
         id: `${subject.id} -${cycleIndex} `,
@@ -708,7 +716,7 @@ const Subjects = () => {
     });
 
     return expanded;
-  }, [userCycle?.ciclo_atual, userCycle?.unification_map, localSubjects, activeSubjectIdsSet, hiddenSubjectIds, editaisData]);
+  }, [userCycle?.ciclo_atual, dynamicUnificationMap, localSubjects, activeSubjectIdsSet, hiddenSubjectIds]);
 
   useEffect(() => {
     console.log('📋 SET LOCAL SUBJECTS useEffect TRIGGERED:', {
@@ -1528,18 +1536,13 @@ const Subjects = () => {
                                       )}
                                       {isSubjectMerged(subject.id) && (
                                         <button
-                                          onClick={async (e) => {
+                                          onClick={(e) => {
                                             e.stopPropagation();
                                             const mergeInfo = getSubjectMergeInfo(subject.id);
-                                            if (mergeInfo && confirm(`Deseja desfazer a mesclagem "${mergeInfo.display_name}"?`)) {
-                                              try {
-                                                await revertSubjectMerge(mergeInfo.id);
-                                                toast.success('Mesclagem desfeita');
-                                                window.location.reload();
-                                              } catch (err) {
-                                                console.error('Erro ao desfazer mesclagem:', err);
-                                                toast.error('Erro ao desfazer mesclagem');
-                                              }
+                                            if (mergeInfo) {
+                                              setSelectedMergeId(mergeInfo.id);
+                                              setSelectedMergeName(mergeInfo.display_name);
+                                              setIsRevertModalOpen(true);
                                             }
                                           }}
                                           title="Desfazer Mesclagem"
@@ -1602,7 +1605,8 @@ const Subjects = () => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSubjectNotesModal({ isOpen: true, subjectId: subject.id, subjectName: subject.name });
+                                    setSelectedSubjectForNotes(subject);
+                                    setIsNotesModalOpen(true);
                                   }}
                                   title="Anotações"
                                   className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-primary"
@@ -2188,16 +2192,53 @@ const Subjects = () => {
             onSuccess={refreshData}
           />
 
-          <SubjectNotesModal
-            isOpen={subjectNotesModal.isOpen}
+          {selectedSubjectForNotes && (
+            <SubjectNotesModal
+              isOpen={isNotesModalOpen}
+              onClose={() => {
+                setIsNotesModalOpen(false);
+                setSelectedSubjectForNotes(null);
+              }}
+              subjectId={selectedSubjectForNotes.id}
+              subjectName={getUnifiedSubjectName(selectedSubjectForNotes.id, selectedSubjectForNotes.name)}
+            />
+          )}
+
+          {/* Modal de Confirmação de Reversão de Mesclagem */}
+          <ConfirmModal
+            isOpen={isRevertModalOpen}
             onClose={() => {
-              setSubjectNotesModal(prev => ({ ...prev, isOpen: false }));
-              setTimeout(() => {
-                refreshData();
-              }, 200);
+              setIsRevertModalOpen(false);
+              setSelectedMergeId(null);
             }}
-            subjectId={subjectNotesModal.subjectId}
-            subjectName={subjectNotesModal.subjectName}
+            onConfirm={async () => {
+              if (selectedMergeId) {
+                setIsReverting(true);
+                try {
+                  await revertSubjectMerge(selectedMergeId);
+                  toast.success('Mesclagem desfeita com sucesso');
+                  setIsRevertModalOpen(false);
+                } catch (error: any) {
+                  console.error('Erro ao desfazer mesclagem:', error);
+                  toastGate.notifyError('Erro ao desfazer mesclagem', error?.message || 'Erro desconhecido');
+                } finally {
+                  setIsReverting(false);
+                  setSelectedMergeId(null);
+                }
+              }
+            }}
+            title="Desfazer Mesclagem de Matéria"
+            description={
+              <span>
+                Tem certeza que deseja desfazer a mesclagem <strong>"{selectedMergeName}"</strong>? 
+                As matérias voltarão a ser exibidas individualmente no seu ciclo.
+              </span>
+            }
+            confirmText="Desfazer"
+            cancelText="Manter Mesclado"
+            variant="warning"
+            icon={Scissors}
+            isLoading={isReverting}
           />
         </div>
       </div>

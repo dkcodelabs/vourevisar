@@ -131,17 +131,6 @@ const Editais = () => {
     const [mergePhase, setMergePhase] = useState<'exact' | 'ai'>('exact');
     const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        if (isMerging || isAnalyzingTopics) {
-            setMergePhase('exact');
-            const timer = setTimeout(() => {
-                setMergePhase('ai');
-            }, 1200);
-            return () => clearTimeout(timer);
-        } else {
-            setMergePhase('exact');
-        }
-    }, [isMerging, isAnalyzingTopics]);
     const [expandedPreviewSubjects, setExpandedPreviewSubjects] = useState<Set<string>>(new Set());
     const [pendingSuggestions, setPendingSuggestions] = useState<PendingSuggestion[]>([]);
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -472,7 +461,6 @@ const Editais = () => {
     const handleDeleteEdital = useCallback(async (edital: UserEdital) => {
         setProcessingId(edital.id);
         try {
-            // 0. Primeiro: limpar merges relacionados às matérias deste edital (Foreign Key)
             const { data: subjectsToDelete } = await supabase
                 .from('subjects')
                 .select('id')
@@ -480,8 +468,8 @@ const Editais = () => {
                 .eq('user_id', user!.id);
             
             const subjectIdsToDelete = (subjectsToDelete || []).map(s => s.id);
+            const subjectIdsSet = new Set(subjectIdsToDelete);
             
-            // Limpar topic_merges - buscar todos os tópicos das matérias e deletar
             const { data: topicsToDelete } = await supabase
                 .from('topics')
                 .select('id')
@@ -489,6 +477,11 @@ const Editais = () => {
             
             const topicIdsToDelete = (topicsToDelete || []).map(t => t.id);
             
+            // 1. Sincronizar ciclo e limpar merges ANTES de deletar os registros físicos,
+            // para que o serviço consiga ler os metadados necessários.
+            await mergeService.syncCycleAfterRemoval(user!.id, edital.id);
+            await mergeService.cleanupMergesAfterEditalRemoval(user!.id, edital.id);
+
             if (topicIdsToDelete.length > 0) {
                 await (supabase as any)
                     .from('topic_merges')
@@ -496,92 +489,66 @@ const Editais = () => {
                     .in('primary_topic_id', topicIdsToDelete);
             }
             
-            // Limpar subject_merges
             if (subjectIdsToDelete.length > 0) {
                 await (supabase as any)
                     .from('subject_merges')
                     .delete()
                     .in('primary_subject_id', subjectIdsToDelete);
             }
-            
-            // Limpar pending_cycle_merges
-            await (supabase as any)
-                .from('pending_cycle_merges')
-                .delete()
-                .eq('edital_id', edital.id);
 
-            // 1. Limpar Histórico de Revisão globalmente para este Edital
-            const { error: historyErr } = await supabase
+            await supabase
                 .from('topic_review_history')
                 .delete()
                 .eq('edital_id', edital.id);
-            if (historyErr) console.error('Erro ao limpar histórico:', historyErr);
 
-            // 1.1 Limpar Sessões de Estudo globalmente para este Edital
-            const { error: sessionsErr } = await supabase
+            await supabase
                 .from('study_sessions')
                 .delete()
                 .eq('edital_id', edital.id);
-            if (sessionsErr) console.error('Erro ao limpar sessões:', sessionsErr);
 
-            // 2. Deletar Tópicos vinculados a este Edital
-            const { error: topicsErr } = await supabase
+            await supabase
                 .from('topics')
                 .delete()
                 .eq('edital_id', edital.id);
-            if (topicsErr) console.error('Erro ao deletar tópicos:', topicsErr);
 
-            // 3. Deletar Matérias vinculadas a este Edital
-            const { error: subjectsErr } = await supabase
+            await supabase
                 .from('subjects')
                 .delete()
                 .eq('edital_id', edital.id)
                 .eq('user_id', user!.id);
-            if (subjectsErr) console.error('Erro ao deletar matérias:', subjectsErr);
 
-            // 4. Remover Matérias do Ciclo de Estudos (user_cycles) — Evita dados órfãos na página de Revisões
-            const { data } = await supabase
+
+            const { data: updatedCycle } = await supabase
                 .from('user_cycles')
-                .select('id, ciclo_atual, unification_map')
+                .select('unification_map')
                 .eq('user_id', user!.id)
                 .maybeSingle();
-            const currentCycle = data as any;
 
-            if (currentCycle) {
-                const currentIds = (currentCycle.ciclo_atual as string[]) || [];
-                const subjectIdsToRemove = new Set(edital.subjectIds);
-                const newCycleIds = currentIds.filter(id => !subjectIdsToRemove.has(id));
+            if (updatedCycle?.unification_map) {
+                let newUnificationMap = updatedCycle.unification_map as any;
+                newUnificationMap = {
+                    ...newUnificationMap,
+                    editalIds: (newUnificationMap.editalIds || []).filter((id: string) => id !== edital.id),
+                    unifiedSubjects: (newUnificationMap.unifiedSubjects || []).map((u: any) => ({
+                        ...u,
+                        originalSubjectIds: u.originalSubjectIds.filter((id: string) => !subjectIdsSet.has(id))
+                    })).filter((u: any) => u.originalSubjectIds.length > 0)
+                };
                 
-                let newUnificationMap = currentCycle.unification_map;
-                if (newUnificationMap) {
-                    newUnificationMap = {
-                        ...newUnificationMap,
-                        editalIds: newUnificationMap.editalIds.filter((id: string) => id !== edital.id),
-                        unifiedSubjects: newUnificationMap.unifiedSubjects.map((u: any) => ({
-                            ...u,
-                            originalSubjectIds: u.originalSubjectIds.filter((id: string) => !subjectIdsToRemove.has(id))
-                        })).filter((u: any) => u.originalSubjectIds.length > 0)
-                    };
-                    if (newUnificationMap.editalIds.length === 0) newUnificationMap = null;
-                }
-
-                if (newCycleIds.length !== currentIds.length || newUnificationMap !== currentCycle.unification_map) {
-                    await supabase
-                        .from('user_cycles')
-                        .update({ ciclo_atual: newCycleIds, unification_map: newUnificationMap, atualizado_em: new Date().toISOString() })
-                        .eq('id', currentCycle.id);
-                    window.dispatchEvent(new CustomEvent('cycleUpdated'));
-                }
+                if (newUnificationMap.editalIds.length === 0) newUnificationMap = null;
+                
+                await supabase
+                    .from('user_cycles')
+                    .update({ unification_map: newUnificationMap })
+                    .eq('user_id', user!.id);
             }
-
-            // 4.5. Limpar mesclagens pendentes (pending_cycle_merges) deste edital
+            
             await (supabase as any)
                 .from('pending_cycle_merges')
                 .delete()
                 .eq('user_id', user!.id)
                 .eq('edital_id', edital.id);
 
-            // 5. Deletar o Edital em si
             const { error } = await editaisTable().delete().eq('id', edital.id);
             if (error) throw error;
 
@@ -591,8 +558,10 @@ const Editais = () => {
             const cleanName = edital.name.length > 50 ? `${edital.name.substring(0, 50)}...` : edital.name;
             toast.success(`Edital "${cleanName}" removido com sucesso.`);
 
-            // Sincroniza a página de Matérias
+            window.dispatchEvent(new CustomEvent('cycleUpdated'));
             window.dispatchEvent(new CustomEvent('subjectUpdated'));
+        } catch (err) {
+            errorService.report(err, { module: 'editais', action: 'delete', userMessage: 'Erro ao deletar edital.' });
         } finally {
             setProcessingId(null);
         }
@@ -621,45 +590,45 @@ const Editais = () => {
     const handleUnloadCycle = useCallback(async (edital: UserEdital) => {
         if (!user) return;
         setProcessingId(edital.id);
+
         try {
-            const { data } = await supabase
+            // ─── 1. Sincronizar Ciclo e Gerenciar Unificações Orfãs ───
+            // Substitui IDs removidos por sobreviventes se houver mesclagem. 
+            // Garante que o edital que FICA no ciclo mantenha suas matérias.
+            await mergeService.syncCycleAfterRemoval(user.id, edital.id);
+            
+            // ─── 2. Limpeza Profunda de Mesclagens (Garante que o ícone de tesoura suma) ───
+            await mergeService.cleanupMergesAfterEditalRemoval(user.id, edital.id);
+
+            // ─── 3. Atualizar o unification_map (Remover referências ao edital que está saindo) ───
+            const { data: updatedCycle } = await supabase
                 .from('user_cycles')
-                .select('id, ciclo_atual, unification_map')
+                .select('unification_map')
                 .eq('user_id', user.id)
-                .single();
-            const existingCycle = data as any;
+                .maybeSingle();
 
-            if (existingCycle) {
-                const currentIds = (existingCycle.ciclo_atual as string[]) || [];
+            if (updatedCycle?.unification_map) {
+                let newUnificationMap = updatedCycle.unification_map as any;
                 const subjectIdsToRemove = new Set(edital.subjectIds);
-                const newIds = currentIds.filter(id => !subjectIdsToRemove.has(id));
+                
+                newUnificationMap = {
+                    ...newUnificationMap,
+                    editalIds: (newUnificationMap.editalIds || []).filter((id: string) => id !== edital.id),
+                    unifiedSubjects: (newUnificationMap.unifiedSubjects || []).map((u: any) => ({
+                        ...u,
+                        originalSubjectIds: u.originalSubjectIds.filter((id: string) => !subjectIdsToRemove.has(id))
+                    })).filter((u: any) => u.originalSubjectIds.length > 0)
+                };
 
-                let newUnificationMap = existingCycle.unification_map;
-                if (newUnificationMap) {
-                    newUnificationMap = {
-                        ...newUnificationMap,
-                        editalIds: newUnificationMap.editalIds.filter((id: string) => id !== edital.id),
-                        unifiedSubjects: newUnificationMap.unifiedSubjects.map((u: any) => ({
-                            ...u,
-                            originalSubjectIds: u.originalSubjectIds.filter((id: string) => !subjectIdsToRemove.has(id))
-                        })).filter((u: any) => u.originalSubjectIds.length > 0)
-                    };
-                    if (newUnificationMap.editalIds.length === 0) newUnificationMap = null;
-                }
+                if (newUnificationMap.editalIds.length === 0) newUnificationMap = null;
 
-                const { error: cycleErr } = await supabase
+                await supabase
                     .from('user_cycles')
-                    .update({
-                        ciclo_atual: newIds,
-                        unification_map: newUnificationMap,
-                        atualizado_em: new Date().toISOString(),
-                    } as any)
+                    .update({ unification_map: newUnificationMap })
                     .eq('user_id', user.id);
-
-                if (cycleErr) throw cycleErr;
             }
 
-            // ─── 4. Resetar campos SRS nos tópicos (Ponto Crítico: Remove da página de Revisões) ───
+            // ─── 4. Resetar campos SRS nos tópicos (Remove da página de Revisões) ───
             if (edital.subjectIds && edital.subjectIds.length > 0) {
                 await supabase
                     .from('topics')
@@ -675,29 +644,12 @@ const Editais = () => {
                     } as any)
                     .in('subject_id', edital.subjectIds);
                 
-                // ─── 5. Purgar logs de estudo e histórico de revisão (Aggressive Cleanup) ───
-                // 5a. Deletar sessões de estudo PARA ESTE EDITAL
+                // ─── 5. Purgar logs de estudo e histórico de revisão PARA ESTE EDITAL ───
                 await (supabase as any).from('study_sessions').delete().eq('edital_id', edital.id);
-
-                // 5b. Deletar histórico de revisão de tópicos (topic_review_history) PARA ESTE EDITAL
                 await (supabase as any).from('topic_review_history').delete().eq('edital_id', edital.id);
-                
-                // 5c. Caso o edital tenha tópicos órfãos ou inconsistentes (precaução extra)
-                const { data: topicsToClear } = await supabase
-                    .from('topics')
-                    .select('id')
-                    .in('subject_id', edital.subjectIds);
-                
-                if (topicsToClear && topicsToClear.length > 0) {
-                    const topicIds = topicsToClear.map(t => t.id);
-                    await (supabase as any).from('topic_review_history').delete().in('topic_id', topicIds);
-                }
             }
 
-            // ─── 6. Purgar logs do ciclo (Comentado: tabela não existe no schema atual) ───
-            // await (supabase as any).from('cycle_logs').delete().eq('user_id', user.id).eq('edital_id', edital.id);
-
-            // ─── 7. Atualizar Estado do Edital ──────────────────────────────
+            // ─── 6. Atualizar Estado do Edital Local ───
             await editaisTable()
                 .update({ merged_into_cycle: false, active_subject_ids: [] } as any)
                 .eq('id', edital.id);
@@ -740,50 +692,77 @@ const Editais = () => {
 
             const { data: existingCycle } = await supabase
                 .from('user_cycles')
-                .select('id, ciclo_atual')
+                .select('id, ciclo_atual, unification_map')
                 .eq('user_id', user.id)
-                .single();
+                .maybeSingle();
 
-            const existingIds = (existingCycle?.ciclo_atual as string[] | null) || [];
+            const unificationMap = existingCycle?.unification_map as any;
+            const existingIdsInCycle = (existingCycle?.ciclo_atual as string[] | null) || [];
 
-            // CORREÇÃO: Filtrar apenas IDs que realmente existem no sistema para evitar "fantasmas" no preview
-            const realExistingIds = existingIds.filter(id => subjects.some(s => s.id === id));
-
-            // CORREÇÃO: Encontrar quais editais já estão no ciclo (origens) 
-            // Buscamos em TODO o array 'editais' (estado) para ignorar filtros de busca/tipo ativos
-            const origins: (UserEdital | { name: string; isManual: boolean })[] = [];
-            for (const e of editais) {
-                if (e.id === edital.id) continue;
-                // Se algum subject ID do edital 'e' está no ciclo atual, ele é uma origem
-                const hasCommon = e.subjectIds.some(id => realExistingIds.includes(id));
-                if (hasCommon) {
-                    origins.push(e);
+            // 1. Detectar nomes das matérias que já estão no ciclo (para detecção por nome)
+            const namesInCycle = new Set<string>();
+            subjects.forEach(s => {
+                if (existingIdsInCycle.includes(s.id)) {
+                    namesInCycle.add(s.name.toLowerCase().trim());
                 }
-            }
-            
-            // Se há IDs existentes no ciclo mas nenhuma origem de edital foi encontrada, é "Manual"
-            if (origins.length === 0 && realExistingIds.length > 0) {
-                origins.push({ name: 'Manual', isManual: true });
+            });
+
+            // 2. Expandir IDs considerando unificações passadas
+            const expandedExistingIds = new Set(existingIdsInCycle);
+            if (unificationMap?.unifiedSubjects) {
+                unificationMap.unifiedSubjects.forEach((u: any) => {
+                    const hasSomeInCycle = u.originalSubjectIds.some((id: string) => expandedExistingIds.has(id));
+                    if (hasSomeInCycle) {
+                        u.originalSubjectIds.forEach((id: string) => expandedExistingIds.add(id));
+                        if (u.displayNameOverride) namesInCycle.add(u.displayNameOverride.toLowerCase().trim());
+                    }
+                });
             }
 
-            // BUSCAR TODAS AS MATÉRIAS E TÓPICOS DO EDITAL para garantir visibilidade no modal
+            // 3. Identificar origens e conflitos
+            const realExistingIdsInCycle = Array.from(expandedExistingIds).filter(id => subjects.some(s => s.id === id));
+            const origins: (UserEdital | { name: string; isManual: boolean })[] = [];
+            
+            // Buscar matérias do edital atual para o preview
             const { data: editalSubjectsData } = await supabase
                 .from('subjects')
                 .select('*, topics(*)')
                 .in('id', edital.subjectIds);
             
+            const currentEditalSubjects = (editalSubjectsData as any[]) || [];
+
+            // Detecção por Nome: Se alguma matéria do novo edital tem o mesmo nome de algo no ciclo
+            const hasNameConflict = currentEditalSubjects.some(s => namesInCycle.has(s.name.toLowerCase().trim()));
+
+            for (const e of editais) {
+                if (e.id === edital.id) continue;
+                const hasCommonId = e.subjectIds.some(id => expandedExistingIds.has(id));
+                const hasCommonName = e.subjectIds.some(id => {
+                    const s = subjects.find(sub => sub.id === id);
+                    return s && namesInCycle.has(s.name.toLowerCase().trim());
+                });
+
+                if (hasCommonId || hasCommonName) {
+                    origins.push(e);
+                }
+            }
+            
+            if (origins.length === 0 && (realExistingIdsInCycle.length > 0 || hasNameConflict)) {
+                origins.push({ name: 'Manual', isManual: true });
+            }
+
             if (editalSubjectsData) {
                 setLoadedEditalSubjects(editalSubjectsData as any);
             }
 
-            // SEMPRE mostrar o modal (seja conflito ou carga inicial) para confirmação
+            // Mostrar modal de carga/conflito
             setCycleConflict({
                 isOpen: true,
                 edital: edital,
-                existingIds: realExistingIds,
+                existingIds: realExistingIdsInCycle,
                 currentOrigins: origins,
-                step: realExistingIds.length > 0 ? 'select' : 'preview',
-                action: realExistingIds.length > 0 ? null : 'replace'
+                step: realExistingIdsInCycle.length > 0 ? 'select' : 'preview',
+                action: realExistingIdsInCycle.length > 0 ? null : 'replace'
             });
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'loadCycle', userMessage: 'Erro ao preparar carga do ciclo.' });
@@ -857,6 +836,7 @@ const Editais = () => {
     const handleHybridPreview = useCallback(async () => {
         if (!cycleConflict.edital || !user) return;
         setIsMerging(true);
+        setMergePhase('exact');
         setProcessingMessage('Unificando matérias...');
         try {
             const edital = cycleConflict.edital;
@@ -867,11 +847,20 @@ const Editais = () => {
                 .filter(e => e.mergedIntoCycle && e.id !== edital.id)
                 .map(e => e.id);
 
+            const { data: existingMerges } = await supabase
+                .from('subject_merges')
+                .select('*')
+                .eq('user_id', user.id)
+                .is('reverted_at', null);
+
             const result = await performHybridMerge(
                 existingSubs,
                 newSubs,
                 existingEditalIds,
-                edital.id
+                edital.id,
+                existingMerges || [],
+                setMergePhase,
+                (msg) => setProcessingMessage(msg)
             );
 
             const newState = { 
@@ -912,6 +901,7 @@ const Editais = () => {
     const handleTopicPreview = useCallback(async (useAI: boolean) => {
         if (!cycleConflict.unificationMap) return;
         setIsAnalyzingTopics(true);
+        setMergePhase('exact');
         setProcessingMessage(useAI ? 'Mesclando tópicos com IA...' : 'Organizando tópicos...');
         try {
             // Apply current name overrides to map before topic analysis
@@ -930,7 +920,8 @@ const Editais = () => {
                 useAI,
                 user?.id,
                 undefined,
-                (msg) => setProcessingMessage(msg)
+                (msg) => setProcessingMessage(msg),
+                setMergePhase
             );
 
             const newState = {
@@ -1007,7 +998,19 @@ const Editais = () => {
                         .filter(e => e.mergedIntoCycle && e.id !== edital.id)
                         .map(e => e.id);
 
-                    const resultData = await performHybridMerge(existingSubs, newSubs, existingEditalIds, edital.id);
+                    setProcessingMessage('Unificando matérias...');
+                    setIsMerging(true);
+                    setMergePhase('exact');
+                    
+                    const resultData = await performHybridMerge(
+                        existingSubs, 
+                        newSubs, 
+                        existingEditalIds, 
+                        edital.id, 
+                        [], 
+                        setMergePhase,
+                        (msg) => setProcessingMessage(msg)
+                    );
                     unificationMap = resultData.unificationMap;
                     finalSubjectIds = resultData.finalSubjectIds;
                     // We don't need to set result locally here if we use resultData below
@@ -1070,6 +1073,8 @@ const Editais = () => {
             errorService.report(err, { module: 'cycle', action: 'conflict_resolution', userMessage: 'Erro ao processar ação no ciclo.' });
         } finally {
             setProcessingId(null);
+            setIsMerging(false);
+            setProcessingMessage(null);
         }
     }, [cycleConflict, executeCycleLoad, editais, markEditalMerged, fetchEditais, refreshData, user, subjects, discardPendingMerge]);
 
@@ -2029,7 +2034,7 @@ const Editais = () => {
                             className="relative w-full max-w-2xl bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-[28px] shadow-2xl p-7 flex flex-col gap-6 overflow-hidden"
                         >
                             {/* Overlay de Processamento com IA */}
-                            {isMerging && (
+                            {(isMerging || isAnalyzingTopics) && (
                                 <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-background/90 backdrop-blur-md animate-in fade-in duration-300 rounded-[28px]">
                                     <div className="flex flex-col items-center gap-6 text-center max-w-[280px]">
                                         <div className="relative">

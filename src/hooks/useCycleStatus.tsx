@@ -612,9 +612,11 @@ export const useCycleStatus = () => {
     };
 
     window.addEventListener('cycleUpdated', handleCycleUpdate);
+    window.addEventListener('mergeUpdated', handleCycleUpdate);
 
     return () => {
       window.removeEventListener('cycleUpdated', handleCycleUpdate);
+      window.removeEventListener('mergeUpdated', handleCycleUpdate);
 
       // Limpar timeout se o componente for desmontado
       if (reloadTimeoutRef.current) {

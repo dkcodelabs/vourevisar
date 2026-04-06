@@ -221,11 +221,21 @@ export const useStudyCycleData = () => {
 
   // Event listener para atualizações globais de matérias/editais
   useEffect(() => {
-    window.addEventListener('subjectStatusUpdated', refreshData);
-    window.addEventListener('subjectUpdated', refreshData);
+    const handleUpdate = () => {
+      console.log('🔄 StudyCycleData: Global update received, refreshing...');
+      refreshData();
+    };
+
+    window.addEventListener('subjectStatusUpdated', handleUpdate);
+    window.addEventListener('subjectUpdated', handleUpdate);
+    window.addEventListener('cycleUpdated', handleUpdate);
+    window.addEventListener('mergeUpdated', handleUpdate);
+    
     return () => {
-      window.removeEventListener('subjectStatusUpdated', refreshData);
-      window.removeEventListener('subjectUpdated', refreshData);
+      window.removeEventListener('subjectStatusUpdated', handleUpdate);
+      window.removeEventListener('subjectUpdated', handleUpdate);
+      window.removeEventListener('cycleUpdated', handleUpdate);
+      window.removeEventListener('mergeUpdated', handleUpdate);
     };
   }, [refreshData]);
 

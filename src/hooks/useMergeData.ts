@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { mergeService } from '@/services/mergeService';
 import type { SubjectMerge, TopicMerge } from '@/types/merges';
+import type { CycleUnificationMap, UnifiedSubjectMapping, UnifiedTopicMapping } from '@/types/cycleMergeTypes';
 
 export const useMergeData = () => {
   const { user } = useAuth();
@@ -64,6 +65,38 @@ export const useMergeData = () => {
     return map;
   }, [topicMerges]);
 
+  const dynamicUnificationMap = useMemo((): CycleUnificationMap | null => {
+    if (subjectMerges.length === 0) return null;
+
+    const unifiedSubjects: UnifiedSubjectMapping[] = subjectMerges.map(sm => {
+      const relatedTopics = topicMerges.filter(tm => tm.subject_merge_id === sm.id);
+      
+      const topicMappings: UnifiedTopicMapping[] = relatedTopics.map(tm => ({
+        displayName: tm.display_name,
+        originalTopicIds: [tm.primary_topic_id, ...(tm.merged_topic_ids || [])],
+        originalSubjectIds: [sm.primary_subject_id, ...(sm.merged_subject_ids || [])],
+        matchType: 'exact',
+        sourceEditalIds: []
+      }));
+
+      return {
+        displayName: sm.display_name,
+        originalSubjectIds: [sm.primary_subject_id, ...(sm.merged_subject_ids || [])],
+        matchType: 'exact',
+        topicMappings,
+        sourceEditalIds: []
+      };
+    });
+
+    return {
+      version: 1,
+      createdAt: new Date().toISOString(),
+      editalIds: [],
+      unifiedSubjects,
+      standaloneSubjectIds: []
+    };
+  }, [subjectMerges, topicMerges]);
+
   const getUnifiedSubjectName = useCallback((subjectId: string, originalName: string): string => {
     return subjectNamesMap.get(subjectId) || originalName;
   }, [subjectNamesMap]);
@@ -87,25 +120,16 @@ export const useMergeData = () => {
   }, [fetchMerges]);
 
   const isSubjectMerged = useCallback((subjectId: string): boolean => {
-    // Só é considerado mesclado se:
-    // 1. Tiver mais de um subject no grupo (merged_subject_ids.length > 0)
-    // 2. O subject existe no ciclo_atual atual
     for (const merge of subjectMerges) {
       const allIds = [merge.primary_subject_id, ...(merge.merged_subject_ids || [])];
-      
-      // Verificar se este subjectId está no grupo
       if (!allIds.includes(subjectId)) continue;
-      
-      // Verificar se é uma mesclagem real (mais de 1 subject)
       if (allIds.length < 2) continue;
-      
       return true;
     }
     return false;
   }, [subjectMerges]);
 
   const isTopicMerged = useCallback((topicId: string): boolean => {
-    // Só é considerado mesclado se tiver mais de um topic no grupo
     for (const merge of topicMerges) {
       const allIds = [merge.primary_topic_id, ...(merge.merged_topic_ids || [])];
       if (!allIds.includes(topicId)) continue;
@@ -153,6 +177,7 @@ export const useMergeData = () => {
     getSubjectOrigins,
     getSubjectMergeInfo,
     getTopicMergeInfo,
+    dynamicUnificationMap,
     refresh: fetchMerges
   };
 };

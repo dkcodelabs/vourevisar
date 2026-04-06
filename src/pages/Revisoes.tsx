@@ -13,6 +13,7 @@ import { useTopicReview } from '@/hooks/useTopicReview';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useTimer } from '@/contexts/TimerContext';
 import { useCycleState } from '@/hooks/useCycleState';
+import { useMergeData } from '@/hooks/useMergeData';
 import { getCanonicalSubjectName, getCanonicalTopicName } from '@/services/cycleMergeService';
 
 
@@ -45,7 +46,8 @@ export const Revisoes = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { subjects, refreshData } = useApp();
-  const { userCycle } = useCycleState();
+  const { userCycle, isLoading: isCycleLoading } = useCycleState();
+  const { dynamicUnificationMap } = useMergeData();
   
   const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
 
@@ -149,11 +151,27 @@ export const Revisoes = () => {
     };
     window.addEventListener('topicUpdated', handleTopicUpdate);
     window.addEventListener('external-topic-completed', handleExternalCompletion as EventListener);
+    
+    const handleRefresh = () => {
+      console.log('🔔 [Revisoes] Refreshing due to cycle/merge update...');
+      refetch();
+      refreshData();
+    };
+
+    window.addEventListener('cycleUpdated', handleRefresh);
+    window.addEventListener('mergeUpdated', handleRefresh);
+    window.addEventListener('subjectUpdated', handleRefresh);
+
     return () => {
       window.removeEventListener('topicUpdated', handleTopicUpdate);
       window.removeEventListener('external-topic-completed', handleExternalCompletion as EventListener);
+      window.removeEventListener('cycleUpdated', handleRefresh);
+      window.removeEventListener('mergeUpdated', handleRefresh);
+      window.removeEventListener('subjectUpdated', handleRefresh);
     };
-  }, [refetchHistory, difficultyModalData, closeDifficultyModal, refetch]);
+  }, [refetchHistory, difficultyModalData, closeDifficultyModal, refetch, refreshData]);
+
+
 
   // State
   const [activeTab, setActiveTab] = useState<ViewTab>('FOCUS');
@@ -196,8 +214,8 @@ export const Revisoes = () => {
         : Math.min(Math.max(1, rawCount), maxReviews);
 
       const rawSubjectName = subject?.name || 'Desconhecida';
-      const canonicalSubjectName = getCanonicalSubjectName(topic.subject_id, rawSubjectName, userCycle?.unification_map);
-      const canonicalTopicName = getCanonicalTopicName(topic.id, topic.name, userCycle?.unification_map);
+      const canonicalSubjectName = getCanonicalSubjectName(topic.subject_id, rawSubjectName, dynamicUnificationMap);
+      const canonicalTopicName = getCanonicalTopicName(topic.id, topic.name, dynamicUnificationMap);
 
       // Determine Status Dynamically
       let status = RevisionStatus.UNSTARTED;
@@ -245,7 +263,7 @@ export const Revisoes = () => {
     if (activeTab === 'COMPLETED') result = result.filter(i => i.status === RevisionStatus.CONSOLIDATED);
 
     return result;
-  }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews, userCycle?.unification_map]);
+  }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews, dynamicUnificationMap]);
 
 
   const stats = useMemo(() => {
@@ -458,8 +476,12 @@ export const Revisoes = () => {
     else setCollapsedGroups({});
   };
 
-  if (isLoading) {
-    return <LoadingSpinner size="large" showText fullPage />;
+  if (isLoading || isCycleLoading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh]">
+        <LoadingSpinner size="large" />
+      </div>
+    );
   }
 
   if (!hasActiveCycle && subjects.length === 0) {
@@ -488,7 +510,8 @@ export const Revisoes = () => {
   }
 
   return (
-    <div className="flex min-h-full w-full text-foreground">
+    <div className="flex flex-col min-h-screen bg-transparent relative w-full overflow-x-hidden">
+
       <div className="flex-1 flex flex-col relative w-full max-w-[1600px] mx-auto pb-24 lg:pb-8">
 
         {/* 1. Header (KPIs) - Order 1 (Default) */}

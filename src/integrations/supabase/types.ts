@@ -217,6 +217,54 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_error_logs: {
+        Row: {
+          context: string | null
+          created_at: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      ai_status: {
+        Row: {
+          error_message: string | null
+          id: string
+          last_check: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          last_check?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          last_check?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       api_usage: {
         Row: {
           created_at: string | null
@@ -339,6 +387,107 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coupon_uses: {
+        Row: {
+          asaas_subscription_id: string | null
+          coupon_id: string
+          id: string
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          asaas_subscription_id?: string | null
+          coupon_id: string
+          id?: string
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          asaas_subscription_id?: string | null
+          coupon_id?: string
+          id?: string
+          used_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_uses_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string | null
+          discount_type: string
+          discount_value: number
+          id: string
+          max_uses: number | null
+          updated_at: string | null
+          uses_count: number
+          valid_until: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string | null
+          discount_type: string
+          discount_value: number
+          id?: string
+          max_uses?: number | null
+          updated_at?: string | null
+          uses_count?: number
+          valid_until?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          max_uses?: number | null
+          updated_at?: string | null
+          uses_count?: number
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      edital_suggestions: {
+        Row: {
+          concurso: string
+          created_at: string | null
+          id: string
+          responded_at: string | null
+          response_message: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          concurso: string
+          created_at?: string | null
+          id?: string
+          responded_at?: string | null
+          response_message?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          concurso?: string
+          created_at?: string | null
+          id?: string
+          responded_at?: string | null
+          response_message?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       general_notes: {
         Row: {
@@ -599,6 +748,166 @@ export type Database = {
           },
         ]
       }
+      pending_ai_extractions: {
+        Row: {
+          ai_result: Json
+          created_at: string | null
+          edital_name: string
+          id: string
+          origin: string | null
+          position: string | null
+          updated_at: string | null
+          user_id: string
+          year: string | null
+        }
+        Insert: {
+          ai_result: Json
+          created_at?: string | null
+          edital_name: string
+          id?: string
+          origin?: string | null
+          position?: string | null
+          updated_at?: string | null
+          user_id: string
+          year?: string | null
+        }
+        Update: {
+          ai_result?: Json
+          created_at?: string | null
+          edital_name?: string
+          id?: string
+          origin?: string | null
+          position?: string | null
+          updated_at?: string | null
+          user_id?: string
+          year?: string | null
+        }
+        Relationships: []
+      }
+      pending_cycle_merges: {
+        Row: {
+          created_at: string | null
+          edital_id: string | null
+          id: string
+          state_data: Json
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          edital_id?: string | null
+          id?: string
+          state_data: Json
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          edital_id?: string | null
+          id?: string
+          state_data?: Json
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_cycle_merges_edital_id_fkey"
+            columns: ["edital_id"]
+            isOneToOne: false
+            referencedRelation: "user_editais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_merge_suggestions: {
+        Row: {
+          created_at: string | null
+          cycle_id: string | null
+          id: string
+          original_ids: Json | null
+          original_names: Json
+          reviewed_at: string | null
+          status: string | null
+          suggested_name: string
+          suggestion_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          cycle_id?: string | null
+          id?: string
+          original_ids?: Json | null
+          original_names: Json
+          reviewed_at?: string | null
+          status?: string | null
+          suggested_name: string
+          suggestion_type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          cycle_id?: string | null
+          id?: string
+          original_ids?: Json | null
+          original_names?: Json
+          reviewed_at?: string | null
+          status?: string | null
+          suggested_name?: string
+          suggestion_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_merge_suggestions_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "user_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_configs: {
+        Row: {
+          active: boolean
+          badge: string | null
+          created_at: string | null
+          description: string
+          features: Json
+          id: string
+          name: string
+          slug: string
+          updated_at: string | null
+          value: number
+        }
+        Insert: {
+          active?: boolean
+          badge?: string | null
+          created_at?: string | null
+          description?: string
+          features?: Json
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string | null
+          value: number
+        }
+        Update: {
+          active?: boolean
+          badge?: string | null
+          created_at?: string | null
+          description?: string
+          features?: Json
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
       pomodoro_sessions: {
         Row: {
           created_at: string | null
@@ -746,6 +1055,48 @@ export type Database = {
         }
         Relationships: []
       }
+      public_editais: {
+        Row: {
+          category: string
+          created_at: string | null
+          exam_date: string | null
+          id: string
+          is_public: boolean | null
+          organ: string
+          position: string
+          status: string
+          subjects: Json
+          updated_at: string | null
+          year: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          exam_date?: string | null
+          id?: string
+          is_public?: boolean | null
+          organ: string
+          position: string
+          status: string
+          subjects?: Json
+          updated_at?: string | null
+          year: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          exam_date?: string | null
+          id?: string
+          is_public?: boolean | null
+          organ?: string
+          position?: string
+          status?: string
+          subjects?: Json
+          updated_at?: string | null
+          year?: string
+        }
+        Relationships: []
+      }
       question_attempts: {
         Row: {
           attempted_at: string
@@ -798,8 +1149,10 @@ export type Database = {
         Row: {
           completed_at: string
           created_at: string | null
+          cycle_id: string | null
           cycle_position: number | null
           day_of_week: number
+          edital_id: string | null
           hour_of_day: number
           id: string
           is_weekend: boolean
@@ -812,14 +1165,14 @@ export type Database = {
           topics_studied: string[] | null
           updated_at: string | null
           user_id: string | null
-          cycle_id: string | null
-          edital_id: string | null
         }
         Insert: {
           completed_at?: string
           created_at?: string | null
+          cycle_id?: string | null
           cycle_position?: number | null
           day_of_week?: number
+          edital_id?: string | null
           hour_of_day?: number
           id?: string
           is_weekend?: boolean
@@ -836,8 +1189,10 @@ export type Database = {
         Update: {
           completed_at?: string
           created_at?: string | null
+          cycle_id?: string | null
           cycle_position?: number | null
           day_of_week?: number
+          edital_id?: string | null
           hour_of_day?: number
           id?: string
           is_weekend?: boolean
@@ -853,6 +1208,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "study_sessions_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "user_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_sessions_edital_id_fkey"
+            columns: ["edital_id"]
+            isOneToOne: false
+            referencedRelation: "user_editais"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "study_sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
@@ -861,6 +1230,93 @@ export type Database = {
           },
         ]
       }
+      subject_merges: {
+        Row: {
+          created_at: string | null
+          created_by_ai: boolean | null
+          cycle_id: string | null
+          display_name: string
+          id: string
+          match_type: string | null
+          merged_subject_ids: Json
+          primary_subject_id: string
+          reverted_at: string | null
+          source_edital_ids: string[] | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by_ai?: boolean | null
+          cycle_id?: string | null
+          display_name: string
+          id?: string
+          match_type?: string | null
+          merged_subject_ids?: Json
+          primary_subject_id: string
+          reverted_at?: string | null
+          source_edital_ids?: string[] | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by_ai?: boolean | null
+          cycle_id?: string | null
+          display_name?: string
+          id?: string
+          match_type?: string | null
+          merged_subject_ids?: Json
+          primary_subject_id?: string
+          reverted_at?: string | null
+          source_edital_ids?: string[] | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subject_merges_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "user_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_merges_primary_subject_id_fkey"
+            columns: ["primary_subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subject_relations: {
+        Row: {
+          created_at: string | null
+          id: string
+          main_subject_id: string
+          merged_subject_ids: string[]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          main_subject_id: string
+          merged_subject_ids: string[]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          main_subject_id?: string
+          merged_subject_ids?: string[]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       subjects: {
         Row: {
           color: string | null
@@ -868,6 +1324,7 @@ export type Database = {
           created_at: string
           edital_id: string | null
           id: string
+          is_visible: boolean | null
           name: string
           notes: Json | null
           priority: number | null
@@ -882,6 +1339,7 @@ export type Database = {
           created_at?: string
           edital_id?: string | null
           id?: string
+          is_visible?: boolean | null
           name: string
           notes?: Json | null
           priority?: number | null
@@ -896,6 +1354,7 @@ export type Database = {
           created_at?: string
           edital_id?: string | null
           id?: string
+          is_visible?: boolean | null
           name?: string
           notes?: Json | null
           priority?: number | null
@@ -904,7 +1363,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subjects_edital_id_fkey"
+            columns: ["edital_id"]
+            isOneToOne: false
+            referencedRelation: "user_editais"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_settings: {
         Row: {
@@ -928,7 +1395,7 @@ export type Database = {
         Update: {
           description?: string | null
           id?: string
-          key: string
+          key?: string
           updated_at?: string | null
           updated_by?: string | null
           value?: Json | null
@@ -936,107 +1403,140 @@ export type Database = {
         }
         Relationships: []
       }
-      pending_merge_suggestions: {
+      topic_merges: {
         Row: {
-          id: string
-          user_id: string
+          created_at: string | null
+          created_by_ai: boolean | null
           cycle_id: string | null
-          suggestion_type: 'subject' | 'topic'
-          original_names: Json
-          suggested_name: string
-          status: 'pending' | 'approved' | 'rejected'
-          original_ids: Json | null
-          created_at: string
-          updated_at: string
-          reviewed_at: string | null
+          display_name: string
+          id: string
+          match_type: string | null
+          merged_topic_ids: Json
+          primary_topic_id: string
+          reverted_at: string | null
+          source_edital_ids: string[] | null
+          status: string
+          subject_merge_id: string | null
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
+          created_at?: string | null
+          created_by_ai?: boolean | null
           cycle_id?: string | null
-          suggestion_type: 'subject' | 'topic'
-          original_names: Json
-          suggested_name: string
-          status?: 'pending' | 'approved' | 'rejected'
-          original_ids?: Json | null
-          created_at?: string
-          updated_at?: string
-          reviewed_at?: string | null
+          display_name: string
+          id?: string
+          match_type?: string | null
+          merged_topic_ids?: Json
+          primary_topic_id: string
+          reverted_at?: string | null
+          source_edital_ids?: string[] | null
+          status?: string
+          subject_merge_id?: string | null
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
+          created_at?: string | null
+          created_by_ai?: boolean | null
           cycle_id?: string | null
-          suggestion_type?: 'subject' | 'topic'
-          original_names?: Json
-          suggested_name?: string
-          status?: 'pending' | 'approved' | 'rejected'
-          original_ids?: Json | null
-          created_at?: string
-          updated_at?: string
-          reviewed_at?: string | null
+          display_name?: string
+          id?: string
+          match_type?: string | null
+          merged_topic_ids?: Json
+          primary_topic_id?: string
+          reverted_at?: string | null
+          source_edital_ids?: string[] | null
+          status?: string
+          subject_merge_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "pending_merge_suggestions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pending_merge_suggestions_cycle_id_fkey"
+            foreignKeyName: "topic_merges_cycle_id_fkey"
             columns: ["cycle_id"]
             isOneToOne: false
             referencedRelation: "user_cycles"
             referencedColumns: ["id"]
-          }
+          },
+          {
+            foreignKeyName: "topic_merges_primary_topic_id_fkey"
+            columns: ["primary_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_merges_subject_merge_id_fkey"
+            columns: ["subject_merge_id"]
+            isOneToOne: false
+            referencedRelation: "subject_merges"
+            referencedColumns: ["id"]
+          },
         ]
       }
       topic_review_history: {
         Row: {
           created_at: string | null
+          cycle_id: string | null
+          difficulty_numeric: number | null
+          edital_id: string | null
           id: string
+          interval_after_review: number | null
+          memory_stability_after_review: number | null
           review_stage: string
           reviewed_at: string
           study_duration_minutes: number | null
           topic_id: string
-          difficulty_numeric: number | null
-          memory_stability_after_review: number | null
-          interval_after_review: number | null
           trend_delta: number | null
           trend_label: string | null
           user_id: string | null
-          cycle_id: string | null
-          edital_id: string | null
         }
         Insert: {
           created_at?: string | null
+          cycle_id?: string | null
+          difficulty_numeric?: number | null
+          edital_id?: string | null
           id?: string
+          interval_after_review?: number | null
+          memory_stability_after_review?: number | null
           review_stage: string
           reviewed_at?: string
           study_duration_minutes?: number | null
           topic_id: string
-          difficulty_numeric?: number | null
-          memory_stability_after_review?: number | null
-          interval_after_review?: number | null
           trend_delta?: number | null
           trend_label?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
+          cycle_id?: string | null
+          difficulty_numeric?: number | null
+          edital_id?: string | null
           id?: string
+          interval_after_review?: number | null
+          memory_stability_after_review?: number | null
           review_stage?: string
           reviewed_at?: string
           study_duration_minutes?: number | null
           topic_id?: string
-          difficulty_numeric?: number | null
-          memory_stability_after_review?: number | null
-          interval_after_review?: number | null
           trend_delta?: number | null
           trend_label?: string | null
+          user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "topic_review_history_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "user_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_review_history_edital_id_fkey"
+            columns: ["edital_id"]
+            isOneToOne: false
+            referencedRelation: "user_editais"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "topic_review_history_topic_id_fkey"
             columns: ["topic_id"]
@@ -1056,6 +1556,7 @@ export type Database = {
           edital_id: string | null
           first_studied_at: string | null
           id: string
+          is_active: boolean | null
           is_hidden: boolean | null
           is_marked_for_review: boolean | null
           is_skipped: boolean | null
@@ -1082,7 +1583,6 @@ export type Database = {
           total_reviews: number | null
           total_volume: number | null
           updated_at: string
-          is_active: boolean | null
         }
         Insert: {
           completed?: boolean
@@ -1093,6 +1593,7 @@ export type Database = {
           edital_id?: string | null
           first_studied_at?: string | null
           id?: string
+          is_active?: boolean | null
           is_hidden?: boolean | null
           is_marked_for_review?: boolean | null
           is_skipped?: boolean | null
@@ -1119,7 +1620,6 @@ export type Database = {
           total_reviews?: number | null
           total_volume?: number | null
           updated_at?: string
-          is_active?: boolean | null
         }
         Update: {
           completed?: boolean
@@ -1130,6 +1630,7 @@ export type Database = {
           edital_id?: string | null
           first_studied_at?: string | null
           id?: string
+          is_active?: boolean | null
           is_hidden?: boolean | null
           is_marked_for_review?: boolean | null
           is_skipped?: boolean | null
@@ -1156,9 +1657,22 @@ export type Database = {
           total_reviews?: number | null
           total_volume?: number | null
           updated_at?: string
-          is_active?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "topics_edital_id_fkey"
+            columns: ["edital_id"]
+            isOneToOne: false
+            referencedRelation: "user_editais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_topic_id_fkey"
+            columns: ["parent_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
@@ -1184,8 +1698,11 @@ export type Database = {
           materias_estudadas_hoje: string[] | null
           materias_pendentes: string[] | null
           materias_por_dia: number | null
+          name: string | null
           skipped_subjects: string[] | null
+          status: string | null
           streak_dias_consecutivos: number | null
+          unification_map: Json | null
           user_id: string
         }
         Insert: {
@@ -1203,8 +1720,11 @@ export type Database = {
           materias_estudadas_hoje?: string[] | null
           materias_pendentes?: string[] | null
           materias_por_dia?: number | null
+          name?: string | null
           skipped_subjects?: string[] | null
+          status?: string | null
           streak_dias_consecutivos?: number | null
+          unification_map?: Json | null
           user_id: string
         }
         Update: {
@@ -1222,8 +1742,11 @@ export type Database = {
           materias_estudadas_hoje?: string[] | null
           materias_pendentes?: string[] | null
           materias_por_dia?: number | null
+          name?: string | null
           skipped_subjects?: string[] | null
+          status?: string | null
           streak_dias_consecutivos?: number | null
+          unification_map?: Json | null
           user_id?: string
         }
         Relationships: [
@@ -1235,6 +1758,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_editais: {
+        Row: {
+          active_subject_ids: string[] | null
+          category: string | null
+          created_at: string
+          exam_date: string | null
+          id: string
+          is_imported: boolean
+          last_sync_snapshot: Json | null
+          merged_into_cycle: boolean | null
+          merged_with: string[] | null
+          name: string
+          organ: string | null
+          position: string | null
+          source_id: string | null
+          subject_ids: string[]
+          updated_at: string
+          user_id: string
+          year: string | null
+        }
+        Insert: {
+          active_subject_ids?: string[] | null
+          category?: string | null
+          created_at?: string
+          exam_date?: string | null
+          id?: string
+          is_imported?: boolean
+          last_sync_snapshot?: Json | null
+          merged_into_cycle?: boolean | null
+          merged_with?: string[] | null
+          name: string
+          organ?: string | null
+          position?: string | null
+          source_id?: string | null
+          subject_ids?: string[]
+          updated_at?: string
+          user_id: string
+          year?: string | null
+        }
+        Update: {
+          active_subject_ids?: string[] | null
+          category?: string | null
+          created_at?: string
+          exam_date?: string | null
+          id?: string
+          is_imported?: boolean
+          last_sync_snapshot?: Json | null
+          merged_into_cycle?: boolean | null
+          merged_with?: string[] | null
+          name?: string
+          organ?: string | null
+          position?: string | null
+          source_id?: string | null
+          subject_ids?: string[]
+          updated_at?: string
+          user_id?: string
+          year?: string | null
+        }
+        Relationships: []
       }
       user_events: {
         Row: {
@@ -1550,6 +2133,9 @@ export type Database = {
       }
       user_subscriptions: {
         Row: {
+          asaas_customer_id: string | null
+          asaas_subscription_id: string | null
+          billing_type: string | null
           created_at: string | null
           id: string
           last_payment_at: string | null
@@ -1566,6 +2152,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
+          billing_type?: string | null
           created_at?: string | null
           id?: string
           last_payment_at?: string | null
@@ -1582,6 +2171,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
+          billing_type?: string | null
           created_at?: string | null
           id?: string
           last_payment_at?: string | null
@@ -1596,60 +2188,6 @@ export type Database = {
           trial_started_at?: string | null
           updated_at?: string | null
           user_id?: string
-        }
-        Relationships: []
-      }
-      user_editais: {
-        Row: {
-          active_subject_ids: string[] | null
-          created_at: string
-          exam_date: string | null
-          id: string
-          is_imported: boolean
-          merged_into_cycle: boolean
-          merged_with: string[] | null
-          name: string
-          organ: string | null
-          position: string | null
-          source_id: string | null
-          subject_ids: string[] | null
-          updated_at: string
-          user_id: string
-          year: string | null
-        }
-        Insert: {
-          active_subject_ids?: string[] | null
-          created_at?: string
-          exam_date?: string | null
-          id?: string
-          is_imported?: boolean
-          merged_into_cycle?: boolean
-          merged_with?: string[] | null
-          name: string
-          organ?: string | null
-          position?: string | null
-          source_id?: string | null
-          subject_ids?: string[] | null
-          updated_at?: string
-          user_id: string
-          year?: string | null
-        }
-        Update: {
-          active_subject_ids?: string[] | null
-          created_at?: string
-          exam_date?: string | null
-          id?: string
-          is_imported?: boolean
-          merged_into_cycle?: boolean
-          merged_with?: string[] | null
-          name?: string
-          organ?: string | null
-          position?: string | null
-          source_id?: string | null
-          subject_ids?: string[] | null
-          updated_at?: string
-          user_id?: string
-          year?: string | null
         }
         Relationships: []
       }
@@ -1827,6 +2365,14 @@ export type Database = {
         }[]
       }
       get_subscription_info: { Args: { check_user_id?: string }; Returns: Json }
+      get_unified_subject_name: {
+        Args: { subject_id: string; user_id: string }
+        Returns: string
+      }
+      get_unified_topic_name: {
+        Args: { topic_id: string; user_id: string }
+        Returns: string
+      }
       get_user_difficulty_stats: {
         Args: { p_user_id: string }
         Returns: {
@@ -1855,6 +2401,12 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
         }[]
       }
+      get_users_by_edital_source: {
+        Args: { source_uuid: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
       get_weighted_reviews: {
         Args: { p_limit?: number; p_offset?: number; p_user_id: string }
         Returns: {
@@ -1879,35 +2431,36 @@ export type Database = {
         Returns: boolean
       }
       has_role:
-      | {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      | {
-        Args: {
-          check_role: Database["public"]["Enums"]["app_role"]
-          check_user_id?: string
-        }
-        Returns: boolean
-      }
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              check_role: Database["public"]["Enums"]["app_role"]
+              check_user_id?: string
+            }
+            Returns: boolean
+          }
       has_role_or_higher:
-      | {
-        Args: {
-          _min_role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      | {
-        Args: {
-          check_user_id?: string
-          min_role: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: boolean
-      }
+        | {
+            Args: {
+              _min_role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              check_user_id?: string
+              min_role: Database["public"]["Enums"]["app_role"]
+            }
+            Returns: boolean
+          }
+      is_admin: { Args: never; Returns: boolean }
       is_organization_member: {
         Args: { _org_id: string; _user_id?: string }
         Returns: boolean
@@ -1995,6 +2548,8 @@ export type Database = {
         Returns: boolean
       }
       reset_daily_progress: { Args: never; Returns: undefined }
+      revert_subject_merge: { Args: { merge_id: string }; Returns: undefined }
+      revert_topic_merge: { Args: { merge_id: string }; Returns: undefined }
       set_user_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2019,16 +2574,25 @@ export type Database = {
         Args: { p_subject_id: string; p_user_id: string }
         Returns: boolean
       }
+      use_coupon: {
+        Args: {
+          target_coupon_code: string
+          target_sub_id?: string
+          target_user_id: string
+        }
+        Returns: Json
+      }
+      validate_coupon: { Args: { target_coupon_code: string }; Returns: Json }
     }
     Enums: {
       app_role: "owner" | "admin" | "moderator" | "user"
       subscription_plan: "free_trial" | "monthly" | "annual"
       subscription_status:
-      | "trial"
-      | "active"
-      | "expired"
-      | "canceled"
-      | "suspended"
+        | "trial"
+        | "active"
+        | "expired"
+        | "canceled"
+        | "suspended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2042,116 +2606,116 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   public: {
@@ -2168,3 +2732,4 @@ export const Constants = {
     },
   },
 } as const
+

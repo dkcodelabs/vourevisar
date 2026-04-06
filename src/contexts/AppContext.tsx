@@ -68,16 +68,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Listener para eventos de atualização de dados
   useEffect(() => {
     const handleDataUpdate = (event: CustomEvent) => {
-      // Evento recebido, recarregando dados
+      console.log(`🔄 AppContext: Event ${event.type} received, refreshing...`);
       refreshData();
     };
 
     window.addEventListener('topicUpdated', handleDataUpdate as EventListener);
     window.addEventListener('subjectUpdated', handleDataUpdate as EventListener);
+    window.addEventListener('cycleUpdated', handleDataUpdate as EventListener);
+    window.addEventListener('mergeUpdated', handleDataUpdate as EventListener);
 
     return () => {
       window.removeEventListener('topicUpdated', handleDataUpdate as EventListener);
       window.removeEventListener('subjectUpdated', handleDataUpdate as EventListener);
+      window.removeEventListener('cycleUpdated', handleDataUpdate as EventListener);
+      window.removeEventListener('mergeUpdated', handleDataUpdate as EventListener);
     };
   }, [refreshData]);
 
