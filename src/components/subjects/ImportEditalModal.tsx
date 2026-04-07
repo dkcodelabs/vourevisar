@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileText, Sparkles, Loader2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import { Search, FileText, Sparkles, Loader2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info, Eye } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Subject } from '@/types';
 import { UserEdital } from '@/pages/Editais';
@@ -146,9 +146,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 setIaEditalName(data.edital_name);
                 if (data.origin) setIaOrigin(data.origin);
                 if (data.position) setIaPosition(data.position);
-                if (data.year) setIaYear(data.year);
+                setIaYear(data.year);
                 setIaStage('review');
-                setActiveTab('ia');
             }
         } catch (err: any) {
             console.error('[loadPending] catch error:', err?.code, err?.message);
@@ -156,6 +155,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             setLoadingPending(false);
         }
     };
+
+    useEffect(() => {
+        if (isOpen && activeTab === 'ia') {
+            loadPendingExtraction();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, activeTab]);
 
     const savePendingExtraction = async (editalName: string, results: AiSubject[]) => {
         if (!user) return;
@@ -407,11 +413,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             const rawSubjects = Array.isArray(rawData) ? rawData : [];
 
             const extractPosition = (name: string): { position: number; cleanName: string } => {
-                const match = name.trim().match(/^(\d+)\s*[.)]\s*(.+)$/);
+                const trimmed = name.trim();
+                // Regex para numeração decimal: 1., 1.1., 1.2.3 etc.
+                const match = trimmed.match(/^(\d+(?:\.\d+)*)\s*[.)]?\s*(.+)$/);
                 if (match) {
-                    return { position: parseInt(match[1], 10), cleanName: match[2].trim() };
+                    const firstPart = match[1].split('.')[0];
+                    return { 
+                        position: parseInt(firstPart, 10), 
+                        cleanName: trimmed 
+                    };
                 }
-                return { position: 0, cleanName: name };
+                return { position: 0, cleanName: trimmed };
             };
 
             const result = rawSubjects.map((s: any, idx: number): AiSubject => ({
@@ -592,8 +604,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             }
 
             const extraInfo = { organ: manualOrigin, position: manualPosition, year: manualYear };
-            // Ao criar manual, enviamos sem matérias inicialmente, 
-            // pois o fluxo agora abre o modal de gestão de matérias em seguida.
+            // Descartar extração por IA pendente se existir, para evitar conflitos
+            await discardPendingExtractionData();
+
             await onImport([], finalName, false, undefined, extraInfo); 
             
             onClose();
@@ -627,6 +640,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     position: tidx
                 }))
             }));
+
+            // Descartar extração por IA pendente se existir, para evitar conflitos
+            await discardPendingExtractionData();
 
             await onImport(
                 mappedSubjects, 
@@ -711,6 +727,45 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                     {activeTab === 'ready' ? (
                         <div className="space-y-8">
+                            {pendingExtraction && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: -8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center justify-between gap-4"
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
+                                            <FileText size={18} className="text-amber-600 dark:text-amber-400" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-black text-amber-800 dark:text-amber-300">
+                                                Extração anterior pendente
+                                            </p>
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium truncate">
+                                                {pendingExtraction.editalName} · Atualizado {new Date(pendingExtraction.updatedAt).toLocaleString('pt-BR')}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <button 
+                                            onClick={() => setActiveTab('ia')}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
+                                        >
+                                            <Eye size={12} />
+                                            Visualizar Extração
+                                        </button>
+                                        <button 
+                                            onClick={discardPendingExtractionData}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
+                                        >
+                                            <Trash2 size={12} />
+                                            Descartar
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )}
+
                             <div className="space-y-4">
                                 <div className="flex gap-2">
                                     <div className="relative flex-1">
@@ -936,7 +991,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 <input
                                                     type="text"
                                                     value={iaYear}
-                                                    onChange={(e) => setIaYear(e.target.value)}
+                                                    onChange={(e) => setIaYear(e.target.value.replace(/\D/g, ''))}
+                                                    inputMode="numeric"
+                                                    maxLength={4}
                                                     placeholder="Ex: 2024"
                                                     className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
                                                 />
@@ -993,7 +1050,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         )}
                                     </div>
 
-                                    <div className="pt-2 flex justify-center w-full max-w-[800px]">
+                                    <div className="pt-2 flex flex-col items-center w-full max-w-[800px] gap-3">
+                                        {(!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim()) && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 5 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="flex items-center gap-2 px-4 py-2 bg-amber-500/5 rounded-xl border border-amber-500/10 w-full justify-center mb-1"
+                                            >
+                                                <Info size={12} className="text-amber-500/70" />
+                                                <p className="text-[9px] text-amber-500/70 font-bold uppercase tracking-widest">
+                                                    Preencha as informações do edital para iniciar a estruturação do edital.
+                                                </p>
+                                            </motion.div>
+                                        )}
                                         <button
                                             onClick={handleIaImport}
                                             disabled={
@@ -1049,7 +1118,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     <div className="grid gap-2 pb-3 border-b border-border dark:border-white/5 grid-cols-1 sm:grid-cols-3">
                                         <>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Org</span>
+                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Concurso</span>
                                                     <input
                                                         type="text"
                                                         value={iaOrigin}
@@ -1080,7 +1149,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                                     <div className="space-y-2 max-h-[340px] overflow-y-auto pr-2 no-scrollbar">
                                         {aiResult.map((subj, sIdx) => (
-                                            <div key={subj.id} className="p-3 rounded-xl bg-secondary/30 dark:bg-zinc-800/10 border border-border dark:border-white/5">
+                                            <div key={subj.id} className="p-3 rounded-xl bg-secondary/40 dark:bg-zinc-800/40 border border-border dark:border-white/5 group hover:border-primary/20 transition-all">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2 flex-1 min-w-0">
                                                         <input
@@ -1101,7 +1170,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 newResult[sIdx].title = e.target.value.toUpperCase();
                                                                 setAiResult(newResult);
                                                             }}
-                                                            className="bg-transparent border-none font-bold text-sm text-content-main outline-none focus:text-primary transition-colors w-full"
+                                                            className="bg-transparent border-none font-bold text-xs text-content-main outline-none focus:text-primary transition-colors w-full uppercase"
                                                         />
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0">
@@ -1148,28 +1217,52 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         ))}
                                     </div>
 
-                                    <div className="pt-3 border-t border-white/5 flex justify-center">
-                                        <button
-                                            onClick={handleSaveAiResult}
-                                            disabled={isSavingAi}
-                                            className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10px] rounded-2xl shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed uppercase tracking-wider"
-                                        >
-                                            {isSavingAi ? (
-                                                <><Loader2 className="animate-spin" size={14} /> Salvando...</>
-                                            ) : (
-                                                isComplementMode ? 'Adicionar ao Edital' : 'Importar Selecionados'
-                                            )}
-                                        </button>
-                                    </div>
+                                    {/* Botão removido daqui para o rodapé fixo */}
                                 </motion.div>
                             )}
                         </div>
                     ) : (
                         <div className="space-y-8 w-full pt-4 pb-12">
+                            {pendingExtraction && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: -8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center justify-between gap-4"
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
+                                            <FileText size={18} className="text-amber-600 dark:text-amber-400" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-black text-amber-800 dark:text-amber-300">
+                                                Extração anterior pendente
+                                            </p>
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium truncate">
+                                                {pendingExtraction.editalName} · Atualizado {new Date(pendingExtraction.updatedAt).toLocaleString('pt-BR')}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <button 
+                                            onClick={() => setActiveTab('ia')}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
+                                        >
+                                            <Eye size={12} />
+                                            Visualizar Extração
+                                        </button>
+                                        <button 
+                                            onClick={discardPendingExtractionData}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
+                                        >
+                                            <Trash2 size={12} />
+                                            Descartar
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )}
                             {/* Normal Manual Mode: Create new edital */}
-                            {true && (
-                                <>
-                                    <div className="flex flex-col gap-4 max-w-md mx-auto">
+                            <div className="flex flex-col gap-4 max-w-md mx-auto">
                                         {/* Origin Field */}
                                         <div className="space-y-2 group">
                                             <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Origem / Instituição</label>
@@ -1214,7 +1307,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 <input
                                                     type="text"
                                                     value={manualYear}
-                                                    onChange={(e) => setManualYear(e.target.value)}
+                                                    onChange={(e) => setManualYear(e.target.value.replace(/\D/g, ''))}
+                                                    inputMode="numeric"
+                                                    maxLength={4}
                                                     placeholder="Ex: 2024"
                                                     className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
                                                 />
@@ -1247,11 +1342,29 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             </p>
                                         </div>
                                     </div>
-                                </>
-                            )}
                         </div>
                     )}
                 </div>
+
+                {/* ── Fixed Footer for Import ── */}
+                {activeTab === 'ia' && iaStage === 'review' && (
+                    <div className="px-6 py-4 border-t border-border dark:border-white/5 bg-card dark:bg-zinc-900 rounded-b-[32px] flex justify-center shrink-0">
+                        <button
+                            onClick={handleSaveAiResult}
+                            disabled={isSavingAi}
+                            className="w-full max-w-sm py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-2xl shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-3 justify-center uppercase tracking-[0.1em]"
+                        >
+                            {isSavingAi ? (
+                                <><Loader2 className="animate-spin" size={18} /> SALVANDO EDITAL...</>
+                            ) : (
+                                <>
+                                    <CheckCircle2 size={18} />
+                                    {isComplementMode ? 'ADICIONAR AO EDITAL' : 'IMPORTAR SELECIONADOS'}
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
             </motion.div>
 
             {/* ── Sugerir Edital Drawer ── */}
