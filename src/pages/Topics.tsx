@@ -131,25 +131,39 @@ const Topics = () => {
 
     // Removida lógica local de origens pois agora usamos o hook useEditalOriginsWithMerge centralizado
 
-    return visibleSubjects.flatMap(subject =>
+    const flattenedTopics = visibleSubjects.flatMap(subject =>
       (subject.topics || [])
         .filter(topic => !topic.is_hidden) // NÃO MOSTRAR TÓPICOS OCULTOS (unificados secundários)
         .map(topic => {
           // Buscar editais de origem deste tópico via hook centralizado
-          const topicOrigins = getOriginsForTopic(topic.id, subject.id, topic.edital_id).map(o => o.name);
+          const origins = getOriginsForTopic(topic.id, subject.id, topic.edital_id);
+          const topicOrigins = origins.map(o => o.name);
           const unifiedTopicName = getUnifiedTopicName(topic.id, topic.name);
           const unifiedSubjectName = getUnifiedSubjectName(subject.id, subject.name);
           
           return {
             ...topic,
             name: unifiedTopicName,
-            subjectId: subject.id,
             subjectName: unifiedSubjectName,
+            subjectId: subject.id, // Restaurado ID da matéria
             topicOrigins: topicOrigins, // Array com nomes dos editais de origem
             edital_id: topic.edital_id || subject.edital_id,
+            is_unificado: origins.length > 1
           };
         })
     );
+
+    // Deduplicação ativa para prevenir erro de React keys duplicadas
+    const uniqueTopicsMap = new Map<string, typeof flattenedTopics[0]>();
+    flattenedTopics.forEach(topic => {
+      if (uniqueTopicsMap.has(topic.id)) {
+        console.warn(`[Topics] Detectado tópico duplicado (ID: ${topic.id}, Nome: ${topic.name}). Removendo da visualização para evitar erro de key.`);
+      } else {
+        uniqueTopicsMap.set(topic.id, topic);
+      }
+    });
+
+    return Array.from(uniqueTopicsMap.values());
   }, [subjects, userCycle?.ciclo_atual, dynamicUnificationMap, activeSubjectIdsSet, getOriginsForTopic, getUnifiedSubjectName, getUnifiedTopicName]);
 
   const getTopicStatusInfo = (topic: Topic) => {

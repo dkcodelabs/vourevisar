@@ -109,7 +109,12 @@ export const useUserLogger = () => {
             } else {
                 const res = data as any;
                 if (res?.status === 'error') {
-                    console.error(`[Audit] Failed to log ${eventType} (Backend Error):`, res.message);
+                    // Check if it's a duplicate key error (safe to ignore as it means deduplication worked)
+                    if (res.message?.includes('duplicate key') || res.message?.includes('unique constraint')) {
+                        console.log(`[Audit] ${eventType} ignored (Duplicate): Deduplication gate active.`);
+                    } else {
+                        console.error(`[Audit] Failed to log ${eventType} (Backend Error):`, res.message);
+                    }
                 } else if (res?.status === 'skipped') {
                     console.log(`[Audit] ${eventType} skipped: ${res.reason}`);
                 } else {

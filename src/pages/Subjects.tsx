@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Files, Filter, Play, Wand2, BookOpen, Scissors } from 'lucide-react';
-import { performGlobalCleanup } from "@/services/dataIntegrityService";
+import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate'; // Added
@@ -587,7 +587,7 @@ const Subjects = () => {
   useEffect(() => {
     if (user) {
       (async () => {
-        await Promise.all([loadSubjects(), loadUserCycle()]);
+        await Promise.all([loadSubjects(), loadUserCycle(), repairOrphanedSubjects(user.id)]);
         setLoading(false);
       })();
 
@@ -798,7 +798,8 @@ const Subjects = () => {
           name: newSubjectName.trim().toUpperCase(),
           status: 'Nova',
           color: '#3B82F6',
-          priority: maxPriority + 1
+          priority: maxPriority + 1,
+          edital_id: edital.id
         })
         .select()
         .single();

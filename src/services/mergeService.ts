@@ -479,76 +479,92 @@ export const mergeService = {
   },
 
   /** Limpa registros de mesclagem órfãos após a remoção de um edital */
-  async cleanupMergesAfterEditalRemoval(userId: string, editalId: string): Promise<void> {
+  async cleanupMergesAfterEditalRemoval(
+    userId: string, 
+    editalId: string,
+    onProgress?: (progress: { message: string; percentage: number }) => void
+  ): Promise<void> {
     console.log(`[mergeService] Iniciando limpeza de mesclagens para edital ${editalId}...`);
     
     try {
-      // 1. Remover topic_merges onde o edital era a ÚNICA ou uma das origens
+      // 1. Buscar todos os merges para calcular o total de progresso
       const activeTopicMerges = await this.getActiveTopicMerges(userId);
-      for (const tm of activeTopicMerges) {
-        if (tm.source_edital_ids?.includes(editalId)) {
-          const remainingEditals = tm.source_edital_ids.filter(id => id !== editalId);
-          
-          if (remainingEditals.length < 2) {
-            console.log(`[mergeService] Removendo merge de tópico obsoleto: ${tm.display_name}`);
-            
-            // Limpar flags dos tópicos que ficaram
-            const allTids = [tm.primary_topic_id, ...(tm.merged_topic_ids || [])];
-            await (supabase as any)
-              .from('topics')
-              .update({ 
-                parent_topic_id: null,
-                merged_with_ia: false 
-              })
-              .in('id', allTids);
-
-            await (supabase as any).from('topic_merges').delete().eq('id', tm.id);
-          } else {
-            // Apenas remove o edital da lista de origens (merge ainda existe entre outros)
-            await (supabase as any)
-              .from('topic_merges')
-              .update({ source_edital_ids: remainingEditals })
-              .eq('id', tm.id);
-          }
-        }
-      }
-
-      // 2. Remover subject_merges similares
       const { data: subjectMerges } = await supabase
         .from('subject_merges')
         .select('*')
         .eq('user_id', userId);
-        
-      for (const sm of (subjectMerges || [])) {
-        if (sm.source_edital_ids?.includes(editalId)) {
-          const remainingEditals = sm.source_edital_ids.filter((id: string) => id !== editalId);
-          const mergedSubjectIds = (sm.merged_subject_ids as string[]) || [];
-          
-          if (remainingEditals.length < 2) {
-            console.log(`[mergeService] Removendo merge de matéria obsoleto: ${sm.display_name}`);
-            
-            // Limpar flags das matérias que ficaram (filtra IDs inválidos)
-            const allSids = [sm.primary_subject_id, ...mergedSubjectIds].filter(id => !!id);
-            
-            if (allSids.length > 0) {
-              await (supabase as any)
-                .from('subjects')
-                .update({ is_unified: false })
-                .in('id', allSids);
-            }
+      
+      const filteredTopicMerges = activeTopicMerges.filter(tm => tm.source_edital_ids?.includes(editalId));
+      const filteredSubjectMerges = (subjectMerges || []).filter(sm => sm.source_edital_ids?.includes(editalId));
+      
+      const totalItems = filteredTopicMerges.length + filteredSubjectMerges.length + 1; // +1 para o sweep final
+      let processedItems = 0;
 
-            await (supabase as any).from('subject_merges').delete().eq('id', sm.id);
-            await (supabase as any).from('topic_merges').delete().eq('subject_merge_id', sm.id);
-          } else {
+      const updateProgress = (message: string) => {
+        processedItems++;
+        const percentage = Math.min(Math.round((processedItems / totalItems) * 100), 99);
+        onProgress?.({ message, percentage });
+      };
+
+      // 1. Remover topic_merges onde o edital era a ÚNICA ou uma das origens
+      for (const tm of filteredTopicMerges) {
+        const remainingEditals = tm.source_edital_ids.filter(id => id !== editalId);
+        
+        if (remainingEditals.length < 2) {
+          updateProgress(`Limpando tópico: ${tm.display_name}`);
+          
+          // Limpar flags dos tópicos que ficaram
+          const allTids = [tm.primary_topic_id, ...(tm.merged_topic_ids || [])];
+          await (supabase as any)
+            .from('topics')
+            .update({ 
+              parent_topic_id: null,
+              merged_with_ia: false 
+            })
+            .in('id', allTids);
+
+          await (supabase as any).from('topic_merges').delete().eq('id', tm.id);
+        } else {
+          updateProgress(`Atualizando tópico: ${tm.display_name}`);
+          // Apenas remove o edital da lista de origens (merge ainda existe entre outros)
+          await (supabase as any)
+            .from('topic_merges')
+            .update({ source_edital_ids: remainingEditals })
+            .eq('id', tm.id);
+        }
+      }
+
+      // 2. Remover subject_merges similares
+      for (const sm of filteredSubjectMerges) {
+        const remainingEditals = sm.source_edital_ids.filter((id: string) => id !== editalId);
+        const mergedSubjectIds = (sm.merged_subject_ids as string[]) || [];
+        
+        if (remainingEditals.length < 2) {
+          updateProgress(`Limpando matéria: ${sm.display_name}`);
+          
+          // Limpar flags das matérias que ficaram (filtra IDs inválidos)
+          const allSids = [sm.primary_subject_id, ...mergedSubjectIds].filter(id => !!id);
+          
+          if (allSids.length > 0) {
             await (supabase as any)
-              .from('subject_merges')
-              .update({ source_edital_ids: remainingEditals })
-              .eq('id', sm.id);
+              .from('subjects')
+              .update({ is_unified: false })
+              .in('id', allSids);
           }
+
+          await (supabase as any).from('subject_merges').delete().eq('id', sm.id);
+          await (supabase as any).from('topic_merges').delete().eq('subject_merge_id', sm.id);
+        } else {
+          updateProgress(`Atualizando matéria: ${sm.display_name}`);
+          await (supabase as any)
+            .from('subject_merges')
+            .update({ source_edital_ids: remainingEditals })
+            .eq('id', sm.id);
         }
       }
 
       // 3. Varredura final (Sweep) para garantir que ninguém aponte para tópicos/matérias do edital deletado
+      updateProgress('Finalizando limpeza de referências...');
       // Isso remove as "tesouras" fantasmas de tópicos que sobraram mas apontavam para o deletado.
       const { data: removedEdital } = await supabase
         .from('user_editais')
@@ -583,6 +599,7 @@ export const mergeService = {
         }
       }
       
+      onProgress?.({ message: 'Concluído', percentage: 100 });
       console.log(`[mergeService] Limpeza concluída para edital ${editalId}.`);
       clearLocalCache(userId);
       window.dispatchEvent(new CustomEvent('mergeUpdated'));

@@ -117,6 +117,9 @@ function normalizeName(name: string): string {
   const commonSynonyms: Record<string, string> = {
     'portuguesa': 'portugues',
     'matematica e raciocinio logico': 'raciocinio logico',
+    'raciocinio logico e matematica': 'raciocinio logico',
+    'raciocinio logico-matematico': 'raciocinio logico',
+    'raciocinio logico matematico': 'raciocinio logico',
     'raciocinio logico matemático': 'raciocinio logico',
     'rlm': 'raciocinio logico'
   };
@@ -224,19 +227,24 @@ export function performExactMerge(
   const unmatchedNew: Subject[] = [];
 
   for (const [, g] of groups.entries()) {
-    const isCross = g.containsExisting && g.containsNew;
-    
     // REGRA DE OURO: Só mescla se houver matérias de lados DIFERENTES (Existente vs Novo)
-    if (isCross) {
+    // E JAMAIS mescla matérias da mesma fonte (mesmo edital ou ciclo)
+    const isCross = g.containsExisting && g.containsNew;
+    const sourceIds = new Set(g.subjects.map(s => s.edital_id || 'ciclo'));
+    const hasSourceConflict = g.subjects.length !== sourceIds.size;
+
+    if (isCross && !hasSourceConflict) {
       matched.push({
         groupName: g.subjects[0].name,
         subjects: g.subjects,
         hasMultipleSides: true,
       });
-    } else if (g.containsExisting) {
-      unmatchedExisting.push(...g.subjects);
     } else {
-      unmatchedNew.push(...g.subjects);
+      // Se houver conflito de fonte ou não for cross, mantém separadas
+      const existingInGroup = g.subjects.filter(s => '_isExisting' in s && (s as any)._isExisting);
+      const newInGroup = g.subjects.filter(s => !('_isExisting' in s) || !(s as any)._isExisting);
+      unmatchedExisting.push(...existingInGroup);
+      unmatchedNew.push(...newInGroup);
     }
   }
 
@@ -368,8 +376,9 @@ function normalizeAIResponse(
       else sourceIds.add('ciclo'); // Fallback para ciclo se não tiver edital_id
     });
 
-    // Só permite se houver pelo menos 2 fontes diferentes
-    if (sourceIds.size < 2) return null;
+    // Só permite se houver pelo menos 2 fontes diferentes 
+    // E JAMAIS permite se houver mais de uma matéria da mesma fonte no mesmo grupo
+    if (sourceIds.size < 2 || ids.length !== sourceIds.size) return null;
 
     return { subjectIds: ids, suggestedName: name, reason: item.reason } as AIGroupMergeResult;
   }).filter((r): r is AIGroupMergeResult => r !== null && r.subjectIds.length >= 2);
@@ -379,6 +388,13 @@ function normalizeAIResponse(
 // ETAPA 1 ORCHESTRATOR
 // ============================================
 
+export interface MergeProgress {
+  message: string;
+  current?: number;
+  total?: number;
+  percentage?: number;
+}
+
 export async function performHybridMerge(
   existingSubjects: Subject[],
   newSubjects: Subject[],
@@ -386,15 +402,15 @@ export async function performHybridMerge(
   newEditalId: string,
   existingMerges: Array<{ primary_subject_id: string, source_edital_ids: string[] }> = [], // Estritamente tipado
   onPhaseChange?: (phase: 'exact' | 'ai') => void,
-  onProgress?: (message: string) => void
+  onProgress?: (progress: MergeProgress) => void
 ): Promise<HybridMergeResult> {
   try {
     onPhaseChange?.('exact');
-    onProgress?.('Identificando matérias idênticas...');
+    onProgress?.({ message: 'Identificando matérias idênticas...', percentage: 20 });
     const exactResult = performExactMerge(existingSubjects, newSubjects);
     
     onPhaseChange?.('ai');
-    onProgress?.('Iniciando análise semântica com IA...');
+    onProgress?.({ message: 'Iniciando análise semântica com IA...', percentage: 60 });
     const { results: semanticResults, status: aiStatus } = await performSemanticMerge(exactResult.matched, exactResult.unmatchedExisting, exactResult.unmatchedNew);
 
     const unificationMap = buildUnificationMap(
@@ -493,12 +509,20 @@ function buildUnificationMap(
     if (overlapId) {
       const g = unified.find(u => u.originalSubjectIds.includes(overlapId));
       if (g) {
-        g.originalSubjectIds.push(...fresh);
-        g.sourceEditalIds = getSourceEditalIds(g.originalSubjectIds);
-        g.matchType = 'semantic';
-        if (s.suggestedName) g.displayName = s.suggestedName;
-        fresh.forEach(id => usedIds.add(id));
-        continue;
+        // Validação crucial: Só permite anexar se não causar conflito de fonte
+        const tentativeIds = [...g.originalSubjectIds, ...fresh];
+        const sourceIds = getSourceEditalIds(tentativeIds);
+        
+        if (tentativeIds.length === sourceIds.length) {
+          g.originalSubjectIds.push(...fresh);
+          g.sourceEditalIds = sourceIds;
+          g.matchType = 'semantic';
+          if (s.suggestedName) g.displayName = s.suggestedName;
+          fresh.forEach(id => usedIds.add(id));
+          continue;
+        } else {
+          console.warn('[Merge] Bloqueada unificação transitiva por conflito de fonte para:', s.suggestedName);
+        }
       }
     }
     unified.push({ 
@@ -614,7 +638,7 @@ export async function performFullTopicMerge(
   useAI: boolean,
   userId?: string,
   cycleId?: string,
-  onProgress?: (message: string) => void,
+  onProgress?: (progress: MergeProgress) => void,
   onPhaseChange?: (phase: 'exact' | 'ai') => void
 ): Promise<TopicMergePhaseResult> {
   const groups: TopicGroupResult[] = [];
@@ -631,7 +655,15 @@ export async function performFullTopicMerge(
   for (let i = 0; i < unificationMap.unifiedSubjects.length; i++) {
     const unified = unificationMap.unifiedSubjects[i];
     if (onProgress) {
-      onProgress(`Processando tópicos (${i + 1}/${unificationMap.unifiedSubjects.length}): ${unified.displayName}...`);
+      const current = i + 1;
+      const total = unificationMap.unifiedSubjects.length;
+      const percentage = Math.round((current / total) * 100);
+      onProgress({
+        message: `Processando tópicos: ${unified.displayName}...`,
+        current,
+        total,
+        percentage
+      });
     }
     
     const allTopicsForThisSubject = unified.originalSubjectIds.flatMap(id => {
@@ -846,7 +878,14 @@ export function applyUnificationMap(subjects: Subject[], map: CycleUnificationMa
     const originalSubjects = subjects.filter(s => u.originalSubjectIds.includes(s.id));
     if (originalSubjects.length === 0) continue;
 
-    const primarySub = originalSubjects[0];
+    // Prevenir que um assunto já processado em outro grupo de unificação seja duplicado
+    const validOriginalSubjects = originalSubjects.filter(s => !usedSubIds.has(s.id));
+    if (validOriginalSubjects.length === 0) {
+      console.warn('[applyUnificationMap] Assunto já processado em outro grupo de unificação:', u.displayName);
+      continue;
+    }
+
+    const primarySub = validOriginalSubjects[0];
     const virtualTopics: Topic[] = [];
     const usedTids = new Set<string>();
 

@@ -24,6 +24,7 @@ interface EditalCardProps {
     onUnloadCycle: () => void;
     onDelete: () => void;
     isProcessing?: boolean;
+    processingProgress?: { percentage: number; message: string };
     hasUpdate?: boolean;
     onSync?: () => void;
     onEdit?: () => void;
@@ -33,7 +34,7 @@ interface EditalCardProps {
 export const EditalCard = ({
     edital, metrics, daysLeft, isSelected,
     onToggleSelect, onViewSubjects, onLoadCycle, onUnloadCycle, onDelete,
-    isProcessing = false, hasUpdate = false, onSync, onEdit, isHighlighted = false
+    isProcessing = false, processingProgress, hasUpdate = false, onSync, onEdit, isHighlighted = false
 }: EditalCardProps) => {
     const progress = metrics.totalTopics > 0
         ? Math.round((metrics.completedTopics / metrics.totalTopics) * 100)
@@ -215,25 +216,41 @@ export const EditalCard = ({
                             <button
                                 onClick={edital.mergedIntoCycle ? onUnloadCycle : onLoadCycle}
                                 disabled={isProcessing}
-                                className={`flex-[1.8] flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all text-xs font-bold shadow-lg disabled:opacity-60 disabled:cursor-not-allowed ${
+                                className={`flex-[1.8] relative flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all text-xs font-bold shadow-lg overflow-hidden disabled:opacity-80 disabled:cursor-not-allowed ${
                                     edital.mergedIntoCycle
                                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 shadow-none'
                                         : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
                                 }`}
                             >
-                                {isProcessing ? (
-                                    <Loader2 size={14} className="animate-spin" />
-                                ) : edital.mergedIntoCycle ? (
-                                    <>
-                                        <X size={14} />
-                                        Remover
-                                    </>
-                                ) : (
-                                    <>
-                                        <Play size={14} />
-                                        Carregar Ciclo
-                                    </>
+                                {/* Background Fill Animation */}
+                                {isProcessing && processingProgress && (
+                                    <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${processingProgress.percentage}%` }}
+                                        className={`absolute inset-y-0 left-0 z-0 opacity-20 ${
+                                            edital.mergedIntoCycle ? 'bg-red-500' : 'bg-white'
+                                        }`}
+                                    />
                                 )}
+
+                                <div className="relative z-10 flex items-center justify-center gap-2">
+                                    {isProcessing ? (
+                                        <>
+                                            <Loader2 size={14} className="animate-spin" />
+                                            {processingProgress ? `${processingProgress.percentage}%` : ''}
+                                        </>
+                                    ) : edital.mergedIntoCycle ? (
+                                        <>
+                                            <X size={14} />
+                                            Remover
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Play size={14} />
+                                            Carregar Ciclo
+                                        </>
+                                    )}
+                                </div>
                             </button>
                         </div>
                     ) : (
@@ -255,6 +272,20 @@ export const EditalCard = ({
 
 
                 </div>
+
+                {/* Detalhes do Progresso de Remoção */}
+                {isProcessing && processingProgress?.message && (
+                    <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-3 overflow-hidden px-1"
+                    >
+                        <p className="text-[10px] text-content-muted font-bold tracking-tight uppercase animate-pulse flex items-center gap-1.5">
+                            <RefreshCw size={10} className="animate-spin-slow text-primary/60" />
+                            {processingProgress.message}...
+                        </p>
+                    </motion.div>
+                )}
 
                 {urgency && (
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-4 border ${urgency.bg} ${urgency.border}`}>
