@@ -27,6 +27,7 @@ import {
     applyTopicMergeToMap,
     persistPhysicalSoftMerge,
     fetchPendingMergeSuggestions,
+    discardPendingMergeSuggestions,
     updateSuggestionStatus,
     PendingSuggestion
 } from '@/services/cycleMergeService';
@@ -358,8 +359,25 @@ const Editais = () => {
     }, [user?.id]);
 
     useEffect(() => {
-        loadPendingSuggestions();
-    }, [loadPendingSuggestions]);
+        const checkAndLoadSuggestions = async () => {
+            if (!user?.id) return;
+            
+            // Se não houver editais, as sugestões são órfãs e devem ser limpas
+            if (editais.length === 0 && !isLoading) {
+                const suggestions = await fetchPendingMergeSuggestions(user.id);
+                if (suggestions.length > 0) {
+                    console.log('[Editais] Limpando sugestões órfãs (zero editais)');
+                    await discardPendingMergeSuggestions(user.id);
+                    setPendingSuggestions([]);
+                }
+                return;
+            }
+
+            loadPendingSuggestions();
+        };
+
+        checkAndLoadSuggestions();
+    }, [user?.id, editais.length, isLoading, loadPendingSuggestions]);
 
     // handlers para aprovar/rejeitar sugestões de mesclagem
     const handleApproveSuggestion = useCallback(async (suggestion: PendingSuggestion) => {
@@ -566,6 +584,11 @@ const Editais = () => {
             if (edital.mergedIntoCycle) {
                await discardPendingMerge('all');
             }
+
+            // Limpa sugestões pendentes de mesclagem (IA/Semântica) para o usuário
+            await discardPendingMergeSuggestions(user!.id);
+            // Atualiza o estado local das sugestões
+            setPendingSuggestions([]);
 
             const { error } = await editaisTable().delete().eq('id', edital.id);
             if (error) throw error;
@@ -1695,23 +1718,60 @@ const Editais = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="max-w-md mx-auto space-y-4">
-                            <h2 className="text-lg font-semibold text-foreground tracking-tight">
-                                Nenhum edital disponível nos filtros ativos
-                            </h2>
-                            <p className="text-sm text-content-muted font-medium mb-6">
-                                Mude os filtros acima ou importe um novo edital.
-                            </p>
-                            <button
-                                onClick={() => {
-                                    setActiveFilter('all');
-                                    setSearchQuery("");
-                                }}
-                                className="px-6 py-3 bg-secondary text-foreground text-sm font-bold rounded-xl border border-border"
-                            >
-                                Resetar Filtros
-                            </button>
+                        <div className="max-w-md mx-auto space-y-6 pt-12 text-center">
+                            <div className="w-20 h-20 bg-secondary rounded-[32px] flex items-center justify-center mx-auto mb-6">
+                                <Search className="text-content-muted/30" size={32} />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-foreground tracking-tight mb-2">
+                                    {filterCycle 
+                                        ? "Nenhum edital no ciclo atual" 
+                                        : (searchQuery || activeFilter !== 'all' 
+                                            ? "Nenhum edital encontrado" 
+                                            : "Sua biblioteca está vazia")}
+                                </h2>
+                                <p className="text-sm text-content-muted font-medium max-w-[280px] mx-auto leading-relaxed">
+                                    {filterCycle 
+                                        ? "Você está visualizando apenas editais integrados ao seu ciclo. Desative o filtro de ciclo para ver todos." 
+                                        : "Tente ajustar os termos da busca ou os filtros de categoria acima."}
+                                </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+                                <button
+                                    onClick={() => {
+                                        setActiveFilter('all');
+                                        setSearchQuery("");
+                                        setFilterCycle(false);
+                                    }}
+                                    className="px-8 py-4 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                >
+                                    Limpar Todos os Filtros
+                                </button>
+                                {pendingSuggestions.length > 0 && editais.length === 0 && (
+                                     <button
+                                        onClick={async () => {
+                                            if (user?.id) {
+                                                await discardPendingMergeSuggestions(user.id);
+                                                setPendingSuggestions([]);
+                                                toast.success("Sugestões órfãs limpas com sucesso.");
+                                            }
+                                        }}
+                                        className="px-8 py-4 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-amber-500 hover:text-white transition-all"
+                                    >
+                                        Limpar Sugestões Antigas
+                                    </button>
+                                )}
+                                {filterCycle && (
+                                    <button
+                                        onClick={() => setFilterCycle(false)}
+                                        className="px-8 py-4 bg-secondary text-foreground text-xs font-black uppercase tracking-widest rounded-2xl border border-border hover:bg-secondary/80 transition-all"
+                                    >
+                                        Ver Biblioteca Completa
+                                    </button>
+                                )}
+                            </div>
                         </div>
+
                     )}
                 </motion.div>
             ) : (

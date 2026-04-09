@@ -1030,11 +1030,40 @@ export async function fetchPendingMergeSuggestions(
     throw error;
   }
 
-  return (data || []).map(item => ({
+  const suggestions = (data || []).map(item => ({
     ...item,
     suggestion_type: item.suggestion_type as 'subject' | 'topic',
     status: item.status as 'pending' | 'approved' | 'rejected'
   })) as PendingSuggestion[];
+
+  // Validação de referências órfãs vinculadas a editais deletados
+  if (suggestions.length === 0) return [];
+
+  try {
+    // Busca todos os IDs de matérias e tópicos existentes do usuário
+    const [{ data: subjects }, { data: topics }] = await Promise.all([
+      supabase.from('subjects').select('id').eq('user_id', userId),
+      supabase.from('topics').select('id').filter('subject_id', 'in', 
+        supabase.from('subjects').select('id').eq('user_id', userId)
+      )
+    ]);
+
+    const activeSubjectIds = new Set((subjects || []).map(s => s.id));
+    const activeTopicIds = new Set((topics || []).map(t => t.id));
+
+    // Filtra sugestões que tenham pelo menos 2 IDs originais válidos
+    return suggestions.filter(s => {
+      const originalIds = (s.original_ids as string[] || []);
+      const activeIds = s.suggestion_type === 'subject' ? activeSubjectIds : activeTopicIds;
+      const validIds = originalIds.filter(id => activeIds.has(id));
+      
+      // Uma sugestão só faz sentido se houver pelo menos 2 itens para unificar
+      return validIds.length >= 2;
+    });
+  } catch (err) {
+    console.error('[PendingSuggestions] Erro na validação de órfãos:', err);
+    return suggestions; // Fallback para não quebrar a UI se a validação falhar
+  }
 }
 
 export async function updateSuggestionStatus(
@@ -1076,3 +1105,21 @@ export async function approveSuggestionAndMerge(
 
   await updateSuggestionStatus(suggestion.id, 'approved');
 }
+
+/**
+ * Remove todas as sugestões pendentes de um usuário.
+ * Útil ao deletar editais ou resetar o ciclo para evitar sugestões órfãs.
+ */
+export async function discardPendingMergeSuggestions(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('pending_merge_suggestions')
+    .delete()
+    .eq('user_id', userId)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('[PendingSuggestions] Erro ao descartar sugestões:', error);
+    throw error;
+  }
+}
+
