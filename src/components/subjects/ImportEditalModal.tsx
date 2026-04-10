@@ -220,6 +220,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setIaPosition('');
         setInputText('');
         setPdfFile(null);
+        setExamDate('');
     };
 
     const resetPendingState = () => {
@@ -231,6 +232,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setIaPosition('');
         setInputText('');
         setPdfFile(null);
+        setExamDate('');
     };
 
     useEffect(() => {
@@ -561,7 +563,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return;
             }
             
-            const extraInfo = { organ: iaOrigin, position: iaPosition, year: iaYear };
+            const extraInfo = { organ: iaOrigin, position: iaPosition, year: iaYear, exam_date: examDate };
             await onImport(newSubjects, finalName, true, undefined, extraInfo);
             await discardPendingExtractionData();
             onClose();
@@ -603,7 +605,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return;
             }
 
-            const extraInfo = { organ: manualOrigin, position: manualPosition, year: manualYear };
+            const extraInfo = { organ: manualOrigin, position: manualPosition, year: manualYear, exam_date: examDate };
             // Descartar extração por IA pendente se existir, para evitar conflitos
             await discardPendingExtractionData();
 
@@ -613,6 +615,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             setManualOrigin('');
             setManualPosition('');
             setManualYear('');
+            setExamDate('');
         } catch (error) {
             console.error('Erro ao salvar edital manual:', error);
         } finally {
@@ -1140,8 +1143,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                     <input
                                                         type="text"
                                                         value={iaYear}
-                                                        onChange={(e) => setIaYear(e.target.value)}
-                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
+                                                        onChange={(e) => setIaYear(e.target.value.replace(/\D/g, ''))}
+                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main outline-none transition-all"
+                                                        placeholder="AAAA"
+                                                        maxLength={4}
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Data da Prova</span>
+                                                    <input
+                                                        type="date"
+                                                        value={examDate}
+                                                        onChange={(e) => setExamDate(e.target.value)}
+                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main outline-none transition-all"
                                                     />
                                                 </div>
                                             </>
@@ -1312,6 +1326,22 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                     maxLength={4}
                                                     placeholder="Ex: 2024"
                                                     className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Exam Date Field */}
+                                        <div className="space-y-2 group">
+                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Data da Prova</label>
+                                            <div className="relative">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
+                                                    <CalendarDays size={16} />
+                                                </div>
+                                                <input
+                                                    type="date"
+                                                    value={examDate}
+                                                    onChange={(e) => setExamDate(e.target.value)}
+                                                    className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner"
                                                 />
                                             </div>
                                         </div>

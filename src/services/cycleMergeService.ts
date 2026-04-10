@@ -25,6 +25,7 @@ import {
   TopicGroupResult,
   TopicMergePhaseResult,
 } from '@/types/cycleMergeTypes';
+import { mergeService } from './mergeService';
 
 // ============================================
 // HELPERS
@@ -1041,15 +1042,17 @@ export async function fetchPendingMergeSuggestions(
 
   try {
     // Busca todos os IDs de matérias e tópicos existentes do usuário
-    const [{ data: subjects }, { data: topics }] = await Promise.all([
-      supabase.from('subjects').select('id').eq('user_id', userId),
-      supabase.from('topics').select('id').filter('subject_id', 'in', 
-        supabase.from('subjects').select('id').eq('user_id', userId)
-      )
-    ]);
-
-    const activeSubjectIds = new Set((subjects || []).map(s => s.id));
-    const activeTopicIds = new Set((topics || []).map(t => t.id));
+    const { data: subjectsData } = await supabase.from('subjects').select('id').eq('user_id', userId);
+    const activeSubjectIds = new Set((subjectsData || []).map(s => s.id));
+    
+    let activeTopicIds = new Set<string>();
+    if (activeSubjectIds.size > 0) {
+      const { data: topicsData } = await supabase
+        .from('topics')
+        .select('id')
+        .in('subject_id', Array.from(activeSubjectIds));
+      activeTopicIds = new Set((topicsData || []).map(t => t.id));
+    }
 
     // Filtra sugestões que tenham pelo menos 2 IDs originais válidos
     return suggestions.filter(s => {
@@ -1090,17 +1093,29 @@ export async function approveSuggestionAndMerge(
   secondaryIds: string[]
 ): Promise<void> {
   if (suggestion.suggestion_type === 'topic') {
-    for (const sid of secondaryIds) {
-      const { error } = await supabase
-        .from('topics')
-        .update({ parent_topic_id: primaryId })
-        .eq('id', sid);
+    // Buscar ou criar o registro de TopicMerge para representar esta unificação
+    const allIds = [primaryId, ...secondaryIds];
+    const { data: subjectMerge } = await supabase
+      .from('subject_merges')
+      .select('id')
+      .eq('user_id', suggestion.user_id)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
 
-      if (error) {
-        console.error('[Merge] Erro ao definir parent_topic_id:', error);
-        throw error;
-      }
-    }
+    const newMerge = await mergeService.createTopicMerge({
+      user_id: suggestion.user_id,
+      cycle_id: suggestion.cycle_id,
+      subject_merge_id: subjectMerge?.id || null,
+      primary_topic_id: primaryId,
+      merged_topic_ids: secondaryIds,
+      display_name: suggestion.suggested_name,
+      match_type: 'semantic',
+      created_by_ai: true,
+      source_edital_ids: []
+    });
+
+    // A sincronização de parent_topic_id já ocorre dentro do createTopicMerge
   }
 
   await updateSuggestionStatus(suggestion.id, 'approved');

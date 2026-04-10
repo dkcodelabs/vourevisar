@@ -254,7 +254,9 @@ const Settings = () => {
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects').select('id').eq('user_id', user.id);
       if (subjectsError) throw subjectsError;
-      const subjectIds = (subjectsData || []).map(s => s.id);
+      const subjectIds = (subjectsData || [])
+        .map(s => s.id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
 
       if (subjectIds.length > 0) {
         const { error: topicsError } = await supabase
@@ -298,11 +300,20 @@ const Settings = () => {
     try {
       const { data: userSubjects, error: subjectsError } = await supabase.from('subjects').select('id').eq('user_id', user.id);
       if (subjectsError) throw subjectsError;
-      const subjectIds = (userSubjects || []).map(s => s.id);
+      const subjectIds = (userSubjects || [])
+        .map(s => s.id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
 
       if (subjectIds.length > 0) {
-        const { data: userTopics } = await supabase.from('topics').select('id').in('subject_id', subjectIds);
-        const topicIds = (userTopics || []).map(t => t.id);
+        const { data: userTopics } = await supabase
+          .from('topics')
+          .select('id')
+          .in('subject_id', subjectIds);
+          
+        const topicIds = (userTopics || [])
+          .map(t => t.id)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0);
+          
         if (topicIds.length > 0) {
           await supabase.from('topic_review_history').delete().in('topic_id', topicIds);
         }

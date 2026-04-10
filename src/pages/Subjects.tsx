@@ -332,7 +332,14 @@ const Subjects = () => {
     }
   }, [user, loadSubjects, refresh]);
 
-  const handleUnloadCycle = async (editalId: string, editalName: string, subjectIds: string[]) => {
+  const handleUnloadCycle = async (editalId: string, editalName: string, subjectIdsRaw: string[]) => {
+    // Garante que subjectIds seja um array de strings, removendo objetos ou nulos acidentais
+    const subjectIds = Array.isArray(subjectIdsRaw) 
+      ? subjectIdsRaw.filter(id => typeof id === 'string' && id.length > 0)
+      : [];
+
+    console.log('[Subjects] handleUnloadCycle:', { editalId, editalName, subjectIds, raw: subjectIdsRaw });
+
     if (!user) return;
     setUnloadingEditalId(editalId);
     try {
@@ -377,10 +384,15 @@ const Subjects = () => {
           }
 
           // Também limpa o histórico detalhado para garantir integridade na página de Revisões
-          await supabase
-            .from('topic_review_history')
-            .delete()
-            .in('topic_id', (await supabase.from('topics').select('id').in('subject_id', subjectIds)).data?.map(t => t.id) || []);
+          const { data: topicData } = await supabase.from('topics').select('id').in('subject_id', subjectIds);
+          const topicIds = topicData?.map(t => t.id) || [];
+          
+          if (topicIds.length > 0) {
+            await supabase
+              .from('topic_review_history')
+              .delete()
+              .in('topic_id', topicIds);
+          }
         }
       }
 

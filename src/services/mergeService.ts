@@ -140,10 +140,13 @@ export const mergeService = {
 
     // 3. Limpar parent_topic_id e is_hidden de todos os tópicos
     console.log('[mergeService] Buscando tópicos para limpar flags...');
+    // Garante que allSubjectIds seja um array de strings
+    const validSubjectIds = (allSubjectIds || []).filter(id => typeof id === 'string' && id.length > 0);
+    
     const { data: topicsToClear, error: fetchTopicsError } = await supabase
       .from('topics')
       .select('id')
-      .in('subject_id', allSubjectIds);
+      .in('subject_id', validSubjectIds);
 
     if (fetchTopicsError) {
       console.error('[mergeService] Erro ao buscar tópicos para limpeza:', fetchTopicsError);
@@ -243,7 +246,55 @@ export const mergeService = {
     }
 
     const userId = existingTopic.user_id;
-    const allTopicIds = [existingTopic.primary_topic_id, ...(existingTopic.merged_topic_ids || [])].filter(id => !!id);
+    const primaryTopicId = existingTopic.primary_topic_id;
+    const mergedTopicIds = (existingTopic.merged_topic_ids || []) as string[];
+    const allTopicIds = [primaryTopicId, ...mergedTopicIds].filter(id => !!id);
+
+    // 0. Sincronizar progresso: Copiar dados do PAI para os FILHOS antes de soltar
+    if (primaryTopicId && mergedTopicIds.length > 0) {
+      console.log(`[mergeService] Sincronizando progresso do pai ${primaryTopicId} para os filhos...`);
+      const { data: parentData, error: parentError } = await supabase
+        .from('topics')
+        .select(`
+          completed, 
+          review_count, 
+          next_review, 
+          last_reviewed_at, 
+          difficulty_level, 
+          notes, 
+          memory_stability, 
+          current_interval, 
+          retention_score, 
+          total_reviews
+        `)
+        .eq('id', primaryTopicId)
+        .maybeSingle();
+
+      if (!parentError && parentData) {
+        // Aplicar dados do pai em todos os filhos
+        const { error: syncError } = await (supabase as any)
+          .from('topics')
+          .update({
+            completed: parentData.completed,
+            review_count: parentData.review_count,
+            next_review: parentData.next_review,
+            last_reviewed_at: parentData.last_reviewed_at,
+            difficulty_level: parentData.difficulty_level,
+            notes: parentData.notes,
+            memory_stability: parentData.memory_stability,
+            current_interval: parentData.current_interval,
+            retention_score: parentData.retention_score,
+            total_reviews: parentData.total_reviews
+          })
+          .in('id', mergedTopicIds);
+
+        if (syncError) {
+          console.error('[mergeService] Erro ao sincronizar progresso na reversão:', syncError);
+        } else {
+          console.log('[mergeService] Progresso sincronizado com sucesso.');
+        }
+      }
+    }
 
     // 1. Limpar parent_topic_id e is_hidden dos tópicos envolvidos PRIMEIRO
     if (allTopicIds.length > 0) {
@@ -299,6 +350,48 @@ export const mergeService = {
     return data as SubjectMerge;
   },
 
+  /**
+   * Sincroniza as flags parent_topic_id e is_hidden na tabela topics
+   * com base em um registro de TopicMerge.
+   */
+  async syncTopicMergeWithTopics(merge: TopicMerge): Promise<void> {
+    const primaryId = merge.primary_topic_id;
+    const secondaryIds = (merge.merged_topic_ids || []) as string[];
+
+    if (!primaryId || secondaryIds.length === 0) return;
+
+    console.log(`[mergeService] Sincronizando flags para merge de tópico ${merge.id}...`);
+
+    try {
+      // 1. Marcar tópicos secundários como filhos do primário e escondê-los
+      const { error: updateSecondaryError } = await (supabase as any)
+        .from('topics')
+        .update({ 
+          parent_topic_id: primaryId,
+          is_hidden: true,
+          merged_with_ia: merge.created_by_ai || false
+        })
+        .in('id', secondaryIds);
+
+      if (updateSecondaryError) throw updateSecondaryError;
+
+      // 2. Garantir que o tópico primário não seja filho de ninguém e esteja visível
+      const { error: updatePrimaryError } = await (supabase as any)
+        .from('topics')
+        .update({ 
+          parent_topic_id: null,
+          is_hidden: false 
+        })
+        .eq('id', primaryId);
+
+      if (updatePrimaryError) throw updatePrimaryError;
+
+      console.log('[mergeService] Flags de tópicos sincronizadas com sucesso.');
+    } catch (err) {
+      console.error('[mergeService] Erro ao sincronizar flags de tópicos:', err);
+    }
+  },
+
   async createTopicMerge(merge: Omit<TopicMerge, 'id' | 'created_at' | 'reverted_at' | 'status'>): Promise<TopicMerge> {
     const { data, error } = await (supabase as any)
       .from('topic_merges')
@@ -317,7 +410,12 @@ export const mergeService = {
       .single();
 
     if (error) throw error;
-    return data as TopicMerge;
+    
+    // Sincronizar flags imediatamente
+    const newMerge = data as TopicMerge;
+    await this.syncTopicMergeWithTopics(newMerge);
+    
+    return newMerge;
   },
 
   async getActiveSubjectMerges(userId: string): Promise<SubjectMerge[]> {
@@ -385,11 +483,12 @@ export const mergeService = {
 
     // Agora criar/atualizar merges para subjects que estão no unificationMap
     for (const unified of unificationMap.unifiedSubjects) {
-      const primaryId = unified.originalSubjectIds[0];
-      const mergedIds = unified.originalSubjectIds.slice(1);
+      // Pegar TODOS os IDs de matérias originais do mapa
+      const allSubjectIds = [...(unified.originalSubjectIds || [])];
+      if (allSubjectIds.length < 2) continue;
 
-      // Pular se não tem mesclagem real (só 1 subject)
-      if (mergedIds.length === 0) continue;
+      const primaryId = allSubjectIds[0];
+      const mergedIds = allSubjectIds.slice(1);
 
       // Verificar se merge já existe
       const existing = await this.getSubjectMergeByPrimaryId(primaryId, userId);
@@ -423,11 +522,47 @@ export const mergeService = {
       }
 
       // Processar topic merges
-      for (const topicMap of unified.topicMappings || []) {
-        if (topicMap.originalTopicIds.length < 2) continue;
+      for (const topicMap of (unified.topicMappings || [])) {
+        if (!topicMap.originalTopicIds || topicMap.originalTopicIds.length < 2) continue;
 
         const topicPrimaryId = topicMap.originalTopicIds[0];
         const topicMergedIds = topicMap.originalTopicIds.slice(1);
+        const allTids = topicMap.originalTopicIds;
+
+        // --- NOVO: Sincronização de Progresso ---
+        try {
+          const { data: topicsData } = await supabase
+              .from('topics')
+              .select('id, completed, review_count, next_review, last_reviewed_at, difficulty_level, notes, memory_stability, current_interval, retention_score, total_reviews')
+              .in('id', allTids);
+
+          if (topicsData && topicsData.length > 1) {
+              const masterTopic = [...topicsData].sort((a, b) => {
+                  if (a.completed && !b.completed) return -1;
+                  if (!a.completed && b.completed) return 1;
+                  return (b.review_count || 0) - (a.review_count || 0);
+              })[0];
+
+              await (supabase as any)
+                  .from('topics')
+                  .update({
+                      completed: masterTopic.completed,
+                      review_count: masterTopic.review_count,
+                      next_review: masterTopic.next_review,
+                      last_reviewed_at: masterTopic.last_reviewed_at,
+                      difficulty_level: masterTopic.difficulty_level,
+                      notes: masterTopic.notes,
+                      memory_stability: masterTopic.memory_stability,
+                      current_interval: masterTopic.current_interval,
+                      retention_score: masterTopic.retention_score,
+                      total_reviews: masterTopic.total_reviews
+                  })
+                  .in('id', allTids);
+          }
+        } catch (syncErr) {
+          console.error('[mergeService] Erro ao sincronizar tópicos no mapa:', syncErr);
+        }
+        // --- FIM Sincronização ---
 
         const existingTopicMerge = await this.getTopicMerge(topicPrimaryId, userId);
         
@@ -441,6 +576,9 @@ export const mergeService = {
               match_type: topicMap.matchType
             })
             .eq('id', existingTopicMerge.id);
+          
+          // Sincronizar flags do tópico existente
+          await this.syncTopicMergeWithTopics(existingTopicMerge);
         } else if (subjectMergeId) {
           await this.createTopicMerge({
             user_id: userId,
@@ -514,14 +652,17 @@ export const mergeService = {
           updateProgress(`Limpando tópico: ${tm.display_name}`);
           
           // Limpar flags dos tópicos que ficaram
-          const allTids = [tm.primary_topic_id, ...(tm.merged_topic_ids || [])];
-          await (supabase as any)
-            .from('topics')
-            .update({ 
-              parent_topic_id: null,
-              merged_with_ia: false 
-            })
-            .in('id', allTids);
+          const allTids = [tm.primary_topic_id, ...(tm.merged_topic_ids || [])].filter(id => typeof id === 'string' && id.length > 0);
+          
+          if (allTids.length > 0) {
+            await (supabase as any)
+              .from('topics')
+              .update({ 
+                parent_topic_id: null,
+                merged_with_ia: false 
+              })
+              .in('id', allTids);
+          }
 
           await (supabase as any).from('topic_merges').delete().eq('id', tm.id);
         } else {
@@ -573,7 +714,7 @@ export const mergeService = {
         .maybeSingle();
 
       if (removedEdital?.subject_ids && removedEdital.subject_ids.length > 0) {
-        const removedSubjIds = removedEdital.subject_ids.filter((id: string) => !!id);
+        const removedSubjIds = (removedEdital.subject_ids || []).filter((id: any) => typeof id === 'string' && id.length > 0);
         
         if (removedSubjIds.length > 0) {
           // Limpar subjects que eram secundários e apontavam para primários deste edital
@@ -690,12 +831,57 @@ export const mergeService = {
           .eq('id', cycleData.id);
         
         console.log('[mergeService] Ciclo atualizado com sucesso.');
-        clearLocalCache(userId);
-        window.dispatchEvent(new CustomEvent('cycleUpdated'));
-        window.dispatchEvent(new CustomEvent('mergeUpdated'));
       }
+      clearLocalCache(userId);
+      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      window.dispatchEvent(new CustomEvent('mergeUpdated'));
     } catch (err) {
       console.error('[mergeService] Erro ao sincronizar ciclo:', err);
+    }
+  },
+
+  /**
+   * Repara a integridade de todos os merges ativos do usuário.
+   * Útil quando uma falha de rede ou lógica deixou tópicos órfãos ou não escondidos.
+   */
+  async repairIntegrity(userId: string): Promise<{ subjects: number, topics: number }> {
+    console.log(`[mergeService] Iniciando reparo de integridade para usuário ${userId}...`);
+    let subjectsRepaired = 0;
+    let topicsRepaired = 0;
+
+    try {
+      // 1. Reparar Matérias
+      const subjectMerges = await this.getActiveSubjectMerges(userId);
+      for (const sm of subjectMerges) {
+        const mergedIds = (sm.merged_subject_ids || []) as string[];
+        if (mergedIds.length > 0) {
+          await (supabase as any)
+            .from('subjects')
+            .update({ is_unified: true, is_visible: false })
+            .in('id', mergedIds);
+          
+          await (supabase as any)
+            .from('subjects')
+            .update({ is_unified: false, is_visible: true })
+            .eq('id', sm.primary_subject_id);
+          
+          subjectsRepaired++;
+        }
+      }
+
+      // 2. Reparar Tópicos
+      const topicMerges = await this.getActiveTopicMerges(userId);
+      for (const tm of topicMerges) {
+        await this.syncTopicMergeWithTopics(tm);
+        topicsRepaired++;
+      }
+
+      console.log(`[mergeService] Reparo concluído: ${subjectsRepaired} matérias e ${topicsRepaired} tópicos sincronizados.`);
+      clearLocalCache(userId);
+      return { subjects: subjectsRepaired, topics: topicsRepaired };
+    } catch (err) {
+      console.error('[mergeService] Erro durante o reparo de integridade:', err);
+      return { subjects: subjectsRepaired, topics: topicsRepaired };
     }
   }
 };

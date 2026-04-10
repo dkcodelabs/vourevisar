@@ -45,11 +45,19 @@ export const EditalCard = ({
     const studyTimeLabel = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
     const getUrgencyColor = () => {
-        if (daysLeft === null) return null;
-        if (daysLeft <= 0) return { bg: 'bg-red-500/10', text: 'text-red-600 dark:text-red-400', border: 'border-red-500/20', label: 'Prova vencida' };
-        if (daysLeft <= 7) return { bg: 'bg-red-500/10', text: 'text-red-600 dark:text-red-400', border: 'border-red-500/20', label: `${daysLeft}d` };
-        if (daysLeft <= 30) return { bg: 'bg-amber-500/10', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-500/20', label: `${daysLeft}d` };
-        return { bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-500/20', label: `${daysLeft}d` };
+        if (daysLeft === null || daysLeft === undefined || isNaN(daysLeft)) {
+            return { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30', label: 'Definir data da prova', icon: 'calendar' };
+        }
+        if (daysLeft <= 0) {
+            return { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', label: 'Prova vencida', icon: 'alert' };
+        }
+        if (daysLeft <= 15) {
+            return { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30', label: `${daysLeft} dias para a prova`, icon: 'alert' };
+        }
+        if (daysLeft <= 45) {
+            return { bg: 'bg-sky-500/20', text: 'text-sky-400', border: 'border-sky-500/30', label: `${daysLeft} dias para a prova`, icon: 'alert' };
+        }
+        return { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30', label: `${daysLeft} dias para a prova`, icon: 'clock' };
     };
 
     const urgency = getUrgencyColor();
@@ -287,13 +295,25 @@ export const EditalCard = ({
                     </motion.div>
                 )}
 
-                {urgency && (
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-4 border ${urgency.bg} ${urgency.border}`}>
-                        <AlertTriangle size={14} className={urgency.text} />
-                        <span className={`text-xs font-semibold ${urgency.text}`}>
-                            {daysLeft !== null && daysLeft > 0 ? `${daysLeft} dias para a prova` : urgency.label}
+                {!isProcessing && urgency && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit?.();
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-4 border transition-all w-full group/urgency ${urgency.bg} ${urgency.border} hover:opacity-80`}
+                    >
+                        {urgency.icon === 'calendar' ? (
+                            <CalendarDays size={14} className={urgency.text} />
+                        ) : urgency.icon === 'clock' ? (
+                            <Clock size={14} className={urgency.text} />
+                        ) : (
+                            <AlertTriangle size={14} className={urgency.text} />
+                        )}
+                        <span className={`text-xs font-bold ${urgency.text}`}>
+                            {urgency.label}
                         </span>
-                    </div>
+                    </button>
                 )}
             </div>
         </motion.div>

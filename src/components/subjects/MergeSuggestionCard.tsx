@@ -148,3 +148,122 @@ export function MergeSuggestionsList({
     </div>
   );
 }
+
+interface CompactMergeSuggestionItemProps {
+  suggestion: PendingSuggestion;
+  onApprove: (suggestion: PendingSuggestion) => Promise<void>;
+  onReject: (suggestion: PendingSuggestion) => Promise<void>;
+  disabled?: boolean;
+}
+
+export function CompactMergeSuggestionItem({
+  suggestion,
+  onApprove,
+  onReject,
+  disabled = false,
+}: CompactMergeSuggestionItemProps) {
+  const [loading, setLoading] = useState<'approve' | 'reject' | null>(null);
+  const originalNames = (suggestion.original_names as string[] | undefined) || [];
+
+  return (
+    <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <Sparkles size={10} className="text-amber-500" />
+          <span className="text-[9px] font-black uppercase tracking-wider text-amber-500/80">Sugestão IA</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 leading-none">
+            <span className="text-[9px] font-black text-content-muted/60 uppercase shrink-0">DE:</span>
+            <span className="text-[10px] text-content-muted truncate font-medium">
+              {originalNames.join(' e ')}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 leading-none">
+            <span className="text-[9px] font-black text-amber-500 uppercase shrink-0">PARA:</span>
+            <span className="text-xs font-bold text-foreground truncate tracking-tight">
+              {suggestion.suggested_name}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setLoading('reject');
+            onReject(suggestion).finally(() => setLoading(null));
+          }}
+          disabled={disabled || loading !== null}
+          className="w-8 h-8 p-0 rounded-lg text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 transition-colors"
+          title="Manter Separado"
+        >
+          {loading === 'reject' ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <X size={16} />
+          )}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setLoading('approve');
+            onApprove(suggestion).finally(() => setLoading(null));
+          }}
+          disabled={disabled || loading !== null}
+          className="w-8 h-8 p-0 rounded-lg text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 transition-colors"
+          title="Unificar"
+        >
+          {loading === 'approve' ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Check size={16} />
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface CompactMergeSuggestionListProps {
+  suggestions: PendingSuggestion[];
+  onApprove: (suggestion: PendingSuggestion) => Promise<void>;
+  onReject: (suggestion: PendingSuggestion) => Promise<void>;
+  disabled?: boolean;
+}
+
+export function CompactMergeSuggestionList({
+  suggestions,
+  onApprove,
+  onReject,
+  disabled = false,
+}: CompactMergeSuggestionListProps) {
+  if (!suggestions.length) {
+    return (
+      <div className="py-10 text-center space-y-2">
+        <div className="w-10 h-10 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
+          <Check size={20} className="text-emerald-500/60" />
+        </div>
+        <p className="text-sm font-bold text-foreground/80">Tudo unificado!</p>
+        <p className="text-xs text-content-muted">Não há mais sugestões pendentes para este edital.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-2">
+      {suggestions.map((suggestion) => (
+        <CompactMergeSuggestionItem
+          key={suggestion.id}
+          suggestion={suggestion}
+          onApprove={onApprove}
+          onReject={onReject}
+          disabled={disabled}
+        />
+      ))}
+    </div>
+  );
+}
