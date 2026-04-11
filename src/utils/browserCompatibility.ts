@@ -74,7 +74,10 @@ export const applyBrowserSpecificStyles = () => {
           font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
           -webkit-font-smoothing: antialiased !important;
           -moz-osx-font-smoothing: grayscale !important;
-          text-rendering: optimizeLegibility !important;
+          -webkit-font-smoothing: antialiased !important;
+          -moz-osx-font-smoothing: grayscale !important;
+          backface-visibility: hidden !important;
+          -webkit-backface-visibility: hidden !important;
         }
       `;
   }

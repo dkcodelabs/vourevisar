@@ -330,7 +330,7 @@ export const AdminEditalSubjectsModal = ({
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-5xl bg-zinc-900 border border-white/8 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
+                className="relative w-full max-w-5xl bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
             >
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between shrink-0">

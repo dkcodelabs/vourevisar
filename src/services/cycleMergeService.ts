@@ -795,11 +795,17 @@ export async function performFullTopicMerge(
     });
   }
 
-  if (userId && pendingAISuggestions.length > 0) {
+  if (userId) {
     try {
-      await savePendingMergeSuggestions(userId, cycleId || null, pendingAISuggestions);
+      // Sempre limpamos as sugestões pendentes dessa sessão antes de salvar novas,
+      // garantindo que não teremos duplicidades por navegação vai-e-volta no modal.
+      await discardPendingMergeSuggestions(userId);
+      
+      if (pendingAISuggestions.length > 0) {
+        await savePendingMergeSuggestions(userId, cycleId || null, pendingAISuggestions);
+      }
     } catch (err) {
-      console.error('[PendingSuggestions] Erro ao salvar:', err);
+      console.error('[PendingSuggestions] Erro ao atualizar:', err);
     }
   }
 

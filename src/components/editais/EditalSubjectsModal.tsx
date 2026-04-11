@@ -842,7 +842,7 @@ export const EditalSubjectsModal = ({
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="relative w-full max-w-5xl bg-zinc-900 border border-white/8 rounded-[24px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
+                    className="relative w-full max-w-5xl bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
                 >
                     {/* ── Header ── */}
                     <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
@@ -1518,7 +1518,7 @@ export const EditalSubjectsModal = ({
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-6 shadow-2xl"
+                            className="relative w-full max-w-md bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] p-8 shadow-2xl flex flex-col gap-6"
                         >
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">

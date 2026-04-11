@@ -78,16 +78,16 @@
   }
 
   .dark {
-    /* Dark mode background: #121212 */
-    --background: 0 0% 7.1%;
+    /* Soften background to avoid dithering/grid artifacts on some panels */
+    --background: 240 10% 4.5%; 
     --foreground: 0 0% 100%;
     /* #ffffff */
 
-    /* Cards and popovers: #282828 */
-    --card: 0 0% 15.7%;
+    /* Cards and popovers: #1C1C1E (iOS style dark gray) */
+    --card: 0 0% 11%;
     --card-foreground: 0 0% 100%;
 
-    --popover: 0 0% 15.7%;
+    --popover: 0 0% 11%;
     --popover-foreground: 0 0% 100%;
 
     /* Cor Primária (Ação): #00BFFF (Deep Sky Blue) */
@@ -232,8 +232,13 @@
     /* Prevent any scroll on body - only inner content scrolls */
     overflow-x: hidden;
     height: 100%;
-    /* Smooth transitions */
-    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    /* Smooth transitions - optimized to avoid jitter */
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* HW Acceleration to stop trembling */
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
   }
 
   /* Reset all heading styles for consistent cross-browser rendering */

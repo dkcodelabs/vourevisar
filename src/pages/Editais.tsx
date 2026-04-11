@@ -5,9 +5,9 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-    Search, Plus, PlusCircle, Library, Trash2, Play, Eye, CalendarDays, Clock,
+    Search, Plus, PlusCircle, Library, Trash2, Play, Eye, CalendarDays, Clock, LayoutGrid,
     BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, ArrowRight, Sparkles, Send, Loader2,
-    AlertCircle, Info, GraduationCap, Target, Database, ChevronDown, ChevronUp, Link, FileText
+    AlertCircle, Info, GraduationCap, Target, Database, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -119,6 +119,8 @@ const Editais = () => {
         topicMergeResult?: TopicMergePhaseResult;
         subjectDisplayNameOverrides?: Record<string, string>; // subjectId → custom name
         showIASuggestionsOnly?: boolean;
+        wasTopicMerged?: boolean;
+        showDetailedPreview?: boolean;
     }>({
         isOpen: false,
         edital: null,
@@ -126,7 +128,8 @@ const Editais = () => {
         currentOrigins: [],
         step: 'select',
         action: null,
-        showIASuggestionsOnly: false
+        showIASuggestionsOnly: false,
+        showDetailedPreview: false
     });
     const [pendingMerges, setPendingMerges] = useState<Record<string, any>>({});
     const [isRecoveringMerge, setIsRecoveringMerge] = useState(false);
@@ -821,8 +824,9 @@ const Editais = () => {
                 edital: edital,
                 existingIds: realExistingIdsInCycle,
                 currentOrigins: origins,
-                step: realExistingIdsInCycle.length > 0 ? 'select' : 'preview',
-                action: realExistingIdsInCycle.length > 0 ? null : 'replace'
+                step: 'select',
+                action: realExistingIdsInCycle.length > 0 ? null : 'replace',
+                showDetailedPreview: realExistingIdsInCycle.length === 0
             });
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'loadCycle', userMessage: 'Erro ao preparar carga do ciclo.' });
@@ -895,6 +899,13 @@ const Editais = () => {
 
     const handleHybridPreview = useCallback(async () => {
         if (!cycleConflict.edital || !user) return;
+
+        // OTIMIZAÇÃO: Se já temos o resultado da mesclagem híbrida, não reprocessamos
+        if (cycleConflict.hybridResult && cycleConflict.step === 'select') {
+            setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'merge' }));
+            return;
+        }
+
         setIsMerging(true);
         setMergePhase('exact');
         setProcessingProgress({ message: 'Unificando matérias...', percentage: 10 });
@@ -960,6 +971,13 @@ const Editais = () => {
 
     const handleTopicPreview = useCallback(async (useAI: boolean) => {
         if (!cycleConflict.unificationMap) return;
+
+        // OTIMIZAÇÃO: Se já temos o resultado dos tópicos, não reprocessamos
+        if (cycleConflict.topicMergeResult && cycleConflict.step === 'preview') {
+            setCycleConflict(prev => ({ ...prev, step: 'topic-preview' }));
+            return;
+        }
+
         setIsAnalyzingTopics(true);
         setMergePhase('exact');
         setProcessingProgress({ message: useAI ? 'Mesclando tópicos com IA...' : 'Organizando tópicos...', percentage: 0 });
@@ -1021,9 +1039,10 @@ const Editais = () => {
         if (!cycleConflict.edital || !user) return;
         const edital = cycleConflict.edital;
         setProcessingId(edital.id);
-        // Apply topic merge results into the unification map if available
+        // Apply topic merge results into the unification map if available 
+        // IMPORTANTE: Só usamos o resultado de tópicos se a ação for chamada explicitamente a partir do ultimo passo (topic-preview)
         let currentUnificationMap = cycleConflict.unificationMap;
-        if (cycleConflict.topicMergeResult && cycleConflict.unificationMap) {
+        if (cycleConflict.step === 'topic-preview' && cycleConflict.topicMergeResult && cycleConflict.unificationMap) {
             currentUnificationMap = applyTopicMergeToMap(cycleConflict.unificationMap, cycleConflict.topicMergeResult);
         }
 
@@ -1141,7 +1160,7 @@ const Editais = () => {
             window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'merge_completed' } }));
 
             // Mudar para tela de sucesso em vez de fechar
-            setCycleConflict(prev => ({ ...prev, step: 'success' }));
+            setCycleConflict(prev => ({ ...prev, step: 'success', wasTopicMerged: prev.step === 'topic-preview' }));
 
             // Atualizar dados em background
             await fetchEditais();
@@ -2019,7 +2038,7 @@ const Editais = () => {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-md bg-card border border-border rounded-[32px] p-8 shadow-2xl flex flex-col gap-6"
+                            className="relative w-full max-w-md bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] p-8 shadow-2xl flex flex-col gap-6"
                         >
                             <div className="flex items-center gap-4">
                                 <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center shrink-0">
@@ -2104,7 +2123,7 @@ const Editais = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-md bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-[28px] p-8 shadow-2xl"
+                            className="relative w-full max-w-md bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] p-8 shadow-2xl"
                         >
                             <div className="flex items-center gap-4 mb-6">
                                 <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center shrink-0">
@@ -2147,24 +2166,29 @@ const Editais = () => {
             </AnimatePresence>
             <AnimatePresence>
                 {cycleConflict.isOpen && cycleConflict.edital && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => {
-                                if (!isMerging && cycleConflict.step !== 'success') {
-                                    setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
-                                    setIsRecoveringMerge(false);
-                                }
-                            }}
-                            className="absolute inset-0 bg-black/40 dark:bg-black/80 backdrop-blur-md"
-                        />
+                    <>
+                    {/* Backdrop - Ocupando a tela INTEIRA com prioridade máxima */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => {
+                            if (!isMerging && cycleConflict.step !== 'success') {
+                                setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
+                                setIsRecoveringMerge(false);
+                            }
+                        }}
+                        className="fixed inset-0 z-[999] bg-black/40 dark:bg-black/90 backdrop-blur-md"
+                    />
+                    {/* Container de posicionamento com margem fixa de ~1cm (16px) */}
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pointer-events-none">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            className="relative w-full max-w-2xl bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-[28px] shadow-2xl p-7 flex flex-col gap-6 overflow-hidden"
+                            className="relative w-full max-w-4xl bg-white dark:bg-[#18181B] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] shadow-2xl shadow-black/50 flex flex-col overflow-hidden pointer-events-auto" style={{ maxHeight: 'calc(100vh - 32px)' }}
                         >
+                            {/* Efeito de Profundidade Sutil */}
+                            <div className="absolute inset-0 pointer-events-none border border-white/[0.03] rounded-[32px]" />
                             {/* Overlay de Processamento com IA */}
                             {(isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success' && (
                                 <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-background/90 backdrop-blur-md animate-in fade-in duration-300 rounded-[28px]">
@@ -2207,87 +2231,125 @@ const Editais = () => {
                                 </div>
                             )}
 
-                            {/* Banner de Mesclagem Recuperada (Estilo Amber para consistência) */}
-                            {isRecoveringMerge && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: -8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center justify-between gap-4 mb-2"
-                                >
+                            {/* Header - Espaçamento Interno Lateral 2cm (px-8), Vertical 1cm (py-4) */}
+                            <div className="px-8 pt-4 pb-4 border-b border-white/[0.08] flex items-start justify-between bg-white dark:bg-[#18181B] sticky top-0 z-[60]">
+                                <div className="flex flex-col gap-1.5 focus:outline-none">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
-                                            <FileText size={18} className="text-amber-600 dark:text-amber-400" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-black text-amber-800 dark:text-amber-300">
-                                                Mesclagem recuperada
-                                            </p>
-                                            <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
-                                                Restauramos sua última análise · {new Date((cycleConflict as any).updatedAt).toLocaleString('pt-BR')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            if (cycleConflict.edital) discardPendingMerge(cycleConflict.edital.id);
-                                            setIsRecoveringMerge(false);
-                                            setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
-                                        }}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all flex-shrink-0"
-                                    >
-                                        <Trash2 size={12} />
-                                        Descartar
-                                    </button>
-                                </motion.div>
-                            )}
-
-                            {/* Header */}
-                            <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${cycleConflict.step === 'preview' || cycleConflict.step === 'topic-preview' ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}>
-                                        {cycleConflict.step === 'preview' || cycleConflict.step === 'topic-preview' ? (
-                                            <CheckCircle2 className="text-emerald-400" size={24} />
-                                        ) : (
-                                            <AlertTriangle className="text-sky-400" size={24} />
+                                        {/* Navegação Rápida < > */}
+                                        {cycleConflict.existingIds.length > 0 && cycleConflict.step !== 'success' && (
+                                            <div className="flex items-center bg-white/5 dark:bg-white/5 p-0.5 rounded-lg border border-white/10 mr-1 shadow-sm">
+                                                <button
+                                                    onClick={() => {
+                                                        if (cycleConflict.step === 'preview') setCycleConflict(prev => ({ ...prev, step: 'select', action: null }));
+                                                        else if (cycleConflict.step === 'topic-preview') setCycleConflict(prev => ({ ...prev, step: 'preview' }));
+                                                    }}
+                                                    disabled={cycleConflict.step === 'select' || isMerging || isAnalyzingTopics}
+                                                    className="p-1.5 hover:bg-white/10 dark:hover:bg-white/10 disabled:opacity-20 rounded-md transition-all text-content-muted hover:text-foreground active:scale-95"
+                                                    title="Voltar"
+                                                >
+                                                    <ChevronLeft size={14} strokeWidth={3} />
+                                                </button>
+                                                <div className="w-[1px] h-3 bg-white/10 mx-0.5" />
+                                                <button
+                                                    onClick={() => {
+                                                        if (cycleConflict.step === 'select') handleHybridPreview();
+                                                        else if (cycleConflict.step === 'preview') handleTopicPreview(true);
+                                                    }}
+                                                    disabled={cycleConflict.step === 'topic-preview' || (cycleConflict.step === 'select' && isMerging) || isAnalyzingTopics}
+                                                    className="p-1.5 hover:bg-white/10 dark:hover:bg-white/10 disabled:opacity-20 rounded-md transition-all text-content-muted hover:text-foreground active:scale-95"
+                                                    title="Próximo"
+                                                >
+                                                    <ChevronRight size={14} strokeWidth={3} />
+                                                </button>
+                                            </div>
                                         )}
+
+                                        <div className="flex items-center gap-2.5">
+                                            {cycleConflict.step === 'success' ? (
+                                                <div className="flex items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black px-2 py-0.5 border border-emerald-500/20">
+                                                    CONCLUÍDO
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-center rounded-full bg-sky-500/10 text-sky-500 text-[10px] font-black px-2 py-0.5 border border-sky-500/20">
+                                                    {cycleConflict.existingIds.length === 0 ? '1/1' :
+                                                     cycleConflict.action === 'replace' ? (cycleConflict.step === 'select' ? '1/2' : '2/2') :
+                                                     cycleConflict.step === 'select' ? '1/3' :
+                                                     cycleConflict.step === 'preview' ? '2/3' : '3/3'}
+                                                </div>
+                                            )}
+                                            <h2 className="text-[14px] font-black text-foreground uppercase tracking-tight">
+                                                {cycleConflict.step === 'select' ? 'Carregar Edital' : 
+                                                 cycleConflict.step === 'preview' ? (cycleConflict.existingIds.length === 0 ? 'Carregar Edital' : 'Preview Mescla Matérias') :
+                                                 cycleConflict.step === 'topic-preview' ? 'Preview Mescla Matérias e Tópicos' :
+                                                 'Edital Carregado'}
+                                            </h2>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-foreground tracking-tight leading-tight">
-                                            {cycleConflict.existingIds.length === 0
-                                                ? 'Novo Ciclo'
-                                                : (cycleConflict.step === 'select' ? 'Carregar Ciclo' : (cycleConflict.step === 'success' ? 'Sucesso' : 'Confirmar Ação'))}
-                                        </h3>
-                                        <p className="text-xs text-content-muted font-medium">
-                                            {cycleConflict.existingIds.length === 0
-                                                ? 'Prepare seu novo ciclo de estudos'
-                                                : (cycleConflict.step === 'select'
-                                                    ? 'Escolha como carregar este edital'
-                                                    : (cycleConflict.step === 'success' ? 'Operação finalizada' : `Revise como ficará seu ciclo ao ${cycleConflict.action === 'merge' ? 'mesclar' : 'substituir'}`))
-                                            }
-                                        </p>
-                                    </div>
+
+                                    <p className="text-[11px] font-medium text-content-muted leading-relaxed whitespace-normal md:whitespace-nowrap">
+                                        {cycleConflict.step === 'select' ? 'Escolha como deseja adicionar o novo edital ao seu planejamento.' :
+                                         (cycleConflict.step === 'preview' || cycleConflict.step === 'topic-preview') ? 'As matérias com mesmo nome serão unificadas para preservar seu progresso.' :
+                                         'Seu planejamento foi atualizado com sucesso.'}
+                                    </p>
                                 </div>
+
                                 <button
                                     onClick={() => {
                                         if (!isMerging && !isAnalyzingTopics && cycleConflict.step !== 'success') {
-                                            setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
+                                            setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false });
                                             setIsRecoveringMerge(false);
                                         }
                                     }}
                                     disabled={isMerging || isAnalyzingTopics || cycleConflict.step === 'success'}
-                                    className="p-2 hover:bg-secondary dark:hover:bg-white/5 rounded-xl transition-colors text-content-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="p-2 hover:bg-secondary dark:hover:bg-white/5 rounded-xl transition-colors text-content-muted flex-shrink-0"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
 
-                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar relative min-h-[100px]">
+                            {/* Área de Conteúdo - Lateral 2cm, Vertical 1cm */}
+                            <div className="flex-1 overflow-y-auto no-scrollbar pt-4 px-8 pb-4 flex flex-col gap-8">
+                                {/* Banner de Mesclagem Recuperada - SEMPRE NO TOPO DO CONTEÚDO (Exceto Sucesso) */}
+                                {isRecoveringMerge && cycleConflict.step !== 'success' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center justify-between gap-4 flex-shrink-0"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
+                                                <FileText size={18} className="text-amber-600 dark:text-amber-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-black text-amber-800 dark:text-amber-300">
+                                                    Mesclagem recuperada
+                                                </p>
+                                                <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
+                                                    Restauramos sua última análise · {new Date((cycleConflict as any).updatedAt).toLocaleString('pt-BR')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (cycleConflict.edital) discardPendingMerge(cycleConflict.edital.id);
+                                                setIsRecoveringMerge(false);
+                                                setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
+                                            }}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all flex-shrink-0"
+                                        >
+                                            <Trash2 size={12} />
+                                            Descartar
+                                        </button>
+                                    </motion.div>
+                                )}
+
+                                <div className="flex-1 flex flex-col gap-10 no-scrollbar">
                                 {/* Seção: Ciclo Atual (SÓ MOSTRA NO PASSO 1 - SELECT) */}
                                 {cycleConflict.step === 'select' && cycleConflict.existingIds.length > 0 && (
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between px-1">
                                             <span className="text-[10px] font-black text-content-muted uppercase tracking-widest">ATUALMENTE NO CICLO</span>
-                                            <span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded-md">
+                                            <span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded-full">
                                                 {cycleConflict.existingIds.length} matérias
                                             </span>
                                         </div>
@@ -2307,19 +2369,22 @@ const Editais = () => {
                                                 if (originSubjects.length === 0) return null;
 
                                                 return (
-                                                    <div key={i} className="p-3.5 rounded-2xl bg-sky-500/5 border border-sky-500/10 space-y-3">
-                                                        <div className="flex flex-col gap-1.5">
+                                                    <div key={i} className="p-4 rounded-xl bg-[#101E2B] border border-[#1E3A52] space-y-4">
+                                                        <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
-                                                                <div className="w-1.5 h-4 bg-sky-500 rounded-full" />
-                                                                <span className="text-xs font-bold text-foreground uppercase tracking-tight">{origin.name}</span>
+                                                                <div className="w-1.5 h-4 bg-[#0284C7] rounded-full" />
+                                                                <span className="text-[13px] font-black text-foreground uppercase tracking-tight">{origin.name}</span>
                                                             </div>
+                                                            <span className="text-[10px] font-bold text-[#38BDF8] bg-[#0284C7]/20 px-2.5 py-1 rounded-full border border-[#0284C7]/20">
+                                                                {originSubjects.length} matérias
+                                                            </span>
                                                         </div>
 
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        <div className="flex flex-wrap gap-2">
                                                             {originSubjects.map(s => (
-                                                                <div key={s.id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-border/50">
-                                                                    <BookOpen size={12} className="text-sky-500/50" />
-                                                                    <span className="text-xs font-bold text-foreground/80 truncate">{s.name}</span>
+                                                                <div key={s.id} className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-[#192734] border border-[#1E3A52]/50 hover:bg-[#192734]/80 transition-colors group">
+                                                                    <BookOpen size={10} className="text-[#0284C7]" />
+                                                                    <span className="text-[10px] font-bold text-sky-100 truncate leading-none">{s.name}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -2332,66 +2397,96 @@ const Editais = () => {
 
                                 {/* Seção: Novo Edital (SÓ MOSTRA NO PASSO 1 - SELECT) */}
                                 {cycleConflict.step === 'select' && (
-                                    <div className="space-y-4">
+                                    <div className="space-y-2.5">
                                         <div className="flex items-center justify-between px-1">
                                             <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">NOVO EDITAL SELECIONADO</span>
-                                            <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                                                {cycleConflict.edital.subjectIds.length} matérias
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => setCycleConflict(prev => ({ ...prev, showDetailedPreview: !prev.showDetailedPreview }))}
+                                                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-500 uppercase tracking-wider hover:bg-emerald-500/20 transition-all"
+                                                >
+                                                    {cycleConflict.showDetailedPreview ? <LayoutGrid size={10} /> : <Eye size={10} />}
+                                                    {cycleConflict.showDetailedPreview ? 'Ver Resumo' : 'Ver Tópicos'}
+                                                </button>
+                                                <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                    {cycleConflict.edital.subjectIds.length} matérias
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-4">
-                                            <div className="flex flex-col gap-1.5">
+                                        <div className="p-4 rounded-xl bg-[#12251A] border border-[#1E422D] space-y-4">
+                                            <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-4 bg-emerald-500 rounded-full" />
-                                                    <span className="text-xs font-bold text-foreground uppercase tracking-tight">{cycleConflict.edital.name}</span>
+                                                    <div className="w-1.5 h-4 bg-[#10B981] rounded-full" />
+                                                    <span className="text-[13px] font-black text-foreground uppercase tracking-tight">{cycleConflict.edital.name}</span>
                                                 </div>
+                                                <span className="text-[10px] font-bold text-[#34D399] bg-[#10B981]/20 px-2.5 py-1 rounded-full border border-[#10B981]/20">
+                                                    + {cycleConflict.edital.subjectIds.length} matérias
+                                                </span>
                                             </div>
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                {cycleConflict.edital.subjectIds.slice(0, 10).map(sid => {
-                                                    const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
-                                                    if (!s) return null;
-                                                    return (
-                                                        <div key={sid} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/10 transition-all">
-                                                            <BookOpen size={12} className="text-emerald-500/50" />
-                                                            <span className="text-[10px] font-bold text-emerald-600/90 dark:text-emerald-400/90 truncate uppercase">{s.name}</span>
+                                            {cycleConflict.showDetailedPreview ? (
+                                                <div className="space-y-3 max-h-[380px] overflow-y-auto px-1 pr-2 custom-scrollbar">
+                                                    {cycleConflict.edital.subjectIds.map(sid => {
+                                                        const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
+                                                        if (!s) return null;
+                                                        return (
+                                                            <div key={sid} className="p-3 rounded-xl bg-[#1A3123] border border-[#1E422D] space-y-2.5 group transition-all hover:border-[#1E422D]/80">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-1 h-3 bg-[#10B981] rounded-full" />
+                                                                        <span className="text-[11px] font-black text-[#6EE7B7] uppercase tracking-wider truncate">{s.name}</span>
+                                                                    </div>
+                                                                    <span className="text-[8px] font-black text-[#34D399]/50 uppercase tracking-widest">
+                                                                        {s.topics?.length || 0} tópicos
+                                                                    </span>
+                                                                </div>
+                                                                
+                                                                <div className="grid grid-cols-1 gap-1.5 pl-3 border-l border-[#1E422D]">
+                                                                    {(s.topics || []).slice(0, 5).map(t => (
+                                                                        <div key={t.id} className="flex items-center gap-2 text-[10px] text-content-muted/70">
+                                                                            <div className="w-0.5 h-0.5 rounded-full bg-[#10B981]/40" />
+                                                                            <span className="truncate leading-none">{t.name}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                    {(s.topics?.length || 0) > 5 && (
+                                                                        <div className="text-[9px] font-bold text-[#34D399]/40 italic pl-2.5">
+                                                                            + {s.topics!.length - 5} tópicos...
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-2.5">
+                                                    {cycleConflict.edital.subjectIds.slice(0, 15).map(sid => {
+                                                        const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
+                                                        if (!s) return null;
+                                                        return (
+                                                            <div key={sid} className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-[#1A3123] border border-[#1E422D]/50 transition-all hover:bg-[#1A3123]/80 group">
+                                                                <BookOpen size={10} className="text-[#10B981]" />
+                                                                <span className="text-[10px] font-bold text-[#6EE7B7] truncate leading-none">{s.name}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {cycleConflict.edital.subjectIds.length > 15 && (
+                                                        <div className="flex items-center justify-center px-4 py-2 rounded-none bg-[#1A3123] border border-[#1E422D]/50 border-dashed">
+                                                            <span className="text-[10px] font-black text-[#34D399]/50 uppercase tracking-widest leading-none">+{cycleConflict.edital.subjectIds.length - 15}</span>
                                                         </div>
-                                                    );
-                                                })}
-                                                {cycleConflict.edital.subjectIds.length > 10 && (
-                                                    <div className="flex items-center justify-center px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/10 border-dashed">
-                                                        <span className="text-[9px] font-bold text-emerald-600/50 uppercase tracking-widest">+{cycleConflict.edital.subjectIds.length - 10} matérias</span>
-                                                    </div>
-                                                )}
-                                            </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
 
                                 {/* Seção: Resultado (Preview) - SÓ MOSTRA SE FOR PREVIEW */}
                                 {cycleConflict.step === 'preview' && (
-                                    <div className="space-y-4 py-2">
-                                        <div className="flex flex-col gap-1 px-1">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[10px] font-black text-sky-500 uppercase tracking-widest">
-                                                    {cycleConflict.existingIds.length === 0
-                                                        ? 'CONFIGURAÇÃO DO NOVO CICLO'
-                                                        : (cycleConflict.action === 'merge' ? 'PREVIEW APÓS A MESCLA' : 'PREVIEW DO NOVO CICLO')}
-                                                </span>
-                                                <span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded-md">
-                                                    {finalPreviewIds.length} matérias no total
-                                                </span>
-                                            </div>
-                                            <p className="text-[10px] text-content-muted italic leading-relaxed">
-                                                {cycleConflict.existingIds.length === 0
-                                                    ? 'As matérias abaixo serão adicionadas ao seu novo ciclo.'
-                                                    : (cycleConflict.action === 'merge'
-                                                        ? 'As matérias com mesmo nome serão unificadas para preservar seu progresso.'
-                                                        : 'Seu ciclo atual será removido e substituído por este edital.')}
-                                            </p>
-                                        </div>
+                                    <div className="space-y-2.5 py-2">
 
-                                        <div className="relative p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 space-y-2 max-h-[40vh] overflow-y-auto no-scrollbar">
+
+                                        <div className="relative p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-content-muted/5 space-y-4">
                                             <div className="flex flex-col gap-2">
                                                 {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && cycleConflict.unificationMap ? (
                                                     [
@@ -2411,8 +2506,8 @@ const Editais = () => {
                                                             <div
                                                                 key={primaryId}
                                                                 className={`flex flex-col rounded-2xl border transition-all ${isUnified
-                                                                        ? 'bg-emerald-500/[0.04] border-emerald-500/20 shadow-sm shadow-emerald-500/5'
-                                                                        : 'bg-zinc-500/[0.03] border-zinc-500/10'
+                                                                        ? 'bg-emerald-500/[0.04] border-emerald-500/20'
+                                                                        : 'bg-white/5 border-white/5'
                                                                     }`}
                                                             >
                                                                 <div
@@ -2420,21 +2515,21 @@ const Editais = () => {
                                                                     onClick={() => togglePreviewSubjectExpansion(primaryId)}
                                                                 >
                                                                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                                        <div className={`p-1.5 rounded-lg shrink-0 ${isUnified ? 'bg-emerald-500/10 text-emerald-500' : 'bg-zinc-500/10 text-zinc-500'
+                                                                        <div className={`p-1.5 rounded-lg shrink-0 ${isUnified ? 'bg-emerald-500/10 text-emerald-500' : 'bg-white/5 text-content-muted/40'
                                                                             }`}>
                                                                             <BookOpen size={14} />
                                                                         </div>
-                                                                        <span className="text-sm font-bold text-foreground uppercase tracking-wide truncate">
+                                                                        <span className="text-[11px] font-black text-foreground uppercase tracking-wider truncate">
                                                                             {overrideValue}
                                                                         </span>
                                                                     </div>
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${isUnified ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+                                                                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${isUnified ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-white/5 text-content-muted/40 border-white/5'
                                                                             }`}>
                                                                             {isUnified ? 'MESCLADO' : 'MANTIDO'}
                                                                         </span>
-                                                                        <div className="text-content-muted/40 transition-transform duration-200">
-                                                                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                                        <div className="text-content-muted/20">
+                                                                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -2476,8 +2571,8 @@ const Editais = () => {
                                                         const isNew = cycleConflict.edital?.subjectIds.includes(s.id);
                                                         const isCurrent = cycleConflict.existingIds.includes(s.id);
 
-                                                        let cardStyle = 'bg-zinc-500/[0.03] border-zinc-500/10';
-                                                        let badgeStyle = 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20';
+                                                        let cardStyle = 'bg-white/5 border-white/5';
+                                                        let badgeStyle = 'bg-white/5 text-content-muted/40 border-white/5';
                                                         let label = 'MANTIDO';
 
                                                         if (cycleConflict.action === 'replace') {
@@ -2493,16 +2588,16 @@ const Editais = () => {
                                                         }
 
                                                         return (
-                                                            <div key={s.id} className={`flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all ${cardStyle}`}>
+                                                            <div key={s.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-2xl border transition-all ${cardStyle}`}>
                                                                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                                    <div className="p-1.5 rounded-lg bg-zinc-500/10 text-zinc-500 shrink-0">
-                                                                        <BookOpen size={14} />
+                                                                    <div className="p-1.5 rounded-lg bg-white/5 text-content-muted/40 shrink-0">
+                                                                        <BookOpen size={12} />
                                                                     </div>
-                                                                    <span className="text-sm font-bold text-foreground uppercase tracking-wide truncate">
+                                                                    <span className="text-[11px] font-black text-foreground uppercase tracking-wider truncate">
                                                                         {s.name}
                                                                     </span>
                                                                 </div>
-                                                                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${badgeStyle}`}>
+                                                                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${badgeStyle}`}>
                                                                     {label}
                                                                 </span>
                                                             </div>
@@ -2549,7 +2644,7 @@ const Editais = () => {
                                             )}
                                         </div>
 
-                                        <div className="p-4 rounded-3xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 space-y-4 max-h-[45vh] overflow-y-auto no-scrollbar">
+                                        <div className="p-4 rounded-3xl bg-secondary dark:bg-zinc-800/30 border border-border dark:border-white/5 space-y-4">
                                             {cycleConflict.showIASuggestionsOnly ? (
                                                 <CompactMergeSuggestionList
                                                     suggestions={pendingSuggestions}
@@ -2591,8 +2686,7 @@ const Editais = () => {
                                                                             {group.topicMappings.map((tm, i) => (
                                                                                 <div key={i} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border/20">
                                                                                     <span className="text-[10px] text-foreground/80 font-medium truncate">{tm.displayName}</span>
-                                                                                    <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border ${tm.originalTopicIds.length > 1 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-zinc-500/10 text-content-muted border-zinc-500/10'
-                                                                                        }`}>
+                                                                                    <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border ${tm.originalTopicIds.length > 1 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-zinc-500/10 text-content-muted border-zinc-500/10'}`}>
                                                                                         {tm.originalTopicIds.length > 1 ? 'UNIFICADO' : 'MANTIDO'}
                                                                                     </span>
                                                                                 </div>
@@ -2607,236 +2701,247 @@ const Editais = () => {
                                             )}
                                         </div>
                                     </div>
-                                )}
+                                    )}
 
-
-                                {/* Ações do Modal */}
-                                <div className="space-y-3 pt-2">
-                                    {cycleConflict.step === 'select' ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <button
-                                                onClick={handleHybridPreview}
-                                                disabled={isMerging}
-                                                className="flex items-center justify-between px-5 py-4 rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600 transition-all group disabled:opacity-50 shadow-lg shadow-emerald-500/20"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    {isMerging ? <Loader2 size={18} className="animate-spin" /> : <Merge size={18} />}
-                                                    <span className="text-sm font-black uppercase tracking-wider">Mesclar</span>
+                                    {/* Seção: Sucesso (Resumo) */}
+                                    {cycleConflict.step === 'success' && (
+                                        <div className="flex flex-col items-center gap-4 py-2 animate-in zoom-in-95 duration-500 w-full">
+                                            
+                                            <div className="flex sm:flex-row items-center justify-center gap-4 w-full">
+                                                <div className="relative shrink-0">
+                                                    <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
+                                                    <div className="relative w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-xl">
+                                                        <CheckCircle2 size={24} className="text-emerald-500" />
+                                                    </div>
                                                 </div>
-                                                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                                            </button>
-                                            <button
-                                                onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }))}
-                                                className="flex items-center justify-between px-5 py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all group"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <RefreshCw size={18} />
-                                                    <span className="text-sm font-black uppercase tracking-wider">Substituir</span>
-                                                </div>
-                                                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                                            </button>
-                                        </div>
-                                    ) : cycleConflict.step === 'preview' ? (
-                                        <div className="flex flex-col gap-3">
-                                            {cycleConflict.action === 'merge' && (
-                                                <>
-                                                    <button
-                                                        onClick={() => handleTopicPreview(true)}
-                                                        disabled={isMerging || isAnalyzingTopics}
-                                                        className="w-full flex items-center justify-between px-6 py-4 rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600 transition-all group disabled:opacity-50 shadow-lg shadow-emerald-500/20"
-                                                    >
-                                                        <div className="flex items-center gap-3">
-                                                            {isAnalyzingTopics ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                                                            <span className="text-sm font-black uppercase tracking-wider">Mesclar Tópicos com IA</span>
-                                                        </div>
-                                                        <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleCycleConflictAction('merge')}
-                                                        disabled={isMerging || processingId === cycleConflict.edital!.id}
-                                                        className="w-full flex items-center justify-between px-6 py-4 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500 hover:text-white transition-all group disabled:opacity-50"
-                                                    >
-                                                        <div className="flex items-center gap-3">
-                                                            {processingId === cycleConflict.edital!.id ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                                                            <span className="text-sm font-black uppercase tracking-wider">Mesclar matérias (Mais Rápido)</span>
-                                                        </div>
-                                                        <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                                                    </button>
-                                                </>
-                                            )}
-                                            {cycleConflict.action !== 'merge' && (
-                                                <button
-                                                    onClick={() => handleCycleConflictAction(cycleConflict.action!)}
-                                                    disabled={processingId === cycleConflict.edital!.id}
-                                                    className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
-                                                >
-                                                    {processingId === cycleConflict.edital!.id ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                                                    {cycleConflict.existingIds.length === 0 ? 'Criar Ciclo de Estudos' : 'Confirmar Substituição'}
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => setCycleConflict(prev => ({ ...prev, step: 'select', action: null }))}
-                                                disabled={isMerging || isAnalyzingTopics}
-                                                className="w-full py-3 text-xs font-bold text-content-muted hover:text-foreground transition-colors uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isMerging || isAnalyzingTopics ? 'Processando...' : '← Voltar e Alterar Escolha'}
-                                            </button>
-                                        </div>
-                                    ) : cycleConflict.step === 'success' ? (
-                                        <div className="flex flex-col items-center gap-6 py-4 animate-in zoom-in-95 duration-300">
-                                            <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20">
-                                                <CheckCircle2 size={32} className="text-emerald-500" />
+                                                
+                                            <div className="text-center sm:text-left space-y-0.5">
+                                                <h4 className="text-lg font-black text-foreground uppercase tracking-tight">Ciclagem Concluída!</h4>
+                                                <span className="text-[11px] text-emerald-500 font-bold uppercase tracking-[.2em]">Ambiente atualizado</span>
                                             </div>
-                                            <div className="text-center space-y-2">
-                                                <h4 className="text-lg font-black text-foreground uppercase tracking-tight">Mesclagem Concluída!</h4>
-                                                <p className="text-xs text-content-muted max-w-[280px]">
-                                                    Seu ciclo de estudos foi atualizado com sucesso. Todas as matérias e tópicos já estão disponíveis.
-                                                </p>
                                             </div>
 
-                                            <div className="w-full bg-emerald-500/5 rounded-2xl p-6 border border-emerald-500/10 space-y-5">
-                                                <div className="flex items-center justify-between text-[11px] uppercase font-black tracking-[0.2em] text-emerald-500/70 border-b border-emerald-500/10 pb-4">
-                                                    <span>Resumo da Operação</span>
-                                                    <Sparkles size={12} className="text-emerald-500" />
+                                            <div className="w-full bg-emerald-500/[0.03] rounded-[24px] p-4 border border-emerald-500/10 space-y-4">
+                                                <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-[.3em] text-emerald-500/60 pb-3 border-b border-emerald-500/10">
+                                                    <span>Resumo Estratégico</span>
+                                                    <Sparkles size={12} />
                                                 </div>
 
-                                                <div className="space-y-5">
+                                                <div className="space-y-4">
+                                                    {/* Aviso Dinâmico da Ação */}
+                                                    <div className={`p-3 rounded-xl border flex items-start gap-3 w-full
+                                                        ${cycleConflict.action === 'replace' 
+                                                            ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' 
+                                                            : cycleConflict.wasTopicMerged 
+                                                                ? 'bg-purple-500/10 border-purple-500/20 text-purple-500' 
+                                                                : 'bg-amber-500/10 border-amber-500/20 text-amber-500'}`}>
+                                                        <div className="shrink-0 mt-0.5">
+                                                            {cycleConflict.action === 'replace' ? <Info size={14} /> : 
+                                                             cycleConflict.wasTopicMerged ? <Sparkles size={14} /> : <AlertTriangle size={14} />}
+                                                        </div>
+                                                        <div className="space-y-0.5 flex-1">
+                                                            <span className="text-[9px] uppercase font-black tracking-widest block opacity-70">
+                                                                {cycleConflict.action === 'replace' ? 'Substituição Direta' : 
+                                                                 cycleConflict.wasTopicMerged ? 'Processamento Profundo' : 'Agrupamento Rápido'}
+                                                            </span>
+                                                            <p className="text-[11px] font-medium leading-tight text-foreground/90">
+                                                                {cycleConflict.action === 'replace'
+                                                                    ? 'Limpamos o ciclo anterior e montamos um novo do zero baseado neste edital.'
+                                                                    : cycleConflict.wasTopicMerged
+                                                                    ? 'Matérias unificadas e tópicos minuciosamente processados com Inteligência Artificial.'
+                                                                    : 'Matérias unificadas. Tópicos apenas agrupados sem mesclagem avançada de IA.'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
                                                     {/* Identificação Principal */}
-                                                    <div className="space-y-1">
-                                                        <span className="text-[10px] text-content-muted uppercase font-bold tracking-wider">Edital Adicionado</span>
-                                                        <h5 className="text-lg font-black text-foreground uppercase tracking-tight leading-tight">
+                                                    <div className="space-y-1.5">
+                                                        <span className="text-[9px] text-content-muted/60 uppercase font-black tracking-widest">Edital Integrado</span>
+                                                        <h5 className="text-sm font-black text-foreground uppercase tracking-tight leading-tight">
                                                             {cycleConflict.edital?.name}
                                                         </h5>
-                                                        <div className="flex gap-4 mt-2">
-                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/10">
+                                                        <div className="flex flex-wrap gap-2 mt-2">
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/10">
                                                                 <Target size={12} className="text-emerald-500" />
-                                                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-tighter">
-                                                                    {cycleConflict.edital?.position || 'Cargo não definido'}
+                                                                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tight">
+                                                                    {cycleConflict.edital?.position || 'Cargo Master'}
                                                                 </span>
                                                             </div>
-                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-foreground/5 rounded-md border border-foreground/5">
-                                                                <CalendarDays size={12} className="text-content-muted" />
-                                                                <span className="text-[10px] font-black text-content-muted uppercase tracking-tighter">
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg border border-white/5">
+                                                                <CalendarDays size={12} className="text-content-muted/60" />
+                                                                <span className="text-[9px] font-black text-content-muted/60 uppercase tracking-tight">
                                                                     {cycleConflict.edital?.examDate
                                                                         ? new Date(cycleConflict.edital.examDate).toLocaleDateString('pt-BR')
-                                                                        : 'Prova: A definir'}
+                                                                        : 'Prova em Aberto'}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    {/* Métricas Comparativas */}
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div className="space-y-3 bg-white/5 rounded-xl p-4 border border-white/5">
-                                                            <div className="text-[10px] text-content-muted uppercase font-black tracking-widest border-b border-white/5 pb-2">
-                                                                Neste Edital
-                                                            </div>
-                                                            <div className="flex flex-col">
-                                                                <div className="flex items-baseline gap-1.5">
-                                                                    <span className="text-2xl font-black text-foreground">{cycleConflict.edital?.subjectIds.length || 0}</span>
-                                                                    <span className="text-[10px] text-content-muted font-bold uppercase tracking-tighter">Matérias</span>
-                                                                </div>
-                                                                <div className="flex items-baseline gap-1.5">
-                                                                    <span className="text-xl font-black text-emerald-500/80">
-                                                                        {loadedEditalSubjects.reduce((acc, s) => acc + (s.topics?.length || 0), 0)}
-                                                                    </span>
-                                                                    <span className="text-[10px] text-content-muted font-bold uppercase tracking-tighter">Tópicos</span>
-                                                                </div>
+                                                    {/* Métricas e Composição */}
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                        <div className="bg-emerald-500/[0.04] rounded-xl p-3 border border-emerald-500/10 transition-all hover:bg-emerald-500/[0.06]">
+                                                            <span className="text-[8px] text-emerald-500/50 uppercase font-black tracking-widest block mb-1">Total de Matérias</span>
+                                                            <div className="flex items-baseline gap-1">
+                                                                <span className="text-2xl font-black text-foreground">{cycleConflict.edital?.subjectIds.length || 0}</span>
+                                                                <span className="text-[9px] text-content-muted font-bold uppercase tracking-tight">mat</span>
                                                             </div>
                                                         </div>
 
-                                                        <div className="space-y-3 bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/10">
-                                                            <div className="text-[10px] text-emerald-600 uppercase font-black tracking-widest border-b border-emerald-500/10 pb-2">
-                                                                Total no Ciclo
+                                                        <div className="bg-emerald-500/[0.04] rounded-xl p-3 border border-emerald-500/10 transition-all hover:bg-emerald-500/[0.06]">
+                                                            <span className="text-[8px] text-emerald-500/50 uppercase font-black tracking-widest block mb-1">Total de Tópicos</span>
+                                                            <div className="flex items-baseline gap-1">
+                                                                <span className="text-2xl font-black text-foreground">
+                                                                    {cycleConflict.edital?.subjectIds.reduce((acc, sid) => {
+                                                                        const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
+                                                                        return acc + (s?.topics?.length || 0);
+                                                                    }, 0) || 0}
+                                                                </span>
+                                                                <span className="text-[9px] text-content-muted font-bold uppercase tracking-tight">top</span>
                                                             </div>
-                                                            <div className="flex flex-col">
-                                                                <div className="flex items-baseline gap-1.5">
-                                                                    <span className="text-2xl font-black text-foreground">
-                                                                        {cycleConflict.hybridResult?.stats.totalSubjectsInCycle || (cycleConflict.edital?.subjectIds.length || 0)}
-                                                                    </span>
-                                                                    <span className="text-[10px] text-content-muted font-bold uppercase tracking-tighter">Matérias</span>
-                                                                </div>
-                                                                <div className="flex items-baseline gap-1.5">
-                                                                    <span className="text-xl font-black text-emerald-500">
-                                                                        {/* Somar tópicos de todas as matérias que estão no ciclo final */}
-                                                                        {subjects
-                                                                            .filter(s => (cycleConflict.finalSubjectIds || cycleConflict.edital?.subjectIds || []).includes(s.id))
-                                                                            .reduce((acc, s) => acc + (s.topics?.length || 0), 0)
-                                                                            // Se o ciclo for novo, subjects pode não ter os novos temas ainda, então pegamos o maior valor
-                                                                            || loadedEditalSubjects.reduce((acc, s) => acc + (s.topics?.length || 0), 0)
-                                                                        }
-                                                                    </span>
-                                                                    <span className="text-[10px] text-content-muted font-bold uppercase tracking-tighter">Tópicos</span>
-                                                                </div>
+                                                        </div>
+
+                                                        <div className="bg-white/5 rounded-xl p-3 border border-white/5 transition-all hover:bg-white/10 col-span-2 sm:col-span-1">
+                                                            <span className="text-[8px] text-content-muted/40 uppercase font-black tracking-widest block mb-1">Status do Ciclo</span>
+                                                            <div className="flex items-baseline justify-between mt-1">
+                                                                <span className="text-sm font-black text-foreground uppercase tracking-tight">Ativo</span>
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    {/* Composição do Ciclo */}
+                                                    {/* Editais no Ciclo */}
                                                     <div className="space-y-2">
-                                                        <span className="text-[10px] text-content-muted uppercase font-black tracking-widest block">Editais no Ciclo:</span>
-                                                        <div className="flex flex-wrap gap-2">
+                                                        <span className="text-[9px] text-content-muted/60 uppercase font-black tracking-widest block">Editais Ativos no Ciclo:</span>
+                                                        <div className="flex flex-wrap gap-1.5">
                                                             <span className="px-2.5 py-1 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-tight shadow-sm shadow-emerald-500/20">
-                                                                {cycleConflict.edital?.organ || cycleConflict.edital?.name.split(' - ')[0]} (Atual)
+                                                                {cycleConflict.edital?.name.split(' - ')[0]}
                                                             </span>
-
-                                                            {cycleConflict.currentOrigins.map((o: any) => {
-                                                                if ('isManual' in o) {
-                                                                    return (
-                                                                        <span key="manual" className="px-2.5 py-1 bg-amber-500/10 rounded-lg text-[9px] font-black text-amber-600 border border-amber-500/10 uppercase tracking-tight">
-                                                                            Matérias Avulsas
-                                                                        </span>
-                                                                    );
-                                                                }
-                                                                if (o.id === cycleConflict.edital?.id) return null;
-                                                                return (
-                                                                    <span key={o.id} className="px-2.5 py-1 bg-emerald-500/10 rounded-lg text-[9px] font-black text-emerald-600 border border-emerald-500/10 uppercase tracking-tight">
-                                                                        {o.organ || o.name.split(' - ')[0]}
-                                                                    </span>
-                                                                );
-                                                            })}
+                                                            {cycleConflict.action !== 'replace' && cycleConflict.currentOrigins.filter((o: any) => o.id !== cycleConflict.edital?.id).map((o: any) => (
+                                                                <span key={o.id || 'manual'} className="px-2.5 py-1 bg-white/5 rounded-lg text-[9px] font-black text-content-muted/60 border border-white/5 uppercase tracking-tight">
+                                                                    {'isManual' in o ? 'Matérias Avulsas' : o.name.split(' - ')[0]}
+                                                                </span>
+                                                            ))}
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-
-                                            <button
-                                                onClick={() => setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false })}
-                                                className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all"
-                                            >
-                                                Finalizar e Ver Ciclo
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col gap-3">
-                                            <button
-                                                onClick={() => handleCycleConflictAction('merge')}
-                                                disabled={processingId === cycleConflict.edital!.id}
-                                                className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
-                                            >
-                                                {processingId === cycleConflict.edital!.id ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                                                Confirmar Mesclagem Completa
-                                            </button>
-                                            <div className="flex flex-col items-center gap-2">
-                                                <button
-                                                    onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', topicMergeResult: undefined }))}
-                                                    disabled={isMerging || isAnalyzingTopics}
-                                                    className="w-full py-2 text-xs font-bold text-content-muted hover:text-foreground transition-colors uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    {isMerging || isAnalyzingTopics ? 'Processando...' : '← Voltar para Matérias'}
-                                                </button>
-                                                <p className="text-[9px] text-content-muted/60 text-center leading-tight">
-                                                    Você pode voltar e mesclar somente matérias,<br />
-                                                    e posteriormente mesclar manualmente os tópicos.
-                                                </p>
                                             </div>
                                         </div>
                                     )}
+
                                 </div>
+                            </div>
+
+                            {/* Rodapé - Lateral 2cm, Vertical 1cm */}
+                            <div className="px-8 py-4 border-t border-white/[0.08] bg-white dark:bg-[#18181A] sticky bottom-0 z-[60]">
+                                {cycleConflict.step === 'select' ? (
+                                    cycleConflict.existingIds.length === 0 ? (
+                                        <div className="flex items-center justify-end gap-3">
+                                            <button
+                                                onClick={() => handleCycleConflictAction('replace')}
+                                                disabled={isMerging}
+                                                className="group w-[180px] h-[48px] rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 text-center transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3"
+                                            >
+                                                {isMerging ? (
+                                                    <Loader2 size={16} className="animate-spin" />
+                                                ) : (
+                                                    <Plus size={16} />
+                                                )}
+                                                <div className="flex flex-col items-start text-left">
+                                                    <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">INICIAR CICLO</span>
+                                                    <span className="text-[9px] text-emerald-100/80 font-bold leading-none">Criar base de estudos</span>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-end gap-3">
+                                            <button
+                                                onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }))}
+                                                className="group w-[180px] py-3 rounded-xl bg-[#3F1D24]/40 border border-[#5C2B36] hover:bg-[#4C242D]/60 text-center transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3"
+                                            >
+                                                <RefreshCw size={16} className="text-[#F87171]" />
+                                                <div className="flex flex-col items-start text-left">
+                                                    <span className="text-[11px] font-black text-[#F87171] uppercase tracking-wider leading-none mb-0.5">SUBSTITUIR</span>
+                                                    <span className="text-[9px] text-[#FCA5A5] font-bold leading-none">Começar do zero</span>
+                                                </div>
+                                            </button>
+
+                                            <button
+                                                onClick={handleHybridPreview}
+                                                disabled={isMerging}
+                                                className="group w-[180px] py-3 rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 text-center transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3"
+                                            >
+                                                <Plus size={16} />
+                                                <div className="flex flex-col items-start text-left">
+                                                    <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">MESCLAR</span>
+                                                    <span className="text-[9px] text-emerald-100/80 font-bold leading-none">Manter progresso</span>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    )
+                                ) : cycleConflict.step === 'preview' ? (
+                                    <div className="flex items-center justify-end gap-3">
+                                        {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && (
+                                            <button
+                                                onClick={() => handleTopicPreview(true)}
+                                                disabled={isMerging || isAnalyzingTopics}
+                                                className="flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-sky-500/10 text-sky-500 border border-sky-500/20 hover:bg-sky-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                            >
+                                                {isAnalyzingTopics ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                                <div className="flex flex-col items-start text-left">
+                                                    <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">PROCESSAR TÓPICOS</span>
+                                                    <span className="text-[9px] text-sky-500/80 font-bold leading-none">Avançar análise com IA</span>
+                                                </div>
+                                            </button>
+                                        )}
+
+                                        <button
+                                            onClick={() => handleCycleConflictAction(cycleConflict.action!)}
+                                            disabled={isMerging || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
+                                            className="flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                                        >
+                                            {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                                            <div className="flex flex-col items-start text-left">
+                                                <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">
+                                                    {cycleConflict.existingIds.length === 0 ? 'CRIAR CICLO' : 'FINALIZAR DIRETO'}
+                                                </span>
+                                                <span className="text-[9px] text-emerald-100/80 font-bold leading-none">
+                                                    {cycleConflict.existingIds.length === 0 ? 'Concluir' : '(Pular mesclagem de tópicos)'}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                ) : cycleConflict.step === 'topic-preview' ? (
+                                    <div className="flex items-center justify-end">
+                                        <button
+                                            onClick={() => handleCycleConflictAction('merge')}
+                                            disabled={isMerging || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
+                                            className="flex items-center justify-center gap-3 px-6 py-3 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                                        >
+                                            {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                                            <div className="flex flex-col items-start text-left">
+                                                <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">
+                                                    SALVAR MESCLAGEM
+                                                </span>
+                                                <span className="text-[9px] text-emerald-100/80 font-bold leading-none">
+                                                    Matérias + Tópicos
+                                                </span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                ) : cycleConflict.step === 'success' ? (
+                                    <button
+                                        onClick={() => setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false })}
+                                        className="w-full py-4 rounded-xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95"
+                                    >
+                                        Finalizar e Ver Ciclo
+                                    </button>
+                                ) : null}
                             </div>
                         </motion.div>
                     </div>
-                )}
+                </>
+            )}
             </AnimatePresence>
 
 

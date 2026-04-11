@@ -172,7 +172,7 @@ export const AppLayout = () => {
 
   return (
     // App Shell Global Area - Fixed Shell, Scrollable Main Card
-    <div className="fixed inset-0 flex sm:p-4 gap-4 overflow-hidden transition-colors duration-300 font-sans bg-background">
+    <div className="fixed inset-0 flex sm:p-4 gap-4 overflow-hidden font-sans bg-background">
       {/* Sidebar Desktop Card */}
       <div className="hidden md:flex h-[calc(100dvh-2rem)] shrink-0 z-20">
         <AppSidebar />
