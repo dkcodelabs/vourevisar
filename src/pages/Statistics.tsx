@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
+import { useCycleState } from '@/hooks/useCycleState';
 import { motion } from 'framer-motion';
 import { toast } from '@/lib/toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -39,6 +40,7 @@ const Statistics = () => {
   const [hasError, setHasError] = useState(false);
   const [statsFilter, setStatsFilter] = useState<{ type: 'all' | 'cycle' | 'edital'; id?: string }>({ type: 'cycle' });
   const statisticsData = useAdvancedStatistics(statsFilter);
+  const { userCycle, isLoading: cycleLoading } = useCycleState();
 
   useEffect(() => {
     const loadData = async () => {
@@ -68,7 +70,7 @@ const Statistics = () => {
     loadData();
   }, [fetchSubjects, user]);
 
-  if (isLoading) {
+  if (isLoading || cycleLoading) {
     return <LoadingSpinner size="large" message="Analisando seus dados de estudo" fullPage />;
   }
 
@@ -97,8 +99,9 @@ const Statistics = () => {
     );
   }
 
-  // Verificar se há dados disponíveis
-  const hasData = subjects.length > 0;
+  // Verificar se há dados disponíveis (se existe um ciclo ativo)
+  const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
+  const hasData = hasActiveCycle;
 
   if (!hasData) {
     return (

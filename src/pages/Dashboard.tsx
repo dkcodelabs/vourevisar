@@ -73,7 +73,7 @@ const Dashboard = () => {
     }, [cycleLoading, hasActiveCycle, subjects.length, statsFilter.type]);
 
     const editalDisplayName = useMemo(() => {
-        if (!activeEditais || activeEditais.length === 0) return null;
+        if (!hasActiveCycle || !activeEditais || activeEditais.length === 0) return null;
         
         const formatEdital = (edital: { name: string; organ?: string; position?: string; year?: string }) => {
             const parts = [];
@@ -194,23 +194,23 @@ const Dashboard = () => {
         <div className="pb-10 h-full w-full">
             <div className="w-full pb-8 pt-0">
 
-                {(!hasActiveCycle && subjects.length === 0) ? (
+                {(!hasActiveCycle) ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in duration-500">
                         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
                             <Target className="text-primary w-8 h-8" />
                         </div>
                         <h2 className="text-xl font-bold text-foreground mb-2">
-                            Nenhum edital carregado
+                            Nenhum ciclo ativo
                         </h2>
                         <p className="text-sm text-content-muted mb-6 max-w-md">
-                            Carregue um edital para ativar o painel e ver suas estatísticas.
+                            Carregue um edital no seu ciclo de estudos para ativar o painel e ver suas estatísticas reais.
                         </p>
                         <Button
                             onClick={() => navigate('/meus-editais')}
                             className="h-10 px-5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg flex items-center gap-2"
                         >
                             <BookOpen className="w-4 h-4" />
-                            Carregar Edital
+                            Ir para Meus Editais
                         </Button>
                     </div>
                 ) : (

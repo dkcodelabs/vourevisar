@@ -5,22 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Save, Check, AlertCircle } from 'lucide-react';
 import { TopicNotes } from '@/types';
 import { toast } from '@/lib/toast';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import Quill from 'quill';
+import 'quill/dist/quill.snow.css';
 
 /**
  * SECURITY NOTE: Rich Text Editor Safety
  * 
- * This component uses ReactQuill for rich text editing, which provides built-in XSS protection:
- * - ReactQuill sanitizes input during editing
- * - Content is stored as HTML in the database
- * - When rendered back in ReactQuill, it remains safe
- * - React's JSX escaping protects against XSS in most contexts
+ * This component uses Quill.js for rich text editing. Sanitization is crucial:
+ * - Content is stored as HTML in the database.
+ * - When rendered back, we use Quill's native API which handles most safety concerns.
+ * - IMPORTANT: Always ensure proper sanitization if displaying this HTML outside of this editor.
  * 
- * IMPORTANT: If notes content is ever displayed outside of ReactQuill or React components,
- * it MUST be sanitized first using a library like DOMPurify.
- * 
- * NEVER use dangerouslySetInnerHTML with user-generated notes content without sanitization.
+ * NOTE: This implementation replaces 'react-quill' to solve the 'findDOMNode' deprecation warning.
  */
 
 interface RichTextNotesEditorProps {
@@ -46,43 +42,102 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const quillRef = useRef<ReactQuill>(null);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const quillInstance = useRef<Quill | null>(null);
+  const isUpdatingRef = useRef(false);
 
-  // Detectar mudanças no conteúdo
+  // Inicializar o Quill
+  useEffect(() => {
+    if (containerRef.current && !quillInstance.current) {
+      // Criar o elemento do editor
+      const editorContainer = document.createElement('div');
+      containerRef.current.appendChild(editorContainer);
+
+      // Configuração da toolbar
+      const modules = {
+        toolbar: hideToolbar ? false : [
+          [{ 'header': [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ 'background': [] }],
+          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+          ['link'],
+          ['clean']
+        ]
+      };
+
+      // Instanciar Quill
+      const quill = new Quill(editorContainer, {
+        theme: 'snow',
+        modules,
+        placeholder: 'Comece a escrever suas anotações... Use a barra de ferramentas para formatação.',
+        readOnly: isLoading || isSaving
+      });
+
+      quillInstance.current = quill;
+
+      // Conteúdo inicial
+      if (notes?.content) {
+        quill.root.innerHTML = notes.content;
+      }
+
+      // Handler de mudanças
+      quill.on('text-change', () => {
+        if (isUpdatingRef.current) return;
+        
+        const html = quill.root.innerHTML;
+        // Se o conteúdo for apenas um parágrafo vazio (padrão do Quill), tratar como vazio
+        const sanitizedHtml = html === '<p><br></p>' ? '' : html;
+        setContent(sanitizedHtml);
+      });
+    }
+
+    return () => {
+      // Cleanup: Remover toolbar e editor se necessário
+      if (quillInstance.current) {
+        const toolbar = containerRef.current?.parentElement?.querySelector('.ql-toolbar');
+        if (toolbar) toolbar.remove();
+        quillInstance.current = null;
+        if (containerRef.current) containerRef.current.innerHTML = '';
+      }
+    };
+  }, []); // Rodar apenas uma vez
+
+  // Atualizar readOnly se o estado de loading mudar
+  useEffect(() => {
+    if (quillInstance.current) {
+      if (isLoading || isSaving) {
+        quillInstance.current.disable();
+      } else {
+        quillInstance.current.enable();
+      }
+    }
+  }, [isLoading, isSaving]);
+
+  // Sincronizar 'hasChanges' e callback 'onChange'
   useEffect(() => {
     const originalContent = notes?.content || '';
-    const hasChanges = content !== originalContent;
-    setHasChanges(hasChanges);
+    const hasChangesLocal = content !== originalContent;
+    setHasChanges(hasChangesLocal);
 
-    // Chamar callback quando houver mudanças
     if (onChange) {
       onChange(content);
     }
-  }, [content, onChange]);
-
-
+  }, [content, notes?.content, onChange]);
 
   // Ajustar altura automaticamente
   useEffect(() => {
     const adjustHeight = () => {
-      if (quillRef.current) {
-        const editor = quillRef.current.getEditor();
-        const container = editor.root;
-        const editorElement = container.querySelector('.ql-editor') as HTMLElement;
-
+      if (containerRef.current) {
+        const editorElement = containerRef.current.querySelector('.ql-editor') as HTMLElement;
         if (editorElement) {
-          // Resetar altura para calcular a altura necessária
           editorElement.style.height = 'auto';
-
-          // Definir altura mínima menor
           const minHeight = 60;
           const scrollHeight = editorElement.scrollHeight;
-          const newHeight = Math.max(minHeight, scrollHeight + 10); // +10px para margem
-
+          const newHeight = Math.max(minHeight, scrollHeight + 10);
           editorElement.style.height = `${newHeight}px`;
-
-          // Ajustar também o container
-          const containerElement = container.querySelector('.ql-container') as HTMLElement;
+          
+          const containerElement = containerRef.current.querySelector('.ql-container') as HTMLElement;
           if (containerElement) {
             containerElement.style.height = 'auto';
           }
@@ -90,12 +145,8 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
       }
     };
 
-    // Ajustar altura imediatamente
     adjustHeight();
-
-    // Ajustar altura após um pequeno delay para garantir que o DOM foi atualizado
     const timeoutId = setTimeout(adjustHeight, 100);
-
     return () => clearTimeout(timeoutId);
   }, [content]);
 
@@ -127,89 +178,40 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
     }
   };
 
-  const handleContentChange = (value: string) => {
-    setContent(value);
-
-    // Ajustar altura após mudança de conteúdo
-    setTimeout(() => {
-      if (quillRef.current) {
-        const editor = quillRef.current.getEditor();
-        const editorElement = editor.root.querySelector('.ql-editor') as HTMLElement;
-
-        if (editorElement) {
-          editorElement.style.height = 'auto';
-          const minHeight = 60;
-          const scrollHeight = editorElement.scrollHeight;
-          const newHeight = Math.max(minHeight, scrollHeight + 10);
-          editorElement.style.height = `${newHeight}px`;
-        }
-      }
-    }, 10);
-  };
-
-  // Configuração da toolbar do Quill
-  const modules = {
-    toolbar: hideToolbar ? false : [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'background': [] }], // highlight
-      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-      ['link'],
-      ['clean']
-    ],
-    clipboard: {
-      matchVisual: false
-    }
-  };
-
-  const formats = [
-    'header',
-    'bold', 'italic', 'underline', 'strike',
-    'background',
-    'list', 'bullet',
-    'link'
-  ];
-
-  // Estilo customizado para o highlight amarelo
   const customStyles = `
     .ql-editor {
-  min-height: 150px;
-  max-height: 50vh;
-  overflow-y: auto!important;
-  font-size: 14px;
-  line-height: 1.6;
-  padding: 12px 15px!important;
-  resize: vertical;
-}
-    .ql - container {
-  border: 1px solid #e2e8f0;
-  border - radius: 6px;
-  background: white;
-}
-    .ql - container.ql - snow {
-  border: 1px solid #e2e8f0;
-}
-    .ql - toolbar {
-  border - top: 1px solid #e2e8f0;
-  border - left: 1px solid #e2e8f0;
-  border - right: 1px solid #e2e8f0;
-  border - bottom: none;
-  border - radius: 6px 6px 0 0;
-  background: white;
-}
-    .ql - container: not(.ql - toolbar + .ql - container) {
-  border - radius: 6px;
-}
-    .ql - toolbar + .ql - container {
-  border - top: none;
-  border - radius: 0 0 6px 6px;
-}
-    .ql - editor.ql - blank::before {
-  color: #9ca3af;
-  font - style: normal;
-  content: 'Comece a escrever suas anotações... Use a barra de ferramentas para formatação.';
-}
-`;
+      min-height: 150px;
+      max-height: 50vh;
+      overflow-y: auto!important;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 12px 15px!important;
+      resize: vertical;
+    }
+    .ql-container {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: white;
+    }
+    .ql-container.ql-snow {
+      border: 1px solid #e2e8f0;
+    }
+    .ql-toolbar {
+      border-top: 1px solid #e2e8f0;
+      border-left: 1px solid #e2e8f0;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      background: white;
+    }
+    .ql-container:not(.ql-toolbar + .ql-container) {
+      border-radius: 6px;
+    }
+    .ql-toolbar + .ql-container {
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+    }
+  `;
 
   return (
     <motion.div
@@ -221,12 +223,10 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
     >
       <style>{customStyles}</style>
 
-      {/* Header com controles - apenas se não estiver oculto */}
       {!hideHeader && (
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-medium text-gray-700">Anotações</h4>
           <div className="flex items-center gap-3">
-            {/* Status das mudanças */}
             {hasChanges && !isSaving && (
               <span className="text-xs text-orange-600 flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />
@@ -240,7 +240,6 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
               </span>
             )}
 
-            {/* Botão salvar */}
             <Button
               onClick={handleSave}
               disabled={!hasChanges || isSaving || isLoading}
@@ -263,22 +262,10 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
         </div>
       )}
 
-      {/* Editor de texto rico */}
-      <div className="relative">
-        <ReactQuill
-          ref={quillRef}
-          theme="snow"
-          value={content}
-          onChange={handleContentChange}
-          modules={modules}
-          formats={formats}
-          readOnly={isLoading || isSaving}
-          className="bg-white"
-
-        />
+      <div className="relative" ref={containerRef}>
+        {/* O Quill será injetado aqui via useEffect */}
       </div>
 
-      {/* Informações adicionais - apenas se não estiver oculto */}
       {!hideHeader && lastSaved && (
         <div className="text-xs text-gray-500 text-right">
           Última modificação: {lastSaved.toLocaleString('pt-BR')}

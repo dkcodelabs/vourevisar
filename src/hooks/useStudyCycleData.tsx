@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { useDailySubjectsWithViews } from '@/hooks/useDailySubjectsWithViews';
 import { useMergeData } from '@/hooks/useMergeData';
+import { registerDualProgress } from '@/services/cycleMergeService';
 import { SubjectStatus, ReviewInterval, Difficulty } from '@/types/study-cycle';
 import { cleanCycle } from '@/utils/cycleUtils';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
@@ -445,12 +446,21 @@ export const useStudyCycleData = () => {
       if (updatedData.subTopics !== undefined) updatePayload.subtopics = updatedData.subTopics;
 
       await updateTopic(topicId, updatePayload);
+
+      // 🔄 Propagação profunda v2.2: Replicar notas/dificuldade/subtópicos para irmãos
+      try {
+        const unificationMap = userCycle?.unification_map ?? null;
+        await registerDualProgress(topicId, updatePayload, unificationMap);
+      } catch (dualErr) {
+        console.warn('⚠️ Falha na propagação de notas para irmãos (não-bloqueante):', dualErr);
+      }
+
       await refreshData();
     } catch (error) {
       console.error('Error saving topic notes:', error);
       throw error;
     }
-  }, [updateTopic, refreshData]);
+  }, [updateTopic, refreshData, userCycle]);
 
   const refreshCycleData = useCallback(async () => {
     if (!user) return;

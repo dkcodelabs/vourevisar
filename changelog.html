@@ -429,6 +429,36 @@
       .back-to-top { bottom: 1.5rem; right: 1.5rem; }
     }
   </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="header-layout">
+        <div class="nav-top">
+          <a href="/" class="brand">
+            <div class="logo-box">
+              <svg class="logo-svg" viewBox="0 0 44 30" fill="none"><path d="M6 15L18 3L30 15L18 27L6 15Z" fill="#10B981"/><path d="M18 15L30 3L42 15L30 27L18 15Z" fill="#10B981" fill-opacity="0.6"/></svg>
+            </div>
+            vou<span>Revisar</span>
+          </a>
+          <div class="view-switcher">
+            <button class="view-btn active" id="btnTimeline">Timeline</button>
+            <button class="view-btn" id="btnCompact">Compact</button>
+          </div>
+        </div>
+        <div class="filter-group">
+          <button class="filter-btn active" data-filter="all">Todos <span class="count" id="totalCount">0</span></button>
+          <button class="filter-btn" data-filter="bug"><span class="dot"></span>Correção <span class="count" id="bugCount">0</span></button>
+          <button class="filter-btn" data-filter="feature"><span class="dot"></span>Novidade <span class="count" id="featureCount">0</span></button>
+          <button class="filter-btn" data-filter="opt"><span class="dot"></span>Otimização <span class="count" id="optCount">0</span></button>
+        </div>
+        <div class="search-box">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" class="search-input" id="search" placeholder="Buscar alterações..." />
+        </div>
+      </div>
+    </div>
+  </header>
 
   <!-- Embeded Data -->
   <script type="text/markdown" id="changelog-data">
@@ -654,67 +684,134 @@ Aprimoramento do workflow de importação e merge de editais com feedback detalh
     let currentFilter = 'all';
     let searchQuery = '';
 
-    const timelineEl = document.getElementById('timeline');
-    const searchInput = document.getElementById('search');
-    const filterBtns = document.querySelectorAll('.filter-btn');
-    const btnTimeline = document.getElementById('btnTimeline');
-    const btnCompact = document.getElementById('btnCompact');
+    let timelineEl, searchInput, filterBtns, btnTimeline, btnCompact;
 
-    function loadLocalData() {
-      const md = document.getElementById('changelog-data').textContent;
-      parseMarkdown(md);
-      render();
-      updateCounts();
+    function initElements() {
+      timelineEl = document.getElementById('timeline');
+      searchInput = document.getElementById('search');
+      filterBtns = document.querySelectorAll('.filter-btn');
+      btnTimeline = document.getElementById('btnTimeline');
+      btnCompact = document.getElementById('btnCompact');
+    }
+
+    async function loadLocalData() {
+      try {
+        console.log("Tentando carregar CHANGELOG.md externo...");
+        let md = "";
+        
+        try {
+          const response = await fetch('/CHANGELOG.md');
+          if (response.ok) {
+            md = await response.text();
+            console.log("Dados carregados do arquivo externo (CHANGELOG.md)");
+          } else {
+            throw new Error(`Arquivo não encontrado: ${response.status}`);
+          }
+        } catch (fetchErr) {
+          console.warn("Falha ao buscar arquivo externo, usando fallback local:", fetchErr.message);
+          const dataEl = document.getElementById('changelog-data');
+          if (!dataEl) {
+            console.error("Elemento #changelog-data não encontrado e fetch falhou.");
+            return;
+          }
+          md = dataEl.textContent;
+          console.log("Dados carregados do fallback interno (#changelog-data)");
+        }
+
+        if (md) {
+          parseMarkdown(md);
+          render();
+          updateCounts();
+        }
+      } catch (err) {
+        console.error("Erro fatal no loadLocalData:", err);
+      }
     }
 
     function parseMarkdown(md) {
-      const tokens = marked.lexer(md);
-      let current = null;
+      console.log("Iniciando parsing do Markdown robusto...");
+      // Normaliza quebras de linha e limpa espaços iniciais/finais
+      const cleanMd = md.replace(/\r\n/g, '\n').trim();
+      
+      // Split pelo delimitador ## 
+      // Adicionamos \n no início para capturar a primeira seção se necessário
+      const rawSections = ('\n' + cleanMd).split('\n## ');
+      entries = []; 
+      
+      console.log("Seções brutas encontradas:", rawSections.length);
 
-      tokens.forEach(t => {
-        if (t.type === 'heading' && t.depth === 2 && !t.text.toLowerCase().includes('índice')) {
-          if (current) entries.push(current);
-          const parts = t.text.split(' — ');
-          const dateParts = parts[0]?.trim().split(' ') || [];
-          current = {
-            date: dateParts[0] || '?',
-            time: dateParts[1] || '08:00',
-            title: parts[1] || 'Update',
-            content: [],
-            meta: { ia: 'Antigravity', type: [] }
-          };
-        } else if (current) {
-          if (t.type === 'paragraph') {
-            const raw = t.text.toLowerCase();
-            
-            // Regex mais robustas para metadados
-            const iaMatch = t.text.match(/\*\*IA:\*\*\s*(.*?)(?=\s*\*\*|$)/i);
-            const tipoMatch = t.text.match(/\*\*Tipo:\*\*\s*(.*?)(?=\s*\*\*|$)/i);
+      rawSections.forEach((sec, idx) => {
+        if (!sec.trim()) return;
+        
+        const lines = sec.split('\n');
+        const titleLine = lines[0].trim();
+        
+        // Pula seções administrativas ou vazias
+        if (idx === 0 || titleLine.toLowerCase().includes('índice') || !titleLine) return;
+        
+        const parts = titleLine.split(' — ');
+        const dateParts = (parts[0] || '').trim().split(' ');
+        
+        const entry = {
+          date: dateParts[0] || '?',
+          time: dateParts[1] || '08:00',
+          title: (parts[1] || parts[0] || 'Update').trim(),
+          contentRaw: '',
+          meta: { ia: 'Antigravity', type: [] }
+        };
 
-            if (iaMatch) current.meta.ia = iaMatch[1].trim();
-            
-            if (tipoMatch) {
-              const typesRaw = tipoMatch[1].toLowerCase();
-              if (typesRaw.includes('correção') || typesRaw.includes('fix') || typesRaw.includes('🐛') || typesRaw.includes('correcao')) current.meta.type.push('bug');
-              if (typesRaw.includes('feature') || typesRaw.includes('✨') || typesRaw.includes('novidade')) current.meta.type.push('feature');
-              if (typesRaw.includes('otimização') || typesRaw.includes('otimizacao') || typesRaw.includes('🔧')) current.meta.type.push('opt');
-              if (typesRaw.includes('doc') || typesRaw.includes('📝')) current.meta.type.push('docs');
-            }
-            
-            // Se não for puramente metadado, mantém no conteúdo
-            if (!iaMatch && !tipoMatch && !raw.includes('**status:**')) {
-              current.content.push(t);
-            }
-          } else current.content.push(t);
+        let contentLines = [];
+        for (let i = 1; i < lines.length; i++) {
+          const rawLine = lines[i];
+          const line = rawLine.trim();
+          
+          if (!line) {
+            contentLines.push(rawLine);
+            continue;
+          }
+
+          if (line.toLowerCase().startsWith('**ia:**')) {
+            entry.meta.ia = line.split(':')[1]?.trim() || 'Antigravity';
+            continue;
+          }
+          if (line.toLowerCase().startsWith('**tipo:**')) {
+             const typesRaw = line.toLowerCase();
+             if (typesRaw.includes('correção') || typesRaw.includes('fix') || typesRaw.includes('bug') || typesRaw.includes('correcao')) entry.meta.type.push('bug');
+             if (typesRaw.includes('feature') || typesRaw.includes('✨') || typesRaw.includes('novidade')) entry.meta.type.push('feature');
+             if (typesRaw.includes('otimização') || typesRaw.includes('otimizacao') || typesRaw.includes('🔧')) entry.meta.type.push('opt');
+             if (typesRaw.includes('doc') || typesRaw.includes('📝')) entry.meta.type.push('docs');
+             continue;
+          }
+          if (line.toLowerCase().startsWith('**status:**')) continue;
+
+          contentLines.push(rawLine);
         }
+
+        entry.contentRaw = contentLines.join('\n').trim();
+        if (entry.title) entries.push(entry);
       });
-      if (current) entries.push(current);
+      
+      console.log("Entries processadas com sucesso:", entries.length);
+    }
+
+    function safeMarked(content) {
+      try {
+        if (!window.marked) return content;
+        // Tenta parse, lidando com possíveis retornos estranhos
+        const result = marked.parse(content);
+        return (typeof result === 'string') ? result : content;
+      } catch (e) {
+        console.error("Erro no marked.parse:", e);
+        return content;
+      }
     }
 
     function render() {
+      if (!timelineEl) return;
+      
       const filtered = entries.filter(e => {
         const matchF = currentFilter === 'all' || e.meta.type.includes(currentFilter);
-        const matchS = (e.title + ' ' + e.date + ' ' + e.content.map(x => x.text || '').join(' ')).toLowerCase().includes(searchQuery.toLowerCase());
+        const matchS = (e.title + ' ' + e.contentRaw).toLowerCase().includes(searchQuery.toLowerCase());
         return matchF && matchS;
       });
 
@@ -726,7 +823,7 @@ Aprimoramento do workflow de importação e merge de editais com feedback detalh
       timelineEl.innerHTML = filtered.map(e => `
         <div class="entry" onclick="goToEntry(this)">
           <div class="entry-date">
-            <span class="${e.date === entries[0].date ? 'status-active' : ''}" style="position:relative">${e.date}</span>
+            <span class="${entries[0] && e.date === entries[0].date ? 'status-active' : ''}" style="position:relative">${e.date}</span>
             <span class="time">${e.time}</span>
           </div>
           <div class="entry-card">
@@ -739,7 +836,7 @@ Aprimoramento do workflow de importação e merge de editais com feedback detalh
                 </div>
               </div>
             </div>
-            <div class="prose">${highlight(marked.parser(e.content), searchQuery)}</div>
+            <div class="prose">${highlight(safeMarked(e.contentRaw), searchQuery)}</div>
           </div>
         </div>
       `).join('');
@@ -774,37 +871,65 @@ Aprimoramento do workflow de importação e merge de editais com feedback detalh
         if (el) el.textContent = count;
       });
     }
+  </script>
 
-    searchInput.addEventListener('input', e => { searchQuery = e.target.value; render(); });
-    filterBtns.forEach(b => b.addEventListener('click', () => {
-      filterBtns.forEach(x => x.classList.remove('active'));
-      b.classList.add('active'); 
-      currentFilter = b.dataset.filter; 
-      render();
-    }));
+  <div class="content-area">
+    <div class="container">
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </div>
 
-    btnTimeline.addEventListener('click', () => {
-      document.body.classList.remove('view-compact');
-      btnTimeline.classList.add('active'); 
-      btnCompact.classList.remove('active');
-      render();
+  <button class="back-to-top" id="backToTop">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6"/></svg>
+  </button>
+
+  <script>
+    // Re-bind the Start logic to ensure DOM is ready
+    window.addEventListener('DOMContentLoaded', async () => {
+      initElements();
+      
+      if (searchInput) {
+        searchInput.addEventListener('input', e => { searchQuery = e.target.value; render(); });
+      }
+
+      if (filterBtns && filterBtns.length) {
+        filterBtns.forEach(b => b.addEventListener('click', () => {
+          filterBtns.forEach(x => x.classList.remove('active'));
+          b.classList.add('active'); 
+          currentFilter = b.dataset.filter; 
+          render();
+        }));
+      }
+
+      if (btnTimeline) {
+        btnTimeline.addEventListener('click', () => {
+          document.body.classList.remove('view-compact');
+          btnTimeline.classList.add('active'); 
+          btnCompact.classList.remove('active');
+          render();
+        });
+      }
+
+      if (btnCompact) {
+        btnCompact.addEventListener('click', () => {
+          document.body.classList.add('view-compact');
+          btnCompact.classList.add('active'); 
+          btnTimeline.classList.remove('active');
+          render();
+        });
+      }
+
+      const btt = document.getElementById('backToTop');
+      if (btt) {
+        window.addEventListener('scroll', () => {
+          if (window.scrollY > 400) btt.classList.add('visible');
+          else btt.classList.remove('visible');
+        });
+        btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+      }
+
+      await loadLocalData();
     });
-    btnCompact.addEventListener('click', () => {
-      document.body.classList.add('view-compact');
-      btnCompact.classList.add('active'); 
-      btnTimeline.classList.remove('active');
-      render();
-    });
-
-    const btt = document.getElementById('backToTop');
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 400) btt.classList.add('visible');
-      else btt.classList.remove('visible');
-    });
-    btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-
-    // Start
-    loadLocalData();
   </script>
 </body>
 </html>

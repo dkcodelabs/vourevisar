@@ -13,6 +13,8 @@ import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useApp } from '@/contexts/AppContext';
 import { TopicReviewHistorySection } from '@/components/TopicReviewHistorySection';
+import { useCycleState } from '@/hooks/useCycleState';
+import { registerDualProgress, registerSubjectDualProgress } from '@/services/cycleMergeService';
 
 interface NotesModalProps {
   isOpen: boolean;
@@ -47,6 +49,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
   const [currentTopicContent, setCurrentTopicContent] = useState('');
   const isMobile = useIsMobile();
   const { refreshData } = useApp();
+  const { userCycle } = useCycleState();
 
   // Buscar notas do tópico
   useEffect(() => {
@@ -150,6 +153,16 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
       if (error) throw error;
 
+      // 🔄 Propagação profunda v2.2: Replicar anotações do tópico para irmãos
+      if (!topicId.startsWith('temp-')) {
+        try {
+          const unificationMap = userCycle?.unification_map ?? null;
+          await registerDualProgress(topicId, { notes: updatedNotes as any, subtopics: subtopics }, unificationMap);
+        } catch (dualErr) {
+          console.warn('⚠️ Falha na propagação das anotações do tópico (não-bloqueante):', dualErr);
+        }
+      }
+
       // Log removido para otimização
       setNotes(updatedNotes);
       setHasUnsavedChanges(false);
@@ -234,6 +247,14 @@ const NotesModal: React.FC<NotesModalProps> = ({
         .eq('id', subjectId);
 
       if (error) throw error;
+
+      // 🔄 Propagação profunda v2.2: Replicar anotações da matéria para irmãos (mesclados)
+      try {
+        const unificationMap = userCycle?.unification_map ?? null;
+        await registerSubjectDualProgress(subjectId, { notes: updatedNotes as any }, unificationMap);
+      } catch (dualErr) {
+        console.warn('⚠️ Falha na propagação das notas da matéria (não-bloqueante):', dualErr);
+      }
 
       // Log removido para otimização
       setSubjectNotes(updatedNotes);

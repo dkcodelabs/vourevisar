@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { useCycleState } from '@/hooks/useCycleState';
+import { registerSubjectDualProgress } from '@/services/cycleMergeService';
 
 interface SubjectNotesModalProps {
   isOpen: boolean;
@@ -29,6 +31,7 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isMobile = useIsMobile();
+  const { userCycle } = useCycleState(); // Necessário para a propagação profunda
 
   // Buscar notas da matéria
   useEffect(() => {
@@ -73,6 +76,14 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
         .eq('id', subjectId);
 
       if (error) throw error;
+
+      // 🔄 Propagação profunda v2.2: Replicar anotações da matéria para irmãos (mesclados)
+      try {
+        const unificationMap = userCycle?.unification_map ?? null;
+        await registerSubjectDualProgress(subjectId, { notes: updatedNotes as any }, unificationMap);
+      } catch (dualErr) {
+        console.warn('⚠️ Falha na propagação das notas da matéria (não-bloqueante):', dualErr);
+      }
 
       setNotes(updatedNotes);
       setHasUnsavedChanges(false);

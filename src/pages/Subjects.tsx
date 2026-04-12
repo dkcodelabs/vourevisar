@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Files, Filter, Play, Wand2, BookOpen, Scissors } from 'lucide-react';
+import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Files, Filter, Play, Wand2, BookOpen, Link2Off } from 'lucide-react';
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
@@ -1540,7 +1540,7 @@ const Subjects = () => {
                                           handleStartEdit(subject);
                                         }}
                                       >
-                                        {getUnifiedSubjectName(subject.id, subject.name)}
+                                      {getUnifiedSubjectName(subject.id, subject.name).toUpperCase()}
                                       </h4>
                                       {isView && (
                                         <Badge variant="outline" className="text-[8px] px-1 bg-primary/10 text-primary border-primary/20">
@@ -1561,7 +1561,7 @@ const Subjects = () => {
                                           title="Desfazer Mesclagem"
                                           className="p-1 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition-colors text-orange-500"
                                         >
-                                          <Scissors size={12} />
+                                          <Link2Off size={14} />
                                         </button>
                                       )}
                                       {calculatedStatus === 'Concluída' && (
@@ -1577,11 +1577,17 @@ const Subjects = () => {
                                     {getOriginsForSubject(subject.id, subject.edital_id).length > 0 ? (
                                       <div className="flex flex-wrap gap-1">
                                         {getOriginsForSubject(subject.id, subject.edital_id).map((origin) => {
-                                          const typeBadge = origin.sourceId ? 'CÓPIA • SISTEMA' : origin.isImported ? 'CÓPIA • IA' : 'MANUAL';
+                                          const typeBadge = origin.sourceId ? 'SISTEMA' : origin.isImported ? 'IA' : 'MANUAL';
+                                          const displayName = (origin.organ || origin.name).toUpperCase();
                                           return (
-                                            <Badge key={origin.name} variant="outline" className="text-[10px] text-primary bg-primary/5 border-primary/10">
-                                              <span className="font-black mr-1">{typeBadge}</span>
-                                              {origin.name}
+                                            <Badge 
+                                              key={origin.name} 
+                                              variant="outline" 
+                                              title={origin.name}
+                                              className="text-[10px] text-primary bg-primary/5 border-primary/10 px-2 py-0.5 rounded-md"
+                                            >
+                                              <span className="font-black mr-1 text-[8px] opacity-70">{typeBadge} •</span>
+                                              {displayName}
                                             </Badge>
                                           );
                                         })}
@@ -1785,7 +1791,7 @@ const Subjects = () => {
                                                   isCompleted || !isActive ? 'text-content-muted line-through' : 'text-content-main'
                                                 }`}
                                               >
-                                                {topic.name} {!isActive && '(Inativo)'}
+                                                {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && '(Inativo)'}
                                               </span>
                                               <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest mt-0.5">
                                                 {!isActive
@@ -1801,13 +1807,15 @@ const Subjects = () => {
                                         <div className="flex items-center justify-end relative min-w-[100px]">
                                           <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-4">
                                             {getOriginsForSubject(subject.id, subject.edital_id).map((origin, i) => {
-                                              const typeBadge = origin.sourceId ? 'CÓPIA • SISTEMA' : origin.isImported ? 'CÓPIA • IA' : 'MANUAL';
+                                              const typeBadge = origin.sourceId ? 'SISTEMA' : origin.isImported ? 'IA' : 'MANUAL';
+                                              const displayName = (origin.organ || origin.name).toUpperCase();
                                               return (
                                                 <span
                                                   key={i}
+                                                  title={origin.name}
                                                   className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border text-primary/60 bg-primary/5 border-primary/10"
                                                 >
-                                                  {typeBadge} {origin.name}
+                                                  {typeBadge} • {displayName}
                                                 </span>
                                               );
                                             })}
@@ -2250,7 +2258,7 @@ const Subjects = () => {
             confirmText="Desfazer"
             cancelText="Manter Mesclado"
             variant="warning"
-            icon={Scissors}
+            icon={Link2Off}
             isLoading={isReverting}
           />
         </div>

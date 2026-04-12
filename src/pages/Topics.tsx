@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, FileText, Trash2, Star, Plus, Zap, ChevronDown, ChevronUp, X, Scissors } from 'lucide-react';
+import { Search, FileText, Trash2, Star, Plus, Zap, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { toast } from "@/lib/toast";
 import { Button } from '@/components/ui/button';
 import { format, startOfDay } from 'date-fns';
@@ -24,18 +24,14 @@ import { useMergeData } from '@/hooks/useMergeData';
 const Topics = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { subjects, deleteTopic, isLoading } = useApp();
+  const { subjects, deleteTopic, refreshData, isLoading } = useApp();
   const { originsMap, getOriginsForSubject, getOriginsForTopic, activeSubjectIdsSet, editaisData } = useEditalOriginsWithMerge();
-  const { getUnifiedTopicName, getUnifiedSubjectName, isTopicMerged, revertTopicMerge, getTopicMergeInfo, dynamicUnificationMap } = useMergeData();
+  const { getUnifiedTopicName, getUnifiedSubjectName, dynamicUnificationMap } = useMergeData();
   const [userCycle, setUserCycle] = useState<any>(null);
   const [isCycleLoading, setIsCycleLoading] = useState(true);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<any>(null);
-  const [selectedMergeId, setSelectedMergeId] = useState<string | null>(null);
-  const [selectedMergeName, setSelectedMergeName] = useState<string>('');
-  const [isReverting, setIsReverting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
@@ -137,7 +133,7 @@ const Topics = () => {
         .map(topic => {
           // Buscar editais de origem deste tópico via hook centralizado
           const origins = getOriginsForTopic(topic.id, subject.id, topic.edital_id);
-          const topicOrigins = origins.map(o => o.name);
+          const topicOrigins = origins;
           const unifiedTopicName = getUnifiedTopicName(topic.id, topic.name);
           const unifiedSubjectName = getUnifiedSubjectName(subject.id, subject.name);
           
@@ -146,7 +142,7 @@ const Topics = () => {
             name: unifiedTopicName,
             subjectName: unifiedSubjectName,
             subjectId: subject.id, // Restaurado ID da matéria
-            topicOrigins: topicOrigins, // Array com nomes dos editais de origem
+            topicOrigins: topicOrigins, // Agora contém objetos {name, organ, ...}
             edital_id: topic.edital_id || subject.edital_id,
             is_unificado: origins.length > 1
           };
@@ -352,90 +348,108 @@ const Topics = () => {
                   </p>
                 </div>
 
-                {filteredTopics.length > 0 ? (
-                  <div className="glow-card rounded-[24px] overflow-hidden border border-border shadow-sm bg-card">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead className="bg-muted/30">
-                          <tr className="border-b border-border">
-                            <th
-                              className="px-6 py-4 text-[10px] font-bold text-content-muted uppercase tracking-widest cursor-pointer hover:text-primary transition-colors text-left"
-                              onClick={toggleTopicSort}
-                            >
+                <div className="glow-card rounded-[24px] overflow-hidden border border-border shadow-sm bg-card mb-8">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse table-fixed">
+                      <thead className="bg-muted/30">
+                        <tr className="border-b border-border">
+                          <th
+                            className="px-6 py-5 text-[10px] font-bold text-content-muted uppercase tracking-widest cursor-pointer group transition-colors text-left"
+                            onClick={toggleTopicSort}
+                          >
+                            <div className="flex flex-col gap-1.5">
+                              <span className="text-[9px] text-zinc-500 font-black tracking-[0.2em] group-hover:text-primary transition-colors">ORDENAR POR</span>
                               <div className="flex items-center gap-2">
-                                TÓPICO / MATÉRIA
-                                <span className="text-[8px] bg-primary/10 text-primary px-1.5 py-0.5 rounded leading-none uppercase">
-                                  {sortBy === 'name' ? 'Nome' : 'Matéria'}
+                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-md leading-none uppercase tracking-tighter transition-all shadow-sm ${
+                                  sortBy === 'name' ? 'bg-primary text-white scale-105' : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                }`}>
+                                  TÓPICO
+                                </span>
+                                <span className="text-zinc-300 dark:text-zinc-700 font-light">/</span>
+                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-md leading-none uppercase tracking-tighter transition-all shadow-sm ${
+                                  sortBy === 'subject' ? 'bg-primary text-white scale-105' : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                }`}>
+                                  MATÉRIA
                                 </span>
                               </div>
-                            </th>
-                            <th
-                              className="px-4 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors text-center w-[120px]"
-                              onClick={cycleDifficultyFilter}
-                            >
-                              <div className="flex flex-col items-center gap-1.5">
-                                <span>DIFICULDADE</span>
-                                <div className="flex items-center gap-0.5">
-                                  {[1, 2, 3].map((s) => (
-                                    <Star key={s} size={10} className={s <= difficultyFilter ? 'fill-amber-400 text-amber-400' : 'text-zinc-300 dark:text-zinc-700'} />
-                                  ))}
-                                  {difficultyFilter === 0 && <span className="text-[8px] ml-1 text-zinc-400">TODAS</span>}
-                                </div>
+                            </div>
+                          </th>
+                          <th
+                            className="px-4 py-5 text-[10px] font-bold text-zinc-500 uppercase tracking-widest cursor-pointer group transition-colors text-center w-[130px]"
+                            onClick={cycleDifficultyFilter}
+                          >
+                            <div className="flex flex-col items-center gap-1.5">
+                              <span className="text-[9px] text-zinc-500 font-black tracking-[0.2em] group-hover:text-primary transition-colors">DIFICULDADE</span>
+                              <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-md transition-all shadow-sm ${
+                                difficultyFilter === 0 ? 'bg-primary/10 text-primary' : 'bg-primary text-white scale-105'
+                              }`}>
+                                {difficultyFilter === 0 ? (
+                                  <span className="text-[9px] font-black tracking-tight">TODAS</span>
+                                ) : (
+                                  <div className="flex items-center gap-0.5">
+                                    {[1, 2, 3].map((s) => (
+                                      <Star
+                                        key={s}
+                                        size={10}
+                                        className={s <= difficultyFilter ? (difficultyFilter === 0 ? 'fill-primary text-primary' : 'fill-white text-white') : 'opacity-20'}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            </th>
-                            <th
-                              className="px-4 py-4 text-[10px] font-bold text-content-muted uppercase tracking-widest cursor-pointer hover:text-primary transition-colors text-center w-[140px]"
-                              onClick={cycleStatusFilter}
-                            >
-                              <div className="flex flex-col items-center gap-1.5">
-                                <span>STATUS</span>
-                                <span className={`text-[8px] px-1.5 py-0.5 rounded leading-none uppercase font-black transition-all ${statusFilter === 'Todos' ? 'bg-secondary text-content-muted' : 'bg-primary/10 text-primary'
-                                  }`}>
-                                  {statusFilter}
-                                </span>
-                              </div>
-                            </th>
-                            <th className="px-4 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center w-[80px]">AÇÕES</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {filteredTopics.map((topic) => {
+                            </div>
+                          </th>
+                          <th
+                            className="px-4 py-5 text-[10px] font-bold text-content-muted uppercase tracking-widest cursor-pointer group transition-colors text-center w-[150px]"
+                            onClick={cycleStatusFilter}
+                          >
+                            <div className="flex flex-col items-center gap-1.5">
+                              <span className="text-[9px] text-zinc-500 font-black tracking-[0.2em] group-hover:text-primary transition-colors">STATUS</span>
+                              <span className={`text-[9px] px-2.5 py-0.5 rounded-md leading-none uppercase font-black tracking-tight transition-all shadow-sm ${
+                                statusFilter === 'Todos' ? 'bg-primary/10 text-primary' : 'bg-primary text-white scale-105 shadow-primary/20'
+                              }`}>
+                                {statusFilter}
+                              </span>
+                            </div>
+                          </th>
+                          <th className="px-4 py-5 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center w-[100px]">
+                            <span className="text-[9px] font-black tracking-[0.2em]">AÇÕES</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {filteredTopics.length > 0 ? (
+                          filteredTopics.map((topic) => {
                             const statusInfo = getTopicStatusInfo(topic);
 
                             return (
                               <tr key={topic.id} className="group hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                                 <td className="px-6 py-4">
-                                  <div className="flex flex-col">
-                                    <span className="text-[13px] font-bold text-content-main mb-0.5">{topic.name}</span>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[11px] text-zinc-500 font-medium">{topic.subjectName}</span>
-                                      {isTopicMerged(topic.id) && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            const mergeInfo = getTopicMergeInfo(topic.id);
-                                            if (mergeInfo) {
-                                              setSelectedMergeId(mergeInfo.id);
-                                              setSelectedMergeName(mergeInfo.display_name);
-                                              setIsRevertModalOpen(true);
-                                            }
-                                          }}
-                                          title="Desfazer Mesclagem"
-                                          className="p-1 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition-colors text-orange-500"
-                                        >
-                                          <Scissors size={12} />
-                                        </button>
-                                      )}
-                                      {topic.topicOrigins.map((originName) => (
-                                        <span key={originName} className="text-[9px] font-bold px-1.5 py-0.5 rounded border text-primary bg-primary/5 border-primary/10">
-                                          {originName}
-                                        </span>
-                                      ))}
-                                      {topic.topicOrigins.length === 0 && (
-                                        <span className="text-[8px] font-bold uppercase tracking-wider text-zinc-500/30">
-                                          Sem Edital
-                                        </span>
-                                      )}
+                                  <div className="flex flex-col overflow-hidden">
+                                    <span className="text-[13px] font-bold text-content-main mb-0.5 truncate" style={{ textTransform: 'capitalize' }}>
+                                      {topic.name.charAt(0).toUpperCase() + topic.name.slice(1).toLowerCase()}
+                                    </span>
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider whitespace-nowrap">{topic.subjectName.toUpperCase()}</span>
+                                      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                                        {topic.topicOrigins.map((origin) => {
+                                          const displayName = (origin.organ || origin.name).toUpperCase();
+                                          return (
+                                            <span
+                                              key={origin.name}
+                                              title={origin.name}
+                                              className="text-[8px] font-black px-1.5 py-0.5 rounded border text-primary/80 bg-primary/5 border-primary/10 uppercase tracking-tight whitespace-nowrap"
+                                            >
+                                              {displayName}
+                                            </span>
+                                          );
+                                        })}
+                                        {topic.topicOrigins.length === 0 && (
+                                          <span className="text-[8px] font-bold uppercase tracking-wider text-zinc-500/30 whitespace-nowrap">
+                                            Sem Edital
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 </td>
@@ -463,7 +477,11 @@ const Topics = () => {
                                   </span>
                                 </td>
                                 <td className="px-4 py-4 text-center align-middle">
-                                  <div className="flex items-center justify-center gap-3">
+                                  <div className="grid grid-cols-3 items-center justify-items-center w-full max-w-[90px] mx-auto">
+                                    {/* Action 1: Spacer (Reserved space for future/balance) */}
+                                    <div className="w-8 h-8 flex items-center justify-center" />
+
+                                    {/* Action 2: Notes (Always visible or high contrast) */}
                                     <button
                                       onClick={() => setNotesModal({
                                         isOpen: true,
@@ -471,11 +489,13 @@ const Topics = () => {
                                         topicName: topic.name,
                                         subjectName: topic.subjectName
                                       })}
-                                      className="text-zinc-400 hover:text-primary transition-colors p-1"
+                                      className="text-zinc-400 hover:text-primary transition-all p-1.5 rounded-lg hover:bg-primary/5 w-8 h-8 flex items-center justify-center"
                                       title="Anotações"
                                     >
-                                      <FileText size={14} />
+                                      <FileText size={15} />
                                     </button>
+
+                                    {/* Action 3: Delete (Hidden until hover on desktop) */}
                                     <button
                                       onClick={() => setDeleteModal({
                                         isOpen: true,
@@ -484,37 +504,41 @@ const Topics = () => {
                                         topicName: topic.name,
                                         subjectName: topic.subjectName
                                       })}
-                                      className="text-zinc-400 hover:text-red-500 transition-colors p-1"
+                                      className="text-zinc-400 hover:text-red-500 transition-all p-1.5 rounded-lg hover:bg-red-500/5 md:opacity-0 md:group-hover:opacity-100 w-8 h-8 flex items-center justify-center"
                                       title="Excluir Tópico"
                                     >
-                                      <Trash2 size={14} />
+                                      <Trash2 size={15} />
                                     </button>
                                   </div>
                                 </td>
                               </tr>
                             );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="py-20 text-center">
+                              <div className="flex flex-col items-center justify-center animate-in fade-in duration-500 w-full">
+                                <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mb-6">
+                                  <Search size={32} className="text-content-muted" />
+                                </div>
+                                <h3 className="text-lg font-bold text-foreground mb-2">Nenhum resultado encontrado</h3>
+                                <p className="text-content-muted max-w-sm mx-auto px-4">
+                                  Não encontramos tópicos que correspondam aos seus filtros atuais.
+                                </p>
+                                <button
+                                  onClick={() => { setSearchQuery(''); setStatusFilter('Todos'); setDifficultyFilter(0); }}
+                                  className="px-5 py-2 mt-6 bg-secondary hover:bg-secondary/80 text-foreground font-medium rounded-xl border border-border transition-all"
+                                >
+                                  Limpar Filtros
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500 my-8 w-full">
-                    <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mb-6">
-                      <Search size={32} className="text-content-muted" />
-                    </div>
-                    <h3 className="text-lg font-bold text-foreground mb-2">Nenhum resultado encontrado</h3>
-                    <p className="text-content-muted max-w-sm mx-auto text-center">
-                      Não encontramos tópicos que correspondam aos seus filtros atuais.
-                    </p>
-                    <button
-                      onClick={() => { setSearchQuery(''); setStatusFilter('Todos'); setDifficultyFilter(0); }}
-                      className="px-5 py-2 mt-6 bg-secondary hover:bg-secondary/80 text-foreground font-medium rounded-xl border border-border transition-all"
-                    >
-                      Limpar Filtros
-                    </button>
-                  </div>
-                )}
+                </div>
               </>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500 my-8 w-full text-center">
@@ -539,42 +563,6 @@ const Topics = () => {
       </div>
 
       {/* Modais Antigos que devem persistir (Notes & Delete) */}
-      {/* Modal de Confirmação de Reversão de Mesclagem */}
-      <ConfirmModal
-        isOpen={isRevertModalOpen}
-        onClose={() => {
-          setIsRevertModalOpen(false);
-          setSelectedMergeId(null);
-        }}
-        onConfirm={async () => {
-          if (selectedMergeId) {
-            setIsReverting(true);
-            try {
-              await revertTopicMerge(selectedMergeId);
-              toast.success('Mesclagem desfeita com sucesso');
-              setIsRevertModalOpen(false);
-            } catch (error: any) {
-              console.error('Erro ao desfazer mesclagem:', error);
-              toast.error(error?.message || 'Erro ao desfazer mesclagem');
-            } finally {
-              setIsReverting(false);
-              setSelectedMergeId(null);
-            }
-          }
-        }}
-        title="Desfazer Mesclagem"
-        description={
-          <span>
-            Tem certeza que deseja desfazer a mesclagem <strong>"{selectedMergeName}"</strong>? 
-            Os tópicos voltarão a ser exibidos individualmente.
-          </span>
-        }
-        confirmText="Desfazer"
-        cancelText="Manter Mesclado"
-        variant="warning"
-        icon={Scissors}
-        isLoading={isReverting}
-      />
 
       <ConfirmDeleteModal
         isOpen={deleteModal.isOpen}

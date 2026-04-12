@@ -861,12 +861,54 @@ export function findSiblingTopicIds(completedTopicId: string, map: CycleUnificat
 
 export async function registerDualProgress(id: string, data: Partial<Topic>, map: CycleUnificationMap | null): Promise<void> {
   const siblings = findSiblingTopicIds(id, map);
+  if (siblings.length === 0) return;
+
+  // Propagar tanto dados SRS quanto dados de estudo (notas, dificuldade, subtópicos)
+  const updatePayload: Record<string, unknown> = {};
+
+  // Campos SRS (progresso de revisão)
+  if (data.review_count !== undefined) updatePayload.review_count = data.review_count;
+  if (data.next_review !== undefined) updatePayload.next_review = data.next_review;
+  if (data.review_stage !== undefined) updatePayload.review_stage = data.review_stage;
+  if (data.completed !== undefined) updatePayload.completed = data.completed;
+  if (data.last_reviewed_at !== undefined) updatePayload.last_reviewed_at = data.last_reviewed_at;
+  if (data.memory_stability !== undefined) updatePayload.memory_stability = data.memory_stability;
+  if (data.current_interval !== undefined) updatePayload.current_interval = data.current_interval;
+
+  // Campos de dados de estudo (propagação profunda v2.2)
+  if ((data as any).notes !== undefined) updatePayload.notes = (data as any).notes;
+  if ((data as any).difficulty_level !== undefined) updatePayload.difficulty_level = (data as any).difficulty_level;
+  if ((data as any).difficulty_set_at !== undefined) updatePayload.difficulty_set_at = (data as any).difficulty_set_at;
+  if ((data as any).subtopics !== undefined) updatePayload.subtopics = (data as any).subtopics;
+
+  if (Object.keys(updatePayload).length === 0) return;
+
   for (const sid of siblings) {
-    await supabase.from('topics').update({
-      review_count: data.review_count, next_review: data.next_review, review_stage: data.review_stage,
-      completed: data.completed, last_reviewed_at: data.last_reviewed_at, memory_stability: data.memory_stability,
-      current_interval: data.current_interval
-    }).eq('id', sid);
+    await supabase.from('topics').update(updatePayload).eq('id', sid);
+  }
+}
+
+export function findSiblingSubjectIds(subjectId: string, map: CycleUnificationMap | null): string[] {
+  if (!map) return [];
+  for (const u of map.unifiedSubjects) {
+    if (u.originalSubjectIds.includes(subjectId)) {
+      return u.originalSubjectIds.filter(id => id !== subjectId);
+    }
+  }
+  return [];
+}
+
+export async function registerSubjectDualProgress(subjectId: string, data: Partial<Subject>, map: CycleUnificationMap | null): Promise<void> {
+  const siblings = findSiblingSubjectIds(subjectId, map);
+  if (siblings.length === 0) return;
+
+  const updatePayload: Record<string, unknown> = {};
+  if ((data as any).notes !== undefined) updatePayload.notes = (data as any).notes;
+
+  if (Object.keys(updatePayload).length === 0) return;
+
+  for (const sid of siblings) {
+    await supabase.from('subjects').update(updatePayload).eq('id', sid);
   }
 }
 

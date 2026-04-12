@@ -128,6 +128,11 @@ Sempre aplicar estas regras em novos modais para manter a consistência de elite
 
 ## ⚡ Regras de Negócio Críticas (Merge & Unificação)
 
+### Ciclo e Persistência
+- **Pausa (Remover do Ciclo)**: Operação **NÃO DESTRUTIVA**. Desvincula o edital do cronograma (`merged_into_cycle = false`), mas preserva matérias, tópicos, estrelas, status e anotações. O progresso deve ser restaurado ao carregar novamente.
+- **Wipe (Excluir Edital)**: Operação **DESTRUTIVA**. Apaga fisicamente o edital e todos os registros dependentes (subjects, topics, history). O progresso é perdido permanentemente.
+- **Integridade do Ciclo**: Nunca remova uma matéria do `user_cycles.ciclo_atual` se ela ainda pertencer a outro edital ativo no ciclo (lógica de Soft Merge).
+
 ### Lógica de Merge
 - **Impacto no Ciclo**: Antes de alterar o `mergeService.ts`, verifique sempre o impacto no `UserCycle` e no `unification_map`. A quebra dessa lógica desalinha os estudos do usuário.
 - **Auditoria**: Nunca remova logs de auditoria durante o processo de merge; eles são a única trilha para suporte em caso de bugs.

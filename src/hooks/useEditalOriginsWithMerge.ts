@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCycleState } from '@/hooks/useCycleState';
 import { mergeService } from '@/services/mergeService';
 import type { SubjectMerge, TopicMerge } from '@/types/merges';
 import type { PostgrestError } from '@supabase/supabase-js';
@@ -13,10 +14,14 @@ interface EditalOriginData {
     is_imported: boolean;
     merged_into_cycle: boolean;
     source_id?: string;
+    organ?: string;
+    position?: string;
+    year?: string;
 }
 
 export const useEditalOriginsWithMerge = () => {
     const { user } = useAuth();
+    const { userCycle } = useCycleState();
     const [editaisData, setEditaisData] = useState<EditalOriginData[]>([]);
     const [subjectMerges, setSubjectMerges] = useState<SubjectMerge[]>([]);
     const [topicMerges, setTopicMerges] = useState<TopicMerge[]>([]);
@@ -43,7 +48,7 @@ export const useEditalOriginsWithMerge = () => {
         try {
             console.log('[useEditalOriginsWithMerge] Carregando editais para:', user.id);
             const { data, error } = await supabase.from('user_editais')
-                .select('id, name, subject_ids, active_subject_ids, is_imported, merged_into_cycle, source_id')
+                .select('id, name, subject_ids, active_subject_ids, is_imported, merged_into_cycle, source_id, organ, position, year')
                 .eq('user_id', user.id);
 
             if (error) throw error;
@@ -56,6 +61,9 @@ export const useEditalOriginsWithMerge = () => {
                 is_imported: row.is_imported,
                 merged_into_cycle: row.merged_into_cycle || false,
                 source_id: row.source_id,
+                organ: row.organ,
+                position: row.position,
+                year: row.year,
             }));
             
             console.log('[useEditalOriginsWithMerge] Editais carregados:', parsedEditais.length);
@@ -102,9 +110,8 @@ export const useEditalOriginsWithMerge = () => {
     }, [subjectMerges]);
 
     const originsMap = useMemo(() => {
-        const map = new Map<string, { name: string; isImported: boolean; sourceId?: string }[]>();
+        const map = new Map<string, { name: string; organ?: string; isImported: boolean; sourceId?: string }[]>();
         
-        console.group('[useEditalOriginsWithMerge] Calculando originsMap');
         
         // Primeiro: adicionar origens baseadas nos editais carregados
         for (const edital of editaisData) {
@@ -113,6 +120,7 @@ export const useEditalOriginsWithMerge = () => {
                 if (!existing.some(e => e.name === edital.name)) {
                     map.set(subjectId, [...existing, { 
                         name: edital.name, 
+                        organ: edital.organ,
                         isImported: edital.is_imported, 
                         sourceId: edital.source_id 
                     }]);
@@ -146,6 +154,7 @@ export const useEditalOriginsWithMerge = () => {
                     if (edital && !allOrigins.some(o => o.name === edital.name)) {
                         allOrigins.push({ 
                             name: edital.name, 
+                            organ: edital.organ,
                             isImported: edital.is_imported, 
                             sourceId: edital.source_id 
                         });
@@ -159,6 +168,7 @@ export const useEditalOriginsWithMerge = () => {
                     if ((edital.subject_ids || []).includes(id) && !allOrigins.some(o => o.name === edital.name)) {
                         allOrigins.push({
                             name: edital.name,
+                            organ: edital.organ,
                             isImported: edital.is_imported,
                             sourceId: edital.source_id
                         });
@@ -194,12 +204,11 @@ export const useEditalOriginsWithMerge = () => {
             }
         }
         
-        console.groupEnd();
         return map;
     }, [editaisData, subjectMerges, topicMerges]);
 
     const topicOriginsMap = useMemo(() => {
-        const map = new Map<string, { name: string; isImported: boolean; sourceId?: string }[]>();
+        const map = new Map<string, { name: string; organ?: string; isImported: boolean; sourceId?: string }[]>();
         
         for (const merge of topicMerges) {
             const primaryId = merge.primary_topic_id;
@@ -213,7 +222,7 @@ export const useEditalOriginsWithMerge = () => {
                 for (const editalId of merge.source_edital_ids) {
                     const edital = editaisData.find(e => e.id === editalId);
                     if (edital && !allOrigins.some(o => o.name === edital.name)) {
-                        allOrigins.push({ name: edital.name, isImported: edital.is_imported, sourceId: edital.source_id });
+                        allOrigins.push({ name: edital.name, organ: edital.organ, isImported: edital.is_imported, sourceId: edital.source_id });
                     }
                 }
             }
@@ -236,7 +245,7 @@ export const useEditalOriginsWithMerge = () => {
         if (origins.length === 0 && contextualEditalId) {
             const edital = editaisData.find(e => e.id === contextualEditalId);
             if (edital) {
-                return [{ name: edital.name, isImported: edital.is_imported, sourceId: edital.source_id }];
+                return [{ name: edital.name, organ: edital.organ, isImported: edital.is_imported, sourceId: edital.source_id }];
             }
         }
         
@@ -252,7 +261,7 @@ export const useEditalOriginsWithMerge = () => {
         if (editalId) {
             const edital = editaisData.find(e => e.id === editalId);
             if (edital) {
-                return [{ name: edital.name, isImported: edital.is_imported, sourceId: edital.source_id }];
+                return [{ name: edital.name, organ: edital.organ, isImported: edital.is_imported, sourceId: edital.source_id }];
             }
         }
 
@@ -260,7 +269,21 @@ export const useEditalOriginsWithMerge = () => {
         return getOriginsForSubject(subjectId);
     }, [topicOriginsMap, getOriginsForSubject, editaisData]);
 
-    const editaisNoCiclo = useMemo(() => editaisData.filter(e => e.merged_into_cycle), [editaisData]);
+    // Um edital está "no ciclo" se: 
+    // 1. Está marcado como merged_into_cycle 
+    // 2. O ciclo_atual contém pelo menos uma de suas matérias (ativas ou totais)
+    const editaisNoCiclo = useMemo(() => {
+        if (!userCycle?.ciclo_atual || userCycle.ciclo_atual.length === 0) return [];
+
+        const cicloSet = new Set(userCycle.ciclo_atual);
+        return editaisData.filter(e => {
+            if (!e.merged_into_cycle) return false;
+            
+            // Verifica se alguma matéria deste edital está no ciclo real
+            const idsToCheck = e.active_subject_ids.length > 0 ? e.active_subject_ids : e.subject_ids;
+            return idsToCheck.some(id => cicloSet.has(id));
+        });
+    }, [editaisData, userCycle?.ciclo_atual]);
 
     const activeSubjectIdsSet = useMemo(() => {
         const set = new Set<string>();

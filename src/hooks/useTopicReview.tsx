@@ -9,7 +9,7 @@ import { useStudySessionTracking } from './useStudySessionTracking';
 import { useCycleState } from './useCycleState';
 import { calculateNextReview, formatDateForDB, describeCalculation } from '@/utils/calculateNextReview';
 import { Topic } from '@/types';
-import { registerDualProgress } from '@/services/cycleMergeService';
+import { registerDualProgress, findSiblingTopicIds } from '@/services/cycleMergeService';
 
 export const useTopicReview = () => {
   const { user } = useAuth();
@@ -257,22 +257,41 @@ export const useTopicReview = () => {
 
       // Registrar histórico no DB
       const sessionDuration = durationOverride ?? difficultyModalData.duration ?? 0;
+      const historyPayload = {
+        user_id: user.id,
+        topic_id: topicId,
+        edital_id: topic.edital_id || topic.origin_id, // Capturar o contexto do edital
+        cycle_id: cycleId, // Capturar o ciclo ativo
+        review_stage: reviewStage,
+        reviewed_at: now,
+        study_duration_minutes: sessionDuration > 0 ? sessionDuration : null,
+        difficulty_numeric: numericDifficulty,
+        memory_stability_after_review: calcResult.newMemoryStability,
+        interval_after_review: calcResult.newInterval,
+        trend_delta: trendDelta ?? null,
+        trend_label: trendLabel
+      };
+
       try {
-        const { error: histError } = await supabase.from('topic_review_history').insert({
-          user_id: user.id,
-          topic_id: topicId,
-          edital_id: topic.edital_id || topic.origin_id, // Capturar o contexto do edital
-          cycle_id: cycleId, // Capturar o ciclo ativo
-          review_stage: reviewStage,
-          reviewed_at: now,
-          study_duration_minutes: sessionDuration > 0 ? sessionDuration : null,
-          difficulty_numeric: numericDifficulty,
-          memory_stability_after_review: calcResult.newMemoryStability,
-          interval_after_review: calcResult.newInterval,
-          trend_delta: trendDelta ?? null,
-          trend_label: trendLabel
-        });
+        const { error: histError } = await supabase.from('topic_review_history').insert(historyPayload);
         if (histError) throw histError;
+
+        // 🔄 Propagação profunda v2.2: Registrar histórico para tópicos irmãos (mesclados)
+        try {
+          const unificationMap = userCycle?.unification_map ?? null;
+          const siblingIds = findSiblingTopicIds(topicId, unificationMap);
+          if (siblingIds.length > 0) {
+            const siblingHistoryRows = siblingIds.map(sibId => ({
+              ...historyPayload,
+              topic_id: sibId,
+            }));
+            await supabase.from('topic_review_history').insert(siblingHistoryRows);
+            console.log(`[useTopicReview] Histórico propagado para ${siblingIds.length} irmão(s).`);
+          }
+        } catch (siblingErr) {
+          // Non-blocking: sibling history failure shouldn't break the main flow
+          console.warn('⚠️ Falha na propagação de histórico (não-bloqueante):', siblingErr);
+        }
       } catch (e) {
         console.error("⚠️ Falha vital ao registrar histórico contextual:", e);
         throw e;

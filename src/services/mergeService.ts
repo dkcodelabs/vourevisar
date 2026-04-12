@@ -326,8 +326,10 @@ export const mergeService = {
       throw deleteError;
     }
 
-    console.log('[mergeService] Topic merge reverted successfully.');
+    console.log(`[mergeService] Topic merge ${mergeId} reverted successfully. Dispatched mergeUpdated and subjectUpdated.`);
+    
     window.dispatchEvent(new CustomEvent('mergeUpdated', { detail: { type: 'topic_revert', timestamp: Date.now() } }));
+    window.dispatchEvent(new CustomEvent('subjectUpdated', { detail: { type: 'topic_revert', timestamp: Date.now() } }));
   },
 
   async createSubjectMerge(merge: Omit<SubjectMerge, 'id' | 'created_at' | 'reverted_at' | 'status'>): Promise<SubjectMerge> {
@@ -644,7 +646,26 @@ export const mergeService = {
         onProgress?.({ message, percentage });
       };
 
-      // 1. Remover topic_merges onde o edital era a ÚNICA ou uma das origens
+      // Buscar subject_ids do edital sendo removido (para detectar se o primário pertence a ele)
+      const { data: removingEditalData } = await supabase
+        .from('user_editais')
+        .select('subject_ids')
+        .eq('id', editalId)
+        .maybeSingle();
+      const removedSubjectIdsSet = new Set((removingEditalData?.subject_ids || []) as string[]);
+
+      // Buscar topic_ids das matérias do edital removido
+      const removedSubjectIdsArray = Array.from(removedSubjectIdsSet).filter(id => typeof id === 'string' && id.length > 0);
+      let removedTopicIdsSet = new Set<string>();
+      if (removedSubjectIdsArray.length > 0) {
+        const { data: topicsFromRemoved } = await supabase
+          .from('topics')
+          .select('id')
+          .in('subject_id', removedSubjectIdsArray);
+        removedTopicIdsSet = new Set((topicsFromRemoved || []).map(t => t.id));
+      }
+
+      // 1. Processar topic_merges: remover, promover ou deletar
       for (const tm of filteredTopicMerges) {
         const remainingEditals = tm.source_edital_ids.filter(id => id !== editalId);
         
@@ -666,16 +687,45 @@ export const mergeService = {
 
           await (supabase as any).from('topic_merges').delete().eq('id', tm.id);
         } else {
-          updateProgress(`Atualizando tópico: ${tm.display_name}`);
-          // Apenas remove o edital da lista de origens (merge ainda existe entre outros)
-          await (supabase as any)
-            .from('topic_merges')
-            .update({ source_edital_ids: remainingEditals })
-            .eq('id', tm.id);
+          // Merge sobrevive (2+ editais). Verificar se o primário precisa de promoção.
+          const needsPromotion = removedTopicIdsSet.has(tm.primary_topic_id);
+          
+          if (needsPromotion) {
+            // Promover: encontrar o primeiro tópico que NÃO pertence ao edital removido
+            const mergedIds = (tm.merged_topic_ids || []) as string[];
+            const survivor = mergedIds.find(id => !removedTopicIdsSet.has(id));
+            
+            if (survivor) {
+              updateProgress(`Promovendo tópico: ${tm.display_name}`);
+              const newMergedIds = [tm.primary_topic_id, ...mergedIds].filter(id => id !== survivor);
+              
+              await (supabase as any)
+                .from('topic_merges')
+                .update({ 
+                  primary_topic_id: survivor,
+                  merged_topic_ids: newMergedIds,
+                  source_edital_ids: remainingEditals 
+                })
+                .eq('id', tm.id);
+              
+              console.log(`[mergeService] Tópico primário promovido: ${tm.primary_topic_id} → ${survivor}`);
+            } else {
+              // Nenhum sobrevivente válido, deletar o merge
+              updateProgress(`Removendo merge sem sobreviventes: ${tm.display_name}`);
+              await (supabase as any).from('topic_merges').delete().eq('id', tm.id);
+            }
+          } else {
+            updateProgress(`Atualizando tópico: ${tm.display_name}`);
+            // Primário sobreviveu, apenas atualizar lista de editais
+            await (supabase as any)
+              .from('topic_merges')
+              .update({ source_edital_ids: remainingEditals })
+              .eq('id', tm.id);
+          }
         }
       }
 
-      // 2. Remover subject_merges similares
+      // 2. Processar subject_merges: remover, promover ou deletar
       for (const sm of filteredSubjectMerges) {
         const remainingEditals = sm.source_edital_ids.filter((id: string) => id !== editalId);
         const mergedSubjectIds = (sm.merged_subject_ids as string[]) || [];
@@ -696,11 +746,40 @@ export const mergeService = {
           await (supabase as any).from('subject_merges').delete().eq('id', sm.id);
           await (supabase as any).from('topic_merges').delete().eq('subject_merge_id', sm.id);
         } else {
-          updateProgress(`Atualizando matéria: ${sm.display_name}`);
-          await (supabase as any)
-            .from('subject_merges')
-            .update({ source_edital_ids: remainingEditals })
-            .eq('id', sm.id);
+          // Merge sobrevive (2+ editais). Verificar se o primário precisa de promoção.
+          const needsPromotion = removedSubjectIdsSet.has(sm.primary_subject_id);
+          
+          if (needsPromotion) {
+            // Promover: encontrar a primeira matéria que NÃO pertence ao edital removido
+            const survivor = mergedSubjectIds.find(id => !removedSubjectIdsSet.has(id));
+            
+            if (survivor) {
+              updateProgress(`Promovendo matéria: ${sm.display_name}`);
+              const newMergedIds = [sm.primary_subject_id, ...mergedSubjectIds].filter(id => id !== survivor);
+              
+              await (supabase as any)
+                .from('subject_merges')
+                .update({ 
+                  primary_subject_id: survivor,
+                  merged_subject_ids: newMergedIds,
+                  source_edital_ids: remainingEditals 
+                })
+                .eq('id', sm.id);
+              
+              console.log(`[mergeService] Matéria primária promovida: ${sm.primary_subject_id} → ${survivor}`);
+            } else {
+              // Nenhum sobrevivente válido
+              updateProgress(`Removendo merge sem sobreviventes: ${sm.display_name}`);
+              await (supabase as any).from('subject_merges').delete().eq('id', sm.id);
+              await (supabase as any).from('topic_merges').delete().eq('subject_merge_id', sm.id);
+            }
+          } else {
+            updateProgress(`Atualizando matéria: ${sm.display_name}`);
+            await (supabase as any)
+              .from('subject_merges')
+              .update({ source_edital_ids: remainingEditals })
+              .eq('id', sm.id);
+          }
         }
       }
 
@@ -756,72 +835,79 @@ export const mergeService = {
    * ela seja substituída por um ID remanescente do mesmo grupo de unificação.
    */
   async syncCycleAfterRemoval(userId: string, editalId: string): Promise<void> {
-    console.log(`[mergeService] Sincronizando ciclo após remoção do edital ${editalId}...`);
-    
     try {
-      // 1. Buscar o ciclo ativo
-      const { data: cycleData, error: cycleError } = await supabase
-        .from('user_cycles')
-        .select('id, ciclo_atual, unification_map')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .maybeSingle();
+      console.log(`[mergeService] Iniciando sincronização do ciclo após remoção do edital ${editalId}...`);
+      
+      // 1. Buscar dados necessários em paralelo
+      const [
+        { data: cycleData },
+        { data: allEditais },
+        activeMerges
+      ] = await Promise.all([
+        supabase.from('user_cycles').select('id, ciclo_atual').eq('user_id', userId).eq('status', 'active').maybeSingle(),
+        supabase.from('user_editais').select('id, subject_ids, active_subject_ids, merged_into_cycle').eq('user_id', userId),
+        this.getActiveSubjectMerges(userId)
+      ]);
 
-      if (cycleError || !cycleData) return;
+      if (!cycleData || !allEditais) return;
       
       const currentCiclo = (cycleData.ciclo_atual || []) as string[];
-      const unificationMap = cycleData.unification_map as any;
-      
-      // 2. Buscar o edital removido para saber quais matérias ele tinha
-      const { data: removedEdital } = await supabase
-        .from('user_editais')
-        .select('subject_ids')
-        .eq('id', editalId)
-        .maybeSingle();
-      
+      const removedEdital = allEditais.find(e => e.id === editalId);
       const removedSubjectIds = new Set(removedEdital?.subject_ids || []);
       
-      // 3. Buscar os merges ativos para encontrar substitutos
-      const activeMerges = await this.getActiveSubjectMerges(userId);
+      // 2. Identificar editais que continuam ATIVOS no ciclo
+      const remainingActiveEditais = allEditais.filter(e => e.merged_into_cycle && e.id !== editalId);
       
+      // 3. Mapear matérias que DEVEM permanecer (pois pertencem a editais que ficam)
+      const subjectsStaying = new Set<string>();
+      remainingActiveEditais.forEach(e => {
+          const ids = e.active_subject_ids?.length > 0 ? e.active_subject_ids : e.subject_ids;
+          (ids || []).forEach(id => subjectsStaying.add(id));
+      });
+
       let hasChanges = false;
       const newCiclo: string[] = [];
 
+      // 4. Reconstruir o ciclo
       for (const subjectId of currentCiclo) {
-        if (removedSubjectIds.has(subjectId)) {
-          // O ID sendo removido estava no ciclo. 
-          // Vamos ver se ele faz parte de uma unificação no mapa do ciclo.
+        // Se a matéria pertence a um edital que fica, mantém! (Resolve o bug de Soft Merge)
+        if (subjectsStaying.has(subjectId)) {
+          newCiclo.push(subjectId);
+        } else if (removedSubjectIds.has(subjectId)) {
+          // Se pertence APENAS ao edital removido, busca substituto formal
+          console.log(`[mergeService] Matéria ${subjectId} pertence ao edital removido. Buscando substituto...`);
+          
+          // Buscar se este ID está num merge como 'secondary'
+          const merge = activeMerges.find(m => m.merged_subject_ids.includes(subjectId));
           let substituteId: string | null = null;
           
-          if (unificationMap?.unifiedSubjects) {
-            const group = unificationMap.unifiedSubjects.find((u: any) => 
-              u.originalSubjectIds.includes(subjectId)
-            );
-            
-            if (group) {
-              // Encontrou o grupo! Pegar o primeiro ID que NÃO pertence ao edital removido
-              substituteId = group.originalSubjectIds.find((id: string) => !removedSubjectIds.has(id)) || null;
-            }
+          if (merge) {
+             // O substituto é o primário do merge (contanto que ele não seja o que está saindo)
+             if (!removedSubjectIds.has(merge.primary_subject_id)) {
+                 substituteId = merge.primary_subject_id;
+             } else {
+                 // Se o primário também está saindo, pega qualquer outro do grupo que fique
+                 substituteId = merge.merged_subject_ids.find(id => !removedSubjectIds.has(id)) || null;
+             }
           }
-
+          
           if (substituteId) {
-            console.log(`[mergeService] Substituindo ID removido ${subjectId} por ${substituteId} no ciclo.`);
+            console.log(`[mergeService] Substituindo ${subjectId} por ${substituteId}.`);
             newCiclo.push(substituteId);
             hasChanges = true;
           } else {
-            console.log(`[mergeService] Matéria ${subjectId} era exclusiva do edital removido ou não tem substituto. Removendo do ciclo.`);
+            console.log(`[mergeService] Sem substituto para ${subjectId}. Removendo do ciclo.`);
             hasChanges = true;
           }
         } else {
-          // ID não pertence ao edital removido, mantém.
+          // Não pertence ao removido e não está no Safe List (teoricamente órfã), mantém por segurança
           newCiclo.push(subjectId);
         }
       }
 
-      if (hasChanges) {
-        // Garantir que não haja duplicatas (caso o substituto já estivesse lá por erro anterior)
-        const finalCiclo = Array.from(new Set(newCiclo));
-        
+      // 5. Atualizar o ciclo se houve mudanças
+      const finalCiclo = Array.from(new Set(newCiclo));
+      if (hasChanges || finalCiclo.length !== currentCiclo.length) {
         await (supabase as any)
           .from('user_cycles')
           .update({ 
@@ -832,11 +918,33 @@ export const mergeService = {
         
         console.log('[mergeService] Ciclo atualizado com sucesso.');
       }
+
+      // 6. AUDITORIA DE INTEGRIDADE (Garante consistência das flags nos editais)
+      const finalSet = new Set(finalCiclo);
+      for (const edital of allEditais) {
+          // Ignora o edital que acabou de ser removido (ele será processado pela UI/RPC depois)
+          if (edital.id === editalId) continue;
+
+          const idsToCheck = edital.active_subject_ids.length > 0 ? edital.active_subject_ids : edital.subject_ids;
+          const isStillInCycle = idsToCheck.some(id => finalSet.has(id));
+          
+          if (edital.merged_into_cycle && !isStillInCycle) {
+              console.log(`[mergeService] Auditoria: Edital ${edital.id} não possui mais matérias no ciclo. Resetando flags.`);
+              await (supabase as any)
+                  .from('user_editais')
+                  .update({ 
+                      merged_into_cycle: false,
+                      active_subject_ids: [] 
+                  })
+                  .eq('id', edital.id);
+          }
+      }
+
       clearLocalCache(userId);
       window.dispatchEvent(new CustomEvent('cycleUpdated'));
       window.dispatchEvent(new CustomEvent('mergeUpdated'));
     } catch (err) {
-      console.error('[mergeService] Erro ao sincronizar ciclo:', err);
+      console.error('[mergeService] Erro crítico ao sincronizar ciclo:', err);
     }
   },
 

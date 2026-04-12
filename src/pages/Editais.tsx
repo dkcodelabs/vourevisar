@@ -577,6 +577,11 @@ const Editais = () => {
                 .eq('user_id', user!.id)
                 .eq('edital_id', edital.id);
 
+            // 4. Sincronizar Ciclo e Limpar Merges antes da deleção física
+            // Isso garante que o array ciclo_atual seja limpo e as flags dos editais remanescentes auditadas.
+            await mergeService.syncCycleAfterRemoval(user!.id, edital.id);
+            await mergeService.cleanupMergesAfterEditalRemoval(user!.id, edital.id);
+
             if (edital.mergedIntoCycle) {
                 await discardPendingMerge('all');
             }
@@ -585,7 +590,8 @@ const Editais = () => {
             await discardPendingMergeSuggestions(user!.id);
             setPendingSuggestions([]);
 
-            // 4. DELEÇÃO FÍSICA ÚNICA
+
+            // 5. DELEÇÃO FÍSICA ÚNICA
             // Graças ao ON DELETE CASCADE configurado no banco, isto deletará automaticamente:
             // - subjects vinculados
             // - topics vinculados
@@ -702,10 +708,17 @@ const Editais = () => {
                 await (supabase as any).from('topic_review_history').delete().eq('edital_id', edital.id);
             }
 
-            // ─── 6. Atualizar Estado do Edital Local ───
-            await editaisTable()
-                .update({ merged_into_cycle: false, active_subject_ids: [] } as any)
-                .eq('id', edital.id);
+            // ─── 6. ATOMIC UNLOAD: Atualizar edital + deletar ciclo se último ───
+            const { data: rpcResult, error: rpcErr } = await supabase.rpc('atomic_cycle_unload_or_delete', {
+                p_user_id: user.id,
+                p_edital_id: edital.id
+            });
+
+            if (rpcErr) throw rpcErr;
+            if (rpcResult && (rpcResult as any).ok === false) throw new Error((rpcResult as any).error);
+
+            const cycleWasDeleted = (rpcResult as any)?.cycle_deleted === true;
+            console.log('[Editais] Unload atômico:', { cycleWasDeleted, result: rpcResult });
 
             // ─── 7. Invalidar rascunhos (O baseline do ciclo mudou) ───
             await discardPendingMerge('all');
@@ -716,7 +729,10 @@ const Editais = () => {
                     : e
             ));
 
-            toast.success(`"${edital.name}" removido do ciclo.`);
+            const msg = cycleWasDeleted
+                ? `"${edital.name}" removido. Ciclo de estudos encerrado (sem editais ativos).`
+                : `"${edital.name}" removido do ciclo.`;
+            toast.success(msg);
             window.dispatchEvent(new CustomEvent('cycleUpdated'));
             window.dispatchEvent(new CustomEvent('subjectUpdated'));
             refreshData();
@@ -835,58 +851,6 @@ const Editais = () => {
         }
     }, [user, editais, subjects, pendingMerges]);
 
-    const executeCycleLoad = useCallback(async (subjectIds: string[]) => {
-        if (!user) return;
-        try {
-            const { data: existingCycle } = await supabase
-                .from('user_cycles')
-                .select('id')
-                .eq('user_id', user.id)
-                .maybeSingle();
-
-            if (existingCycle) {
-                const { error } = await supabase
-                    .from('user_cycles')
-                    .update({
-                        ciclo_atual: subjectIds,
-                        atualizado_em: new Date().toISOString(),
-                    })
-                    .eq('user_id', user.id);
-                if (error) throw error;
-            } else {
-                const { error } = await supabase
-                    .from('user_cycles')
-                    .insert({
-                        user_id: user.id,
-                        ciclo_atual: subjectIds,
-                    });
-                if (error) throw error;
-            }
-
-            window.dispatchEvent(new CustomEvent('subjectUpdated'));
-            window.dispatchEvent(new CustomEvent('cycleUpdated')); // Notificar que o ciclo foi atualizado
-        } catch (err) {
-            errorService.report(err, { module: 'editais', action: 'loadCycleExecute', userMessage: 'Erro ao carregar matérias no ciclo.' });
-            throw err;
-        }
-    }, [user]);
-
-    const markEditalMerged = useCallback(async (editalId: string, subjectIds: string[]) => {
-        try {
-            await editaisTable().update({
-                merged_into_cycle: true,
-                active_subject_ids: subjectIds,  // inicializa active = todos os subjects
-            } as any).eq('id', editalId);
-            // Atualizar estado local
-            setEditais(prev => prev.map(e =>
-                e.id === editalId
-                    ? { ...e, mergedIntoCycle: true, activeSubjectIds: subjectIds }
-                    : e
-            ));
-        } catch (err) {
-            console.error('Error marking edital as merged:', err);
-        }
-    }, []);
 
     const finalPreviewIds = useMemo(() => {
         if (!cycleConflict.edital) return [];
@@ -1051,18 +1015,14 @@ const Editais = () => {
         setProcessingProgress({ message: 'Preparando unificação...', percentage: 5 });
 
         try {
-            if (action === 'replace') {
-                // Remove todos os editais anteriores da carga de ciclo
-                const oldMerged = editais.filter(e => e.mergedIntoCycle && e.id !== edital.id);
-                for (const e of oldMerged) {
-                    await editaisTable().update({
-                        merged_into_cycle: false,
-                        active_subject_ids: []
-                    } as any).eq('id', e.id);
-                }
+            let finalIdsToLoad: string[] = [];
+            let oldEditalIds: string[] = [];
 
-                await executeCycleLoad(edital.subjectIds);
-                await markEditalMerged(edital.id, edital.subjectIds);
+            if (action === 'replace') {
+                // Identificar editais que serão removidos do ciclo
+                const oldMerged = editais.filter(e => e.mergedIntoCycle && e.id !== edital.id);
+                oldEditalIds = oldMerged.map(e => e.id);
+                finalIdsToLoad = edital.subjectIds;
 
                 // Limpar data da prova ao substituir ciclo
                 await supabase
@@ -1070,15 +1030,14 @@ const Editais = () => {
                     .update({ data_prova_meta: null } as any)
                     .eq('user_id', user.id);
 
-                setProcessingProgress({ message: 'Finalizando substituição...', percentage: 95 });
-                toast.success(`Ciclo substituído com sucesso por "${edital.name}".`);
+                setProcessingProgress({ message: 'Iniciando substituição...', percentage: 20 });
             } else {
                 // Se já temos o mapa calculado da prévia, usamos (agora já atualizado pelos tópicos logo acima). Senão (fallback), calculamos.
                 let unificationMap = currentUnificationMap || cycleConflict.hybridResult?.unificationMap;
-                let finalSubjectIds = cycleConflict.finalSubjectIds || cycleConflict.hybridResult?.finalSubjectIds;
+                let finalSubjectIdsFromMap = cycleConflict.finalSubjectIds || cycleConflict.hybridResult?.finalSubjectIds;
                 let result: HybridMergeResult | null = cycleConflict.hybridResult || null;
 
-                if (!unificationMap || !finalSubjectIds) {
+                if (!unificationMap || !finalSubjectIdsFromMap) {
                     const existingSubs = subjects.filter(s => cycleConflict.existingIds.includes(s.id));
                     const newSubs = subjects.filter(s => edital.subjectIds.includes(s.id));
                     const existingEditalIds = editais
@@ -1099,8 +1058,7 @@ const Editais = () => {
                         (prog) => setProcessingProgress(prog)
                     );
                     unificationMap = resultData.unificationMap;
-                    finalSubjectIds = resultData.finalSubjectIds;
-                    // We don't need to set result locally here if we use resultData below
+                    finalSubjectIdsFromMap = resultData.finalSubjectIds;
                     result = resultData;
                 }
 
@@ -1112,14 +1070,12 @@ const Editais = () => {
                 setProcessingProgress({ message: 'Unificando tópicos no banco...', percentage: 60 });
                 await saveUnificationMap(user.id, unificationMap);
 
-                // 3. NOVO: Salvar mesclagens nas tabelas dedicated (subject_merges e topic_merges)
+                // 3. Salvar mesclagens nas tabelas dedicated (subject_merges e topic_merges)
                 try {
-                    // Buscar o cycle_id primeiro
                     const { data: cycleData } = await (supabase as any)
                         .from('user_cycles')
                         .select('id')
                         .eq('user_id', user.id)
-                        .eq('status', 'active')
                         .limit(1)
                         .maybeSingle();
 
@@ -1134,22 +1090,37 @@ const Editais = () => {
                     console.error('[Editais] Erro ao salvar nas tabelas de merge:', mergeErr);
                 }
 
-                // 4. Carregar matérias no ciclo ativo
-                setProcessingProgress({ message: 'Finalizando carga de ciclo...', percentage: 95 });
-                await executeCycleLoad(finalSubjectIds!);
-                await markEditalMerged(edital.id, edital.subjectIds);
+                finalIdsToLoad = finalSubjectIdsFromMap!;
+            }
 
-                const currentStats = result?.stats || cycleConflict.hybridResult?.stats;
+            // ATOMIC LOAD: Garantir que o ciclo e o status do edital mudem juntos
+            setProcessingProgress({ message: 'Finalizando carga atômica...', percentage: 90 });
+            
+            const { data: rpcData, error: rpcError } = await supabase.rpc('atomic_cycle_load', {
+                p_user_id: user.id,
+                p_new_edital_id: edital.id,
+                p_new_subject_ids: finalIdsToLoad,
+                p_old_edital_ids: oldEditalIds,
+                p_mode: action === 'replace' ? 'replace' : 'merge'
+            });
+
+            if (rpcError) throw rpcError;
+            if (rpcData && (rpcData as any).ok === false) throw new Error((rpcData as any).error);
+
+            // Sincronizar estado local de editais para evitar disparidade na UI
+            setEditais(prev => prev.map(e => {
+                if (e.id === edital.id) return { ...e, mergedIntoCycle: true, activeSubjectIds: finalIdsToLoad };
+                if (oldEditalIds.includes(e.id)) return { ...e, mergedIntoCycle: false, activeSubjectIds: [] };
+                return e;
+            }));
+
+            // Notificações e Transição de Tela
+            if (action === 'replace') {
+                toast.success(`Ciclo substituído com sucesso por "${edital.name}".`);
+            } else {
+                const currentStats = cycleConflict.hybridResult?.stats;
                 const totalNew = currentStats ? (currentStats.totalSubjectsInCycle - cycleConflict.existingIds.length) : 0;
-                const mergeDetails = currentStats ? [
-                    currentStats.exactMatches > 0 ? `${currentStats.exactMatches} unificação(ões) exata(s)` : '',
-                    currentStats.semanticMatches > 0 ? `${currentStats.semanticMatches} unificação(ões) por IA` : '',
-                    currentStats.standaloneSubjects > 0 ? `${currentStats.standaloneSubjects} matéria(s) independente(s)` : '',
-                ].filter(Boolean).join(', ') : '';
-
-                toast.success(
-                    `Mesclagem concluída! ${totalNew} nova(s) matéria(s) adicionadas. ${mergeDetails ? `(${mergeDetails})` : ''}`
-                );
+                toast.success(`Mesclagem concluída! ${totalNew > 0 ? `${totalNew} nova(s) matéria(s) adicionadas.` : 'Estrutura atualizada.'}`);
             }
 
             // Se a ação foi concluída com sucesso, descartar persistência
@@ -1157,6 +1128,7 @@ const Editais = () => {
             await discardPendingMerge('all');
 
             // Envia evento de atualização
+            window.dispatchEvent(new CustomEvent('subjectUpdated'));
             window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'merge_completed' } }));
 
             // Mudar para tela de sucesso em vez de fechar
@@ -1172,7 +1144,7 @@ const Editais = () => {
             setIsMerging(false);
             setProcessingProgress(null);
         }
-    }, [cycleConflict, executeCycleLoad, editais, markEditalMerged, fetchEditais, refreshData, user, subjects, discardPendingMerge]);
+    }, [cycleConflict, editais, fetchEditais, refreshData, user, subjects, discardPendingMerge, persistPhysicalSoftMerge, saveUnificationMap]);
 
     /**
      * Importação de edital: cria matérias e tópicos REAIS no Supabase,
@@ -2880,36 +2852,48 @@ const Editais = () => {
                                         </div>
                                     )
                                 ) : cycleConflict.step === 'preview' ? (
-                                    <div className="flex items-center justify-end gap-3">
-                                        {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && (
-                                            <button
-                                                onClick={() => handleTopicPreview(true)}
-                                                disabled={isMerging || isAnalyzingTopics}
-                                                className="flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-sky-500/10 text-sky-500 border border-sky-500/20 hover:bg-sky-500/20 transition-all active:scale-95 disabled:opacity-50"
-                                            >
-                                                {isAnalyzingTopics ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                                <div className="flex flex-col items-start text-left">
-                                                    <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">PROCESSAR TÓPICOS</span>
-                                                    <span className="text-[9px] text-sky-500/80 font-bold leading-none">Avançar análise com IA</span>
-                                                </div>
-                                            </button>
+                                    <div className="flex flex-col gap-3">
+                                        {/* Aviso: tópicos serão agrupados, não unificados */}
+                                        {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && cycleConflict.existingIds.length > 0 && (
+                                            <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
+                                                <AlertTriangle size={13} className="text-amber-500 shrink-0 mt-0.5" />
+                                                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium leading-snug">
+                                                    <span className="font-black">Agrupamento sem unificação.</span> Matérias com o mesmo nome de editais diferentes permanecerão como entradas separadas no seu ciclo. Para unificar os tópicos, use "Processar Tópicos" ao lado.
+                                                </p>
+                                            </div>
                                         )}
 
-                                        <button
-                                            onClick={() => handleCycleConflictAction(cycleConflict.action!)}
-                                            disabled={isMerging || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
-                                            className="flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/20"
-                                        >
-                                            {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                                            <div className="flex flex-col items-start text-left">
-                                                <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">
-                                                    {cycleConflict.existingIds.length === 0 ? 'CRIAR CICLO' : 'FINALIZAR DIRETO'}
-                                                </span>
-                                                <span className="text-[9px] text-emerald-100/80 font-bold leading-none">
-                                                    {cycleConflict.existingIds.length === 0 ? 'Concluir' : '(Pular mesclagem de tópicos)'}
-                                                </span>
-                                            </div>
-                                        </button>
+                                        <div className="flex items-center justify-end gap-3">
+                                            {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && (
+                                                <button
+                                                    onClick={() => handleTopicPreview(true)}
+                                                    disabled={isMerging || isAnalyzingTopics}
+                                                    className="flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-sky-500/10 text-sky-500 border border-sky-500/20 hover:bg-sky-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                                >
+                                                    {isAnalyzingTopics ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                                    <div className="flex flex-col items-start text-left">
+                                                        <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">PROCESSAR TÓPICOS</span>
+                                                        <span className="text-[9px] text-sky-500/80 font-bold leading-none">Avançar análise com IA</span>
+                                                    </div>
+                                                </button>
+                                            )}
+
+                                            <button
+                                                onClick={() => handleCycleConflictAction(cycleConflict.action!)}
+                                                disabled={isMerging || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
+                                                className="flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                                            >
+                                                {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                                                <div className="flex flex-col items-start text-left">
+                                                    <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">
+                                                        {cycleConflict.existingIds.length === 0 ? 'CRIAR CICLO' : 'FINALIZAR DIRETO'}
+                                                    </span>
+                                                    <span className="text-[9px] text-emerald-100/80 font-bold leading-none">
+                                                        {cycleConflict.existingIds.length === 0 ? 'Concluir' : '(Pular mesclagem de tópicos)'}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : cycleConflict.step === 'topic-preview' ? (
                                     <div className="flex items-center justify-end">

@@ -27,7 +27,10 @@ export const performGlobalCleanup = async (userId: string) => {
     // 2. Limpar IDs órfãos nos ciclos
     await cleanupOrphanedCycleIds(userId);
     
-    // 3. Reparar integridade de unificações (Merges)
+    // 3. Deletar ciclos sem editais ativos (blindagem contra ciclos fantasma)
+    await deleteOrphanedCycles(userId);
+    
+    // 4. Reparar integridade de unificações (Merges)
     await mergeService.repairIntegrity(userId);
     
     console.log('[DataIntegrity] Cleanup global concluído.');
@@ -99,6 +102,56 @@ export const cleanupOrphanedCycleIds = async (userId: string) => {
     return { success: true };
   } catch (error) {
     console.error('[DataIntegrity] Erro na limpeza de ciclos:', error);
+    return { success: false, error };
+  }
+};
+
+/**
+ * Deleta ciclos que não possuem nenhum edital ativo (merged_into_cycle = true).
+ * Regra de ouro: user_cycles só deve existir se pelo menos 1 edital tiver merged_into_cycle = true.
+ */
+export const deleteOrphanedCycles = async (userId: string) => {
+  try {
+    // 1. Buscar ciclos do usuário
+    const { data: cycles, error: cyclesError } = await supabase
+      .from('user_cycles')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (cyclesError) throw cyclesError;
+    if (!cycles || cycles.length === 0) return { success: true, deleted: 0 };
+
+    // 2. Contar editais ativos no ciclo
+    const { count, error: countError } = await (supabase as any)
+      .from('user_editais')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('merged_into_cycle', true);
+
+    if (countError) throw countError;
+
+    // 3. Se nenhum edital está marcado como ativo, deletar TODOS os ciclos
+    if ((count ?? 0) === 0) {
+      console.log(`[DataIntegrity] Nenhum edital ativo encontrado. Deletando ${cycles.length} ciclos órfãos.`);
+      
+      for (const cycle of cycles) {
+        const { error: deleteError } = await supabase
+          .from('user_cycles')
+          .delete()
+          .eq('id', cycle.id);
+
+        if (deleteError) {
+          console.error(`[DataIntegrity] Erro ao deletar ciclo órfão ${cycle.id}:`, deleteError);
+        }
+      }
+      
+      return { success: true, deleted: cycles.length };
+    }
+
+    console.log(`[DataIntegrity] ${count} edital(is) ativo(s) no ciclo. Nenhum ciclo órfão.`);
+    return { success: true, deleted: 0 };
+  } catch (error) {
+    console.error('[DataIntegrity] Erro ao verificar ciclos órfãos:', error);
     return { success: false, error };
   }
 };
