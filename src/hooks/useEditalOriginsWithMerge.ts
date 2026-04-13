@@ -276,23 +276,54 @@ export const useEditalOriginsWithMerge = () => {
         if (!userCycle?.ciclo_atual || userCycle.ciclo_atual.length === 0) return [];
 
         const cicloSet = new Set(userCycle.ciclo_atual);
+        
+        // Mapear unificações para abranger matérias que "estão" no ciclo por herança
         return editaisData.filter(e => {
             if (!e.merged_into_cycle) return false;
             
-            // Verifica se alguma matéria deste edital está no ciclo real
             const idsToCheck = e.active_subject_ids.length > 0 ? e.active_subject_ids : e.subject_ids;
-            return idsToCheck.some(id => cicloSet.has(id));
+            
+            return idsToCheck.some(id => {
+                // Caso 1: ID Direto está no ciclo
+                if (cicloSet.has(id)) return true;
+                
+                // Caso 2: ID unificado com matéria que está no ciclo
+                // (Se a matéria A unificou com B, e B está no ciclo, o edital de A deve ser considerado "no ciclo")
+                const merge = subjectMerges.find(m => 
+                    m.primary_subject_id === id || m.merged_subject_ids?.includes(id)
+                );
+                
+                if (merge) {
+                    const allMergeIds = [merge.primary_subject_id, ...(merge.merged_subject_ids || [])];
+                    return allMergeIds.some(mid => cicloSet.has(mid));
+                }
+                
+                return false;
+            });
         });
-    }, [editaisData, userCycle?.ciclo_atual]);
+    }, [editaisData, userCycle?.ciclo_atual, subjectMerges]);
 
     const activeSubjectIdsSet = useMemo(() => {
         const set = new Set<string>();
+        
+        // 1. Matérias dos editais considerados "no ciclo"
         for (const edital of editaisNoCiclo) {
             const actives = edital.active_subject_ids.length > 0 ? edital.active_subject_ids : edital.subject_ids;
             for (const id of actives) set.add(id);
         }
+
+        // 2. Expansão de Unificação: se uma matéria está no set (é ativa), 
+        // e ela faz parte de um merge, os IDs "irmãos" também devem estar no set.
+        // Isso é CRÍTICO para que o Subjects.tsx não filtre matérias secundárias
+        for (const merge of subjectMerges) {
+            const allMergeIds = [merge.primary_subject_id, ...(merge.merged_subject_ids || [])];
+            if (allMergeIds.some(id => set.has(id))) {
+                allMergeIds.forEach(id => set.add(id));
+            }
+        }
+        
         return set;
-    }, [editaisNoCiclo]);
+    }, [editaisNoCiclo, subjectMerges]);
 
     return { 
         originsMap, 

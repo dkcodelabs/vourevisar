@@ -108,6 +108,11 @@ const Subjects = () => {
   const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
   const [selectedMergeId, setSelectedMergeId] = useState<string | null>(null);
   const [selectedMergeName, setSelectedMergeName] = useState<string>('');
+  const [selectedMergeOriginals, setSelectedMergeOriginals] = useState<{
+    subjectName: string;
+    editalName: string;
+    editalOrgan: string;
+  }[]>([]);
   const [isReverting, setIsReverting] = useState(false);
 
   const [isImportEditalModalOpen, setIsImportEditalModalOpen] = useState(false);
@@ -1555,6 +1560,25 @@ const Subjects = () => {
                                             if (mergeInfo) {
                                               setSelectedMergeId(mergeInfo.id);
                                               setSelectedMergeName(mergeInfo.display_name);
+                                              
+                                              // Capturar originais para transparência no modal
+                                              const originalIds = [
+                                                mergeInfo.primary_subject_id,
+                                                ...(mergeInfo.merged_subject_ids || [])
+                                              ];
+
+                                              const originals = originalIds.map(sid => {
+                                                const origins = originsMap.get(sid) || [];
+                                                const firstOrigin = origins[0];
+                                                const subj = subjects.find(s => s.id === sid);
+                                                return {
+                                                  subjectName: subj?.name || 'Matéria Desconhecida',
+                                                  editalName: firstOrigin?.name || 'Edital Desconhecido',
+                                                  editalOrgan: firstOrigin?.organ || ''
+                                                };
+                                              });
+                                              setSelectedMergeOriginals(originals);
+                                              
                                               setIsRevertModalOpen(true);
                                             }
                                           }}
@@ -2231,6 +2255,7 @@ const Subjects = () => {
             onClose={() => {
               setIsRevertModalOpen(false);
               setSelectedMergeId(null);
+              setSelectedMergeOriginals([]);
             }}
             onConfirm={async () => {
               if (selectedMergeId) {
@@ -2250,10 +2275,44 @@ const Subjects = () => {
             }}
             title="Desfazer Mesclagem de Matéria"
             description={
-              <span>
-                Tem certeza que deseja desfazer a mesclagem <strong>"{selectedMergeName}"</strong>? 
-                As matérias voltarão a ser exibidas individualmente no seu ciclo.
-              </span>
+              <div className="space-y-4">
+                <p className="text-sm">
+                  Tem certeza que deseja desfazer a mesclagem <strong className="text-primary">"{selectedMergeName}"</strong>? 
+                  As matérias voltarão a ser exibidas individualmente no seu ciclo.
+                </p>
+                
+                {selectedMergeOriginals.length > 0 && (
+                  <div className="bg-secondary/50 dark:bg-white/5 border border-border/50 rounded-[24px] p-4 scale-95 origin-top translate-y-[-4px]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-content-muted/60 mb-3 ml-1">
+                      ESTRUTURA DE SEPARAÇÃO
+                    </p>
+                    <div className="space-y-2">
+                      {selectedMergeOriginals.map((orig, i) => (
+                        <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-card dark:bg-zinc-900 border border-border shadow-sm">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[13px] font-bold text-content-main truncate uppercase tracking-tight">
+                              {orig.subjectName}
+                            </span>
+                            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                              <span className="text-[9px] font-bold text-primary/60 uppercase truncate">
+                                {orig.editalName}
+                              </span>
+                              {orig.editalOrgan && !orig.editalName.toUpperCase().includes(orig.editalOrgan.toUpperCase()) && (
+                                <span className="text-[9px] font-medium text-content-muted/40 uppercase shrink-0">
+                                  • {orig.editalOrgan}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-500">
+                             <CheckCircle2 size={14} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             }
             confirmText="Desfazer"
             cancelText="Manter Mesclado"

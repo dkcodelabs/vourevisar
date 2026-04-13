@@ -53,7 +53,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
-      <AlertDialogContent className="max-w-[400px] border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl">
+      <AlertDialogContent className="max-w-[540px] border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl">
         <AlertDialogHeader>
           <div className="flex items-center gap-3 mb-2">
             {Icon && (
@@ -65,8 +65,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               {title}
             </AlertDialogTitle>
           </div>
-          <AlertDialogDescription className="text-sm font-medium leading-relaxed text-content-muted">
-            {description}
+          <AlertDialogDescription asChild className="text-sm font-medium leading-relaxed text-content-muted">
+            {typeof description === 'string' ? <span>{description}</span> : <div>{description}</div>}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="mt-6 gap-3 sm:gap-2">

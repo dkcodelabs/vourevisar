@@ -938,6 +938,11 @@ export function applyUnificationMap(subjects: Subject[], map: CycleUnificationMa
     const virtualTopics: Topic[] = [];
     const usedTids = new Set<string>();
 
+    // Debug: Verifica se todas as matérias originais mapeadas chegaram para processamento
+    if (u.originalSubjectIds.length > originalSubjects.length) {
+      console.warn(`[applyUnificationMap] Matérias incompletas para "${u.displayName}". Recebidas ${originalSubjects.length} de ${u.originalSubjectIds.length}. Tópicos secundários podem sumir.`);
+    }
+
     if (u.topicMappings && u.topicMappings.length > 0) {
       for (const tm of u.topicMappings) {
         tm.originalTopicIds.forEach(id => usedTids.add(id));
