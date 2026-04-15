@@ -120,7 +120,9 @@ export function calculateNextReview(params: CalculateNextReviewParams): Calculat
         // Se cravou Difícil, punição não reduz para zero, mas corta o intervalo anterior
         if (difficulty >= 3) {
             newMemoryStability = Math.max(config.initialStability, memoryStability * diffMult);
-            newInterval = Math.max(1, currentInterval * 0.5); // Cai o intervalo para a metade da última vez.
+            // Piso mínimo de 2 dias após o primeiro contato: mesmo cortando pela metade repetidas
+            // vezes por dificuldade, o intervalo nunca cai abaixo de 2 dias.
+            newInterval = Math.max(2, currentInterval * 0.5); // Piso: 2 dias (Mínimo Floor Rule)
         } else {
             // Crescimento seguro de memória (c/ trend multiplier já incluso no stabilityGain)
             newMemoryStability = memoryStability + stabilityGain;
@@ -143,8 +145,11 @@ export function calculateNextReview(params: CalculateNextReviewParams): Calculat
         newInterval = config.maxIntervalCap;
     }
 
-    // Arredonda para não gerar "2.445 dias"
-    newInterval = Math.max(1, Math.round(newInterval));
+    // Arredonda para não gerar "2.445 dias".
+    // Piso global pós-arredondamento: 2 dias (válido para Fase 2 e Fase 3).
+    // A Fase 1 (Cold Start) já retornou 1 dia fixo antes de chegar aqui; este Math.max não a afeta.
+    const isFirstContact = (metrics.reviewCount === 0 || metrics.currentInterval === 0);
+    newInterval = isFirstContact ? 1 : Math.max(2, Math.round(newInterval));
     newMemoryStability = Math.max(0, Number(newMemoryStability.toFixed(2))); // Limpa o float e garante >= 0
 
     // 3. Calcular data tentativa base (Hoje + novo intervalo)

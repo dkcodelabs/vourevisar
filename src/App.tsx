@@ -30,6 +30,8 @@ import Editais from "@/pages/Editais";
 import Planos from "@/pages/Planos";
 import RevealCardDemo from "@/components/ui/RevealCardDemo";
 
+import Questoes from "./pages/Questoes";
+import QuestionsStatistics from "./pages/QuestionsStatistics";
 import UserManagement from "@/pages/admin/UserManagement";
 import ImportQuestions from "@/pages/admin/content/ImportQuestions";
 import SubscriptionManagement from "@/pages/admin/SubscriptionManagement";
@@ -102,7 +104,8 @@ const App = () => {
                           <Route path="topicos" element={<Topics />} />
                           <Route path="revisoes" element={<Revisoes />} />
                           <Route path="ciclo-estudos" element={<StudyCycle />} />
-                          <Route path="ciclo-estudos" element={<StudyCycle />} />
+                          <Route path="questoes" element={<Questoes />} />
+                          <Route path="questoes/estatisticas" element={<QuestionsStatistics />} />
 
                           {/* Admin Routes - Protected */}
                           <Route element={<AdminRoute />}>

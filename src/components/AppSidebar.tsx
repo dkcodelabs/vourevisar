@@ -84,6 +84,7 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
     { to: "/revisoes", label: "Revisões", icon: Clock },
     { to: "/materias", label: "Matérias", icon: Book },
     { to: "/topicos", label: "Tópicos", icon: List },
+    { to: "/questoes", label: "Questões", icon: ClipboardList },
     { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
     { to: "/reveal-cards", label: "Componentes UI", icon: Layers },
   ];

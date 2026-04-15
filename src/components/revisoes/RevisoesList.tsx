@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { RevisionItem, RevisionStatus } from '@/types/revision';
 import { useNavigate } from 'react-router-dom';
+import RegisterQuestionsButton from '@/components/reviews/RegisterQuestionsButton';
 
 const DifficultyStars = ({ rating }: { rating: number }) => {
     return (
@@ -480,6 +481,12 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                         <FileText size={16} />
                                                                     )}
                                                                 </button>
+
+                                                                {/* Botão Registrar Questões */}
+                                                                <RegisterQuestionsButton 
+                                                                    subject={item.subject || ''} 
+                                                                    topic={item.topic} 
+                                                                />
                                                             </div>
                                                         </div>
                                                     </div>
