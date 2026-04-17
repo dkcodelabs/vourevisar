@@ -11,6 +11,8 @@ import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
+import { MentorAlert } from '@/types/mentor';
+import { MentorBadge } from '@/components/mentor/MentorBadge';
 
 interface StudyCycleSubjectCardProps {
   subject: StudyCycleSubject;
@@ -27,6 +29,10 @@ interface StudyCycleSubjectCardProps {
   cyclePosition?: number | null;
   searchQuery?: string;
   filterTopicsBySearch?: (topics: any[]) => any[];
+  mentorAlert?: MentorAlert;
+  criticalByTopic?: Map<string, MentorAlert>;
+  gargaloByTopic?: Map<string, MentorAlert>;
+  consolidatedTopicIds?: Set<string>;
 }
 
 const reviewProgression = [
@@ -52,7 +58,11 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
   onCheckboxClick,
   cyclePosition,
   searchQuery = '',
-  filterTopicsBySearch
+  filterTopicsBySearch,
+  mentorAlert,
+  criticalByTopic,
+  gargaloByTopic,
+  consolidatedTopicIds
 }) => {
   const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
   const { user } = useAuth();
@@ -138,6 +148,9 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             <div className="flex items-center space-x-2 flex-1 min-w-0">
               <CyclePositionBadge />
               <h3 className="text-sm font-semibold text-card-foreground line-clamp-2">{subject.name.replace(/(\d+ª) visualização/g, '$1')}</h3>
+              {mentorAlert && (
+                <MentorBadge alert={mentorAlert} />
+              )}
               {isFullyCompleted && (
                 <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 py-0 px-1.5 h-5 shrink-0">
                   Concluída
@@ -211,6 +224,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                   isEditing={editingTopicId === topic.id}
                   onEditingChange={setEditingTopicId}
                   searchQuery={searchQuery}
+                  isConsolidated={consolidatedTopicIds?.has(topic.id) || false}
                 />
               ));
             })()}
@@ -230,6 +244,9 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
               <div className="flex items-center space-x-2 flex-1 min-w-0 pr-4">
                 <CyclePositionBadge />
                 <h3 className="text-sm font-semibold text-card-foreground break-words leading-tight">{subject.name.replace(/(\d+ª) visualização/g, '$1')}</h3>
+                {mentorAlert && (
+                  <MentorBadge alert={mentorAlert} />
+                )}
                 {isFullyCompleted && (
                   <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 py-0 px-1.5 h-5 shrink-0">
                     Concluída
@@ -314,6 +331,8 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                       isEditing={editingTopicId === topic.id}
                       onEditingChange={setEditingTopicId}
                       searchQuery={searchQuery}
+                      isConsolidated={consolidatedTopicIds?.has(topic.id) || false}
+                      mentorAlert={criticalByTopic?.get(topic.id) || gargaloByTopic?.get(topic.id)}
                     />
                   ));
                 })()}
@@ -332,6 +351,9 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <CyclePositionBadge />
             <h3 className="text-sm font-semibold text-card-foreground break-words leading-tight">{subject.name.replace(/(\d+ª) visualização/g, '$1')}</h3>
+            {mentorAlert && (
+              <MentorBadge alert={mentorAlert} />
+            )}
             {isFullyCompleted && (
               <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 py-0 px-1.5 h-5 shrink-0">
                 Concluída
@@ -399,6 +421,7 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                 isActionable={isActionable}
                 isEditing={editingTopicId === topic.id}
                 onEditingChange={setEditingTopicId}
+                isConsolidated={consolidatedTopicIds?.has(topic.id) || false}
               />
             ));
           })()}

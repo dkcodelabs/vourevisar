@@ -1,10 +1,10 @@
 import React from 'react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { AdminOnly } from '@/components/ProtectedComponent';
-import { CalculadoraTendencia } from '@/components/CalculadoraTendencia';
+import { CalculadoraImportancia } from '@/components/CalculadoraTendencia';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
-export default function TendenciaGUT() {
+export default function ImportanciaProvaAdmin() {
     const { isAdmin, loading } = useUserRole();
 
     if (loading) {
@@ -27,7 +27,7 @@ export default function TendenciaGUT() {
                 {/* Header */}
                 <div className="px-4 md:px-8 pt-4 pb-4 bg-transparent rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
                     <h1 className="text-xl font-bold text-foreground flex items-center gap-2 mb-1">
-                        📈 Calculadora de Tendência (GUT)
+                        📈 Calculadora de Importância em Prova
                     </h1>
                     <p className="text-xs text-muted-foreground">
                         Analise o volume de questões de cada tópico para definir prioridades de estudo.
@@ -36,7 +36,7 @@ export default function TendenciaGUT() {
 
                 {/* Conteúdo */}
                 <div className="px-2 md:px-4">
-                    <CalculadoraTendencia />
+                    <CalculadoraImportancia />
                 </div>
             </div>
         </AdminOnly>

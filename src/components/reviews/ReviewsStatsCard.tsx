@@ -10,6 +10,12 @@ import {
     Shield
 } from 'lucide-react';
 import { ProtectionMode } from '@/utils/calculateProtectionMode';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ReviewsStatsCardProps {
     totalTopics: number;
@@ -83,12 +89,31 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                         <div className={`p-2 rounded-lg ${modeColors.bg} shrink-0`}>
                             <Shield className={`w-4 h-4 ${modeColors.text}`} />
                         </div>
-                        <div className="min-w-0">
-                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Modo de Proteção</p>
-                            <p className={`text-[10px] font-bold uppercase tracking-widest ${modeColors.text}`}>
-                                {protectionMode}
-                            </p>
-                        </div>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="min-w-0 cursor-help">
+                                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider underline decoration-dotted decoration-slate-300">Modo de Proteção</p>
+                                        <p className={`text-[10px] font-bold uppercase tracking-widest ${modeColors.text}`}>
+                                            {protectionMode}
+                                        </p>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-[280px] p-3 rounded-2xl bg-card border-border shadow-xl">
+                                    <div className="space-y-2">
+                                        <p className="text-[11px] font-bold text-foreground">🛡️ O que é isso?</p>
+                                        <p className="text-[10px] text-content-muted leading-relaxed">
+                                            Ajuste automático do sistema SRS baseado no seu desempenho real:
+                                        </p>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px]"><span className="font-bold text-red-500 uppercase">Alta:</span> Proteção da memória ativada devido a atrasos recorrentes ou alta dificuldade relatada. Prazos encurtados.</p>
+                                            <p className="text-[9px]"><span className="font-bold text-blue-500 uppercase">Média:</span> Ritmo equilibrado. Seu aprendizado está fluindo normalmente.</p>
+                                            <p className="text-[9px]"><span className="font-bold text-emerald-500 uppercase">Baixa:</span> Eficiência máxima. Você domina os temas e o sistema acelerou o ciclo.</p>
+                                        </div>
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                     <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${modeColors.bg} ${modeColors.text} border ${modeColors.border}`}>
                         {maxReviews} revisões/tópico
@@ -147,13 +172,8 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                {completedTopicsCount} <span className="text-slate-400 text-xs font-normal">/ {totalTopics}</span>
+                                {completedTopicsCount}
                             </span>
-                            {totalTopics > 0 && (
-                                <div className="px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold rounded-md border border-indigo-200 dark:border-indigo-800">
-                                    {Math.round((completedTopicsCount / totalTopics) * 100)}%
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>

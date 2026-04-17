@@ -67,7 +67,7 @@ export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollaps
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
                             <span className="text-xs text-content-muted">Revisões Feitas:</span>
-                            <span className="text-sm font-bold text-foreground">{stats.completedReviews}/{stats.totalScheduledReviews}</span>
+                            <span className="text-sm font-bold text-foreground">{stats.completedReviews}</span>
                         </div>
                     </div>
                     {/* Integrated Expand Button */}

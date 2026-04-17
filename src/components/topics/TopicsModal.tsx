@@ -88,7 +88,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onU
 
   const getStatusBadge = (topic: Topic) => {
     // Regra principal de Cobertura: primeiro contato é nosso definidor raiz. Fallback no reviewCount > 0 se o DB for legado.
-    const hasBeenStudied = Boolean(topic.first_studied_at) || topic.reviewCount > 0;
+    const hasBeenStudied = Boolean(topic.first_studied_at) || topic.reviewCount > 0 || topic.review_count > 0;
 
     if (hasBeenStudied) {
       return <Badge className="bg-green-100 text-green-800 border-green-300 w-[100px] justify-center shadow-none font-medium">✔ Estudado</Badge>;
@@ -209,7 +209,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onU
                               </h4>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span className="text-xs text-gray-500">
-                                  {Boolean(topic.first_studied_at) || topic.reviewCount > 0 ? "Cobertura: Estudado" : "Cobertura: Não iniciado"}
+                                  {Boolean(topic.first_studied_at) || topic.reviewCount > 0 || topic.review_count > 0 ? "Cobertura: Estudado" : "Cobertura: Não iniciado"}
                                 </span>
                               </div>
                             </div>
@@ -242,7 +242,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onU
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Total de tópicos: {localTopics.length}</span>
                 <span>
-                  Cobertura: {localTopics.filter(t => Boolean(t.first_studied_at) || t.reviewCount > 0).length} estudados
+                  Cobertura: {localTopics.filter(t => Boolean(t.first_studied_at) || t.reviewCount > 0 || t.review_count > 0).length} estudados
                 </span>
               </div>
             </div>

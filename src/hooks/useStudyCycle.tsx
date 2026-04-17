@@ -4,7 +4,7 @@ import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
 import { toast } from '@/lib/toast';
-import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
+import { REVIEW_PROFILES, ReviewProfile } from '@/types/study'; // mantido para compatibilidade legada
 import { useStudySessionTracking } from './useStudySessionTracking';
 
 export const useStudyCycle = () => {
@@ -56,7 +56,8 @@ export const useStudyCycle = () => {
         .eq('user_id', user?.id)
         .single();
 
-      const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
+      // Legado: usar INTERMEDIATE como fallback padrão unificado
+      const profile = ReviewProfile.INTERMEDIATE;
       const { intervals } = REVIEW_PROFILES[profile];
 
       let newReviewCount = topic.review_count + 1;

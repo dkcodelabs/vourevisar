@@ -1,8 +1,8 @@
 import md5 from 'crypto-js/md5'
 
 /**
- * Serviço para calcular a Tendência (GUT) baseada no volume de questões encontrados no Google.
- * Implementa Smart GUT v16: Validação IA + Cache Global + Histórico para BI.
+ * Serviço para calcular a Importância em Prova baseada no volume de questões encontrados no Google.
+ * Implementa Smart Importância v16: Validação IA + Cache Global + Histórico para BI.
  */
 
 // ============================================
@@ -28,7 +28,7 @@ interface GutResultV16 {
     topicosSeparados: string[]           // Tags normalizadas
     termoMaiorRisco: string              // Termo com maior volume
     volumeMaximo: number                 // Volume do termo campeão
-    notaGut: 1 | 2 | 3 | 4 | 5
+    notaImportancia: 1 | 2 | 3 | 4 | 5
     breakdown: TermBreakdown[]           // Detalhamento de cada termo
     api_stats: {
         cache_hits: number               // Quantos termos vieram do cache
@@ -89,7 +89,7 @@ interface TrendResult {
     carreira: string
     filtro_tempo: string
     volume_maximo: number
-    nota_gut: 1 | 2 | 3 | 4 | 5
+    nota_importancia: 1 | 2 | 3 | 4 | 5
     bancas_analisadas: string[]
     log_detalhado: string[]
     effective_context: string // V21: Qual contexto funcionou (IA ou Global)
@@ -408,7 +408,7 @@ async function buscarGoogle(
 
 // --- FUNÇÃO PRINCIPAL (ORQUESTRADOR) ---
 // --- FUNÇÃO PRINCIPAL (ORQUESTRADOR) ---
-export async function calcularNotaTendencia(
+export async function calcularNotaImportancia(
     materia: string,
     topicoSujo: string,
     inputBanca: string,
@@ -460,7 +460,7 @@ export async function calcularNotaTendencia(
 
     const sufixoCarreira = (inputCarreira && inputCarreira.trim()) ? ` ${inputCarreira.trim()}` : ""
 
-    // Variáveis para guardar o "Campeão" (Maior Volume = Maior Risco GUT)
+    // Variáveis para guardar o "Campeão" (Maior Volume = Maior Risco de Importância)
     let maiorVolumeGeral = 0
     let termoCampeao = ""
     let termoCampeaoContexto = materiaOtimizada // Default: Contexto IA
@@ -601,7 +601,7 @@ export async function calcularNotaTendencia(
         termoCampeao = subTopicosIA[0]
     }
 
-    // 4. Régua GUT (Calibragem)
+    // 4. Régua de Importância (Calibragem)
     let nota: 1 | 2 | 3 | 4 | 5 = 1
     const limites = [1000, 500, 200, 50] // Régua v12
 
@@ -619,7 +619,7 @@ export async function calcularNotaTendencia(
         carreira: inputCarreira || "Todas",
         filtro_tempo: `Auto Detect (Pref. ${anos} anos)`,
         volume_maximo: maiorVolumeGeral,
-        nota_gut: nota,
+        nota_importancia: nota,
         bancas_analisadas: listaBancas,
         log_detalhado: logDetalhado,
         effective_context: termoCampeaoContexto,

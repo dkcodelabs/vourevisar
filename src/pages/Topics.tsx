@@ -176,18 +176,18 @@ const Topics = () => {
     if (reviewDate < today) {
       const daysLate = Math.floor((today.getTime() - reviewDate.getTime()) / (1000 * 60 * 60 * 24));
       return {
-        label: `${topic.reviewCount}/${topic.reviewCount + 1} - ${daysLate} dias atraso`,
+        label: 'Atrasado',
         type: 'atrasado'
       };
     } else if (reviewDate.getTime() === today.getTime()) {
       return {
-        label: `${topic.reviewCount}/${topic.reviewCount + 1} - Hoje`,
+        label: 'Hoje',
         type: 'hoje'
       };
     } else {
       const daysAhead = Math.floor((reviewDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return {
-        label: `${topic.reviewCount}/${topic.reviewCount + 1} - Em ${daysAhead} dias`,
+        label: `Em ${daysAhead} dias`,
         type: 'futuro'
       };
     }

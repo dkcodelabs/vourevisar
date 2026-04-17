@@ -23,24 +23,15 @@ export const useDailySubjectsWithViews = (subjects: Subject[], userCycle: UserCy
       const subject = subjects.find(s => s.id === subjectId);
       if (!subject) return;
 
-      // Contar quantas vezes esta matéria aparece no ciclo_atual até agora
-      let viewNumber = 1;
-      for (let i = 0; i < userCycle.ciclo_atual.length; i++) {
-        if (userCycle.ciclo_atual[i] === subjectId) {
-          // Verificar se esta é a visualização que está nas disciplinas do dia
-          // Assumindo que as disciplinas do dia são selecionadas na ordem do ciclo_atual
-          const isDailyView = userCycle.disciplinas_do_dia.indexOf(subjectId) !== -1;
-          if (isDailyView) {
-            views.push({
-              subject,
-              viewNumber,
-              cycleIndex: i
-            });
-            break; // Encontramos a visualização correspondente
-          }
-          viewNumber++;
-        }
-      }
+      // Como a duplicação foi removida, viewNumber é sempre 1
+      // Encontrar a primeira ocorrência no ciclo para o cycleIndex
+      const cycleIndex = userCycle.ciclo_atual.indexOf(subjectId);
+      
+      views.push({
+        subject,
+        viewNumber: 1,
+        cycleIndex: cycleIndex !== -1 ? cycleIndex : 0
+      });
     });
 
     // Console.log removido para evitar spam

@@ -110,7 +110,7 @@ export const StrategicOverview: React.FC<StrategicOverviewProps> = ({
               {progressPercentage}%
             </div>
             <div className="text-sm text-gray-600 mb-3">
-              ({completedTopics}/{totalTopics})
+              {completedTopics} tópicos concluídos
             </div>
             <Button 
               variant="outline"

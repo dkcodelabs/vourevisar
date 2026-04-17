@@ -29,11 +29,7 @@ import StudyCycle from "@/pages/StudyCycle";
 import Editais from "@/pages/Editais";
 import Planos from "@/pages/Planos";
 import RevealCardDemo from "@/components/ui/RevealCardDemo";
-
-import Questoes from "./pages/Questoes";
-import QuestionsStatistics from "./pages/QuestionsStatistics";
 import UserManagement from "@/pages/admin/UserManagement";
-import ImportQuestions from "@/pages/admin/content/ImportQuestions";
 import SubscriptionManagement from "@/pages/admin/SubscriptionManagement";
 import SystemErrors from "@/pages/admin/system/SystemErrors";
 import RolesManagement from "@/pages/admin/security/RolesManagement";
@@ -41,7 +37,7 @@ import AuditLogs from "@/pages/admin/AuditLogs";
 import AdminFeedback from "@/pages/admin/AdminFeedback";
 import ToastSpamTest from "@/pages/admin/debug/ToastSpamTest";
 import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
-import TendenciaGUT from "@/pages/admin/TendenciaGUT";
+import ImportanciaProvaAdmin from "@/pages/admin/TendenciaGUT";
 import AdminEditais from "@/pages/admin/AdminEditais";
 import PlanCouponManager from "@/pages/admin/PlanCouponManager";
 import AISettings from "@/pages/admin/AISettings";
@@ -104,14 +100,11 @@ const App = () => {
                           <Route path="topicos" element={<Topics />} />
                           <Route path="revisoes" element={<Revisoes />} />
                           <Route path="ciclo-estudos" element={<StudyCycle />} />
-                          <Route path="questoes" element={<Questoes />} />
-                          <Route path="questoes/estatisticas" element={<QuestionsStatistics />} />
 
                           {/* Admin Routes - Protected */}
                           <Route element={<AdminRoute />}>
                             <Route path="admin/users" element={<UserManagement />} />
-                            <Route path="admin/content/import" element={<ImportQuestions />} />
-                            <Route path="admin/tendencia" element={<TendenciaGUT />} />
+                            <Route path="admin/importancia-prova" element={<ImportanciaProvaAdmin />} />
                             <Route path="admin/subscription" element={<SubscriptionManagement />} />
                             <Route path="admin/security/roles" element={<RolesManagement />} />
                             <Route path="admin/audit" element={<AuditLogs />} />

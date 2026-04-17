@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { format, startOfDay } from 'date-fns';
 import { AlertCircle, Loader2, Target, BookOpen } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
@@ -217,13 +218,16 @@ export const Revisoes = () => {
       const canonicalSubjectName = getCanonicalSubjectName(topic.subject_id, rawSubjectName, dynamicUnificationMap);
       const canonicalTopicName = getCanonicalTopicName(topic.id, topic.name, dynamicUnificationMap);
 
-      // Determine Status Dynamically
+      // Determine Status Dynamically - Use local date strings for consistency with hook
       let status = RevisionStatus.UNSTARTED;
+      const isActuallyStarted = (topic.review_count || 0) > 0;
+
       if (topic.learningStatus === 'Dominando' || topic.completed || topic.review_stage === 'Concluído') {
         status = RevisionStatus.CONSOLIDATED;
-      } else if (topic.next_review) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const reviewDateStr = new Date(topic.next_review).toISOString().split('T')[0];
+      } else if (topic.next_review && isActuallyStarted) {
+        const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
+        const reviewDateStr = format(startOfDay(new Date(topic.next_review)), 'yyyy-MM-dd');
+        
         if (reviewDateStr < todayStr) status = RevisionStatus.OVERDUE;
         else if (reviewDateStr === todayStr) status = RevisionStatus.TODAY;
         else status = RevisionStatus.FUTURE;
@@ -258,9 +262,18 @@ export const Revisoes = () => {
       result = result.filter(i => i.reviewCount === target);
     }
 
-    // Safety filters for legacy tabs
-    if (activeTab === 'FUTURE') result = result.filter(i => i.status === RevisionStatus.FUTURE);
-    if (activeTab === 'COMPLETED') result = result.filter(i => i.status === RevisionStatus.CONSOLIDATED);
+    // Filter logic for sections (Tab Focus / Today)
+    if (activeTab === 'FOCUS') {
+      // Show only started reviews that are Today or Overdue
+      result = result.filter(item => 
+        (item.status === RevisionStatus.TODAY || item.status === RevisionStatus.OVERDUE) && 
+        (item.reviewCount > 0)
+      );
+    }
+    
+    if (activeTab === 'COMPLETED') {
+      result = result.filter(i => i.status === RevisionStatus.CONSOLIDATED);
+    }
 
     return result;
   }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews, dynamicUnificationMap]);
@@ -270,12 +283,6 @@ export const Revisoes = () => {
     const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics, ...consolidatedTopics];
     const totalTopics = topics.length; // Modified to include all topics
     const totalSubjects = subjects.length; // Added
-    const totalScheduledReviews = totalTopics * maxReviews;
-    const startedTopicsCount = allTopics.filter(t => (t.review_count >= 1 || t.first_studied_at)).length;
-    const completedReviews = allTopics.reduce((sum, t) => sum + Math.min(t.review_count || 0, maxReviews), 0);
-    const pendingReviews = delayedTopics.length + todayTopics.length + futureTopics.length;
-    const notStartedReviews = Math.max(0, totalScheduledReviews - completedReviews - pendingReviews);
-
     return {
       today: todayTopics.length,
       overdue: delayedTopics.length,
@@ -283,15 +290,9 @@ export const Revisoes = () => {
       completedTopicsCount: consolidatedTopics.length,
       focusCount: focusTopics.length,
       totalTopics,
-      totalSubjects, // Added
-      totalScheduledReviews,
-      startedTopicsCount,
-      completedReviews,
-      pendingReviews,
-      notStartedReviews,
-      suggestedDailyReviews
+      totalSubjects,
     };
-  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, maxReviews, suggestedDailyReviews, subjects, topics.length]);
+  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, subjects, topics.length]);
 
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: RevisionItem[] } = {};
@@ -328,18 +329,23 @@ export const Revisoes = () => {
   useEffect(() => {
     const topicId = (location.state as any)?.focusTopicId || searchParams.get('topicId');
     if (topicId) {
-      const allRaw = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics, ...consolidatedTopics];
-      const raw = allRaw.find(t => t.id === topicId);
+      const raw = topics.find(t => t.id === topicId);
       if (raw) {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
         let target: ViewTab = 'FOCUS';
-        if (raw.completed || raw.review_stage === 'Concluído') target = 'COMPLETED';
-        else if (raw.next_review) {
-          const rDate = new Date(raw.next_review).toISOString().split('T')[0];
-          if (rDate < todayStr) target = 'FOCUS';
-          else if (rDate === todayStr) target = 'FOCUS';
+        const isActuallyStarted = (raw.review_count || 0) > 0;
+        
+        if (raw.completed || raw.review_stage === 'Concluído' || raw.learningStatus === 'Dominando') {
+          target = 'COMPLETED';
+        } else if (!isActuallyStarted) {
+          target = 'ALL';
+        } else if (raw.next_review) {
+          const rDate = format(startOfDay(new Date(raw.next_review)), 'yyyy-MM-dd');
+          if (rDate <= todayStr) target = 'FOCUS';
           else target = 'FUTURE';
-        } else target = 'ALL';
+        } else {
+          target = 'ALL';
+        }
 
         if (activeTab !== target) setActiveTab(target);
         if (searchTerm || reviewStageFilter !== 'all') { setSearchTerm(''); setReviewStageFilter('all'); }
@@ -556,17 +562,28 @@ export const Revisoes = () => {
               <div>
                 <h3 className="font-bold text-sm mb-1">Modo Recuperação Ativo 🚑</h3>
                 <p className="text-xs opacity-90 leading-relaxed">
-                  Você ficou um período sem revisar. Vamos retomar aos poucos para recuperar consistência, sem sobrecarga.
+                  {isRecoveryMode ? (
+                  `Você possui ${stats.overdue + stats.today} tópicos aguardando revisão. Priorizamos os mais urgentes para você focar agora.`
+                ) : (
+                  `Foco de hoje: ${focusTopics.length} ${focusTopics.length === 1 ? 'tópico' : 'tópicos'}.`
+                )}.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Sugestão de Hoje */}
-          {suggestedDailyReviews > 0 && (
+          {/* Foco de Hoje (Normal) */}
+          {!isRecoveryMode && focusTopics.length > 0 && activeTab === 'FOCUS' && (
             <div className="mb-4 flex items-center gap-2 text-sm text-content-muted bg-secondary px-4 py-2 rounded-xl border border-border">
-              <span className="font-medium text-foreground">Sugestão de hoje: {suggestedDailyReviews} revisões.</span>
-              <span className="opacity-90">Sugerimos este volume para manter consistência sem sobrecarga.</span>
+              <span className="font-medium text-foreground">
+                Foco de hoje: {focusTopics.length} {focusTopics.length === 1 ? 'tópico' : 'tópicos'}.
+              </span>
+              <span className="opacity-90 ml-1">
+                {stats.overdue > 0 
+                  ? `(Sendo ${stats.today} de hoje e ${stats.overdue} em atraso)`
+                  : '(Tudo em dia! Siga o cronograma planejado)'
+                }
+              </span>
             </div>
           )}
 

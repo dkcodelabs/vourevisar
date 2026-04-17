@@ -23,6 +23,8 @@ import { Loader2, AlertCircle, X, Target, BookOpen, Database, RefreshCw, Search 
 import { supabase } from '@/integrations/supabase/client';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { mergeService } from '@/services/mergeService';
+import { useMentorInsights } from '@/hooks/useMentorInsights';
+import { MentorCycleBanner } from '@/components/mentor/MentorCycleBanner';
 
 
 const LOCAL_STORAGE_VIEW_KEY = 'studyCycleViewMode';
@@ -65,8 +67,16 @@ export const StudyCycleContent: React.FC = () => {
     refreshCycleData,
     isLoading
   } = useStudyCycleData();
-
   const { editaisNoCiclo, refresh: refreshOrigins } = useEditalOriginsWithMerge();
+  const {
+    criticalAlerts,
+    gargalos,
+    strategicInsight,
+    criticalBySubject,
+    criticalByTopic,
+    gargaloByTopic,
+    consolidatedTopicIds
+  } = useMentorInsights();
   const [unloadingEditalId, setUnloadingEditalId] = useState<string | null>(null);
   const [unloadConfirm, setUnloadConfirm] = useState<{
     isOpen: boolean;
@@ -556,6 +566,10 @@ export const StudyCycleContent: React.FC = () => {
                 cyclePosition={cyclePosition}
                 searchQuery={searchQuery}
                 filterTopicsBySearch={filterTopicsBySearch}
+                mentorAlert={criticalBySubject.get(subject.id)}
+                criticalByTopic={criticalByTopic}
+                gargaloByTopic={gargaloByTopic}
+                consolidatedTopicIds={consolidatedTopicIds}
               />
             );
           })}
@@ -783,6 +797,11 @@ export const StudyCycleContent: React.FC = () => {
             )}
 
             <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pt-0">
+              <MentorCycleBanner 
+                criticalAlerts={criticalAlerts}
+                gargalos={gargalos}
+                strategicInsight={strategicInsight}
+              />
               {renderSection(SubjectStatus.ACTIVE)}
               {renderSection(SubjectStatus.COMPLETED_CYCLE)}
               {renderSection(SubjectStatus.FINISHED)}

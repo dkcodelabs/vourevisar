@@ -24,8 +24,8 @@ export function calculateProtectionMode(topics: RevisionItem[]): ProtectionMode 
             overdueCount++;
         }
 
-        // Tópicos avaliados com dificuldade 4 (Difícil) ou 5 (Muito Difícil)
-        if (topic.difficulty >= 4) {
+        // Tópicos avaliados com dificuldade 3 (Difícil) na nova escala
+        if (topic.difficulty === 3) {
             highDifficultyCount++;
         }
 
@@ -46,10 +46,15 @@ export function calculateProtectionMode(topics: RevisionItem[]): ProtectionMode 
      * MATRIZ DE PROTEÇÃO
      * 
      * ALTA PROTEÇÃO (Crescimento lento de intervalos, retenção prioritária)
-     * - Mais de 25% dos tópicos ativos estão atrasados
-     * - OU Mais de 30% das avaliações foram "Difícil" ou superiores
+     * - Volume representativo (>= 5 tópicos) e mais de 25% atrasados, OU
+     * - Absoluto alto (> 3 atrasos quebram a inércia do aluno novato), OU
+     * - Volume avaliado (>= 3 revisões avaliadas) e > 30% relatam "Dificuldade 3"
      */
-    if (overdueRate > 0.25 || highDifficultyRate > 0.3) {
+    if (
+        (overdueRate > 0.25 && totalActive >= 5) || 
+        overdueCount > 3 || 
+        (highDifficultyRate > 0.3 && totalAssessed >= 3)
+    ) {
         return 'Alta';
     }
 

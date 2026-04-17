@@ -644,6 +644,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 }))
             }));
 
+            // Validação de duplicidade por nome
+            const finalName = `${edital.organ} - ${edital.position} (${edital.year})`.trim();
+            const normalizedName = finalName.toLowerCase();
+            const exists = userEditais.some(e => e.name.toLowerCase().trim() === normalizedName);
+            
+            if (exists) {
+                toastGate.notifyError('Você já possui um edital com este nome importado.', 'VAL-DUP-03', { severity: 'medium' });
+                setIsLoadingReady(false);
+                return;
+            }
+
             // Descartar extração por IA pendente se existir, para evitar conflitos
             await discardPendingExtractionData();
 

@@ -1,10 +1,11 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, CheckCircle2, Clock, TrendingUp, TrendingDown, Minus, AlertCircle, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Clock, TrendingUp, TrendingDown, Minus, AlertCircle, ChevronRight } from 'lucide-react';
 import { useTopicReviewHistory } from '@/hooks/useTopicReviewHistory';
 import { ReviewProfile } from '@/types/study';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TopicEvolutionChart } from '@/components/topics/TopicEvolutionChart';
 
 interface TopicReviewHistorySectionProps {
   topicId: string;
@@ -30,54 +31,44 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
     return null;
   }
 
-  const progressPercentage = history.totalReviews > 0
-    ? Math.round((history.completedReviews / history.totalReviews) * 100)
-    : 0;
-
   return (
-    <div className="space-y-3 p-4 bg-slate-50/50 dark:bg-slate-900/20 rounded-lg">
+    <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <TrendingUp className="w-5 h-5 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">
             Histórico de Estudos
           </h3>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-slate-600 dark:text-slate-400">
-            {history.firstContact ? "✔ Estudado" : "Não estudado"}
+          <span className="text-muted-foreground">
+            {history.firstContact ? '✔ Estudado' : 'Não estudado'}
           </span>
           {history.firstContact && (
-            <div className="flex items-center gap-1">
-              <span className="text-slate-600 dark:text-slate-400 font-medium">
-                (Cobertura Ativa)
-              </span>
-            </div>
+            <span className="text-muted-foreground font-medium">(Cobertura Ativa)</span>
           )}
         </div>
       </div>
 
       {/* Grid de Cards com Setas */}
-      <div className="flex items-center gap-2 overflow-x-auto p-2 pb-4 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent md:[&::-webkit-scrollbar]:hidden md:[-ms-overflow-style:'none'] md:[scrollbar-width:'none']">
+      <div className="flex items-center gap-2 overflow-x-auto p-2 pb-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
         {/* Primeiro Estudo */}
         {history.firstContact && (
           <>
-            <div className="flex flex-col items-center justify-center p-2.5 bg-white dark:bg-slate-800 rounded-md border-l-4 border-l-blue-500 dark:border-l-blue-400 border-y border-r border-slate-200 dark:border-slate-700 shadow-md hover:shadow-lg transition-all flex-1 min-w-[100px] min-h-[75px]">
+            <div className="flex flex-col items-center justify-center p-2.5 bg-card rounded-md border-l-4 border-l-primary border border-border shadow-sm hover:shadow-md transition-all flex-1 min-w-[100px] min-h-[75px]">
               <div className="flex items-center gap-1 mb-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <p className="text-xs font-medium text-slate-900 dark:text-slate-100">
-                  1º Estudo
-                </p>
+                <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                <p className="text-xs font-medium text-foreground">1º Estudo</p>
               </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+              <p className="text-[11px] text-muted-foreground">
                 {format(history.firstContact, 'dd/MM/yy', { locale: ptBR })}
               </p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-500">
+              <p className="text-[10px] text-muted-foreground/60">
                 {format(history.firstContact, 'HH:mm', { locale: ptBR })}
               </p>
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-600 flex-shrink-0" />
+            <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
           </>
         )}
 
@@ -87,34 +78,25 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
           const isOverdue = review.isOverdue;
           const isToday = review.isToday;
 
-          // Definir cores baseado no estado
           const borderColor = isCompleted
-            ? 'border-l-green-500 dark:border-l-green-400'
+            ? 'border-l-emerald-500'
             : isOverdue
-              ? 'border-l-red-500 dark:border-l-red-400'
+              ? 'border-l-rose-500'
               : isToday
-                ? 'border-l-orange-500 dark:border-l-orange-400'
-                : 'border-l-slate-300 dark:border-l-slate-600';
-
-          const textColor = isCompleted
-            ? 'text-slate-900 dark:text-slate-100'
-            : isOverdue
-              ? 'text-slate-900 dark:text-slate-100'
-              : isToday
-                ? 'text-slate-900 dark:text-slate-100'
-                : 'text-slate-600 dark:text-slate-400';
+                ? 'border-l-amber-500'
+                : 'border-l-border';
 
           const iconColor = isCompleted
-            ? 'text-green-600 dark:text-green-400'
+            ? 'text-emerald-500'
             : isOverdue
-              ? 'text-red-600 dark:text-red-400'
+              ? 'text-rose-500'
               : isToday
-                ? 'text-orange-600 dark:text-orange-400'
-                : 'text-slate-400 dark:text-slate-500';
+                ? 'text-amber-500'
+                : 'text-muted-foreground/50';
 
           return (
             <div key={`${review.stage}-${index}`} className="contents">
-              <div className={`flex flex-col items-center justify-center p-2.5 bg-white dark:bg-slate-800 rounded-md border-l-4 ${borderColor} border-y border-r border-slate-200 dark:border-slate-700 shadow-md hover:shadow-lg transition-all flex-1 min-w-[100px] min-h-[75px]`}>
+              <div className={`flex flex-col items-center justify-center p-2.5 bg-card rounded-md border-l-4 ${borderColor} border border-border shadow-sm hover:shadow-md transition-all flex-1 min-w-[100px] min-h-[75px]`}>
                 <div className="flex items-center gap-1 mb-1">
                   {isCompleted ? (
                     <CheckCircle2 className={`w-3.5 h-3.5 ${iconColor}`} />
@@ -125,21 +107,21 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
                   ) : (
                     <Clock className={`w-3.5 h-3.5 ${iconColor}`} />
                   )}
-                  <p className="text-xs font-medium text-slate-900 dark:text-slate-100">
+                  <p className="text-xs font-medium text-foreground">
                     Rev {review.stage}
                   </p>
                 </div>
 
                 {review.reviewedAt ? (
                   <>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                    <p className="text-[11px] text-muted-foreground">
                       {format(review.reviewedAt, 'dd/MM/yy', { locale: ptBR })}
                     </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-500">
+                    <p className="text-[10px] text-muted-foreground/60">
                       {format(review.reviewedAt, 'HH:mm', { locale: ptBR })}
                     </p>
                     {review.studyDuration !== undefined && (
-                      <p className="flex items-center justify-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium mt-0.5">
+                      <p className="flex items-center justify-center gap-1 text-[10px] text-primary font-medium mt-0.5">
                         <Clock className="w-2.5 h-2.5" />
                         {review.studyDuration}m
                       </p>
@@ -147,55 +129,61 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
                   </>
                 ) : isOverdue ? (
                   <>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                    <p className="text-[11px] text-rose-500 font-semibold">
                       {review.daysOverdue}d atraso
                     </p>
                     {review.expectedDate && (
-                      <p className="text-[10px] text-slate-500 dark:text-slate-500">
+                      <p className="text-[10px] text-muted-foreground/60">
                         Era: {format(review.expectedDate, 'dd/MM/yy', { locale: ptBR })}
                       </p>
                     )}
                   </>
                 ) : isToday ? (
                   <>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                      Hoje
-                    </p>
-                    <p className="text-[10px] text-transparent">--:--</p>
+                    <p className="text-[11px] text-amber-500 font-semibold">Hoje!</p>
+                    <p className="text-[10px] text-muted-foreground/50">Faça agora</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                      Pendente
+                    {/* Card pendente: mostrar data prevista pelo SRS */}
+                    {review.expectedDate ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        {format(review.expectedDate, 'dd/MM/yy', { locale: ptBR })}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground/50 italic">Adaptive</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground/40">
+                      {review.daysUntil > 0 ? `em ${review.daysUntil}d` : 'Pendente'}
                     </p>
-                    <p className="text-[10px] text-transparent">--:--</p>
                   </>
                 )}
               </div>
               {index < history.reviews.length - 1 && (
-                <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-600 flex-shrink-0" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Footer Explicativo do SRS Adaptativo (se tiver algo pendente) */}
+      {/* Nota explicativa do SRS adaptativo */}
       {history.nextReviews?.length > 0 && (
-        <div className="mt-3 bg-white/60 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
-          <p className="font-medium text-slate-700 dark:text-slate-300 mb-1">
-            Após esta revisão, o sistema recalcula automaticamente o próximo intervalo com base no seu desempenho.
+        <div className="mt-3 bg-card p-3 rounded-lg border border-border text-xs text-muted-foreground">
+          <p className="font-medium text-foreground mb-1">
+            ℹ️ Próximas revisões são calculadas automaticamente
           </p>
-          <ul className="list-disc list-inside opacity-90 pl-1">
-            <li>Se for fácil: o intervalo tende a aumentar (mais dias até a próxima revisão).</li>
-            <li>Se for difícil: o intervalo tende a encurtar (menos dias até a próxima revisão).</li>
+          <ul className="list-disc list-inside opacity-80 pl-1 space-y-0.5">
+            <li>Se for <span className="text-emerald-500 font-medium">Fácil</span>: intervalo aumenta (mais dias).</li>
+            <li>Se for <span className="text-rose-500 font-medium">Difícil</span>: intervalo encurta (menos dias).</li>
+            <li>A data mostrada é a previsão atual — será recalculada após cada avaliação.</li>
           </ul>
         </div>
       )}
 
       {/* Tendência recente */}
       {history.latestTrendLabel && (
-        <div className="mt-3 flex items-center gap-2 px-2 py-2 bg-white/60 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+        <div className="mt-3 flex items-center gap-2 px-2 py-2 bg-card rounded-lg border border-border">
           {history.latestTrendLabel === 'Melhorando' && (
             <TrendingUp className="w-4 h-4 text-emerald-500" />
           )}
@@ -203,22 +191,34 @@ export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps>
             <TrendingDown className="w-4 h-4 text-rose-500" />
           )}
           {(history.latestTrendLabel === 'Estável' || history.latestTrendLabel === 'Sem histórico suficiente') && (
-            <Minus className="w-4 h-4 text-slate-400" />
+            <Minus className="w-4 h-4 text-muted-foreground/50" />
           )}
           <span
-            className={`text-xs font-semibold cursor-help ${history.latestTrendLabel === 'Melhorando' ? 'text-emerald-600 dark:text-emerald-400' :
-                history.latestTrendLabel === 'Piorando' ? 'text-rose-600 dark:text-rose-400' :
-                  'text-slate-500 dark:text-slate-400'
-              }`}
+            className={`text-xs font-semibold cursor-help ${
+              history.latestTrendLabel === 'Melhorando' ? 'text-emerald-500' :
+              history.latestTrendLabel === 'Piorando' ? 'text-rose-500' :
+              'text-muted-foreground'
+            }`}
             title="Baseado nas últimas avaliações de dificuldade registradas."
           >
             Tendência recente: {history.latestTrendLabel}
           </span>
           {history.latestTrendDelta != null && (
-            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+            <span className="text-[10px] text-muted-foreground/50">
               (Δ {history.latestTrendDelta > 0 ? '+' : ''}{history.latestTrendDelta.toFixed(1)})
             </span>
           )}
+        </div>
+      )}
+
+      {/* Gráfico de Evolução de Dificuldade */}
+      {history.rawEntries && history.rawEntries.length >= 2 && (
+        <div className="mt-3 p-3 bg-card rounded-lg border border-border">
+          <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
+            <TrendingUp className="w-3.5 h-3.5 text-primary" />
+            Evolução da Dificuldade
+          </p>
+          <TopicEvolutionChart history={history.rawEntries} />
         </div>
       )}
     </div>

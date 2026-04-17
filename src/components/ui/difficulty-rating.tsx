@@ -12,19 +12,15 @@ interface DifficultyRatingProps {
 }
 
 const difficultyLabels = {
-  1: 'Fácil',
+  1: 'Difícil',
   2: 'Médio',
-  3: 'Difícil',
-  4: 'Difícil',
-  5: 'Muito Difícil'
+  3: 'Fácil'
 };
 
 const difficultyColors = {
-  1: 'text-green-500',
+  1: 'text-red-500',
   2: 'text-yellow-500',
-  3: 'text-red-500',
-  4: 'text-orange-500',
-  5: 'text-red-500'
+  3: 'text-green-500'
 };
 
 export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
@@ -95,7 +91,7 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
       {/* Labels e Estrelas */}
       <div className="flex items-center gap-2">
         {/* Label "Fácil" */}
-        <span className="text-xs text-gray-500 font-medium">Fácil</span>
+        <span className="text-xs text-gray-500 font-medium">Difícil</span>
 
         {/* Estrelas */}
         <div className="flex items-center gap-1">
@@ -130,8 +126,8 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
           })}
         </div>
 
-        {/* Label "Difícil" */}
-        <span className="text-xs text-gray-500 font-medium">Difícil</span>
+        {/* Label "Fácil" */}
+        <span className="text-xs text-gray-500 font-medium">Fácil</span>
       </div>
 
       {/* Label da dificuldade selecionada */}

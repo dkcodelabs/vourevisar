@@ -33,7 +33,7 @@ export const StatsSidebar: React.FC<StatsSidebarProps> = ({
     const stats = [
         {
             label: "Tópicos Iniciados",
-            value: `${startedTopics}/${totalTopics}`,
+            value: startedTopics,
             icon: BookOpen,
             color: "text-blue-500",
             bg: "bg-blue-50"

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { StudyCycleTopic } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
 import { CheckIcon } from './Icons';
-import { FileText, ArrowRight } from 'lucide-react';
+import { FileText, ArrowRight, Flame, Target } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface StudyCycleTopicItemProps {
@@ -15,6 +15,8 @@ interface StudyCycleTopicItemProps {
   isEditing?: boolean;
   onEditingChange?: (topicId: string | null) => void;
   searchQuery?: string;
+  isConsolidated?: boolean;
+  mentorAlert?: any;
 }
 
 // Componente para destacar texto da busca
@@ -86,15 +88,17 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
   isActionable,
   isEditing = false,
   onEditingChange,
-  searchQuery = ''
+  searchQuery = '',
+  isConsolidated = false,
+  mentorAlert
 }) => {
   const isTopicCompleted = topic.reviewStatus === ReviewInterval.COMPLETED;
 
   // Calcular status baseado na data de próxima revisão
   const getTopicStatus = () => {
 
-    if (isTopicCompleted) {
-      // Para tópicos concluídos, mostrar a data da última revisão
+    if (isTopicCompleted || isConsolidated) {
+      // Para tópicos concluídos ou consolidados, mostrar a data da última revisão
       const completedDate = topic.lastReviewedAt
         ? new Date(topic.lastReviewedAt).toLocaleDateString('pt-BR', {
           day: '2-digit',
@@ -102,6 +106,14 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
           year: 'numeric'
         })
         : null;
+
+      if (isConsolidated) {
+        return {
+          text: 'Consolidado',
+          className: 'bg-emerald-100/50 text-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-300/60 opacity-60',
+          dateInfo: completedDate ? `Última revisão: ${completedDate}` : null
+        };
+      }
 
       return {
         text: 'Concluído',
@@ -139,7 +151,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
         if (diffDays < 0) {
           const daysOverdue = Math.abs(diffDays);
           return {
-            text: `${daysOverdue} dia${daysOverdue !== 1 ? 's' : ''} atraso`,
+            text: 'Atrasado',
             className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
             dateInfo: `Em: ${formattedDate}`
           };
@@ -194,9 +206,8 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
 
     // Atrasada (vermelho)
     if (diffDays < 0) {
-      const daysOverdue = Math.abs(diffDays);
       return {
-        text: `${daysOverdue} dia${daysOverdue !== 1 ? 's' : ''} atraso`,
+        text: 'Atrasado',
         className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
         dateInfo: `Em: ${formattedDate}`
       };
@@ -257,11 +268,19 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
             </span>
           )}
           <div
-            className="block flex-1 first-letter:uppercase"
+            className="flex-1 first-letter:uppercase flex items-center gap-2"
           >
-            <span className="text-sm font-normal text-zinc-800 dark:text-zinc-200 break-words block">
+            <span className="text-sm font-normal text-zinc-800 dark:text-zinc-200 break-words line-clamp-2">
               <HighlightText text={topic.name} searchQuery={searchQuery} />
             </span>
+            {mentorAlert && (
+              <div 
+                className={`flex-shrink-0 flex items-center justify-center p-1 rounded-md ${mentorAlert.level === 'critical' ? 'bg-rose-500/10 text-rose-500' : 'bg-amber-500/10 text-amber-500'}`}
+                title="Ação Recomendada pelo Mentor AI"
+              >
+                {mentorAlert.level === 'critical' ? <Flame size={14} /> : <Target size={14} />}
+              </div>
+            )}
           </div>
         </div>
 

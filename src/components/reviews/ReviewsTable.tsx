@@ -106,7 +106,6 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
               <TableRow className="bg-muted/50 border-b border-border hover:bg-muted/30">
                 <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">DISCIPLINA</TableHead>
                 <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">TÓPICO</TableHead>
-                <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">ESTÁGIO</TableHead>
                 <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">PRÓXIMA REVISÃO</TableHead>
                 <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">STATUS</TableHead>
                 <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-6 py-3">AÇÕES</TableHead>
@@ -124,8 +123,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                   statusColor = 'bg-green-100 text-green-700';
                 } else if (proxima) {
                   if (isBefore(proxima, hoje)) {
-                    const diasVencidos = differenceInDays(hoje, proxima);
-                    status = `Atrasado (${diasVencidos} dia${diasVencidos > 1 ? 's' : ''})`;
+                    status = 'Atrasado';
                     statusColor = 'bg-red-100 text-red-700';
                   } else if (proxima.getTime() === hoje.getTime()) {
                     status = 'Hoje';
@@ -137,12 +135,6 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                   <TableRow key={topic.id} className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors">
                     <TableCell className="px-6 py-3 text-sm font-medium text-foreground">{topic.subject_name}</TableCell>
                     <TableCell className="px-6 py-3 text-sm text-muted-foreground">{topic.name}</TableCell>
-                    <TableCell className="px-6 py-3 text-sm text-muted-foreground">
-                      {topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' 
-                        ? topic.review_stage 
-                        : (topic.review_count > 0 ? '24h' : 'Não iniciado')
-                      }
-                    </TableCell>
                     <TableCell className="px-6 py-3 text-sm text-muted-foreground">
                       {proxima ? format(proxima, 'dd/MM/yyyy') : '-'}
                     </TableCell>
@@ -268,8 +260,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                 statusColor = 'bg-green-100 text-green-700';
               } else if (proxima) {
                 if (isBefore(proxima, hoje)) {
-                  const diasVencidos = differenceInDays(hoje, proxima);
-                  status = `Atrasado (${diasVencidos}d)`;
+                  status = 'Atrasado';
                   statusColor = 'bg-red-100 text-red-700';
                 } else if (proxima.getTime() === hoje.getTime()) {
                   status = 'Hoje';
@@ -292,12 +283,6 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                     <div className="flex flex-wrap gap-2">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
                         {status}
-                      </span>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                        {topic.review_stage && topic.review_stage !== 'null' && topic.review_stage !== '' 
-                          ? topic.review_stage 
-                          : (topic.review_count > 0 ? '24h' : 'Não iniciado')
-                        }
                       </span>
                     </div>
                     

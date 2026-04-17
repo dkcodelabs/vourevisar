@@ -5,8 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, Trash2 } from 'lucide-react';
 import { Topic } from '@/types';
-import RegisterQuestionsButton from '@/components/reviews/RegisterQuestionsButton';
-
 interface TopicCardProps {
   topic: Topic & { subjectName: string };
   onDelete: (topicId: string) => void;
@@ -77,10 +75,7 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onDelete, onNotesClick }) 
         </div>
 
         <div className="flex items-center gap-1 ml-2">
-          <RegisterQuestionsButton 
-            subject={topic.subjectName} 
-            topic={topic.name} 
-          />
+
           <Button
             variant="ghost"
             size="sm"

@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Files, Filter, Play, Wand2, BookOpen, Link2Off } from 'lucide-react';
+import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
@@ -26,7 +27,7 @@ import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
-import { useCycleViewManagement } from '@/hooks/useCycleViewManagement';
+// useCycleViewManagement removido — funcionalidade de duplicação descontinuada
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
@@ -34,33 +35,29 @@ import { errorService } from '@/lib/errors/errorService';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { useAIStatus } from '@/hooks/useAIStatus';
 import { useMergeData } from '@/hooks/useMergeData';
+import { SubjectSparkline } from '@/components/subjects/SubjectSparkline';
 
 const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) {
     return 'Nova';
   }
 
-  // Verificar se todos os tópicos estão concluídos
-  const allTopicsCompleted = subject.topics.every(topic =>
-    topic.completed || topic.reviewStage === 'Concluído'
+  // Agora "Concluída" exige que todos os tópicos tenham completado o ciclo SRS
+  const allTopicsSRSCompleted = subject.topics.every(topic =>
+    topic.completed === true || topic.reviewStage === 'Concluído'
   );
 
-  if (allTopicsCompleted) {
+  if (allTopicsSRSCompleted) {
     return 'Concluída';
   }
 
-  // Verificar se algum tópico foi iniciado
+  // Consideramos "Em Estudo" se pelo menos um tópico foi iniciado
   const hasStartedTopics = subject.topics.some(topic =>
     (topic.reviewCount > 0 || topic.review_count > 0) ||
     (topic.reviewStage && topic.reviewStage !== '') ||
-    (topic.review_stage && topic.review_stage !== '') ||
     (topic.nextReview !== undefined && topic.nextReview !== null) ||
-    (topic.next_review !== undefined && topic.next_review !== null) ||
     topic.completed === true ||
-    (topic.lastReviewedAt !== null && topic.lastReviewedAt !== undefined) ||
-    (topic.last_reviewed_at !== null && topic.last_reviewed_at !== undefined) ||
-    (topic.firstStudiedAt !== null && topic.firstStudiedAt !== undefined) ||
-    (topic.first_studied_at !== null && topic.first_studied_at !== undefined)
+    topic.firstStudiedAt || topic.first_studied_at
   );
 
   if (hasStartedTopics) {
@@ -544,7 +541,7 @@ const Subjects = () => {
   };
 
   // Hook para gerenciar visualizações duplicadas no ciclo
-  const { addSubjectView, removeSubjectView, getSubjectViewCount } = useCycleViewManagement();
+  // Duplicação de matéria removida — useCycleViewManagement descontinuado
 
   // Hook para gerenciar status do ciclo de estudos
   const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
@@ -662,8 +659,6 @@ const Subjects = () => {
   interface ExpandedSubjectItem {
     id: string;
     subject: Subject;
-    viewIndex: number;
-    isView: boolean;
   }
 
   // Criar lista expandida de matérias com visualizações usando useMemo
@@ -689,46 +684,31 @@ const Subjects = () => {
     const visibleSubjects = applyUnificationMap(rawVisibleSubjects, dynamicUnificationMap);
 
     if (cicloAtual.length === 0 || visibleSubjects.length === 0) {
-      return visibleSubjects.map((subject, index) => ({
-        id: `${subject.id}-${index}`,
-        subject,
-        viewIndex: index,
-        isView: false
+      return visibleSubjects.map((subject) => ({
+        id: subject.id,
+        subject
       }));
     }
 
+    // Cada matéria aparece uma única vez (duplicação descontinuada)
+    const seen = new Set<string>();
     const expanded: ExpandedSubjectItem[] = [];
-    const usedIndices = new Map<string, number>();
 
-    // Primeiro, adicionar todas as matérias do ciclo com suas visualizações
-    cicloAtual.forEach((originalSubjectId: string, cycleIndex: number) => {
+    // Matérias do ciclo primeiro (preservando a ordem do ciclo)
+    cicloAtual.forEach((originalSubjectId: string) => {
       const mappedSubjectId = getUnifiedSubjectId(originalSubjectId, dynamicUnificationMap);
+      if (seen.has(mappedSubjectId)) return; // pula duplicatas do ciclo_atual
       const subject = visibleSubjects.find(s => s.id === mappedSubjectId);
       if (!subject) return;
-
-      // Contar quantas vezes esta matéria (ou suas unificadas) já apareceu antes neste ciclo
-      const viewIndex = userCycle.ciclo_atual
-        .slice(0, cycleIndex)
-        .filter((id: string) => getUnifiedSubjectId(id, dynamicUnificationMap) === mappedSubjectId).length;
-
-      expanded.push({
-        id: `${subject.id} -${cycleIndex} `,
-        subject,
-        viewIndex,
-        isView: viewIndex > 0
-      });
+      seen.add(mappedSubjectId);
+      expanded.push({ id: subject.id, subject });
     });
 
-    // Depois, adicionar matérias visíveis que não estão no ciclo (novas matérias sem edital)
-    const subjectsInCycle = new Set(userCycle.ciclo_atual);
+    // Matérias visíveis fora do ciclo (novas matérias sem edital)
     visibleSubjects.forEach(subject => {
-      if (!subjectsInCycle.has(subject.id)) {
-        expanded.push({
-          id: `${subject.id} -0`,
-          subject,
-          viewIndex: 0,
-          isView: false
-        });
+      if (!seen.has(subject.id)) {
+        seen.add(subject.id);
+        expanded.push({ id: subject.id, subject });
       }
     });
 
@@ -1150,16 +1130,24 @@ const Subjects = () => {
     return 'text-blue-500';
   };
 
-  // Função corrigida para calcular a Cobertura (progresso real de contato inicial)
-  const getSubjectProgress = (subject: Subject) => {
+  // Progresso de Cobertura (Tópicos Iniciados)
+  const getSubjectCoverage = (subject: Subject) => {
     if (subject.topics.length === 0) return 0;
-
-    // Contar tópicos que já foram estudados
-    const studiedTopics = subject.topics.filter(topic =>
-      Boolean(topic.first_studied_at) || topic.reviewCount > 0 || topic.completed || topic.reviewStage === 'Concluído'
+    const started = subject.topics.filter(topic =>
+      Boolean(topic.first_studied_at) || Boolean(topic.firstStudiedAt) || 
+      (topic.reviewCount > 0 || topic.review_count > 0) || 
+      topic.completed === true
     ).length;
+    return Math.round((started / subject.topics.length) * 100);
+  };
 
-    return Math.round((studiedTopics / subject.topics.length) * 100);
+  // Progresso de Conclusão SRS (Tópicos Finalizados no Ciclo)
+  const getSubjectCompletion = (subject: Subject) => {
+    if (subject.topics.length === 0) return 0;
+    const completed = subject.topics.filter(topic =>
+      topic.completed === true || topic.reviewStage === 'Concluído' || topic.review_stage === 'Concluído'
+    ).length;
+    return Math.round((completed / subject.topics.length) * 100);
   };
 
   const handleViewTopics = (subject: Subject) => {
@@ -1186,56 +1174,7 @@ const Subjects = () => {
     }, 200);
   };
 
-  const handleAddSubjectView = async (subject: Subject) => {
-    try {
-      const success = await addSubjectView(subject.id, subject.name);
-      if (success) {
-        // Registrar sessão de estudo
-        await recordStudySession({
-          subjectId: subject.id,
-          subjectName: subject.name,
-          topicsStudied: subject.topics?.map(t => t.id) || [],
-          topicsCount: subject.topics?.length || 0
-        });
-
-        // Recarregar ciclo para atualizar contadores
-        const { data } = await supabase
-          .from('user_cycles')
-          .select('ciclo_atual')
-          .eq('user_id', user!.id)
-          .limit(1);
-
-        const cycleData = data?.[0] || null;
-
-        if (cycleData) {
-          setUserCycle(cycleData);
-        }
-      }
-    } catch (error: any) {
-      // Erro genérico
-      console.error('Erro ao adicionar visualização:', error);
-      errorService.report(error, { module: 'subjects', action: 'add_topic_view', userMessage: "Erro ao adicionar visualização da matéria" });
-    }
-  };
-
-  const handleRemoveSubjectView = async (subjectId: string, viewIndex: number, subjectName: string) => {
-    const success = await removeSubjectView(subjectId, viewIndex, subjectName);
-    if (success) {
-      // Recarregar ciclo
-      const { data } = await supabase
-        .from('user_cycles')
-        .select('ciclo_atual')
-        .eq('user_id', user!.id)
-        .limit(1);
-
-      const cycleData = data?.[0] || null;
-
-      if (cycleData) {
-        setUserCycle(cycleData);
-      }
-      // Refresh será feito automaticamente pelo recarregamento do ciclo
-    }
-  };
+  // handleAddSubjectView e handleRemoveSubjectView removidos — duplicação descontinuada
   // Lista filtrada baseada no status selecionado
   const filteredList = useMemo(() => {
     let list = expandedSubjectList;
@@ -1471,11 +1410,9 @@ const Subjects = () => {
             <SortableContext items={displayList.map(i => i.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-3">
                 {displayList.map((item, index) => {
-                  const { subject, isView, viewIndex } = item;
-                  const progress = getSubjectProgress(subject);
+                  const { subject } = item;
                   const calculatedStatus = calculateSubjectStatus(subject);
                   const isEditing = editingSubjectId === subject.id;
-                  const viewCount = userCycle?.ciclo_atual ? getSubjectViewCount(subject.id, userCycle.ciclo_atual) : 0;
                   const position = index + 1;
 
                   return (
@@ -1547,11 +1484,6 @@ const Subjects = () => {
                                       >
                                       {getUnifiedSubjectName(subject.id, subject.name).toUpperCase()}
                                       </h4>
-                                      {isView && (
-                                        <Badge variant="outline" className="text-[8px] px-1 bg-primary/10 text-primary border-primary/20">
-                                          DUP
-                                        </Badge>
-                                      )}
                                       {isSubjectMerged(subject.id) && (
                                         <button
                                           onClick={(e) => {
@@ -1625,26 +1557,76 @@ const Subjects = () => {
                             </div>
 
                             <div className="flex items-center gap-2">
-                              {/* Progress Circle */}
-                              <div className="hidden sm:flex items-center justify-center relative w-8 h-8 rounded-full bg-secondary dark:bg-deep-slate border border-border dark:border-white/5 mr-2">
-                                <svg className="w-full h-full -rotate-90 transform p-0.5" viewBox="0 0 36 36">
-                                  <circle className="text-black/5 dark:text-white/5" strokeWidth="3" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
-                                  <circle
-                                    className="text-primary transition-all duration-1000 ease-out"
-                                    strokeWidth="3"
-                                    strokeDasharray={`${progress}, 100`}
-                                    strokeLinecap="round"
-                                    stroke="currentColor"
-                                    fill="transparent"
-                                    r="16"
-                                    cx="18"
-                                    cy="18"
-                                  />
-                                </svg>
-                                <span className="absolute text-[8px] font-bold text-content-main">{progress}%</span>
-                              </div>
+                              {/* Sparkline de tendência — mini gráfico ao lado do círculo */}
+                              <SubjectSparkline subjectId={subject.id} />
 
-                              <div className="flex items-center gap-0.5">
+                              {/* Progress Dual Ring — Cobertura e Conclusão SRS */}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="hidden sm:flex items-center justify-center relative w-11 h-11 rounded-full bg-secondary/50 dark:bg-deep-slate border border-border dark:border-white/5 mr-2 cursor-help transition-all hover:scale-105 active:scale-95">
+                                      <svg className="w-full h-full -rotate-90 transform p-0.5" viewBox="0 0 36 36">
+                                        {/* Background Circles */}
+                                        <circle className="text-black/5 dark:text-white/5" strokeWidth="3" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
+                                        <circle className="text-black/5 dark:text-white/5" strokeWidth="2.5" stroke="currentColor" fill="transparent" r="11" cx="18" cy="18" />
+                                        
+                                        {/* Outer Ring: Coverage (Sky) */}
+                                        <circle
+                                          className="text-sky-400 transition-all duration-1000 ease-out"
+                                          strokeWidth="3"
+                                          strokeDasharray={`${getSubjectCoverage(subject)}, 100`}
+                                          strokeLinecap="round"
+                                          stroke="currentColor"
+                                          fill="transparent"
+                                          r="16"
+                                          cx="18"
+                                          cy="18"
+                                        />
+                                        
+                                        {/* Inner Ring: Completion (Emerald) */}
+                                        <circle
+                                          className="text-emerald-500 transition-all duration-1000 ease-out"
+                                          strokeWidth="2.5"
+                                          strokeDasharray={`${getSubjectCompletion(subject)}, 100`}
+                                          strokeLinecap="round"
+                                          stroke="currentColor"
+                                          fill="transparent"
+                                          r="11"
+                                          cx="18"
+                                          cy="18"
+                                        />
+                                      </svg>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="p-3 bg-background/95 backdrop-blur-md border-border shadow-2xl rounded-xl">
+                                    <div className="space-y-1.5">
+                                      <p className="text-[10px] font-bold text-content-muted uppercase tracking-wider">Detalhamento da Matéria</p>
+                                      <div className="space-y-1">
+                                        <div className="flex items-center justify-between gap-8">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-sky-400"></div>
+                                            <span className="text-xs font-semibold">Tópicos Iniciados</span>
+                                          </div>
+                                          <span className="text-xs font-bold text-sky-400">{getSubjectCoverage(subject)}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-8">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                            <span className="text-xs font-semibold">Círculos Concluídos (SRS)</span>
+                                          </div>
+                                          <span className="text-xs font-bold text-emerald-500">{getSubjectCompletion(subject)}%</span>
+                                        </div>
+                                      </div>
+                                      <div className="pt-1.5 mt-1.5 border-t border-border/50">
+                                        <p className="text-[10px] font-medium text-content-muted">Status: <span className="text-primary font-bold uppercase">{calculatedStatus}</span></p>
+                                      </div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+
+                              {/* Ícones de ação — aparecem no hover, iguais ao padrão dos tópicos */}
+                              <div className="flex items-center gap-0.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 pointer-events-none group-hover:pointer-events-auto">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1652,66 +1634,34 @@ const Subjects = () => {
                                     setIsNotesModalOpen(true);
                                   }}
                                   title="Anotações"
-                                  className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-primary"
+                                  className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-content-muted hover:text-primary"
                                 >
                                   <FileText size={14} />
                                 </button>
 
-                                {isView ? (
+                                  {/* Botão Excluir do Edital */}
                                   <button
-                                    onClick={(e) => {
+                                    onClick={async (e) => {
                                       e.stopPropagation();
-                                      handleRemoveSubjectView(subject.id, viewIndex, subject.name);
+                                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                      const { data } = await (supabase as any)
+                                        .from('user_editais')
+                                        .select('id, name, subject_ids, is_imported, source_id')
+                                        .eq('user_id', user!.id)
+                                        .contains('subject_ids', [subject.id]);
+
+                                      setDeletePermanentConfirm({
+                                        isOpen: true,
+                                        subjectId: subject.id,
+                                        subjectName: subject.name,
+                                        editais: data || [],
+                                      });
                                     }}
-                                    title="Remover Cópia"
                                     className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
+                                    title="Excluir do Edital"
                                   >
                                     <Trash2 size={14} />
                                   </button>
-                                ) : (
-                                  <>
-                                    {calculatedStatus !== 'Concluída' && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleAddSubjectView(subject);
-                                        }}
-                                        title="Duplicar no Ciclo"
-                                        className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-content-muted hover:text-primary relative"
-                                      >
-                                        <Files size={14} />
-                                        {viewCount > 1 && (
-                                          <span className="absolute -top-1 -right-1 h-3 w-3 flex items-center justify-center rounded-full text-[8px] font-bold bg-primary text-white">
-                                            {viewCount - 1}
-                                          </span>
-                                        )}
-                                      </button>
-                                    )}
-                                    {/* Botão Excluir do Edital */}
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        const { data } = await (supabase as any)
-                                          .from('user_editais')
-                                          .select('id, name, subject_ids, is_imported, source_id')
-                                          .eq('user_id', user!.id)
-                                          .contains('subject_ids', [subject.id]);
-
-                                        setDeletePermanentConfirm({
-                                          isOpen: true,
-                                          subjectId: subject.id,
-                                          subjectName: subject.name,
-                                          editais: data || [],
-                                        });
-                                      }}
-                                      className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
-                                      title="Excluir do Edital"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </>
-                                )}
                               </div>
 
                               <div className="w-px h-4 bg-black/5 dark:bg-white/5 mx-0.5"></div>
@@ -1776,16 +1726,7 @@ const Subjects = () => {
                                         }`}
                                       >
                                         <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
-                                          <span className="text-[9px] font-bold text-content-muted w-4 flex-shrink-0">{idx + 1}.</span>
-                                          <div className={`flex-shrink-0 transition-colors ${iconClass}`}>
-                                            {isCompleted ? (
-                                              <CheckCircle2 size={16} className="fill-green-100 dark:fill-green-900/40 text-green-600" />
-                                            ) : !isActive ? (
-                                              <Circle size={16} className="text-slate-400 dashed" />
-                                            ) : (
-                                              <Circle size={16} className="text-content-muted" />
-                                            )}
-                                          </div>
+                                          {/* ícone de radiobox removido — sem função neste contexto */}
 
                                           {editingTopicId === topic.id ? (
                                             <div className="flex items-center gap-1 flex-1 min-w-0">
@@ -1817,13 +1758,43 @@ const Subjects = () => {
                                               >
                                                 {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && '(Inativo)'}
                                               </span>
-                                              <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest mt-0.5">
-                                                {!isActive
-                                                  ? 'NA LIXEIRA'
-                                                  : (topic as any).first_studied_at || topic.reviewCount > 0
-                                                  ? 'ESTUDADO'
-                                                  : 'NÃO INICIADO'}
-                                              </span>
+                                              {/* 
+                                                Lógica de label — prioridade:
+                                                1. CONCLUÍDO   = todas as revisões terminadas
+                                                2. EM REVISÃO  = tem revisões feitas mas não concluído
+                                                3. ESTUDADO    = teve 1º contato mas ainda sem revisão
+                                                4. NÃO INICIADO = nunca foi aberto
+                                              */}
+                                              {(() => {
+                                                const hasRevisions = topic.reviewCount > 0 || (topic as any).review_count > 0;
+                                                const hasStudied = Boolean((topic as any).first_studied_at);
+
+                                                let label: string;
+                                                let colorClass: string;
+
+                                                if (!isActive) {
+                                                  label = 'NA LIXEIRA';
+                                                  colorClass = 'text-rose-500/70';
+                                                } else if (isCompleted) {
+                                                  label = 'CONCLUÍDO';
+                                                  colorClass = 'text-emerald-500/80';
+                                                } else if (hasRevisions) {
+                                                  label = 'EM REVISÃO';
+                                                  colorClass = 'text-yellow-500/80';
+                                                } else if (hasStudied) {
+                                                  label = 'ESTUDADO';
+                                                  colorClass = 'text-sky-500/70';
+                                                } else {
+                                                  label = 'NÃO INICIADO';
+                                                  colorClass = 'text-muted-foreground/50';
+                                                }
+
+                                                return (
+                                                  <span className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${colorClass}`}>
+                                                    {label}
+                                                  </span>
+                                                );
+                                              })()}
                                             </div>
                                           )}
                                         </div>

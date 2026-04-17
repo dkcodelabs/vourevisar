@@ -143,7 +143,9 @@ export const useReviewsData = () => {
         difficulty_level: topic.difficulty_level,
         memory_stability: topic.memory_stability,
         current_interval: topic.current_interval,
-        learningStatus: determineLearningStatus(topic.memory_stability || 0, topic.current_interval || 0, topic.review_count || 0),
+        learningStatus: (topic.review_count > 0 || topic.first_studied_at) 
+          ? determineLearningStatus(topic.memory_stability || 0, topic.current_interval || 0, topic.review_count || 0) 
+          : undefined,
         notes: topic.notes,
         subject_name: topic.subjects?.name || 'Sem disciplina',
         subjects: {
@@ -288,7 +290,7 @@ export const useReviewsData = () => {
         return acc;
       }
 
-      if (!topic.next_review) return acc;
+      if (!topic.next_review || topic.review_count === 0) return acc;
 
       const reviewDateString = format(startOfDay(new Date(topic.next_review)), 'yyyy-MM-dd');
 
@@ -318,9 +320,7 @@ export const useReviewsData = () => {
     }
   );
 
-  // Suggested Daily Volume Calculation
-  // We recommend at least 15 reviews, or up to the total overdue if less. 
-  const suggestedDailyReviews = totalPendingCount === 0 ? 0 : Math.max(15, Math.min(totalPendingCount || 0, 30));
+  // Calculation based strictly on reality (or the capped slice from Recovery Mode)
 
   // Apply Recovery Mode Logic to 'todayTopics' (which usually merges delayed + today)
   // But wait, the hook returns separate arrays. The UI merges them for 'FOCUS' tab.
@@ -362,6 +362,8 @@ export const useReviewsData = () => {
   if (isRecoveryMode) {
     focusTopics = focusTopics.slice(0, 7);
   }
+
+  const suggestedDailyReviews = focusTopics.length;
 
   return {
     topics: filteredTopics,

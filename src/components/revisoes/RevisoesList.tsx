@@ -5,7 +5,10 @@ import {
 } from 'lucide-react';
 import { RevisionItem, RevisionStatus } from '@/types/revision';
 import { useNavigate } from 'react-router-dom';
-import RegisterQuestionsButton from '@/components/reviews/RegisterQuestionsButton';
+import { useMentorInsights } from '@/hooks/useMentorInsights';
+import { TrendIcon } from '@/components/mentor/TrendIcon';
+
+import { MentorBadge } from '@/components/mentor/MentorBadge';
 
 const DifficultyStars = ({ rating }: { rating: number }) => {
     return (
@@ -54,12 +57,13 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
     handleMarkCompleted,
     handleAiAssist,
     openNotesModal,
-    setSearchTerm,
-    setReviewStageFilter
+  setSearchTerm,
+  setReviewStageFilter
 }) => {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+  const { gargaloByTopic, trendByTopic } = useMentorInsights();
 
-    const getGroupStyle = (groupKey: string) => {
+  const getGroupStyle = (groupKey: string) => {
         switch (groupKey) {
             case 'FOCUS_MERGED':
                 return {
@@ -355,6 +359,8 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 <div className="divide-y divide-border">
                                     {groupItems.map(item => {
                                         const isActive = activeTimer?.topicId === item.id;
+                                        const gargaloAlert = gargaloByTopic.get(item.id);
+                                        const trendLabel = trendByTopic.get(item.id);
                                         return (
                                             <div
                                                 id={`topic-${item.id}`}
@@ -375,10 +381,20 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                         'bg-success'
                                                                 }`} />
                                                             <div className="min-w-0 flex-1">
-                                                                <p className={`text-sm font-bold break-words line-clamp-2 ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                                                                    {item.topic}
-                                                                    {isActive && <span className="ml-2 inline-block text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full animate-pulse">Em andamento</span>}
-                                                                </p>
+                                                                <div className={`text-sm font-bold break-words leading-snug ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                                                                    <span className="align-middle mr-1.5">{item.topic}</span>
+                                                                    {trendLabel && (trendLabel === 'Melhorando' || trendLabel === 'Piorando') && (
+                                                                        <span className="inline-flex mr-1.5 align-middle translate-y-[1px]" title={`Tendência de Retenção: ${trendLabel}`}>
+                                                                            <TrendIcon type={trendLabel} iconOnly={false} />
+                                                                        </span>
+                                                                    )}
+                                                                    {gargaloAlert && (
+                                                                        <span className="inline-flex mr-1.5 align-middle">
+                                                                            <MentorBadge alert={gargaloAlert} />
+                                                                        </span>
+                                                                    )}
+                                                                    {isActive && <span className="inline-block text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full animate-pulse align-middle">Em andamento</span>}
+                                                                </div>
                                                                 {item.subject && <p className="text-xs text-content-muted mt-1 font-bold uppercase truncate">{item.subject}</p>}
                                                             </div>
                                                         </div>
@@ -482,11 +498,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                     )}
                                                                 </button>
 
-                                                                {/* Botão Registrar Questões */}
-                                                                <RegisterQuestionsButton 
-                                                                    subject={item.subject || ''} 
-                                                                    topic={item.topic} 
-                                                                />
+
                                                             </div>
                                                         </div>
                                                     </div>

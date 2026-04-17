@@ -84,16 +84,14 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
     { to: "/revisoes", label: "Revisões", icon: Clock },
     { to: "/materias", label: "Matérias", icon: Book },
     { to: "/topicos", label: "Tópicos", icon: List },
-    { to: "/questoes", label: "Questões", icon: ClipboardList },
     { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
     { to: "/reveal-cards", label: "Componentes UI", icon: Layers },
   ];
 
   const adminItems: NavItem[] = isAdmin ? [
     { to: "/admin/users", label: "Gerenciar Usuários", icon: Users },
-    { to: "/admin/content/import", label: "Importar Questões", icon: FileUp },
     { to: "/admin/editais", label: "Gerenciar Editais", icon: Library },
-    { to: "/admin/tendencia", label: "Tendência (GUT)", icon: TrendingUp },
+    { to: "/admin/importancia-prova", label: "Importância em Prova", icon: TrendingUp },
     { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
     ...(isOwner ? [{ to: "/admin/pricing", label: "Preços e Cupons", icon: Target }] : []),
     { to: "/admin/audit", label: "Auditoria", icon: ClipboardList },

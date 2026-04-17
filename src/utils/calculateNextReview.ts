@@ -27,8 +27,6 @@ export interface SRSMetrics {
 
 export interface CalculateNextReviewParams {
     today: Date;
-    /** O perfil escolhido pelo aluno (controla velocidade de expansão). */
-    profile: ReviewProfile;
     metrics: SRSMetrics;
     /** Dificuldade marcada pelo aluno (1 = Difícil, 2 = Médio, 3 = Fácil). */
     difficulty?: number;
@@ -54,15 +52,22 @@ export interface CalculateNextReviewResult {
  * No UI novo, 1 = Fácil, 2 = Médio, 3 = Difícil.
  */
 const DIFFICULTY_MULTIPLIER: Record<number, number> = {
-    1: 1.2,    // Muito Fácil: Estabilidade cresce +20% extra
+    1: 0.6,    // Difícil: Estabilidade "punição" -40%
     2: 1.0,    // Médio: Crescimento normal (100% do fator base)
-    3: 0.6,    // Difícil: Estabilidade "punição" -40%
-    4: 0.6,    // Fallback legado "Difícil"
-    5: 0.4     // Fallback legado "Muito Difícil"
+    3: 1.2,    // Fácil: Estabilidade cresce +20% extra
+    4: 1.3,    // Fallback legado "Muito Fácil"
+    5: 1.4     // Fallback legado "Expert"
+};
+
+// Configuração Unificada do Motor Adaptativo
+const UNIFIED_PROFILE = {
+    initialStability: 3.0, 
+    baseGrowthFactor: 2.0, 
+    maxIntervalCap: 90,
 };
 
 export function calculateNextReview(params: CalculateNextReviewParams): CalculateNextReviewResult {
-    const { today, profile, metrics, difficulty = 2, examDate, trendDelta } = params;
+    const { today, metrics, difficulty = 2, examDate, trendDelta } = params;
 
     // Multiplicador de tendência: ajuste fino baseado na trajetória cognitiva recente
     let trendMultiplier = 1.0;
@@ -74,7 +79,7 @@ export function calculateNextReview(params: CalculateNextReviewParams): Calculat
     const todayStart = new Date(today);
     todayStart.setHours(0, 0, 0, 0);
 
-    const config = REVIEW_PROFILES[profile];
+    const config = UNIFIED_PROFILE;
 
     // Extraindo dados para processamento
     const { memoryStability, currentInterval, reviewCount } = metrics;

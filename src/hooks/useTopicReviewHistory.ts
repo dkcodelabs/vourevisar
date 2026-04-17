@@ -176,7 +176,9 @@ function processTopicHistory(
     completedReviews,
     totalStudyTime,
     latestTrendLabel,
-    latestTrendDelta
+    latestTrendDelta,
+    // Entradas brutas para o gráfico de evolução
+    rawEntries: historyData.filter(e => e.difficulty_numeric != null)
   };
 }
 

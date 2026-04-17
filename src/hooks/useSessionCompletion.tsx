@@ -51,8 +51,8 @@ export const useSessionCompletion = () => {
           .select('review_profile')
           .eq('user_id', user.id)
           .single();
-        if (settingsError) throw settingsError;
-        const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
+        // Motor legado: usar perfil INTERMEDIATE como padrão unificado
+        const profile = ReviewProfile.INTERMEDIATE;
         const { intervals } = REVIEW_PROFILES[profile];
         const firstInterval = intervals[0];
         const reviewStage = firstInterval === 1 ? '24h' : `${firstInterval}d`;

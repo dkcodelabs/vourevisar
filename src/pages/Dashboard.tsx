@@ -20,6 +20,7 @@ import { PendingReviewsCard } from '@/components/dashboard-v2/PendingReviewsCard
 import { ProgressConsistencyCard } from '@/components/dashboard-v2/ProgressConsistencyCard';
 import { NeedsFocusCard, QuickWinCard, GoldenHourCard } from '@/components/dashboard-v2/InsightCards';
 import { ReviewForecastCard } from '@/components/dashboard-v2/ReviewForecastCard';
+import { DifficultyEvolutionWidget } from '@/components/dashboard-v2/DifficultyEvolutionWidget';
 
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useDynamicCapacity } from '@/hooks/useDynamicCapacity';
@@ -319,6 +320,9 @@ const Dashboard = () => {
                                 />
                             </div>
                         </div>
+
+                        {/* Widget: Evolução Geral de Dificuldade */}
+                        <DifficultyEvolutionWidget cycleId={userCycle?.id} />
                     </div>
                 )}
 

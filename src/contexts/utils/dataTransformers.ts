@@ -40,7 +40,11 @@ export const transformTopicData = (topic: any): Topic => {
     edital_id: topic.edital_id,
     origin_id: topic.origin_id,
     subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [],
-    last_search_context: topic.last_search_context
+    last_search_context: topic.last_search_context,
+    next_review: topic.next_review,
+    total_volume: topic.total_volume,
+    memory_stability: topic.memory_stability,
+    current_interval: topic.current_interval
   };
 };
 

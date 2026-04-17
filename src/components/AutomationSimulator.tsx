@@ -189,7 +189,7 @@ export function AutomationSimulator({
                     <div>
                         <CardTitle className="flex items-center gap-2">
                             <span className="text-2xl">🤖</span>
-                            <span>Automação de Tendência</span>
+                            <span>Automação de Importância</span>
                         </CardTitle>
                         <p className="text-sm text-muted-foreground mt-1">
                             Processa automaticamente tópicos pendentes da base de dados

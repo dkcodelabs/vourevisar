@@ -25,30 +25,36 @@ const mapStatusToStudyCycleStatus = (status: string): SubjectStatus => {
   }
 };
 
-const mapReviewStageToInterval = (reviewStage?: string, completed?: boolean): ReviewInterval => {
+const mapReviewStageToInterval = (reviewStage?: string, completed?: boolean, reviewCount?: number, firstStudiedAt?: string | null | Date): ReviewInterval => {
   if (completed || reviewStage === 'Concluído') return ReviewInterval.COMPLETED;
 
-  switch (reviewStage) {
-    case 'Primeiro Contato':
-      return ReviewInterval.FIRST_CONTACT;
-    case '24h':
-    case '1d':
-      return ReviewInterval.REVISED_24H;
-    case '3d':
-    case '7 dias':
-    case '7d':
-      return ReviewInterval.REVISED_7D;
-    case '15 dias':
-    case '15d':
-      return ReviewInterval.REVISED_15D;
-    case '30 dias':
-    case '30d':
-      return ReviewInterval.REVISED_30D;
-    case '60d':
-      return ReviewInterval.REVISED_30D;
-    default:
-      return ReviewInterval.NOT_STARTED;
+  if (reviewStage) {
+    switch (reviewStage) {
+      case 'Primeiro Contato':
+        return ReviewInterval.FIRST_CONTACT;
+      case '24h':
+      case '1d':
+        return ReviewInterval.REVISED_24H;
+      case '3d':
+      case '7 dias':
+      case '7d':
+        return ReviewInterval.REVISED_7D;
+      case '15 dias':
+      case '15d':
+        return ReviewInterval.REVISED_15D;
+      case '30 dias':
+      case '30d':
+        return ReviewInterval.REVISED_30D;
+      case '60d':
+        return ReviewInterval.REVISED_30D;
+    }
   }
+
+  if ((reviewCount && reviewCount > 0) || firstStudiedAt) {
+    return ReviewInterval.FIRST_CONTACT; // Fallback se já foi estudado mas não tem estágio definido
+  }
+
+  return ReviewInterval.NOT_STARTED;
 };
 
 const mapDifficultyLevel = (level?: number | string): Difficulty => {
@@ -82,10 +88,17 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
   const lastReviewedAtRaw = topic.last_reviewed_at;
   const reviewStageRaw = topic.review_stage || topic.reviewStage;
 
+  const reviewStatusComputed = mapReviewStageToInterval(
+    reviewStageRaw, 
+    topic.completed, 
+    topic.reviewCount || topic.review_count, 
+    topic.first_studied_at || topic.firstStudiedAt
+  );
+
   return {
     id: topic.id,
     name: topic.name,
-    reviewStatus: mapReviewStageToInterval(reviewStageRaw, topic.completed),
+    reviewStatus: reviewStatusComputed,
     nextReviewDate: nextReviewRaw || undefined,
     lastReviewedAt: lastReviewedAtRaw || undefined,
     notes: topic.notes?.content || '',
@@ -317,17 +330,12 @@ export const useStudyCycleData = () => {
     }
 
     const cycleSubjects: StudyCycleSubject[] = [];
-    const processedSubjects = new Map<string, number>();
-
     userCycle.ciclo_atual.forEach((subjectId, index) => {
       const subject = unifiedSubjects.find(s => s.id === subjectId);
       
       if (!subject) {
         return;
       }
-
-      const viewNumber = (processedSubjects.get(subjectId) || 0) + 1;
-      processedSubjects.set(subjectId, viewNumber);
 
       try {
         const studyCycleSubject = mapSubjectToStudyCycleSubject(subject);
@@ -336,15 +344,8 @@ export const useStudyCycleData = () => {
           studyCycleSubject.status = SubjectStatus.COMPLETED_CYCLE;
         }
 
-        if (viewNumber > 1) {
-          studyCycleSubject.name = `${subject.name} (${viewNumber}ª visualização)`;
-          studyCycleSubject.id = `${subject.id}-view-${viewNumber}`;
-        } else {
-          studyCycleSubject.id = subject.id;
-        }
-
+        studyCycleSubject.id = subject.id; // ID puro, sem sufixo de view
         studyCycleSubject.originalId = subject.id;
-        studyCycleSubject.viewNumber = viewNumber;
         studyCycleSubject.cyclePosition = index + 1;
 
         cycleSubjects.push(studyCycleSubject);

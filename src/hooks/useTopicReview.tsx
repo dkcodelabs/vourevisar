@@ -139,21 +139,14 @@ export const useTopicReview = () => {
         }
       }
 
-      // Buscar configurações do usuário (incluindo perfil e data_prova)
+      // Buscar configurações do usuário (incluindo data_prova)
       const { data: settings, error: settingsError } = await supabase
         .from('user_settings')
-        .select('review_profile, data_prova_meta')
+        .select('data_prova_meta')
         .eq('user_id', user.id)
         .single();
 
       if (settingsError) throw settingsError;
-
-      // O perfil padrão é INTERMEDIATE para garantir que o algoritmo SRS funcione 
-      // de forma equilibrada desde o início, sem necessidade de intervenção do usuário.
-      const profileStr = settings?.review_profile as string | undefined;
-      const profile = profileStr && Object.values(ReviewProfile).includes(profileStr as ReviewProfile)
-        ? (profileStr as ReviewProfile)
-        : ReviewProfile.INTERMEDIATE;
 
       const examDate = (settings as Record<string, unknown>)?.data_prova_meta
         ? new Date((settings as Record<string, unknown>).data_prova_meta + 'T00:00:00')
@@ -161,12 +154,11 @@ export const useTopicReview = () => {
 
       const newReviewCount = topic.review_count + 1;
 
-      // 1. Converter dificuldade recebida (1-5 ou 1-3 do UI legado) para o padrão interno (1=Difícil, 2=Médio, 3=Fácil).
-      let numericDifficulty = 2;
+      // 1. Mapeamento direto da dificuldade (1=Difícil, 2=Médio, 3=Fácil)
+      // Agora alinhado: Mais estrelas = Melhor desempenho (Fácil).
+      let numericDifficulty = 2; // Padrão: Médio
       if (difficulty !== undefined && difficulty !== null) {
-        if (difficulty <= 1) numericDifficulty = 1; // Difícil
-        else if (difficulty === 2) numericDifficulty = 2; // Médio
-        else numericDifficulty = 3; // Fácil/Muito Fácil
+        numericDifficulty = Math.max(1, Math.min(3, Math.round(difficulty)));
       }
 
       // 2. Buscar histórico com proteção NULL e cronológica
@@ -200,7 +192,6 @@ export const useTopicReview = () => {
 
       const calcResult = calculateNextReview({
         today: new Date(),
-        profile,
         difficulty: numericDifficulty,
         examDate,
         trendDelta,
@@ -216,8 +207,8 @@ export const useTopicReview = () => {
       const reviewStage = newReviewCount === 1 ? 'Primeiro Contato' : `Revisão Adaptativa #${newReviewCount}`;
       const nextReview = formatDateForDB(calcResult.nextReviewDate);
 
-      // Se alcançou o máximo do ciclo (usado para mostrar concluído visivelmente mesmo o srs rodando)
-      const isCycleCompleted = newReviewCount >= REVIEW_PROFILES[profile].maxReviews;
+      // Se alcançou o máximo do ciclo unificado (8 revisões)
+      const isCycleCompleted = newReviewCount >= 8;
 
       // Preparar dados para atualização na tabela `topics`
       const now = new Date().toISOString();
@@ -413,11 +404,9 @@ export const useTopicReview = () => {
 
       if (difficulty) {
         const difficultyLabels: Record<number, string> = {
-          1: 'Fácil',
+          1: 'Difícil',
           2: 'Médio',
-          3: 'Difícil',
-          4: 'Difícil',
-          5: 'Muito Difícil'
+          3: 'Fácil'
         };
         const stars = '⭐'.repeat(difficulty);
         toastManager.success(`Dificuldade: ${difficultyLabels[difficulty]} ${stars}`);

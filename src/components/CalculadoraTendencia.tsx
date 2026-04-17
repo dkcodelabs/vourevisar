@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { toast } from 'react-toastify'
 import { Loader2, Search, TrendingUp, AlertTriangle, ChevronDown, CheckCircle2, Sparkles, BrainCircuit, Split, AlertOctagon } from 'lucide-react'
-import { calcularNotaTendencia } from '@/services/gutCalculator'
+import { calcularNotaImportancia } from '@/services/gutCalculator'
 import { AutomationSimulator } from './AutomationSimulator'
 import { AllTopicsTable } from './AllTopicsTable'
 
-export function CalculadoraTendencia() {
+export function CalculadoraImportancia() {
     // const [apiKey, setApiKey] = useState('') // Removido V30
     // const [cx, setCx] = useState('') // Removido V30
     const [materia, setMateria] = useState('')
@@ -17,7 +17,7 @@ export function CalculadoraTendencia() {
     const [refreshTable, setRefreshTable] = useState(0) // ✅ Estado para forçar update da tabela
     const [resultado, setResultado] = useState<{
         volume_maximo: number
-        nota_gut: number
+        nota_importancia: number
         log_detalhado: string[]
         carreira: string
         bancas_analisadas: string[]
@@ -43,7 +43,7 @@ export function CalculadoraTendencia() {
         setResultado(null)
 
         try {
-            const res = await calcularNotaTendencia(
+            const res = await calcularNotaImportancia(
                 materia,
                 topico,
                 banca,
@@ -55,12 +55,12 @@ export function CalculadoraTendencia() {
             if (res.volume_maximo === 0) {
                 toast.warning('Nenhum resultado encontrado. Verifique a cota ou os termos.')
             } else {
-                toast.success(`Análise concluída: Nota GUT ${res.nota_gut}`)
+                toast.success(`Análise concluída: Nota de Importância ${res.nota_importancia}`)
             }
 
         } catch (error) {
             console.error(error)
-            toast.error('Erro ao calcular tendência. Verifique o console.')
+            toast.error('Erro ao calcular importância. Verifique o console.')
         } finally {
             setLoading(false)
         }
@@ -72,7 +72,7 @@ export function CalculadoraTendencia() {
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                         <TrendingUp className="w-6 h-6 text-indigo-600" />
-                        Calculadora Smart GUT (v12)
+                        Calculadora de Importância (v12)
                     </h2>
                     <div className="flex gap-2">
                         <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-medium flex items-center gap-1">
@@ -162,7 +162,7 @@ export function CalculadoraTendencia() {
                         ) : (
                             <>
                                 <Split className="w-5 h-5" />
-                                Calcular Tendência v12 (Multi-Search)
+                                Calcular Importância v12 (Multi-Search)
                             </>
                         )}
                     </button>
@@ -224,13 +224,13 @@ export function CalculadoraTendencia() {
                         </div>
 
                         <div className="bg-slate-50 p-4 rounded-lg flex flex-col justify-center">
-                            <div className="text-slate-500 text-sm mb-1">Nota GUT Final</div>
-                            <div className={`text-5xl font-black ${resultado.nota_gut >= 5 ? 'text-red-600' :
-                                resultado.nota_gut >= 4 ? 'text-orange-500' :
-                                    resultado.nota_gut >= 3 ? 'text-yellow-500' :
+                            <div className="text-slate-500 text-sm mb-1">Nota de Importância Final</div>
+                            <div className={`text-5xl font-black ${resultado.nota_importancia >= 5 ? 'text-red-600' :
+                                resultado.nota_importancia >= 4 ? 'text-orange-500' :
+                                    resultado.nota_importancia >= 3 ? 'text-yellow-500' :
                                         'text-green-500'
                                 }`}>
-                                {resultado.nota_gut}
+                                {resultado.nota_importancia}
                             </div>
                             <div className="text-xs text-slate-400 mt-1">Baseado no maior risco</div>
                         </div>

@@ -97,7 +97,7 @@ const CalendarCard: React.FC<CalendarCardProps> = ({
               <div className="flex-1 ml-2 rounded-lg px-4 py-3 shadow-sm flex flex-col bg-gray-50">
                 <div className="font-semibold">{ev.name}</div>
                 <div className="text-xs text-gray-500">
-                  {ev.subject_name} • {ev.review_stage || "Novo"}
+                  {ev.subject_name}
                 </div>
                 <div className="text-xs text-gray-400">
                   {ev.next_review ? format(new Date(ev.next_review), "dd/MM/yyyy") : ""}

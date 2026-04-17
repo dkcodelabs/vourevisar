@@ -100,7 +100,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
         const reviewDate = startOfDay(new Date(topic.nextReview));
         const daysOverdue = differenceInDays(today, reviewDate);
 
-        if (daysOverdue > 0) return `${daysOverdue} dias atraso`;
+        if (daysOverdue > 0) return 'Atrasado';
         if (daysOverdue === 0) return 'Hoje';
         return `Em ${Math.abs(daysOverdue)} dias`;
     };
@@ -430,7 +430,6 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                         <div className="hidden md:grid grid-cols-[1fr_auto_90px_90px_90px_120px] gap-4 items-center pb-2 mb-2 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide">
                                             <div className="ml-7">Tópico</div>
                                             <div className="text-center">Dificuldade</div>
-                                            <div className="text-center">Revisões</div>
                                             <div className="text-center">Próxima</div>
                                             <div className="text-center">Status</div>
                                             <div className="text-center">Ações</div>
@@ -458,7 +457,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                         }}
                                                     >
                                                         {/* Layout Desktop */}
-                                                        <div className="hidden md:grid grid-cols-[1fr_auto_90px_90px_90px_120px] gap-4 items-center border-b border-gray-100 pb-3 pt-3 last:border-b-0">
+                                                        <div className="hidden md:grid grid-cols-[1fr_auto_90px_90px_120px] gap-4 items-center border-b border-gray-100 pb-3 pt-3 last:border-b-0">
                                                             {/* Coluna 1: Nome do tópico + Subtópicos */}
                                                             <div className="min-w-0 ml-7">
                                                                 <div
@@ -506,10 +505,6 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                                 )}
                                                             </div>
 
-                                                            {/* Coluna 3: Revisões */}
-                                                            <div className="flex justify-center text-xs font-medium">
-                                                                <span className={getRevisionsColor(status)}>{reviewCount}/{getMaxReviews()}</span>
-                                                            </div>
 
                                                             {/* Coluna 4: Próxima */}
                                                             <div className="flex justify-center text-xs font-medium">
@@ -522,7 +517,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                                     <span className={getStatusColor(status)}>Concluído</span>
                                                                 ) : (
                                                                     <span className={getStatusColor(status)}>
-                                                                        {reviewCount}/{getMaxReviews()} - {statusText}
+                                                                        {statusText}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -610,11 +605,6 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Revisões */}
-                                                                <div className="flex flex-col items-center">
-                                                                    <span className="text-gray-500 mb-1">Revisões</span>
-                                                                    <span className={getRevisionsColor(status)}>{reviewCount}/{getMaxReviews()}</span>
-                                                                </div>
 
                                                                 {/* Próxima */}
                                                                 <div className="flex flex-col items-center">
