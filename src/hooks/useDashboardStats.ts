@@ -82,7 +82,9 @@ export const useDashboardStats = (
 
     subjects.forEach(subject => {
       subject.topics.forEach(topic => {
-        if (!topic.nextReview) return;
+        // Só contar tópicos já iniciados (excluir Não Iniciados)
+        const wasStudied = !!(topic.firstStudiedAt || topic.first_studied_at);
+        if (!wasStudied || !topic.nextReview) return;
         const reviewDate = startOfDay(new Date(topic.nextReview));
 
         if (reviewDate >= monthStart && reviewDate <= monthEnd) {
@@ -153,7 +155,9 @@ export const useDashboardStats = (
 
     subjects.forEach(subject => {
       subject.topics.forEach(topic => {
-        if (!topic.nextReview) return;
+        // Só contar tópicos já iniciados (excluir Não Iniciados)
+        const wasStudied = !!(topic.firstStudiedAt || topic.first_studied_at);
+        if (!wasStudied || !topic.nextReview) return;
         const reviewDate = startOfDay(new Date(topic.nextReview));
 
         if (reviewDate < today) {

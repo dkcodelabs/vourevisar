@@ -65,7 +65,9 @@ export const calculateStudyProgress = (subjects: Subject[]): StudyProgress => {
   let futureTopics = 0;
 
   allTopics.forEach(topic => {
-    if (topic.nextReview && !topic.completed) {
+    // Só contar tópicos já iniciados (excluir Não Iniciados sem firstStudiedAt)
+    const wasStudied = !!(topic.firstStudiedAt || topic.first_studied_at);
+    if (topic.nextReview && !topic.completed && wasStudied) {
       const reviewDate = new Date(topic.nextReview);
       reviewDate.setHours(0, 0, 0, 0);
 

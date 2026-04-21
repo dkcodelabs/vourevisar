@@ -6,7 +6,8 @@ import {
   MentorInsights,
   MentorAlert,
   MentorConsolidatedTopic,
-  MentorTrendLabel
+  MentorTrendLabel,
+  MentorStrategicInsight
 } from '@/types/mentor';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -90,6 +91,7 @@ export const useMentorInsights = (): MentorInsights => {
     const newGargalos: MentorAlert[] = [];
     const newConsolidated: MentorConsolidatedTopic[] = [];
     const newTrendByTopic = new Map<string, MentorTrendLabel>();
+    let anyOverdueCount = 0;
 
     // Processamento Single-Pass sobre os dados em memória (sem bloquear thread e zero DB calls)
     subjects.forEach(subject => {
@@ -114,6 +116,10 @@ export const useMentorInsights = (): MentorInsights => {
         let daysOverdue = 0;
         if (topic.next_review) {
           daysOverdue = Math.max(0, differenceInDays(today, startOfDay(new Date(topic.next_review))));
+        }
+
+        if (daysOverdue > 0) {
+          anyOverdueCount++;
         }
 
         // --- NÍVEL 1: Risco Crítico ---
@@ -209,12 +215,17 @@ export const useMentorInsights = (): MentorInsights => {
       const overdueCount = new Set(newCriticals.map(c => c.topicId)).size;
       newStrategicInsight = {
         type: 'continuo',
-        message: `Você tem ${overdueCount} tópicos com revisões em atraso. Foque neles para manter seu desempenho.`
+        message: `Atenção: Você tem ${overdueCount} tópico${overdueCount > 1 ? 's' : ''} crítico${overdueCount > 1 ? 's' : ''} em atraso. Priorize-os agora.`
+      };
+    } else if (anyOverdueCount > 0) {
+      newStrategicInsight = {
+        type: 'continuo',
+        message: `Tudo sob controle com o essencial, mas você tem ${anyOverdueCount} revisão${anyOverdueCount > 1 ? 'ões' : ''} secundária${anyOverdueCount > 1 ? 's' : ''} pendente${anyOverdueCount > 1 ? 's' : ''}.`
       };
     } else {
       newStrategicInsight = {
         type: 'continuo',
-        message: 'Excelente ritmo! Você está em dia com seus tópicos mais importantes.'
+        message: 'Excelente ritmo! Você está 100% em dia com seu plano de estudos.'
       };
     }
     }

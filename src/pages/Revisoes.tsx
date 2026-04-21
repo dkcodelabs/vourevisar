@@ -58,7 +58,8 @@ export const Revisoes = () => {
     openReviewModal: openReviewModalHook,
     difficultyModalData,
     closeDifficultyModal,
-    submitDifficultyRating
+    submitDifficultyRating,
+    isLoading: isSavingReview
   } = useTopicReview();
 
   const {
@@ -266,8 +267,7 @@ export const Revisoes = () => {
     if (activeTab === 'FOCUS') {
       // Show only started reviews that are Today or Overdue
       result = result.filter(item => 
-        (item.status === RevisionStatus.TODAY || item.status === RevisionStatus.OVERDUE) && 
-        (item.reviewCount > 0)
+        (item.status === RevisionStatus.TODAY || item.status === RevisionStatus.OVERDUE)
       );
     }
     
@@ -674,6 +674,7 @@ export const Revisoes = () => {
         onClose={() => { closeDifficultyModal(); }}
         onResume={() => { closeDifficultyModal(); resumeTimer(); }}
         onSubmit={async (d) => { await submitDifficultyRating(d); refetch(); }}
+        isSaving={isSavingReview}
         onConfirmReview={async (d, dur) => {
           try {
             setProcessedUpdate(difficultyModalData.topicId);

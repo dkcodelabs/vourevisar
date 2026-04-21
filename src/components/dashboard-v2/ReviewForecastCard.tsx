@@ -1,15 +1,17 @@
 import React, { useMemo } from 'react';
 import { Subject } from '@/types';
-import { startOfDay, addDays, isBefore, isSameDay, isAfter } from 'date-fns';
+import { startOfDay, addDays, isBefore, isSameDay } from 'date-fns';
 import {
     CalendarClock,
     AlertCircle,
     CheckCircle2,
     TrendingUp,
-    Info
+    Info,
+    Sparkles
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useMentorInsights } from '@/hooks/useMentorInsights';
 
 interface ReviewForecastCardProps {
     subjects: Subject[];
@@ -22,6 +24,8 @@ export const ReviewForecastCard: React.FC<ReviewForecastCardProps> = ({
     className,
     dailyCapacity = 10
 }) => {
+    // Mentor Whisper: consome insight estratégico derivado dos dados em memória
+    const { strategicInsight, criticalAlerts, gargalos } = useMentorInsights();
     const today = startOfDay(new Date());
     const nextWeek = addDays(today, 7);
 
@@ -173,6 +177,42 @@ export const ReviewForecastCard: React.FC<ReviewForecastCardProps> = ({
                             Manter-se próximo a este número favorece o equilíbrio a longo prazo.
                         </p>
                     </div>
+
+                    {/* Mentor Whisper: mensagem inteligente baseada no estado real do ciclo */}
+                    {strategicInsight && (
+                        <div className={cn(
+                            "flex items-start gap-2.5 p-3 rounded-xl border mt-1",
+                            criticalAlerts.length > 0
+                                ? "bg-rose-500/5 border-rose-500/15"
+                                : gargalos.length > 0
+                                    ? "bg-amber-500/5 border-amber-500/15"
+                                    : "bg-primary/5 border-primary/15"
+                        )}>
+                            <Sparkles className={cn(
+                                "w-3.5 h-3.5 shrink-0 mt-0.5",
+                                criticalAlerts.length > 0
+                                    ? "text-rose-500"
+                                    : gargalos.length > 0
+                                        ? "text-amber-500"
+                                        : "text-primary"
+                            )} />
+                            <div>
+                                <span className={cn(
+                                    "text-[9px] font-black uppercase tracking-wider block mb-0.5",
+                                    criticalAlerts.length > 0
+                                        ? "text-rose-500"
+                                        : gargalos.length > 0
+                                            ? "text-amber-500"
+                                            : "text-primary"
+                                )}>
+                                    Mentor IA
+                                </span>
+                                <p className="text-[11px] text-foreground/80 leading-relaxed">
+                                    {strategicInsight.message}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="h-px bg-black/5 dark:bg-white/5" />

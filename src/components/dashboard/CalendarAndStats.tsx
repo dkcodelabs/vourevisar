@@ -94,7 +94,9 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
 
     subjects.forEach(subject => {
       subject.topics.forEach(topic => {
-        if (!topic.nextReview) return;
+        // Só contar tópicos já iniciados (excluir Não Iniciados)
+        const wasStudied = !!(topic.firstStudiedAt || topic.first_studied_at);
+        if (!wasStudied || !topic.nextReview) return;
         const reviewDate = startOfDay(new Date(topic.nextReview));
 
         // Filtrar apenas revisões do mês atual
@@ -152,7 +154,9 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
     // Verificar revisões agendadas
     subjects.forEach(subject => {
       subject.topics.forEach(topic => {
-        if (!topic.nextReview) return;
+        // Só contar tópicos já iniciados (excluir Não Iniciados)
+        const wasStudied = !!(topic.firstStudiedAt || topic.first_studied_at);
+        if (!wasStudied || !topic.nextReview) return;
         const reviewDate = startOfDay(new Date(topic.nextReview));
 
         if (isSameDay(reviewDate, dayStart)) {
@@ -230,7 +234,9 @@ export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({
 
     subjects.forEach(subject => {
       subject.topics.forEach(topic => {
-        if (!topic.nextReview) return;
+        // Só contar tópicos já iniciados (excluir Não Iniciados)
+        const wasStudied = !!(topic.firstStudiedAt || topic.first_studied_at);
+        if (!wasStudied || !topic.nextReview) return;
         const reviewDate = startOfDay(new Date(topic.nextReview));
 
         if (reviewDate < today) {

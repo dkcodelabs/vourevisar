@@ -2397,7 +2397,7 @@ const Editais = () => {
                                             </div>
 
                                             {cycleConflict.showDetailedPreview ? (
-                                                <div className="space-y-3 max-h-[380px] overflow-y-auto px-1 pr-2 custom-scrollbar">
+                                                <div className="space-y-3 max-h-[60vh] overflow-y-auto px-1 pr-2 custom-scrollbar">
                                                     {cycleConflict.edital.subjectIds.map(sid => {
                                                         const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
                                                         if (!s) return null;
@@ -2414,17 +2414,12 @@ const Editais = () => {
                                                                 </div>
                                                                 
                                                                 <div className="grid grid-cols-1 gap-1.5 pl-3 border-l border-[#1E422D]">
-                                                                    {(s.topics || []).slice(0, 5).map(t => (
+                                                                    {(s.topics || []).map(t => (
                                                                         <div key={t.id} className="flex items-center gap-2 text-[10px] text-content-muted/70">
                                                                             <div className="w-0.5 h-0.5 rounded-full bg-[#10B981]/40" />
                                                                             <span className="truncate leading-none">{t.name}</span>
                                                                         </div>
                                                                     ))}
-                                                                    {(s.topics?.length || 0) > 5 && (
-                                                                        <div className="text-[9px] font-bold text-[#34D399]/40 italic pl-2.5">
-                                                                            + {s.topics!.length - 5} tópicos...
-                                                                        </div>
-                                                                    )}
                                                                 </div>
                                                             </div>
                                                         );

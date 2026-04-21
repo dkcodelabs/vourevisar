@@ -63,8 +63,8 @@ export const StatsSidebar: React.FC<StatsSidebarProps> = ({
             label: "Revisões Futuras",
             value: futureCount,
             icon: Clock,
-            color: "text-purple-500",
-            bg: "bg-purple-50"
+            color: "text-blue-500",
+            bg: "bg-blue-50"
         },
         {
             label: "Total Pendente",

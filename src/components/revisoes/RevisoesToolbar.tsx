@@ -80,17 +80,13 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                     <button
                         onClick={() => setActiveTab('FOCUS')}
                         className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm ${activeTab === 'FOCUS'
-                            ? isRecoveryMode
-                                ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/20 text-amber-700 dark:text-amber-400 ring-2 ring-amber-500/20'
-                                : 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/20 text-rose-600 dark:text-rose-400'
+                            ? 'bg-foreground text-background border-foreground'
                             : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary'
                             }`}
                     >
                         <span>Hoje</span>
                         <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FOCUS'
-                            ? isRecoveryMode
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 shadow-sm'
-                                : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 shadow-sm'
+                            ? 'bg-background text-foreground shadow-sm'
                             : 'bg-secondary text-muted-foreground'}`}>
                             {/* If stats.focusCount exists use it, otherwise sum. 
                                 We will add focusCount to stats in Revisoes.tsx next. */}
@@ -121,7 +117,7 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                 {/* 4. Botão Agrupar por Matéria */}
                 <button
                     onClick={onToggleSubjectView}
-                    className={`flex items-center gap-2 px-4 py-2 border rounded-xl transition-all text-xs font-bold whitespace-nowrap ${activeTab === 'SUBJECTS' ? 'bg-primary border-primary text-primary-foreground shadow-md' : 'bg-card border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                    className={`flex items-center gap-2 px-4 py-2 border rounded-xl transition-all text-xs font-bold whitespace-nowrap ${activeTab === 'SUBJECTS' ? 'bg-foreground text-background border-foreground shadow-md' : 'bg-card border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                 >
                     <Layers size={16} />
                     <span className="hidden sm:inline">Agrupar por Matéria</span>

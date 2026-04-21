@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
 import { motion } from 'framer-motion';
-import { Trophy, Star, CheckCircle2, X, Clock } from 'lucide-react';
+import { Trophy, Star, CheckCircle2, X, Clock, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -21,6 +21,8 @@ interface DifficultyRatingModalProps {
   reviewCount?: number;
   isCompleting?: boolean;
   duration?: number;
+  isSaving?: boolean;
+  savingText?: string;
 }
 
 export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
@@ -36,7 +38,9 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   reviewStage,
   reviewCount,
   isCompleting = false,
-  duration = 0
+  duration = 0,
+  isSaving = false,
+  savingText = 'Salvando...'
 }) => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null);
   const [hasUserChanged, setHasUserChanged] = useState(false);
@@ -72,9 +76,8 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   };
 
   const handleSkip = () => {
-    onSubmit(null);
-    onClose();
-    setSelectedDifficulty(null);
+    // Função removida para garantir obrigatoriedade
+    console.warn('Ação de pular avaliação desativada. Dificuldade é obrigatória.');
   };
 
   if (!isOpen) return null;
@@ -94,9 +97,10 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
         <div className="absolute top-4 right-4 z-10 flex flex-col items-center group">
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-accent text-content-muted hover:text-foreground transition-colors md:hover:bg-slate-100 md:dark:hover:bg-slate-800 md:light:hover:bg-accent md:light:text-content-muted md:light:hover:text-foreground"
+            className="p-1.5 rounded-full hover:bg-accent text-content-muted hover:text-foreground transition-colors md:hover:bg-slate-100 md:dark:hover:bg-slate-800 md:light:hover:bg-accent md:light:text-content-muted md:light:hover:text-foreground disabled:opacity-50 disabled:pointer-events-none"
             title="Fechar e manter pausa"
             aria-label="Fechar e manter pausa"
+            disabled={isSaving}
           >
             <X className="h-5 w-5" />
           </button>
@@ -190,6 +194,7 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
               onChange={handleDifficultyChange}
               size="lg"
               showLabel={true}
+              allowClear={false}
             />
           </div>
 
@@ -215,15 +220,23 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
               variant="outline"
               onClick={() => onResume ? onResume() : onClose()}
               className="flex-1 order-2 sm:order-1 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white transition-all"
+              disabled={isSaving}
             >
               Voltar a Estudar
             </Button>
             <Button
               onClick={handleSubmit}
               className="flex-1 bg-green-600 hover:bg-green-500 order-1 sm:order-2 transition-all dark:bg-green-700 dark:hover:bg-green-600"
-              disabled={onConfirmReview && !selectedDifficulty}
+              disabled={!selectedDifficulty || isSaving}
             >
-              {onConfirmReview ? 'Confirmar Revisão' : 'Salvar'}
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {savingText}
+                </>
+              ) : (
+                onConfirmReview ? 'Confirmar Revisão' : 'Salvar'
+              )}
             </Button>
           </div>
 

@@ -291,7 +291,8 @@ export const StudyCycleContent: React.FC = () => {
     openDifficultyModal,
     closeDifficultyModal,
     submitDifficultyRating,
-    markTopicAsReviewed
+    markTopicAsReviewed,
+    isLoading: isSaving
   } = useTopicReview();
 
   // Função para normalizar texto (remover acentos)
@@ -849,6 +850,7 @@ export const StudyCycleContent: React.FC = () => {
       <DifficultyRatingModal
         isOpen={difficultyModalData.isOpen}
         onClose={closeDifficultyModal}
+        isSaving={isSaving}
         onSubmit={async (difficulty) => {
           try {
             await submitDifficultyRating(difficulty);

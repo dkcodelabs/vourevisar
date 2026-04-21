@@ -262,16 +262,14 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-start justify-between w-full gap-2">
         {/* Texto do tópico - Editável */}
         <div className="flex-1 group min-w-0 flex items-center gap-2">
-          {topic.position && (
-            <span className="text-sm font-semibold text-content-muted w-6 text-right shrink-0">
-              {topic.position}.
-            </span>
-          )}
           <div
             className="flex-1 first-letter:uppercase flex items-center gap-2"
           >
             <span className="text-sm font-normal text-zinc-800 dark:text-zinc-200 break-words line-clamp-2">
-              <HighlightText text={topic.name} searchQuery={searchQuery} />
+              <HighlightText 
+                text={topic.name} 
+                searchQuery={searchQuery} 
+              />
             </span>
             {mentorAlert && (
               <div 

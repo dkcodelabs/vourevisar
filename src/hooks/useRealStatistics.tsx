@@ -309,12 +309,14 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
 
     // 0a. Recalcular progresso para os subjects filtrados
     const filteredTopics = filteredSubjects.flatMap(s => s.topics);
+    // Só contar revisões de tópicos já iniciados (excluir Não Iniciados)
+    const startedTopics = filteredTopics.filter(t => !!(t.firstStudiedAt || t.first_studied_at));
     const filteredStudyProgress = {
       totalTopics: filteredTopics.length,
       completedTopics: filteredTopics.filter(t => t.completed).length,
-      todayTopics: filteredTopics.filter(t => t.nextReview && isToday(startOfDay(new Date(t.nextReview)))).length,
-      delayedTopics: filteredTopics.filter(t => t.nextReview && isBefore(startOfDay(new Date(t.nextReview)), startOfDay(now))).length,
-      futureTopics: filteredTopics.filter(t => t.nextReview && isAfter(startOfDay(new Date(t.nextReview)), startOfDay(now))).length,
+      todayTopics: startedTopics.filter(t => t.nextReview && isToday(startOfDay(new Date(t.nextReview)))).length,
+      delayedTopics: startedTopics.filter(t => t.nextReview && isBefore(startOfDay(new Date(t.nextReview)), startOfDay(now))).length,
+      futureTopics: startedTopics.filter(t => t.nextReview && isAfter(startOfDay(new Date(t.nextReview)), startOfDay(now))).length,
     };
 
     // Calcular visão geral com dados reais

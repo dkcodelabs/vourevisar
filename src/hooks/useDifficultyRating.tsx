@@ -12,6 +12,7 @@ interface DifficultyRatingState {
 
 export const useDifficultyRating = () => {
   const { updateTopic } = useApp();
+  const [isLoading, setIsLoading] = useState(false);
   const [ratingState, setRatingState] = useState<DifficultyRatingState>({
     isModalOpen: false,
     topicId: null,
@@ -48,6 +49,7 @@ export const useDifficultyRating = () => {
   const submitDifficultyRating = useCallback(async (difficulty: number | null) => {
     if (!ratingState.topicId || !ratingState.subjectId) return;
 
+    setIsLoading(true);
     try {
       await updateTopic(ratingState.subjectId, ratingState.topicId, {
         difficulty_level: difficulty as any,
@@ -69,6 +71,8 @@ export const useDifficultyRating = () => {
     } catch (error) {
       console.error('Erro ao salvar dificuldade:', error);
       toast.error('Erro ao salvar avaliação de dificuldade');
+    } finally {
+      setIsLoading(false);
     }
   }, [ratingState, updateTopic]);
 
@@ -77,6 +81,7 @@ export const useDifficultyRating = () => {
     topicId: string,
     difficulty: number | null
   ) => {
+    setIsLoading(true);
     try {
       await updateTopic(subjectId, topicId, {
         difficulty_level: difficulty as any,
@@ -90,11 +95,14 @@ export const useDifficultyRating = () => {
     } catch (error) {
       console.error('Erro ao atualizar dificuldade:', error);
       toast.error('Erro ao atualizar dificuldade');
+    } finally {
+      setIsLoading(false);
     }
   }, [updateTopic]);
 
   return {
     ratingState,
+    isLoading,
     showDifficultyModal,
     closeDifficultyModal,
     submitDifficultyRating,

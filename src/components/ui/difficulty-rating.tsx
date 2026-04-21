@@ -9,6 +9,7 @@ interface DifficultyRatingProps {
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
   className?: string;
+  allowClear?: boolean;
 }
 
 const difficultyLabels = {
@@ -29,7 +30,8 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
   readonly = false,
   size = 'md',
   showLabel = false,
-  className
+  className,
+  allowClear = true
 }) => {
   const [hoverValue, setHoverValue] = React.useState<number | null>(null);
 
@@ -42,10 +44,10 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
   const handleClick = (rating: number) => {
     if (readonly || !onChange) return;
 
-    // Se clicar na mesma estrela, remove a avaliação
-    if (value === rating) {
+    // Se clicar na mesma estrela e permitir limpar, remove a avaliação
+    if (value === rating && allowClear) {
       onChange(null);
-    } else {
+    } else if (value !== rating) {
       onChange(rating);
     }
   };
@@ -140,8 +142,8 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
         </span>
       )}
 
-      {/* Botão Limpar embaixo */}
-      {!readonly && onChange && (
+      {/* Botão Limpar embaixo - só aparece se allowClear for true */}
+      {!readonly && onChange && allowClear && (
         <button
           type="button"
           onClick={() => onChange(null)}

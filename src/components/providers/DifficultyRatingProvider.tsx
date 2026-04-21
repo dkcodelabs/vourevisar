@@ -21,6 +21,7 @@ const DifficultyRatingContext = createContext<DifficultyRatingContextType | unde
 export const DifficultyRatingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const {
     ratingState,
+    isLoading,
     showDifficultyModal,
     closeDifficultyModal,
     submitDifficultyRating,
@@ -35,6 +36,7 @@ export const DifficultyRatingProvider: React.FC<{ children: React.ReactNode }> =
         isOpen={ratingState.isModalOpen}
         onClose={closeDifficultyModal}
         onSubmit={submitDifficultyRating}
+        isSaving={isLoading}
         topicName={ratingState.topicName || ''}
         subjectName={ratingState.subjectName || ''}
       />

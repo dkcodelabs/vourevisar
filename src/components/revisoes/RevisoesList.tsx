@@ -63,32 +63,32 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
   const navigate = useNavigate();
   const { gargaloByTopic, trendByTopic } = useMentorInsights();
 
-  const getGroupStyle = (groupKey: string) => {
+    const getGroupStyle = (groupKey: string) => {
         switch (groupKey) {
             case 'FOCUS_MERGED':
                 return {
                     title: (
-                        <div className="flex items-center gap-1.5">
-                            <span>Hoje</span>
+                        <div className="flex items-center gap-1.5 text-base">
+                            <span className="text-orange-600 dark:text-orange-500">Hoje</span>
                             <span className="px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 text-[10px] font-bold min-w-[16px] flex items-center justify-center">
                                 {stats.today}
                             </span>
-                            <span className="mx-0.5">&</span>
-                            <span>Atrasadas</span>
-                            <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 text-[10px] font-bold min-w-[16px] flex items-center justify-center">
+                            <span className="mx-0.5 text-muted-foreground">&</span>
+                            <span className="text-rose-600 dark:text-rose-500">Atrasadas</span>
+                            <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 text-[10px] font-bold min-w-[16px] flex items-center justify-center">
                                 {stats.overdue}
                             </span>
                         </div>
                     ),
-                    color: 'border-red-400',
-                    text: 'text-red-600 dark:text-red-400'
+                    color: 'border-transparent',
+                    text: 'text-foreground'
                 };
-            case RevisionStatus.OVERDUE: return { title: 'Atrasadas', color: 'border-red-400', text: 'text-red-500' };
-            case RevisionStatus.TODAY: return { title: 'Hoje', color: 'border-orange-500', text: 'text-orange-600' };
-            case RevisionStatus.FUTURE: return { title: 'Futuras', color: 'border-blue-500', text: 'text-blue-600' };
-            case RevisionStatus.COMPLETED: return { title: 'Concluídas (Antigas)', color: 'border-emerald-500', text: 'text-emerald-600' };
-            case RevisionStatus.CONSOLIDATED: return { title: 'Já dominados', color: 'border-border', text: 'text-muted-foreground' };
-            case RevisionStatus.UNSTARTED: return { title: 'Não Iniciados', color: 'border-border', text: 'text-muted-foreground' };
+            case RevisionStatus.OVERDUE: return { title: 'Atrasadas', color: 'border-red-400', text: 'text-rose-500' };
+            case RevisionStatus.TODAY: return { title: 'Hoje', color: 'border-orange-500', text: 'text-orange-500' };
+            case RevisionStatus.FUTURE: return { title: 'Futuras', color: 'border-blue-500', text: 'text-blue-500' };
+            case RevisionStatus.COMPLETED: return { title: 'Concluídas (Antigas)', color: 'border-emerald-500', text: 'text-emerald-500' };
+            case RevisionStatus.CONSOLIDATED: return { title: 'Já dominados', color: 'border-border', text: 'text-emerald-500' };
+            case RevisionStatus.UNSTARTED: return { title: 'Não Iniciados', color: 'border-border', text: 'text-blue-500' };
             default: return { title: groupKey, color: 'border-purple-500', text: 'text-purple-600' };
         }
     };
@@ -376,9 +376,12 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                     <div className="pl-2 min-w-0 w-full">
                                                         <div className="flex items-start gap-3">
                                                             <div className={`w-1.5 h-10 rounded-full shrink-0 transition-all ${isActive ? 'bg-primary shadow-[0_0_10px_rgba(0,191,255,0.5)] scale-y-110' :
-                                                                item.status === 'TODAY' || item.status === 'OVERDUE' ? 'bg-rose-500' :
-                                                                    item.status === 'FUTURE' ? 'bg-primary' :
-                                                                        'bg-success'
+                                                                item.status === 'OVERDUE' ? 'bg-rose-500' :
+                                                                item.status === 'TODAY' ? 'bg-orange-500' :
+                                                                    item.status === 'FUTURE' ? 'bg-blue-500' :
+                                                                        item.status === 'UNSTARTED' ? 'bg-blue-500' :
+                                                                            item.status === 'COMPLETED' || item.status === 'CONSOLIDATED' ? 'bg-emerald-500' :
+                                                                                'bg-success'
                                                                 }`} />
                                                             <div className="min-w-0 flex-1">
                                                                 <div className={`text-sm font-bold break-words leading-snug ${isActive ? 'text-primary' : 'text-foreground'}`}>

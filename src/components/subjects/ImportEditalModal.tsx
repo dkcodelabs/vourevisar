@@ -418,10 +418,21 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 const trimmed = name.trim();
                 // Regex para numeração decimal: 1., 1.1., 1.2.3 etc.
                 const match = trimmed.match(/^(\d+(?:\.\d+)*)\s*[.)]?\s*(.+)$/);
+                
                 if (match) {
-                    const firstPart = match[1].split('.')[0];
+                    const numberPart = match[1];
+                    const textPart = match[2];
+                    
+                    // Converte "1.1.2" em um valor numérico para ordenação (ex: 1.12)
+                    // Multiplicamos cada nível por uma potência de 0.1
+                    const parts = numberPart.split('.');
+                    let weight = 0;
+                    parts.forEach((p, i) => {
+                        weight += parseInt(p, 10) * Math.pow(0.1, i * 2);
+                    });
+
                     return { 
-                        position: parseInt(firstPart, 10), 
+                        position: weight, 
                         cleanName: trimmed 
                     };
                 }
@@ -1118,16 +1129,21 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 {aiResult.reduce((acc, s) => acc + s.topics.length, 0)} Tópicos
                                             </span>
                                         </div>
-                                        <button
-                                            onClick={() => {
-                                                const allExpanded = aiResult.every(s => s.expanded);
-                                                setAiResult(aiResult.map(s => ({ ...s, expanded: !allExpanded })));
-                                            }}
-                                            className="px-3 py-1 bg-secondary hover:bg-secondary/80 text-[10px] font-bold rounded-lg transition-all"
-                                        >
-                                            {aiResult.every(s => s.expanded) ? 'Recolher' : 'Expandir'}
-                                        </button>
-                                    </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setAiResult(aiResult.map(s => ({ ...s, expanded: true })))}
+                                                    className="px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-black uppercase tracking-wider rounded-lg transition-all border border-primary/20"
+                                                >
+                                                    Expandir Tudo
+                                                </button>
+                                                <button
+                                                    onClick={() => setAiResult(aiResult.map(s => ({ ...s, expanded: false })))}
+                                                    className="px-3 py-1 bg-secondary hover:bg-secondary/80 text-content-muted text-[9px] font-black uppercase tracking-wider rounded-lg transition-all border border-border"
+                                                >
+                                                    Recolher Tudo
+                                                </button>
+                                            </div>
+                                        </div>
 
                                     <div className="grid gap-2 pb-3 border-b border-border dark:border-white/5 grid-cols-1 sm:grid-cols-3">
                                         <>
@@ -1172,7 +1188,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             </>
                                     </div>
 
-                                    <div className="space-y-2 max-h-[340px] overflow-y-auto pr-2 no-scrollbar">
+                                    <div className="space-y-2 pr-2 no-scrollbar">
                                         {aiResult.map((subj, sIdx) => (
                                             <div key={subj.id} className="p-3 rounded-xl bg-secondary/40 dark:bg-zinc-800/40 border border-border dark:border-white/5 group hover:border-primary/20 transition-all">
                                                 <div className="flex items-center justify-between">

@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { applyUnificationMap } from '@/services/cycleMergeService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Target, Clock, Zap, ArrowRight, BookOpen } from 'lucide-react';
+import { Plus, Target, Clock, Zap, ArrowRight, BookOpen, Sparkles, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 
@@ -21,6 +21,10 @@ import { ProgressConsistencyCard } from '@/components/dashboard-v2/ProgressConsi
 import { NeedsFocusCard, QuickWinCard, GoldenHourCard } from '@/components/dashboard-v2/InsightCards';
 import { ReviewForecastCard } from '@/components/dashboard-v2/ReviewForecastCard';
 import { DifficultyEvolutionWidget } from '@/components/dashboard-v2/DifficultyEvolutionWidget';
+import { ConsistencyCalendar } from '@/components/dashboard-v2/ConsistencyCalendar';
+
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useDynamicCapacity } from '@/hooks/useDynamicCapacity';
@@ -28,6 +32,8 @@ import { useRealStatistics } from '@/hooks/useRealStatistics';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { useMergeData } from '@/hooks/useMergeData';
+import { useMentorInsights } from '@/hooks/useMentorInsights';
+import { useUserSettings } from '@/hooks/useUserSettings';
 
 const Dashboard = () => {
     const { subjects, isDataLoaded, isLoading, error, studyProgress } = useApp();
@@ -40,6 +46,11 @@ const Dashboard = () => {
     const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
     
     const [statsFilter, setStatsFilter] = useState<{ type: 'all' | 'cycle' | 'edital'; id?: string }>({ type: 'cycle' });
+
+    // Mentor IA: insights derivados dos dados em memória (zero queries ao Supabase)
+    const mentorInsights = useMentorInsights();
+    const { getExamCountdown } = useUserSettings();
+    const countdown = getExamCountdown();
 
     // Listener para eventos globais no Dashboard
     useEffect(() => {
@@ -169,6 +180,66 @@ const Dashboard = () => {
         return subjects;
     }, [subjects, statsFilter, userCycle?.ciclo_atual, dynamicUnificationMap]);
 
+    // Lógica para o banner motivacional — mesma lógica do useReviewsData:
+    // Só conta tópicos iniciados (com firstStudiedAt), com nextReview vencido ou para hoje.
+    // Exclui tópicos Não Iniciados (sem firstStudiedAt) e tópicos sem nextReview.
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const { overdueReal, todayReal, futureReal } = filteredSubjects.reduce(
+        (acc, subject) => {
+            subject.topics.forEach(topic => {
+                // Excluir: não iniciados, sem nextReview, já dominados/concluídos
+                const wasStudied = !!(topic.firstStudiedAt || topic.first_studied_at);
+                if (!wasStudied || !topic.nextReview || topic.is_completed) return;
+
+                const revStr = format(new Date(topic.nextReview), 'yyyy-MM-dd');
+                if (revStr < todayStr) acc.overdueReal++;
+                else if (revStr === todayStr) acc.todayReal++;
+                else acc.futureReal++;
+            });
+            return acc;
+        },
+        { overdueReal: 0, todayReal: 0, futureReal: 0 }
+    );
+
+    const pendingCount = overdueReal + todayReal;
+    const hasPendingReviews = pendingCount > 0;
+    const hasCycleTopicsToStudy = overview.completedTopics < overview.totalTopics && overview.totalTopics > 0;
+    const hasFutureReviews = futureReal > 0;
+
+    let motivBanner = {
+        icon: Clock,
+        iconColor: 'text-rose-500',
+        iconBg: 'bg-rose-500/10',
+        title: 'Foco nas Revisões',
+        text: `Você tem ${pendingCount} tópico${pendingCount > 1 ? 's' : ''} aguardando. Vamos focar!`,
+        btnText: 'REVISAR',
+        action: '/revisoes'
+    };
+
+    if (!hasPendingReviews) {
+        if (hasCycleTopicsToStudy || hasFutureReviews) {
+            motivBanner = {
+                icon: Zap,
+                iconColor: 'text-[#44d8f1]',
+                iconBg: 'bg-[#44d8f1]/10',
+                title: 'Revisões em Dia',
+                text: 'Tudo em dia! Avance novos tópicos do ciclo ou prepare-se para as próximas revisões.',
+                btnText: 'AVANÇAR',
+                action: '/ciclo-estudos'
+            };
+        } else {
+            motivBanner = {
+                icon: Sparkles,
+                iconColor: 'text-emerald-500',
+                iconBg: 'bg-emerald-500/10',
+                title: 'Tudo Concluído',
+                text: 'Incrível! Edital fechado e sem cronograma de revisões pendente.',
+                btnText: 'VER PAINEL',
+                action: '/revisoes'
+            };
+        }
+    }
+
 
 
     if (isLoading || cycleLoading) {
@@ -217,51 +288,112 @@ const Dashboard = () => {
                 ) : (
                     <div className="space-y-8 animate-in fade-in duration-500 slide-in-from-bottom-4">
                         
-                        {/* Command Center Compacto */}
-                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 p-4 animate-in fade-in duration-500">
-                            <div className="flex items-center justify-between gap-4">
-                                {/* Esquerda: Identidade */}
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                        <Target className="w-5 h-5" />
+                        <div className="flex flex-col xl:flex-row gap-6 items-stretch justify-start">
+                            {/* Command Center Compacto */}
+                            <div className="glow-card p-6 rounded-3xl flex flex-col justify-between h-full relative overflow-hidden group transition-transform hover:scale-[1.02] duration-300 w-full xl:w-[360px] shrink-0">
+                                <div>
+                                    <div className="flex flex-col mb-8">
+                                        <div className="flex items-center gap-2 text-[#44d8f1] mb-2">
+                                            <Target className="w-4 h-4" />
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] font-['Inter']">CICLO ATIVO</span>
+                                        </div>
+                                        <div className="relative w-full">
+                                            <h2 className="text-3xl font-extrabold tracking-tight mt-1 text-[#e5e2e1] font-['Manrope'] break-words leading-tight w-3/4">
+                                                {editalDisplayName ? editalDisplayName.split(' • ')[0] : 'Inicie seu Ciclo'}
+                                            </h2>
+                                            {editalDisplayName && editalDisplayName.includes(' • ') && (
+                                                <h3 className="text-xl font-bold tracking-tight text-[#e5e2e1] font-['Manrope'] break-words opacity-90 leading-tight mt-1">
+                                                    {editalDisplayName.split(' • ').slice(1).join(' • ')}
+                                                </h3>
+                                            )}
+
+                                            {editalDisplayName && countdown && (
+                                                <div className="absolute -top-[30px] right-0 flex flex-col items-end">
+                                                    <div className="text-5xl font-black leading-none text-[#ff5722] font-['Manrope']">{countdown.daysRemaining}</div>
+                                                    <div className="text-[9px] font-bold uppercase tracking-widest text-[#e4beb4] opacity-80 mt-1 font-['Inter']">
+                                                        {countdown.daysRemaining === 1 ? 'DIA RESTANTE' : 'DIAS RESTANTES'}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="min-w-0">
-                                        {editalDisplayName && (
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-wider text-primary">
-                                                    Ciclo ativo
-                                                </span>
-                                                <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                                            </div>
-                                        )}
-                                        {editalDisplayName ? (
-                                            <h1 className="text-base font-bold tracking-tight text-foreground truncate">
-                                                {editalDisplayName}
-                                            </h1>
-                                        ) : (
-                                            <div className="flex items-center gap-2">
-                                                <h1 className="text-sm font-bold text-foreground">
-                                                    Inicie seu Ciclo de Estudo
-                                                </h1>
-                                                <button 
-                                                    onClick={() => navigate('/meus-editais')}
-                                                    className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1"
-                                                >
-                                                    Carregar edital <ArrowRight className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                    
+                                    {editalDisplayName && (
+                                        <div className="flex items-center gap-2 mb-8 text-[#e4beb4]">
+                                            <Sparkles className="text-[#ffb5a0] w-4 h-4 shrink-0" />
+                                            <p className="text-xs leading-relaxed opacity-80 font-['Inter']">
+                                                {mentorInsights.criticalAlerts.length > 0
+                                                    ? `${mentorInsights.criticalAlerts.length} matéria${mentorInsights.criticalAlerts.length > 1 ? 's' : ''} com revisões críticas em atraso`
+                                                    : mentorInsights.gargalos.length > 0
+                                                        ? `${mentorInsights.gargalos.length} tópico${mentorInsights.gargalos.length > 1 ? 's' : ''} com retenção em queda`
+                                                        : `${dashboardStats.month.activeDays} ${dashboardStats.month.activeDays === 1 ? 'dia ativo' : 'dias ativos'} de estudo este mês! Continue assim.`
+                                                }
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Direita: Contagem Regressiva */}
-                                <div className="shrink-0">
-                                    <ExamCountdown 
-                                        minimal 
-                                        hasActiveEdital={!!editalDisplayName} 
-                                    />
-                                </div>
+                                {editalDisplayName && (
+                                    <div className="space-y-3 mt-auto pt-4">
+                                        <div className="h-2 w-full bg-[#353534] rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-[#ff5722] transition-all duration-1000" 
+                                                style={{ width: `${Math.min(100, Math.round((dashboardStats.general.firstContacts / Math.max(1, overview.totalTopics)) * 100)) || 0}%` }}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-[#e4beb4] uppercase tracking-widest opacity-80 font-['Inter']">PROGRESSO DO CICLO</span>
+                                            <span className="text-[10px] font-bold text-[#e5e2e1] uppercase tracking-widest font-['Inter']">
+                                                {format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Streak Card Separado */}
+                            {editalDisplayName && (
+                                <div className="glow-card p-6 rounded-3xl flex flex-col h-full relative overflow-hidden group transition-transform hover:scale-[1.02] duration-300 w-full xl:max-w-[480px]">
+                                    <div className="flex justify-between items-start mb-10 gap-2 flex-wrap sm:flex-nowrap">
+                                        <div>
+                                            <h3 className="font-['Manrope'] text-2xl font-bold text-[#e5e2e1] mb-1">Frequência de Estudos</h3>
+                                            <p className="text-sm text-[#e4beb4]">Sua constância diária</p>
+                                        </div>
+                                        <div className="bg-[#1c1b1b] px-4 py-2 rounded-lg flex items-center gap-2 shrink-0 border border-[#353534]/50">
+                                            <Flame className="text-[#ffb5a0] w-4 h-4 fill-current" />
+                                            <span className="font-bold text-[#ffb5a0] text-sm">{dashboardStats.month.activeDays} {dashboardStats.month.activeDays === 1 ? 'dia' : 'dias'} no mês</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Days Row */}
+                                    <div className="flex justify-between items-center mb-12 flex-1">
+                                        <ConsistencyCalendar reviewData={reviewData || []} daysCount={7} />
+                                    </div>
+                                    
+                                    {/* Footer Meta - Mensagem Motivacional Contextual */}
+                                    <div className="mt-auto flex justify-between items-center p-3 bg-[#0e0e0e] rounded-xl gap-3 flex-wrap sm:flex-nowrap border border-[#353534]/30 shadow-inner">
+                                        <div className="flex items-center gap-2 pl-1">
+                                            <div className={`p-1.5 ${motivBanner.iconBg} rounded-md shrink-0`}>
+                                                <motivBanner.icon className={`${motivBanner.iconColor} w-4 h-4 pointer-events-none`} />
+                                            </div>
+                                            
+                                            <div>
+                                                <p className="text-[9px] uppercase font-bold text-[#e4beb4]/60 tracking-wider">
+                                                    {motivBanner.title}
+                                                </p>
+                                                <p className="font-['Manrope'] text-[#e5e2e1] font-medium text-xs leading-tight">
+                                                    {motivBanner.text}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button 
+                                            onClick={() => navigate(motivBanner.action)} 
+                                            className="bg-[#353534] hover:bg-[#ff5722] text-[#e5e2e1] hover:text-white font-bold px-4 py-1 rounded-full text-[10px] uppercase tracking-widest transition-all h-7 w-full sm:w-fit shrink-0 border border-[#444] hover:border-[#ff5722] shadow-sm">
+                                            {motivBanner.btnText}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Seção Principal de Insights (Desktop) */}

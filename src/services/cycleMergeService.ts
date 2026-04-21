@@ -771,7 +771,11 @@ export async function performFullTopicMerge(
     groups.push({ 
       subjectDisplayName: unified.displayName, 
       originalSubjectIds: unified.originalSubjectIds, 
-      topicMappings: [...exactMappings, ...aiMappings], 
+      topicMappings: [...exactMappings, ...aiMappings].sort((a, b) => {
+        const tA = allSubjects.flatMap(s => s.topics || []).find(t => t.id === a.originalTopicIds[0]);
+        const tB = allSubjects.flatMap(s => s.topics || []).find(t => t.id === b.originalTopicIds[0]);
+        return (tA?.position ?? 0) - (tB?.position ?? 0);
+      }),
       aiUsed: useAI, 
       aiStatus 
     });

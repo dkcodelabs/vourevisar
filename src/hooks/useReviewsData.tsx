@@ -290,7 +290,7 @@ export const useReviewsData = () => {
         return acc;
       }
 
-      if (!topic.next_review || topic.review_count === 0) return acc;
+      if (!topic.next_review) return acc;
 
       const reviewDateString = format(startOfDay(new Date(topic.next_review)), 'yyyy-MM-dd');
 
