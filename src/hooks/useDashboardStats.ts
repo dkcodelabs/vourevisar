@@ -22,6 +22,7 @@ export interface DashboardStats {
     totalReviews: number;
     totalActiveDays: number;
     averagePerDay: number;
+    completedTopics: number;
   };
 }
 
@@ -136,12 +137,20 @@ export const useDashboardStats = (
 
     // 2. Analisar Tópicos (First Studied At)
     let firstContactsFromTopics = 0;
+    let completedTopics = 0;
+
     subjects.forEach(subject => {
       subject.topics.forEach(topic => {
+        // Contar contatos iniciais
         if (topic.first_studied_at || topic.firstStudiedAt) {
           if (!firstContactTopicIds.has(topic.id)) {
             firstContactsFromTopics++;
           }
+        }
+
+        // Contar tópicos concluídos
+        if (topic.is_completed || topic.review_stage === 'Concluído' || topic.reviewStage === 'Concluído' || topic.review_stage === '60d') {
+          completedTopics++;
         }
       });
     });
@@ -157,7 +166,8 @@ export const useDashboardStats = (
       subject.topics.forEach(topic => {
         // Só contar tópicos já iniciados (excluir Não Iniciados)
         const wasStudied = !!(topic.firstStudiedAt || topic.first_studied_at);
-        if (!wasStudied || !topic.nextReview) return;
+        if (!wasStudied || !topic.nextReview || topic.is_completed) return;
+        
         const reviewDate = startOfDay(new Date(topic.nextReview));
 
         if (reviewDate < today) {
@@ -182,7 +192,8 @@ export const useDashboardStats = (
       futureReviewCount,
       totalReviews: overdueCount + todayReviewCount + futureReviewCount,
       totalActiveDays,
-      averagePerDay
+      averagePerDay,
+      completedTopics
     };
   };
 

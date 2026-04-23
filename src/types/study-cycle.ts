@@ -30,6 +30,10 @@ export interface StudyCycleTopic {
   subTopics?: SubTopic[];
   createdAt?: string;
   position?: number;
+  /** Total de vezes que o tópico foi revisado */
+  reviewCount?: number;
+  /** Quantidade de revisões com difficulty_numeric = 3 (Difícil, penalidade -40%) */
+  hardReviewCount?: number;
 }
 
 export enum SubjectStatus {

@@ -10,6 +10,35 @@ import { cleanCycle } from '@/utils/cycleUtils';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
 import type { Subject, Topic, UserCycle, UserEdital } from '@/types';
 
+/** Busca em lote contagem de revisões e revisões difíceis (difficulty_numeric = 3) para um conjunto de topic_ids */
+async function fetchTopicReviewStats(
+  topicIds: string[]
+): Promise<Map<string, { reviewCount: number; hardReviewCount: number }>> {
+  const map = new Map<string, { reviewCount: number; hardReviewCount: number }>();
+  if (topicIds.length === 0) return map;
+
+  try {
+    const { data, error } = await supabase
+      .from('topic_review_history')
+      .select('topic_id, difficulty_numeric')
+      .in('topic_id', topicIds);
+
+    if (error || !data) return map;
+
+    for (const row of data as { topic_id: string; difficulty_numeric: number | null }[]) {
+      const id = row.topic_id;
+      if (!map.has(id)) map.set(id, { reviewCount: 0, hardReviewCount: 0 });
+      const entry = map.get(id)!;
+      entry.reviewCount++;
+      if (row.difficulty_numeric === 3) entry.hardReviewCount++;
+    }
+  } catch (e) {
+    console.warn('[useStudyCycleData] fetchTopicReviewStats falhou (não-bloqueante):', e);
+  }
+
+  return map;
+}
+
 const STUDY_FOCUS_COUNT = 2;
 
 // Mapping functions
@@ -321,7 +350,9 @@ export const useStudyCycleData = () => {
     }));
   }, [subjects, getUnifiedSubjectName]);
 
-  const studyCycleSubjects = useMemo(() => {
+  const [topicReviewStats, setTopicReviewStats] = useState<Map<string, { reviewCount: number; hardReviewCount: number }>>(new Map());
+
+  const studyCycleSubjectsMemo = useMemo(() => {
     if (subjects.length === 0) {
       return [];
     }
@@ -379,6 +410,29 @@ export const useStudyCycleData = () => {
 
     return cycleSubjects;
   }, [unifiedSubjects, userCycle, subjects, getUnifiedTopicName]);
+
+  // Busca em lote as estatísticas de revisão (reviewCount + hardReviewCount) ao mudar o conjunto de tópicos
+  useEffect(() => {
+    const allTopicIds = studyCycleSubjectsMemo.flatMap(s => s.topics.map(t => t.id));
+    if (allTopicIds.length === 0) {
+      setTopicReviewStats(new Map());
+      return;
+    }
+    fetchTopicReviewStats(allTopicIds).then(setTopicReviewStats);
+  }, [studyCycleSubjectsMemo]);
+
+  // Enriquecer tópicos com reviewCount e hardReviewCount
+  const studyCycleSubjects = useMemo(() => {
+    if (topicReviewStats.size === 0) return studyCycleSubjectsMemo;
+    return studyCycleSubjectsMemo.map(subject => ({
+      ...subject,
+      topics: subject.topics.map(topic => {
+        const stats = topicReviewStats.get(topic.id);
+        if (!stats) return topic;
+        return { ...topic, reviewCount: stats.reviewCount, hardReviewCount: stats.hardReviewCount };
+      })
+    }));
+  }, [studyCycleSubjectsMemo, topicReviewStats]);
 
   const groupedSubjects = useMemo(() => {
     return studyCycleSubjects.reduce((acc, subject) => {

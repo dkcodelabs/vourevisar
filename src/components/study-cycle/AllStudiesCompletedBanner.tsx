@@ -151,7 +151,7 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <h3 className="text-2xl font-bold text-emerald-700">
-                🎉 Parabéns! Estudos Concluídos!
+                🎉 Parabéns! Edital 100% Dominado!
               </h3>
             </div>
             

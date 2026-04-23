@@ -5,11 +5,12 @@ import { SubjectStatus } from '@/types/study-cycle';
 import { useStudyCycleData } from '@/hooks/useStudyCycleData';
 import { STATUS_CONFIG } from '@/constants/study-cycle';
 import { StudyCycleSubjectCard } from './StudyCycleSubjectCard';
-import { GridIcon, ListIcon, ChevronsDownIcon, ChevronsUpIcon } from './Icons';
+import { GridIcon, ListIcon, ChevronsDownIcon, ChevronsUpIcon, VerticalListIcon } from './Icons';
 import StudyCycleTopicNotesModal from './StudyCycleTopicNotesModal';
+import { StudyCycleVerticalView } from './StudyCycleVerticalView';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { AllStudiesCompletedBanner } from './AllStudiesCompletedBanner';
-import { CycleStatsModal } from './CycleStatsModal';
+import { CycleStatsSheet } from './CycleStatsSheet';
 // REMOVIDO DailyStudyProgress - estava causando loops infinitos
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
-import { Loader2, AlertCircle, X, Target, BookOpen, Database, RefreshCw, Search } from 'lucide-react';
+import { Loader2, AlertCircle, X, Target, BookOpen, Database, RefreshCw, Search, BarChart2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { mergeService } from '@/services/mergeService';
@@ -232,18 +233,13 @@ export const StudyCycleContent: React.FC = () => {
 
   // Debug logs removidos para evitar spam
 
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
-    // Sempre iniciar com visualização lista por padrão
-    // Se o usuário já escolheu uma preferência, respeitar a escolha
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'vertical'>(() => {
     const savedViewMode = localStorage.getItem(LOCAL_STORAGE_VIEW_KEY);
-
-    // Se não há preferência salva, definir 'list' como padrão e salvar
     if (!savedViewMode) {
       localStorage.setItem(LOCAL_STORAGE_VIEW_KEY, 'list');
       return 'list';
     }
-
-    return (savedViewMode === 'grid' || savedViewMode === 'list') ? savedViewMode : 'list';
+    return (savedViewMode === 'grid' || savedViewMode === 'list' || savedViewMode === 'vertical') ? savedViewMode : 'list';
   });
 
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
@@ -274,14 +270,13 @@ export const StudyCycleContent: React.FC = () => {
 
 
   const [forceRenderKey, setForceRenderKey] = useState(0);
-  const [showStatsModal, setShowStatsModal] = useState(false);
-  const [currentStats, setCurrentStats] = useState<any>(null);
+  const [showStatsSheet, setShowStatsSheet] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedBeforeSearch, setExpandedBeforeSearch] = useState<Set<string>>(new Set());
   // Modal removida - estado desabilitado
 
   // Hook para status do ciclo
-  const { getCycleStats } = useCycleStatus();
+  useCycleStatus(); // manter o hook ativo (usado em outros lugares)
   const { user } = useAuth();
 
   // Hook para review de tópicos (modal de dificuldade)
@@ -484,25 +479,9 @@ export const StudyCycleContent: React.FC = () => {
     });
   }, []);
 
-  const handleOpenStatsModal = useCallback(async () => {
-    try {
-      const stats = await getCycleStats();
-      setCurrentStats(stats);
-      setShowStatsModal(true);
-    } catch (error) {
-      await errorService.report(
-        error,
-        {
-          module: 'StudyCycle',
-          action: 'handleOpenStatsModal',
-          userMessage: 'Erro ao carregar estatísticas.',
-          severity: 'low',
-          scope: 'core',
-          userId: user?.id
-        }
-      );
-    }
-  }, [getCycleStats, user]);
+  const handleOpenStatsSheet = useCallback(() => {
+    setShowStatsSheet(true);
+  }, []);
 
 
 
@@ -694,6 +673,14 @@ export const StudyCycleContent: React.FC = () => {
                       >
                         <ListIcon className="w-4 h-4" />
                       </button>
+                      <button
+                        onClick={() => setViewMode('vertical')}
+                        className={`p-1 rounded-lg transition-all flex items-center justify-center shrink-0 w-8 h-8 ${viewMode === 'vertical' ? 'bg-card dark:bg-zinc-800 text-primary shadow-sm' : 'text-content-muted hover:text-foreground'}`}
+                        aria-label="Verticalizado"
+                        title="Visão Verticalizada (Edital)"
+                      >
+                        <VerticalListIcon className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
 
@@ -743,27 +730,11 @@ export const StudyCycleContent: React.FC = () => {
                 <div className="flex items-center gap-1 sm:gap-2">
                   {/* Stats Action */}
                   <button
-                    onClick={handleOpenStatsModal}
+                    onClick={handleOpenStatsSheet}
                     className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
                   >
-                    <RefreshCw size={14} className="text-primary transition-transform group-hover:rotate-180 duration-500" />
+                    <BarChart2 size={14} className="text-primary transition-transform group-hover:scale-110" />
                     <span>Estatísticas</span>
-                  </button>
-
-                  <button
-                    onClick={refreshCycleData}
-                    className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
-                  >
-                    <RefreshCw size={14} className="text-primary transition-transform group-hover:scale-110" />
-                    <span>Recarregar</span>
-                  </button>
-
-                  <button
-                    onClick={() => navigate('/meus-editais')}
-                    className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
-                  >
-                    <BookOpen size={14} className="text-primary transition-transform group-hover:scale-110" />
-                    <span>Meus Editais</span>
                   </button>
                 </div>
               </div>
@@ -803,9 +774,25 @@ export const StudyCycleContent: React.FC = () => {
                 gargalos={gargalos}
                 strategicInsight={strategicInsight}
               />
-              {renderSection(SubjectStatus.ACTIVE)}
-              {renderSection(SubjectStatus.COMPLETED_CYCLE)}
-              {renderSection(SubjectStatus.FINISHED)}
+              {viewMode === 'vertical' ? (
+                <StudyCycleVerticalView
+                  subjects={subjects}
+                  searchQuery={searchQuery}
+                  filterTopicsBySearch={filterTopicsBySearch}
+                  onOpenNotes={handleOpenNotes}
+                  onCheckboxClick={handleCheckboxClick}
+                  criticalByTopic={criticalByTopic}
+                  gargaloByTopic={gargaloByTopic}
+                  consolidatedTopicIds={consolidatedTopicIds}
+                  isActionable={true}
+                />
+              ) : (
+                <>
+                  {renderSection(SubjectStatus.ACTIVE)}
+                  {renderSection(SubjectStatus.COMPLETED_CYCLE)}
+                  {renderSection(SubjectStatus.FINISHED)}
+                </>
+              )}
             </main>
           </>
         )}
@@ -840,10 +827,9 @@ export const StudyCycleContent: React.FC = () => {
       />
 
       {/* Cycle Stats Modal */}
-      <CycleStatsModal
-        isOpen={showStatsModal}
-        onClose={() => setShowStatsModal(false)}
-        stats={currentStats}
+      <CycleStatsSheet
+        open={showStatsSheet}
+        onClose={() => setShowStatsSheet(false)}
       />
 
       {/* Difficulty Rating Modal */}

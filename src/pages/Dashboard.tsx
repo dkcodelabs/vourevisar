@@ -338,11 +338,11 @@ const Dashboard = () => {
                                         <div className="h-2 w-full bg-[#353534] rounded-full overflow-hidden">
                                             <div 
                                                 className="h-full bg-[#ff5722] transition-all duration-1000" 
-                                                style={{ width: `${Math.min(100, Math.round((dashboardStats.general.firstContacts / Math.max(1, overview.totalTopics)) * 100)) || 0}%` }}
+                                                style={{ width: `${Math.min(100, Math.round((dashboardStats.general.completedTopics / Math.max(1, overview.totalTopics)) * 100)) || 0}%` }}
                                             />
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <span className="text-[10px] font-bold text-[#e4beb4] uppercase tracking-widest opacity-80 font-['Inter']">PROGRESSO DO CICLO</span>
+                                            <span className="text-[10px] font-bold text-[#e4beb4] uppercase tracking-widest opacity-80 font-['Inter']">DOMÍNIO DO EDITAL</span>
                                             <span className="text-[10px] font-bold text-[#e5e2e1] uppercase tracking-widest font-['Inter']">
                                                 {format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                                             </span>

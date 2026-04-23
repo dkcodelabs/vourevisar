@@ -156,6 +156,11 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                   Concluída
                 </Badge>
               )}
+              {isSubjectStudied(subject.originalId || subject.id) && !isFullyCompleted && (
+                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 py-0 px-1.5 h-5 shrink-0">
+                  Estudada no Ciclo
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-4 mt-4 relative">
@@ -250,6 +255,11 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
                 {isFullyCompleted && (
                   <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 py-0 px-1.5 h-5 shrink-0">
                     Concluída
+                  </Badge>
+                )}
+                {isSubjectStudied(subject.originalId || subject.id) && !isFullyCompleted && (
+                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 py-0 px-1.5 h-5 shrink-0">
+                    Estudada no Ciclo
                   </Badge>
                 )}
               </div>
@@ -357,6 +367,11 @@ export const StudyCycleSubjectCard: React.FC<StudyCycleSubjectCardProps> = ({
             {isFullyCompleted && (
               <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 py-0 px-1.5 h-5 shrink-0">
                 Concluída
+              </Badge>
+            )}
+            {isSubjectStudied(subject.originalId || subject.id) && !isFullyCompleted && (
+              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 py-0 px-1.5 h-5 shrink-0">
+                Estudada no Ciclo
               </Badge>
             )}
           </div>

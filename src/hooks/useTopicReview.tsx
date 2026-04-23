@@ -7,6 +7,7 @@ import { toastManager } from '@/utils/toastManager';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { useStudySessionTracking } from './useStudySessionTracking';
 import { useCycleState } from './useCycleState';
+import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { calculateNextReview, formatDateForDB, describeCalculation } from '@/utils/calculateNextReview';
 import { Topic } from '@/types';
 import { registerDualProgress, findSiblingTopicIds } from '@/services/cycleMergeService';
@@ -17,6 +18,7 @@ export const useTopicReview = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { recordTopicCompletion } = useStudySessionTracking();
   const { userCycle } = useCycleState();
+  const { markSubjectAsStudied } = useCycleStatus();
   const cycleId = userCycle?.id;
 
   // Estado para controlar o modal de dificuldade
@@ -306,6 +308,9 @@ export const useTopicReview = () => {
             cycleId,
             topic.edital_id || topic.origin_id
           );
+
+          // Avançar o ciclo automaticamente (marcar matéria como visitada no ciclo atual)
+          await markSubjectAsStudied(topic.subject_id || '', subjectData.name, true);
         }
       } catch (sessionError) {
         console.error('⚠️ Erro ao registrar sessão de estudo:', sessionError);

@@ -80,7 +80,7 @@ export const useCycleStatus = () => {
   }, [user]);
 
   // Marcar matéria como estudada no ciclo atual
-  const markSubjectAsStudied = useCallback(async (subjectId: string, subjectName: string) => {
+  const markSubjectAsStudied = useCallback(async (subjectId: string, subjectName: string, silent: boolean = false) => {
     if (!user || !userCycle) return false;
 
     setIsLoading(true);
@@ -103,7 +103,9 @@ export const useCycleStatus = () => {
 
       // Se já está estudada, não fazer nada
       if (currentStudied.includes(subjectId)) {
-        toast.info(`${subjectName} já foi estudada neste ciclo`);
+        if (!silent) {
+          toast.info(`${subjectName} já foi estudada neste ciclo`);
+        }
         return true;
       }
 
@@ -130,24 +132,22 @@ export const useCycleStatus = () => {
         const subject = typedSubjects.find(s => s.id === id);
         if (!subject) return;
 
+        // Se a matéria não tem tópicos, ela não deve bloquear o ciclo
+        if (!subject.topics || subject.topics.length === 0) {
+          completedSubjectsInCurrentCycle.push(id);
+          return;
+        }
+
         // Verificar se está 100% concluída (TODOS os tópicos devem estar na última revisão OU completed)
-        if (subject.topics && subject.topics.length > 0) {
-          const allTopicsCompleted = subject.topics.every((topic: any) => {
-            // Considerar concluído se:
-            // 1. reviewStage é 'Concluído' OU
-            // 2. completed é true OU  
-            // 3. reviewStage é a última revisão possível (60d ou superior)
-            return topic.reviewStage === 'Concluído' ||
-              topic.completed === true ||
-              topic.reviewStage === '60d';
-          });
+        const allTopicsCompleted = subject.topics.every((topic: any) => {
+          return topic.reviewStage === 'Concluído' ||
+            topic.completed === true ||
+            topic.reviewStage === '60d';
+        });
 
-          // Log removido para otimização
-
-          if (allTopicsCompleted) {
-            completedSubjectsInCurrentCycle.push(id);
-            return;
-          }
+        if (allTopicsCompleted) {
+          completedSubjectsInCurrentCycle.push(id);
+          return;
         }
 
         activeSubjectsInCurrentCycle.push(id);
