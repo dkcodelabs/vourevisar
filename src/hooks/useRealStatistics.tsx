@@ -202,10 +202,14 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
 
     window.addEventListener('cycleUpdated', handleRefresh);
     window.addEventListener('mergeUpdated', handleRefresh);
+    window.addEventListener('subjectUpdated', handleRefresh);
+    window.addEventListener('topicUpdated', handleRefresh);
 
     return () => {
       window.removeEventListener('cycleUpdated', handleRefresh);
       window.removeEventListener('mergeUpdated', handleRefresh);
+      window.removeEventListener('subjectUpdated', handleRefresh);
+      window.removeEventListener('topicUpdated', handleRefresh);
     };
   }, []);
 

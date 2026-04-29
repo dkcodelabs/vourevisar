@@ -88,9 +88,20 @@ export const applyBrowserSpecificStyles = () => {
 export const ensureFontLoaded = () => {
   return new Promise<void>((resolve) => {
     if (document.fonts && document.fonts.ready) {
+      // Safety timeout in case fonts.ready hangs
+      const timeout = setTimeout(() => {
+        console.warn("[FontLoader] Timeout reached while waiting for fonts.ready");
+        resolve();
+      }, 2000);
+
       document.fonts.ready.then(() => {
+        clearTimeout(timeout);
         // Force re-render after fonts are loaded - usando Plus Jakarta Sans
         document.body.style.fontFamily = "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        resolve();
+      }).catch(err => {
+        console.error("[FontLoader] Error loading fonts:", err);
+        clearTimeout(timeout);
         resolve();
       });
     } else {

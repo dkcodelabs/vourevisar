@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off } from 'lucide-react';
+import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +17,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '@/components/SortableItem';
 import { Subject, Topic, Status, UserEdital } from '@/types';
+import { getTopicStatusInfo } from '@/utils/topicStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { transformSubjectsData } from '@/contexts/utils/dataTransformers';
 import { applyUnificationMap, getUnifiedSubjectId } from '@/services/cycleMergeService';
@@ -24,6 +25,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import TopicsModal from '@/components/topics/TopicsModal';
 import ContentUploadModal from '@/components/ContentUploadModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
+import NotesModal from '@/components/reviews/NotesModal';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
@@ -85,9 +87,53 @@ const getStatusBorderColor = (status: Status) => {
   }
 };
 
+
+interface DifficultyBarsProps {
+  level: 1 | 2 | 3; // 1 = Fácil (Verde), 2 = Médio (Amarelo), 3 = Difícil (Vermelho)
+}
+
+function DifficultyBars({ level }: DifficultyBarsProps) {
+  // Define a cor ativa baseada no nível atual (Semaforo)
+  const activeColor = 
+    level === 1 ? 'bg-emerald-500' : 
+    level === 2 ? 'bg-amber-500' : 
+    'bg-rose-500';
+
+  // Cor neutra para as barras vazias no dark mode
+  const inactiveColor = 'bg-zinc-700/50'; 
+
+  // Tooltip simples nativo (opcional, mas bom para acessibilidade)
+  const tooltipText = level === 1 ? 'Fácil' : level === 2 ? 'Médio' : 'Difícil';
+
+  return (
+    <div className="flex items-end gap-[3px] h-4 mb-0.5 ml-2" title={tooltipText}>
+      {/* Barra 1 - Fácil */}
+      <div 
+        className={`w-1 h-2 rounded-sm transition-colors duration-300 ${
+          level >= 1 ? activeColor : inactiveColor
+        }`} 
+      />
+      
+      {/* Barra 2 - Médio */}
+      <div 
+        className={`w-1 h-3 rounded-sm transition-colors duration-300 ${
+          level >= 2 ? activeColor : inactiveColor
+        }`} 
+      />
+      
+      {/* Barra 3 - Difícil */}
+      <div 
+        className={`w-1 h-4 rounded-sm transition-colors duration-300 ${
+          level >= 3 ? activeColor : inactiveColor
+        }`} 
+      />
+    </div>
+  );
+}
+
 const Subjects = () => {
   const { user } = useAuth();
-  const { originsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, getOriginsForSubject, refresh } = useEditalOriginsWithMerge();
+  const { originsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, getOriginsForSubject, refresh, isLoading: isOriginsLoading } = useEditalOriginsWithMerge();
   const { getUnifiedSubjectName, isSubjectMerged, getSubjectOrigins, revertSubjectMerge, getSubjectMergeInfo, dynamicUnificationMap } = useMergeData();
   const navigate = useNavigate();
   // Estado local simples - sem contextos
@@ -100,6 +146,7 @@ const Subjects = () => {
   const ITEMS_PER_PAGE = 25;
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [selectedSubjectForNotes, setSelectedSubjectForNotes] = useState<Subject | null>(null);
+  const [selectedTopicForNotes, setSelectedTopicForNotes] = useState<{id: string, name: string, subjectName: string} | null>(null);
 
   // States for Merge Reversion
   const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
@@ -287,7 +334,7 @@ const Subjects = () => {
     localStorage.removeItem(cacheKey);
 
     console.log('🔄 LOADING FROM DATABASE');
-    if (!dataLoaded) {
+    if (isFirstLoad.current) {
       setIsLoading(true);
     }
     try {
@@ -304,6 +351,7 @@ const Subjects = () => {
         transformedCount: transformedSubjects.length
       });
       setSubjects(transformedSubjects);
+      setLocalSubjects(transformedSubjects);
 
       console.log('✅ DATA LOADED:', { subjectsCount: transformedSubjects.length });
     } catch (error) {
@@ -321,8 +369,9 @@ const Subjects = () => {
     } finally {
       setIsLoading(false);
       setDataLoaded(true);
+      isFirstLoad.current = false;
     }
-  }, [user, dataLoaded]);
+  }, [user]);
 
   const refreshData = useCallback(async () => {
     if (user) {
@@ -420,6 +469,7 @@ const Subjects = () => {
   const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
   // IDs de subjects ocultos localmente (otimismo para handleDelete)
   const [hiddenSubjectIds, setHiddenSubjectIds] = useState<Set<string>>(new Set());
+  const isFirstLoad = useRef(true);
   // Estado de loading por edital (para botão Remover do Ciclo)
   const [unloadingEditalId, setUnloadingEditalId] = useState<string | null>(null);
   const [unloadConfirm, setUnloadConfirm] = useState<{ 
@@ -599,22 +649,26 @@ const Subjects = () => {
 
   // Carregar dados apenas uma vez por usuário
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       (async () => {
-        await Promise.all([loadSubjects(), loadUserCycle(), repairOrphanedSubjects(user.id)]);
+        // Garantir que carregamos tudo na primeira montagem
+        await Promise.all([
+          loadSubjects(), 
+          loadUserCycle(), 
+          repairOrphanedSubjects(user.id)
+        ]);
         setLoading(false);
       })();
 
       // Listener para atualizar quando houver mudanças externas (ex: exclusão de edital ou mesclagem desfeita)
       const handleExternalUpdate = async () => {
-        console.log('🔔 EXTERNAL UPDATE DETECTED - Refreshing subjects, cycle and editais...');
+        console.log('🔔 EXTERNAL UPDATE DETECTED - Refreshing subjects and cycle...');
         try {
           await Promise.all([
             loadSubjects(true), // Força bypass do cache
             loadUserCycle()
           ]);
-          // Atualizar também o contexto de editais para garantir que badges e visibilidade (activeSubjectIdsSet) reflitam o novo estado
-          await refresh();
+          // O refresh do hook de origens é chamado via evento no próprio hook ou manualmente se necessário
           console.log('✅ Synchronized refresh completed');
         } catch (err) {
           console.error('❌ Synchronized refresh failed:', err);
@@ -631,10 +685,10 @@ const Subjects = () => {
         window.removeEventListener('cycleUpdated', handleExternalUpdate);
         window.removeEventListener('editalUpdated', handleExternalUpdate);
       };
-    } else {
+    } else if (!user) {
       setLoading(false);
     }
-  }, [user, loadSubjects, loadUserCycle]);
+  }, [user?.id, loadSubjects, loadUserCycle]);
 
   // Sincronizar localSubjects quando subjects mudar
   useEffect(() => {
@@ -715,21 +769,18 @@ const Subjects = () => {
     return expanded;
   }, [userCycle?.ciclo_atual, dynamicUnificationMap, localSubjects, activeSubjectIdsSet, hiddenSubjectIds]);
 
-  useEffect(() => {
-    console.log('📋 SET LOCAL SUBJECTS useEffect TRIGGERED:', {
-      subjectsCount: subjects.length,
-      timestamp: new Date().toISOString()
-    });
-    setLocalSubjects(subjects);
+  // Sincronização redundante de localSubjects removida para evitar flicker.
+  // localSubjects agora é gerenciado diretamente no loadSubjects.
 
-    // Se o modal estiver aberto, atualizar também o objeto subject dentro dele
-    if (topicsModal.isOpen && topicsModal.subject) {
+  // Mantém o modal de tópicos atualizado se os dados da matéria mudarem em background
+  useEffect(() => {
+    if (topicsModal.isOpen && topicsModal.subject && subjects.length > 0) {
       const updatedSubject = subjects.find(s => s.id === topicsModal.subject?.id);
       if (updatedSubject) {
         setTopicsModal(prev => ({ ...prev, subject: updatedSubject }));
       }
     }
-  }, [subjects, topicsModal.isOpen, topicsModal.subject]);
+  }, [subjects, topicsModal.isOpen, topicsModal.subject?.id]);
 
   // Focar o input quando necessário
   useLayoutEffect(() => {
@@ -944,6 +995,7 @@ const Subjects = () => {
       if (error) throw error;
 
       await refreshData();
+      window.dispatchEvent(new CustomEvent('topicUpdated'));
       toast.success('Tópico desativado (Movido para lixeira)', { duration: 2000 });
       setTopicToDelete(null);
     } catch (error) {
@@ -974,6 +1026,7 @@ const Subjects = () => {
       if (error) throw error;
 
       await refreshData();
+      window.dispatchEvent(new CustomEvent('topicUpdated'));
       toast.success('Tópico restaurado!');
     } catch (error) {
       errorService.report(error, { module: 'Subjects', action: 'handleRestoreTopic', userMessage: 'Erro ao restaurar tópico' });
@@ -1210,7 +1263,7 @@ const Subjects = () => {
 
   const hasMore = filteredList.length > visibleCount;
 
-  if (isLoading) {
+  if (isLoading || isOriginsLoading || (loading && !dataLoaded)) {
     return <LoadingSpinner size="large" showText fullPage />;
   }
 
@@ -1367,7 +1420,7 @@ const Subjects = () => {
         onDragEnd={handleDragEnd}
       >
         <div className="w-full">
-          {displayList.length === 0 ? (
+          {(displayList.length === 0 && dataLoaded && !isLoading) ? (
             <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-500 w-full mb-12">
               {localSubjects.length === 0 ? (
                 <>
@@ -1760,41 +1813,41 @@ const Subjects = () => {
                                               </span>
                                               {/* 
                                                 Lógica de label — prioridade:
-                                                1. CONCLUÍDO   = todas as revisões terminadas
-                                                2. EM REVISÃO  = tem revisões feitas mas não concluído
-                                                3. ESTUDADO    = teve 1º contato mas ainda sem revisão
-                                                4. NÃO INICIADO = nunca foi aberto
-                                              */}
-                                              {(() => {
-                                                const hasRevisions = topic.reviewCount > 0 || (topic as any).review_count > 0;
-                                                const hasStudied = Boolean((topic as any).first_studied_at);
+                                                 1. CONCLUÍDO   = todas as revisões terminadas
+                                                 2. EM REVISÃO  = tem revisões feitas mas não concluído
+                                                 3. ESTUDADO    = teve 1º contato mas ainda sem revisão
+                                                 4. NÃO INICIADO = nunca foi aberto
+                                               */}
+                                               <div className="flex items-center">
+                                                  {(() => {
+                                                    if (!isActive) {
+                                                      return (
+                                                        <div className="px-2 py-0.5 rounded-full border text-rose-500 bg-rose-500/10 border-rose-500/20 mt-1 w-fit text-[10px] font-semibold tracking-wide uppercase">
+                                                          NA LIXEIRA
+                                                        </div>
+                                                      );
+                                                    }
 
-                                                let label: string;
-                                                let colorClass: string;
+                                                    const statusInfo = getTopicStatusInfo(topic);
+                                                    return (
+                                                      <div className={`px-2 py-0.5 rounded-full border ${statusInfo.colorClass} mt-1 w-fit text-[10px] font-semibold tracking-wide uppercase`}>
+                                                        {statusInfo.label}
+                                                      </div>
+                                                    );
+                                                  })()}
 
-                                                if (!isActive) {
-                                                  label = 'NA LIXEIRA';
-                                                  colorClass = 'text-rose-500/70';
-                                                } else if (isCompleted) {
-                                                  label = 'CONCLUÍDO';
-                                                  colorClass = 'text-emerald-500/80';
-                                                } else if (hasRevisions) {
-                                                  label = 'EM REVISÃO';
-                                                  colorClass = 'text-yellow-500/80';
-                                                } else if (hasStudied) {
-                                                  label = 'ESTUDADO';
-                                                  colorClass = 'text-sky-500/70';
-                                                } else {
-                                                  label = 'NÃO INICIADO';
-                                                  colorClass = 'text-muted-foreground/50';
-                                                }
-
-                                                return (
-                                                  <span className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${colorClass}`}>
-                                                    {label}
-                                                  </span>
-                                                );
-                                              })()}
+                                                  {topic.difficulty_level && topic.difficulty_level > 0 && (
+                                                    <div className="mt-1 flex items-center gap-3">
+                                                      <DifficultyBars level={topic.difficulty_level as 1 | 2 | 3} />
+                                                      
+                                                      {/* Contador de revisões */}
+                                                      <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums">
+                                                        <RotateCcw size={10} className="text-content-muted/40" />
+                                                        <span>{topic.reviewCount || 0}</span>
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
                                             </div>
                                           )}
                                         </div>
@@ -1819,9 +1872,37 @@ const Subjects = () => {
                                             )}
                                           </div>
 
-                                          <div className="absolute right-0 flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-4 group-hover/topic:translate-x-0">
+                                          <div className="absolute right-0 flex items-center gap-1 opacity-20 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0">
                                             {isActive ? (
                                               <>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedTopicForNotes({
+                                                      id: topic.id,
+                                                      name: topic.name,
+                                                      subjectName: subject.name
+                                                    });
+                                                  }}
+                                                  className={`p-1 transition-colors ${topic.notes && topic.notes.trim() !== '' && topic.notes !== '<p><br></p>'
+                                                    ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
+                                                    : 'text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400'
+                                                    }`}
+                                                  title={`Anotações para ${topic.name}`}
+                                                >
+                                                  <FileText size={16} />
+                                                </button>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/revisoes?topicId=${topic.id}`);
+                                                  }}
+                                                  className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-all shadow-sm border border-indigo-200 dark:border-indigo-800 ml-0.5"
+                                                  title="Ir para Revisões"
+                                                >
+                                                  <ArrowRight size={12} />
+                                                </button>
+                                                <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
                                                 <button className="h-6 px-2 flex items-center gap-1 rounded bg-primary/10 text-primary hover:bg-primary transition-all hover:text-white text-[9px] font-bold uppercase tracking-tight">
                                                   <Wand2 size={10} /> IA
                                                 </button>
@@ -1910,6 +1991,16 @@ const Subjects = () => {
               onClose={handleCloseTopicsModal}
               subject={topicsModal.subject}
               onUpdate={refreshData}
+            />
+          )}
+
+          {selectedTopicForNotes && (
+            <NotesModal
+              isOpen={true}
+              onClose={() => setSelectedTopicForNotes(null)}
+              topicId={selectedTopicForNotes.id}
+              topicName={selectedTopicForNotes.name}
+              subjectName={selectedTopicForNotes.subjectName}
             />
           )}
 

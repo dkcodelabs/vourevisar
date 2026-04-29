@@ -333,6 +333,7 @@ export const useEditalOriginsWithMerge = () => {
         activeSubjectIdsSet, 
         getOriginsForSubject, 
         getOriginsForTopic,
-        refresh: fetchEditais 
+        refresh: fetchEditais,
+        isLoading
     };
 };

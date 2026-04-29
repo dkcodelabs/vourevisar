@@ -8,6 +8,7 @@ import { Plus, Edit2, Trash2, Check, X, BookOpen } from 'lucide-react';
 
 import { Subject, Topic } from '@/types';
 import { toast } from '@/lib/toast';
+import { getTopicStatusInfo } from '@/utils/topicStatus';
 
 import { useOptimisticTopics } from '@/hooks/useOptimisticTopics';
 
@@ -87,13 +88,12 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onU
   };
 
   const getStatusBadge = (topic: Topic) => {
-    // Regra principal de Cobertura: primeiro contato é nosso definidor raiz. Fallback no reviewCount > 0 se o DB for legado.
-    const hasBeenStudied = Boolean(topic.first_studied_at) || topic.reviewCount > 0 || topic.review_count > 0;
-
-    if (hasBeenStudied) {
-      return <Badge className="bg-green-100 text-green-800 border-green-300 w-[100px] justify-center shadow-none font-medium">✔ Estudado</Badge>;
-    }
-    return <Badge className="bg-slate-100 text-slate-800 border-slate-300 w-[100px] justify-center shadow-none font-medium">Não estudado</Badge>;
+    const statusInfo = getTopicStatusInfo(topic);
+    return (
+      <Badge className={`${statusInfo.colorClass} w-[110px] justify-center shadow-none font-medium`}>
+        {statusInfo.label}
+      </Badge>
+    );
   };
 
   // Auto-focus no campo de adição quando o modal abre
@@ -209,7 +209,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onU
                               </h4>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span className="text-xs text-gray-500">
-                                  {Boolean(topic.first_studied_at) || topic.reviewCount > 0 || topic.review_count > 0 ? "Cobertura: Estudado" : "Cobertura: Não iniciado"}
+                                  {getTopicStatusInfo(topic).type === 'novo' ? "Cobertura: Não iniciado" : "Cobertura: Estudado"}
                                 </span>
                               </div>
                             </div>

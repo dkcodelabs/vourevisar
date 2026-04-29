@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { format, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Topic } from '@/types';
+import { getTopicStatusInfo } from '@/utils/topicStatus';
 import ConfirmDeleteModal from '@/components/topics/ConfirmDeleteModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import NotesModal from '@/components/reviews/NotesModal';
@@ -162,35 +163,12 @@ const Topics = () => {
     return Array.from(uniqueTopicsMap.values());
   }, [subjects, userCycle?.ciclo_atual, dynamicUnificationMap, activeSubjectIdsSet, getOriginsForTopic, getUnifiedSubjectName, getUnifiedTopicName]);
 
-  const getTopicStatusInfo = (topic: Topic) => {
-    if (topic.completed) {
-      return { label: 'Concluído', type: 'concluido' };
-    }
-    if (!topic.nextReview) {
-      return { label: 'Não agendado', type: 'futuro' };
-    }
-
-    const today = startOfDay(new Date());
-    const reviewDate = startOfDay(new Date(topic.nextReview));
-
-    if (reviewDate < today) {
-      const daysLate = Math.floor((today.getTime() - reviewDate.getTime()) / (1000 * 60 * 60 * 24));
-      return {
-        label: 'Atrasado',
-        type: 'atrasado'
-      };
-    } else if (reviewDate.getTime() === today.getTime()) {
-      return {
-        label: 'Hoje',
-        type: 'hoje'
-      };
-    } else {
-      const daysAhead = Math.floor((reviewDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return {
-        label: `Em ${daysAhead} dias`,
-        type: 'futuro'
-      };
-    }
+  const getTopicStatusInfoLocal = (topic: Topic) => {
+    const statusInfo = getTopicStatusInfo(topic);
+    return {
+      label: statusInfo.label,
+      type: statusInfo.type
+    };
   };
 
   const filteredTopics = useMemo(() => {
@@ -199,7 +177,7 @@ const Topics = () => {
         const matchesSearch = topic.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           topic.subjectName.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const statusInfo = getTopicStatusInfo(topic);
+        const statusInfo = getTopicStatusInfoLocal(topic);
         const matchesStatus = statusFilter === 'Todos' ||
           (statusFilter === 'Atrasado' && statusInfo.type === 'atrasado') ||
           (statusFilter === 'Futuro' && statusInfo.type === 'futuro') ||

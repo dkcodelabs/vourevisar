@@ -143,6 +143,7 @@ const Editais = () => {
     const [expandedPreviewSubjects, setExpandedPreviewSubjects] = useState<Set<string>>(new Set());
     const [pendingSuggestions, setPendingSuggestions] = useState<PendingSuggestion[]>([]);
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+    const [dataLoaded, setDataLoaded] = useState(false);
 
     const toggleSubjectExpansion = (displayName: string) => {
         setExpandedSubjects(prev => {
@@ -212,6 +213,7 @@ const Editais = () => {
             errorService.report(err, { module: 'editais', action: 'fetch', userMessage: 'Erro ao carregar editais.' });
         } finally {
             setLoadingEditais(false);
+            setDataLoaded(true);
         }
     }, [user?.id]);
 
@@ -1515,7 +1517,7 @@ const Editais = () => {
     };
 
     // ── Loading ──
-    if (isLoading || loadingEditais) return <LoadingSpinner size="large" showText fullPage />;
+    if (isLoading || loadingEditais || !dataLoaded) return <LoadingSpinner size="large" showText fullPage />;
 
     return (
         <div className="min-h-screen p-3 md:p-4 lg:p-6 space-y-4">
@@ -1643,7 +1645,7 @@ const Editais = () => {
             )}
 
             {/* ── Grid de Cards / Empty State ── */}
-            {filteredEditais.length === 0 ? (
+            {dataLoaded && filteredEditais.length === 0 ? (
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}

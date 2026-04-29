@@ -70,18 +70,16 @@ export function SubjectSparkline({ subjectId }: SubjectSparklineProps) {
   if (points.length < 2) {
     return (
       <div className="hidden sm:flex flex-col items-center gap-0.5 opacity-20 filter grayscale" title="Aguardando dados de revisão">
-        <ResponsiveContainer width={72} height={28}>
-          <LineChart data={[{ v: 2 }, { v: 2 }]} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-            <Line
-              type="monotone"
-              dataKey="v"
-              stroke="#94a3b8"
-              strokeWidth={1}
-              strokeDasharray="3 3"
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <LineChart width={72} height={28} data={[{ v: 2 }, { v: 2 }]} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+          <Line
+            type="monotone"
+            dataKey="v"
+            stroke="#94a3b8"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            dot={false}
+          />
+        </LineChart>
         <span className="text-[8px] font-bold text-slate-400">Evoluindo...</span>
       </div>
     );
@@ -98,19 +96,17 @@ export function SubjectSparkline({ subjectId }: SubjectSparklineProps) {
       className="hidden sm:flex flex-col items-center gap-0.5"
       title={`Evolução: ${trendLabel}`}
     >
-      <ResponsiveContainer width={72} height={28}>
-        <LineChart data={points} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-          <Tooltip content={<SparkTooltip />} />
-          <Line
-            type="monotone"
-            dataKey="v"
-            stroke={lineColor}
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 3, fill: lineColor }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      <LineChart width={72} height={28} data={points} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+        <Tooltip content={<SparkTooltip />} />
+        <Line
+          type="monotone"
+          dataKey="v"
+          stroke={lineColor}
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 3, fill: lineColor }}
+        />
+      </LineChart>
       <span className={`text-[8px] font-bold tabular-nums ${
         last > first ? 'text-emerald-500' :
         last < first ? 'text-rose-500' : 'text-yellow-500'

@@ -136,9 +136,11 @@ export function useUserProfile(): UseUserProfileReturn {
 
     // Log removido para otimização
 
-    // Listener para mudanças de role
-    const roleSubscription = supabase
-      .channel('role_changes')
+    // Listener consolidado para mudanças de perfil, role e assinatura
+    // O uso do Date.now() garante que o canal seja único a cada montagem do useEffect,
+    // evitando o erro "cannot add postgres_changes callbacks... after subscribe()" no React Strict Mode.
+    const userChannel = supabase
+      .channel(`user_data_${profile.id}_${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -147,15 +149,8 @@ export function useUserProfile(): UseUserProfileReturn {
           table: 'user_roles',
           filter: `user_id=eq.${profile.id}`
         },
-        () => {
-          forceRefresh()
-        }
+        () => forceRefresh()
       )
-      .subscribe()
-
-    // Listener para mudanças de assinatura
-    const subscriptionSubscription = supabase
-      .channel('subscription_changes')
       .on(
         'postgres_changes',
         {
@@ -164,15 +159,8 @@ export function useUserProfile(): UseUserProfileReturn {
           table: 'user_subscriptions',
           filter: `user_id=eq.${profile.id}`
         },
-        () => {
-          forceRefresh()
-        }
+        () => forceRefresh()
       )
-      .subscribe()
-
-    // Listener para mudanças no perfil (nome, avatar)
-    const profileSubscription = supabase
-      .channel('profile_changes')
       .on(
         'postgres_changes',
         {
@@ -181,9 +169,7 @@ export function useUserProfile(): UseUserProfileReturn {
           table: 'profiles',
           filter: `id=eq.${profile.id}`
         },
-        () => {
-          forceRefresh()
-        }
+        () => forceRefresh()
       )
       .subscribe()
 
@@ -197,9 +183,7 @@ export function useUserProfile(): UseUserProfileReturn {
     window.addEventListener('subscription-changed', handleSubscriptionChange as EventListener)
 
     return () => {
-      supabase.removeChannel(roleSubscription)
-      supabase.removeChannel(subscriptionSubscription)
-      supabase.removeChannel(profileSubscription)
+      supabase.removeChannel(userChannel)
       window.removeEventListener('subscription-changed', handleSubscriptionChange as EventListener)
     }
   }, [profile?.id, forceRefresh])
