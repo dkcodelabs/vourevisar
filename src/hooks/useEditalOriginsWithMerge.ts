@@ -21,7 +21,7 @@ interface EditalOriginData {
 
 export const useEditalOriginsWithMerge = () => {
     const { user } = useAuth();
-    const { userCycle } = useCycleState();
+    const { userCycle, isLoading: isCycleLoading } = useCycleState();
     const [editaisData, setEditaisData] = useState<EditalOriginData[]>([]);
     const [subjectMerges, setSubjectMerges] = useState<SubjectMerge[]>([]);
     const [topicMerges, setTopicMerges] = useState<TopicMerge[]>([]);
@@ -334,6 +334,6 @@ export const useEditalOriginsWithMerge = () => {
         getOriginsForSubject, 
         getOriginsForTopic,
         refresh: fetchEditais,
-        isLoading
+        isLoading: isLoading || isCycleLoading
     };
 };

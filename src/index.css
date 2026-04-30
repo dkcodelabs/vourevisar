@@ -172,7 +172,7 @@
   }
 
   .glow-card {
-    @apply bg-card/70 backdrop-blur-2xl border transition-all duration-300 hover:-translate-y-1;
+    @apply bg-card/70 backdrop-blur-2xl border transition-all duration-300;
     border-color: rgba(0, 0, 0, 0.06);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
   }

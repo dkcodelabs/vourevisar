@@ -35,6 +35,7 @@ interface EditalSubjectsModalProps {
     editais?: UserEdital[]; // Editais do ciclo (para select)
     allSubjects: Subject[];
     onUpdate: (updated: UserEdital) => void;
+    initialExpandedSubjectId?: string;
 }
 
 const editaisTable = () => supabase.from('user_editais');
@@ -53,7 +54,7 @@ function getTopicStatus(topic: Topic): { label: string; color: string } {
 }
 
 export const EditalSubjectsModal = ({
-    isOpen, onClose, edital, editais, allSubjects, onUpdate
+    isOpen, onClose, edital, editais, allSubjects, onUpdate, initialExpandedSubjectId
 }: EditalSubjectsModalProps) => {
     const { user } = useAuth();
     const { refreshData } = useApp();
@@ -104,6 +105,28 @@ export const EditalSubjectsModal = ({
             setSyncStatus(null);
         }
     }, [isOpen, edital, allSubjects]);
+
+    // ── Efeito para expandir e dar scroll na matéria inicial ──
+    useEffect(() => {
+        if (isOpen && initialExpandedSubjectId) {
+            setExpandedIds(prev => {
+                if (prev.includes(initialExpandedSubjectId)) return prev;
+                return [...prev, initialExpandedSubjectId];
+            });
+            
+            // Pequeno delay para o modal animar e a lista renderizar
+            const timer = setTimeout(() => {
+                const el = document.getElementById(`subject-card-${initialExpandedSubjectId}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Adiciona um brilho temporário para destaque
+                    el.classList.add('ring-2', 'ring-primary/50');
+                    setTimeout(() => el.classList.remove('ring-2', 'ring-primary/50'), 2000);
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen, initialExpandedSubjectId]);
 
     // ── UI state ─────────────────────────────────────────────────────────
     const [searchQuery, setSearchQuery] = useState('');
@@ -1149,6 +1172,7 @@ export const EditalSubjectsModal = ({
 
                                         {/* ── Card da matéria ── */}
                                         <div
+                                            id={`subject-card-${subject.id}`}
                                             onClick={() => !isTemp && !isPendingDelete && toggleExpand(subject.id)}
                                             className={`glow-card px-4 py-3 rounded-2xl flex items-center justify-between group hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden
                                                 ${isExpanded ? 'border-primary/30' : ''}

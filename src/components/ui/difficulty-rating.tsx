@@ -1,6 +1,6 @@
 import React from 'react';
-import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 interface DifficultyRatingProps {
   value?: number | null;
@@ -12,18 +12,76 @@ interface DifficultyRatingProps {
   allowClear?: boolean;
 }
 
-const difficultyLabels = {
-  1: 'Difícil',
-  2: 'Médio',
-  3: 'Fácil'
-};
+// 1 = Difícil (vermelho), 2 = Médio (amarelo), 3 = Fácil (verde)
+const DIFFICULTY_CONFIG = {
+  1: {
+    label: 'Difícil',
+    activeColor: 'bg-rose-500',
+    textColor: 'text-rose-500',
+    borderColor: 'border-rose-500/40',
+    bgHover: 'hover:bg-rose-500/10',
+    bgSelected: 'bg-rose-500/10',
+    glow: 'shadow-rose-500/30',
+  },
+  2: {
+    label: 'Médio',
+    activeColor: 'bg-amber-400',
+    textColor: 'text-amber-500',
+    borderColor: 'border-amber-400/40',
+    bgHover: 'hover:bg-amber-400/10',
+    bgSelected: 'bg-amber-400/10',
+    glow: 'shadow-amber-400/30',
+  },
+  3: {
+    label: 'Fácil',
+    activeColor: 'bg-emerald-500',
+    textColor: 'text-emerald-500',
+    borderColor: 'border-emerald-500/40',
+    bgHover: 'hover:bg-emerald-500/10',
+    bgSelected: 'bg-emerald-500/10',
+    glow: 'shadow-emerald-500/30',
+  },
+} as const;
 
-const difficultyColors = {
-  1: 'text-red-500',
-  2: 'text-yellow-500',
-  3: 'text-green-500'
-};
+/** Mini barras de dificuldade para exibição compacta (read-only) */
+export function DifficultyBarsCompact({
+  level,
+  size = 'md',
+  className,
+}: {
+  level: 1 | 2 | 3;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}) {
+  const config = DIFFICULTY_CONFIG[level];
 
+  const barSizes = {
+    sm: { width: 'w-[3px]', heights: ['h-[6px]', 'h-[9px]', 'h-[12px]'], gap: 'gap-[2px]', container: 'h-3' },
+    md: { width: 'w-[4px]', heights: ['h-[8px]', 'h-[11px]', 'h-[14px]'], gap: 'gap-[3px]', container: 'h-4' },
+    lg: { width: 'w-[5px]', heights: ['h-[10px]', 'h-[14px]', 'h-[18px]'], gap: 'gap-[3px]', container: 'h-5' },
+  };
+
+  const s = barSizes[size];
+
+  return (
+    <div className={cn(`flex items-end ${s.gap} ${s.container}`, className)} title={config.label}>
+      {s.heights.map((h, i) => (
+        <div
+          key={i}
+          className={cn(
+            s.width,
+            h,
+            'rounded-sm transition-colors duration-200',
+            // Difícil (1) = 3 barras, Médio (2) = 2 barras, Fácil (3) = 1 barra
+            i < (4 - level) ? config.activeColor : 'bg-zinc-600/30 dark:bg-zinc-700/50'
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Seletor interativo de dificuldade em cards clicáveis com barras */
 export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
   value,
   onChange,
@@ -31,126 +89,123 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
   size = 'md',
   showLabel = false,
   className,
-  allowClear = true
+  allowClear = true,
 }) => {
   const [hoverValue, setHoverValue] = React.useState<number | null>(null);
 
-  const sizeClasses = {
-    sm: 'h-4 w-4',
-    md: 'h-5 w-5',
-    lg: 'h-6 w-6'
-  };
-
   const handleClick = (rating: number) => {
     if (readonly || !onChange) return;
-
-    // Se clicar na mesma estrela e permitir limpar, remove a avaliação
     if (value === rating && allowClear) {
       onChange(null);
-    } else if (value !== rating) {
+    } else {
       onChange(rating);
     }
   };
 
-  const handleMouseEnter = (rating: number) => {
-    if (!readonly) {
-      setHoverValue(rating);
-    }
-  };
+  const displayValue = hoverValue ?? value ?? null;
 
-  const handleMouseLeave = () => {
-    setHoverValue(null);
-  };
-
-  const displayValue = hoverValue || value || 0;
-  const currentColor = displayValue > 0 ? difficultyColors[displayValue as keyof typeof difficultyColors] : 'text-gray-300';
-
-  // Layout diferente para readonly (apenas estrelas) vs interativo (com labels)
+  // Modo compacto read-only: só mostra as barrinhas
   if (readonly) {
+    if (!value) return null;
     return (
-      <div className={cn('flex items-center gap-1', className)}>
-        {[1, 2, 3].map((rating) => {
-          const isFilled = rating <= displayValue;
-
-          return (
-            <Star
-              key={rating}
-              className={cn(
-                sizeClasses[size],
-                'transition-colors duration-150',
-                isFilled ? currentColor : 'text-gray-300',
-                isFilled && 'fill-current'
-              )}
-            />
-          );
-        })}
-      </div>
+      <DifficultyBarsCompact
+        level={value as 1 | 2 | 3}
+        size={size}
+        className={className}
+      />
     );
   }
 
+  // Tamanho das barras no seletor interativo
+  const cardBarHeights = {
+    sm: ['h-3', 'h-4', 'h-5'],
+    md: ['h-4', 'h-6', 'h-8'],
+    lg: ['h-5', 'h-8', 'h-11'],
+  };
+
+  const barWidth = {
+    sm: 'w-1',
+    md: 'w-1.5',
+    lg: 'w-2',
+  };
+
+  // Modo interativo: cards clicáveis lado a lado
   return (
-    <div className={cn('flex flex-col items-center gap-2', className)}>
-      {/* Labels e Estrelas */}
-      <div className="flex items-center gap-2">
-        {/* Label "Fácil" */}
-        <span className="text-xs text-gray-500 font-medium">Difícil</span>
+    <div className={cn('flex flex-col items-center gap-3', className)}>
+      <div className="flex items-stretch gap-3 w-full max-w-xs">
+        {([1, 2, 3] as const).map((rating) => {
+          const config = DIFFICULTY_CONFIG[rating];
+          const isSelected = value === rating;
+          const isHovered = hoverValue === rating;
+          const isActive = isSelected || isHovered;
+          const heights = cardBarHeights[size];
 
-        {/* Estrelas */}
-        <div className="flex items-center gap-1">
-          {[1, 2, 3].map((rating) => {
-            const isFilled = rating <= displayValue;
-            const isClickable = !readonly && onChange;
+          return (
+            <motion.button
+              key={rating}
+              type="button"
+              onClick={() => handleClick(rating)}
+              onMouseEnter={() => !readonly && setHoverValue(rating)}
+              onMouseLeave={() => setHoverValue(null)}
+              whileTap={{ scale: 0.95 }}
+              className={cn(
+                'flex-1 flex flex-col items-center justify-end gap-2 px-3 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer',
+                isActive
+                  ? `${config.bgSelected} ${config.borderColor} shadow-md ${config.glow}`
+                  : 'bg-transparent border-border hover:border-border/80',
+                isActive && 'ring-2 ring-offset-1',
+                isActive && rating === 1 && 'ring-rose-500/30',
+                isActive && rating === 2 && 'ring-amber-400/30',
+                isActive && rating === 3 && 'ring-emerald-500/30',
+              )}
+            >
+              {/* Barras de dificuldade dentro do card */}
+              {/* Difícil (1) = 3 barras, Médio (2) = 2 barras, Fácil (3) = 1 barra */}
+              <div className="flex items-end gap-[3px] h-10">
+                {heights.map((h, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      barWidth[size],
+                      h,
+                      'rounded-sm transition-all duration-200',
+                      i < (4 - rating)
+                        ? isActive
+                          ? config.activeColor
+                          : 'bg-zinc-400/50 dark:bg-zinc-600/60'
+                        : 'bg-zinc-200/40 dark:bg-zinc-700/30'
+                    )}
+                  />
+                ))}
+              </div>
 
-            return (
-              <button
-                key={rating}
-                type="button"
-                disabled={!isClickable}
-                onClick={() => handleClick(rating)}
-                onMouseEnter={() => handleMouseEnter(rating)}
-                onMouseLeave={handleMouseLeave}
+              {/* Label do card */}
+              <span
                 className={cn(
-                  sizeClasses[size],
-                  'transition-colors duration-150',
-                  isClickable && 'hover:scale-110 cursor-pointer',
-                  !isClickable && 'cursor-default'
+                  'text-xs font-semibold tracking-wide transition-colors duration-200',
+                  isActive ? config.textColor : 'text-content-muted'
                 )}
               >
-                <Star
-                  className={cn(
-                    'w-full h-full transition-colors duration-150',
-                    isFilled ? currentColor : 'text-gray-300',
-                    isFilled && 'fill-current'
-                  )}
-                />
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Label "Fácil" */}
-        <span className="text-xs text-gray-500 font-medium">Fácil</span>
+                {config.label}
+              </span>
+            </motion.button>
+          );
+        })}
       </div>
 
       {/* Label da dificuldade selecionada */}
-      {showLabel && value && (
-        <span className={cn(
-          'text-sm font-medium',
-          currentColor
-        )}>
-          {difficultyLabels[value as keyof typeof difficultyLabels]}
-        </span>
-      )}
-
-      {/* Botão Limpar embaixo - só aparece se allowClear for true */}
-      {!readonly && onChange && allowClear && (
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          className="text-xs text-gray-500 hover:text-gray-700 underline"
+      {showLabel && displayValue && (
+        <motion.span
+          key={displayValue}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            'text-sm font-semibold',
+            DIFFICULTY_CONFIG[displayValue as 1 | 2 | 3].textColor
+          )}
         >
-          Limpar
-        </button>
+          {DIFFICULTY_CONFIG[displayValue as 1 | 2 | 3].label}
+        </motion.span>
       )}
     </div>
   );

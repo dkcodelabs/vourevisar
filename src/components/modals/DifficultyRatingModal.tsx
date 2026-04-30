@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
 import { motion } from 'framer-motion';
-import { Trophy, Star, CheckCircle2, X, Clock, Loader2 } from 'lucide-react';
+import { Trophy, BarChart2, CheckCircle2, X, Clock, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -122,7 +122,7 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
               className="p-2 rounded-full bg-emerald-500/10 md:bg-green-100 md:light:bg-emerald-500/10"
             >
               {initialDifficulty !== null ? (
-                <Star className="h-6 w-6 text-yellow-500" />
+                <BarChart2 className="h-6 w-6 text-primary" />
               ) : (
                 <Trophy className="h-6 w-6 text-emerald-600 md:text-green-600 md:light:text-emerald-600" />
               )}
@@ -193,7 +193,7 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
               value={selectedDifficulty}
               onChange={handleDifficultyChange}
               size="lg"
-              showLabel={true}
+              showLabel={false}
               allowClear={false}
             />
           </div>

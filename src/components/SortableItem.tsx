@@ -17,8 +17,13 @@ export const SortableItem = ({ id, children }: SortableItemProps) => {
     isDragging,
   } = useSortable({ id });
 
+  // CSS.Translate.toString aplica apenas translação (x, y) sem escala,
+  // evitando a deformação quando o item passa por cima de cards de alturas diferentes.
+  // Zeramos o `x` para restringir o arraste ao eixo vertical exclusivamente.
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(
+      transform ? { ...transform, x: 0 } : null
+    ),
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
@@ -27,7 +32,6 @@ export const SortableItem = ({ id, children }: SortableItemProps) => {
     <div 
       ref={setNodeRef} 
       style={style}
-      className="cursor-grab active:cursor-grabbing"
     >
       {typeof children === 'function'
         ? (children as (props: { listeners: any; attributes: any }) => React.ReactNode)({ listeners, attributes })

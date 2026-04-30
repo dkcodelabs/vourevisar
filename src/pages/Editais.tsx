@@ -102,7 +102,11 @@ const Editais = () => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importModalTab, setImportModalTab] = useState<'ready' | 'ia' | 'manual'>('ready');
-    const [subjectsModal, setSubjectsModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
+    const [subjectsModal, setSubjectsModal] = useState<{ 
+        isOpen: boolean; 
+        edital: UserEdital | null;
+        initialExpandedSubjectId?: string;
+    }>({ isOpen: false, edital: null });
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [unloadConfirm, setUnloadConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [cycleConflict, setCycleConflict] = useState<{
@@ -189,14 +193,28 @@ const Editais = () => {
                 setImportModalTab(location.state.importTab);
             }
         }
+        
+        // Abre modal de matérias de um edital específico
+        if (location.state?.openEditalId && editais.length > 0) {
+            const targetEdital = editais.find(e => e.id === location.state.openEditalId);
+            if (targetEdital) {
+                setSubjectsModal({ 
+                    isOpen: true, 
+                    edital: targetEdital,
+                    // Passamos o subjectId para o modal expandi-lo automaticamente
+                    initialExpandedSubjectId: location.state.highlightSubjectId 
+                });
+            }
+        }
+
         if (location.state?.filterCycle) {
             setFilterCycle(true);
         }
         // Limpa o estado para evitar que reabra ao atualizar a página
-        if (location.state?.openImportModal || location.state?.filterCycle) {
+        if (location.state?.openImportModal || location.state?.filterCycle || location.state?.openEditalId) {
             window.history.replaceState({}, document.title);
         }
-    }, [location.state]);
+    }, [location.state, editais]);
 
     // ── Fetch editais do Supabase ──
     const fetchEditais = useCallback(async () => {
@@ -1994,6 +2012,7 @@ const Editais = () => {
                     editais={editais.filter(e => !e.mergedIntoCycle)}
                     allSubjects={subjects}
                     onUpdate={handleUpdateEdital}
+                    initialExpandedSubjectId={subjectsModal.initialExpandedSubjectId}
                 />
             )}
 

@@ -10,34 +10,7 @@ import { cleanCycle } from '@/utils/cycleUtils';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
 import type { Subject, Topic, UserCycle, UserEdital } from '@/types';
 
-/** Busca em lote contagem de revisões e revisões difíceis (difficulty_numeric = 3) para um conjunto de topic_ids */
-async function fetchTopicReviewStats(
-  topicIds: string[]
-): Promise<Map<string, { reviewCount: number; hardReviewCount: number }>> {
-  const map = new Map<string, { reviewCount: number; hardReviewCount: number }>();
-  if (topicIds.length === 0) return map;
-
-  try {
-    const { data, error } = await supabase
-      .from('topic_review_history')
-      .select('topic_id, difficulty_numeric')
-      .in('topic_id', topicIds);
-
-    if (error || !data) return map;
-
-    for (const row of data as { topic_id: string; difficulty_numeric: number | null }[]) {
-      const id = row.topic_id;
-      if (!map.has(id)) map.set(id, { reviewCount: 0, hardReviewCount: 0 });
-      const entry = map.get(id)!;
-      entry.reviewCount++;
-      if (row.difficulty_numeric === 3) entry.hardReviewCount++;
-    }
-  } catch (e) {
-    console.warn('[useStudyCycleData] fetchTopicReviewStats falhou (não-bloqueante):', e);
-  }
-
-  return map;
-}
+import { fetchTopicReviewStats } from '@/services/topicReviewService';
 
 const STUDY_FOCUS_COUNT = 2;
 
@@ -134,7 +107,8 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
     difficulty: mapDifficultyLevel(topic.difficulty_level),
     subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || [],
     createdAt: topic.created_at,
-    position: topic.position
+    position: topic.position,
+    reviewCount: topic.reviewCount ?? topic.review_count ?? 0
   };
 };
 
@@ -429,7 +403,12 @@ export const useStudyCycleData = () => {
       topics: subject.topics.map(topic => {
         const stats = topicReviewStats.get(topic.id);
         if (!stats) return topic;
-        return { ...topic, reviewCount: stats.reviewCount, hardReviewCount: stats.hardReviewCount };
+        
+        // Preserve the original reviewCount from the database topic, which might be higher
+        // due to historical migrations or manual edits, but add the hardReviewCount from stats
+        const finalReviewCount = Math.max(topic.reviewCount || 0, stats.reviewCount);
+        
+        return { ...topic, reviewCount: finalReviewCount, hardReviewCount: stats.hardReviewCount };
       })
     }));
   }, [studyCycleSubjectsMemo, topicReviewStats]);

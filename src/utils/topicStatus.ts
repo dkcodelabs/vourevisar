@@ -17,12 +17,11 @@ export const getTopicStatusInfo = (topic: Topic): TopicStatusInfo => {
     return { 
       label: 'Concluído', 
       type: 'concluido',
-      colorClass: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
+      colorClass: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
     };
   }
 
   // 2. Primeiro Contato (Não iniciado)
-  // Verificamos diversas flags possíveis dependendo de como o dado foi carregado/transformado
   const wasStudied = !!(
     topic.firstStudiedAt || 
     topic.first_studied_at || 
@@ -34,7 +33,7 @@ export const getTopicStatusInfo = (topic: Topic): TopicStatusInfo => {
     return { 
       label: 'Primeiro Contato', 
       type: 'novo',
-      colorClass: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400'
+      colorClass: 'bg-purple-500/10 text-purple-500 border-purple-500/20'
     };
   }
 
@@ -45,7 +44,7 @@ export const getTopicStatusInfo = (topic: Topic): TopicStatusInfo => {
     return { 
       label: 'Em estudo', 
       type: 'futuro',
-      colorClass: 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-400'
+      colorClass: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20'
     };
   }
 
@@ -58,7 +57,7 @@ export const getTopicStatusInfo = (topic: Topic): TopicStatusInfo => {
     return {
       label: 'Atrasado',
       type: 'atrasado',
-      colorClass: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400'
+      colorClass: 'bg-rose-500/10 text-rose-500 border-rose-500/20'
     };
   } 
   
@@ -67,7 +66,7 @@ export const getTopicStatusInfo = (topic: Topic): TopicStatusInfo => {
     return {
       label: 'Hoje',
       type: 'hoje',
-      colorClass: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400'
+      colorClass: 'bg-orange-500/10 text-orange-500 border-orange-500/20'
     };
   } 
 
@@ -77,6 +76,6 @@ export const getTopicStatusInfo = (topic: Topic): TopicStatusInfo => {
   return {
     label: diffDays === 1 ? 'Amanhã' : `Em ${diffDays} dias`,
     type: 'futuro',
-    colorClass: 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+    colorClass: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
   };
 };

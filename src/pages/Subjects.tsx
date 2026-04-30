@@ -6,14 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ExternalLink } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate'; // Added
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '@/components/SortableItem';
 import { Subject, Topic, Status, UserEdital } from '@/types';
@@ -38,6 +38,10 @@ import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { useAIStatus } from '@/hooks/useAIStatus';
 import { useMergeData } from '@/hooks/useMergeData';
 import { SubjectSparkline } from '@/components/subjects/SubjectSparkline';
+import { fetchTopicReviewStats } from '@/services/topicReviewService';
+import { useTopicReview } from '@/hooks/useTopicReview';
+import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
+import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
 
 const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) {
@@ -88,48 +92,6 @@ const getStatusBorderColor = (status: Status) => {
 };
 
 
-interface DifficultyBarsProps {
-  level: 1 | 2 | 3; // 1 = Fácil (Verde), 2 = Médio (Amarelo), 3 = Difícil (Vermelho)
-}
-
-function DifficultyBars({ level }: DifficultyBarsProps) {
-  // Define a cor ativa baseada no nível atual (Semaforo)
-  const activeColor = 
-    level === 1 ? 'bg-emerald-500' : 
-    level === 2 ? 'bg-amber-500' : 
-    'bg-rose-500';
-
-  // Cor neutra para as barras vazias no dark mode
-  const inactiveColor = 'bg-zinc-700/50'; 
-
-  // Tooltip simples nativo (opcional, mas bom para acessibilidade)
-  const tooltipText = level === 1 ? 'Fácil' : level === 2 ? 'Médio' : 'Difícil';
-
-  return (
-    <div className="flex items-end gap-[3px] h-4 mb-0.5 ml-2" title={tooltipText}>
-      {/* Barra 1 - Fácil */}
-      <div 
-        className={`w-1 h-2 rounded-sm transition-colors duration-300 ${
-          level >= 1 ? activeColor : inactiveColor
-        }`} 
-      />
-      
-      {/* Barra 2 - Médio */}
-      <div 
-        className={`w-1 h-3 rounded-sm transition-colors duration-300 ${
-          level >= 2 ? activeColor : inactiveColor
-        }`} 
-      />
-      
-      {/* Barra 3 - Difícil */}
-      <div 
-        className={`w-1 h-4 rounded-sm transition-colors duration-300 ${
-          level >= 3 ? activeColor : inactiveColor
-        }`} 
-      />
-    </div>
-  );
-}
 
 const Subjects = () => {
   const { user } = useAuth();
@@ -140,6 +102,7 @@ const Subjects = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [topicStats, setTopicStats] = useState<Map<string, { reviewCount: number; hardReviewCount: number }>>(new Map());
 
   // Novos modais V2 states
   const [visibleCount, setVisibleCount] = useState(25);
@@ -162,6 +125,7 @@ const Subjects = () => {
   const [isImportEditalModalOpen, setIsImportEditalModalOpen] = useState(false);
   const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState<'ready' | 'ia' | 'manual'>('ready');
+  const { openReviewModal, difficultyModalData, closeDifficultyModal, markTopicAsReviewed } = useTopicReview();
 
   const location = useLocation();
 
@@ -373,13 +337,23 @@ const Subjects = () => {
     }
   }, [user]);
 
+  // Fetch topic stats separately after subjects load to colorize the review count icons
+  useEffect(() => {
+    const allTopicIds = subjects.flatMap(s => s.topics.map(t => t.id));
+    if (allTopicIds.length === 0) {
+      setTopicStats(new Map());
+      return;
+    }
+    fetchTopicReviewStats(allTopicIds).then(setTopicStats);
+  }, [subjects]);
+
   const refreshData = useCallback(async () => {
     if (user) {
       localStorage.removeItem(`subjects_${user.id}`);
       localStorage.removeItem(`subjects_${user.id} `); // limpa chave antiga com espaço por segurança
       await loadSubjects();
       refresh(); // Atualiza origens do hook
-      window.dispatchEvent(new CustomEvent('subjectUpdated'));
+      window.dispatchEvent(new CustomEvent('subjectUpdated', { detail: { source: 'Subjects' } }));
     }
   }, [user, loadSubjects, refresh]);
 
@@ -455,7 +429,7 @@ const Subjects = () => {
       if (editalErr) throw editalErr;
 
       toast.success(`"${editalName}" removido do seu ciclo.`);
-      window.dispatchEvent(new CustomEvent('subjectUpdated'));
+      window.dispatchEvent(new CustomEvent('subjectUpdated', { detail: { source: 'Subjects' } }));
       await refreshData();
     } catch (error) {
       errorService.report(error, { module: 'Subjects', action: 'unloadCycle', userMessage: 'Erro ao remover edital do ciclo.' });
@@ -661,18 +635,28 @@ const Subjects = () => {
       })();
 
       // Listener para atualizar quando houver mudanças externas (ex: exclusão de edital ou mesclagem desfeita)
-      const handleExternalUpdate = async () => {
-        console.log('🔔 EXTERNAL UPDATE DETECTED - Refreshing subjects and cycle...');
-        try {
-          await Promise.all([
-            loadSubjects(true), // Força bypass do cache
-            loadUserCycle()
-          ]);
-          // O refresh do hook de origens é chamado via evento no próprio hook ou manualmente se necessário
-          console.log('✅ Synchronized refresh completed');
-        } catch (err) {
-          console.error('❌ Synchronized refresh failed:', err);
+      let updateTimeout: NodeJS.Timeout;
+      const handleExternalUpdate = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        // Ignora eventos disparados pelo próprio componente para evitar loop duplo
+        if (customEvent.detail?.source === 'Subjects') {
+          return;
         }
+
+        console.log(`🔔 EXTERNAL UPDATE DETECTED (${event.type}) - Scheduling refresh...`);
+        clearTimeout(updateTimeout);
+        updateTimeout = setTimeout(async () => {
+          try {
+            await Promise.all([
+              loadSubjects(true), // Força bypass do cache
+              loadUserCycle()
+            ]);
+            // O refresh do hook de origens é chamado via evento no próprio hook ou manualmente se necessário
+            console.log('✅ Synchronized refresh completed');
+          } catch (err) {
+            console.error('❌ Synchronized refresh failed:', err);
+          }
+        }, 300); // 300ms debounce
       };
 
       window.addEventListener('subjectUpdated', handleExternalUpdate);
@@ -958,7 +942,7 @@ const Subjects = () => {
       }
 
       refresh(); // atualiza activeSubjectIdsSet no hook
-      window.dispatchEvent(new CustomEvent('subjectUpdated'));
+      window.dispatchEvent(new CustomEvent('subjectUpdated', { detail: { source: 'Subjects' } }));
       toast.success('Matéria ocultada da lista. Ela continua salva no edital.');
     } catch (error) {
       // Reverte otimismo
@@ -1068,6 +1052,11 @@ const Subjects = () => {
   const handleCancelTopicEdit = () => {
     setEditingTopicId(null);
     setEditingTopicName('');
+  };
+
+  const handleDragStart = (_event: DragStartEvent) => {
+    // Recolhe todos os tópicos expandidos ao iniciar o drag
+    setExpandedSubjectIds([]);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -1263,7 +1252,7 @@ const Subjects = () => {
 
   const hasMore = filteredList.length > visibleCount;
 
-  if (isLoading || isOriginsLoading || (loading && !dataLoaded)) {
+  if (isLoading || isOriginsLoading || loading) {
     return <LoadingSpinner size="large" showText fullPage />;
   }
 
@@ -1372,13 +1361,20 @@ const Subjects = () => {
                     </div>
                     {activeEditais.map(edital => {
                       const activeCount = edital.subject_ids.filter(sid => localSubjects.find(s => s.id === sid)).length;
+                      // Usa organ (sigla) se disponível, senão o name completo
+                      const displayLabel = (edital.organ || edital.name).toUpperCase();
                       return (
                         <div
                           key={edital.id}
-                          className="group flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-lg bg-secondary/50 dark:bg-zinc-800/30 border border-border dark:border-white/5 hover:border-primary/20 transition-all"
+                          className="group flex items-center gap-1 transition-all"
                         >
-                          <span className="text-[10px] sm:text-[11px] font-bold text-content-muted group-hover:text-foreground transition-colors">{edital.name}</span>
-                          <span className="text-[9px] sm:text-[10px] text-content-muted px-1 py-0 bg-black/5 dark:bg-black/20 rounded-md">{activeCount}</span>
+                          <span
+                            title={edital.name}
+                            className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border text-primary/70 bg-primary/5 border-primary/15"
+                          >
+                            {displayLabel}
+                          </span>
+                          <span className="text-[9px] text-content-muted/60 font-bold tabular-nums">{activeCount}</span>
                           <button
                             onClick={() => setUnloadConfirm({ 
                               isOpen: true, 
@@ -1387,9 +1383,9 @@ const Subjects = () => {
                               subjectIds: edital.subject_ids 
                             })}
                             disabled={unloadingEditalId === edital.id}
-                            className="w-4 h-4 flex items-center justify-center rounded-md hover:text-red-400 hover:bg-red-500/10 transition-all opacity-30 group-hover:opacity-100"
+                            className="w-3.5 h-3.5 flex items-center justify-center rounded hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
                           >
-                            {unloadingEditalId === edital.id ? <Loader2 size={10} className="animate-spin" /> : <X size={9} />}
+                            {unloadingEditalId === edital.id ? <Loader2 size={8} className="animate-spin" /> : <X size={8} />}
                           </button>
                         </div>
                       );
@@ -1399,16 +1395,7 @@ const Subjects = () => {
               })()}
             </div>
 
-            {/* Right Zone: Action Group (Font slightly larger) */}
             <div className="flex items-center gap-1 sm:gap-2">
-              {/* New Subject Action */}
-              <button
-                onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
-                className="h-9 px-3 bg-transparent text-content-muted hover:text-primary transition-all rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider group"
-              >
-                <Plus size={14} className="text-primary transition-transform group-hover:scale-110" />
-                <span>Nova Matéria</span>
-              </button>
             </div>
           </div>
         </div>
@@ -1417,6 +1404,7 @@ const Subjects = () => {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
         <div className="w-full">
@@ -1504,39 +1492,14 @@ const Subjects = () => {
                               </div>
 
                               <div className="flex flex-col min-w-0">
-                                {isEditing ? (
-                                  <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                      <Input
-                                        value={editingName}
-                                        onChange={(e) => setEditingName(e.target.value)}
-                                        className="h-8 text-sm flex-1 min-w-0"
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') handleSaveEdit();
-                                          if (e.key === 'Escape') handleCancelEdit();
-                                        }}
-                                        autoFocus
-                                      />
-                                      <Button size="sm" variant="ghost" onClick={handleSaveEdit} className="h-8 w-8 p-0 text-green-600">
-                                        <Check className="h-4 w-4" />
-                                      </Button>
-                                      <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 p-0 text-red-600">
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ) : (
                                   <div className="flex flex-col items-start gap-1">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <h4
-                                        className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase truncate max-w-[200px] sm:max-w-xs hover:text-primary cursor-pointer"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleStartEdit(subject);
-                                        }}
+                                        className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase truncate max-w-[200px] sm:max-w-xs"
                                       >
                                       {getUnifiedSubjectName(subject.id, subject.name).toUpperCase()}
                                       </h4>
+
                                       {isSubjectMerged(subject.id) && (
                                         <button
                                           onClick={(e) => {
@@ -1575,38 +1538,44 @@ const Subjects = () => {
                                       )}
                                       {calculatedStatus === 'Concluída' && (
                                         <Badge variant="outline" className="text-[8px] px-1 bg-green-500/10 text-green-500 border-green-500/20">
-                                          CONCLUÍDO
+                                      CONCLUÍDO
                                         </Badge>
                                       )}
                                       <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-content-muted bg-secondary dark:bg-zinc-900 px-2 py-0.5 rounded-md border border-border dark:border-white/5">
                                         <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
                                         {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                       </span>
-                                    </div>
-                                    {getOriginsForSubject(subject.id, subject.edital_id).length > 0 ? (
-                                      <div className="flex flex-wrap gap-1">
-                                        {getOriginsForSubject(subject.id, subject.edital_id).map((origin) => {
-                                          const typeBadge = origin.sourceId ? 'SISTEMA' : origin.isImported ? 'IA' : 'MANUAL';
-                                          const displayName = (origin.organ || origin.name).toUpperCase();
-                                          return (
-                                            <Badge 
-                                              key={origin.name} 
-                                              variant="outline" 
-                                              title={origin.name}
-                                              className="text-[10px] text-primary bg-primary/5 border-primary/10 px-2 py-0.5 rounded-md"
+
+                                      {/* Link Externo para Gerenciar no Edital */}
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                // Navegar para editais e abrir o modal correspondente
+                                                navigate('/meus-editais', { 
+                                                  state: { 
+                                                    openEditalId: subject.edital_id, 
+                                                    highlightSubjectId: subject.id 
+                                                  } 
+                                                });
+                                              }}
+                                              className="p-1 hover:bg-primary/10 rounded transition-colors text-content-muted hover:text-primary"
                                             >
-                                              <span className="font-black mr-1 text-[8px] opacity-70">{typeBadge} •</span>
-                                              {displayName}
-                                            </Badge>
-                                          );
-                                        })}
-                                      </div>
-                                    ) : (
-                                      <span className="text-[9px] font-bold uppercase tracking-wider text-content-muted/40">Sem Edital</span>
-                                    )}
+                                              <ExternalLink size={13} strokeWidth={2.5} />
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p className="text-[10px] font-bold">Gerenciar no Edital / Editar tópicos</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+
                                   </div>
-                                )}
                               </div>
+
                             </div>
 
                             <div className="flex items-center gap-2">
@@ -1679,7 +1648,7 @@ const Subjects = () => {
                               </TooltipProvider>
 
                               {/* Ícones de ação — aparecem no hover, iguais ao padrão dos tópicos */}
-                              <div className="flex items-center gap-0.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 pointer-events-none group-hover:pointer-events-auto">
+                              <div className="flex items-center gap-0.5 transition-opacity duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1692,29 +1661,6 @@ const Subjects = () => {
                                   <FileText size={14} />
                                 </button>
 
-                                  {/* Botão Excluir do Edital */}
-                                  <button
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                      const { data } = await (supabase as any)
-                                        .from('user_editais')
-                                        .select('id, name, subject_ids, is_imported, source_id')
-                                        .eq('user_id', user!.id)
-                                        .contains('subject_ids', [subject.id]);
-
-                                      setDeletePermanentConfirm({
-                                        isOpen: true,
-                                        subjectId: subject.id,
-                                        subjectName: subject.name,
-                                        editais: data || [],
-                                      });
-                                    }}
-                                    className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-content-muted hover:text-red-500"
-                                    title="Excluir do Edital"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
                               </div>
 
                               <div className="w-px h-4 bg-black/5 dark:bg-white/5 mx-0.5"></div>
@@ -1738,26 +1684,8 @@ const Subjects = () => {
                               className="mt-2 ml-4 p-3 rounded-xl bg-secondary dark:bg-black/20 space-y-2 border border-border dark:border-white/5 relative z-10"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {/* Inline Topic Input */}
-                              <div className="relative group">
-                                <input
-                                  type="text"
-                                  placeholder="Novo tópico..."
-                                  value={newTopicTexts[subject.id] || ''}
-                                  onChange={(e) => setNewTopicTexts((prev) => ({ ...prev, [subject.id]: e.target.value }))}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSaveNewTopic(subject.id);
-                                  }}
-                                  className="w-full bg-background dark:bg-white/5 border border-border dark:border-white/5 rounded-lg py-1.5 px-3 pr-8 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/50"
-                                />
-                                <button
-                                  onClick={() => handleSaveNewTopic(subject.id)}
-                                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-all"
-                                  title="Adicionar Tópico"
-                                >
-                                  <Plus size={14} />
-                                </button>
-                              </div>
+                               {/* Inline Topic Input removido conforme solicitação — gerenciado no Edital */}
+
 
                               {subject.topics.length === 0 ? (
                                 <div className="py-4 text-center text-[10px] text-content-muted uppercase font-bold tracking-widest">
@@ -1774,36 +1702,13 @@ const Subjects = () => {
                                       <div
                                         key={topic.id}
                                         data-topic-item
-                                        className={`flex items-center justify-between p-2 rounded-lg bg-secondary/30 dark:bg-white/5 hover:bg-secondary/60 dark:hover:bg-white/10 transition-all group/topic relative ${
+                                        className={`flex items-center justify-between p-2 rounded-lg bg-secondary/30 dark:bg-white/5 hover:bg-secondary/60 dark:hover:bg-white/10 transition-all group/topic relative cursor-default ${
                                           !isActive ? 'opacity-50 grayscale-[0.5]' : ''
                                         }`}
                                       >
                                         <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
-                                          {/* ícone de radiobox removido — sem função neste contexto */}
 
-                                          {editingTopicId === topic.id ? (
-                                            <div className="flex items-center gap-1 flex-1 min-w-0">
-                                              <input
-                                                type="text"
-                                                value={editingTopicName}
-                                                onChange={(e) => setEditingTopicName(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Enter') handleSaveTopicEdit();
-                                                  if (e.key === 'Escape') handleCancelTopicEdit();
-                                                  e.stopPropagation();
-                                                }}
-                                                className="h-7 text-xs py-1 px-2 w-full bg-white dark:bg-slate-800 border border-primary/30 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                                                autoFocus
-                                              />
-                                              <button onClick={handleSaveTopicEdit} className="h-6 w-6 flex items-center justify-center text-green-600 hover:bg-green-100 rounded">
-                                                <Check size={14} />
-                                              </button>
-                                              <button onClick={handleCancelTopicEdit} className="h-6 w-6 flex items-center justify-center text-red-600 hover:bg-red-100 rounded">
-                                                <X size={14} />
-                                              </button>
-                                            </div>
-                                          ) : (
-                                            <div className="flex flex-col flex-1 min-w-0 cursor-text" onClick={() => isActive && handleStartTopicEdit(topic)}>
+                                            <div className="flex flex-col flex-1 min-w-0">
                                               <span
                                                 className={`text-xs font-medium truncate ${
                                                   isCompleted || !isActive ? 'text-content-muted line-through' : 'text-content-main'
@@ -1811,125 +1716,157 @@ const Subjects = () => {
                                               >
                                                 {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && '(Inativo)'}
                                               </span>
-                                              {/* 
-                                                Lógica de label — prioridade:
-                                                 1. CONCLUÍDO   = todas as revisões terminadas
-                                                 2. EM REVISÃO  = tem revisões feitas mas não concluído
-                                                 3. ESTUDADO    = teve 1º contato mas ainda sem revisão
-                                                 4. NÃO INICIADO = nunca foi aberto
-                                               */}
-                                               <div className="flex items-center">
+                                                <div className="flex items-center">
                                                   {(() => {
-                                                    if (!isActive) {
-                                                      return (
-                                                        <div className="px-2 py-0.5 rounded-full border text-rose-500 bg-rose-500/10 border-rose-500/20 mt-1 w-fit text-[10px] font-semibold tracking-wide uppercase">
-                                                          NA LIXEIRA
-                                                        </div>
-                                                      );
-                                                    }
+                                                    const stats = topicStats.get(topic.id);
+                                                    const reviewCount = Math.max(topic.reviewCount || 0, stats?.reviewCount || 0);
+                                                    const hasStarted = reviewCount > 0;
+                                                    const currentLevel = (topic.difficulty_level || 2) as 1 | 2 | 3;
 
-                                                    const statusInfo = getTopicStatusInfo(topic);
                                                     return (
-                                                      <div className={`px-2 py-0.5 rounded-full border ${statusInfo.colorClass} mt-1 w-fit text-[10px] font-semibold tracking-wide uppercase`}>
-                                                        {statusInfo.label}
+                                                      <div className="mt-1 flex items-center gap-3">
+                                                        {hasStarted && (
+                                                          <DifficultyBarsCompact
+                                                            level={currentLevel}
+                                                            size="md"
+                                                          />
+                                                        )}
+                                                        
+                                                        {/* Contador de revisões */}
+                                                        {hasStarted && (() => {
+                                                            const hardCount = stats?.hardReviewCount || 0;
+                                                            const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
+                                                            const tooltipText = showHardAlert ? 'Muitas revisões com dificuldade alta' : 'Total de revisões';
+                                                            
+                                                            return (
+                                                              <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums cursor-help" title={tooltipText}>
+                                                                <RotateCcw size={10} className={showHardAlert ? "text-orange-400" : "text-content-muted/40"} />
+                                                                <span className={showHardAlert ? "text-orange-400" : ""}>{reviewCount}</span>
+                                                              </div>
+                                                            );
+                                                          })()}
                                                       </div>
                                                     );
                                                   })()}
-
-                                                  {topic.difficulty_level && topic.difficulty_level > 0 && (
-                                                    <div className="mt-1 flex items-center gap-3">
-                                                      <DifficultyBars level={topic.difficulty_level as 1 | 2 | 3} />
-                                                      
-                                                      {/* Contador de revisões */}
-                                                      <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums">
-                                                        <RotateCcw size={10} className="text-content-muted/40" />
-                                                        <span>{topic.reviewCount || 0}</span>
-                                                      </div>
-                                                    </div>
-                                                  )}
                                                 </div>
                                             </div>
-                                          )}
                                         </div>
 
-                                        <div className="flex items-center justify-end relative min-w-[100px]">
-                                          <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-4">
-                                            {getOriginsForSubject(subject.id, subject.edital_id).map((origin, i) => {
-                                              const typeBadge = origin.sourceId ? 'SISTEMA' : origin.isImported ? 'IA' : 'MANUAL';
-                                              const displayName = (origin.organ || origin.name).toUpperCase();
+                                        <div className="flex items-center justify-end gap-1 relative min-w-[100px]">
+                                          {/* Badges (desaparecem no hover) */}
+                                          <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-4 pr-1">
+                                            
+                                            {/* Badge de Status */}
+                                            {(() => {
+                                              if (!isActive) {
+                                                return (
+                                                  <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border text-rose-500 bg-rose-500/10 border-rose-500/20">
+                                                    NA LIXEIRA
+                                                  </span>
+                                                );
+                                              }
+                                              const statusInfo = getTopicStatusInfo(topic);
+                                              // Exibe badge apenas para status de ação imediata
+                                              if (statusInfo.type !== 'atrasado' && statusInfo.type !== 'hoje') {
+                                                return null;
+                                              }
                                               return (
-                                                <span
-                                                  key={i}
-                                                  title={origin.name}
-                                                  className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border text-primary/60 bg-primary/5 border-primary/10"
-                                                >
-                                                  {typeBadge} • {displayName}
+                                                <span className={`text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border ${statusInfo.colorClass}`}>
+                                                  {statusInfo.label}
                                                 </span>
                                               );
-                                            })}
-                                            {(!originsMap.get(subject.id) || originsMap.get(subject.id)!.length === 0) && (
-                                              <span className="text-[9px] font-black text-content-muted/40 uppercase tracking-widest whitespace-nowrap">Manual</span>
-                                            )}
+                                            })()}
+
+                                            {/* Separador — só aparece quando há badge de status */}
+                                            {(() => {
+                                              if (!isActive) return <span className="text-[9px] font-black text-content-muted/40 uppercase tracking-widest whitespace-nowrap">-</span>;
+                                              const { type } = getTopicStatusInfo(topic);
+                                              return (type === 'atrasado' || type === 'hoje')
+                                                ? <span className="text-[9px] font-black text-content-muted/40 uppercase tracking-widest whitespace-nowrap">-</span>
+                                                : null;
+                                            })()}
+
                                           </div>
 
-                                          <div className="absolute right-0 flex items-center gap-1 opacity-20 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0">
-                                            {isActive ? (
-                                              <>
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedTopicForNotes({
-                                                      id: topic.id,
-                                                      name: topic.name,
-                                                      subjectName: subject.name
-                                                    });
-                                                  }}
-                                                  className={`p-1 transition-colors ${topic.notes && topic.notes.trim() !== '' && topic.notes !== '<p><br></p>'
-                                                    ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
-                                                    : 'text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400'
-                                                    }`}
-                                                  title={`Anotações para ${topic.name}`}
-                                                >
-                                                  <FileText size={16} />
-                                                </button>
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/revisoes?topicId=${topic.id}`);
-                                                  }}
-                                                  className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-all shadow-sm border border-indigo-200 dark:border-indigo-800 ml-0.5"
-                                                  title="Ir para Revisões"
-                                                >
-                                                  <ArrowRight size={12} />
-                                                </button>
-                                                <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
-                                                <button className="h-6 px-2 flex items-center gap-1 rounded bg-primary/10 text-primary hover:bg-primary transition-all hover:text-white text-[9px] font-bold uppercase tracking-tight">
-                                                  <Wand2 size={10} /> IA
-                                                </button>
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteTopic(topic, subject.name);
-                                                  }}
-                                                  className="h-6 w-6 flex items-center justify-center text-content-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                                                  title="Ocultar tópico"
-                                                >
-                                                  <Trash2 size={14} />
-                                                </button>
-                                              </>
-                                            ) : (
+                                          {/* Botões de ação — deslizam da direita no hover, posicionados antes do radio */}
+                                          {isActive && (
+                                            <div className="absolute right-7 flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0 pointer-events-none group-hover/topic:pointer-events-auto">
+                                              {/* IA */}
+                                              <button className="h-6 px-2 flex items-center gap-1 rounded bg-primary/10 text-primary hover:bg-primary transition-all hover:text-white text-[9px] font-bold uppercase tracking-tight">
+                                                <Wand2 size={10} /> IA
+                                              </button>
+
+                                              <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-0.5"></div>
+
+                                              {/* Anotação */}
                                               <button
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  handleRestoreTopic(topic.id);
+                                                  setSelectedTopicForNotes({
+                                                    id: topic.id,
+                                                    name: topic.name,
+                                                    subjectName: subject.name
+                                                  });
                                                 }}
-                                                className="h-7 px-3 flex items-center gap-2 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-lg transition-all text-[10px] font-black uppercase tracking-wider"
-                                                title="Restaurar tópico"
+                                                className={`p-1 transition-colors ${topic.notes && topic.notes.trim() !== '' && topic.notes !== '<p><br></p>'
+                                                  ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
+                                                  : 'text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400'
+                                                  }`}
+                                                title={`Anotações para ${topic.name}`}
                                               >
-                                                <Plus size={14} /> Restaurar
+                                                <FileText size={16} />
                                               </button>
-                                            )}
-                                          </div>
+                                            </div>
+                                          )}
+
+                                          {/* Ação Principal: SEMPRE VISÍVEL — radio fixo no fluxo normal */}
+                                          {isActive ? (
+                                            <div className="flex-shrink-0">
+                                              {(() => {
+                                                const reviewCount = Math.max(topic.reviewCount || 0, topicStats.get(topic.id)?.reviewCount || 0);
+                                                const hasStarted = reviewCount > 0;
+
+                                                if (!hasStarted) {
+                                                  return (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openReviewModal(topic.id);
+                                                      }}
+                                                      className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-primary/30 hover:border-primary hover:bg-primary/10 transition-colors flex items-center justify-center group/radio ml-0.5"
+                                                      title="Marcar como Estudado"
+                                                    >
+                                                      <div className="w-2.5 h-2.5 rounded-full bg-primary opacity-0 group-hover/radio:opacity-40 transition-opacity" />
+                                                    </button>
+                                                  );
+                                                } else {
+                                                  return (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/revisoes?topicId=${topic.id}`);
+                                                      }}
+                                                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-all shadow-sm border border-indigo-200 dark:border-indigo-800 ml-0.5"
+                                                      title="Ir para Revisões"
+                                                    >
+                                                      <ArrowRight size={12} />
+                                                    </button>
+                                                  );
+                                                }
+                                              })()}
+                                            </div>
+                                          ) : (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRestoreTopic(topic.id);
+                                              }}
+                                              className="h-7 px-3 flex items-center gap-2 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-lg transition-all text-[10px] font-black uppercase tracking-wider"
+                                              title="Restaurar tópico"
+                                            >
+                                              <Plus size={14} /> Restaurar
+                                            </button>
+                                          )}
                                         </div>
                                       </div>
                                     );
@@ -2281,7 +2218,7 @@ const Subjects = () => {
 
                 await refreshData();
                 refresh(); // Atualizar hook useEditalOrigins
-                window.dispatchEvent(new CustomEvent('subjectUpdated'));
+                window.dispatchEvent(new CustomEvent('subjectUpdated', { detail: { source: 'Subjects' } }));
                 toast.success(`${importedSubjects.length} matérias vinculadas a "${originName}" com sucesso!`);
                 setIsImportEditalModalOpen(false);
               } catch (err) {
@@ -2384,6 +2321,19 @@ const Subjects = () => {
           />
         </div>
       </div>
+      <DifficultyRatingModal
+        isOpen={difficultyModalData.isOpen}
+        onClose={closeDifficultyModal}
+        topicName={difficultyModalData.topicName}
+        subjectName={difficultyModalData.subjectName}
+        currentDifficulty={difficultyModalData.currentDifficulty}
+        reviewStage={difficultyModalData.reviewStage}
+        reviewCount={difficultyModalData.reviewCount}
+        onConfirmReview={(difficulty) => {
+          markTopicAsReviewed(difficultyModalData.topicId, difficulty);
+          closeDifficultyModal();
+        }}
+      />
     </div>
   );
 };
