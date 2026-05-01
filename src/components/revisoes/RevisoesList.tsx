@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     CheckCircle2, Sparkles, BookOpen, Calendar, CalendarOff, ChevronRight,
-    Play, Square, FileText, Loader2, Star
+    Play, Square, FileText, Loader2
 } from 'lucide-react';
 import { RevisionItem, RevisionStatus } from '@/types/revision';
 import { useNavigate } from 'react-router-dom';
@@ -9,18 +9,7 @@ import { useMentorInsights } from '@/hooks/useMentorInsights';
 import { TrendIcon } from '@/components/mentor/TrendIcon';
 
 import { MentorBadge } from '@/components/mentor/MentorBadge';
-
-const DifficultyStars = ({ rating }: { rating: number }) => {
-    return (
-        <div className="flex items-center gap-1.5 font-bold text-foreground">
-            <span className="text-sm">{rating}</span>
-            <Star
-                size={14}
-                className="fill-amber-400 text-amber-400"
-            />
-        </div>
-    );
-};
+import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
 
 interface RevisoesListProps {
     activeTab: string;
@@ -406,7 +395,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                     {/* 2. Dificuldade (Mobile: row) */}
                                                     <div className="flex items-center justify-between lg:justify-center pl-4 lg:pl-0">
                                                         <span className="lg:hidden text-xs text-muted-foreground font-medium">Dificuldade:</span>
-                                                        <DifficultyStars rating={item.difficulty || 0} />
+                                                        <DifficultyBarsCompact level={item.difficulty || 0} size="sm" />
                                                     </div>
 
                                                     {/* 3. Progresso (Mobile: row) */}

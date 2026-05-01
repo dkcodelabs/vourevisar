@@ -9,8 +9,8 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Plus, X, Trash2, Check, BookOpen, GraduationCap,
-    ChevronDown, ChevronUp, ChevronsUpDown, FileText, Circle, CheckCircle2, Loader2, AlertTriangle, EyeOff, Eye,
-    Database, Save, Cloud, CloudOff, Sparkles, Wand2, EyeIcon
+    ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, FileText, Circle, CheckCircle2, Loader2, AlertTriangle, EyeOff, Eye,
+    Database, Save, Cloud, CloudOff, Sparkles, Wand2, EyeIcon, GripVertical
 } from 'lucide-react';
 import { Subject, Topic, Status } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -870,6 +870,15 @@ export const EditalSubjectsModal = ({
                     {/* ── Header ── */}
                     <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-3 min-w-0">
+                            {initialExpandedSubjectId && (
+                                <button
+                                    onClick={handleClose}
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 transition-all text-primary shrink-0 -ml-1 group"
+                                    title="Voltar para Matérias"
+                                >
+                                    <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+                                </button>
+                            )}
                             <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
                                 <GraduationCap className="text-primary" size={18} />
                             </div>
@@ -878,7 +887,15 @@ export const EditalSubjectsModal = ({
                                     <div className="flex items-center gap-2">
                                         <div className="flex items-center gap-1.5 min-w-0">
                                             <Database size={12} className="text-primary/80 shrink-0" />
-                                            <span className="text-sm font-black text-primary uppercase tracking-wider truncate max-w-[400px]">{selectedEdital.name}</span>
+                                            <span className="text-sm font-black text-primary uppercase tracking-wider truncate max-w-[400px]">
+                                                {initialExpandedSubjectId ? (
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="opacity-40 hover:opacity-100 cursor-pointer transition-opacity" onClick={handleClose}>EDITAIS</span>
+                                                        <span className="opacity-20">/</span>
+                                                        <span>{selectedEdital.name}</span>
+                                                    </span>
+                                                ) : selectedEdital.name}
+                                            </span>
                                         </div>
 
                                         {selectedEdital.sourceId ? (
@@ -934,6 +951,7 @@ export const EditalSubjectsModal = ({
                             <X size={16} />
                         </button>
                     </div>
+
 
                     {/* ── Filtro e Controles (topo) ── */}
                     <div className="px-6 pt-4 pb-2 shrink-0 flex items-center gap-3">
@@ -1134,7 +1152,10 @@ export const EditalSubjectsModal = ({
                                 const isPendingDelete = confirmDeleteSubjectId === subject.id;
 
                                 return (
-                                    <div key={subject.id}>
+                                    <div key={subject.id} className={`flex flex-col mb-3 group transition-all relative overflow-hidden glow-card rounded-[24px] border border-white/5
+                                        ${isTemp ? 'opacity-60 cursor-default' : ''}
+                                        ${isPendingDelete ? 'border-red-500/30 opacity-70' : ''}`}>
+                                        
                                         {/* ── Confirmação inline de exclusão ── */}
                                         <AnimatePresence>
                                             {isPendingDelete && (
@@ -1142,9 +1163,9 @@ export const EditalSubjectsModal = ({
                                                     initial={{ opacity: 0, height: 0 }}
                                                     animate={{ opacity: 1, height: 'auto' }}
                                                     exit={{ opacity: 0, height: 0 }}
-                                                    className="overflow-hidden mb-2"
+                                                    className="overflow-hidden bg-red-500/10"
                                                 >
-                                                    <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                                                    <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-red-500/20">
                                                         <div className="flex items-center gap-2 min-w-0">
                                                             <AlertTriangle size={14} className="text-red-400 shrink-0" />
                                                             <p className="text-xs text-red-300 font-medium truncate">
@@ -1174,35 +1195,16 @@ export const EditalSubjectsModal = ({
                                         <div
                                             id={`subject-card-${subject.id}`}
                                             onClick={() => !isTemp && !isPendingDelete && toggleExpand(subject.id)}
-                                            className={`glow-card px-4 py-3 rounded-2xl flex items-center justify-between group hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden
-                                                ${isExpanded ? 'border-primary/30' : ''}
-                                                ${isTemp ? 'opacity-60 cursor-default' : ''}
-                                                ${isPendingDelete ? 'border-red-500/30 opacity-70' : ''}`}
+                                            className={`px-6 py-4 flex items-center justify-between cursor-pointer bg-background ${isExpanded ? 'border-b border-white/5' : ''} relative z-10`}
                                         >
-                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/40" />
-
-                                            <div className="flex items-center gap-3 pl-2 min-w-0">
-                                                <div className="w-8 h-8 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-                                                    {isTemp
-                                                        ? <Loader2 size={12} className="animate-spin text-primary" />
-                                                        : <span className="text-[10px] font-black text-primary">#{index + 1}</span>
-                                                    }
-                                                </div>
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                {isTemp ? (
+                                                    <Loader2 size={14} className="animate-spin text-content-muted shrink-0" />
+                                                ) : (
+                                                    <GripVertical size={14} className="text-content-muted shrink-0" />
+                                                )}
                                                 <div className="flex flex-col min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        {selectedEdital.sourceId ? (
-                                                            <span className="text-[9px] font-bold text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 uppercase tracking-wider shrink-0">
-                                                                SISTEMA
-                                                            </span>
-                                                        ) : selectedEdital.isImported ? (
-                                                            <span className="text-[9px] font-bold text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 uppercase tracking-wider shrink-0">
-                                                                IA
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[9px] font-bold text-zinc-400 bg-zinc-500/10 px-1.5 py-0.5 rounded border border-zinc-500/20 uppercase tracking-wider shrink-0">
-                                                                MANUAL
-                                                            </span>
-                                                        )}
                                                         {editingSubjectId === subject.id ? (
                                                             <div className="flex items-center gap-1">
                                                                 <input
@@ -1215,7 +1217,7 @@ export const EditalSubjectsModal = ({
                                                                         e.stopPropagation();
                                                                     }}
                                                                     onClick={e => e.stopPropagation()}
-                                                                    className="h-7 text-xs px-2 w-full bg-zinc-950 border border-primary/30 rounded outline-none ring-0 text-white font-bold uppercase"
+                                                                    className="h-7 text-xs px-2 w-full bg-zinc-950 border border-primary/30 rounded outline-none ring-0 text-white font-black uppercase tracking-widest"
                                                                     autoFocus
                                                                 />
                                                                 <button onClick={e => { e.stopPropagation(); handleSaveSubjectEdit(); }} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded"><Check size={14} /></button>
@@ -1223,7 +1225,7 @@ export const EditalSubjectsModal = ({
                                                             </div>
                                                         ) : (
                                                             <span 
-                                                                className={`font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase ${isEditable ? 'hover:text-primary transition-colors' : ''}`}
+                                                                className={`text-xs font-black uppercase tracking-widest text-primary/80 truncate ${isEditable ? 'hover:text-primary transition-colors' : ''}`}
                                                                 onClick={(e) => {
                                                                     if (isEditable) {
                                                                         e.stopPropagation();
@@ -1235,8 +1237,7 @@ export const EditalSubjectsModal = ({
                                                                 {subject.name}
                                                             </span>
                                                         )}
-                                                        <span className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-white/5">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary/80" />
+                                                        <span className="text-[10px] text-content-muted font-semibold tabular-nums ml-2">
                                                             {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                                         </span>
                                                     </div>
@@ -1246,13 +1247,32 @@ export const EditalSubjectsModal = ({
                                             {!isTemp && (
                                                 <div className="flex items-center gap-1 shrink-0">
                                                     {/* Progresso circular */}
-                                                    <div className="hidden sm:flex items-center justify-center relative w-8 h-8 rounded-full bg-zinc-800 border border-white/5 mr-1">
-                                                        <svg className="w-full h-full -rotate-90 p-0.5" viewBox="0 0 36 36">
-                                                            <circle className="text-white/5" strokeWidth="3" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
-                                                            <circle className="text-primary transition-all duration-700" strokeWidth="3" strokeDasharray={`${progress}, 100`} strokeLinecap="round" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
+                                                    <div className="hidden sm:flex items-center justify-center relative w-8 h-8 rounded-full bg-zinc-900 border border-white/5 mr-1 overflow-hidden shadow-sm">
+                                                        <svg className="w-full h-full -rotate-90 p-1" viewBox="0 0 100 100" shapeRendering="geometricPrecision">
+                                                            <circle 
+                                                                className="text-white/5" 
+                                                                strokeWidth="10" 
+                                                                stroke="currentColor" 
+                                                                fill="transparent" 
+                                                                r="42" 
+                                                                cx="50" 
+                                                                cy="50" 
+                                                            />
+                                                            <circle 
+                                                                className="text-primary transition-all duration-1000 ease-out" 
+                                                                strokeWidth="10" 
+                                                                strokeDasharray={`${(progress / 100) * 263.89}, 263.89`}
+                                                                strokeLinecap="round" 
+                                                                stroke="currentColor" 
+                                                                fill="transparent" 
+                                                                r="42" 
+                                                                cx="50" 
+                                                                cy="50" 
+                                                            />
                                                         </svg>
-                                                        <span className="absolute text-[8px] font-bold text-content-main">{progress}%</span>
+                                                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-content-main tabular-nums leading-none tracking-tighter">{progress}%</span>
                                                     </div>
+
 
                                                     {/* Anotações */}
                                                     <button
@@ -1328,11 +1348,11 @@ export const EditalSubjectsModal = ({
                                                     className="overflow-hidden"
                                                     onClick={e => e.stopPropagation()}
                                                 >
-                                                    <div className="mt-1 ml-3 p-3 rounded-xl bg-black/20 space-y-2 border border-white/5">
+                                                    <div className="flex flex-col">
 
                                                         {/* Input "Novo tópico..." (IA ou MANUAL) */}
                                                         {isEditable && (
-                                                            <div className="relative">
+                                                            <div className="relative px-4 py-3 border-b border-white/5">
                                                                 <input
                                                                     type="text"
                                                                     placeholder="Novo tópico..."
@@ -1343,35 +1363,35 @@ export const EditalSubjectsModal = ({
                                                                         setNewTopicTexts(prev => ({ ...prev, [subject.id]: formatted }));
                                                                     }}
                                                                     onKeyDown={e => { if (e.key === 'Enter') handleSaveNewTopic(subject.id); }}
-                                                                    className="w-full bg-white/5 border border-white/5 rounded-lg py-1.5 px-3 pr-8 text-xs outline-none ring-0 focus:border-primary/30 transition-colors text-content-main placeholder:text-content-muted/50"
+                                                                    className="w-full bg-white/5 border border-white/5 rounded-lg py-2 px-3 pr-8 text-xs outline-none ring-0 focus:border-primary/30 transition-colors text-content-main placeholder:text-content-muted/50"
                                                                 />
                                                                 <button
                                                                     onClick={() => handleSaveNewTopic(subject.id)}
                                                                     disabled={savingTopics[subject.id] || !newTopicTexts[subject.id]?.trim()}
-                                                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center bg-primary/10 text-primary rounded hover:bg-primary/20 transition-all disabled:opacity-40"
+                                                                    className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-primary/10 text-primary rounded hover:bg-primary/20 transition-all disabled:opacity-40"
                                                                 >
-                                                                    {savingTopics[subject.id] ? <Loader2 size={11} className="animate-spin" /> : <Plus size={12} />}
+                                                                    {savingTopics[subject.id] ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
                                                                 </button>
                                                             </div>
                                                         )}
 
                                                         {/* Tópicos */}
                                                         {subject.topics.length === 0 ? (
-                                                            <p className="text-center text-[10px] text-content-muted uppercase font-bold tracking-widest py-3">
+                                                            <p className="text-center text-[10px] text-content-muted uppercase font-bold tracking-widest py-4">
                                                                 Nenhum tópico
                                                             </p>
                                                         ) : (
-                                                            <div className="space-y-1">
+                                                            <div className="flex flex-col">
                                                                 {subject.topics.map((topic, idx) => {
                                                                     const status = getTopicStatus(topic);
                                                                     const isTmpTopic = topic.id.startsWith('tmp_');
                                                                     return (
                                                                         <div
                                                                             key={topic.id}
-                                                                            className={`flex items-center justify-between px-2 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-all group/topic ${isTmpTopic ? 'opacity-50' : ''}`}
+                                                                            className={`flex items-center justify-between px-4 py-2.5 border-b border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group/topic ${isTmpTopic ? 'opacity-50' : ''}`}
                                                                         >
                                                                             <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
-                                                                                <span className="text-[9px] font-bold text-content-muted w-4 shrink-0 text-right">{idx + 1}.</span>
+
                                                                                 <div className="shrink-0">
                                                                                     {isTmpTopic
                                                                                         ? <Loader2 size={13} className="animate-spin text-primary/50" />
@@ -1458,14 +1478,14 @@ export const EditalSubjectsModal = ({
                                                             if (subjectInactive.length === 0) return null;
                                                             const isShowingInactive = showInactiveIds.includes(subject.id);
                                                             return (
-                                                                <div className="mt-2 pt-2 border-t border-white/5">
+                                                                <div className="border-t border-white/5">
                                                                     <button
                                                                         onClick={() => setShowInactiveIds(prev =>
                                                                             isShowingInactive
                                                                                 ? prev.filter(id => id !== subject.id)
                                                                                 : [...prev, subject.id]
                                                                         )}
-                                                                        className="flex items-center gap-1.5 w-full text-left px-1 py-1 rounded hover:bg-white/5 transition-colors group/trash"
+                                                                        className="flex items-center gap-1.5 w-full text-left px-4 py-2 hover:bg-white/[0.02] transition-colors group/trash"
                                                                     >
                                                                         <Trash2 size={11} className="text-zinc-500 group-hover/trash:text-zinc-300 transition-colors" />
                                                                         <span className="text-[9px] font-bold text-zinc-500 group-hover/trash:text-zinc-300 uppercase tracking-widest transition-colors">
@@ -1482,11 +1502,11 @@ export const EditalSubjectsModal = ({
                                                                                 transition={{ duration: 0.15 }}
                                                                                 className="overflow-hidden"
                                                                             >
-                                                                                <div className="mt-1 space-y-1">
+                                                                                <div className="flex flex-col">
                                                                                     {subjectInactive.map(inactiveTopic => (
                                                                                         <div
                                                                                             key={inactiveTopic.id}
-                                                                                            className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-zinc-800/30 opacity-60 hover:opacity-80 transition-opacity group/inactive"
+                                                                                            className="flex items-center justify-between px-4 py-2 border-t border-white/5 bg-zinc-800/20 opacity-60 hover:opacity-80 transition-opacity group/inactive"
                                                                                         >
                                                                                             <div className="flex items-center gap-2 flex-1 min-w-0">
                                                                                                 <Trash2 size={11} className="text-zinc-600 shrink-0" />

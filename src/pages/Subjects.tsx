@@ -1265,7 +1265,7 @@ const Subjects = () => {
 
       {/* Unified Header Card - Visible when there are subjects or when inside the Modal */}
       {/* Refined Header - Final Polished Layout */}
-      {(displayList.length > 0 || isImportEditalModalOpen) && (
+      {(expandedSubjectList.length > 0 || isImportEditalModalOpen) && (
         <div className="flex flex-col gap-4 mb-8 relative z-20">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             {/* Left Zone: search + tabs + cycle info */}
@@ -1357,10 +1357,9 @@ const Subjects = () => {
                   <div className="flex flex-wrap items-center gap-2 px-1 animate-in fade-in duration-500">
                     <div className="flex items-center gap-1.5 mr-1 text-content-muted">
                       <Database size={11} className="text-primary" />
-                      <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Ciclo:</span>
+                      <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Origem:</span>
                     </div>
                     {activeEditais.map(edital => {
-                      const activeCount = edital.subject_ids.filter(sid => localSubjects.find(s => s.id === sid)).length;
                       // Usa organ (sigla) se disponível, senão o name completo
                       const displayLabel = (edital.organ || edital.name).toUpperCase();
                       return (
@@ -1374,7 +1373,6 @@ const Subjects = () => {
                           >
                             {displayLabel}
                           </span>
-                          <span className="text-[9px] text-content-muted/60 font-bold tabular-nums">{activeCount}</span>
                           <button
                             onClick={() => setUnloadConfirm({ 
                               isOpen: true, 
@@ -1428,6 +1426,26 @@ const Subjects = () => {
                     Adicionar Matéria
                   </button>
                 </>
+              ) : activeTab !== 'all' ? (
+                <>
+                  <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                    <CheckCircle2 size={32} className="text-slate-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground mb-2">
+                    {activeTab === 'completed' ? 'Nenhuma matéria concluída' : 'Nenhuma matéria em estudo'}
+                  </h3>
+                  <p className="text-content-muted max-w-sm mx-auto mb-6">
+                    {activeTab === 'completed'
+                      ? 'Nenhuma matéria teve todos os tópicos finalizados no ciclo SRS ainda.'
+                      : 'Nenhuma matéria iniciada no momento.'}
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className="px-5 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all"
+                  >
+                    Ver Todas
+                  </button>
+                </>
               ) : (
                 <>
                   <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
@@ -1459,24 +1477,20 @@ const Subjects = () => {
                   return (
                     <SortableItem key={item.id} id={item.id}>
                       {({ listeners, attributes }) => (
-                        <div className="w-full max-w-full" data-subject-item>
+                        <div className="w-full max-w-full mb-2" data-subject-item>
+                          {/* Container unificado: header + tópicos no mesmo card */}
                           <div
-                            data-subject-id={subject.id}
-                            onClick={() => toggleExpand(item.id)}
-                            className={`glow-card p-4 rounded-2xl flex items-center justify-between group hover:border-primary/20 transition-all cursor-pointer mb-2 relative overflow-hidden ${
+                            className={`glow-card rounded-2xl overflow-hidden relative hover:border-primary/20 transition-all ${
                               expandedSubjectIds.includes(item.id) ? 'border-primary/30 shadow-primary/5' : ''
                             }`}
                           >
-                            {/* Left Status Border */}
+                            {/* === HEADER DA MATÉRIA === */}
                             <div
-                              className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusBorderColor(calculatedStatus).replace(
-                                'border-l-',
-                                'bg-'
-                              )}`}
-                              title={`Status: ${calculatedStatus}`}
-                            />
-
-                            <div className="flex items-center gap-3 pl-2">
+                              data-subject-id={subject.id}
+                              onClick={() => toggleExpand(item.id)}
+                              className="p-4 flex items-center justify-between group cursor-pointer relative transition-colors bg-background"
+                          >
+                            <div className="flex items-center gap-3">
                               {/* Action icon */}
                               <div
                                 className="cursor-move text-content-muted hover:text-primary transition-colors p-1 -ml-2"
@@ -1487,15 +1501,38 @@ const Subjects = () => {
                                 <GripVertical size={16} />
                               </div>
 
-                              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
-                                <span className="text-[10px] sm:text-[11px] font-black text-primary">#{position}</span>
-                              </div>
+
 
                               <div className="flex flex-col min-w-0">
                                   <div className="flex flex-col items-start gap-1">
                                     <div className="flex flex-wrap items-center gap-2">
+                                      {/* Link Externo para Gerenciar no Edital */}
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate('/meus-editais', { 
+                                                  state: { 
+                                                    openEditalId: subject.edital_id, 
+                                                    highlightSubjectId: subject.id 
+                                                  } 
+                                                });
+                                              }}
+                                              className="p-1 hover:bg-primary/10 rounded transition-colors text-content-muted hover:text-primary"
+                                            >
+                                              <ExternalLink size={13} strokeWidth={2.5} />
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p className="text-[10px] font-bold">Gerenciar no Edital / Editar tópicos</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+
                                       <h4
-                                        className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase truncate max-w-[200px] sm:max-w-xs"
+                                        className="text-xs font-black uppercase tracking-widest text-primary/80 truncate max-w-[200px] sm:max-w-xs"
                                       >
                                       {getUnifiedSubjectName(subject.id, subject.name).toUpperCase()}
                                       </h4>
@@ -1541,36 +1578,11 @@ const Subjects = () => {
                                       CONCLUÍDO
                                         </Badge>
                                       )}
-                                      <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-content-muted bg-secondary dark:bg-zinc-900 px-2 py-0.5 rounded-md border border-border dark:border-white/5">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-primary/80"></div>
+                                      <span className="text-[10px] text-content-muted font-semibold tabular-nums">
                                         {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                       </span>
 
-                                      {/* Link Externo para Gerenciar no Edital */}
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                // Navegar para editais e abrir o modal correspondente
-                                                navigate('/meus-editais', { 
-                                                  state: { 
-                                                    openEditalId: subject.edital_id, 
-                                                    highlightSubjectId: subject.id 
-                                                  } 
-                                                });
-                                              }}
-                                              className="p-1 hover:bg-primary/10 rounded transition-colors text-content-muted hover:text-primary"
-                                            >
-                                              <ExternalLink size={13} strokeWidth={2.5} />
-                                            </button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p className="text-[10px] font-bold">Gerenciar no Edital / Editar tópicos</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
+
                                     </div>
 
                                   </div>
@@ -1587,35 +1599,35 @@ const Subjects = () => {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="hidden sm:flex items-center justify-center relative w-11 h-11 rounded-full bg-secondary/50 dark:bg-deep-slate border border-border dark:border-white/5 mr-2 cursor-help transition-all hover:scale-105 active:scale-95">
-                                      <svg className="w-full h-full -rotate-90 transform p-0.5" viewBox="0 0 36 36">
+                                      <svg className="w-full h-full -rotate-90 transform p-0.5" viewBox="0 0 100 100" shapeRendering="geometricPrecision">
                                         {/* Background Circles */}
-                                        <circle className="text-black/5 dark:text-white/5" strokeWidth="3" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" />
-                                        <circle className="text-black/5 dark:text-white/5" strokeWidth="2.5" stroke="currentColor" fill="transparent" r="11" cx="18" cy="18" />
+                                        <circle className="text-black/5 dark:text-white/5" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
+                                        <circle className="text-black/5 dark:text-white/5" strokeWidth="6" stroke="currentColor" fill="transparent" r="26" cx="50" cy="50" />
                                         
                                         {/* Outer Ring: Coverage (Sky) */}
                                         <circle
                                           className="text-sky-400 transition-all duration-1000 ease-out"
-                                          strokeWidth="3"
-                                          strokeDasharray={`${getSubjectCoverage(subject)}, 100`}
+                                          strokeWidth="8"
+                                          strokeDasharray={`${(getSubjectCoverage(subject) / 100) * 251.327}, 251.327`}
                                           strokeLinecap="round"
                                           stroke="currentColor"
                                           fill="transparent"
-                                          r="16"
-                                          cx="18"
-                                          cy="18"
+                                          r="40"
+                                          cx="50"
+                                          cy="50"
                                         />
                                         
                                         {/* Inner Ring: Completion (Emerald) */}
                                         <circle
                                           className="text-emerald-500 transition-all duration-1000 ease-out"
-                                          strokeWidth="2.5"
-                                          strokeDasharray={`${getSubjectCompletion(subject)}, 100`}
+                                          strokeWidth="6"
+                                          strokeDasharray={`${(getSubjectCompletion(subject) / 100) * 163.362}, 163.362`}
                                           strokeLinecap="round"
                                           stroke="currentColor"
                                           fill="transparent"
-                                          r="11"
-                                          cx="18"
-                                          cy="18"
+                                          r="26"
+                                          cx="50"
+                                          cy="50"
                                         />
                                       </svg>
                                     </div>
@@ -1678,85 +1690,73 @@ const Subjects = () => {
                             </div>
                           </div>
 
-                          {/* Expanded Content (Topics List) */}
-                          {expandedSubjectIds.includes(item.id) && (
-                            <div
-                              className="mt-2 ml-4 p-3 rounded-xl bg-secondary dark:bg-black/20 space-y-2 border border-border dark:border-white/5 relative z-10"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                               {/* Inline Topic Input removido conforme solicitação — gerenciado no Edital */}
-
+                            {/* === TÓPICOS (dentro do mesmo card) === */}
+                            {expandedSubjectIds.includes(item.id) && (
+                              <div
+                                className="border-t border-border/50 dark:border-white/5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
 
                               {subject.topics.length === 0 ? (
                                 <div className="py-4 text-center text-[10px] text-content-muted uppercase font-bold tracking-widest">
                                   Nenhum tópico cadastrado
                                 </div>
                               ) : (
-                                <div className="space-y-1">
+                                <div className="flex flex-col py-1">
                                   {subject.topics.map((topic, idx) => {
                                     const isCompleted = topic.completed || topic.reviewStage === 'Concluído';
                                     const isActive = topic.is_active !== false;
                                     const iconClass = getTopicIconClass(topic);
 
+                                    // Determina o estado visual do checkbox
+                                    const reviewCount = Math.max(topic.reviewCount || 0, topicStats.get(topic.id)?.reviewCount || 0);
+                                    const hasStarted = reviewCount > 0;
+                                    const checkboxState: 'empty' | 'dot' | 'check' =
+                                      isCompleted ? 'check' : hasStarted ? 'dot' : 'empty';
+
                                     return (
                                       <div
                                         key={topic.id}
                                         data-topic-item
-                                        className={`flex items-center justify-between p-2 rounded-lg bg-secondary/30 dark:bg-white/5 hover:bg-secondary/60 dark:hover:bg-white/10 transition-all group/topic relative cursor-default ${
-                                          !isActive ? 'opacity-50 grayscale-[0.5]' : ''
+                                        className={`flex items-center justify-between px-4 py-2.5 border-b border-border/40 dark:border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group/topic relative cursor-default ${
+                                          !isActive ? 'opacity-40 grayscale-[0.5]' : ''
                                         }`}
                                       >
                                         <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
 
-                                            <div className="flex flex-col flex-1 min-w-0">
+                                          {/* Checkbox 3-estados */}
+                                          <div className="flex-shrink-0">
+                                            {checkboxState === 'empty' && (
+                                              <div className="w-[14px] h-[14px] rounded-[3px] border border-zinc-600 dark:border-zinc-500 bg-zinc-800/60 dark:bg-zinc-900/60" />
+                                            )}
+                                            {checkboxState === 'dot' && (
+                                              <div className="w-[14px] h-[14px] rounded-[3px] border border-primary/50 bg-primary/10 flex items-center justify-center">
+                                                <div className="w-[5px] h-[5px] rounded-full bg-primary" />
+                                              </div>
+                                            )}
+                                            {checkboxState === 'check' && (
+                                              <div className="w-[14px] h-[14px] rounded-[3px] border border-emerald-500/60 bg-emerald-500/15 flex items-center justify-center">
+                                                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                                                  <path d="M1 3.5L3.5 6L8 1" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
+                                              </div>
+                                            )}
+                                          </div>
+
                                               <span
-                                                className={`text-xs font-medium truncate ${
-                                                  isCompleted || !isActive ? 'text-content-muted line-through' : 'text-content-main'
+                                                className={`text-xs font-medium truncate transition-opacity ${
+                                                  isCompleted ? 'text-content-muted opacity-50' : !isActive ? 'text-content-muted opacity-40' : 'text-content-main'
                                                 }`}
                                               >
-                                                {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && '(Inativo)'}
+                                                {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="text-[9px] ml-1 opacity-60">(inativo)</span>}
                                               </span>
-                                                <div className="flex items-center">
-                                                  {(() => {
-                                                    const stats = topicStats.get(topic.id);
-                                                    const reviewCount = Math.max(topic.reviewCount || 0, stats?.reviewCount || 0);
-                                                    const hasStarted = reviewCount > 0;
-                                                    const currentLevel = (topic.difficulty_level || 2) as 1 | 2 | 3;
-
-                                                    return (
-                                                      <div className="mt-1 flex items-center gap-3">
-                                                        {hasStarted && (
-                                                          <DifficultyBarsCompact
-                                                            level={currentLevel}
-                                                            size="md"
-                                                          />
-                                                        )}
-                                                        
-                                                        {/* Contador de revisões */}
-                                                        {hasStarted && (() => {
-                                                            const hardCount = stats?.hardReviewCount || 0;
-                                                            const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
-                                                            const tooltipText = showHardAlert ? 'Muitas revisões com dificuldade alta' : 'Total de revisões';
-                                                            
-                                                            return (
-                                                              <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums cursor-help" title={tooltipText}>
-                                                                <RotateCcw size={10} className={showHardAlert ? "text-orange-400" : "text-content-muted/40"} />
-                                                                <span className={showHardAlert ? "text-orange-400" : ""}>{reviewCount}</span>
-                                                              </div>
-                                                            );
-                                                          })()}
-                                                      </div>
-                                                    );
-                                                  })()}
-                                                </div>
-                                            </div>
                                         </div>
 
                                         <div className="flex items-center justify-end gap-1 relative min-w-[100px]">
                                           {/* Badges (desaparecem no hover) */}
                                           <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-4 pr-1">
                                             
-                                            {/* Badge de Status */}
+                                            {/* Badge de Status (ATRASADO/HOJE/NA LIXEIRA) */}
                                             {(() => {
                                               if (!isActive) {
                                                 return (
@@ -1766,7 +1766,6 @@ const Subjects = () => {
                                                 );
                                               }
                                               const statusInfo = getTopicStatusInfo(topic);
-                                              // Exibe badge apenas para status de ação imediata
                                               if (statusInfo.type !== 'atrasado' && statusInfo.type !== 'hoje') {
                                                 return null;
                                               }
@@ -1777,20 +1776,11 @@ const Subjects = () => {
                                               );
                                             })()}
 
-                                            {/* Separador — só aparece quando há badge de status */}
-                                            {(() => {
-                                              if (!isActive) return <span className="text-[9px] font-black text-content-muted/40 uppercase tracking-widest whitespace-nowrap">-</span>;
-                                              const { type } = getTopicStatusInfo(topic);
-                                              return (type === 'atrasado' || type === 'hoje')
-                                                ? <span className="text-[9px] font-black text-content-muted/40 uppercase tracking-widest whitespace-nowrap">-</span>
-                                                : null;
-                                            })()}
-
                                           </div>
 
-                                          {/* Botões de ação — deslizam da direita no hover, posicionados antes do radio */}
+                                          {/* Botões de ação — deslizam da direita no hover, posicionados antes do stats */}
                                           {isActive && (
-                                            <div className="absolute right-7 flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0 pointer-events-none group-hover/topic:pointer-events-auto">
+                                            <div className="absolute right-[80px] flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0 pointer-events-none group-hover/topic:pointer-events-auto">
                                               {/* IA */}
                                               <button className="h-6 px-2 flex items-center gap-1 rounded bg-primary/10 text-primary hover:bg-primary transition-all hover:text-white text-[9px] font-bold uppercase tracking-tight">
                                                 <Wand2 size={10} /> IA
@@ -1819,6 +1809,25 @@ const Subjects = () => {
                                             </div>
                                           )}
 
+                                          {/* Stats (Difficulty & Reviews) */}
+                                          {isActive && hasStarted && (() => {
+                                            const stats = topicStats.get(topic.id);
+                                            const currentLevel = (topic.difficulty_level || 2) as 1 | 2 | 3;
+                                            const hardCount = stats?.hardReviewCount || 0;
+                                            const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
+                                            const tooltipText = showHardAlert ? 'Muitas revisões com dificuldade alta' : 'Total de revisões';
+
+                                            return (
+                                              <div className={`flex items-center gap-2 mr-2 transition-opacity ${isCompleted ? 'opacity-40' : ''}`} title={tooltipText}>
+                                                <DifficultyBarsCompact level={currentLevel} size="xs" />
+                                                <div className="flex items-center gap-1 text-[9px] font-bold text-content-muted/40 tabular-nums">
+                                                  <RotateCcw size={8} className={showHardAlert ? "text-orange-400" : "text-content-muted/30"} />
+                                                  <span className={showHardAlert ? "text-orange-400" : ""}>{reviewCount}</span>
+                                                </div>
+                                              </div>
+                                            );
+                                          })()}
+
                                           {/* Ação Principal: SEMPRE VISÍVEL — radio fixo no fluxo normal */}
                                           {isActive ? (
                                             <div className="flex-shrink-0">
@@ -1833,10 +1842,10 @@ const Subjects = () => {
                                                         e.stopPropagation();
                                                         openReviewModal(topic.id);
                                                       }}
-                                                      className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-primary/30 hover:border-primary hover:bg-primary/10 transition-colors flex items-center justify-center group/radio ml-0.5"
-                                                      title="Marcar como Estudado"
+                                                      className="flex-shrink-0 w-6 h-6 rounded-full border border-primary/20 bg-primary/5 hover:border-primary/50 hover:bg-primary/15 hover:shadow-[0_0_12px_rgba(59,130,246,0.3)] text-primary/50 hover:text-primary transition-all duration-300 flex items-center justify-center ml-0.5 group"
+                                                      title="Iniciar Estudo"
                                                     >
-                                                      <div className="w-2.5 h-2.5 rounded-full bg-primary opacity-0 group-hover/radio:opacity-40 transition-opacity" />
+                                                      <Play size={10} className="ml-[1px] opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all" />
                                                     </button>
                                                   );
                                                 } else {
@@ -1846,7 +1855,7 @@ const Subjects = () => {
                                                         e.stopPropagation();
                                                         navigate(`/revisoes?topicId=${topic.id}`);
                                                       }}
-                                                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-all shadow-sm border border-indigo-200 dark:border-indigo-800 ml-0.5"
+                                                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-all shadow-sm border border-indigo-200 dark:border-indigo-800/60 ml-0.5"
                                                       title="Ir para Revisões"
                                                     >
                                                       <ArrowRight size={12} />
@@ -1874,7 +1883,8 @@ const Subjects = () => {
                                 </div>
                               )}
                             </div>
-                          )}
+                            )}
+                          </div>{/* fim glow-card unificado */}
                         </div>
                       )}
                     </SortableItem>

@@ -105,6 +105,7 @@ export function SubjectSparkline({ subjectId }: SubjectSparklineProps) {
           strokeWidth={2}
           dot={false}
           activeDot={{ r: 3, fill: lineColor }}
+          style={{ shapeRendering: 'geometricPrecision' }}
         />
       </LineChart>
       <span className={`text-[8px] font-bold tabular-nums ${

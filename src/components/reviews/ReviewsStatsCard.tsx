@@ -148,15 +148,15 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                    <span className="text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Feitas: {completedReviews}</span>
+                                    <span className="text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Feitas {completedReviews}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-blue-400" />
-                                    <span className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">Pendentes: {pendingReviews}</span>
+                                    <span className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">Pendentes {pendingReviews}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
-                                    <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">Não inic.: {notStartedReviews}</span>
+                                    <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">Não inic. {notStartedReviews}</span>
                                 </div>
                             </div>
                         </div>
@@ -187,7 +187,7 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                         <div className="flex flex-col items-center justify-center py-2.5 px-1 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/20 shadow-sm gap-1.5 min-w-0">
                             <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                             <span className="text-xl font-bold text-red-600 dark:text-red-400 leading-none truncate w-full text-center">{overdue}</span>
-                            <span className="text-[9px] text-red-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Atrasadas</span>
+                            <span className="text-[9px] text-red-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Atraso</span>
                         </div>
 
                         {/* Hoje */}
@@ -207,7 +207,7 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                         {/* Feitas */}
                         <div className="flex flex-col items-center justify-center py-2.5 px-1 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/20 shadow-sm gap-1.5 min-w-0">
                             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                            <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none truncate w-full text-center">{completedReviews}</span>
+                            <span className="text-xl font-bold text-slate-900 dark:text-white leading-none truncate w-full text-center">{completedReviews}</span>
                             <span className="text-[9px] text-emerald-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Feitas</span>
                         </div>
                     </div>

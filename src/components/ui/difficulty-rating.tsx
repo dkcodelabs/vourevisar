@@ -49,13 +49,17 @@ export function DifficultyBarsCompact({
   size = 'md',
   className,
 }: {
-  level: 1 | 2 | 3;
-  size?: 'sm' | 'md' | 'lg';
+  level?: number | null;
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 }) {
-  const config = DIFFICULTY_CONFIG[level];
+  const safeLevel = level && level >= 1 && level <= 3 ? (level as 1 | 2 | 3) : null;
+  const config = safeLevel ? DIFFICULTY_CONFIG[safeLevel] : null;
+
+  if (!config) return null;
 
   const barSizes = {
+    xs: { width: 'w-[2px]', heights: ['h-[4px]', 'h-[6px]', 'h-[8px]'], gap: 'gap-[1.5px]', container: 'h-2' },
     sm: { width: 'w-[3px]', heights: ['h-[6px]', 'h-[9px]', 'h-[12px]'], gap: 'gap-[2px]', container: 'h-3' },
     md: { width: 'w-[4px]', heights: ['h-[8px]', 'h-[11px]', 'h-[14px]'], gap: 'gap-[3px]', container: 'h-4' },
     lg: { width: 'w-[5px]', heights: ['h-[10px]', 'h-[14px]', 'h-[18px]'], gap: 'gap-[3px]', container: 'h-5' },
@@ -73,7 +77,7 @@ export function DifficultyBarsCompact({
             h,
             'rounded-sm transition-colors duration-200',
             // Difícil (1) = 3 barras, Médio (2) = 2 barras, Fácil (3) = 1 barra
-            i < (4 - level) ? config.activeColor : 'bg-zinc-600/30 dark:bg-zinc-700/50'
+            i < (4 - safeLevel) ? config.activeColor : 'bg-zinc-600/30 dark:bg-zinc-700/50'
           )}
         />
       ))}
